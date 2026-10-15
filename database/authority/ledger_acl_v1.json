@@ -1,0 +1,24 @@
+{
+  "grant_option": false,
+  "grantee": "migrator",
+  "ledger_privileges": {
+    "platform_schema_baselines": [
+      "INSERT",
+      "SELECT"
+    ],
+    "platform_schema_change_attempts": [
+      "INSERT",
+      "SELECT",
+      "UPDATE"
+    ],
+    "platform_schema_changes": [
+      "INSERT",
+      "SELECT"
+    ]
+  },
+  "owner": "owner",
+  "revision": "authority-ledger-acl/v1",
+  "schema_acl_delta": [
+    "schema_acl:public:migrator:USAGE:grantopt=0"
+  ]
+}

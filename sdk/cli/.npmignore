@@ -1,0 +1,7 @@
+src/
+tests/
+tsconfig.json
+esbuild.config.js
+node_modules/
+.DS_Store
+*.map

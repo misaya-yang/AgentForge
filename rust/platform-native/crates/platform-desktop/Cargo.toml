@@ -1,0 +1,14 @@
+[package]
+name = "ai-platform-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+ai-platform-client = { path = "../platform-client" }
+eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "x11", "accesskit"] }
+tokio.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+sha2 = "0.10"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+uuid = { version = "1", features = ["v4"] }

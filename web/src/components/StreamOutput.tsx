@@ -1,0 +1,540 @@
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import { ImageIcon, Download, ExternalLink, FileDown } from "lucide-react";
+import { useLatexCopy } from "@/hooks/useLatexCopy";
+import { useTranslation } from "react-i18next";
+import { api } from "@/lib/api";
+import { getArtifactDownloadUrl } from "@/api/assistant";
+import { artifactAccessErrorKey, downloadAssistantArtifact } from "@/lib/authenticatedDownload";
+import { toast } from "@/hooks/use-toast";
+import { needsGfmPlugin } from "./gfmDetection";
+import { splitStreamingMarkdownBlocks } from "./streamingMarkdown";
+
+/**
+ * Custom URL transform that allows data: URLs for base64 images.
+ * By default, react-markdown filters out data: URLs for security.
+ * Since our images come from trusted AI generation, we allow them.
+ * @see https://github.com/remarkjs/react-markdown#urltransform
+ */
+function allowDataUrlTransform(url: string): string {
+  // Allow data: URLs for images (base64 encoded)
+  if (url.startsWith("data:image/")) {
+    return url;
+  }
+  // Use default transform for all other URLs (security filtering)
+  return defaultUrlTransform(url);
+}
+
+/**
+ * True if the URL points at an authenticated same-origin API route that
+ * an unauthenticated `<img>` tag cannot load (no Authorization header).
+ * When the backend's artifact storage doesn't produce a public presigned
+ * URL (e.g. local filesystem backend, or presigned URL generation failed),
+ * it falls back to `/api/v1/assistant/artifacts/<id>/download` — which
+ * requires a Bearer token. We blob-fetch those via axios.
+ */
+function needsAuthenticatedFetch(src: string | undefined): boolean {
+  if (!src) return false;
+  if (/^https?:\/\//i.test(src)) return false; // external (presigned S3, OSS, etc.)
+  if (src.startsWith("data:") || src.startsWith("blob:")) return false;
+  return src.startsWith("/api/") || src.includes("/api/v1/assistant/artifacts/");
+}
+
+/**
+ * Fetch a same-origin authenticated URL through axios (Bearer auto-attached)
+ * and turn the response into a blob: URL. Returned URL must be released by
+ * the caller via URL.revokeObjectURL when the consuming element unmounts.
+ */
+async function fetchAsBlobUrl(src: string): Promise<string> {
+  const res = await api.get(src, { responseType: "blob" });
+  return URL.createObjectURL(res.data as Blob);
+}
+
+interface StreamOutputProps {
+  text: string;
+  isStreaming?: boolean;
+  artifactIds?: readonly string[];
+  artifacts?: ReadonlyArray<{ id: string; url: string; filename?: string; title?: string }>;
+}
+
+const MathMarkdownBlock = lazy(async () => {
+  const module = await import("./MathMarkdownBlock");
+  return { default: module.MathMarkdownBlock };
+});
+const GfmMarkdownBlock = lazy(async () => {
+  const module = await import("./GfmMarkdownBlock");
+  return { default: module.GfmMarkdownBlock };
+});
+const MARKDOWN_COMPONENTS = {
+  img: ({ src, alt }: { src?: string; alt?: string }) => (
+    <MarkdownImage src={src} alt={alt} />
+  ),
+  a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+    <MarkdownLink href={href}>{children}</MarkdownLink>
+  ),
+};
+
+/**
+ * Custom link renderer that handles download links and external links properly.
+ * - Download links (files like .docx, .pdf, artifact URLs) open in new tab with download
+ * - External links open in new tab
+ * - Anchor links (#) work normally
+ */
+function MarkdownLink({ href, children, onArtifactDownload }: {
+  href?: string;
+  children?: ReactNode;
+  onArtifactDownload?: (href: string) => boolean;
+}) {
+  // Check if this is a downloadable file
+  const isDownloadLink = href && (
+    // Common document extensions
+    /\.(docx?|xlsx?|pptx?|pdf|csv|zip|rar|txt|md)$/i.test(href) ||
+    // Artifact download URLs
+    href.includes("/artifacts/") ||
+    href.includes("/download")
+  );
+
+  // Check if external link
+  const isExternal = href && (href.startsWith("http://") || href.startsWith("https://"));
+  const isAnchor = href && href.startsWith("#");
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!href) return;
+    if (onArtifactDownload?.(href)) {
+      e.preventDefault();
+      return;
+    }
+
+    // For download links, always open in new tab to trigger download
+    if (isDownloadLink) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // For external links, open in new tab
+    if (isExternal && !isAnchor) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+    // Anchor links use default behavior
+  };
+
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      className={`
+        inline-flex items-center gap-1 text-primary hover:text-primary/80
+        underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60
+        transition-colors
+      `}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+    >
+      {children}
+      {isDownloadLink && <FileDown className="h-3 w-3 inline-block" />}
+      {isExternal && !isDownloadLink && <ExternalLink className="h-3 w-3 inline-block" />}
+    </a>
+  );
+}
+
+/**
+ * Custom image renderer with support for base64 data URLs.
+ * Provides loading state, error handling, and download capability.
+ */
+function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(() =>
+    src && !needsAuthenticatedFetch(src) ? src : undefined,
+  );
+  const { t } = useTranslation();
+
+  // For authenticated same-origin routes the raw `<img src=...>` fails
+  // because browsers don't send Authorization headers on image loads.
+  // Fetch via axios (Bearer attached by the interceptor), wrap in a
+  // blob URL, and render that. Revoke on unmount / src change.
+  useEffect(() => {
+    if (!src) {
+      setResolvedSrc(undefined);
+      return;
+    }
+    if (!needsAuthenticatedFetch(src)) {
+      setResolvedSrc(src);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setHasError(false);
+    setIsLoading(true);
+    fetchAsBlobUrl(src)
+      .then((blobUrl) => {
+        if (cancelled) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        objectUrl = blobUrl;
+        setResolvedSrc(blobUrl);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHasError(true);
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  const isBase64 = src?.startsWith("data:");
+  const displayAlt = alt || t("common.generatedImage");
+
+  // Resolve src to a URL that can be handed to a detached <a download> or
+  // a <img> in a new tab. For authenticated same-origin routes the raw URL
+  // won't carry the Bearer token, so blob-fetch through axios first.
+  const resolveDownloadableUrl = async (): Promise<string> => {
+    if (!src) throw new Error("no src");
+    if (!needsAuthenticatedFetch(src)) return src;
+    return fetchAsBlobUrl(src);
+  };
+
+  const handleDownload = async () => {
+    if (!src || isDownloading) return;
+    const filename = `${displayAlt.replace(/\s+/g, "_")}_${Date.now()}.png`;
+
+    if (isBase64) {
+      const link = document.createElement("a");
+      link.href = src;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    setIsDownloading(true);
+    let blobUrl: string | null = null;
+    try {
+      const url = await resolveDownloadableUrl();
+      blobUrl = needsAuthenticatedFetch(src) ? url : null;
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to download image:", error);
+    } finally {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      setIsDownloading(false);
+    }
+  };
+
+  // Open in new tab — using DOM API to avoid XSS via document.write.
+  // Authenticated URLs are blob-fetched first so the detached window can
+  // load the bytes without a Bearer token.
+  const handleOpenInNewTab = async () => {
+    if (!src) return;
+    let urlForWindow: string;
+    let blobUrl: string | null = null;
+    try {
+      urlForWindow = await resolveDownloadableUrl();
+      if (needsAuthenticatedFetch(src)) blobUrl = urlForWindow;
+    } catch {
+      return;
+    }
+    const newWindow = window.open("", "_blank");
+    if (!newWindow) {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      return;
+    }
+    const doc = newWindow.document;
+    doc.title = displayAlt;
+    doc.body.style.cssText = "margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#1a1a1a;";
+    const img = doc.createElement("img");
+    img.src = urlForWindow;
+    img.alt = displayAlt;
+    img.style.cssText = "max-width:100%;max-height:100vh;object-fit:contain;";
+    doc.body.appendChild(img);
+    // Revoke once the new window releases the URL (after the image decodes).
+    // Listener on the new window's unload keeps memory tight.
+    if (blobUrl) {
+      const u = blobUrl;
+      newWindow.addEventListener("beforeunload", () => URL.revokeObjectURL(u));
+    }
+  };
+
+  if (hasError) {
+    return (
+      <span className="flex flex-col items-center justify-center p-6 my-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ display: 'flex' }}>
+        <ImageIcon className="h-10 w-10 text-slate-400 mb-2" />
+        <span className="text-sm text-slate-500">{t("common.imageLoadFailed")}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="relative group my-3 block">
+      {/* Loading placeholder */}
+      {isLoading && (
+        <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 animate-pulse" style={{ display: 'flex' }}>
+          <ImageIcon className="h-10 w-10 text-slate-400" />
+        </span>
+      )}
+
+      {/* Image — gated on `resolvedSrc`. For authenticated routes this stays
+          undefined until the blob-fetch lands; rendering with the raw src
+          would trigger an unauthenticated GET and log a 401 in DevTools. */}
+      {resolvedSrc && (
+        <img
+          src={resolvedSrc}
+          alt={displayAlt}
+          className={`
+            max-w-full rounded-xl shadow-lg border border-slate-200 dark:border-slate-700
+            transition-all duration-300
+            ${isLoading ? "opacity-0 h-[200px]" : "opacity-100"}
+          `}
+          onLoad={() => setIsLoading(false)}
+          onError={() => {
+            setIsLoading(false);
+            setHasError(true);
+          }}
+        />
+      )}
+
+      {/* Hover actions for all images */}
+      {!isLoading && !hasError && (
+        <span className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition-colors disabled:opacity-50"
+            title={t("common.downloadImage")}
+          >
+            <Download className={`h-4 w-4 ${isDownloading ? 'animate-pulse' : ''}`} />
+          </button>
+          <button
+            onClick={handleOpenInNewTab}
+            className="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white backdrop-blur-xs transition-colors"
+            title={t("common.openInNewTab")}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Filter out JSON tool arguments and internal prompts that models might accidentally output to chat.
+ * This happens when models output JSON before calling a tool or when internal
+ * classification/routing results leak into the response.
+ */
+const JSON_LEAK_PATTERNS: RegExp[] = [
+  /```(?:json)?\s*\n?\s*\{[\s\S]*?"(?:slides|title|bullets|type|content)"[\s\S]*?\}\s*\n?```/gi,
+  /(?:^|\n)\s*\{\s*"(?:title|slides)"[\s\S]*?\}\s*(?=\n|$)/gi,
+  /\[\s*\{\s*"(?:type|title|bullets)"[\s\S]*?\}\s*(?:,\s*\{[\s\S]*?\}\s*)*\]/gi,
+  /\{"(?:relevance|topic)":[^}]*(?:"(?:relevance|topic|sensitive|ambiguous|political|interfaith_attack|interpretation)":[^,}]*,?\s*)*\}\??/gi,
+  /^\s*\{\s*"(?:tool_name|confidence|guidance|citations|queries|results_count|query_language|cross_language_enabled)"[\s\S]*?\}\s*(?:\n|$)/i,
+  /\brouter:\s*\w+\s*(?:\n|$)/gi,
+  /\{[^{}]*"(?:relevance|tool_name|confidence)":\s*"[^"]*"[^{}]*\}\s*\??/gi,
+  /(?:Here(?:'s| is) the JSON(?: requested)?|JSON output|Tool output|Generating response|Processing request)[:\s\n]*(?:```[\s\S]*?(?:```|$))?/gi,
+  /```(?:\w*)\s*\n?\s*```/gi,
+  /```(?:json)?\s*\n\s*\{[\s\S]*?\}\s*\n```/gi,
+  /^[^`]*```(?!\s*\n[\s\S]*?```)(?=\s*\n)/gm,
+  /^(?:Here(?:'s| is) the JSON[^`]*)\n?```\s*$/gm,
+  /^```\s*$/gm,
+  /^(CONFIDENCE|GUIDANCE):.*$/gim,
+  /^Here(?:'s| is) the JSON[^\n]*\n?/gim,
+];
+
+function filterToolJsonOutput(text: string): string {
+  // Fast path: most streamed tokens contain none of the leak signatures.
+  // Check cheap substrings before running the heavy regex bank.
+  const needsHeavyFilter = text.includes('```') || text.includes('{"') || /^(CONFIDENCE|GUIDANCE):/im.test(text);
+
+  let filtered = text;
+  if (needsHeavyFilter) {
+    for (const pat of JSON_LEAK_PATTERNS) filtered = filtered.replace(pat, '');
+  }
+
+  // Defense-in-depth: strip internal [REF-N] markers that should never leak.
+  if (filtered.includes('[REF')) {
+    filtered = filtered.replace(/\[REF[-–]?\d+\]/gi, '');
+  }
+
+  // Safety net for the rare case where the model concatenates the last
+  // citation with the closing phrase ("[5]All information...") — backend
+  // prompt owns the normal-path formatting.
+  filtered = filtered.replace(
+    /(\[\d+\])\s*(All information provided|جميع المعلومات المقدمة|所有信息均来源|Semua informasi yang diberikan|Semua maklumat yang diberikan|فراہم کردہ تمام معلومات|प्रदान की गई सभी जानकारी)/g,
+    '$1\n\n$2'
+  );
+
+  filtered = filtered.replace(/\n{3,}/g, '\n\n').trim();
+  return filtered;
+}
+
+/**
+ * Detect if text is predominantly RTL (Arabic, Persian, Urdu, Hebrew).
+ * Strips markdown syntax before counting to avoid false negatives.
+ */
+function isRtlText(text: string): boolean {
+  // Strip markdown formatting, URLs, code blocks
+  const plain = text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]*`/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#*_~>\-|]/g, "");
+  // Count RTL characters (Arabic, Hebrew, Persian/Urdu extended)
+  const rtlChars = (plain.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0590-\u05FF]/g) || []).length;
+  // Count ALL LTR script characters: Latin + CJK + Cyrillic + others
+  const ltrChars = (plain.match(/[a-zA-Z\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0400-\u04FF]/g) || []).length;
+  // Only RTL when RTL chars are dominant (>60% of script chars)
+  const total = rtlChars + ltrChars;
+  return total > 0 && (rtlChars / total) > 0.6;
+}
+
+const MarkdownBlock = memo(function MarkdownBlock({ text, components }: {
+  text: string;
+  components: typeof MARKDOWN_COMPONENTS;
+}) {
+  return (
+    <ReactMarkdown
+      urlTransform={allowDataUrlTransform}
+      components={components}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+});
+
+/**
+ * High-performance streaming markdown renderer.
+ *
+ * Uses block-level memoization to achieve O(n) rendering instead of O(n²).
+ * - Parses markdown into discrete blocks (paragraphs, headings, lists, etc.)
+ * - Each completed block is memoized and won't re-render
+ * - Only the last (incomplete) block re-renders during streaming
+ *
+ * This is the same approach used by ChatGPT, Vercel AI SDK, etc.
+ *
+ * @see https://ai-sdk.dev/cookbook/next/markdown-chatbot-with-memoization
+ */
+export const StreamOutput = memo(function StreamOutput({
+  text,
+  isStreaming = false,
+  artifacts,
+  artifactIds,
+}: StreamOutputProps) {
+  const { t } = useTranslation();
+  const pendingDownloads = useRef(new Set<string>());
+  const components = useMemo(() => ({
+    ...MARKDOWN_COMPONENTS,
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+      <MarkdownLink href={href} onArtifactDownload={(url) => {
+        // Only match a canonical route for an artifact already bound to this
+        // message. Ordinary prose URLs never enter the authenticated helper.
+        const artifact = artifacts?.find((item) =>
+          item.url === url && url === getArtifactDownloadUrl(encodeURIComponent(item.id)),
+        );
+        // Retained history IDs are message bindings; prose itself is never an
+        // identity authority. Resolve missing detail only after an explicit click.
+        const historicalId = !artifact ? artifactIds?.find((id) =>
+          typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id) &&
+          url === getArtifactDownloadUrl(encodeURIComponent(id)),
+        ) : undefined;
+        if (!artifact && !historicalId) return false;
+        if (pendingDownloads.current.has(url)) return true;
+        pendingDownloads.current.add(url);
+        const download = async () => {
+          if (artifact) {
+            await downloadAssistantArtifact(url, artifact.filename || artifact.title || "artifact");
+            return;
+          }
+          const { data } = await api.get<{
+            artifact_id?: unknown; download_url?: unknown; filename?: unknown;
+            size_bytes?: unknown; ready?: unknown; source?: unknown;
+          }>(`/api/v1/assistant/artifacts/${encodeURIComponent(historicalId!)}`);
+          if (!data || data.artifact_id !== historicalId || data.download_url !== url ||
+              typeof data.filename !== "string" || !data.filename.trim() || data.source === "user") {
+            throw new Error("Artifact metadata is unavailable");
+          }
+          if (data.ready === false || typeof data.size_bytes !== "number" ||
+              !Number.isFinite(data.size_bytes) || data.size_bytes <= 0) {
+            throw { response: { status: 409 } };
+          }
+          // Metadata success does not authorize cached bytes: the canonical
+          // download performs its own fresh owner/tenant/source checks.
+          await downloadAssistantArtifact(url, data.filename);
+        };
+        void download()
+          .catch((error) => toast.error(t("artifact.errors.downloadTitle"), t(artifactAccessErrorKey(error))))
+          .finally(() => pendingDownloads.current.delete(url));
+        return true;
+      }}>{children}</MarkdownLink>
+    ),
+  }), [artifacts, artifactIds, t]);
+  const hasMath = useMemo(
+    () => /(^|[^\\])\$\$?[\s\S]*?\$\$?/.test(text),
+    [text],
+  );
+  useLatexCopy(hasMath);
+
+  // Filter out accidental JSON tool output before parsing
+  const filteredText = useMemo(() => filterToolJsonOutput(text), [text]);
+
+  // Detect RTL content (Arabic, Persian, Urdu, Hebrew)
+  const rtl = useMemo(() => isRtlText(filteredText), [filteredText]);
+  const markdownBlocks = useMemo(
+    () =>
+      isStreaming
+        ? splitStreamingMarkdownBlocks(filteredText)
+        : filteredText
+          ? [filteredText]
+          : [],
+    [filteredText, isStreaming]
+  );
+
+  if (!text) return null;
+
+  return (
+    <div dir={rtl ? "rtl" : undefined} className={`assistant-copy prose prose-slate dark:prose-invert max-w-none wrap-break-word prose-p:my-3 prose-p:leading-7 prose-p:text-[15px] sm:prose-p:text-[16px] prose-headings:mt-7 prose-headings:mb-3 prose-headings:font-semibold prose-headings:tracking-tight prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:text-[15px] sm:prose-li:text-[16px] prose-pre:my-4 prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:whitespace-pre-wrap prose-pre:wrap-break-word prose-pre:rounded-xl prose-pre:border prose-pre:border-[hsl(var(--assistant-border))] prose-pre:bg-[hsl(var(--assistant-surface-soft))] prose-code:whitespace-pre-wrap prose-code:wrap-break-word prose-code:text-[14px] prose-blockquote:border-l-[hsl(var(--assistant-border))]${rtl ? " text-right" : ""}${isStreaming ? " streaming-fade-in" : ""}`}>
+      {markdownBlocks.map((block, index) => (
+        hasMath ? (
+          <Suspense key={`${index}:${block.length}`} fallback={<MarkdownBlock text={block} components={components} />}>
+            <MathMarkdownBlock text={block} components={components} />
+          </Suspense>
+        ) : needsGfmPlugin(block) ? (
+          <Suspense key={`${index}:${block.length}`} fallback={<MarkdownBlock text={block} components={components} />}>
+            <GfmMarkdownBlock text={block} components={components} />
+          </Suspense>
+        ) : (
+          <MarkdownBlock key={`${index}:${block.length}`} text={block} components={components} />
+        )
+      ))}
+      {/* Streaming cursor - clean blinking bar */}
+      {isStreaming && (
+        <span className="inline-flex items-center ml-0.5 align-text-bottom">
+          <span
+            className="inline-block w-[2px] h-[18px] rounded-full bg-primary"
+            style={{
+              animation: 'cursor-blink 1s ease-in-out infinite',
+            }}
+          />
+          <style>{`
+            @keyframes cursor-blink {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.15; }
+            }
+          `}</style>
+        </span>
+      )}
+    </div>
+  );
+});

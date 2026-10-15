@@ -1,0 +1,214 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "lifecycle": "superseded",
+  "goal": "Replace the Python AgentLoop with a Agent Runtime source single kernel while preserving platform contracts, tenant safety, and rollback.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 1,
+  "max_iterations": 8,
+  "last_result": "CHR-05 lazy import now resolves authoritative assistant.* sources independently of caller search_path, rejects source drift and unpaired legacy tools atomically, blocks resumable Run/approval states, emits paired Agent response Items, and hashes approval arguments. PostgreSQL migration contracts returned 13/13; a real split-schema transaction with caller search_path=public produced message,function_call,function_call_output,message plus one approval receipt and rolled back cleanly. A final authenticated Qwen UI probe answered 9x9 correctly, retained think:minimal with one Activity step, reached first token in 4.30s, and produced no new browser warnings/errors. Production canary, rollback rehearsal, and legacy-loop deletion remain intentionally unverified.",
+  "next_action": "None \u2014 program superseded by the Rust kernel migration (agent-runtime-full-rust-cutover); see the note in superseded_by. Do not resume this loop without a new PRD.",
+  "blockers": [],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "CHR-00",
+      "file": "phase-00-reproducible-fork-supply-chain-lock-and-single-kernel-architecture-contracts.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "source cargo build -> completed in 8m49s; 292 App Server schemas",
+        "AI_PLATFORM_AGENT_RUNTIME_SOURCE=... make agent-runtime-source-build-local -> Linux dev-small image and initialize passed",
+        "make agent-runtime-source-contract -> 6 passed",
+        "make harness-check -> Harness contract OK",
+        "strict program validation -> passed"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-01",
+      "file": "phase-01-runtime-shell-append-only-threadstore-and-v1-event-projection.md",
+      "depends_on": [
+        "CHR-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "make agent-thread-store-contract -> Python 3 passed; Rust in-memory 1 passed; Rust live PostgreSQL 1 passed",
+        "just test -p codex-app-server-client -> 26 passed",
+        "host ThreadStore/ExtensionRegistry/reserved-root regression -> passed",
+        "app-server/client broad run -> 332 passed before environment-dependent auth/network failures and intentional interrupt",
+        "make agent-thread-store-contract -> Python 4 passed; Rust 6 passed; live two-process HTTP/SSE/resume/archive 1 passed",
+        "Gateway runtime assignment/session regressions -> 19 passed",
+        "Compose config, make validate-config, make harness-check, and Phase 0 supply-chain contract -> passed",
+        "Bazel module update + Python 3.11 lock check -> passed; no MODULE.bazel.lock diff",
+        "Gateway/session/supply-chain cohort -> 29 passed; changed-file Ruff passed",
+        "Runtime OCI negative gates -> unlocked Runtime, dirty fork, and wrong artifact all rejected",
+        "Dockerfile check, Compose profile config, Harness, config, Phase 0 artifact lock, strict program validation -> passed",
+        "clean fork 44d926ab7c9e -> 292-file schema, SBOM, source receipt, and both OCI artifacts locked",
+        "make agent-runtime-contract -> App Server and Agent Runtime artifact identities passed",
+        "isolated Docker create/kill/restart/resume smoke -> passed at 36.6 MB then 14.0 MB cgroup memory"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-02",
+      "file": "phase-02-private-model-data-plane-runtime-leases-and-pure-text-harness-execution.md",
+      "depends_on": [
+        "CHR-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "controlled fork 077933ba474a reserves the exact platform Run ID as the Agent Turn ID and binds every model call to a fixed-length platform scope digest",
+        "Qwen catalog, Compose, env, direct registry and Provider templates default to responses_v1 while explicit tenant chat_completions fallback remains supported",
+        "real isolated Docker Agent Runtime -> signed lease -> private Gateway model plane -> native Qwen Responses completed with thinking_delta, text_delta and one run_finished; first visible 3.931s, input/output 8844/27, Runtime memory 38825984 bytes",
+        "affected Python regression cohort -> 153 passed; changed-file Ruff and diff check passed",
+        "make agent-runtime-contract and latest locked OCI make agent-runtime-smoke -> passed; memory 13627392 then 13688832 bytes",
+        "make validate-example-config and make harness-check -> passed",
+        "canonical agent-runtime-text-gate reached the restart boundary after simple exact output, long Transformer output, and remember-turn accounting passed; the old image exposed an OpenAI fallback on resume",
+        "Gateway and Runtime resume rebind including bounded URL and exclude-turns -> current Rust Runtime 10 passed; package fmt and Clippy passed",
+        "current affected Python, migration, Assistant Responses, provider, API, container-distribution, and text-gate cohort -> 157 passed",
+        "development Runtime image lifecycle -> isolated create, resume, reserved Turn, and memory smoke passed at 14745600 then 13201408 bytes",
+        "real Qwen simple/long/remember/restart-resume gate -> first-visible 3.865/1.978/1.665/1.959 seconds, 1755 long-output chars, exactly 4 completed model calls, 37648/1186 tokens, 47476736 Runtime bytes",
+        "Docker storage incident recovered after deleting only 31 GB of reproducible Rust incremental cache and performing a normal Docker Desktop restart; project PostgreSQL, Redis, and Qdrant returned healthy",
+        "controlled fork 7640138305a0 -> refreshed source receipt, deterministic SBOM, App Server OCI sha256:516769398742 and Agent Runtime OCI sha256:4da479165e20",
+        "locked Runtime contract and isolated create/restart/resume smoke -> passed at 34.9 MB then 13.6 MB",
+        "locked Runtime real Qwen gate -> first-visible 3.715/1.773/1.830/2.086 seconds, exactly four model calls, 1,302 long-output characters, 37,064/1,210 tokens, 45.7 MB Runtime"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-03",
+      "file": "phase-03-context-knowledge-tools-mcp-artifacts-and-office-capabilities.md",
+      "depends_on": [
+        "CHR-02"
+      ],
+      "status": "done",
+      "evidence": [
+        "make agent-runtime-readonly-gate -> contract OK and 4 passed",
+        "authenticated Docker capability catalog -> 200 with tenant/revision-bound read-only descriptors",
+        "dynamic tool wire schema validated against Agent inputSchema contract"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-04",
+      "file": "phase-04-write-tools-approvals-interruption-recovery-side-effect-safety-and-long-tasks.md",
+      "depends_on": [
+        "CHR-03"
+      ],
+      "status": "done",
+      "evidence": [
+        "make agent-runtime-write-gate -> 26 passed, 1 skipped",
+        "authenticated browser long task -> cancelled; same-session follow-up succeeded",
+        "cancelled and succeeded Runs persisted terminal status with revoked model leases"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-05",
+      "file": "phase-05-lazy-legacy-session-import-docker-browser-acceptance-and-stable-canary-rollout.md",
+      "depends_on": [
+        "CHR-04"
+      ],
+      "status": "working",
+      "evidence": [
+        "make agent-runtime-canary-gate -> code contract passed and 27 passed; production canary not verified",
+        "authenticated local browser V2 arithmetic, Transformer, interrupt/follow-up, theme, narrow viewport, and seven core route smokes passed",
+        "all nine Compose services healthy; observed total memory about 838 MiB",
+        "migration 094 PostgreSQL contract 13/13 and real split-schema rollback smoke with caller search_path=public preserved paired tool Items plus hashed approval provenance",
+        "make agent-runtime-canary-gate -> code contract passed and 33 passed after normalized legacy import",
+        "authenticated Qwen UI final smoke -> correct answer, think:minimal one-step Activity, first token 4.30s, zero new browser warnings/errors"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CHR-06",
+      "file": "phase-06-native-v2-thread-turn-item-api-full-cutover-and-gated-python-loop-deletion.md",
+      "depends_on": [
+        "CHR-05"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_required"
+    }
+  ],
+  "features": [
+    {
+      "id": "CHR-F001",
+      "phase_id": "CHR-00",
+      "description": "A maintainer can verify one pinned Agent source, schema, license, and build identity before any candidate runtime is allowed to start.",
+      "steps": [
+        "Run the Agent Runtime source supply-chain contract against the committed lock and generated source receipt.",
+        "Observe exact upstream/fork/schema/toolchain/license matches and rejection of unlocked or mismatched artifacts."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CHR-F002",
+      "phase_id": "CHR-01",
+      "description": "A session can create, append, flush, resume, and cursor-read a durable Agent Thread while V1 clients receive an ordered compatibility stream.",
+      "steps": [
+        "Create a Thread, append concurrent Items, restart the Runtime, and resume from PostgreSQL.",
+        "Observe gap-free sequence order, idempotent replay, tenant isolation, and the expected assistant-turn-contract/v1 projection."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CHR-F003",
+      "phase_id": "CHR-02",
+      "description": "A pure-text Turn runs through Agent Runtime source and the private model-only Gateway path without invoking the Python AgentLoop.",
+      "steps": [
+        "Start a candidate Turn with a signed immutable runtime snapshot and stream a real model response.",
+        "Observe one billed model path, requested/effective reasoning metadata, visible TTFT, resumable history, and zero provider 400 responses."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CHR-F004",
+      "phase_id": "CHR-03",
+      "description": "The Agent kernel discovers and uses tenant-scoped Knowledge, tools, MCP, skills, citations, and artifacts without prompt keyword routing.",
+      "steps": [
+        "Run representative Knowledge, research, coding, attachment, and office-read scenarios through the candidate.",
+        "Observe capability-driven discovery, compact structured results, artifact/citation Items, and no cross-tenant reuse."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CHR-F005",
+      "phase_id": "CHR-04",
+      "description": "Write and long-running tools remain approval-gated, idempotent, stop-safe, and recoverable under the Agent lifecycle.",
+      "steps": [
+        "Interrupt before dispatch, during read-only work, after unknown write dispatch, and while approval is pending.",
+        "Observe one result per call, side_effect_unknown for uncertain writes, no blind retry, durable approval recovery, and no orphan process."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CHR-F006",
+      "phase_id": "CHR-05",
+      "description": "A legacy quiescent session imports exactly once and real product journeys pass in Docker before stable session canary promotion.",
+      "steps": [
+        "Resume legacy sessions and execute the full authenticated browser and Agent Eval matrix on the Agent Runtime.",
+        "Observe atomic import receipts, stable kernel ownership, successful rollback rehearsal, healthy services, and every canary quality/performance gate."
+      ],
+      "passes": false
+    },
+    {
+      "id": "CHR-F007",
+      "phase_id": "CHR-06",
+      "description": "All surfaces consume the V2 Thread/Turn/Item contract and the Python loop can be removed without losing compatibility or rollback evidence.",
+      "steps": [
+        "Run Web and SDK journeys through V2 after a full canary window and confirm zero production calls to the legacy loop.",
+        "Observe native event fidelity, a passing V1 deprecation window, rollback rehearsal, and deletion gates before removing legacy orchestration."
+      ],
+      "passes": false
+    }
+  ],
+  "superseded_by": "agent-runtime-full-rust-cutover (Rust single kernel owns the assistant loop); CHR-05 canary/rollback evidence was recorded by the full-rust-cutover program (FRC-06); the Python loop was deleted."
+}

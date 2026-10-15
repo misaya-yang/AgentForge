@@ -1,0 +1,12 @@
+{
+  "schema_version": "hardening-oracle/v1",
+  "features": [
+    {"id": "PCH-F00", "name": "baseline-and-ledger", "status": "passing", "evidence": ["148 focused tests passed", "web build baseline ui=1394.91kB gzip=422.71kB", "optimization-plan.md"]},
+    {"id": "PCH-F01", "name": "security-and-state-correctness", "status": "in_progress", "evidence": ["artifact/session/subagent/idempotency/cancellation/terminal regressions pass", "lease/reaper family remains open"]},
+    {"id": "PCH-F02", "name": "assistant-hot-path", "status": "in_progress", "evidence": ["unchanged memory source skips re-index", "trace root/lifecycle writes once per trace", "checkpoint digest reused", "tool_call inherits target timeout", "thinking low retained with first-reasoning and first-text metrics", "deterministic sandbox failures return to the model for self-repair"]},
+    {"id": "PCH-F03", "name": "gateway-accounting-and-admission", "status": "in_progress", "evidence": ["100 usage rows use one production fetch", "duplicate idempotency identity charges once", "admission and quota backlog remains open"]},
+    {"id": "PCH-F04", "name": "web-and-sdk", "status": "in_progress", "evidence": ["terminal first-wins and session epoch tests pass", "first-response and first-text telemetry targeted E2E passes", "forced 1.394MB UI chunk removed", "latest dist hot-copied and container SHA verified", "full E2E requires configured API/login environment", "SDK work remains open"]},
+    {"id": "PCH-F05", "name": "knowledge-local-infra", "status": "in_progress", "evidence": ["Assistant x KB real lifecycle and tenant isolation pass", "multimodal batching and Local Node watcher backlog remains open"]},
+    {"id": "PCH-F06", "name": "release-evidence", "status": "failing", "evidence": ["6186 passed, 23 skipped, 0 failed", "Assistant runtime gate 5/5", "real Responses, KB, Docgen, Image, Quiz and trusted-local Code Executor pass", "thinking retained: first-reasoning p50 3.146s and text TTFT p50 3.925s", "final complex cohort raw 5/8 and exact-output semantic replay 6/8 with 0 infrastructure errors", "Security and Research remain genuine failures", "three complete complex cohorts not run"]}
+  ]
+}

@@ -1,0 +1,242 @@
+# =============================================================================
+# AI Gateway .gitignore
+# =============================================================================
+
+# ======================== Environment & Secrets ========================
+# Local environment configuration (contains secrets).
+# Also covers ad-hoc backups (.env.bak.YYYYMMDD-HHMMSS) and scratch
+# copies (.env.copy) that prior ops sessions left behind — they contain
+# the same secrets as the live .env and must never be committed.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+credentials.*.json
+secrets.json
+secrets.*.json
+!credentials.example.json
+!secrets.example.json
+.netrc
+.pypirc
+id_rsa
+id_ed25519
+.ssh/
+.aws/
+*.local.json
+*.local.toml
+*.local.yml
+*.local.yaml
+/config/local/
+/.tools/
+
+# ======================== Python ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# ======================== Testing & Coverage ========================
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+coverage.xml
+.nyc_output/
+htmlcov/
+.tox/
+.nox/
+
+# ======================== Type Checking & Linting ========================
+.mypy_cache/
+.ruff_cache/
+.cache/
+.uv-cache/
+.pnpm-store/
+target/
+*.tsbuildinfo
+.dmypy.json
+dmypy.json
+
+# ======================== IDE & Editor ========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+.csv
+
+# ======================== Claude Code ========================
+.claude/settings.local.json
+.claude/skills/
+plugins/frontend-design/
+
+# AI Agent Skills (local development only)
+.agents/
+
+# ======================== Documentation ========================
+# docs/ is the system of record and IS tracked. It used to be ignored wholesale
+# (`docs/*`), which hid ~100 design, plan, and program files from every other
+# machine and from every coding agent. See docs/harness/README.md principle 1.
+# Ignore only scratch output that lands inside it.
+docs_project/
+docs/**/node_modules/
+docs/**/.cache/
+docs/scratch/
+# Local legacy draft; tracked execution records live in deploy/runbooks/agent-platform-vnext/.
+/docs/plans/agent-runtime-post-upgrade-core-fixes-2026-08.md
+
+# ======================== Data & Models ========================
+# Downloaded ML models (OCR, embeddings, etc.)
+data/models/
+data/islamic_content/
+/data/
+/uploads/
+/backups/
+/storage/
+/state/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.db-wal
+*.db-shm
+*.dump
+*.pdmodel
+*.pdiparams
+*.pdiparams.info
+*.tar
+*.onnx
+*.bin
+
+# ======================== Logs & Temp Files ========================
+*.log
+*.log.*
+/logs/
+.err
+.out
+logs/*.log
+logs/*.log.*
+tmp/
+temp/
+claude/
+outputs/
+node_modules/
+# Native bundles (binary, provenance, SBOM and license copies) are build outputs.
+sdk/cli/vendor/*/
+sdk/cli/vendor/source.json
+
+# ======================== OS Generated ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows reserved names
+nul
+NUL
+
+# ======================== Debug & Temporary Scripts ========================
+# Root-anchored (leading `/`): these patterns describe junk that tooling drops in
+# the working directory, not a file-naming rule for the whole tree. Unanchored,
+# `check_*.py` silently swallowed scripts/harness/check_harness.py — the gate that
+# CI runs — which is exactly the failure mode this anchoring prevents.
+/check_*.py
+/check_*.json
+/quick_test*.py
+/test_output*.txt
+/*_debug.py
+/debug_*.py
+.worktrees
+.mcp.json
+apps/islamic-content-service/data/
+
+# ======================== Screenshots & Playwright ========================
+# Product images, documentation images and fixture images are source assets.
+# Browser artifacts belong in the explicit ignored output directories below.
+.playwright-mcp/
+playwright-report/
+.playwright/
+blob-report/
+*.har
+
+# ======================== Audit & Planning Scratch ========================
+# Ad-hoc artifacts dropped at the repository ROOT by tooling. These patterns are
+# deliberately root-anchored (leading `/`): unanchored, they silently swallowed
+# legitimate documents anywhere in the tree, including under docs/ and reports/.
+/*-Audit-*.md
+/*-Optimization-*.md
+/*-Report*.md
+/*-Report*.docx
+/*-Report*.js
+/*-Spec.md
+/claude-code-*.md
+# plans/ holds migration plans and generated reports. Track .md + .json
+# (committable deliverables); ignore any other scratch/binary artifacts
+# that land alongside.
+plans/*
+!plans/*.md
+!plans/*.json
+# Verify scripts belong with their design docs so "the gate the user
+# runs" is always reviewable next to the spec it enforces.
+!plans/verify-*.sh
+
+# ======================== Temporary Upload/Data ========================
+tmp-*/
+demo-screenshots/
+Users/
+code-review-recommended-questions.md
+deploy-checklist-recommended-questions.md
+
+# ======================== Generated / Temp ========================
+web/package-lock.json
+# Generated data files
+data/hadith_registry.json
+
+# Old reports (root only)
+/AI-*.md
+/CLAUDE_CODE_OPTIMIZATION_PROMPT.md
+
+# Test output
+test-results/
+.claude/worktrees/
+
+# Scratch orchestration scripts written during live evaluation runs.
+# These embed machine-specific temp paths (e.g. /tmp/<run-id>/auth.env).
+.tmp-*

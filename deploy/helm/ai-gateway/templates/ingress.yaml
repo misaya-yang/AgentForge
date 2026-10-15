@@ -1,0 +1,70 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}
+  labels:
+    {{- include "ai-gateway.labels" . | nindent 4 }}
+  annotations:
+    {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/websocket-services: {{ include "ai-gateway.fullname" . }}-gateway
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # Publication-specific Embed document -> gateway dynamic headers
+          - path: /embed/agents
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-gateway
+                port:
+                  number: 8080
+          # API routes -> gateway
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-gateway
+                port:
+                  number: 8080
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-gateway
+                port:
+                  number: 8080
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-gateway
+                port:
+                  number: 8080
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-gateway
+                port:
+                  number: 8080
+          # Everything else -> frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ai-gateway.fullname" . }}-frontend
+                port:
+                  number: 80
+{{- end }}

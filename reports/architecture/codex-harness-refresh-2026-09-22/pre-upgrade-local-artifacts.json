@@ -1,0 +1,144 @@
+{
+  "source_lock": {
+    "build": {
+      "app_server_schema_file_count": 1005,
+      "app_server_schema_sha256": "ec57a2516f9dfd89d56fafd84bfbaa1a9b19fc03507867f123a03c03ddcc837b",
+      "capability_worker_sbom": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
+      "capability_worker_sbom_sha256": "d6611ee35a697917c5966b073b50efee5f16aa329bc7ad8c5a6d81bf19f12313",
+      "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
+      "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+      "cargo_lock_sha256": "068b81252e9b3c00a73f6ba1c9cf7fb97260207d55e1ea6926c94ea82a816bdb",
+      "local_image_profile": "dev-small",
+      "overlay_cargo_lock_sha256": "068b81252e9b3c00a73f6ba1c9cf7fb97260207d55e1ea6926c94ea82a816bdb",
+      "overlay_file_count": 107,
+      "overlay_manifest": "rust/agent-runtime-overlay/manifest.json",
+      "overlay_sha256": "80992c9505b06a2e9993980efc739ce33ee79c1fcc79b60914c894b2f62129ba",
+      "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
+      "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "sbom": "deploy/agent-runtime-source/sbom.cdx.json",
+      "sbom_sha256": "183f270c8c148f4e0d1f15ddfb0c8494697f7b2a412625da5299a6f19a7804ba",
+      "source_receipt": "deploy/agent-runtime-source/source-receipt.json",
+      "source_receipt_sha256": "c867e29082c7e8ebd83d7bf8c56603a7cf8dce78ca63317bffcd35a60d792a57"
+    },
+    "license": {
+      "notice": "deploy/agent-runtime-source/NOTICE.md",
+      "notice_sha256": "87e497f9aeef8b35848fac983a0466f813322dd0712dd3c16acf221b038155ad",
+      "spdx": "Apache-2.0",
+      "upstream_license_sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+      "upstream_notice_sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    },
+    "oci": {
+      "artifacts": {
+        "agent_runtime": {
+          "binary": "ai-platform-agent-runtime",
+          "candidate_start_allowed": true,
+          "image_digest": "sha256:6f364bbe35eb44fca3ac14c12368150d9989233a652c3a4fb2c93791ccd44981",
+          "image_ref": "local-image://sha256:6f364bbe35eb44fca3ac14c12368150d9989233a652c3a4fb2c93791ccd44981",
+          "platforms": [
+            "linux/arm64"
+          ],
+          "protocol": "ai-platform-agent-runtime-http-sse/v1"
+        },
+        "app_server": {
+          "binary": "codex-app-server",
+          "candidate_start_allowed": false,
+          "image_digest": null,
+          "image_ref": null,
+          "platforms": [
+            "linux/arm64"
+          ],
+          "protocol": "codex-app-server-jsonrpc/v2"
+        },
+        "capability_worker": {
+          "binary": "ai-platform-capability-worker",
+          "candidate_start_allowed": true,
+          "image_digest": "sha256:592036aadd8c3088f4d0d01ae42a660f03ac0556934c317db7fa4ca68fecd001",
+          "image_ref": "local-image://sha256:592036aadd8c3088f4d0d01ae42a660f03ac0556934c317db7fa4ca68fecd001",
+          "platforms": [
+            "linux/arm64"
+          ],
+          "protocol": "ai-platform-capability-contract/v2"
+        }
+      }
+    },
+    "release_state": "local_image_locked",
+    "schema_version": "ai-platform/agent-runtime-source-lock/v2",
+    "source": {
+      "branch": "upstream/main",
+      "fork_repository": "local://AI--Platfform-codex-harness-composed-source",
+      "fork_sha": "94cbbddafc1776d5e377bca1b05932c697e82238",
+      "git_tree_sha": "2b39fe175db641c8ac6ee87356a2f5db2765c835",
+      "upstream_sha": "94cbbddafc1776d5e377bca1b05932c697e82238",
+      "upstream_url": "https://github.com/openai/codex.git"
+    }
+  },
+  "containers": [
+    {
+      "name": "/ai-gateway-frontend",
+      "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-backend",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-knowledge-service",
+      "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-knowledge-worker-1",
+      "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-migrate",
+      "image_id": "sha256:3d2ba0e569da3ddf6c2aa932babaf572f75db9979ce2b987fb93f7eb2706d647",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-agent-runtime",
+      "image_id": "sha256:6f364bbe35eb44fca3ac14c12368150d9989233a652c3a4fb2c93791ccd44981",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-agent-capability-worker-1",
+      "image_id": "sha256:592036aadd8c3088f4d0d01ae42a660f03ac0556934c317db7fa4ca68fecd001",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-init",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-pg",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-redis",
+      "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    },
+    {
+      "name": "/ai-gateway-qdrant",
+      "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c",
+      "state": "exited",
+      "compose_owner": "/Users/yang/projects/AI--Platfform"
+    }
+  ],
+  "scope": "available local stopped-container image identities only; DB backup and rollback rehearsal not yet executed"
+}

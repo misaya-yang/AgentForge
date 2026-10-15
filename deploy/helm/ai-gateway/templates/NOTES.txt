@@ -1,0 +1,36 @@
+AI Gateway has been deployed!
+
+{{- if .Values.ingress.enabled }}
+
+Access your gateway at:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+
+{{- else }}
+
+Get the gateway URL by running:
+  export POD_NAME=$(kubectl get pods -l "app.kubernetes.io/component=gateway" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward $POD_NAME 8080:8080
+  echo "Gateway: http://localhost:8080"
+
+Get the frontend URL by running:
+  export POD_NAME=$(kubectl get pods -l "app.kubernetes.io/component=frontend" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward $POD_NAME 8081:80
+  echo "Frontend: http://localhost:8081"
+
+{{- end }}
+
+Check deployment status:
+  kubectl get pods -l app.kubernetes.io/part-of=ai-gateway
+  kubectl get hpa
+
+{{- if not .Values.secrets.postgresPassword }}
+
+WARNING: No PostgreSQL password set. Set one with:
+  --set secrets.postgresPassword=<your-password>
+{{- end }}
+
+{{- if not .Values.secrets.jwtSecret }}
+
+WARNING: No JWT secret set. Set one with:
+  --set secrets.jwtSecret=<your-secret>
+{{- end }}

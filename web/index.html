@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en-US" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/ai-gateway-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Gateway</title>
+    <meta name="color-scheme" content="light dark" />
+  </head>
+  <body>
+    <div id="root">
+      <!-- First-paint fallback. React wipes this on mount; if React never
+           mounts (JS bundle failed to download, service unreachable), the
+           boot-timeout script below replaces the spinner with an error
+           panel + reload button. Without this, a network blip during
+           bundle load surfaces as a fully blank page. -->
+      <div id="app-boot-fallback" aria-live="polite" style="
+        position:fixed;inset:0;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;gap:16px;
+        font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+        color:#62656e;background:var(--boot-bg, #f7f7f9);">
+        <div style="width:34px;height:34px;border:3px solid #dcdde2;
+          border-top-color:#5b5bd6;border-radius:50%;
+          animation:appBootSpin 0.9s linear infinite;"></div>
+        <div id="app-boot-msg" style="font-size:14px;letter-spacing:0.02em;">
+          Loading…
+        </div>
+        <div id="app-boot-error" style="display:none;max-width:360px;
+          text-align:center;font-size:13px;line-height:1.55;color:#62656e;">
+          <div style="font-weight:600;color:#17181c;margin-bottom:6px;">
+            Couldn't load the app
+          </div>
+          <div style="margin-bottom:14px;">
+            The frontend bundle didn't finish downloading. This is usually a
+            network blip — check your connection and try again.
+          </div>
+          <button id="app-boot-retry" style="
+            padding:8px 18px;border-radius:8px;border:1px solid #dcdde2;
+            background:#5b5bd6;color:#fff;font-size:13px;font-weight:500;
+            cursor:pointer;">Reload</button>
+        </div>
+      </div>
+      <style>
+        @keyframes appBootSpin { to { transform: rotate(360deg); } }
+        html.dark #app-boot-fallback { background:#0f1013;color:#acadb5; }
+        html.dark #app-boot-fallback [id="app-boot-error"] > div:first-child { color:#f4f4f5; }
+        html.dark #app-boot-fallback [id="app-boot-error"] > div { color:#acadb5; }
+      </style>
+    </div>
+    <script src="/runtime-config.js"></script>
+    <script type="module" src="/src/boot.ts"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+package_id: ARC-02
+state: verified
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [src/services/agent_runtime/control/**, src/services/agent_runtime/model/**, src/services/agent_runtime/control_plane.py, src/services/agent_runtime/model_plane.py, src/services/assistant/**]
+commits: [9fc5095f, 2a5cdd92, 31586144, 8ade84f6, 03d97f8d, 59d50ab5]
+contracts_compared: [ResolvedAgentLaunchV1, Capability V2, ModelLeaseV1, append-only ledgers, no Gateway self-HTTP]
+commands:
+  - {command: "make agent-runtime-single-kernel-gate", exit_code: 0, passed: 50, failed: 0, skipped: 0}
+  - {command: "make agent-runtime-source-contract", exit_code: 0, passed: 10, failed: 0, skipped: 0}
+  - {command: "make status", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+live_observations: [Qwen Assistant, autonomous Knowledge tool use, Studio Preview, approval, cancel/resume]
+remaining_risks: []

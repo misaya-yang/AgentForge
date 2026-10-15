@@ -1,0 +1,429 @@
+schema_version: harness/work-package/v1
+domain_id: agent-runtime-upstream-sync
+execution_policy: User explicitly authorized parallel writers in disjoint owned paths;
+  root owns shared integration and serialized Docker/provider/browser. Phases may
+  overlap for independent source work; verification dependencies remain.
+packages:
+- id: U0
+  status: queued
+  result: 冻结可信基线、现有CI失败归因、完整兼容合同与可用回滚清单
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on: []
+  owned_paths:
+  - docs/
+  - reports/architecture/codex-harness-refresh-2026-09-22/
+  - deploy/runbooks/codex-harness-refresh-2026-09-22/
+  - tests/scripts/test_rust_build_tooling.py
+  - scripts/rust/build-update.sh
+  - scripts/harness/loc_no_growth_gate.py
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - .github/workflows/ci.yml
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  - U0 direct_verified仅表示基线取证和归因完成；不能代表历史失败检查已经成功
+  direct_gates:
+  - make harness-check
+  - make agent-runtime-source-contract
+  - 采集并解释 make loc-no-growth-gate 和现有Rust构建脚本合同测试的真实结果；历史失败不伪记PASS，建立修复owner与最晚门槛
+  integration_gates:
+  - 确认实际镜像/DB备份引用及N-1兼容性，冻结基线任务和公开contract
+  live_gates:
+  - 只读确认Compose owner与旧候选身份；基线真实任务测量按已授权环境执行
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U0.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C01
+  - C16
+  - C17
+  - C20
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U1
+  status: queued
+  result: 目标完整源码与三方overlay移植、生成物及依赖闭包可验证
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U0
+    required_state: direct_verified
+  owned_paths:
+  - rust/agent-runtime-overlay/
+  - deploy/agent-runtime-source/
+  - scripts/harness/agent_runtime_supply_chain.py
+  - scripts/harness/build_agent_runtime_image.sh
+  - scripts/harness/build_agent_runtime_source_image.sh
+  - scripts/harness/build_agent_capability_worker_image.sh
+  - tests/harness/test_agent_runtime_supply_chain.py
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - Makefile
+  - .github/workflows/ci.yml
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  - U1 materialized source不声称可编译或可运行；完整source gate在U2/U4分层执行
+  direct_gates:
+  - 源码inventory：目标SHA/tree、107文件逐项处置、三方冲突清零、upstream blob匹配
+  - Docker/hosted CI中解析目标workspace metadata与锁依赖；完整编译/schema生成推迟到U2宿主适配完成
+  integration_gates:
+  - 验证Runtime/Worker/Capability Contract/Office四个平台crate的workspace closure；记录待适配API，不复用旧schema伪造通过
+  live_gates:
+  - 'NOT_REQUIRED: 此包不启动服务；镜像与live在U4'
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U1.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C01
+  - C20
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U2
+  status: queued
+  result: Codex宿主扩展完成权限/生命周期/代理/PG语义迁移
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U1
+    required_state: direct_verified
+  owned_paths:
+  - rust/agent-runtime-overlay/
+  - database/migrations/
+  - tests/database/
+  - tests/harness/test_agent_runtime_write_gate.py
+  - tests/harness/test_agent_runtime_readonly_gate.py
+  - deploy/agent-runtime-source/
+  - scripts/harness/agent_runtime_supply_chain.py
+  - tests/harness/test_agent_runtime_supply_chain.py
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - database/schema.sql
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  direct_gates:
+  - 'hosted CI: make rust-changed-crate-gate BASE_SHA=<U0_BASE_SHA>'
+  - make agent-runtime-single-kernel-gate
+  - make agent-runtime-readonly-gate
+  - python3 scripts/harness/agent_runtime_supply_chain.py validate --repo-root . --lock
+    deploy/agent-runtime-source/lock.json （U2 local_source_locked，无require-artifact）
+  integration_gates:
+  - make agent-thread-store-contract
+  - make agent-runtime-write-gate
+  - C02-C08,C19真实隔离PG和scope/审批/故障反例
+  - 宿主API适配后从实际composed source生成schema/receipt，旧/新逐项差异映射；四个平台crate与受影响upstream依赖编译测试
+  live_gates:
+  - C10实际Linux隔离探针；完整浏览器旅程在U4
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U2.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C02
+  - C03
+  - C04
+  - C05
+  - C06
+  - C07
+  - C08
+  - C10
+  - C19
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U3
+  status: queued
+  result: Gateway、两wire、公开事件、Web/SDK/独立CLI/Eval兼容集成
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U2
+    required_state: direct_verified
+  owned_paths:
+  - src/services/agent_runtime/
+  - src/services/eval/
+  - web/src/
+  - web/e2e/
+  - sdk/
+  - tests/services/agent_runtime/
+  - tests/services/eval/
+  - tests/api/
+  - tests/contract/
+  - packages/ai-gateway-contracts/
+  - src/api/v1/agent_runtime.py
+  - src/api/v1/_agent_runtime_routes/
+  - src/api/v1/assistant.py
+  - src/api/v1/_assistant_routes/
+  - src/api/schemas/agent_runtime.py
+  - src/api/schemas/assistant.py
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - src/main.py
+  - src/api/router.py
+  - harness.yml
+  - .github/workflows/ci.yml
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  direct_gates:
+  - make verify-openapi-contract
+  - make web-quality-gate
+  - pnpm -C web build
+  - make sdk-sse-contract
+  - make independent-cli-gate
+  - make verify-agent-studio
+  - make agent-eval-core-gate
+  integration_gates:
+  - C02-C09,C11-C15两wire受控HTTP、PG fencing、客户端fixtures；缺失case补在所属测试目录
+  live_gates:
+  - 'DEFERRED_TO_U4: 两wire/provider、浏览器和native工具真实旅程'
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U3.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C02
+  - C03
+  - C04
+  - C05
+  - C06
+  - C09
+  - C11
+  - C12
+  - C13
+  - C14
+  - C15
+  - C19
+  - C20
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U4
+  status: queued
+  result: Runtime/Worker成对候选可运行并完成核心真实旅程C80
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U3
+    required_state: direct_verified
+  owned_paths:
+  - deploy/agent-runtime-source/
+  - scripts/new/
+  - scripts/rust/
+  - deploy/runbooks/codex-harness-refresh-2026-09-22/
+  - reports/architecture/codex-harness-refresh-2026-09-22/
+  - web/e2e/
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - docker-compose.yml
+  - docker-compose.build.yml
+  - .env.example
+  - Makefile
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  direct_gates:
+  - make agent-runtime-release-gate
+  - make validate-example-config
+  - make architecture-boundary-gate
+  - make core-boundary-gate
+  - make single-instance-guard
+  integration_gates:
+  - 'Docker: scripts/rust/build-update.sh --artifact all'
+  - make agent-runtime-smoke
+  - make agent-capability-worker-smoke
+  live_gates:
+  - make validate
+  - make status
+  - C01-C14,C19真实HTTP/PG/provider/浏览器旅程；验证完整当前回退路径后才称C80
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U4.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C01
+  - C02
+  - C03
+  - C04
+  - C05
+  - C06
+  - C07
+  - C08
+  - C09
+  - C10
+  - C11
+  - C12
+  - C13
+  - C14
+  - C16
+  - C19
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U5
+  status: queued
+  result: 对测得的瓶颈做有界优化且质量/成本/延迟满足冻结门槛
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U4
+    required_state: verified
+  owned_paths:
+  - src/services/agent_runtime/
+  - rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/
+  - rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/
+  - tests/services/agent_runtime/
+  - reports/architecture/codex-harness-refresh-2026-09-22/
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths: []
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  direct_gates:
+  - 受影响包直接回归；Rust部分走hosted changed-crate
+  - make agent-runtime-source-contract
+  integration_gates:
+  - PG事务/并发/取消与慢消费者反例；模型身份、pricing与prompt/tool指纹配对
+  live_gates:
+  - C17至少30对/代表场景的旧新交错任务；U0冻结门槛；任何权限/质量退化不能以延迟收益抵消
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U5.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C06
+  - C07
+  - C09
+  - C10
+  - C11
+  - C14
+  - C17
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长
+- id: U6
+  status: queued
+  result: 完整发行与旧客户端/故障/回滚/目标架构矩阵形成R100证据
+  base_sha: 305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6
+  depends_on:
+  - id: U5
+    required_state: verified
+  owned_paths:
+  - deploy/agent-runtime-source/
+  - deploy/runbooks/codex-harness-refresh-2026-09-22/
+  - reports/architecture/codex-harness-refresh-2026-09-22/
+  - sdk/cli/
+  - web/e2e/
+  - docs/plans/codex-harness-refresh-2026-09-22.md
+  - docs/plans/codex-harness-refresh-2026-09-22-acceptance.md
+  forbidden_paths:
+  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - .env* values
+  - unrelated services and new public product surfaces
+  integration_paths:
+  - .github/workflows/ci.yml
+  - docs/README.md
+  - Makefile
+  must_preserve:
+  - 唯一Codex内核；Gateway身份/模型/计费权威；PG托管状态权威；Worker执行与proof
+  - 公开OpenAPI/SSE/SDK及旧会话可用；tenant隔离；no duplicate side effect
+  - U0冻结的schema兼容、性能、成本和质量门槛
+  direct_gates:
+  - 所有required CI jobs在最终source commit成功
+  - make harness-check
+  - make agent-runtime-release-gate
+  - make sdk-sse-contract
+  - make independent-cli-gate
+  integration_gates:
+  - 全部C01-C20证据重新核对同一release unit；打包/license/SBOM/平台验证
+  live_gates:
+  - make agent-runtime-rollback-rehearsal
+  - C15两wire真实native任务；C18独立fresh-machine/amd64+arm64；全部已承诺平台；最终候选真实对话
+  skip_policy: none for required cases; explicit unexposed new features are not claims
+    of support
+  rollback: U0确定完整镜像/DB兼容类；默认仅同epoch兼容旧release unit，禁止旧二进制跨epoch回切；破坏性方案先改expand/contract或停写恢复
+  review: 实现阶段独立只读审查：blocker/high=0；其他问题记录owner和期限；本次设计未执行该实现审查
+  evidence:
+  - receipts/U6.yml
+  - reports/architecture/codex-harness-refresh-2026-09-22/，每条绑定requirement_id和candidate身份
+  requirements:
+  - C01
+  - C02
+  - C03
+  - C04
+  - C05
+  - C06
+  - C07
+  - C08
+  - C09
+  - C10
+  - C11
+  - C12
+  - C13
+  - C14
+  - C15
+  - C16
+  - C17
+  - C18
+  - C19
+  - C20
+  stop_conditions:
+  - 未预期公开/数据/身份边界变化，先修订合同
+  - 必需证据缺失或失败不得标verified；不以skip/改阈值消除失败
+  - 发现包外行为修复时回到对应owner顺序修复，不并发写共享路径
+  - 生产文件LOC历史债务在所属U2/U3/U5路径内修复；U6所有门禁要求成功，不改baseline掩盖增长

@@ -1,0 +1,19 @@
+{
+  "lexical_escapes": [
+    "../outside.txt",
+    "nested/../../outside.txt",
+    "/etc/passwd",
+    "\\\\server\\share\\secret.txt",
+    "C:\\Users\\victim\\secret.txt",
+    "safe/..\\..\\outside.txt",
+    "safe/\u0000/../../outside.txt"
+  ],
+  "sensitive_paths": [
+    ".env",
+    ".env.local",
+    ".ssh/id_ed25519",
+    ".aws/credentials",
+    "Library/Application Support/Google/Chrome/Default/Login Data",
+    "wallet/seed-phrase.txt"
+  ]
+}

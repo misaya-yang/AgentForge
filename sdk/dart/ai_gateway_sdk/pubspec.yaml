@@ -1,0 +1,17 @@
+name: ai_gateway_sdk
+description: >
+  Official AI Gateway Assistant SDK for Flutter/Dart.
+  Provides streaming and non-streaming chat, session management,
+  and artifact access for the AI Gateway.
+version: 1.0.0
+homepage: https://github.com/misaya-yang/AI--Platfform
+repository: https://github.com/misaya-yang/AI--Platfform/tree/main/sdk/dart/ai_gateway_sdk
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  http: ^1.2.0
+
+dev_dependencies:
+  test: ^1.25.0

@@ -1,0 +1,29 @@
+# OPT-IN hybrid candidate, not a default or production-accepted deployment.
+# Apply AFTER base + full + build. Keep one Python Knowledge owner.
+services:
+  gateway:
+    image: "${NATIVE_GATEWAY_IMAGE:?Select a unique local native candidate image tag}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: runtime
+    entrypoint: ["/bin/sh", "-ec", "exec /usr/local/bin/gateway \"$$@\" < /run/secrets/native-gateway.json", "gateway"]
+    command: ["--config-stdin"]
+    secrets:
+      - source: native-gateway-document
+        target: native-gateway.json
+  # Both Python Knowledge roles must use the same newly built source image.
+  # Source-build default only declares the API build, so make worker explicit.
+  knowledge-worker:
+    build:
+      context: .
+      dockerfile: apps/knowledge-service/Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: "${PYTHON_BASE_IMAGE:-python:3.12-slim-bookworm}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        DEBIAN_MIRROR: "${DEBIAN_MIRROR:-https://deb.debian.org}"
+        PIP_INDEX_URL: "${PIP_INDEX_URL:-https://pypi.org/simple}"
+        PIP_TRUSTED_HOST: "${PIP_TRUSTED_HOST:-}"
+secrets:
+  native-gateway-document:
+    file: "${NATIVE_GATEWAY_CONFIG_FILE:?Provide a reviewed resolved GatewayDocument outside the source tree}"

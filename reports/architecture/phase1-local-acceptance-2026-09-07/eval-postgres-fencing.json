@@ -1,0 +1,1 @@
+{"status": "PASS", "database": "p1_acl_072ca1b93f", "role": "ai_gateway_gateway", "reclaim": true, "expired_renewal_rejected": true, "stale_writes_rejected": ["case", "run", "score", "terminal"], "new_owner_terminal": "succeeded"}

@@ -1,0 +1,20 @@
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_TOPOLOGY_MODE: "full"
+    deploy:
+      replicas: 1
+  agent-runtime:
+    deploy:
+      replicas: 1
+  knowledge-service:
+    environment:
+      KNOWLEDGE_RUNTIME_ROLE: "api"
+  knowledge-worker:
+    environment:
+      KNOWLEDGE_RUNTIME_ROLE: "worker"
+    deploy:
+      replicas: 1
+  agent-capability-worker:
+    deploy:
+      replicas: 1

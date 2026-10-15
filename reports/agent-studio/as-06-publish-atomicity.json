@@ -1,0 +1,240 @@
+{
+  "schema_version": "agent-studio-as06-publish-atomicity/v2",
+  "phase_id": "AS-06",
+  "feature_id": "AS-F007",
+  "generated_at": "2026-07-19T13:30:15Z",
+  "status": "verified",
+  "release_profile": {
+    "id": "offline_v1",
+    "version": "2026-07-19",
+    "provider_free": true,
+    "model_quality_evaluated": false,
+    "production_profile_status": "fails_closed_until_configured"
+  },
+  "required_gates": {
+    "publish_api_atomicity": {
+      "result": "passed",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "breakdown": {
+        "api": 14,
+        "postgresql": 17,
+        "release_gate": 4
+      }
+    },
+    "agent_eval": {
+      "result": "passed",
+      "candidate_tests": 13,
+      "golden_cases": 16,
+      "existing_eval_groups": [41, 116, 35, 17],
+      "failed": 0,
+      "skipped": 0
+    },
+    "frontend": {
+      "result": "passed",
+      "release_browser_tests": 10,
+      "full_open_source_browser_tests": 41,
+      "live_success_tests": 1,
+      "live_failure_closed_tests": 1,
+      "failed": 0,
+      "skipped": 0,
+      "lint_errors": 0,
+      "inherited_lint_warnings": 17,
+      "typecheck": "passed",
+      "i18n": "passed",
+      "build": "passed"
+    },
+    "runtime_regression": {
+      "result": "passed",
+      "assistant_runtime_groups": [33, 77, 8, 98],
+      "assistant_runtime_golden": "passed",
+      "isolation_tests": 6,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "atomicity_checks": [
+    {
+      "id": "eval-dataset-content-identity",
+      "result": "passed",
+      "evidence": "The authorized Eval Dataset version and a tenant-scoped canonical manifest hash over Dataset metadata and sorted examples are bound into runtime, release, and evaluation identities. Content mutation makes completion and publication fail closed."
+    },
+    {
+      "id": "atomic-eval-manifest-lock",
+      "result": "passed",
+      "evidence": "Actor iteration 4 locks the Eval Dataset parent FOR UPDATE and every manifest example FOR SHARE inside promotion. Real two-connection PostgreSQL cases prove both an existing-example update and a new-example insert remain blocked after manifest resolution until the publication transaction commits; neither can make accepted Eval evidence stale inside the atomic decision window."
+    },
+    {
+      "id": "durable-cancellable-lifecycle",
+      "result": "passed",
+      "evidence": "PostgreSQL persists queued, running, and terminal events; only valid transitions are allowed, cancellation can win the completion race, and every terminal row is immutable."
+    },
+    {
+      "id": "global-idempotency-race",
+      "result": "passed",
+      "evidence": "A tenant-operation-key advisory transaction lock serializes different Agents before release writes. A two-connection PostgreSQL race produces one result and one stable AGENT_RELEASE_IDEMPOTENCY_CONFLICT, with no raw 23505 or duplicate Version, pointer, event, or request."
+    },
+    {
+      "id": "current-runtime-stale-truth",
+      "result": "passed",
+      "evidence": "List/detail recompute the current server candidate and expose explicit Draft, model, resource, Dataset, runtime, release, and evaluation identity stale reasons without mutating stored evidence."
+    },
+    {
+      "id": "atomic-model-authorization",
+      "result": "passed",
+      "evidence": "Actor iteration 3 requires the database-backed path to invoke the supplied current-readiness revalidator while model/provider rows remain locked. Missing proof fails unverifiable; revoked readiness invokes the callback once and leaves publish Version/Publication/event/request counts at 0/0/0/0, while rollback preserves its pointer and every release-row count."
+    },
+    {
+      "id": "stale-eval-zero-write",
+      "result": "passed",
+      "evidence": "A changed Draft revision/spec or current runtime identity rejects prior evidence before Version, Publication, event, or release-request creation."
+    },
+    {
+      "id": "idempotent-promote-replay",
+      "result": "passed",
+      "evidence": "The same tenant/operation/key/request returns the original Version, Publication, and event after mutable state changes; a different request hash returns AGENT_RELEASE_IDEMPOTENCY_CONFLICT."
+    },
+    {
+      "id": "transaction-failure-rollback",
+      "result": "passed",
+      "evidence": "Forced publish-event failure rolls back Version materialization, normalized bindings, Publication pointer, event, and idempotency request together."
+    },
+    {
+      "id": "immutable-release-evidence",
+      "result": "passed",
+      "evidence": "PostgreSQL rejects invalid lifecycle transitions plus UPDATE or DELETE of terminal evaluations, evaluation events, Versions, publish events, and completed release requests."
+    },
+    {
+      "id": "rollback-history-and-revocation",
+      "result": "passed",
+      "evidence": "Revoked, unavailable, current, foreign, and never-targeted rollback Versions leave the Publication pointer, audit-event count, and release-request count unchanged."
+    },
+    {
+      "id": "audit-reason-secret-denial",
+      "result": "passed",
+      "evidence": "Credential-, token-, password-, bearer-, connection-, and key-shaped publish or rollback reasons are rejected before immutable audit persistence."
+    }
+  ],
+  "live_stack": {
+    "compose_owner": "/Users/yang/projects/AI--Platfform",
+    "services_healthy": 8,
+    "observed_container_memory_mib_approx": 784,
+    "migration_records": 74,
+    "pending_migrations": 0,
+    "stub_enabled_after_validation": false,
+    "live_provider_free_result": "1 passed",
+    "live_failure_closed_result": "1 passed",
+    "provider_free_evidence": "Against the real Gateway/PostgreSQL stack, one stable Eval Dataset and example produced a content hash, queued-to-cancelled evidence, queued-to-running-to-passed evidence, two immutable Versions, two promotions, and one audited rollback.",
+    "provider_boundary": "After restoring stub=false, the same live browser flow returned AGENT_RUNTIME_MODEL_UNAVAILABLE before an evaluation row and observed zero Version, Publication pointer, and publish event. No provider credential was read, changed, printed, or called."
+  },
+  "source_fingerprints": {
+    "database/migrations/077_agent_publication_eval.sql": "sha256:8eeefb2177d766291a3b12fe4b23abec258a9f6b5b2dc84f83f740045432bbb4",
+    "database/migrations/078_agent_release_lifecycle_hardening.sql": "sha256:3cf4d70391258fe60f73aa70725b9e6edcc8090b9d584f42cc081c3c081e7969",
+    "packages/ai-gateway-core/src/ai_gateway_core/eval/agent_version_candidate.py": "sha256:bcbff8f7533da0fec22a1b289ba4f6b6e9c0756b37a3999d44d1db18a44da170",
+    "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py": "sha256:e22aeb0d99bb0456267a79651886f506460b4752628310d6bd6956f54a7f4ff7",
+    "src/api/schemas/agents.py": "sha256:f69860cbb1bbb4631c4c8acac5dca141bd0a2b16748e9aea1306ca7575450a7b",
+    "src/api/v1/agents.py": "sha256:e9600c3ecbaf10ba9285b087023d7aaaf2fbdcc4979a67cb2f80eb925d295c23",
+    "src/api/v1/agent_runtime.py": "sha256:399782e522f847bdfd80509f7e9ca0db4fcf99ac377172c24f06b5d108dbc1aa",
+    "web/src/pages/agents/AgentReleasePanel.tsx": "sha256:a9d4ac627276cde18033cfe780abd2c6e1cabab1d1136cbe61fcee0b8f7aca6a",
+    "web/src/pages/agents/AgentStudioPage.tsx": "sha256:c56e544c19de35c5210a91710700028c5fac5abccc94219e83a4cdf4d20ef5b9",
+    "web/e2e/agent-publish.spec.ts": "sha256:bf5df17ae1a278a813cc428908940e24db59e814aa30ed7498f28f8353db4e47",
+    "web/e2e/agent-publish-live.spec.ts": "sha256:2f9804c11ebb83cf0805eb90457fdefd6484fd6aa4aa161919e66bf5b7f27ac1",
+    "web/e2e/agent-studio.spec.ts": "sha256:1310615c19cc342c53d7b0c075cd8bbb328efc7e884baa52ec29f1d689b2a012",
+    "tests/database/test_agent_publication_atomicity.py": "sha256:ba956a645b681c9d4a442f9114ab520bde7f45b1002ed7312d556fda3e864a24"
+  },
+  "critic_iteration_1": {
+    "verdict": "changes_requested",
+    "artifact": "docs/agent-studio-prd/reports/as-06-critic-verdict-iteration-1.md",
+    "findings": ["C-01", "C-02", "C-03", "C-04", "C-05"]
+  },
+  "actor_iteration_2": {
+    "status": "changes_requested",
+    "claimed_findings_closed": ["C-01", "C-02", "C-03", "C-04", "C-05"],
+    "oracle_status": "failing_until_critic_approval"
+  },
+  "critic_iteration_2": {
+    "verdict": "changes_requested",
+    "artifact": "docs/agent-studio-prd/reports/as-06-critic-verdict-iteration-2.md",
+    "closed_findings": ["C-01", "C-02", "C-03", "C-04"],
+    "open_findings": ["C-05", "C-06"],
+    "reproducer": {
+      "readiness_revalidator_calls": 0,
+      "publish_wrong_write_counts": [1, 1, 1, 1],
+      "rollback_pointer_changed": true,
+      "rollback_event_count": 3,
+      "rollback_request_count": 3
+    }
+  },
+  "actor_iteration_3": {
+    "status": "changes_requested",
+    "claimed_findings_closed": ["C-05", "C-06"],
+    "focused_readiness_tests": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "publish_readiness_callback_calls": 1,
+      "publish_zero_write_counts": [0, 0, 0, 0],
+      "rollback_readiness_callback_calls": 1,
+      "rollback_pointer_and_counts_unchanged": true
+    },
+    "oracle_status": "failing_until_critic_approval"
+  },
+  "critic_iteration_3": {
+    "verdict": "changes_requested",
+    "artifact": "docs/agent-studio-prd/reports/as-06-critic-verdict-iteration-3.md",
+    "closed_findings": ["C-01", "C-02", "C-03", "C-04", "C-05", "C-06"],
+    "open_findings": ["C-07"],
+    "reproducer": {
+      "concurrent_example_update": "UPDATE 1",
+      "manifest_changed": true,
+      "publish_wrong_write_counts": [1, 1, 1, 1]
+    }
+  },
+  "actor_iteration_4": {
+    "status": "approved",
+    "claimed_findings_closed": ["C-07"],
+    "focused_manifest_lock_tests": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "mutation_kinds": ["update", "insert"],
+      "mutations_blocked_until_publish_commit": true
+    },
+    "required_publish_gate": {
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0
+    },
+    "oracle_status": "failing_until_critic_approval"
+  },
+  "critic_iteration_4": {
+    "verdict": "approved",
+    "artifact": "docs/agent-studio-prd/reports/as-06-critic-verdict-iteration-4.md",
+    "closed_findings": ["C-07"],
+    "new_material_findings": [],
+    "source_fingerprints_matched": 13,
+    "focused_manifest_lock_tests_passed": 2,
+    "required_publish_gate_passed": 35,
+    "skipped": 0
+  },
+  "supported_claim_check": {
+    "result": "passed",
+    "exit_code": 0,
+    "structure_score": 100,
+    "scope": "metadata_consistency_only"
+  },
+  "non_passing_attempts": [
+    "The first focused C-06 invocation failed 2/2 because the PostgreSQL test helper had not supplied the now-required readiness proof; the helper was corrected and the focused rerun passed 2/2.",
+    "The first iteration-3 live provider-free browser attempt failed before Agent work because VITE_API_URL caused a cross-origin direct request and the app cleared auth after the network failure; same-origin VITE_API_BASE_URL=/ fixed the harness and the final live run passed 1/1.",
+    "The first iteration-4 isolation attempt ran against freshly recreated release-image code and failed 2/6 because that image did not activate the current source stub path; after hot-syncing current source into the same provider-blank containers, the required rerun passed 6/6 with zero skips."
+  ],
+  "claims_not_made": [
+    "production model quality",
+    "production thresholds or waiver readiness",
+    "external-provider success",
+    "production deployment",
+    "Hosted, Embed, or Runtime API delivery",
+    "AS-09 whole-demand completion"
+  ]
+}

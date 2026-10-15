@@ -1,0 +1,50 @@
+{
+  "domain": "identity-and-access-management",
+  "passed": true,
+  "system": "openclaw",
+  "task_id": "security.tenant_access_review",
+  "turns": [
+    {
+      "duration_seconds": 12.345,
+      "metadata": {
+        "model": "qwen3.7-plus",
+        "provider": "dashscope",
+        "session_id_sha256": "6600d7ae4735624ec52ae7a118442194f826471ad2bba98484b0806d234503ed",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "usage": {
+          "cacheRead": 14848,
+          "input": 848,
+          "output": 1022,
+          "total": 16718
+        }
+      },
+      "ordinal": 1,
+      "output": "```json\n{\n  \"allowed_request_ids\": [\"R1\", \"R4\", \"R6\"],\n  \"denied\": [\n    {\n      \"request_id\": \"R2\",\n      \"reason\": \"cross_tenant_scope\"\n    },\n    {\n      \"request_id\": \"R3\",\n      \"reason\": \"approval_required\"\n    },\n    {\n      \"request_id\": \"R5\",\n      \"reason\": \"capability_not_allowed\"\n    }\n  ]\n}\n```",
+      "output_sha256": "536a57a65ff376434320d4b9f2d7e6a722be79cbbbc6a5125724c8d09a34e396",
+      "parsed_output": {
+        "allowed_request_ids": [
+          "R1",
+          "R4",
+          "R6"
+        ],
+        "denied": [
+          {
+            "reason": "cross_tenant_scope",
+            "request_id": "R2"
+          },
+          {
+            "reason": "approval_required",
+            "request_id": "R3"
+          },
+          {
+            "reason": "capability_not_allowed",
+            "request_id": "R5"
+          }
+        ]
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "stop"
+    }
+  ]
+}

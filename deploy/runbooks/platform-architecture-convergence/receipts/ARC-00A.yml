@@ -1,0 +1,18 @@
+package_id: ARC-00A
+state: verified
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [docs/architecture/baselines/**, docs/architecture/ADR-008-bounded-contexts-no-new-services.md, deploy/runbooks/**, scripts/inventory/**]
+commits: [30f426ad, 8f42d655, 2d6fe909, eb4dc048, fa8dd66a, 8a42cb1a]
+contracts_compared: [service topology, data access, LOC, dependencies, skips, OpenAPI/SSE/runtime freeze]
+commands:
+  - {command: "python3 scripts/inventory/generate_baselines.py --verify", exit_code: 0, passed: 6, failed: 0, skipped: 0}
+  - {command: "make architecture-boundary-gate", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "make harness-check", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: NOT_REQUIRED
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+remaining_risks: []

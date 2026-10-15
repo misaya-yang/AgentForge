@@ -1,0 +1,5 @@
+{
+  "schema_version": "ai-platform/evidence-manifest/v1",
+  "policy": "deploy/evidence/policy.json",
+  "entries": []
+}

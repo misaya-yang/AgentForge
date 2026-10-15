@@ -1,0 +1,13 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v1",
+  "lifecycle": "superseded",
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 9,
+  "status": "superseded",
+  "last_decision": "The stop-safety slice and concurrent performance/security work passed the combined correctness gate: 477 Gateway/Assistant tests, 873 Knowledge tests, changed-file Ruff, Web build and 35/36 container Playwright with one unconfigured Playground skip. In-app browser cancellation closed a running docgen tool as SIDE_EFFECT_UNKNOWN and the same session continued without HTTP 400. Native-agent quality remains 5/8 raw and is not claimed complete.",
+  "next_action": "None. The Python execution-path program is superseded by agent-runtime-full-rust-cutover. Preserve its verified evidence; any remaining complex-task quality gap requires a new Rust-runtime plan and current baseline.",
+  "superseded_by": "agent-runtime-full-rust-cutover",
+  "blockers": [],
+  "updated_at": "2026-08-17T12:43:25-04:00"
+}

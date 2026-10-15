@@ -1,0 +1,746 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:is(.dark *));
+
+@utility container {
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (width >= --theme(--breakpoint-sm)) {
+    max-width: none;
+  }
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+@theme {
+  --font-sans:
+    'Geist Sans', 'Geist', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+  --font-arabic: 'Noto Naskh Arabic', 'Traditional Arabic', serif;
+  --font-assistant:
+    'Geist Sans', 'Geist', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei',
+    system-ui, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+
+  /* Carbon Indigo neutral ramp. Tailwind slate/gray/zinc utilities all
+     resolve through this one scale so legacy components follow the theme. */
+  --color-slate-50: #f7f7f9;
+  --color-slate-100: #f0f1f4;
+  --color-slate-200: #dcdde2;
+  --color-slate-300: #c3c4ca;
+  --color-slate-400: #9598a2;
+  --color-slate-500: #62656e;
+  --color-slate-600: #4a4c54;
+  --color-slate-700: #34353e;
+  --color-slate-800: #202128;
+  --color-slate-900: #17181d;
+  --color-slate-950: #0f1013;
+
+  --color-gray-50: var(--color-slate-50);
+  --color-gray-100: var(--color-slate-100);
+  --color-gray-200: var(--color-slate-200);
+  --color-gray-300: var(--color-slate-300);
+  --color-gray-400: var(--color-slate-400);
+  --color-gray-500: var(--color-slate-500);
+  --color-gray-600: var(--color-slate-600);
+  --color-gray-700: var(--color-slate-700);
+  --color-gray-800: var(--color-slate-800);
+  --color-gray-900: var(--color-slate-900);
+  --color-gray-950: var(--color-slate-950);
+
+  --color-zinc-50: var(--color-slate-50);
+  --color-zinc-100: var(--color-slate-100);
+  --color-zinc-200: var(--color-slate-200);
+  --color-zinc-300: var(--color-slate-300);
+  --color-zinc-400: var(--color-slate-400);
+  --color-zinc-500: var(--color-slate-500);
+  --color-zinc-600: var(--color-slate-600);
+  --color-zinc-700: var(--color-slate-700);
+  --color-zinc-800: var(--color-slate-800);
+  --color-zinc-900: var(--color-slate-900);
+  --color-zinc-950: var(--color-slate-950);
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --radius-lg: var(--radius-lg);
+  --radius-md: var(--radius-md);
+  --radius-sm: var(--radius-sm);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility status-pulse {
+  animation: pulse-status 2s ease-in-out infinite;
+}
+
+@utility status-online {
+  background: hsl(var(--success));
+  animation: pulse-status 2s ease-in-out infinite;
+}
+
+@utility stagger-item {
+  /* Staggered reveal: set --stagger-i via style attr on each child */
+  opacity: 0;
+  animation: stagger-in 0.35s var(--ease-out) both;
+  animation-delay: calc(var(--stagger-i, 0) * 80ms);
+}
+
+@utility table-row-enter {
+  /* Table row reveal */
+  opacity: 0;
+  animation: row-enter 0.3s var(--ease-out) both;
+  animation-delay: calc(var(--stagger-i, 0) * 50ms);
+}
+
+@utility animate-fade-in {
+  animation: fadeIn 0.2s var(--ease-out);
+}
+
+@utility animate-slide-up {
+  animation: slideUp 0.25s var(--ease-out);
+}
+
+@utility page-transition {
+  animation: pageEnter 0.2s var(--ease-out);
+}
+
+@layer components {
+  .ui-page {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+
+  .ui-page-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .ui-tabs-rail {
+    display: flex;
+    align-items: center;
+  }
+
+  .ui-tabs-rail,
+  .ui-scroll-affordance {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .ui-tabs-rail::-webkit-scrollbar,
+  .ui-scroll-affordance::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ui-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-md);
+    background: hsl(var(--border));
+  }
+
+  .ui-summary-strip > * {
+    min-width: 0;
+    background: hsl(var(--card));
+  }
+
+  .ui-empty-state {
+    display: flex;
+    min-height: 260px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 36px 20px;
+    text-align: center;
+  }
+
+  .ui-workspace {
+    min-height: 0;
+    height: calc(100vh - var(--workspace-header-height));
+    height: calc(100dvh - var(--workspace-header-height));
+  }
+
+  .ui-focus-surface:focus-within {
+    border-color: hsl(var(--focus-ring-strong) / 0.55);
+    box-shadow: 0 0 0 3px hsl(var(--focus-ring-strong) / 0.12);
+  }
+}
+
+@media (max-width: 640px) {
+  .ui-tabs-rail,
+  .ui-scroll-affordance {
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
+  }
+
+  .ui-tabs-rail::-webkit-scrollbar,
+  .ui-scroll-affordance::-webkit-scrollbar {
+    display: block;
+    height: 3px;
+  }
+
+  .ui-tabs-rail > *,
+  .ui-scroll-affordance > * {
+    scroll-snap-align: start;
+  }
+
+  .ui-tabs-rail [role="tab"],
+  .ui-scroll-affordance [role="tab"],
+  .ui-tabs-rail > button {
+    min-height: 40px;
+  }
+
+  .knowledge-type-rail .ant-segmented-item,
+  .knowledge-type-rail .ant-segmented-item-label {
+    min-height: 40px;
+  }
+
+  .knowledge-type-rail .ant-segmented-item-label {
+    line-height: 40px;
+  }
+
+  .ui-page-toolbar {
+    align-items: stretch;
+  }
+
+  .ui-page-toolbar > * {
+    max-width: 100%;
+  }
+
+  .ui-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ui-empty-state {
+    min-height: 220px;
+    padding: 28px 14px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   AI Gateway — professional operations console
+   Carbon neutrals with indigo product chrome
+   ═══════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    --background: 240 14% 97%;
+    --foreground: 228 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 10% 10%;
+
+    --primary: 240 60% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 225 15% 95%;
+    --secondary-foreground: 228 10% 10%;
+
+    --muted: 225 15% 95%;
+    --muted-foreground: 225 6% 41%;
+
+    --accent: 240 60% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 64% 56%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 156 51% 37%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 33 63% 40%;
+    --warning-foreground: 34 58% 13%;
+
+    --border: 230 9% 88%;
+    --input: 230 9% 88%;
+    --ring: 240 60% 60%;
+
+    --radius: 0.5rem;
+    --transition-fast: 150ms;
+    --transition-normal: 200ms;
+
+    --sidebar-bg: 0 0% 100%;
+
+    --assistant-canvas-bg: 240 14% 97%;
+    --assistant-surface-bg: 0 0% 100%;
+    --assistant-surface-soft: 225 15% 95%;
+    --assistant-text-primary: 228 10% 10%;
+    --assistant-text-secondary: 225 6% 41%;
+    --assistant-text-tertiary: 226 5% 45%;
+    --assistant-border: 230 9% 88%;
+    --assistant-border-soft: 228 12% 92%;
+    --assistant-accent: 240 60% 60%;
+    --assistant-accent-soft: 240 100% 96%;
+    --assistant-chip-bg: 225 15% 95%;
+    --assistant-user-bubble: 240 100% 96%;
+    --assistant-shadow: 0 1px 2px rgba(23,24,28,.04), 0 4px 24px rgba(23,24,28,.04);
+    --assistant-shadow-lift: 0 2px 8px rgba(23,24,28,.06), 0 12px 40px rgba(23,24,28,.08);
+  }
+
+  .dark {
+    --background: 225 12% 7%;
+    --foreground: 240 5% 96%;
+
+    --card: 230 12% 10%;
+    --card-foreground: 240 5% 96%;
+
+    --popover: 233 11% 14%;
+    --popover-foreground: 240 5% 96%;
+
+    --primary: 240 100% 82%;
+    --primary-foreground: 225 12% 7%;
+
+    --secondary: 233 11% 14%;
+    --secondary-foreground: 240 5% 96%;
+
+    --muted: 233 11% 14%;
+    --muted-foreground: 233 6% 69%;
+
+    --accent: 240 100% 82%;
+    --accent-foreground: 225 12% 7%;
+
+    --destructive: 2 80% 71%;
+    --destructive-foreground: 225 12% 7%;
+
+    --success: 149 42% 59%;
+    --success-foreground: 225 12% 7%;
+
+    --warning: 36 61% 62%;
+    --warning-foreground: 225 12% 7%;
+
+    --border: 234 9% 22%;
+    --input: 234 9% 22%;
+    --ring: 240 100% 82%;
+
+    --sidebar-bg: 225 12% 7%;
+
+    --assistant-canvas-bg: 225 12% 7%;
+    --assistant-surface-bg: 230 12% 10%;
+    --assistant-surface-soft: 233 11% 14%;
+    --assistant-text-primary: 240 5% 96%;
+    --assistant-text-secondary: 233 6% 69%;
+    --assistant-text-tertiary: 226 5% 51%;
+    --assistant-border: 234 9% 22%;
+    --assistant-border-soft: 233 10% 18%;
+    --assistant-accent: 240 100% 82%;
+    --assistant-accent-soft: 240 28% 22%;
+    --assistant-chip-bg: 233 11% 14%;
+    --assistant-user-bubble: 240 28% 22%;
+    --assistant-shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 24px rgba(0,0,0,.35);
+    --assistant-shadow-lift: 0 2px 8px rgba(0,0,0,.4), 0 12px 40px rgba(0,0,0,.55);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
+  }
+
+  /* Arabic text — font only, never force direction via CSS */
+  .font-arabic {
+    font-family: var(--font-arabic);
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  .font-assistant {
+    font-family: var(--font-sans);
+  }
+
+  .assistant-v2 { background: hsl(var(--assistant-canvas-bg)); color: hsl(var(--assistant-text-primary)); }
+  .assistant-v2 .assistant-copy { color: hsl(var(--assistant-text-primary)); }
+  .assistant-v2 .assistant-copy a { color: hsl(var(--assistant-accent)); text-decoration-color: hsl(var(--assistant-accent) / 0.3); }
+  .assistant-v2 .assistant-copy a:hover { text-decoration-color: hsl(var(--assistant-accent)); }
+  .assistant-v2 .assistant-copy code {
+    color: hsl(var(--assistant-text-primary));
+    background: hsl(var(--assistant-chip-bg));
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.875em;
+  }
+
+  /* Typography hierarchy */
+  h1 { @apply text-2xl font-semibold tracking-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-lg font-medium; }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important; transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Ant Design overrides — aligned to steel/amber
+   ═══════════════════════════════════════════ */
+
+/* Button micro-interactions: scale(0.98) on active, color-deepen on hover */
+.ant-btn {
+  transition: color var(--transition-normal) var(--ease-out), background-color var(--transition-normal) var(--ease-out), border-color var(--transition-normal) var(--ease-out), box-shadow var(--transition-normal) var(--ease-out), transform var(--transition-fast) var(--ease-out), opacity var(--transition-normal) var(--ease-out) !important;
+  border-radius: var(--radius-sm) !important;
+  transform-origin: center;
+}
+.ant-btn:active:not(:disabled) { transform: scale(0.98) !important; }
+.ant-btn-lg { border-radius: var(--radius-md) !important; }
+.ant-btn-sm { border-radius: var(--radius-sm) !important; }
+
+/* Primary button — one unmistakable action level */
+.ant-btn-primary:not(.ant-btn-dangerous) {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: 1px solid hsl(var(--primary)) !important;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08) !important;
+  font-weight: 500 !important;
+}
+.ant-btn-primary:not(.ant-btn-dangerous):hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.9) !important;
+  border-color: hsl(var(--primary) / 0.9) !important;
+}
+.dark .ant-btn-primary:not(.ant-btn-dangerous) {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+.dark .ant-btn-primary:not(.ant-btn-dangerous):hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.9) !important;
+  border-color: hsl(var(--primary) / 0.9) !important;
+}
+/* Danger button */
+.ant-btn-dangerous.ant-btn-primary {
+  background: hsl(var(--destructive) / 0.08) !important;
+  color: hsl(var(--destructive)) !important;
+  border: 1px solid hsl(var(--destructive) / 0.15) !important;
+  box-shadow: none !important;
+}
+.ant-btn-dangerous.ant-btn-primary:hover:not(:disabled) {
+  background: hsl(var(--destructive) / 0.14) !important;
+  border-color: hsl(var(--destructive) / 0.25) !important;
+}
+
+/* Card — subtle border, hover darken.
+   No !important on background/color: antd Card users must be able to
+   override them per-card (selection states, highlights). */
+.ant-card {
+  transition: border-color var(--transition-fast) var(--ease-out) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: none;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+.ant-card:hover { border-color: hsl(var(--primary) / 0.15) !important; }
+
+/* Descriptions — table contrast & theme sync */
+.ant-descriptions-bordered {
+  border-color: hsl(var(--border)) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+}
+.ant-descriptions-bordered .ant-descriptions-item-label {
+  background: hsl(var(--muted) / 0.45) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  font-weight: 500;
+}
+.ant-descriptions-bordered .ant-descriptions-item-content {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Input — steel focus glow matching product chrome */
+.ant-input, .ant-input-affix-wrapper, .ant-select-selector { border-radius: var(--radius-sm) !important; }
+.ant-input:focus, .ant-input-focused, .ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: hsl(var(--primary) / 0.5) !important;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.10) !important;
+}
+
+/* Modal */
+.ant-modal-content { border-radius: var(--radius-lg) !important; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.10) !important; }
+.ant-modal-header { border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important; }
+.ant-modal-footer { border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important; }
+
+/* Dropdown */
+.ant-dropdown-menu { border-radius: var(--radius-md) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important; padding: 4px !important; }
+.ant-dropdown-menu-item { border-radius: 4px !important; margin: 1px 0 !important; }
+
+/* Tag */
+.ant-tag { border-radius: var(--radius-sm) !important; border: none !important; font-weight: 500; }
+
+/* Table — row reveal animation */
+.ant-table-tbody > tr {
+  transition: background var(--transition-fast) var(--ease-out) !important;
+}
+.ant-table-tbody > tr:hover > td { background: hsl(var(--primary) / 0.04) !important; }
+
+/* Pagination */
+.ant-pagination-item-active { background: hsl(var(--primary) / 0.08) !important; border-color: hsl(var(--primary) / 0.20) !important; }
+.ant-pagination-item-active a { color: hsl(var(--primary)) !important; }
+
+/* Tooltip */
+.ant-tooltip-inner { border-radius: var(--radius-sm) !important; }
+
+/* Segmented */
+.ant-segmented { border-radius: var(--radius-md) !important; padding: 2px !important; }
+.ant-segmented-item { border-radius: var(--radius-sm) !important; }
+
+/* Message — slide in from top-right */
+.ant-message-notice-content { border-radius: var(--radius-md) !important; }
+
+/* Switch */
+.ant-switch { transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out) !important; }
+
+/* Tabs */
+.ant-tabs-ink-bar { transition: left 0.2s var(--ease-out), width 0.2s var(--ease-out) !important; }
+
+/* ═══════════════════════════════════════════
+   Focus ring — steel product focus
+   ═══════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ═══════════════════════════════════════════
+   Scrollbar
+   ═══════════════════════════════════════════ */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.18); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.30); }
+* { scrollbar-width: thin; scrollbar-color: hsl(var(--muted-foreground) / 0.18) transparent; }
+
+/* ═══════════════════════════════════════════
+   Keyframes — smooth exponential easing
+   ═══════════════════════════════════════════ */
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pageEnter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-status { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.08); } }
+
+/* Shimmer skeleton — replaces plain gray blocks */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.06) 40%,
+    hsl(var(--muted)) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes thinking-ring { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.25); } 50% { box-shadow: 0 0 0 4px hsl(var(--primary) / 0); } }
+.animate-thinking-ring { animation: thinking-ring 2s ease-in-out infinite; }
+@keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.animate-gradient-text { background-size: 200% 200%; animation: gradient-shift 3s ease infinite; }
+@keyframes step-enter { 0% { opacity: 0; transform: translateX(-6px); } 100% { opacity: 1; transform: translateX(0); } }
+.animate-step-enter { animation: step-enter 0.25s var(--ease-out) forwards; }
+
+/* Staggered reveal for lists */
+@keyframes stagger-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.animate-stagger { animation: stagger-in 0.3s var(--ease-out) both; }
+
+/* Table row reveal — left to right */
+@keyframes row-enter { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+/* Message slide up (new chat messages) */
+@keyframes msg-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.animate-msg-enter { animation: msg-enter 0.3s var(--ease-out) both; }
+
+/* ═══════════════════════════════════════════
+   Radix compat
+   ═══════════════════════════════════════════ */
+
+[data-radix-popper-content-wrapper] { z-index: var(--z-dropdown) !important; }
+[data-radix-select-content] { z-index: var(--z-dropdown) !important; }
+[data-radix-dialog-overlay] { z-index: var(--z-overlay) !important; }
+[data-radix-dialog-content] { z-index: var(--z-modal) !important; }
+[data-radix-tooltip-content] { z-index: var(--z-dropdown) !important; }
+[data-radix-dropdown-menu-content] { z-index: var(--z-dropdown) !important; }
+[data-radix-toast-viewport] { z-index: var(--z-modal) !important; }
+
+/* ═══════════════════════════════════════════
+   Dark mode border normalization
+   ═══════════════════════════════════════════ */
+
+.dark .ant-table-cell,
+.dark .ant-table-thead > tr > th,
+.dark .ant-table-tbody > tr > td,
+.dark .ant-select-selector,
+.dark .ant-input,
+.dark .ant-input-affix-wrapper,
+.dark .ant-card,
+.dark .ant-tabs-nav::before,
+.dark .ant-divider {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* ═══════════════════════════════════════════
+   Code blocks — line numbers, copy button ready
+   ═══════════════════════════════════════════ */
+
+.assistant-v2 pre {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--assistant-border));
+  background: hsl(var(--assistant-surface-soft));
+  overflow-x: auto;
+}
+
+.assistant-v2 pre code {
+  display: block;
+  padding: 14px 16px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  background: transparent;
+  border-radius: 0;
+  counter-reset: line;
+}
+
+/* Line numbers via counter */
+.assistant-v2 pre code .line::before,
+.assistant-v2 pre[data-line-numbers] code > span::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 2em;
+  margin-right: 1em;
+  text-align: right;
+  color: hsl(var(--assistant-text-secondary) / 0.4);
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+/* Blockquote styling */
+.assistant-v2 blockquote {
+  border-left: 3px solid hsl(var(--assistant-accent) / 0.5);
+  padding-left: 16px;
+  color: hsl(var(--assistant-text-secondary));
+  font-style: italic;
+  margin: 12px 0;
+}
+
+/* Streaming text fade-in animation */
+.streaming-fade-in > * {
+  animation: stream-appear 0.3s ease-out both;
+}
+@keyframes stream-appear {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}

@@ -1,0 +1,133 @@
+[
+  {
+    "name": "root_before_end",
+    "wire": "event: error\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\nevent: end\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": true
+  },
+  {
+    "name": "root_before_eof",
+    "wire": "event: error\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": true
+  },
+  {
+    "name": "root_partial_end",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: error\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\nevent: end\n\n",
+    "error": true,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "root_partial_eof",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: error\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\n",
+    "error": true,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "subgraph_before_end",
+    "wire": "event: error|worker:fixture|nested:fixture\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\nevent: end\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": true
+  },
+  {
+    "name": "subgraph_before_eof",
+    "wire": "event: error|worker:fixture|nested:fixture\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": true
+  },
+  {
+    "name": "subgraph_partial_end",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: error|worker:fixture|nested:fixture\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\nevent: end\n\n",
+    "error": true,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "subgraph_partial_eof",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: error|worker:fixture|nested:fixture\ndata: {\"error\":\"SyntheticProviderError\",\"message\":\"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}\n\n",
+    "error": true,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "error_malformed_body",
+    "wire": "event: error\ndata: not-json SYNTHETIC_PRIVATE_PROVIDER_DETAIL\n\nevent: end\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": false
+  },
+  {
+    "name": "error_empty_body",
+    "wire": "event: error\ndata:\n\nevent: end\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": false
+  },
+  {
+    "name": "wrapped_error",
+    "wire": "data: {\"event\": \"error\", \"data\": {\"error\": \"SyntheticProviderError\", \"message\": \"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}}\n\nevent: end\n\n",
+    "error": true,
+    "text": "",
+    "sdk_decode": true
+  },
+  {
+    "name": "wrapped_subgraph_error",
+    "wire": "event: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\ndata: {\"event\": \"error|worker:fixture\", \"data\": {\"error\": \"SyntheticProviderError\", \"message\": \"SYNTHETIC_PRIVATE_PROVIDER_DETAIL\"}}\n\ndata: [DONE]\n\n",
+    "error": true,
+    "text": "Partial answer",
+    "sdk_decode": false
+  },
+  {
+    "name": "custom_error_is_data",
+    "wire": "event: custom\ndata: {\"event\":\"error\",\"error\":\"user-domain-value\"}\n\nevent: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: end\n\n",
+    "error": false,
+    "text": "Partial answer",
+    "usage": {
+      "input_tokens": 7,
+      "output_tokens": 2
+    },
+    "sdk_decode": true
+  },
+  {
+    "name": "updates_error_is_data",
+    "wire": "event: updates\ndata: {\"worker\":{\"error\":\"handled-domain-value\"}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: end\n\n",
+    "error": false,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "error_prefix_is_custom",
+    "wire": "event: error_count\ndata: {\"count\":2}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\nevent: end\n\n",
+    "error": false,
+    "text": "Partial answer",
+    "sdk_decode": true
+  },
+  {
+    "name": "normal_done",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\ndata: [DONE]\n\n",
+    "error": false,
+    "text": "Partial answer",
+    "usage": {
+      "input_tokens": 7,
+      "output_tokens": 2
+    },
+    "sdk_decode": false
+  },
+  {
+    "name": "normal_eof",
+    "wire": "event: metadata\ndata: {\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: messages/partial\ndata: [{\"type\":\"AIMessageChunk\",\"content\":\"Partial answer\"}]\n\n",
+    "error": false,
+    "text": "Partial answer",
+    "usage": {
+      "input_tokens": 7,
+      "output_tokens": 2
+    },
+    "sdk_decode": true
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "scenario": "approval_saved",
+  "result": "PASS",
+  "evidence_kind": "real Qwen + controlled dev pause / SIGKILL or DB lock injection",
+  "original_identity": {
+    "runtime_thread_id": "01a0dc81-0631-72a2-806a-80a6c3447604",
+    "lease_id": "cf7a6dc8-724b-4d2b-a444-59bf76ce9af6",
+    "snapshot_id": "f930b178-009b-4407-aca3-55d8c2bccd3a",
+    "model_id": "qwen3.8-flash",
+    "snapshot_hash": "58f749581d4f1f6fddfb7afde767b279432cc446925cbcd6b18d3e169e4f3a3f",
+    "context_hash": "200dcec70ed6c3bb6d4f192f2882a35f411039a04d006021881bc7fa9e2a816d"
+  },
+  "run_id": "e62aa047-8d8b-4912-bb88-821d6d5a5555"
+}

@@ -1,0 +1,174 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "lifecycle": "superseded",
+  "goal": "Make the built-in AI Assistant an instance of AgentSpec and make the public runtime API the only contract every surface uses, so a new product form or capability can be added without changing the agent kernel.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 0,
+  "max_iterations": 12,
+  "last_result": "Program scaffolded from the platform architecture review on 2026-08-14. No implementation has started; every feature is still failing by definition.",
+  "next_action": "None \u2014 program superseded by the Rust kernel migration (agent-runtime-full-rust-cutover); see the note in superseded_by. Do not resume this loop without a new PRD.",
+  "blockers": [],
+  "confirmation": null,
+  "features": [
+    {
+      "id": "ACU-F001",
+      "phase_id": "ACU-00",
+      "description": "AgentSpec can declare mode, a permission ruleset, and a run budget, while existing capability bindings keep working unchanged.",
+      "steps": [
+        "Load an AgentSpec JSON that has no mode, permissions, or budget field.",
+        "Observe it still deserializes and resolves with mode defaulting to primary and an empty ruleset.",
+        "Load an AgentSpec that declares mode=subagent, a deny rule, and steps=8.",
+        "Observe the ruleset denies the matching tool and the budget is carried into the resolved spec."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F002",
+      "phase_id": "ACU-01",
+      "description": "The built-in assistant's behaviour is fully described by one exported default AgentSpec, and an agent created from that spec behaves the same.",
+      "steps": [
+        "Export the default assistant spec through the agents API.",
+        "Create a new agent from the exported spec.",
+        "Send the same prompt to the built-in assistant and to that agent.",
+        "Observe the same tool advertisement set, the same system prompt sections, and the same thinking policy."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F003",
+      "phase_id": "ACU-02",
+      "description": "Knowledge, skill, and execution settings are resolved from the agent spec, and a chat request only carries what an end user decides during the conversation.",
+      "steps": [
+        "Create an agent whose spec sets kb bindings, skills, and an execution profile.",
+        "Send a chat request that carries none of those fields.",
+        "Observe the run uses the spec's values.",
+        "Send a legacy request that still carries kb_top_k and observe it is honoured and reported as deprecated."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F004",
+      "phase_id": "ACU-03",
+      "description": "A subagent is described by an AgentSpec with mode=subagent rather than by bespoke dispatch code.",
+      "steps": [
+        "Define a subagent as an AgentSpec with mode=subagent and a restricted ruleset.",
+        "Spawn it from a parent run.",
+        "Observe the child honours its own ruleset and budget, and that depth limits and approval fail-closed behaviour are unchanged."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F005",
+      "phase_id": "ACU-04",
+      "description": "The web console reaches the assistant through the same public runtime contract an embedded widget uses.",
+      "steps": [
+        "Open the console assistant page and send a message.",
+        "Observe the network calls go to the public runtime endpoints, not to a console-only path.",
+        "Load the embed widget against the same agent and observe an equivalent event stream."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F006",
+      "phase_id": "ACU-05",
+      "description": "A client SDK can run an agent through the public runtime contract, including streaming and feedback, without gateway console credentials.",
+      "steps": [
+        "Use the SDK to fetch a public agent config by public id.",
+        "Start a streaming run and consume events to completion.",
+        "Submit feedback for that run.",
+        "Observe channel policy is enforced for a disallowed origin."
+      ],
+      "passes": false
+    },
+    {
+      "id": "ACU-F007",
+      "phase_id": "ACU-06",
+      "description": "Adding a surface or a capability is described by a document, and a gate fails when domain logic lands in the shared core package.",
+      "steps": [
+        "Read the adding-a-surface and adding-a-capability documents.",
+        "Follow them to register a trivial no-op surface and a trivial capability.",
+        "Add a domain module under packages/ai-gateway-core and observe make harness-check fails.",
+        "Remove it and observe the gate passes."
+      ],
+      "passes": false
+    }
+  ],
+  "phases": [
+    {
+      "id": "ACU-00",
+      "file": "phase-00-agentspec-carries-mode-permissions-and-budget.md",
+      "depends_on": [],
+      "status": "ready",
+      "evidence": [],
+      "review": "not_required"
+    },
+    {
+      "id": "ACU-01",
+      "file": "phase-01-the-assistant-is-a-default-agentspec.md",
+      "depends_on": [
+        "ACU-00"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "ACU-02",
+      "file": "phase-02-builder-settings-live-in-the-spec-not-the-request.md",
+      "depends_on": [
+        "ACU-01"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_required"
+    },
+    {
+      "id": "ACU-03",
+      "file": "phase-03-a-subagent-is-the-same-type-with-mode-subagent.md",
+      "depends_on": [
+        "ACU-00"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "ACU-04",
+      "file": "phase-04-one-runtime-contract-serves-every-surface.md",
+      "depends_on": [
+        "ACU-01"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "ACU-05",
+      "file": "phase-05-sdks-speak-the-public-runtime-contract.md",
+      "depends_on": [
+        "ACU-04"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_required"
+    },
+    {
+      "id": "ACU-06",
+      "file": "phase-06-adding-a-surface-or-capability-is-documented-and-gated.md",
+      "depends_on": [
+        "ACU-04"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_required"
+    }
+  ],
+  "superseded_by": "agent-runtime-full-rust-cutover (Rust single kernel owns the assistant loop); ACU-00 never started; its AgentSpec contract direction was overtaken by the single-kernel migration."
+}

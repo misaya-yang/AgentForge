@@ -1,0 +1,18 @@
+{
+  "provenance": "Source-derived fixture from task_storage.rs result_format/saved_result; not a captured Rust execution",
+  "format": {"output_data_types": ["bytes", "json", "json", "json", "text", "none"]},
+  "value": {
+    "request_id": "fixture-request", "status": "success",
+    "outputs": [
+      {"type": "image", "data": [0, 255], "url": null, "mime_type": "image/png", "metadata": {"keep": "item"}},
+      {"type": "text", "data": [0, 255], "url": null, "mime_type": null, "metadata": null},
+      {"type": "text", "data": "AP8=", "url": null, "mime_type": null, "metadata": null},
+      {"type": "text", "data": null, "url": null, "mime_type": null, "metadata": null},
+      {"type": "text", "data": "AP8=", "url": null, "mime_type": null, "metadata": null},
+      {"type": "text", "data": null, "url": null, "mime_type": null, "metadata": null}
+    ],
+    "session_id": "fixture-session", "task_id": "fixture-task",
+    "usage": {"count": 1}, "error": null, "metadata": {"keep": "response"},
+    "timestamp": "2026-10-12T12:30:01+05:30"
+  }
+}

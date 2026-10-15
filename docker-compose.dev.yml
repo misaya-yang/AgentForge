@@ -1,0 +1,34 @@
+# Development override for editing backend services without rebuilding images.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml \
+#     -f docker-compose.dev.yml --env-file .env up -d --build \
+#     gateway knowledge-service knowledge-worker agent-runtime agent-capability-worker
+#
+# The base compose file remains the production-like quickstart. This override
+# bind-mounts source and runs uvicorn with --reload for local iteration.
+
+services:
+  gateway:
+    command:
+      ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    volumes:
+      - ./src:/app/src
+      - ./database:/app/database
+      - ./config:/app/config
+      - ./packages/ai-gateway-contracts/src/ai_gateway_contracts:/opt/venv/lib/python3.12/site-packages/ai_gateway_contracts
+      - ./packages/ai-gateway-core/src/ai_gateway_core:/opt/venv/lib/python3.12/site-packages/ai_gateway_core
+
+  knowledge-service:
+    command:
+      ["python", "-m", "uvicorn", "knowledge_service.main:app", "--host", "0.0.0.0", "--port", "8092", "--reload"]
+    volumes:
+      - ./apps/knowledge-service/src/knowledge_service:/opt/venv/lib/python3.12/site-packages/knowledge_service
+      - ./packages/ai-gateway-contracts/src/ai_gateway_contracts:/opt/venv/lib/python3.12/site-packages/ai_gateway_contracts
+      - ./packages/ai-gateway-core/src/ai_gateway_core:/opt/venv/lib/python3.12/site-packages/ai_gateway_core
+
+  knowledge-worker:
+    volumes:
+      - ./apps/knowledge-service/src/knowledge_service:/opt/venv/lib/python3.12/site-packages/knowledge_service
+      - ./packages/ai-gateway-contracts/src/ai_gateway_contracts:/opt/venv/lib/python3.12/site-packages/ai_gateway_contracts
+      - ./packages/ai-gateway-core/src/ai_gateway_core:/opt/venv/lib/python3.12/site-packages/ai_gateway_core

@@ -1,0 +1,41 @@
+{
+  "schema_version": "codex-refresh-final-review/v1",
+  "reviewer": "upgrade_security_review",
+  "scope": [
+    "src/services/agent_runtime/model_plane.py HTTPError normalization",
+    "two wires: native Responses and Chat Completions",
+    "new pre-stream and mid-stream transport failure tests"
+  ],
+  "status": "PASS",
+  "blocking_findings": [],
+  "command": "uv run --all-packages --extra test pytest -q --no-cov tests/services/agent_runtime/test_model_plane.py -k 'provider_connect_error_returns_stable_private_error_without_retry or provider_read_error_emits_one_failed_terminal_and_preserves_unknown'",
+  "exit_code": 0,
+  "passed": 4,
+  "deselected": 47,
+  "model_plane_sha256": "be5e2f16250c95d361b0430b5c043d557583f127a9e5ef6a0a41815a2ee21a3d",
+  "assertions": [
+    "stable 502 before first event",
+    "one sequential response.failed after partial stream",
+    "preserve dispatched unknown ledger state",
+    "no automatic retry",
+    "no raw transport details"
+  ],
+  "limitations": [
+    "controlled transports and mocked ledger callbacks; actual PG evidence recorded separately",
+    "not a whole-repository security audit"
+  ],
+  "cold_resume_review": {
+    "status": "PASS",
+    "blocking_findings": [],
+    "command": "uv run --all-packages --extra test pytest -q --no-cov tests/services/agent_runtime/test_tool_policy.py::test_cold_verification_pins_gateway_route_without_authority_overrides tests/services/agent_runtime/test_tool_policy.py::test_thread_fingerprint_uses_catalog_ceiling_while_turn_selects_subset",
+    "exit_code": 0,
+    "passed": 2,
+    "thread_lifecycle_sha256": "94eeaccf8af523404e814e188d2bc183ec5a9c6d2bce28064a4cd6216283ba3c",
+    "checks": [
+      "explicit private Gateway model route on cold verification",
+      "stored instructions preserved",
+      "native search and toolPolicy overrides omitted",
+      "existing tenant scope authorization retained"
+    ]
+  }
+}

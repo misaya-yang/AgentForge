@@ -1,0 +1,157 @@
+name: Publish SDKs
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'  # Trigger on tags like sdk-v1.0.2
+
+jobs:
+  verify-sse-contract:
+    name: Verify shared SDK SSE contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        run: python -m pip install "uv==0.13.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.11.1'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Install Maven
+        run: sudo apt-get update && sudo apt-get install --yes maven
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Install CLI dependencies
+        run: npm --prefix sdk/cli ci
+      - name: Run shared SSE contract
+        env:
+          SDK_SSE_CONTRACT_REQUIRE_ALL: '1'
+        run: make sdk-sse-contract
+
+  publish-pypi:
+    name: Publish Python SDK to PyPI
+    needs: verify-sse-contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build
+        run: |
+          cd sdk/python
+          pip install build twine
+          python -m build
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: cd sdk/python && twine upload dist/*
+
+  publish-cli:
+    name: Publish ai-gateway-cli Linux x64 package to npm
+    needs: verify-sse-contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.11.1'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install & Build
+        run: |
+          cd sdk/cli
+          npm ci
+          npm run build
+      - name: Prepare pinned Codex source
+        shell: bash
+        run: |
+          source_url="$(python3 -c 'import json; print(json.load(open("deploy/agent-runtime-source/source-receipt.json"))["source"]["upstream_url"])')"
+          source_sha="$(python3 -c 'import json; print(json.load(open("deploy/agent-runtime-source/source-receipt.json"))["source"]["upstream_sha"])')"
+          source_dir="$RUNNER_TEMP/codex-harness"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin "$source_url"
+          git -C "$source_dir" fetch --depth=1 origin "$source_sha"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          echo "AI_PLATFORM_AGENT_RUNTIME_SOURCE=$source_dir" >> "$GITHUB_ENV"
+      - name: Build and verify composed native CLI
+        env:
+          AI_GATEWAY_CLI_PACKAGE_TARGETS: linux-x64
+        run: |
+          node sdk/cli/scripts/prepare-native-vendor.mjs linux-x64
+          scripts/harness/build_agent_runtime_cli_package.sh
+          npm --prefix sdk/cli run verify:native
+          cd sdk/cli
+          npm pack --dry-run
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          AI_GATEWAY_CLI_PACKAGE_TARGETS: linux-x64
+        run: |
+          cd sdk/cli
+          npm publish --access public
+
+
+  platformctl-matrix:
+    name: Resolve native platformctl package targets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: targets
+        name: Read the canonical platformctl target manifest
+        run: echo "matrix=$(python scripts/harness/package_platformctl.py --matrix)" >> "$GITHUB_OUTPUT"
+
+  build-platformctl:
+    name: Package platformctl (${{ matrix.name }})
+    needs: [verify-sse-contract, platformctl-matrix]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platformctl-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+      CARGO_TARGET_DIR: ${{ runner.temp }}/platformctl-target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+      - name: Build only the shared management client binary
+        shell: bash
+        run: cargo build --locked --release --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --bin platformctl --target '${{ matrix.rust_target }}'
+      - name: Verify native binary and create checksummed candidate archive
+        shell: bash
+        run: >-
+          python scripts/harness/package_platformctl.py
+          --target '${{ matrix.name }}'
+          --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
+          --output '${{ runner.temp }}/platformctl-package'
+      - name: Upload candidate package, checksum and source receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: platformctl-${{ matrix.name }}
+          path: ${{ runner.temp }}/platformctl-package/*
+          if-no-files-found: error
+          retention-days: 30

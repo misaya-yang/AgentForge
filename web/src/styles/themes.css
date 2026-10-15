@@ -1,0 +1,46 @@
+/* Surface & ink tokens — semantic layer above base colors */
+:root {
+  color-scheme: light;
+  --surface-canvas: var(--background);
+  --surface-panel: var(--card);
+  --surface-elevated: var(--popover);
+  --surface-hover: var(--muted);
+  --surface-selected: 240 100% 96%;
+  --surface-blocking: 0 68% 96%;
+  --ink-strong: var(--foreground);
+  --ink-muted: var(--muted-foreground);
+  --line-subtle: var(--border);
+  --accent-strong: var(--primary);
+  --accent-warm: 14 55% 59%;
+  --focus-ring-strong: var(--ring);
+  --page-gutter: 24px;
+  --workspace-header-height: 56px;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface-canvas: var(--background);
+  --surface-panel: var(--card);
+  --surface-elevated: var(--popover);
+  --surface-hover: var(--muted);
+  --surface-selected: 240 28% 22%;
+  --surface-blocking: 0 25% 18%;
+  --ink-strong: var(--foreground);
+  --ink-muted: var(--muted-foreground);
+  --line-subtle: var(--border);
+  --accent-strong: var(--primary);
+  --accent-warm: 14 69% 71%;
+  --focus-ring-strong: var(--ring);
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --page-gutter: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --page-gutter: 10px;
+  }
+}

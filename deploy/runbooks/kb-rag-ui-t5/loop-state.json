@@ -1,0 +1,200 @@
+{
+  "program": "kb-rag-ui-t5",
+  "title": "KB 升级 PRD · T5 前端切片（与后端 session 并行）",
+  "created": "2026-08-28",
+  "owner_session": "kb-frontend worktree",
+  "branch": "worktree-kb-frontend",
+  "base_ref": "worktree-kb-rag-upgrade@7a7fc3a",
+  "plan_file": "~/.claude/plans/iridescent-tickling-kahn.md",
+  "prd": "（后端 worktree 未提交）docs/plans/rag-upgrade-prd-2026-08.md + addendum",
+  "boundary": {
+    "owned": [
+      "web/src/pages/knowledge/**",
+      "web/src/api/knowledge.ts",
+      "web/src/api/eval.ts (KB 用法)",
+      "web/src/types/knowledge.ts",
+      "web/src/hooks/useKnowledge.ts",
+      "web/src/i18n/locales/*.json knowledge.* 段",
+      "web/e2e/knowledge-*.spec.ts"
+    ],
+    "forbidden": ["apps/", "src/（网关）", "database/", "Makefile", "harness.yml", "uv.lock", "PRD 文档", "另一 worktree 的任何写入"],
+    "docker_hot_update_migrations_live_ui": "串行，归后端 session 窗口"
+  },
+  "backend_dependencies": {
+    "D1": "list_documents SELECT 补 enabled/archived/阶段时间戳（阻塞 §5-#9/#4 全绿）",
+    "D2": "archived_reason 列 VARCHAR(255) vs schema 2000",
+    "D3": "反馈表+端点（§5-#25 前提）",
+    "D4": "文档/段落列表分页参数",
+    "D5": "迁移 100 遥测读端点（§5-#26 前提）",
+    "D6": "ChunkingConfigSchema（extra=forbid）字段集 < chunking.py 运行时字段集（extract_metadata、metadata_fields、normalize_whitespace、strip_html、page_marker、segmentation 等）——PUT /config 无法往返运行时字段，元数据抽取设置无法持久化；前端已按 allow-list 降级（C3），待 schema 扩宽",
+    "D7": "评测集用例删除端点缺失——工作台移除的用例只出本地列表，评测集侧保留；保存 toast 如实报告该计数（C7）",
+    "D8": "QA/hit-test 响应不暴露 trace_id——KB 路径无法走 createEvalExampleFromTrace，一键送评测集走 importEvalExamples 确定性 case_id（C7），待后端暴露后切换"
+  },
+  "notes": {
+    "unit_tests": "node --test 'web/src/**/*.test.ts'（package.json 无 test script，Node>=22.18 原生 strip-types）",
+    "type_check_gate_broken": [
+      "pnpm -C web type-check（tsc --noEmit 打 solution 式 tsconfig，files:[]）实际检查 0 个文件——main 上即已损坏，此前所有 type-check 绿均为空操作",
+      "真实命令：cd web && pnpm exec tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 6.0（TS 6.0.3；baseUrl 弃用告警需此旗标）",
+      "真实 tsc 下全库存量 98 个类型错误（assistant/eval/dashboard/chat 等，非本计划范围）",
+      "本计划纪律：KB 切片文件以真实 tsc 为准，不新增错误；修脚本文案属共享基建，越界，交由用户裁决",
+      "src/**/*.test.ts 报 node:* 模块缺型（全库惯例，node --test 运行不经 tsc），不计"
+    ],
+    "c1_findings": [
+      "上传对话框 rerank 默认 enabled=true，与平台默认 false 不一致——行为保持不动，C3 决策",
+      "e2e mockPreset 是服务端检索预设夹具（fast/balanced），非 UI 默认值复制，单一来源改造不涉及",
+      "hit-test scoreThreshold 初始 0（0=不过滤）与 fusionMethod 初始 weighted 为工作台语义，刻意保留",
+      "默认值按多数值收敛：wizard chunk 600→500、wizard threshold 0.2→0.3、hit-test denseWeight 0.5→0.7、types 死常量 alpha 0.75→0.7"
+    ],
+    "c2_debt_resolved_c8": [
+      "outline-solid→outline（C8，KB 切片最后一个真实 tsc 错误清零）",
+      "knowledge/** 全部 7 处 transition-all→属性列表（C8）"
+    ],
+    "c8_motion_scan": "check-source.sh 切片扫描 7 pass 1 fail（切片目录内无 prefers-reduced-motion 声明）——已核实 web/src/index.css:469-474 全局 reduce 规则对 * 折叠 animation/transition，切片动效（含 animate-spin）全覆盖；静态扫描只扫切片目录故挂 fail，不重复添加规则，如实记录"
+  },
+  "active_phase": null,
+  "iterations": [
+    {
+      "phase": "C1",
+      "date": "2026-08-28",
+      "scope": "types+默认值单一来源+deriveDisplayStatus",
+      "result": "done",
+      "evidence": "type-check/lint/build/i18n:check 绿；node --test 46/46（含 12 新测试）",
+      "changes": [
+        "types/knowledge.ts: DocumentStatus 补齐在网词表；+DocumentDisplayStatus/阶段时间戳/归档字段；+deriveDisplayStatus+resolveDisplayStatus（镜像后端 document_service 合同，未知态 fail-closed→indexing）",
+        "DEFAULT_CHUNKING/RETRIEVAL_CONFIG satisfies 化+基线值冻结（单测锁定）",
+        "默认值单一来源接入：DatasetDetail（hit-test/设置编辑/配置载入回退/展示回退）、DatasetCreate 向导、useDatasetUploadController",
+        "e2e mockPreset 不动（服务端预设夹具）"
+      ]
+    },
+    {
+      "phase": "C2",
+      "date": "2026-08-29",
+      "scope": "拆分 DatasetDetail.tsx（3934 行→349 行壳 + 7 个 detail/ 模块，纯搬运）",
+      "result": "done",
+      "evidence": "e2e:opensource 48/48（先修 C1 回归至绿）；node --test 46/46；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 下 KB 切片零新增错误（存量仅剩 outline-solid 一项挂账）",
+      "changes": [
+        "壳只留：数据集加载、?tab= 路由、页头/错误带、对话框开关态、共享 hit-test 束（≤350 行预算达标）",
+        "documents/retrieval/qa/settings/permissions 常驻挂载+hidden 切换（保留状态），eval/sources 维持条件挂载",
+        "修 C1 回归（因 type-check 门损坏漏网，e2e 捕获）：useDatasetUploadController 缺 DEFAULT_RETRIEVAL_CONFIG 导入（错误边界 ReferenceError）；satisfies 常量字面量泄漏进 useState（\"automatic\"/false 态破坏 setter/switch）——常量泄漏字段显式加宽 + 调用点窄化回 ChunkingMode",
+        "既有类型债（真实 tsc 首查暴露，均 type-level 零行为变化）：FILE_TYPE_CATEGORIES as-const、QA_MODEL_OPTIONS provider、RetrievalEvalWorkbench datasetId ?? \"\""
+      ]
+    },
+    {
+      "phase": "C3",
+      "date": "2026-08-29",
+      "scope": "配置有损保存修复（分块 REPLACE→allow-list 全量往返 / 检索深补丁 / 向导补 fusion / 上传对话框合同对齐）",
+      "result": "done",
+      "evidence": "e2e:opensource 48/48；node --test 48/48（+2 新）；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 98=存量基线，KB 切片零新增",
+      "changes": [
+        "api/knowledge.ts: updateDatasetConfig 按 PUT 语义定型——chunking_config=Record（schema extra=forbid 且字段超出本地类型），retrieval_config=RetrievalConfigPatch 深 partial；注释固化 replace vs patch 语义",
+        "types/knowledge.ts: +CHUNKING_CONFIG_API_FIELDS（后端 ChunkingConfigSchema allow-list 镜像，排除 regex_pattern）+SAFE_CHUNK_HEADING_PATTERNS+isSafeHeadingPatterns；单测锁定（负向探针含 regex_pattern/extract_metadata/metadata_fields）",
+        "SettingsTab 分块保存：预校验（regex 拦截/overlap<size 拦截）+ 存储配置经 allow-list 过滤往返再叠加编辑值（修 REPLACE 语义把运行时字段打回 schema 默认；regex_pattern 与非安全三元 heading_patterns 永不往返）",
+        "SettingsTab 检索保存：去掉硬编码 rrf_k:60（深合并保留存储值）+ 删恒等 modeMap",
+        "DatasetCreate 向导：index_config.retrieval 补 fusion（创建即整体存储，缺省会落 schema 默认）",
+        "上传对话框：开始上传前预校验（正则禁用/重叠规则镜像 ChunkingConfigSchema，不发字段的模式按 schema 默认 2000/300 计，hierarchical 子块规则）；元数据抽取改为只警告不可持久化（D6）不再进 config 载荷（此前会 422 整个配置更新）；嵌入选择同步数据集现值、仅变化时下发（修每次上传静默换模型）",
+        "决策：上传对话框 rerank 默认 ON 保持（用户可见控件，冻结基线纪律；patch 语义下不污染其他字段）"
+      ]
+    },
+    {
+      "phase": "C4",
+      "date": "2026-08-29",
+      "scope": "轮询条件化 + 300ms 防抖 + 409+Retry-After 列表读静默重试",
+      "result": "done",
+      "evidence": "e2e:opensource 48/48；node --test 48/48；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 98=存量基线",
+      "changes": [
+        "useDocuments refetchInterval 条件化：仅当存在 display_status ∈ {queuing,indexing} 的行时 2s 轮询（resolveDisplayStatus 双保险，未知态 fail-closed 继续轮询直至后端澄清）；空闲数据集零请求",
+        "useSegments：移除常驻 5s 轮询，改按需（打开面板按 staleTime 过期重取 + 变更后 invalidate）",
+        "+useDebouncedValue（hooks/useKnowledge 导出，默认 300ms）：文档搜索（客户端过滤）与段落搜索（直连服务端）接入；防抖值同时是 query key，手动 invalidate 改用同一变量防 key 漂移",
+        "withConflictRetry：列表读遇 409 带 Retry-After 等待（封顶 5s、默认 1s）重试一次，不弹错误带（并发生成切换）"
+      ]
+    },
+    {
+      "phase": "C5",
+      "date": "2026-08-29",
+      "scope": "段落操作面：单条开关（PATCH /status）+批量启停（/segments/batch/enable ≤500 部分成功）+全字段编辑（text/answer/keywords 一次往返）",
+      "result": "done",
+      "evidence": "新增 e2e/knowledge-segment-ops.spec.ts 4/4 + 既有 knowledge @mock 4/4（--grep @mock 共 8/8）；node --test 50/50（+2 parseSegmentKeywords）；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 98=存量基线，KB 切片零新增",
+      "changes": [
+        "api/knowledge.ts: updateSegment 改发 SegmentUpdateFields{text,answer?,keywords?}（PUT，extra=allow 下三字段一次往返，修 §5-#13 只发 text 丢 answer/keywords）；+setSegmentEnabled（PATCH /segments/{id}/status 为正式端点，POST /enable 仅兼容）；+batchSetSegmentsEnabled（POST /segments/batch/enable，segment_ids 1..500、enabled 双向、{success,updated,total} 部分成功）",
+        "types/knowledge.ts: +parseSegmentKeywords（ASCII/全角逗号、顿号切分，trim、去空、保序去重）",
+        "ChunkCard/SegmentList: 三种卡形态（父卡/叶卡/子卡）统一加 Switch（checked=enabled!==false，busy 时禁用）、批量勾选 Checkbox、已禁用琥珀徽章+正文降饱和+统计位 disabledCount；父卡头部点击展开，内嵌控件均 stopPropagation",
+        "DocumentsTab: 编辑对话框扩为 text+answer+keywords 三字段（打开时从已载段落回填，保存仅成功即关），关键词客户端校验镜像 SegmentUpdateSchema（≤100 个、每个 ≤256 字符）；批量条（全选当前页/已选计数/启用/禁用，选择>500 内联提示+提交前拦截）",
+        "部分成功语义：批量返回 updated<total 时 toast.warning 明示 {updated}/{total}，只有全成才 toast.success；单条开关失败弹错误 toast 且不吞状态",
+        "testid 合同（e2e 稳定锚点）：segment-switch-{id}/segment-select-{id}/segment-edit-{id}/segment-delete-{id}/segment-batch-toggle/segment-batch-bar/segment-batch-count/segment-disabled-count；segment-edit 用 testid 是因为页头另有\"编辑\"菜单，getByRole 会误中",
+        "切换文档/返回列表时清空段落选择与批量模式（selectDocument 收口）；新控件用合法 outline/default 变体（不碰 outline-solid 挂账）；Switch 默认尺寸即 24px 触控门槛",
+        "i18n: knowledge.segment 新增 27 键双语，全部进 i18n:check"
+      ]
+    },
+    {
+      "phase": "C6",
+      "date": "2026-08-29",
+      "scope": "文档生命周期面：启用/禁用开关（PATCH /status）+归档/恢复（PATCH /archive，原因≤255）+单文档重嵌 409\"已在队列\"+批量重建真实合同（上限 100/部分成功/全跳过 409 清单）",
+      "result": "done",
+      "evidence": "新增 e2e/knowledge-document-lifecycle.spec.ts 6/6 + 既有 @mock 8/8（--grep @mock 共 14/14）；node --test 50/50；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 98=存量基线，KB 切片零新增（仍只 outline-solid + 2 个 node:* 测试导入）",
+      "changes": [
+        "api/knowledge.ts: +reindexDocument（POST /reindex → {status, document_id}）；+setDocumentEnabled（PATCH /documents/{id}/status，正式端点，返回全文档）；+setDocumentArchived（PATCH /archive，{archived, reason?}，恢复时清 reason）；DOCUMENT_ARCHIVE_REASON_LIMIT=255（D2：DB 列 VARCHAR(255) vs schema 声称 2000，前端按列宽限流）；batchReindexDocuments 改型为真实合同 BatchReindexResult{status, document_count, queued_document_ids, skipped_document_ids}+DOCUMENT_BATCH_REINDEX_LIMIT=100（此前误型为 success_count/failed_count，运行时为 undefined）",
+        "DocumentRow: Switch（checked=enabled!==false；归档时禁用+switchArchivedHint；busyLifecycle 互斥）+归档/恢复图标按钮+已归档琥珀/已禁用 slate 徽章——徽章全部由 resolveDisplayStatus 驱动，对变更响应（带后端戳）与 D1 后的列表同样正确；停用行 bg-muted/30+标题降饱和；操作列 w-48→w-64 容纳开关+归档钮",
+        "DocumentsTab: handleToggleDocEnabled/confirmArchive/confirmUnarchive 用 pendingDocIds 互斥 + mergeDocumentIntoCache 把变更响应的全文档并进列表缓存（D1 前列接口缺 enabled/archived，响应先行点亮）；归档原因对话框（Textarea maxLength=255+计数器 archive-reason-count，超长走客户端 toast 不打后端）；恢复走 AlertDialog；单文档重嵌 409 → toast.warning 已在队列（不触发失败分支）；批量重建：客户端 >100 拦截（不发请求）+部分成功 toast.warning 已入队 N 个/跳过 M 个+全跳过 409 保持对话框打开并展示 batch-reindex-skipped 清单（可取消勾选重试）+422 转上限提示",
+        "testid 合同：doc-switch-{id}/doc-archive-{id}/doc-unarchive-{id}/doc-select-{id}/doc-reindex-{id}/doc-delete-{id}/doc-archived-badge-{id}/doc-disabled-badge-{id}/archive-reason-input/archive-reason-count/archive-confirm/unarchive-confirm/batch-reindex-skipped",
+        "D1 未落地纪律：列表行徽章在 D1 前仅对刚操作过的行准确（响应合并），mock e2e 模拟 D1 后的列表（fixture 带 enabled/archived/display_status），spec 头注释明示该依赖；409 测试把浏览器对预期非 2xx 的资源日志列入 allowedConsoleErrors",
+        "i18n: knowledge.detail/documentRow/status 新增 37 键双语，全部进 i18n:check"
+      ]
+    },
+    {
+      "phase": "C7",
+      "date": "2026-08-29",
+      "scope": "评测工作台用例持久化（§5-#22）+ JSONL 导入 + hit-test/QA 一键送评测集（§5-#23）",
+      "result": "done",
+      "evidence": "新增 e2e/knowledge-eval-cases.spec.ts 7/7 + 既有 @mock 14/14（--grep @mock 共 21/21，含 rag-eval 台架 eval 探针穿透修复）；node --test 65/65（+15 evalCaseStore）；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 100=存量 98+新测试文件 2 个 node:* 导入（全库惯例不计），KB 切片零真实新增",
+      "changes": [
+        "evalCaseStore.ts（新，纯模块可 node:test）：常量+PersistedEvalCase；findKbEvalDataset 按 metadata.kb_dataset_id 配对；exampleToEvalCase（input.query 空→丢弃，caseId 回退 example_id）；evalCaseToImportItem 恒发 validate_case 六字段；diffEvalCases 内容键=trim 后 query+排序 id（换序/空白不算变更）；FNV-1a 确定性 case id（kb-hit-{dataset}-{hash8}，空白归一）",
+        "kbEvalDataset.ts（新，运行时层）：resolveKbEvalDataset list→find→懒创建（读路径绝不创建）；sendRetrievalCaseToEvalDataset 走 skip_duplicates（按 metadata.case_id 去重）——hit-test 与 QA 共用 id 空间，先送者胜；重复送报跳过不复制",
+        "RetrievalEvalWorkbench：易失 useState→挂载即从关联评测集载入（loading/ready/error+重试）；保存用例按 diffEvalCases 分流——新 case_id 走 import(skip_duplicates) 并把 exampleId 回写本地、已改用例走 PATCH（载荷含完整六字段且 metadata 保留 case_id，否则后续 import 会当新用例）；从工作台移除的用例留在评测集（无删除端点，D7），toast 如实报计数；JSONL 导入对话框（Radix max-w-2xl）：parseGoldenJsonl/validateGoldenCases/importGoldenCasesInBatches 复用、8MB 文件上限、跳过重复开关默认开、校验错误内联（含\"以下用例校验未通过\"列表≤6 条）",
+        "RetrievalTab/QATab：\"送评测集\"按钮（testid send-hits-to-eval / send-qa-to-eval-{msg.id}）；QA 取 assistant 消息的 response.query+context_segments；toast 报新增/跳过数",
+        "计划偏差（已声明）：components/GoldenJsonlImport.tsx 是 antd+eval/styles.css（页面级作用于 eval 路由 chunk，KB 路由拿不到样式且用 antd message 而非 Radix toast）——改为 KB 设计语言的 Radix 对话框，复用 goldenImport.ts 纯函数，未重写解析/批量逻辑，计划意图满足",
+        "KB 路径无 trace_id（D8）：createEvalExampleFromTrace 不适用，kbEvalDataset.ts 注释固化，待后端暴露",
+        "跨台架回归修复：rag-eval 台架补 /**/api/v1/eval/** 空数据集路由——C7 工作台挂载即探针关联评测集，未 mock 会穿透真网关，401 清掉 mock 鉴权会话致页面被踢回仪表盘（全套回归捕获，单跑不可见）",
+        "testid 合同：save-eval-cases/eval-jsonl-import-open/eval-jsonl-textarea/eval-jsonl-file/eval-jsonl-skip-duplicates/eval-jsonl-submit/send-hits-to-eval/send-qa-to-eval-{id}；Radix toast aria-live 孪生 span 会同时命中标题与描述——e2e 标题断言用 exact:true、描述断言用全等文本",
+        "i18n: knowledge.eval 新增 25 键 + knowledge.detail 4 键，双语进 i18n:check"
+      ]
+    },
+    {
+      "phase": "C8",
+      "date": "2026-08-29",
+      "scope": "徽章/状态词汇渲染/多模态滤镜对齐/阶段耗时/动效纪律收敛 + i18n 收口",
+      "result": "done",
+      "evidence": "e2e @mock 21/21（全套回归）；node --test 73/73（+8 documentStages）；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 101 = C7 的 100 − 1（outline-solid 清零）+ 2（新测试文件 node:* 导入，惯例不计），KB 切片零真实错误；motion check-source.sh 切片扫描 7 pass 1 fail（见 notes.c8_motion_scan，全局 reduced-motion 规则已覆盖）",
+      "changes": [
+        "DocumentsTab: 状态筛选迁移到显示词表——state 改 \"all\"|DocumentDisplayStatus，过滤走 resolveDisplayStatus（与行徽章同一解析器，所见即所筛），选项由 DOCUMENT_DISPLAY_STATUS_VOCABULARY 顺序生成；旧 raw-status 四选项（completed/uploaded/processing/failed）连同 4 个仅此处使用的 i18n 键一并移除",
+        "DocumentsTab: 批量操作按钮 outline-solid→outline（KB 切片最后一个真实 tsc 错误清零；与相邻刷新钮 outline+bg-card 视觉一致；批量激活态仍走 default/primary）",
+        "documentStages.ts（新，纯模块可 node:test）：buildStageTimings 按 parsing/splitting/indexing 的 *_started_at 区间推导逐阶段耗时——缺起点跳过（部分数据不造阶段）、终点依次回退下一段起点→completed_at、时钟回拨钳零、无终点=running；formatStageDuration（<1s/Ns/Nm Ns/Nh NNm）；runningStageDurationMs；node:test 8 例（全管线/开尾 running/部分数据/回拨/非法时间戳）",
+        "DocumentRow: display ∈ {queuing,indexing} 且载荷带阶段时间戳的行在标题下渲染逐阶段耗时行（testid doc-stage-times-{id}，运行中阶段以 … 标记，2s 轮询自然刷新）；无时间戳保持 StatusBadge 粗进度=计划中的降级路径；+文档级 hit_count 徽章（有值即显，PRD §5-#16 显示侧，写入方属后端 T2，testid doc-hit-count-{id}）",
+        "ChunkCard/SegmentList: Chunk 本地类型补 hit_count 并在三处映射点透传；父卡/叶卡/子卡三形态 hit_count>0 显示 HitCountPill（Flame+计数，testid segment-hit-count-{id}，tooltip 全文）",
+        "Datasets.tsx: 类型滤镜移除 image/audio_video 滤镜项（PRD L689 text_only 现实——隐藏而非虚假解锁，注释固化复活方法）；存量多模态数据集卡片徽章保持真实渲染（getKBTypeIcon/getKBTypeLabelKey 不动，typeImageQA/typeAVSearch 键保留）；typeImage/typeAudioVideo 键删除",
+        "动效纪律：knowledge/** 7 处 transition-all→属性列表——选择卡/模式卡（边框+背景±ring）→ transition-colors 或 transition-[border-color,background-color,box-shadow]；向导步骤圆（色+背景+ring）→ transition-[color,background-color,box-shadow]；连接线→transition-colors；切片内 transition:all 归零",
+        "删除空转文件 detail/SegmentCard.tsx（C2 拆分遗留，全仓零引用）",
+        "i18n: +knowledge.displayStatus 组 7 键（显示词表标签单一来源，筛选器与 DocumentRow 徽章共用；原 knowledge.status.archived/disabled 迁入该组并删旧键）；+documentRow 4 键（stageParsing/stageSplitting/stageIndexing/hitCountTitle）；+segment.hitCountTitle；−detail 旧筛选 4 键、−datasets 多模态 2 键；双语进 i18n:check"
+      ]
+    },
+    {
+      "phase": "C9",
+      "date": "2026-08-29",
+      "scope": "前向合同 mock e2e 补全（display_status 戳优先级/阶段耗时/hit_count/显示词表筛选）+ D1–D8 依赖交付文档",
+      "result": "done",
+      "evidence": "新增 e2e/knowledge-forward-contract.spec.ts 4/4 + 既有 @mock 21/21（--grep @mock 共 25/25）；node --test 73/73；lint/build(oversizedRoutes=[])/i18n:check 绿；真实 tsc 101=存量 99+2 个测试文件 node:* 惯例不计，KB 切片零真实错误",
+      "changes": [
+        "knowledge-forward-contract.spec.ts（新）：四个合同测试——(1) display_status 戳胜过推导（completed+paused 戳的行不进\"可用\"筛选、只进\"已暂停\"），无戳行走推导回退（failed→\"失败\"），筛选器与徽章同一解析器；(2) 阶段时间戳只在活动行渲染逐阶段耗时（固定区间 解析 12s · 切分 34s + 运行中段 \\d+s…，共享基准时刻防秒界漂移），终态/无戳行零渲染；(3) hit_count 文档行徽章（7）+ 段落面板分块徽章（5），无遥测的分块不渲染；(4) 375px 移动端无横向滚动",
+        "DocumentsTab: 状态筛选触发器加 data-testid=doc-status-filter（工具栏三个 combobox，e2e 需稳定锚点）",
+        "reports/kb-rag-ui-t5/backend-dependency-handoff.md（新）：D1–D8 交付清单——阻塞级（D1 列表补列、D6 schema 字段集）与能力级（D2 列宽、D3 反馈、D4 分页、D5 遥测读端点、D7 用例删除、D8 trace_id）；每项含现状/前端兜底/点亮方式/验证入口；附前端合同面索引（api 客户端、前向渲染合同、e2e 台架清单与复跑命令、已知挂账）",
+        "纪律记录：D1 前列接口缺 enabled/archived，forward-contract fixture 即 D1 后的列表形状——mock 绿 ≠ 活栈绿，活栈验证在合并后串行窗口跑同一套件"
+      ]
+    }
+  ],
+  "blockers": [],
+  "lifecycle": "superseded",
+  "status": "superseded",
+  "active_feature": null,
+  "next_action": null,
+  "superseded_by": "agent-platform-vnext",
+  "superseded_at": "2026-09-07"
+}

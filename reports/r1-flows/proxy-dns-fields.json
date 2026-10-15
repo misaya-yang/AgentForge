@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/Users/yang/Library/Application Support/com.follow.clash/config.yaml",
+    "modified_at": 1790262962.8256876,
+    "dns_enabled": true,
+    "enhanced_mode": "fake-ip",
+    "fake_ip_filter_mode": "blacklist",
+    "fake_ip_range": "198.18.0.1/16",
+    "fake_ip_filter_count": 2,
+    "cdn_filter_present": false,
+    "tun_enabled": true,
+    "dns_hijack": [
+      "any:53"
+    ],
+    "dns_policy_host_keys": []
+  },
+  {
+    "path": "/Users/yang/Library/Application Support/clashmac/work/config.yaml",
+    "modified_at": 1784867809.281657,
+    "dns_enabled": true,
+    "enhanced_mode": "fake-ip",
+    "fake_ip_filter_mode": "blacklist",
+    "fake_ip_range": "198.18.0.1/16",
+    "fake_ip_filter_count": 6,
+    "cdn_filter_present": false,
+    "tun_enabled": null,
+    "dns_hijack": null,
+    "dns_policy_host_keys": []
+  }
+]

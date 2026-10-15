@@ -1,0 +1,14 @@
+[
+  {
+    "run_id": "e5dd2355-a4cc-4845-84d6-1b7f461bd378",
+    "status": "cancelled",
+    "outcome_uncertain": true,
+    "event_types": [
+      "cancelled",
+      "side_effect_unknown",
+      "side_effect_unknown",
+      "run_error"
+    ],
+    "tool_statuses": []
+  }
+]

@@ -1,0 +1,267 @@
+# =============================================================================
+# AI Gateway Helm Chart - Default Values
+# =============================================================================
+# Override with: helm install -f values-production.yaml
+# Gateway remains single-instance until scheduler leases are implemented.
+# =============================================================================
+
+global:
+  imageRegistry: "ghcr.io/YOUR-ORG"
+  imagePullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Gateway (Python backend)
+# -----------------------------------------------------------------------------
+gateway:
+  replicaCount: 1
+  image:
+    repository: ai-gateway
+    tag: latest
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilization: 70
+  probes:
+    # Liveness is process-only; readiness gates admission dependencies.
+    liveness:
+      path: /health/live
+      port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 30
+    readiness:
+      path: /health/ready
+      port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+  env:
+    GATEWAY_HOST: "0.0.0.0"
+    GATEWAY_PORT: "8080"
+    GATEWAY_DATABASE__ENABLED: "true"
+    GATEWAY_DATABASE__AUTO_INIT: "false"
+    GATEWAY_REDIS__ENABLED: "true"
+    GATEWAY_AUTHENTICATION__JWT__ENABLED: "true"
+    GATEWAY_AUTHENTICATION__JWT__ALGORITHMS: '["HS256"]'
+    GATEWAY_KNOWLEDGE__ENABLED: "true"
+    GATEWAY_KNOWLEDGE__QDRANT__ENABLED: "true"
+    GATEWAY_PROXY__ENABLED: "true"
+    GATEWAY_TASK_WORKER_CONCURRENCY: "2"
+    GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY: "2"
+    MAX_FILE_SIZE_MB: "50"
+
+# -----------------------------------------------------------------------------
+# Frontend (React + Nginx)
+# -----------------------------------------------------------------------------
+frontend:
+  replicaCount: 2
+  image:
+    repository: ai-gateway-web
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+
+# -----------------------------------------------------------------------------
+# Knowledge Base Service
+# -----------------------------------------------------------------------------
+knowledgeService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: knowledge-service
+    tag: latest
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 70
+  env:
+    KNOWLEDGE_APP__HOST: "0.0.0.0"
+    KNOWLEDGE_APP__PORT: "8092"
+    KNOWLEDGE_PROCESSING__WORKER_CONCURRENCY: "2"
+
+# -----------------------------------------------------------------------------
+# LangGraph Agents
+# -----------------------------------------------------------------------------
+# Each agent is built with `langgraph build -t <image>` and runs as an
+# independent LangGraph API server. Agents share PostgreSQL/Redis but use
+# separate databases/db-numbers for isolation. Add new agents by adding
+# entries to the agents map below.
+#
+# Build:  langgraph build -t generic-assistant-agent:latest
+# Scale:  --set langgraph.agents.assistant.autoscaling.maxReplicas=8
+# -----------------------------------------------------------------------------
+langgraph:
+  enabled: true
+  # Shared env for all agents
+  sharedEnv:
+    LANGSMITH_TRACING: "false"
+    LANGSMITH_API_KEY: ""
+    LANGGRAPH_CLOUD_LICENSE_KEY: ""
+
+  agents:
+    assistant:
+      enabled: true
+      image:
+        repository: generic-assistant-agent
+        tag: latest
+      replicaCount: 1
+      port: 8000
+      databaseName: langgraph_assistant
+      redisDb: "2"
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+      autoscaling:
+        enabled: true
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilization: 70
+      env: {}
+
+    customer:
+      enabled: true
+      image:
+        repository: financial-customer-agent
+        tag: latest
+      replicaCount: 1
+      port: 8000
+      databaseName: langgraph_customer
+      redisDb: "3"
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+      autoscaling:
+        enabled: true
+        minReplicas: 1
+        maxReplicas: 4
+        targetCPUUtilization: 70
+      env:
+        AI_GATEWAY_URL: "http://{{ .Release.Name }}-ai-gateway-gateway:8080"
+        USE_AI_GATEWAY: "true"
+
+# -----------------------------------------------------------------------------
+# PostgreSQL (in-cluster)
+# -----------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  image: postgres:16-alpine
+  storage: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# External database (used when postgresql.enabled=false)
+externalDatabase:
+  host: ""
+  port: 5432
+  user: postgres
+  database: gateway
+
+# -----------------------------------------------------------------------------
+# Redis (in-cluster)
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 2Gi
+  maxmemory: 512mb
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# External Redis (used when redis.enabled=false)
+externalRedis:
+  host: ""
+  port: 6379
+
+# -----------------------------------------------------------------------------
+# Qdrant (in-cluster)
+# -----------------------------------------------------------------------------
+qdrant:
+  enabled: true
+  image: qdrant/qdrant:latest
+  storage: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+# External Qdrant (used when qdrant.enabled=false)
+externalQdrant:
+  url: ""
+  apiKey: ""
+
+# -----------------------------------------------------------------------------
+# Ingress
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  host: gateway.example.com
+  tls:
+    enabled: false
+    secretName: ""
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+
+# -----------------------------------------------------------------------------
+# Secrets (set via --set or external secret manager)
+# -----------------------------------------------------------------------------
+secrets:
+  postgresPassword: ""
+  redisPassword: ""
+  jwtSecret: ""
+  dashscopeApiKey: ""
+
+# -----------------------------------------------------------------------------
+# Migration Job
+# -----------------------------------------------------------------------------
+migration:
+  enabled: true
+  backoffLimit: 3

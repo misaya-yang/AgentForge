@@ -1,0 +1,112 @@
+{
+  "schema_version": "agent-studio/as-09-build-and-manifest/v1",
+  "phase_id": "AS-09",
+  "feature_id": "AS-F010",
+  "generated_at": "2026-07-20T03:36:15+08:00",
+  "actor_status": "passed_critic_approved_completion_claim_passed",
+  "release_decision": "ready-but-not-deployed",
+  "accepted_run": {
+    "command": "make verify-agent-studio",
+    "started_at": "2026-07-19T19:25:20.438149+00:00",
+    "completed_at": "2026-07-19T19:33:21.542797+00:00",
+    "result": "reports/agent-studio/agent-studio-regression-v1-result.json",
+    "result_sha256": "1ac99751038f037060fd0ae633c19e9544d31daa25586038bc8abc77e0ee8a1b",
+    "status": "passed",
+    "required_gate_count": 39,
+    "executed_gate_count": 39,
+    "passed_gate_count": 39,
+    "failed_gate_count": 0,
+    "all_gate_skipped_counts_zero": true,
+    "all_recorded_log_sha256_values_verified": true,
+    "source_sha256": "2ffa4684a3055b123b51b779eef9321e0821c1940c2942c10b34a2c054f14115",
+    "source_stable": true
+  },
+  "manifest": {
+    "path": "tests/fixtures/agent-studio/regression_manifest.json",
+    "schema_version": "agent-studio-regression/v1",
+    "version": "1.0.0",
+    "sha256": "6630592d04cf04b60e1dba1f42068fdfd3bd19a049c36dfff0ad3aafa057dc1d",
+    "matches_as_08_approved_hash": true,
+    "required_gate_count": 39,
+    "phase_groups": [
+      {"phase": "AS-00", "count": 4, "ids": ["branch-baseline", "capability-tests", "assistant-isolation", "lint"]},
+      {"phase": "AS-01", "count": 4, "ids": ["migration-contract", "agent-api", "lint", "gateway-regression"]},
+      {"phase": "AS-02", "count": 5, "ids": ["gateway-envelope", "resolver-isolation", "trace-session", "runtime-gate", "lint"]},
+      {"phase": "AS-03", "count": 4, "ids": ["mcp-api-runtime", "mcp-security", "lint", "assistant-regression"]},
+      {"phase": "AS-04", "count": 4, "ids": ["skill-api-isolation", "skill-runtime", "knowledge-binding", "lint"]},
+      {"phase": "AS-05", "count": 4, "ids": ["frontend-static", "agent-studio-e2e", "existing-route-e2e", "preview-contract"]},
+      {"phase": "AS-06", "count": 4, "ids": ["publish-api-atomicity", "agent-eval", "frontend", "runtime-regression"]},
+      {"phase": "AS-07", "count": 6, "ids": ["runtime-api", "frontend-build", "embed-header-contract", "built-nginx-header-smoke", "channel-browser", "runtime-regression"]},
+      {"phase": "AS-08", "count": 4, "ids": ["operations-governance", "aggregate-manifest", "analytics-frontend", "compatibility"]}
+    ]
+  },
+  "built_frontend_header_receipt": {
+    "gate": "AS-07:built-nginx-header-smoke",
+    "status": "passed",
+    "log": "reports/agent-studio/regression-v1/as-07-built-nginx-header-smoke.log",
+    "log_sha256": "5773d6aab4f422cca74d0ef31cd63128efc70f1e30bc1ece96ca1a7a3e3c9f6c",
+    "ephemeral_image_manifest_list_sha256": "d3c522361b34355f6d075e8af12a2707a369a552950d45d6e56fdd255239b93b",
+    "vite_headers_used_as_production_evidence": false
+  },
+  "preflight": {
+    "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+    "expected_service_count": 8,
+    "all_services_healthy": true,
+    "migrations_present": "071-081",
+    "pending_migrations": 0,
+    "provider_api_keys_read_or_modified": false
+  },
+  "post_run_runtime": {
+    "gateway_health": "healthy",
+    "assistant_health": "healthy",
+    "gateway_stub_llm": false,
+    "assistant_stub_llm": false,
+    "gateway_health_endpoint": "passed"
+  },
+  "structure_validation": {
+    "mandated_legacy_strict_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --quality-score",
+    "legacy_strict_exit_code": 1,
+    "legacy_strict_result": "unsupported by installed lightweight validator for a v2 harness",
+    "supported_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --quality-score",
+    "supported_exit_code": 0,
+    "supported_result": "Harness structure validation passed; diagnostic compatibility score 100/100",
+    "outcome_evidence": false
+  },
+  "candidate_history": [
+    {
+      "candidate": 1,
+      "source_sha256": "3518b0df0ff14c41f4ff05d8976b9abbe6c6e06cd26d7b3dbd62a7f16beda58a",
+      "passed_gate_count": 37,
+      "failed_gate_count": 2,
+      "accepted": false,
+      "disposition": "failures routed to AS-01 and AS-02; focused repairs independently approved; full rerun required"
+    },
+    {
+      "candidate": 2,
+      "source_sha256": "2ffa4684a3055b123b51b779eef9321e0821c1940c2942c10b34a2c054f14115",
+      "passed_gate_count": 38,
+      "failed_gate_count": 1,
+      "accepted": false,
+      "disposition": "external Docker Hub TLS handshake timeout at built-image header gate; targeted retry passed but was not terminal evidence"
+    },
+    {
+      "candidate": 3,
+      "source_sha256": "2ffa4684a3055b123b51b779eef9321e0821c1940c2942c10b34a2c054f14115",
+      "passed_gate_count": 39,
+      "failed_gate_count": 0,
+      "accepted": true,
+      "disposition": "complete stable-source aggregate"
+    }
+  ],
+  "post_critic_completion": {
+    "critic_verdict": "approved",
+    "blocking_findings": 0,
+    "oracle_status": "passing",
+    "legacy_strict_command_exit_code": 1,
+    "legacy_strict_result": "unsupported for v2; not counted as passed",
+    "supported_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score",
+    "supported_exit_code": 0,
+    "supported_result": "structure passed; claim metadata internally consistent; diagnostic score 100/100",
+    "validator_executes_cited_product_evidence": false
+  }
+}

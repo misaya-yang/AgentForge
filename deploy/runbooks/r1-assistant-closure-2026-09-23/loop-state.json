@@ -1,0 +1,177 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "domain_id": "r1-assistant-daily-use",
+  "lifecycle": "active",
+  "status": "in_progress",
+  "goal": "完成 AI--Platfform 完整 R1：AS-01～AS-10、TL-01～TL-04、AR-01～AR-04，并以 J01～J08/J29 的实际证据收口。",
+  "owner": "root single-writer integration session",
+  "base_sha": "2ed0345f52a4128ecbecf08e1cbcfe366895f504",
+  "branch": "codex/r1-final-boundaries",
+  "active_phase": "R1-4",
+  "active_feature": "Closed-list remaining failure and permission acceptance",
+  "active_package": "R1-RP04",
+  "next_action": "RP04 verified and authorized for local main integration. Full-R1 positive image artifact still waits on external CDN DNS prerequisite; do not repeat paid generation or mutate shared network without the original confirmation.",
+  "last_result": "RP04 Python93, controlled E2E5, real PDF E2E1, real background/session-switch E2E1, default-account safety Node4 plus E2E1, ordinary citation/revocation, two-actor memory and natural approval TTL recorded; independent review PASS. Docker identity/health verified. Full R1 incomplete; five prior model_tester resets disclosed and default setup fixed.",
+  "updated_at": "2026-09-27",
+  "blockers": [
+    {
+      "id": "R1-image-cdn-dns",
+      "status": "external_prerequisite",
+      "reason": "DashScope OSS CDN resolves into Fake-IP 198.18/15; safe_fetch refuses; no shared network change or unknown replay."
+    }
+  ],
+  "cycle": [
+    "observe",
+    "freeze",
+    "act",
+    "verify",
+    "review",
+    "integrate",
+    "decide"
+  ],
+  "iteration": 7,
+  "max_iterations": 20,
+  "phases": [
+    {
+      "id": "R1-0",
+      "file": "README.md",
+      "depends_on": [],
+      "status": "complete",
+      "evidence": [
+        "reports/product/r1-progress-2026-09-23.md"
+      ],
+      "review": "read_only_explorers"
+    },
+    {
+      "id": "R1-1",
+      "file": "README.md",
+      "depends_on": [
+        "R1-0"
+      ],
+      "status": "in_progress",
+      "evidence": [
+        "reports/product/r1-progress-2026-09-23.md"
+      ],
+      "review": "independent_static_review_passed_with_j03_blocker"
+    },
+    {
+      "id": "R1-2",
+      "file": "README.md",
+      "depends_on": [
+        "R1-1"
+      ],
+      "status": "in_progress",
+      "evidence": [
+        "reports/product/r1-progress-2026-09-23.md"
+      ],
+      "review": "independent_static_review_with_targeted_fixes"
+    },
+    {
+      "id": "R1-3",
+      "file": "README.md",
+      "depends_on": [
+        "R1-2"
+      ],
+      "status": "in_progress",
+      "evidence": [
+        "reports/product/r1-progress-2026-09-23.md"
+      ],
+      "review": "independent_static_review_with_targeted_fixes"
+    },
+    {
+      "id": "R1-4",
+      "file": "README.md",
+      "depends_on": [
+        "R1-3"
+      ],
+      "status": "in_progress",
+      "evidence": ["reports/product/r1-final-boundaries-2026-09-27.md"],
+      "review": "independent_code_review_passed_remaining_live_boundaries_recorded"
+    }
+  ],
+  "features": [],
+  "inherited_evidence": [
+    "reports/product/r1-a-as02-acceptance-2026-09-23.md",
+    "reports/product/assistant-model-selection-2026-09-23.md"
+  ],
+  "execution_authorization": {
+    "scope": "Latest user authorizes the verified safety increment commit and local main merge; full R1 status stays incomplete and remote push/branch deletion are not authorized in this batch.",
+    "parallel_agents": "At most three bounded read-only investigators/reviewers; primary sole writer; live serialized.",
+    "round_status": "verified_with_external_image_blocker",
+    "commit_authorized": true,
+    "local_merge_authorized": true,
+    "push_authorized": false,
+    "delete_branch_authorized": false
+  },
+  "durable_recovery": {
+    "package": "DR-01",
+    "base_sha": "92c98c0b85c7b9b72254e5023e6086fd8d4792df",
+    "candidate": "C4",
+    "overlay_sha_prefix": "22bf4e1ecad5",
+    "state": "verified",
+    "evidence": [
+      "reports/product/runtime-durable-recovery-2026-09-26.md",
+      "deploy/runbooks/r1-assistant-closure-2026-09-23/receipts/DR-01.yml",
+      "reports/runtime-recovery/independent-review.md"
+    ],
+    "review": "PASS"
+  },
+  "resolved_blockers": [
+    {
+      "id": "J03-runtime-restart",
+      "reason": "Original-root durable dynamic-task Runtime restart recovery implemented and local required acceptance passed; DR-01 report/receipt, final independent review PASS.",
+      "status": "resolved"
+    }
+  ],
+  "integration": {
+    "state": "integrated",
+    "target": "main",
+    "mode": "local fast-forward",
+    "implementation_commit": "91eadb927a8e0fa02eac39fc1657470bcf84ff73",
+    "remote_push_performed": false,
+    "unrelated_work_preserved": true
+  },
+  "rp01_integration": {
+    "state": "integrated",
+    "target": "main",
+    "mode": "local fast-forward",
+    "merged_head": "2919a587c6257f5dcd83e670b868e2a0edf1953f",
+    "push_performed": false,
+    "branch_deleted": false
+  },
+  "artifact_closure": {
+    "package": "R1-RP02",
+    "source_branch": "codex/r1-artifacts-long-tasks",
+    "state": "locally_integrated_safe_increment",
+    "full_R1_complete": false,
+    "candidate": "a55739b4a6c5",
+    "report": "reports/product/r1-artifacts-long-task-acceptance-2026-09-27.md",
+    "review": "PASS",
+    "implementation_commit": "9373a65005fbbf440937d79433606262c52bd5cc",
+    "integration_target": "main",
+    "integration_mode": "fast-forward",
+    "push_performed": false
+  },
+  "remaining_flows": {
+    "package": "R1-RP03",
+    "state": "locally_integrated_safe_increment",
+    "full_R1_complete": false,
+    "status_label": "CANDIDATE_80",
+    "report": "reports/product/r1-remaining-flows-2026-09-27.md",
+    "review": "PASS",
+    "implementation_commit": "0033b8c6d4bd008049c4283980fbb31f3114d2c8",
+    "merged_code_head": "2521d0a4f4e2faadb3f1aaa559bfff7a6bd2800b",
+    "push_performed": false,
+    "branch_deleted": false
+  },
+  "final_boundaries": {
+    "package": "R1-RP04",
+    "state": "verified_local_main_increment_external_image_blocker",
+    "report": "reports/product/r1-final-boundaries-2026-09-27.md",
+    "receipt": "deploy/runbooks/r1-assistant-closure-2026-09-23/receipts/R1-RP04.yml",
+    "review": "PASS"
+  },
+  "pending_acceptance": [
+    "image generation positive artifact after external CDN DNS prerequisite is restored"
+  ]
+}

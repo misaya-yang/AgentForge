@@ -1,0 +1,26 @@
+{
+  "domain": "software-engineering",
+  "passed": true,
+  "system": "hermes",
+  "task_id": "engineering.inventory_reservation_patch",
+  "turns": [
+    {
+      "duration_seconds": 20.76,
+      "metadata": {
+        "cli_diagnostic_count": 1,
+        "session_id_sha256": "852258b4fc18d9528844a97ddfc05a8086c56fb15989c5d9a8735d9ba45e73c1",
+        "stderr_sha256": "ede394e3d2e0d7df1d788f34597b5aea36d8d80a78d07d2bed1cc7c9edc22a05",
+        "stdout_raw_sha256": "646fdc394e4d07b4ee99e727cf01af48e2a67ba36884dda70722107a20571bc1"
+      },
+      "ordinal": 1,
+      "output": "{\"patched_source\": \"def reserve(stock: int, requested: int):\\n    if not isinstance(stock, int) or not isinstance(requested, int):\\n        raise TypeError(\\\"inputs must be integers\\\")\\n    if requested < 0:\\n        raise ValueError(\\\"requested must be non-negative\\\")\\n    if requested <= stock:\\n        stock -= requested\\n        return {\\\"accepted\\\": True, \\\"remaining\\\": stock}\\n    return {\\\"accepted\\\": False, \\\"remaining\\\": stock}\"}",
+      "output_sha256": "3306f9c47765efa34ac612c649e63b500d4021cdf934125f3529a30fba1e70f6",
+      "parsed_output": {
+        "patched_source": "def reserve(stock: int, requested: int):\n    if not isinstance(stock, int) or not isinstance(requested, int):\n        raise TypeError(\"inputs must be integers\")\n    if requested < 0:\n        raise ValueError(\"requested must be non-negative\")\n    if requested <= stock:\n        stock -= requested\n        return {\"accepted\": True, \"remaining\": stock}\n    return {\"accepted\": False, \"remaining\": stock}"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "process_exit_0"
+    }
+  ]
+}

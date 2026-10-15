@@ -1,0 +1,92 @@
+[ok] unchanged spec passes (expected no violation, got 0 violation(s))
+[ok] removed path fails (expected violation, got 1 violation(s))
+        - path removed: /things/{id}
+[ok] removed method fails (expected violation, got 1 violation(s))
+        - method removed: GET /things
+[ok] required request field becoming optional passes (expected no violation, got 0 violation(s))
+[ok] new required request field fails (expected violation, got 1 violation(s))
+        - new required request field: POST /things field 'note'
+[ok] changed operationId fails (expected violation, got 1 violation(s))
+        - operationId changed: POST /things 'create_thing' -> 'make_thing'
+[ok] removed response status fails (expected violation, got 1 violation(s))
+        - response status lost: POST /things status '422'
+[ok] removed parameter fails (expected violation, got 1 violation(s))
+        - parameter removed: GET /things query 'limit'
+[ok] optional parameter becoming required fails (expected violation, got 1 violation(s))
+        - new required parameter: GET /things query 'limit'
+[ok] parameter enum narrowing fails (expected violation, got 1 violation(s))
+        - parameter enum value lost: GET /things query 'limit' value 20
+[ok] removed response field fails (expected violation, got 1 violation(s))
+        - response field lost: POST /things status '201' media 'application/json' field 'name'
+[ok] removed securityScheme fails (expected violation, got 1 violation(s))
+        - securityScheme removed: BearerAuth
+[ok] compatible growth passes (expected no violation, got 0 violation(s))
+[ok] process-dependent operationId drift is detected
+SELFTEST OK: 13 synthetic drift cases classified correctly
+📝 Logging to: /Users/yang/projects/AI--Platfform/logs/app.log
+📝 Error log: /Users/yang/projects/AI--Platfform/logs/error.log
+{"timestamp": "2026-09-27T18:59:13.051802Z", "level": "INFO", "logger": "src.adapters.registry", "message": "Registered 8 built-in adapters", "service": "ai-gateway"}
+📝 Logging to: /Users/yang/projects/AI--Platfform/logs/app.log
+📝 Error log: /Users/yang/projects/AI--Platfform/logs/error.log
+{"timestamp": "2026-09-27T18:59:13.138575Z", "level": "INFO", "logger": "src.adapters.registry", "message": "Registered 8 built-in adapters", "service": "ai-gateway"}
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID passthrough_api_v1_langgraph__full_path__delete for function passthrough at /Users/yang/projects/AI--Platfform/src/api/v1/langgraph.py
+  warnings.warn(message, stacklevel=1)
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID transparent_proxy_handler_api_v1_proxy__service_name___path__delete for function transparent_proxy_handler at /Users/yang/projects/AI--Platfform/src/api/v1/proxy.py
+  warnings.warn(message, stacklevel=1)
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID transparent_proxy_root_handler_api_v1_proxy__service_name__delete for function transparent_proxy_root_handler at /Users/yang/projects/AI--Platfform/src/api/v1/proxy.py
+  warnings.warn(message, stacklevel=1)
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_knowledge_api_v1_knowledge__path__delete for function proxy_knowledge at /Users/yang/projects/AI--Platfform/src/api/v1/knowledge.py
+  warnings.warn(message, stacklevel=1)
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_kb_tools_api_v1_kb_tools__path__delete for function proxy_kb_tools at /Users/yang/projects/AI--Platfform/src/api/v1/kb_tools.py
+  warnings.warn(message, stacklevel=1)
+/Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_knowledge_v1_knowledge__path__delete for function proxy_knowledge at /Users/yang/projects/AI--Platfform/src/api/v1/knowledge.py
+  warnings.warn(message, stacklevel=1)
+baseline 329 paths / 430 operations; in-process app 329 paths / 430 operations
+OK: public OpenAPI contract preserved (evidence: tmp/gate-evidence/verify-openapi-contract.json)
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.1.0, pluggy-1.6.0
+rootdir: /Users/yang/projects/AI--Platfform
+configfile: pyproject.toml
+plugins: langsmith-0.8.16, anyio-4.14.0, cov-7.1.0, asyncio-1.4.0, respx-0.23.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collected 2 items
+
+tests/contract/test_openapi_schema_compat.py ..                          [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/fastapi/testclient.py:1
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID passthrough_api_v1_langgraph__full_path__delete for function passthrough at /Users/yang/projects/AI--Platfform/src/api/v1/langgraph.py
+    warnings.warn(message, stacklevel=1)
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID transparent_proxy_handler_api_v1_proxy__service_name___path__delete for function transparent_proxy_handler at /Users/yang/projects/AI--Platfform/src/api/v1/proxy.py
+    warnings.warn(message, stacklevel=1)
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID transparent_proxy_root_handler_api_v1_proxy__service_name__delete for function transparent_proxy_root_handler at /Users/yang/projects/AI--Platfform/src/api/v1/proxy.py
+    warnings.warn(message, stacklevel=1)
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_knowledge_api_v1_knowledge__path__delete for function proxy_knowledge at /Users/yang/projects/AI--Platfform/src/api/v1/knowledge.py
+    warnings.warn(message, stacklevel=1)
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_kb_tools_api_v1_kb_tools__path__delete for function proxy_kb_tools at /Users/yang/projects/AI--Platfform/src/api/v1/kb_tools.py
+    warnings.warn(message, stacklevel=1)
+
+tests/contract/test_openapi_schema_compat.py::test_current_openapi_keeps_existing_paths_and_parameters_compatible
+tests/contract/test_openapi_schema_compat.py::test_published_openapi_contains_the_actual_v2_runtime_routes
+  /Users/yang/projects/AI--Platfform/.venv/lib/python3.11/site-packages/fastapi/openapi/utils.py:252: UserWarning: Duplicate Operation ID proxy_knowledge_v1_knowledge__path__delete for function proxy_knowledge at /Users/yang/projects/AI--Platfform/src/api/v1/knowledge.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 13 warnings in 2.32s ========================

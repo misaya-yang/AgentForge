@@ -1,0 +1,20 @@
+✔ a failed turn remains failed with no text or with partial text (0.6305ms)
+✔ cancelled, unknown, empty success, normal success and running remain distinct (0.07125ms)
+✔ restart-orphaned approval is distinct from a user cancellation (0.048167ms)
+✔ only a valid existing run ID is exposed as a diagnostic ID (0.041542ms)
+✔ image generation stays running, and a failed image task exposes only its safe ID (0.073792ms)
+✔ an image transport loss after dispatch stays unknown, while an explicit provider failure does not (0.072958ms)
+✔ source restriction keeps the public cancelled or failed outcome (0.050917ms)
+✔ cancelled original run adopts a late uncertain receipt without borrowing another run (0.529083ms)
+✔ source restriction remains independent of execution uncertainty (0.0535ms)
+✔ a cancelled/failed run preserves completed results and exposes uncertain unfinished tools (0.567ms)
+✔ live tools keep running and repeated terminal projection is idempotent (0.056625ms)
+✔ an explicit cancelled or failed message wins over a stale approval hold (0.068ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 66.315792

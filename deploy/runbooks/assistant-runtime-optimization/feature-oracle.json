@@ -1,0 +1,94 @@
+{
+  "schema_version": "prd-phase-harness/feature-oracle/v1",
+  "instructions": {
+    "allowed_edits": "Coding agents may update only status, evidence, and notes unless the user explicitly changes scope.",
+    "completion_rule": "A feature is passing only after actor evidence exists and an independent critic artifact approves or waives completion.",
+    "status_values": ["failing", "passing", "blocked", "waived"]
+  },
+  "features": [
+    {
+      "id": "ARO-F001",
+      "phase_id": "ARO-00",
+      "category": "baseline",
+      "description": "Current assistant runtime maturity is assessed against current agent-runtime practices, with stale prior-summary claims corrected against repository evidence.",
+      "steps": [
+        "Inspect assistant runtime, middleware, approval, trace/eval, context/cache, and validation surfaces.",
+        "Record industry research sources and repo facts in source-packet.md and optimization-plan.md.",
+        "Write a baseline report and critic artifact that say which optimization phases are unlocked."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-00-baseline-runtime-and-industry-audit-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-00-baseline-runtime-and-industry-audit-critic.md; validations: strict harness 100, assistant baseline 33 passed, route traceparent test 1 passed, eval trace baseline 47 passed, targeted ruff passed, frontend eslint/type-check passed.",
+      "notes": "ARO-00 passed with documented scope expansion to repair baseline contract drift: RAG retrieval stream events, AssistantConfig trace fields, and chat route traceparent wiring."
+    },
+    {
+      "id": "ARO-F002",
+      "phase_id": "ARO-01",
+      "category": "agent-runtime",
+      "description": "Agent middleware lifecycle and human approval/resume path become complete enough to support reliability middleware without broad AgentLoop rewrites.",
+      "steps": [
+        "Wire on_stream_event and on_error in MiddlewareChain with failure-isolation tests.",
+        "Add call limit, loop detection, time budget, pre-completion checklist, and trace sensor middleware behind config where needed.",
+        "Persist CONFIRM verdicts as approval records, stream approval_id, and prove approved resume executes a tool exactly once."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-01-middleware-harness-and-approval-completion-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-01-middleware-harness-and-approval-completion-critic.md; validations: focused ruff passed, middleware chain 7 passed, harness middleware 5 passed, assistant runtime contract 36 passed, approval gateway contract 10 passed.",
+      "notes": "ARO-01 added stream/error middleware hooks, non-default reliability middlewares, persisted middleware CONFIRM approval_id, approved resume, argument matching, and single-use approval consumption."
+    },
+    {
+      "id": "ARO-F003",
+      "phase_id": "ARO-02",
+      "category": "eval",
+      "description": "Existing assistant/langgraph/rag traces become a feedback loop that produces redacted datasets, evaluator runs, failure clusters, and reviewed harness-profile proposals.",
+      "steps": [
+        "Cluster failed or low-score traces by failure mode.",
+        "Promote selected traces into redacted eval dataset cases.",
+        "Block bad harness/profile changes through evaluator or replay gates and expose failure patterns in Eval UI."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-02-trace-eval-feedback-loop-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-02-trace-eval-feedback-loop-critic.md; validations: focused ruff passed, required ARO-02 ruff passed, focused feedback tests 8 passed, eval regression with feedback tests 84 passed.",
+      "notes": "ARO-02 added a self-hosted trace feedback preview API and service for assistant/langgraph_proxy/rag traces. It returns bounded failure patterns, redacted EvalExampleImportItem payloads, clusters, proposed-only harness/profile changes, and candidate gate results without SaaS dependency, DB migration, or automatic profile application. Web evidence waived because no eval UI files changed."
+    },
+    {
+      "id": "ARO-F004",
+      "phase_id": "ARO-03",
+      "category": "durability",
+      "description": "Long assistant runs persist checkpoint state and can resume safely after approval pauses, process restarts, or transient tool/model failures.",
+      "steps": [
+        "Add additive checkpoint persistence for run phase, message state hash, pending tool, approval, iteration, and idempotency keys.",
+        "Write checkpoints around model turns and side-effecting tools.",
+        "Prove resume and duplicate-prevention behavior with focused tests."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-03-durable-long-task-runtime-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-03-durable-long-task-runtime-critic.md; validations: focused ARO-03 ruff passed, focused checkpoint tests 5 passed, assistant runtime contract 37 passed, run-state contract 20 passed.",
+      "notes": "ARO-03 added additive assistant_run_checkpoints storage, gateway checkpoint save/fetch and resume-preparation helpers, AgentLoop checkpoint writes, and /runs/{run_id}/resume. Checkpoints store bounded summaries/hashes rather than raw prompts or full tool args; failed resume records resume_blocked."
+    },
+    {
+      "id": "ARO-F005",
+      "phase_id": "ARO-04",
+      "category": "performance",
+      "description": "Context, prompt-cache, reasoning, and tool-selection optimizations are measurable, configurable, and protected by quality gates.",
+      "steps": [
+        "Emit prompt-prefix hash, provider cache token metrics, TTFT, context utilization, and reasoning/cost telemetry into traces or eval summaries.",
+        "Stabilize tool schema ordering and cache-relevant message construction.",
+        "Gate adaptive routing or embedding tool selection with offline eval and rollback config."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-04-performance-cost-and-context-optimization-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-04-performance-cost-and-context-optimization-critic.md; validations: focused ARO-04 ruff passed, cache/context focused tests 8 passed, assistant context tests 29 passed, eval quality gate 26 passed.",
+      "notes": "ARO-04 added trace-safe prompt-prefix and tool-schema hashes to context_budget, provider cache token normalization for OpenAI/DashScope/Gemini/Anthropic usage, context utilization telemetry, and deterministic tool-selector tie-breaks. Adaptive routing and embedding selector rollout remain disabled/not implemented until eval evidence exists; no latency or cost-savings claim was made."
+    },
+    {
+      "id": "ARO-F006",
+      "phase_id": "ARO-05",
+      "category": "release",
+      "description": "A whole-demand release gate proves middleware, approvals, trace feedback, checkpoint/resume, and performance/cost policies together, with ADR/runbook handoff.",
+      "steps": [
+        "Run backend, eval, assistant, web, harness, and open-source config regression gates appropriate to changed files.",
+        "Publish ADR/runbook decisions and no-go SLO thresholds.",
+        "Update feature oracle, progress log, continuity ledger, handoff, and next-window prompt for final state."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/assistant-runtime-optimization/reports/aro-05-release-regression-and-operating-model-report.md; critic artifact: deploy/runbooks/assistant-runtime-optimization/reports/aro-05-release-regression-and-operating-model-critic.md; validations: make verify-eval-dev passed, make validate-example-config passed, ARO-05 completion gate passed, full harness completion gate passed.",
+      "notes": "ARO-05 ran the whole-demand release regression bundle, validated open-source example config, published deploy/runbooks/assistant-runtime-optimization/operating-model.md with decisions, rollback boundaries, trusted commands, SLO/no-go thresholds, and no-deploy rules. No deployment or production mutation was performed."
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "schema_version": "prd-phase-harness/feature-oracle/v1",
+  "instructions": {
+    "allowed_edits": "Coding agents may update only status, evidence, and notes fields unless the user explicitly changes scope.",
+    "completion_rule": "A feature is passing only after actor evidence exists and an independent critic artifact approves or waives completion.",
+    "status_values": [
+      "failing",
+      "passing",
+      "blocked",
+      "waived"
+    ]
+  },
+  "features": [
+    {
+      "id": "ATE-F001",
+      "phase_id": "ATE-00",
+      "category": "baseline",
+      "description": "The trace Eval roadmap has verified repo facts, industry-informed requirements, data contracts, phase boundaries, validation commands, and first-wave AI assistant scope.",
+      "steps": [
+        "Run the strict harness validator for deploy/runbooks/agent-trace-eval-prd.",
+        "Confirm root docs remain ignored and the harness lives in a trackable runbook path.",
+        "Write a baseline report that maps AI assistant, LangGraph proxy, and RAG trace families to phased implementation and validation gates."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/agent-trace-eval-prd/reports/ate-00-baseline-trace-architecture-report.md; critic artifact: deploy/runbooks/agent-trace-eval-prd/reports/ate-00-baseline-trace-architecture-critic.md.",
+      "notes": "ATE-00 passed strict validation, docs-ignore proof, placeholder scan, repo manifest proof, and independent critic review. ATE-01 is unlocked."
+    },
+    {
+      "id": "ATE-F002",
+      "phase_id": "ATE-01",
+      "category": "database-api",
+      "description": "An authorized Eval user can list, filter, open, and score tenant-scoped AI assistant traces through a stable backend API backed by durable trace tables.",
+      "steps": [
+        "Apply the local development migration or run a migration dry check that creates assistant trace, span, event, and score storage.",
+        "Call the list and detail APIs as a user with Eval trace permission and verify only that user's tenant data is returned.",
+        "Submit a score or feedback item and verify it is stored against the trace without exposing raw secrets or cross-tenant data."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/agent-trace-eval-prd/reports/ate-01-ai-assistant-trace-schema-and-api-report.md; critic artifact: deploy/runbooks/agent-trace-eval-prd/reports/ate-01-ai-assistant-trace-schema-and-api-critic.md.",
+      "notes": "ATE-01 added additive trace tables, tenant-scoped Eval list/detail/score API, assistant-only first-wave gating, and focused tests. Runtime capture remains ATE-02."
+    },
+    {
+      "id": "ATE-F003",
+      "phase_id": "ATE-02",
+      "category": "assistant-runtime",
+      "description": "AI assistant non-streaming and streaming chat requests persist a redacted application trace with run lifecycle, model, tool, RAG/context, usage, timing, status, and error evidence without adding user-visible agent latency.",
+      "steps": [
+        "Run a controlled assistant chat path that emits run_started and a terminal run_finished or run_error event.",
+        "Verify a trace record is persisted with session_id/thread_id, run_id, tenant_id, user_id, request_id, trace_family assistant, and terminal status. Treat source_kind as a historical alias only.",
+        "Verify child spans or events capture model call, tool call, context/RAG, usage, latency, and error fields while redacting credentials and bounding large content.",
+        "Verify a slow or failing trace writer does not delay first stream event, final non-stream response, or assistant run status updates."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/agent-trace-eval-prd/reports/ate-02-assistant-trace-capture-report.md; critic artifact: deploy/runbooks/agent-trace-eval-prd/reports/ate-02-assistant-trace-capture-critic.md.",
+      "notes": "ATE-02 added bounded non-blocking assistant trace capture for non-stream and streaming flows, redacted/bounded payload handling, deterministic terminal event conflict behavior, failure tolerance, streaming-first regression tests, and latency guard tests proving trace persistence does not delay first stream event, final non-stream response, or assistant run status updates. ATE-03 is unlocked."
+    },
+    {
+      "id": "ATE-F004",
+      "phase_id": "ATE-03",
+      "category": "frontend-ui",
+      "description": "The frontend exposes an Eval module with an Assistant trace explorer, detail timeline, metadata panes, score workflow, and guarded future tabs for LangGraph proxy and RAG trace families.",
+      "steps": [
+        "Open /eval as an authorized user and verify the Assistant tab loads trace list filters and empty/loading/error states.",
+        "Open a trace detail view and verify timeline spans, request/run/session metadata, usage, latency, errors, and redacted previews render without layout overflow.",
+        "Submit or view score feedback and verify desktop 1440x900 and mobile 390x844 keyboard and visual checks pass."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/agent-trace-eval-prd/reports/ate-03-eval-console-ui-report.md; critic artifact: deploy/runbooks/agent-trace-eval-prd/reports/ate-03-eval-console-ui-critic.md.",
+      "notes": "ATE-03 added protected /eval navigation and route, assistant trace list filters, redacted trace detail timeline, score display/submission, guarded LangGraph Proxy and RAG tabs, unauthorized browser coverage, desktop/mobile screenshots, and e2e evidence. Root pnpm -C web commands fail in this Codex runtime before scripts run due pnpm 11.x lockfile config mismatch; equivalent project-version commands from web/ using pnpm@10.33.0 passed. ATE-04 is unlocked for whole-demand regression."
+    },
+    {
+      "id": "ATE-F005",
+      "phase_id": "ATE-04",
+      "category": "release-regression",
+      "description": "The first-wave AI assistant trace Eval feature passes whole-demand regression and leaves clear handoff contracts for LangGraph proxy trace and RAG trace phases.",
+      "steps": [
+        "Run backend, assistant runtime, frontend, browser, privacy, and strict harness validation for completed ATE-F001 through ATE-F004 items.",
+        "Verify existing dashboard request traces, assistant sessions, assistant runs, and streaming chat behavior still pass their targeted regression checks.",
+        "Write terminal handoff notes that name the remaining LangGraph proxy and RAG trace source families, inherited schema fields, and blocked external dependencies."
+      ],
+      "status": "passing",
+      "evidence": "Actor report: deploy/runbooks/agent-trace-eval-prd/reports/ate-04-release-regression-and-handoff-report.md; critic artifact: deploy/runbooks/agent-trace-eval-prd/reports/ate-04-release-regression-and-handoff-critic.md.",
+      "notes": "ATE-04 cleared the broad assistant-service lint baseline, passed backend whole-demand pytest with 33 passed and 2 skipped after post-review trace hardening, passed frontend lint/type/e2e, passed example config validation, passed strict harness validation, and documented LangGraph Proxy Trace plus RAG Trace handoff contracts. First-wave AI Assistant trace Eval is complete."
+    }
+  ]
+}

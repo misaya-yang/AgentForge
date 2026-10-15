@@ -1,0 +1,92 @@
+{
+  "execution_profile": "safe",
+  "memory_mode": "off",
+  "metrics": {
+    "first_event_seconds": {
+      "max": 0.03425,
+      "min": 0.01657,
+      "p50": 0.019175,
+      "p95": 0.03425
+    },
+    "first_thinking_seconds": {
+      "max": 2.951642,
+      "min": 2.648219,
+      "p50": 2.783074,
+      "p95": 2.951642
+    },
+    "thinking_to_visible_seconds": {
+      "max": 2.07927,
+      "min": 1.091032,
+      "p50": 2.009918,
+      "p95": 2.07927
+    },
+    "total_seconds": {
+      "max": 5.148146,
+      "min": 4.076894,
+      "p50": 4.801716,
+      "p95": 5.148146
+    },
+    "ttft_seconds": {
+      "max": 4.793072,
+      "min": 4.042731,
+      "p50": 4.727538,
+      "p95": 4.793072
+    }
+  },
+  "model_id": "qwen-plus",
+  "p50_ceiling_seconds": 3.41,
+  "passed": false,
+  "prompt_chars": 14,
+  "prompt_sha256": "ef8bfc6322815a2c1ee0dc32a3f84b8bf643dccca319f60de180f4496f2a33e8",
+  "schema_version": "assistant-ttft-benchmark/v1",
+  "skills_enabled": false,
+  "successful_trials": 3,
+  "thinking_level": "low",
+  "thinking_required": true,
+  "trial_count": 3,
+  "trials": [
+    {
+      "cached_input_tokens": 0,
+      "first_event_seconds": 0.03425,
+      "first_thinking_seconds": 2.951642,
+      "input_tokens": 895,
+      "ordinal": 1,
+      "output_tokens": 98,
+      "success": true,
+      "terminal_status": "succeeded",
+      "thinking_observed": true,
+      "thinking_to_visible_seconds": 1.091032,
+      "total_seconds": 4.076894124998944,
+      "ttft_seconds": 4.042731
+    },
+    {
+      "cached_input_tokens": 512,
+      "first_event_seconds": 0.01657,
+      "first_thinking_seconds": 2.648219,
+      "input_tokens": 895,
+      "ordinal": 2,
+      "output_tokens": 199,
+      "success": true,
+      "terminal_status": "succeeded",
+      "thinking_observed": true,
+      "thinking_to_visible_seconds": 2.07927,
+      "total_seconds": 4.801715707988478,
+      "ttft_seconds": 4.727538
+    },
+    {
+      "cached_input_tokens": 512,
+      "first_event_seconds": 0.019175,
+      "first_thinking_seconds": 2.783074,
+      "input_tokens": 895,
+      "ordinal": 3,
+      "output_tokens": 199,
+      "success": true,
+      "terminal_status": "succeeded",
+      "thinking_observed": true,
+      "thinking_to_visible_seconds": 2.009918,
+      "total_seconds": 5.148146457999246,
+      "ttft_seconds": 4.793072
+    }
+  ],
+  "wall_seconds": 14.046196
+}

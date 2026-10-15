@@ -1,0 +1,40 @@
+# =============================================================================
+# Frontend Docker Build Ignore File
+# =============================================================================
+
+# Dependencies
+node_modules
+
+# Build output (we build in container)
+dist
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.md
+!README.md

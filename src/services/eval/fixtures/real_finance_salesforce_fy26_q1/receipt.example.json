@@ -1,0 +1,30 @@
+{
+  "schema_version": "real-finance-eval-receipt/v1",
+  "task_id": "finance.salesforce.cash-quality-liquidity.fy26q1.v1",
+  "runs": [
+    {
+      "run_id": "replace-with-real-run-1",
+      "status": "completed",
+      "metrics": {},
+      "conclusions": {},
+      "subagents": [],
+      "final_answer_sha256": "replace-with-sha256-of-the-real-final-answer"
+    },
+    {
+      "run_id": "replace-with-real-run-2",
+      "status": "completed",
+      "metrics": {},
+      "conclusions": {},
+      "subagents": [],
+      "final_answer_sha256": "replace-with-sha256-of-the-real-final-answer"
+    },
+    {
+      "run_id": "replace-with-real-run-3",
+      "status": "completed",
+      "metrics": {},
+      "conclusions": {},
+      "subagents": [],
+      "final_answer_sha256": "replace-with-sha256-of-the-real-final-answer"
+    }
+  ]
+}

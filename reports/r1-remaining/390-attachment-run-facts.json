@@ -1,0 +1,19 @@
+{
+  "run_id": "1e932760-e377-4f00-945a-9dc149ec1712",
+  "status": "succeeded",
+  "session_id": "07239b38-e479-400d-be97-f5924d5ca873",
+  "tenant_id": "default",
+  "memory_mode": "auto",
+  "context_status": "available",
+  "attachment_refs": [
+    "art_2ee487b1fedbb4bb"
+  ],
+  "approval_counts": [],
+  "executions": [
+    {
+      "capability_id": "read_attachment",
+      "status": "succeeded",
+      "error_code": null
+    }
+  ]
+}

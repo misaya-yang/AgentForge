@@ -1,0 +1,112 @@
+[
+  {
+    "scenario": "approval_saved",
+    "run_id": "e62aa047-8d8b-4912-bb88-821d6d5a5555",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 154,
+    "body_sha256": "e70695393269c3066f7a7ff5a99c2d54cc5a875dc9fad08b8a027784fd920805",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "before_dispatch",
+    "run_id": "20d6c1bc-a741-49fb-b21c-559164949a82",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 159,
+    "body_sha256": "056ab2a2039f1ba4b1ddc00887a5ca8c455a4e317283ff6bb36debf6932f9e1f",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "cancel",
+    "run_id": "3bda6873-bd1f-4a58-aab9-d3e9c8c9b46a",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 0,
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "summary_status": "cancelled",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "core_output_saved",
+    "run_id": "e430bd60-0d36-4d34-beb6-8385e41e79b0",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 186,
+    "body_sha256": "ddd0d7888221c4b9cb9ad07fb64f46bf6e38f803697d83b13fa92f3a180310c0",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "invocation_result_saved",
+    "run_id": "7b212ea1-3d65-4255-965d-98db6007c30b",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 317,
+    "body_sha256": "3a70bc20bfbd2cef30c06489269156679681b28cf838367ebda829792819bf04",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "invocation_saved",
+    "run_id": "a7359446-1d4e-405f-af9a-6e629d4d3239",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 218,
+    "body_sha256": "856fe7276f029c5e4401ac7efabd907d511bab630b8b12165d1a3c1b913f7833",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "reject",
+    "run_id": "b5941196-7b8e-4cbf-acd3-70d0da3951ed",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 233,
+    "body_sha256": "428c09137ad08e80400b91fedeeb0e8727037b85c2f40a090b6e943086f81778",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "revoke",
+    "run_id": "c91efcd7-3c8a-4181-a7f6-e11d2e7a6d53",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 0,
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "summary_status": "failed",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "worker_result_observed",
+    "run_id": "37eb1d16-3ff9-4673-9650-a1ffd63ae2d7",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 131,
+    "body_sha256": "d6487aad57b4de2cf6e8914c54056a03cc7ea137369be9f9e6d87683421f03ca",
+    "summary_status": "succeeded",
+    "outcome_uncertain": false,
+    "compat_unknown_events": 0
+  },
+  {
+    "scenario": "worker_unknown",
+    "run_id": "853fd8e3-4ef2-4f37-8126-4d0fe1964c1a",
+    "history_total": 2,
+    "assistant_messages": 1,
+    "body_length": 244,
+    "body_sha256": "6715e1101fbc73fed42d29af663537dfeddeadd7d9c1f4f9aa161a062590fbf2",
+    "summary_status": "failed",
+    "outcome_uncertain": true,
+    "compat_unknown_events": 1
+  }
+]

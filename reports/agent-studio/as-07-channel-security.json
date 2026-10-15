@@ -1,0 +1,136 @@
+{
+  "schema_version": "agent-studio/as-07-channel-security/v2",
+  "phase_id": "AS-07",
+  "feature_id": "AS-F008",
+  "generated_at": "2026-07-19T23:46:07+08:00",
+  "actor_status": "passed_pending_independent_critic",
+  "required_gates": [
+    {
+      "id": "runtime-api",
+      "result": "passed",
+      "summary": "24 passed, 0 failed, 0 skipped; includes shared-IP token rotation, atomic Publication quota, exact replay, concurrent one-downstream-execution, and opaque attachment scope"
+    },
+    {
+      "id": "frontend-build",
+      "result": "passed",
+      "summary": "lint 0 errors with 17 inherited warnings; type-check, i18n check, and production build passed"
+    },
+    {
+      "id": "embed-header-contract",
+      "result": "passed",
+      "summary": "5 passed, 0 failed, 0 skipped; config-only smoke passed"
+    },
+    {
+      "id": "built-nginx-header-smoke",
+      "result": "passed",
+      "summary": "built frontend image retained Hosted SAMEORIGIN/self framing and dedicated Embed exact-origin CSP with no XFO"
+    },
+    {
+      "id": "channel-browser",
+      "result": "passed",
+      "summary": "8 passed, 0 failed, 0 skipped; includes enabled/disabled attachment behavior, opaque-handle redaction, and citation rendering"
+    },
+    {
+      "id": "runtime-regression",
+      "result": "passed",
+      "summary": "AHR 33/77/8/98 plus golden passed; isolation static cases 4 passed and credentialed live cases 2 passed with no final skip; existing open-source browser regression 41 passed"
+    }
+  ],
+  "supplemental_gates": [
+    {
+      "id": "real-postgresql-channel-runtime",
+      "result": "passed",
+      "summary": "3 passed, including reentrant migrations, real hash/scope/rotate/revoke/last-used lifecycle, and two-client atomic idempotency reservation with exact terminal replay"
+    },
+    {
+      "id": "python-static-and-sdk",
+      "result": "passed",
+      "summary": "Ruff and py_compile passed; SDK fixture executed session creation and SSE decoding"
+    },
+    {
+      "id": "local-main-schema",
+      "result": "passed",
+      "summary": "079_agent_channel_runtime.sql and 080_agent_channel_delivery_hardening.sql applied; attachment table and terminal idempotency columns verified"
+    },
+    {
+      "id": "live-redis-atomic-quota",
+      "result": "passed",
+      "summary": "two native Redis clients shared the Lua limiter; one Publication admission won under contention and rotated principals shared the IP bucket"
+    },
+    {
+      "id": "gateway-assistant-attachment-storage",
+      "result": "passed",
+      "summary": "Gateway stored a probe in the configured shared local volume and Assistant resolved it; the probe object was deleted afterward"
+    }
+  ],
+  "channel_matrix": {
+    "hosted": {
+      "stable_path": "/a/:publicId",
+      "access_modes": ["private", "tenant", "public"],
+      "ordinary_framing": "X-Frame-Options SAMEORIGIN plus CSP frame-ancestors self at the frontend boundary",
+      "anonymous_memory": "session",
+      "anonymous_high_risk_or_write_tools": "denied",
+      "attachments": "policy-gated upload returns an opaque artifact handle; citations render from typed SSE events"
+    },
+    "embed": {
+      "stable_path": "/embed/agents/:publicId",
+      "origin_policy": "exact scheme-host-port allowlist; wildcard, null, credentialed, path, query, and fragment origins rejected",
+      "framing": "Publication-derived frame-ancestors; no X-Frame-Options",
+      "browser_credential": "short-lived e1 token bound to public ID, parent origin, stable HMAC abuse subject, and expiry",
+      "post_message": "agent-embed/v1 with source and origin validation"
+    },
+    "api": {
+      "stable_path": "/api/v1/agent-runtime/:publicationId",
+      "token_storage": "SHA-256 hash only",
+      "raw_token_display": "once at issue or rotation",
+      "scopes": ["sessions:write", "chat:write", "attachments:write", "feedback:write"],
+      "lifecycle": ["issue", "list-redacted", "rotate", "expire", "revoke", "last-used"],
+      "session_scope": "tenant, Publication, token principal, channel, and pinned Version",
+      "idempotency_scope": "tenant, Publication, token principal, and key; pending/completed/failed state prevents duplicate execution and completed retries replay exact SSE bytes",
+      "attachments": "attachments:write upload returns only an opaque artifact handle resolved server-side for the exact tenant, Publication, principal, channel, and expiry"
+    }
+  },
+  "redaction_assertions": [
+    "No agt_ reusable Runtime API token appears in browser source, storage, or captured Hosted/Embed requests",
+    "No resolved_spec, signed Snapshot, internal Prompt, shared secret, upstream credential, or stack trace appears in browser evidence",
+    "Runtime token hashes and raw token values are absent from list responses",
+    "Anonymous channels cannot expand the immutable AS-02 capability upper bound",
+    "Browser attachment requests contain opaque handles only and never expose /uploads/ paths",
+    "Shared quota identities contain hashed components only; the limiter records no raw token, origin, IP, or principal value"
+  ],
+  "source_fingerprints": {
+    "src/api/v1/agent_public.py": "0ee869ad67fd04a16458bbe867121d4857deb79b53548c89bd0bf2870138de37",
+    "src/api/v1/agent_runtime.py": "564326702b20c47cf2605184039660bd9b8971d8901ded1c90d6f444c0e58aa6",
+    "src/api/v1/agents.py": "f65e45b63e47c860755061c1a8e6fbdd4c46cea188c953702552300296ca44f3",
+    "src/api/schemas/agent_runtime.py": "a79bb696897872952c4eab037107d3724a631f32423d865022e3471daeb78a66",
+    "src/api/schemas/agents.py": "ec6e78c983082da153ab574342e401515dec4505c15ba9bae391e64860e05461",
+    "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py": "561095dcadc0c1a7a9c3ea8607fb1961e91b9dd266daf64e362d41c4247cf50c",
+    "database/migrations/079_agent_channel_runtime.sql": "1f395f722434d95d420b17d4d2151ac647026b677e3e3288cd0dadd03a2705b2",
+    "database/migrations/080_agent_channel_delivery_hardening.sql": "9dd83ec57642540a99a4ded2726b9e257158200dec1329687f77ce19f69f09bb",
+    "apps/assistant-service/src/assistant_service/api/routes/chat.py": "d573bc7caab3c94511d69445123f9c75fd461deef0a2d67ef17addf83f54b8fa",
+    "apps/assistant-service/src/assistant_service/main.py": "693f5b9c9baab6065ea640f3d4d8377a710a52db559eea36ef7bde8776d40a3b",
+    "docker-compose.yml": "34532cb3be32f92e2d28db34c0bc0a0a7ff81942a102ea4f0cfb0f970f49385b",
+    "web/src/pages/agent-public/AgentHostedPage.tsx": "a7b96279880eb74e8b11f34b0e453fe104d68006942e19c4507887e438f8636f",
+    "web/src/services/agentRuntime.ts": "6cccd733371b05e5b6517990817fd6b00d2280361835190894e8b10ed283694d",
+    "web/src/types/agents.ts": "644dc577441162025b3af162b174a2f9fc8d5966d59f7d101b62d8b0a0d12d15",
+    "web/public/agent-embed.js": "8544030fdd42dc10917c0b33fa1616b382b313ffc9c10112f6c7bf8325896dbd",
+    "web/public/agent-widget.js": "c79b9fa6ed912c94c274e6cd95965c4684f1cfed81278420cde9f537d59d01a0",
+    "web/nginx.conf": "806e5b270954e95b319e403f24dea0cae3546938f682c155cb38936ce2cc4bf6",
+    "deploy/helm/ai-gateway/templates/frontend-configmap.yaml": "90bfee116a54507b70c305865aedf20316b38972804102ae1db528b22a781625",
+    "scripts/new/test-agent-embed-headers.sh": "fd169579afb7b2f0618d371a28ad1073466b4d266ee5fbace0cef55dba950de7",
+    "sdk/python/examples/agent_runtime.py": "976401c2a026dafaa2962b84b202c8cf9e1d1da8c02a7b41865b59312fb3bc42",
+    "tests/api/test_agent_runtime_api.py": "e9c6c566bfa09bf6af0ac90cd2c031936fe97d6fb7a0b01eefea1b8762634ca1",
+    "tests/security/test_agent_channel_security.py": "8431470aa382eaa04c8e60471f21d66190a959896d5c3dbb7dcc8725c7f54dd2",
+    "tests/database/test_agent_channel_runtime.py": "fb858c6ac51448c7c0389988aa03a4dfbd71341338e3f513bf5841923ee54a28",
+    "web/e2e/agent-hosted.spec.ts": "814abf4def452f5dc0c9cd29d27bd618c6758f4d881d65e5864d990991aa8edc"
+  },
+  "final_local_runtime": {
+    "compose_owner": "/Users/yang/projects/AI--Platfform",
+    "gateway_health": "passed",
+    "assistant_health": "passed",
+    "frontend_health": "passed",
+    "gateway_stub_llm": false,
+    "assistant_stub_llm": false,
+    "external_provider_call_used_for_evidence": false
+  }
+}

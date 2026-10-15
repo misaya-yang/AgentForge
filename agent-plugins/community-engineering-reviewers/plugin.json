@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "community-engineering-reviewers",
+  "version": "1.0.0",
+  "description": "Provide bounded, read-only security, architecture, and technical-writing reviewers derived from an open community agent bundle.",
+  "author": {
+    "name": "Awesome Copilot Community"
+  },
+  "homepage": "https://github.com/github/awesome-copilot",
+  "repository": "https://github.com/github/awesome-copilot",
+  "license": "MIT",
+  "keywords": [
+    "architecture",
+    "security-review",
+    "technical-writing",
+    "read-only",
+    "subagent"
+  ],
+  "extensions": {
+    "com.misaya.ai-gateway": {
+      "agents": [
+        "./agents/security-reviewer.md",
+        "./agents/system-architecture-reviewer.md",
+        "./agents/technical-writer.md"
+      ]
+    }
+  }
+}

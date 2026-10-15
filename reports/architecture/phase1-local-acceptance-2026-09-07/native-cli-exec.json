@@ -1,0 +1,14 @@
+{
+  "scope": "real Linux arm64 native exec with controlled local Responses fixture, no external provider or credentials",
+  "exit_code": 0,
+  "stdout": "{\"type\":\"thread.started\",\"thread_id\":\"01a07ee0-02ed-7f40-9d04-03fd2a206205\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"error\",\"message\":\"Model metadata for `fixture` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.\"}}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"agent_message\",\"text\":\"P1_NATIVE_CLI_OK\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":5,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":5,\"reasoning_output_tokens\":0}}\n",
+  "stderr": "Reading additional input from stdin...\n",
+  "requests": [
+    {
+      "path": "/v1/responses",
+      "request_bytes": 41041,
+      "request_sha256": "a0ca219dc0eff3f858aeeb615211bf53352462f80a14e25403fcac84748d79ab"
+    }
+  ],
+  "pass": true
+}

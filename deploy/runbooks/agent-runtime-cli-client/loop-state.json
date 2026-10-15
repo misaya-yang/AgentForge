@@ -1,0 +1,190 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "goal": "Deliver an independent local Agent Runtime CLI with CLI-owned provider profiles, composed codex-harness behavior, direct Responses access, and bounded Chat Completions compatibility.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 3,
+  "max_iterations": 3,
+  "last_result": "CLI-02 and CLI-04 are complete: 46 source tests and required gates passed; Docker built and receipted Linux arm64 codex-cli from upstream 94cbbdd plus overlay 46158add; npm pack preview passed from the package directory; Linux/x64 publish staging removes stale native targets; real Direct Responses, Chat-only reasoning/text, tool auto-approval, resume, and SIGINT recovery journeys passed. Hosted tools fail closed while Chat-only Runtime config disables unsupported web search at source.",
+  "next_action": null,
+  "blockers": [],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "CLI-00",
+      "file": "phase-00-freeze-upstream-and-current-cli-compatibility-contracts.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "codex-harness cat-file 94cbbddafc1776d5e377bca1b05932c697e82238 -> commit",
+        "npm --prefix sdk/cli run typecheck -> exit 0",
+        "npm --prefix sdk/cli test -> 1 file, 10 tests passed",
+        "make doctor -> blocked before mutation: Compose owned by /Users/yang/projects/AI--Platfform"
+        ,"docs/architecture/ADR-009-independent-cli-local-runtime.md -> accepted independent local Runtime contract"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-01",
+      "file": "phase-01-normalize-standalone-cli-configuration-and-third-party-api-compatibility.md",
+      "depends_on": [
+        "CLI-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "npm --prefix sdk/cli run typecheck -> exit 0",
+        "npm --prefix sdk/cli test -> 7 files, 46 tests passed",
+        "npm --prefix sdk/cli run build -> Built dist/cli.js",
+        "dist launcher smoke -> isolated 0700/0600 runtime config and explicit legacy Gateway compatibility exit",
+        "make gateway-unit-gate -> 2111 passed, 3 deselected"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-02",
+      "file": "phase-02-integrate-thread-turn-item-streaming-transport-with-agent-runtime.md",
+      "depends_on": [
+        "CLI-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "Docker build -> codex-cli 0.0.0 from upstream 94cbbdd and overlay 46158add",
+        "linux-arm64 artifact receipt and npm pack --dry-run -> pass",
+        "native Direct Responses -> READY with completed usage",
+        "native Chat-only -> structured reasoning then CHAT_READY",
+        "native tool auto-approval -> CLI_APPROVED_OK; resume --last and SIGINT recovery passed"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-03",
+      "file": "phase-03-preserve-interactive-exec-resume-interrupt-and-tool-workflows.md",
+      "depends_on": [
+        "CLI-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "chat_responses_proxy.test.ts -> text reasoning tool usage retry auth and fail-closed fixtures passed",
+        "launcher.test.ts -> Chat provider secret absent from native child and generated config"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-04",
+      "file": "phase-04-add-deterministic-offline-compatibility-and-failure-path-tests.md",
+      "depends_on": [
+        "CLI-02",
+        "CLI-03"
+      ],
+      "status": "done",
+      "evidence": [
+        "make independent-cli-gate -> 7 files, 46 tests passed and bundle built",
+        "package verifier source/target/hash tamper fixtures -> pass",
+        "native missing-bwrap preflight, signal forwarding, Chat reasoning ordering, abort, retry, and tool identity regressions -> pass"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-05",
+      "file": "phase-05-reach-candidate-80-through-serialized-cli-runtime-and-provider-acceptance.md",
+      "depends_on": [
+        "CLI-04"
+      ],
+      "status": "ready",
+      "evidence": [],
+      "review": "not_required"
+    },
+    {
+      "id": "CLI-06",
+      "file": "phase-06-reach-release-100-through-regression-rollback-documentation-and-final-review.md",
+      "depends_on": [
+        "CLI-05"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_required"
+    }
+  ],
+  "features": [
+    {
+      "id": "CLI-F001",
+      "phase_id": "CLI-00",
+      "description": "The product contract uses a CLI-owned provider profile and a lock-pinned composed local Rust CLI/App Server as the only Agent loop, while the hosted Gateway Runtime remains separate.",
+      "steps": [
+        "Read the fixed upstream CLI/exec/App Server/provider source and the hosted Runtime boundary.",
+        "Adopt ADR-009 and verify the independent local Runtime contract without mutating the hosted stack."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLI-F002",
+      "phase_id": "CLI-01",
+      "description": "The launcher owns a private home and strict non-secret provider profiles, generates upstream-compatible Runtime config, and forwards interactive/exec arguments to the composed native CLI.",
+      "steps": [
+        "Configure direct Responses and header-auth profiles using environment-variable references.",
+        "Observe private files, isolated CODEX_HOME, exact argv forwarding, and no secret value in JSON/TOML/output."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLI-F003",
+      "phase_id": "CLI-02",
+      "description": "The exact upstream source plus overlay builds a native CLI artifact whose embedded App Server owns TUI/exec, Thread/Turn/Item, tools, approval, interruption, and resume locally.",
+      "steps": [
+        "Build the composed codex-cli binary inside Docker and record upstream/overlay/binary identity.",
+        "Run native version and mock-provider exec/JSONL/tool/approval/interrupt/resume tests without host Cargo."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLI-F004",
+      "phase_id": "CLI-03",
+      "description": "A loopback-only adapter converts the lossless Responses text/function-tool subset to Chat Completions and projects ordered text, reasoning-summary, and function-tool Responses SSE without owning Agent state.",
+      "steps": [
+        "Run Chat request/stream fixtures for text, reasoning, function tools, usage, retries, and tool transcript continuation.",
+        "Observe fail-closed unsupported inputs and provider secret absence from native child/config/output."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLI-F005",
+      "phase_id": "CLI-04",
+      "description": "The complete gate covers config, launcher, direct Responses config, Chat projection/faults, secret isolation, bundle, native source identity, and native App Server workflows.",
+      "steps": [
+        "Run independent-cli-gate, harness-check, composed native tests, and package/source identity checks.",
+        "Observe no failures and distinguish Node/mock/dry-run evidence from native behavior."
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLI-F006",
+      "phase_id": "CLI-05",
+      "description": "The integration owner observes CANDIDATE_80 through the packaged local Runtime and one CLI-owned provider with text, function tool allow/deny, interruption, resume, and local-state rollback smoke.",
+      "steps": [
+        "Verify native artifact identity, then run one real third-party provider through the independent CLI.",
+        "Observe text, tool allow/deny, resume, interrupt, no credential leak or duplicate side effect, and prior/candidate state smoke."
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLI-F007",
+      "phase_id": "CLI-06",
+      "description": "RELEASE_100 has one final SHA with provider-wire, failure, resume, approval, interruption, packaging, documentation, review, and rollback receipts and no required skips.",
+      "steps": [
+        "Run the full offline/native release gates plus serialized real `responses` and `chat_completions` provider journeys and final local-state rollback.",
+        "Observe all required receipts at one SHA, zero blocker/high findings, and documentation that matches verified behavior."
+      ],
+      "passes": false
+    }
+  ],
+  "lifecycle": "superseded",
+  "status": "superseded",
+  "superseded_by": "agent-platform-vnext",
+  "superseded_at": "2026-09-07"
+}

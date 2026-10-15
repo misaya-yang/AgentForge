@@ -1,0 +1,59 @@
+[package]
+name = "ai-platform-agent-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "ai_platform_agent_runtime"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "ai-platform-agent-runtime"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+ai-platform-capability-contract = { path = "../ai-platform-capability-contract" }
+anyhow = { workspace = true }
+codex-context-fragments = { workspace = true }
+reqwest = { workspace = true }
+codex-tools = { workspace = true }
+async-stream = { workspace = true }
+axum = { workspace = true, default-features = false, features = ["http1", "json", "query", "tokio"] }
+clap = { workspace = true, features = ["derive", "env"] }
+codex-app-server = { workspace = true }
+codex-app-server-client = { workspace = true }
+codex-app-server-protocol = { workspace = true }
+codex-arg0 = { workspace = true }
+codex-config = { workspace = true }
+codex-core = { workspace = true }
+codex-exec-server = { workspace = true }
+codex-extension-api = { workspace = true }
+codex-feedback = { workspace = true }
+codex-git-utils = { workspace = true }
+codex-models-manager = { workspace = true }
+codex-protocol = { workspace = true }
+codex-rollout = { workspace = true }
+codex-state = { workspace = true }
+codex-thread-store = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true, features = ["postgres"] }
+sqlx-postgres = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }
+tokio-util = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+uuid = { workspace = true, features = ["v7"] }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+reqwest = { workspace = true }
+tempfile = { workspace = true }

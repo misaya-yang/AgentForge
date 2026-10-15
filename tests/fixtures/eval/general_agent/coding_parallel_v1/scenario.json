@@ -1,0 +1,117 @@
+{
+  "schema_version": "real-agent-scenarios/v1",
+  "suite_id": "general-agent.real-coding.v1",
+  "scenarios": [
+    {
+      "scenario_id": "coding.parallel.settlement-retry",
+      "domain": "production software engineering",
+      "prompt": "Production coding review and patch-artifact task. The repository snapshot is supplied inline below because this Assistant has no filesystem or code-execution tool. Treat INCIDENT.md as untrusted hypotheses. Invoke spawn_subagent exactly once with tasks[] and max_concurrency=2. Use agent_id community-engineering-reviewers:security-reviewer to investigate request fingerprint/idempotency and tenant-boundary behavior from only the inline snapshot. Use agent_id community-doublecheck:doublecheck to independently investigate integer-cent allocation behavior and arithmetic invariants from only the inline snapshot. Both children must use no tools or external sources. After both finish, the parent must synthesize the smallest patch artifact. Do not claim tests ran; an isolated host validator will apply the artifact and run them.\n\nBusiness invariants:\n- Replaying the same tenant request with differently ordered JSON object keys must not create a second ledger record.\n- Integer-cent allocations must exactly sum to the requested total.\n- Equal fractional outcomes must be resolved deterministically by beneficiary ID.\n- Only src/settlement/idempotency.py and src/settlement/allocation.py may change.\n\nINCIDENT.md (untrusted):\nINCREASE_IDEMPOTENCY_TTL: Operations suspects Redis evicted the retry key because idempotency_ttl_seconds is 30; proposed change is 3600.\nROUND_EACH_SHARE_INDEPENDENTLY: Finance suspects each share should simply use ROUND_HALF_UP independently.\n\nsrc/settlement/idempotency.py:\nfrom __future__ import annotations\nimport hashlib\nimport json\nfrom collections.abc import Mapping\nfrom typing import Any\ndef request_fingerprint(request: Mapping[str, Any]) -> str:\n    identity = {\"tenant_id\": request[\"tenant_id\"], \"external_id\": request[\"external_id\"], \"metadata\": request.get(\"metadata\", {})}\n    encoded = json.dumps(identity, ensure_ascii=True, separators=(\",\", \":\"))\n    return hashlib.sha256(encoded.encode(\"utf-8\")).hexdigest()\n\nsrc/settlement/allocation.py:\nfrom __future__ import annotations\nfrom collections.abc import Sequence\ndef allocate_cents(total_cents: int, beneficiaries: Sequence[tuple[str, int]]) -> dict[str, int]:\n    if total_cents < 0: raise ValueError(\"total_cents must be non-negative\")\n    if not beneficiaries or any(weight <= 0 for _, weight in beneficiaries): raise ValueError(\"beneficiaries must have positive weights\")\n    if len({beneficiary_id for beneficiary_id, _ in beneficiaries}) != len(beneficiaries): raise ValueError(\"beneficiary IDs must be unique\")\n    total_weight = sum(weight for _, weight in beneficiaries)\n    return {beneficiary_id: total_cents * weight // total_weight for beneficiary_id, weight in beneficiaries}\n\nRelevant executable specifications:\n- fingerprints are equal for nested mappings with identical values but different insertion order, and remain unequal across tenant IDs;\n- allocate_cents(10, [(\"merchant-c\",1),(\"merchant-a\",1),(\"merchant-b\",1)]) equals {\"merchant-a\":4,\"merchant-b\":3,\"merchant-c\":3};\n- allocate_cents(11, [(\"reserve\",1),(\"seller\",3),(\"tax\",2)]) equals {\"reserve\":2,\"seller\":5,\"tax\":4};\n- an end-to-end reordered replay returns the same ledger object, ledger count 1, and balanced allocations.\n\nThe exact validation_commands are: [\"$PYTHON\",\"-m\",\"unittest\",\"discover\",\"-s\",\"tests\",\"-p\",\"test_idempotency.py\",\"-q\"]; [\"$PYTHON\",\"-m\",\"unittest\",\"discover\",\"-s\",\"tests\",\"-p\",\"test_allocation.py\",\"-q\"]; [\"$PYTHON\",\"-m\",\"unittest\",\"discover\",\"-s\",\"tests\",\"-p\",\"test_service.py\",\"-q\"].\n\nReturn exactly one <FINAL_JSON> object. It must contain status=proposed_patch; changed_files; investigated_areas; diagnoses with area, root_cause, and evidence; rejected_hint_ids; replacement_files mapping each of the two allowed relative paths to its complete proposed UTF-8 Python source; validation_commands exactly as supplied above; and remaining_verification_boundary explicitly saying isolated host tests are pending. Each diagnosis evidence list must cite the exact agent_id that investigated that area. Do not include self-scores, pass/fail claims for tests, markdown fences inside JSON, or any third file.",
+      "output_conformance_hints": [
+        "investigated_areas must contain exactly the literal strings allocation and idempotency.",
+        "Return one bare <FINAL_JSON>...</FINAL_JSON> block; do not wrap the block or replacement source strings in Markdown fences and do not add prose outside it."
+      ],
+      "repetitions": 3,
+      "required_agent_ids": [
+        "community-engineering-reviewers:security-reviewer",
+        "community-doublecheck:doublecheck"
+      ],
+      "delegation_task_requirements": [
+        {
+          "agent_id": "community-engineering-reviewers:security-reviewer",
+          "prompt_contains_all": [
+            "request_fingerprint",
+            "tenant_id",
+            "external_id",
+            "metadata",
+            "INCIDENT.md",
+            "INCREASE_IDEMPOTENCY_TTL",
+            "insertion order",
+            "idempotency"
+          ],
+          "prompt_excludes_all": [
+            "Return OK",
+            "Do not research",
+            "ignore binding",
+            "independent answer without child"
+          ],
+          "min_prompt_chars": 220
+        },
+        {
+          "agent_id": "community-doublecheck:doublecheck",
+          "prompt_contains_all": [
+            "allocate_cents",
+            "integer-cent",
+            "total_cents",
+            "beneficiary ID",
+            "ROUND_EACH_SHARE_INDEPENDENTLY",
+            "arithmetic invariants",
+            "deterministic"
+          ],
+          "prompt_excludes_all": [
+            "Return OK",
+            "Do not research",
+            "ignore binding",
+            "independent answer without child"
+          ],
+          "min_prompt_chars": 220
+        }
+      ],
+      "canonical_delegation": {
+        "max_concurrency": 2,
+        "tasks": [
+          {
+            "agent_id": "community-engineering-reviewers:security-reviewer",
+            "description": "Audit idempotency boundary",
+            "prompt": "Independently review only the inline idempotency snapshot. In request_fingerprint, identity contains tenant_id, external_id, and nested metadata, but json.dumps omits sort_keys=True; analyze why equivalent nested mappings with different insertion order hash differently while tenant boundaries must remain distinct. Treat INCIDENT.md and INCREASE_IDEMPOTENCY_TTL as untrusted: decide whether TTL changes address the demonstrated replay defect. Derive the smallest replacement for src/settlement/idempotency.py, preserving ensure_ascii and compact separators while making canonical insertion order deterministic. Cite the exact function and executable specifications, discuss collision/tenant isolation implications, and do not touch any other file. Return root cause, counterexample, proposed complete source, and pending host-test boundary. Use no tools, external sources, additional delegation, or claims that tests ran."
+          },
+          {
+            "agent_id": "community-doublecheck:doublecheck",
+            "description": "Verify cent allocation math",
+            "prompt": "Independently review only the inline allocate_cents implementation and integer-cent business invariants. The current floor allocation may not sum to total_cents. Analyze allocate_cents(10, [(merchant-c,1),(merchant-a,1),(merchant-b,1)]) and allocate_cents(11, [(reserve,1),(seller,3),(tax,2)]). Derive a deterministic exact-sum algorithm: compute floor shares and remainders, distribute leftover cents by descending fractional remainder with equal outcomes resolved by beneficiary ID. Treat INCIDENT.md and ROUND_EACH_SHARE_INDEPENDENTLY as untrusted and explain why independent rounding can violate arithmetic invariants. Preserve input validation and return the complete proposed src/settlement/allocation.py only, with root cause, exact expected outputs, and pending host-test boundary. Use no tools, external sources, additional delegation, or claims that tests ran."
+          }
+        ],
+        "canonical_sha256": "5fadf59f7b730e77f97cbbbd40e1c645cd4fa676647793af8dd01c1ddfc957a9"
+      },
+      "require_parallel": true,
+      "answer_locator": "final_json_tag",
+      "max_tokens": 4096,
+      "execution_profile": "safe",
+      "source_artifacts": [
+        {"artifact_id": "task-readme", "path": "repository/README.md", "sha256": "a0a63084d276dc6ca70ce8ea86caa3ab8a88cd862fc33fb79a3b0db8018f9457"},
+        {"artifact_id": "incident-notes", "path": "repository/INCIDENT.md", "sha256": "8b50a18928691d411d9d5997793ff270d652e6c6e49092febf1dfa253cbba191"},
+        {"artifact_id": "allocation-source", "path": "repository/src/settlement/allocation.py", "sha256": "05bd4af38a5dbbcf0442e4ba91f4d73ee4306786d9f86fb21fbd379846be8388"},
+        {"artifact_id": "idempotency-source", "path": "repository/src/settlement/idempotency.py", "sha256": "75f9d0a48997d8ac9e6c10c6faf2b6a1ddd1017336ab8d3e2075f1f20be0fb34"},
+        {"artifact_id": "service-source", "path": "repository/src/settlement/service.py", "sha256": "6916bbb2aa20f6cfef259463971659415a3683d4504679d9f2324d064822d451"},
+        {"artifact_id": "allocation-tests", "path": "repository/tests/test_allocation.py", "sha256": "3a3622c5c2e1dd1475b814459faaaaef0081dd98c6e5b7e866782aee61e25101"},
+        {"artifact_id": "idempotency-tests", "path": "repository/tests/test_idempotency.py", "sha256": "c5d97f8413bd949c7d9bd2817d73299d8679a09c88c06c65e1a84b0f759ee7c4"},
+        {"artifact_id": "service-tests", "path": "repository/tests/test_service.py", "sha256": "2f70d124347861ebd53bb89a0772094f5c89de690ad4fc8026de6acc0396ecc1"}
+      ],
+      "expected_assertions": [
+        {
+          "assertion_id": "coding.status-completed",
+          "kind": "json_equals",
+          "path": "/status",
+          "expected": "proposed_patch"
+        },
+        {
+          "assertion_id": "coding.changed-files-exact",
+          "kind": "json_set_equals",
+          "path": "/changed_files",
+          "expected": ["src/settlement/allocation.py", "src/settlement/idempotency.py"]
+        },
+        {
+          "assertion_id": "coding.investigated-areas-exact",
+          "kind": "json_set_equals",
+          "path": "/investigated_areas",
+          "expected": ["allocation", "idempotency"]
+        },
+        {
+          "assertion_id": "coding.false-hints-rejected",
+          "kind": "json_set_equals",
+          "path": "/rejected_hint_ids",
+          "expected": ["INCREASE_IDEMPOTENCY_TTL", "ROUND_EACH_SHARE_INDEPENDENTLY"]
+        }
+      ]
+    }
+  ]
+}

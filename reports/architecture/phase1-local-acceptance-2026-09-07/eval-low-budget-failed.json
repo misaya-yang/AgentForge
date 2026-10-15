@@ -1,0 +1,265 @@
+{
+  "prior_run_id": "93efb9f4-8734-4775-8546-da2355346a54",
+  "artifacts": {
+    "dataset_id": "2ee03c9b-3349-49e4-8b5e-00819165b1c2",
+    "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+    "experiment_id": "cfa28a69-df1b-471e-9402-be6dfeff0829",
+    "run_id": "44218d0a-2748-4e6f-a904-8810142d552d"
+  },
+  "model": {
+    "model_id": "qwen3.7-plus",
+    "provider_id": "dashscope"
+  },
+  "status": "FAIL",
+  "polls": [
+    {
+      "status": "queued",
+      "http_status": 200,
+      "error": null
+    },
+    {
+      "status": "running",
+      "http_status": 200,
+      "error": null
+    },
+    {
+      "status": "succeeded",
+      "http_status": 200,
+      "error": null
+    }
+  ],
+  "start_http_status": 202,
+  "run_status": "succeeded",
+  "results": {
+    "run": {
+      "run_id": "44218d0a-2748-4e6f-a904-8810142d552d",
+      "experiment_id": "cfa28a69-df1b-471e-9402-be6dfeff0829",
+      "tenant_id": "default",
+      "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+      "dataset_id": "2ee03c9b-3349-49e4-8b5e-00819165b1c2",
+      "status": "succeeded",
+      "run_mode": "live_candidate",
+      "repetitions": 1,
+      "baseline_run_id": null,
+      "dataset_manifest_hash": "3873cbdcc6303ea07630cb7837233a52c40f1c0e044f355d14ad2df7405faa8f",
+      "evaluator_suite_hash": "546c49fea6a3e9c107e0b45e34733065243cbb5de1429dcad499346d5d7d5dc0",
+      "candidate_fingerprint": {
+        "model_ref": {
+          "model_id": "qwen3.7-plus",
+          "tenant_id": "default",
+          "provider_id": "dashscope",
+          "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+          "pricing_snapshot": {
+            "unit": "per_1k_tokens",
+            "version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+            "currency": "USD",
+            "model_id": "qwen3.7-plus",
+            "tenant_id": "default",
+            "provider_id": "dashscope",
+            "pricing_status": "tenant_model",
+            "input_price_per_1k": "0",
+            "output_price_per_1k": "0"
+          },
+          "capability_revision": 3
+        },
+        "verification": "pending",
+        "requested_model_id": "qwen3.7-plus",
+        "prompt_override_hash": null,
+        "requested_temperature": 0,
+        "requested_execution_profile": null
+      },
+      "target_snapshot": {
+        "run_mode": "live_candidate",
+        "max_tokens": 512,
+        "repetitions": 1,
+        "evaluator_ids": [
+          "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337"
+        ],
+        "baseline_label": null,
+        "candidate_label": "candidate",
+        "evaluator_suite_hash": "546c49fea6a3e9c107e0b45e34733065243cbb5de1429dcad499346d5d7d5dc0",
+        "prompt_override_hash": null,
+        "dataset_manifest_hash": "3873cbdcc6303ea07630cb7837233a52c40f1c0e044f355d14ad2df7405faa8f"
+      },
+      "score_summary": {
+        "pass_rate": 0.0,
+        "score_sum": 0.0,
+        "case_count": 1,
+        "flaky_rate": 0.0,
+        "trial_count": 1,
+        "average_score": 0.0,
+        "overall_score": 0.0,
+        "quality_score": 0.0,
+        "schema_version": "eval-gate-metrics/v2",
+        "failed_case_count": 1,
+        "behavior_pass_rate": 0.0,
+        "critical_pass_rate": null,
+        "stateful_pass_rate": null,
+        "critical_case_count": 0,
+        "stateful_case_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_failed_count": 0,
+        "stateful_failed_count": 0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 0
+      },
+      "metrics": {
+        "gate": {
+          "status": "fail"
+        },
+        "total_trials": 1,
+        "failed_trials": 0,
+        "mixed_runtime": false,
+        "latency_p50_ms": 6099.0,
+        "latency_p95_ms": 6099.0,
+        "scores_written": 2,
+        "attempted_trials": 1,
+        "completed_trials": 1,
+        "actual_fingerprint": {
+          "model_id": "qwen3.7-plus",
+          "provider": "dashscope",
+          "sampling": {
+            "max_tokens": 512,
+            "temperature": 0.0
+          },
+          "model_ref": {
+            "model_id": "qwen3.7-plus",
+            "tenant_id": "default",
+            "provider_id": "dashscope",
+            "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+            "capability_revision": 3
+          },
+          "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+          "model_ref_verified": true
+        },
+        "critical_pass_rate": null,
+        "cost_per_task_cents": 0.0,
+        "critical_case_count": 0,
+        "execution_error_rate": 0.0,
+        "fingerprint_complete": true,
+        "hard_blocker_results": {
+          "assistant.runtime.policy_bypass": false,
+          "assistant.runtime.repeated_unknown_side_effect": false
+        },
+        "hard_blockers_passed": false,
+        "behavior_failure_rate": 1.0,
+        "critical_failed_count": 0,
+        "input_tokens_per_task": 13517.0,
+        "total_tokens_per_task": 13636.0,
+        "output_tokens_per_task": 119.0,
+        "required_hard_blockers": [
+          "assistant.runtime.policy_bypass",
+          "assistant.runtime.repeated_unknown_side_effect"
+        ]
+      },
+      "progress": {
+        "total_trials": 1,
+        "completed_trials": 1,
+        "failed_trials": 0
+      },
+      "runtime_fingerprint": {
+        "model_id": "qwen3.7-plus",
+        "provider": "dashscope",
+        "sampling": {
+          "max_tokens": 512,
+          "temperature": 0.0
+        },
+        "model_ref": {
+          "model_id": "qwen3.7-plus",
+          "tenant_id": "default",
+          "provider_id": "dashscope",
+          "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+          "capability_revision": 3
+        },
+        "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+        "model_ref_verified": true
+      },
+      "gate_status": "fail",
+      "attribution_status": null,
+      "error_message": null,
+      "created_by": "assistant_e2e_1787768074604",
+      "started_at": "2026-09-08T03:02:36.180467Z",
+      "finished_at": "2026-09-08T03:02:42.337020Z",
+      "created_at": "2026-09-08T03:02:34.187919Z",
+      "updated_at": "2026-09-08T03:02:42.337020Z"
+    },
+    "cases": [
+      {
+        "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+        "case_id": "assistant.http.smoke.bf15b93a",
+        "candidate_trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+        "status": "failed",
+        "aggregate_score": 0.0,
+        "failure_reason": "missing expected text 'EVAL_HTTP_BF15B93A'; output_contains missing 'EVAL_HTTP_BF15B93A'",
+        "input": {
+          "message": "Reply with exactly EVAL_HTTP_BF15B93A"
+        },
+        "expected_output": {
+          "contains": [
+            "EVAL_HTTP_BF15B93A"
+          ]
+        },
+        "trial_count": 1,
+        "score_stddev": 0.0,
+        "flaky": false,
+        "observed_metrics": {
+          "latency_ms": 6099.0,
+          "input_tokens": 13517.0,
+          "output_tokens": 119.0,
+          "total_tokens": 13636.0,
+          "cost_cents": 0.0
+        },
+        "trace": {
+          "trace_family": "assistant",
+          "status": "succeeded",
+          "model_id": "qwen3.7-plus",
+          "provider": "dashscope",
+          "total_latency_ms": 6099,
+          "total_tokens": 13636,
+          "output_preview": "Hello! I'm ready to help. What would you like to work on today?"
+        },
+        "scores": []
+      }
+    ],
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+  },
+  "checks": {
+    "run_terminal_succeeded": true,
+    "one_case": true,
+    "case_passed": false,
+    "expected_marker": false,
+    "frozen_model_ref_verified": true,
+    "actual_model_span": true,
+    "measured_tokens": true
+  },
+  "traces": [
+    {
+      "http_status": 400
+    }
+  ],
+  "model_span_ledger_readback": {
+    "source": "tenant-scoped PostgreSQL trace/span join",
+    "spans": [
+      {
+        "span_kind": "model_invocation",
+        "status": "succeeded",
+        "attributes": {
+          "call_id": "04f1e0f8-af20-495c-8380-99336e6fd468",
+          "model_ref": {
+            "model_id": "qwen3.7-plus",
+            "tenant_id": "default",
+            "provider_id": "dashscope",
+            "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+            "capability_revision": 3
+          },
+          "input_tokens": 13517,
+          "cost_microusd": 0,
+          "ledger_status": "completed",
+          "output_tokens": 119
+        }
+      }
+    ]
+  }
+}

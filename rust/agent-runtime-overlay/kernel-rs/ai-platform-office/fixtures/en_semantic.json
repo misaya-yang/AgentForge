@@ -1,0 +1,11 @@
+{
+  "title": "Quarterly Report",
+  "goal": "A bounded semantic fixture",
+  "locale": "en-US",
+  "design_system": "enterprise",
+  "blocks": [
+    {"kind": "heading", "level": 1, "text": "Summary"},
+    {"kind": "paragraph", "inlines": [{"kind": "text", "text": "Revenue grew "}, {"kind": "strong", "text": "15%"}]},
+    {"kind": "table", "headers": ["Metric", "Value"], "rows": [["Revenue", "=SUM(1,2)"]]}
+  ]
+}

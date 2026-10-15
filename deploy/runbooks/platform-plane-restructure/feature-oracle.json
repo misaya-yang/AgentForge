@@ -1,0 +1,97 @@
+{
+  "schema_version": "prd-phase-harness/feature-oracle/v1",
+  "program": "platform-plane-restructure",
+  "note": "Each assertion is falsifiable. A negative outcome passes only where marked, with the original owner retained and evidence recorded.",
+  "items": [
+    {
+      "id": "O-01",
+      "phase": "PPR-00",
+      "assert": "local_overhead_seconds equals local_pre_provider_seconds plus local_projection_seconds, and those local components plus provider_wait_seconds reconcile with end-to-end ttft_seconds within a predeclared clock and transport tolerance.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-02",
+      "phase": "PPR-00",
+      "assert": "Controlled delays move the corresponding local component and end-to-end TTFT, not provider_wait_seconds; local p95 uses high-sample replay and provider evidence preserves raw trials and confidence intervals.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-03",
+      "phase": "PPR-01",
+      "assert": "The approved agent-runtime image is at most 150 MB, healthy, non-root, certificate-capable, and passes the live product path.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-04",
+      "phase": "PPR-01",
+      "assert": "lock.json is the only editable image identity; changing capability-worker sources leaves the agent-runtime artifact identity unchanged.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-05",
+      "phase": "PPR-02",
+      "assert": "ADR-008 compares T0 through T3 from PPR-00 evidence, defines every selected handoff and failure contract, and the plane gate fails on an unmapped module or forbidden synchronous dependency.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-06",
+      "phase": "PPR-03",
+      "assert": "Edge is adopted only when T0/T1 cannot satisfy the precommitted load and isolation gates; if adopted, multi-worker admission never oversells, rate dimensions count once, and authenticated handoff fails closed.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-07",
+      "phase": "PPR-04",
+      "assert": "Python and Rust project one shared provider frame stream byte-identically across success, error, cancellation, usage, and omitted-usage cases, with exactly one provider request.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-08",
+      "phase": "PPR-04",
+      "assert": "Rust reduces warmed incremental per-stream RSS by at least 60 percent and supports at least 1.5 times the streams in the same budget without CPU or local p99 regression, or remains measured-not-adopted.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-09",
+      "phase": "PPR-05",
+      "assert": "Governance is split only when reproducible Governance load harms Edge or Data and in-process bounded execution cannot meet the precommitted gate; otherwise it remains measured-not-adopted as a physical split.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-10",
+      "phase": "PPR-06",
+      "assert": "N greater than one knowledge workers never double-claim and a 200-page ingest raises interactive retrieval p99 by at most 10 percent, or scaling is not adopted because profiling shows another ceiling.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-11",
+      "phase": "PPR-06",
+      "assert": "A native kernel ships only when CPU is the measured bottleneck, corpus boundaries are byte-identical, and throughput or CPU benefit clears the precommitted materiality gate.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-12",
+      "phase": "PPR-07",
+      "assert": "Legacy sessions render identically and preserve tombstones, audit constraints, and rollback after an isolated-copy rehearsal, or the migration is deferred with the legacy path and bounded-growth evidence retained.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-13",
+      "phase": "PPR-08",
+      "assert": "Randomized interleaved provider trials support any claimed delta with confidence intervals, quality, cache, failure, and cost evidence; changing a default or product ceiling has explicit approval.",
+      "allows_negative_outcome": true
+    },
+    {
+      "id": "O-14",
+      "phase": "PPR-09",
+      "assert": "The release matrix covers every actually adopted unit and current-to-frozen-to-current rollback preserves session and execution-ledger fingerprints using the shipped image digests.",
+      "allows_negative_outcome": false
+    },
+    {
+      "id": "O-15",
+      "phase": "*",
+      "assert": "Required targeted, contract, Python, and live product checks have zero failures; skipped cases do not exceed the named allowlist; resulting-state receipts and required independent review are recorded.",
+      "allows_negative_outcome": false
+    }
+  ]
+}

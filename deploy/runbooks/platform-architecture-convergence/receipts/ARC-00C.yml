@@ -1,0 +1,20 @@
+package_id: ARC-00C
+state: blocked
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [scripts/rust/**, deploy/agent-runtime-source/**, rust/agent-runtime-overlay/manifest.json, Makefile]
+commits: [023b06a2, a8bd744e, 38d86939, 9e58a7f9, 8e9d53ca]
+contracts_compared: [source closure, artifact identity, builder lock, Docker-only local compilation]
+commands:
+  - {command: "make agent-runtime-source-contract", exit_code: 0, passed: 10, failed: 0, skipped: 0}
+  - {command: "docker image inspect <pinned Runtime and Worker digests>", exit_code: 0, passed: 2, failed: 0, skipped: 0}
+direct_verdict: PARTIAL
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+blocked_by:
+  - "Hosted Rust metadata/fmt/check/changed-crate tests were not run."
+  - "Only the local linux/arm64 Docker candidates exist; no multi-arch builder receipt exists."
+remaining_risks: []

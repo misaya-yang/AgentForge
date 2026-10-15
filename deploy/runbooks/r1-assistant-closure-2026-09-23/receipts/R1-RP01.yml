@@ -1,0 +1,200 @@
+package_id: R1-RP01
+state: verified
+base_sha: 425ce123
+head_sha: 2919a587c6257f5dcd83e670b868e2a0edf1953f
+changed_paths:
+- src/api/v1/_assistant_routes/artifacts.py
+- src/api/v1/_assistant_routes/chat.py
+- src/api/v1/_assistant_routes/runs.py
+- src/api/v1/_assistant_routes/sessions.py
+- src/api/v1/artifact_shares.py
+- src/api/v1/quiz.py
+- src/api/v2/agent.py
+- src/services/agent_runtime/model/authorization.py
+- src/services/agent_runtime/model_plane.py
+- src/services/agent_runtime/thread_store.py
+- src/services/assistant_entry/source_access.py
+- tests/api/test_agent_v2.py
+- tests/api/test_artifact_shares.py
+- tests/api/test_assistant_approval_preview.py
+- tests/api/test_assistant_sessions.py
+- tests/api/test_assistant_source_access.py
+- tests/services/agent_runtime/test_model_plane.py
+- tests/services/agent_runtime/test_thread_store.py
+- web/e2e/README.md
+- web/e2e/fixtures/r1-attachments/alpha.txt
+- web/e2e/fixtures/r1-attachments/beta.txt
+- web/e2e/fixtures/r1-attachments/gamma.txt
+- web/e2e/global.setup.ts
+- web/e2e/r1-remaining.spec.ts
+- web/src/api/agentThreads.ts
+- web/src/i18n/locales/en-US.json
+- web/src/i18n/locales/zh-CN.json
+- web/src/pages/assistant/artifactHydration.ts
+- web/src/pages/assistant/assistantOutcome.test.ts
+- web/src/pages/assistant/assistantOutcome.ts
+- web/src/pages/assistant/components/ActivityPanel.tsx
+- web/src/pages/assistant/components/ChatMessage.tsx
+- web/src/pages/assistant/components/ToolApprovalCard.tsx
+- web/src/pages/assistant/hooks/useChatSession.ts
+- web/src/pages/assistant/index.tsx
+- web/src/pages/assistant/sourceVisibility.test.ts
+- web/src/pages/assistant/sourceVisibility.ts
+- web/src/pages/assistant/types.ts
+- src/main.py
+commits:
+- 60ede5c59eb6ad4327e1d8ecac77dccf26db8d93
+- 66202d8bfd9fd0a1cf4cefa53216472fae9ae037
+- 2919a587c6257f5dcd83e670b868e2a0edf1953f
+contracts_compared:
+- V1/V2 turn and original run identity unchanged
+- thread read adds optional restricted_source_run_ids
+- unverifiable anonymous Quiz fail-closed404/409
+- current-source guard injected only in Gateway model governance
+- no Rust or DB changes
+commands:
+- command: uv run --all-packages --extra test pytest -q --no-cov tests/api/test_assistant_source_access.py
+    tests/api/test_agent_v2.py tests/api/test_assistant_sessions.py tests/services/agent_runtime/test_thread_store.py
+    tests/api/test_agent_runtime_api.py tests/api/test_assistant_approval_preview.py
+    tests/api/test_quiz_grading.py tests/api/test_conversation_share_quiz.py tests/api/test_artifact_shares.py
+    tests/services/agent_runtime/test_model_plane.py
+  exit_code: 0
+  passed: 199
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-python.log
+- command: pnpm -C web exec node --experimental-strip-types --test src/pages/assistant/sourceVisibility.test.ts
+    src/pages/assistant/assistantOutcome.test.ts
+  exit_code: 0
+  passed: 10
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-node.log
+- command: make verify-openapi-contract
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-openapi.log
+- command: make agent-runtime-source-contract
+  exit_code: 0
+  passed: 18
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-source-contract.log
+- command: E2E_EXISTING_ACCOUNT_ONLY=1 E2E_BASE_URL=http://127.0.0.1:8081 E2E_API_URL=http://127.0.0.1:8080
+    pnpm -C web exec playwright test -c playwright.live.config.ts e2e/r1-remaining.spec.ts
+    --workers=1
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-e2e-second.log
+- command: make architecture-boundary-gate
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-architecture.log
+- command: make validate
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-validate.log
+- command: make status
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-status.log
+- command: pnpm -C web exec tsc --noEmit -p tsconfig.app.json --ignoreDeprecations
+    6.0
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-ts-app.log
+- command: pnpm -C web exec tsc --noEmit -p tsconfig.node.json --ignoreDeprecations
+    6.0
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-ts-node.log
+- command: pnpm -C web i18n:check
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-i18n.log
+- command: make harness-check
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-harness.log
+- command: make hot-update ARGS="--all" (includes pnpm build)
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-hot-update.log
+- command: affected Ruff (exact paths in closure report)
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-ruff.log
+- command: affected ESLint (assistant/API/E2E source)
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-eslint.log
+- command: pnpm -C web exec eslint e2e/r1-remaining.spec.ts
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+  log: reports/r1-remaining/closure-e2e-eslint.log
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings:
+  blocker: 0
+  high: 0
+  medium: 0
+repaired_review_findings:
+  high: 1
+  medium: 1
+rollback_class: old-binary-compatible
+compose_owner: /Users/yang/projects/AI--Platfform
+actual_source_manifest: reports/r1-remaining/runtime-identity.json
+runtime_candidate: C4 overlay22bf4e1ecad5 upstream279ba894152b
+provider_model: DashScope/qwen3.8-flash (real text/knowledge/attachment only)
+database_revision: accepted DR01 authority epoch4; no new migration
+artifact_manifest: reports/r1-remaining/quiz-share-real-regression.json
+remaining_risks:
+- Complete R1 is not claimed; image/vision, long-task resources, activity1000/PDF
+  and remaining journeys are not verified this closure.
+- IAB native download event not observed; independent Playwright real DOCX download
+  passed.
+- Unverifiable legacy anonymous Quiz links fail closed by policy.
+evidence:
+- reports/product/r1-remaining-acceptance-2026-09-27.md
+- reports/r1-remaining/independent-review.md
+- reports/r1-remaining/source-final-reads.json
+- reports/r1-remaining/source-revoke-pending.json
+- reports/r1-remaining/390-attachment-run-facts.json
+- reports/r1-remaining/memory-off-run-facts.json
+integration:
+  state: integrated
+  target: main
+  mode: local fast-forward
+  merged_head: 2919a587c6257f5dcd83e670b868e2a0edf1953f
+  push_performed: false
+  branch_deleted: false
+source_note: Docker source manifest matched merged Git blobs; subsequent receipt-only
+  commit changes no product code.

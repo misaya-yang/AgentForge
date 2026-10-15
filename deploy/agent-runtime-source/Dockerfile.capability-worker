@@ -1,0 +1,133 @@
+FROM rust:1.95.0-bookworm AS builder
+
+ARG CARGO_BUILD_JOBS=1
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends lld \
+    && rm -rf /var/lib/apt/lists/* \
+    && ld.lld --version
+
+WORKDIR /source/codex-rs
+COPY codex-rs/ ./
+
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo build --locked --profile dev-small \
+        -p ai-platform-capability-worker \
+        --bin ai-platform-capability-worker \
+        --bin ai-platform-capability-worker-health \
+        --bin ai-platform-plugin-packs \
+        --bin ai-platform-python-supervisor \
+    && cp target/dev-small/ai-platform-capability-worker /tmp/ \
+    && cp target/dev-small/ai-platform-capability-worker-health /tmp/ \
+    && cp target/dev-small/ai-platform-plugin-packs /tmp/ \
+    && cp target/dev-small/ai-platform-python-supervisor /tmp/
+
+FROM python:3.11-slim-bookworm AS runtime
+
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && update_ok=0 \
+    && for attempt in 1 2 3 4 5 6 7 8; do \
+        if apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update; then \
+            update_ok=1; \
+            break; \
+        fi; \
+        rm -rf /var/lib/apt/lists/partial; \
+        if [ "${attempt}" = 3 ]; then \
+            for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+                if [ -f "${source_file}" ]; then \
+                    sed -i \
+                        -e "s|${DEBIAN_SECURITY_MIRROR}|https://deb.debian.org/debian-security|g" \
+                        -e "s|${DEBIAN_MIRROR}|https://deb.debian.org/debian|g" \
+                        "${source_file}"; \
+                fi; \
+            done; \
+        fi; \
+        sleep "$((attempt * 2))"; \
+    done \
+    && [ "${update_ok}" = 1 ] \
+    && install_ok=0 \
+    && for attempt in 1 2 3 4 5 6; do \
+        if apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 \
+            install -y --no-install-recommends --fix-missing \
+            fonts-noto-cjk; then \
+            install_ok=1; \
+            break; \
+        fi; \
+        if [ "${attempt}" = 2 ]; then \
+            for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+                if [ -f "${source_file}" ]; then \
+                    sed -i \
+                        -e "s|${DEBIAN_SECURITY_MIRROR}|https://deb.debian.org/debian-security|g" \
+                        -e "s|${DEBIAN_MIRROR}|https://deb.debian.org/debian|g" \
+                        "${source_file}"; \
+                fi; \
+            done; \
+            apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=60 update; \
+        fi; \
+        sleep "$((attempt * 2))"; \
+    done \
+    && [ "${install_ok}" = 1 ] \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION
+ARG AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256
+ARG AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256
+
+LABEL org.opencontainers.image.title="AI Platform Capability Worker" \
+      org.opencontainers.image.revision="${AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION}" \
+      com.misaya.ai-platform.capability-worker.overlay-sha256="${AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256}" \
+      com.misaya.ai-platform.capability-worker.schema-sha256="${AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256}" \
+      com.misaya.ai-platform.capability-worker.artifact="capability_worker" \
+      com.misaya.ai-platform.capability-worker.binary="ai-platform-capability-worker"
+
+RUN install -d -m 0700 -o 10001 -g 10001 /workspace
+COPY LICENSE NOTICE /opt/ai-platform-capability-worker/
+COPY --from=builder /tmp/ai-platform-capability-worker /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-capability-worker-health /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-plugin-packs /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-python-supervisor /usr/local/bin/
+
+ENV AI_PLATFORM_CAPABILITY_WORKER_BIND=0.0.0.0:8095 \
+    AI_PLATFORM_CAPABILITY_WORKER_HEALTH_ADDR=127.0.0.1:8095 \
+    AI_PLATFORM_OFFICE_FONT_PATHS=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc \
+    PYTHONNOUSERSITE=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    RUST_BACKTRACE=1
+
+USER 10001:10001
+WORKDIR /workspace
+EXPOSE 8095
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["ai-platform-capability-worker-health"]
+ENTRYPOINT ["ai-platform-capability-worker"]

@@ -1,0 +1,14 @@
+packages:
+  - .
+
+# Keep security overrides explicit; pnpm 12 no longer reads package.json#pnpm.
+overrides:
+  "@babel/core": "7.29.7"
+  "brace-expansion": "5.0.6"
+  "flatted": ">=3.4.2"
+  "form-data": ">=4.0.6"
+  "langsmith": ">=0.6.0"
+  "picomatch": ">=4.0.4"
+
+# Fail on a mismatched pnpm version instead of downloading or switching it.
+pmOnFail: error

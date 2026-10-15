@@ -1,0 +1,63 @@
+# Isolated infrastructure for source development; no application image fallback.
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: ["127.0.0.1:${POSTGRES_PORT}:5432"]
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  redis:
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_MAXMEMORY: 128mb
+    command: [/bin/sh, /opt/redis-entrypoint.sh]
+    ports: ["127.0.0.1:${REDIS_PORT}:6379"]
+    volumes:
+      - redis:/data
+      - ./scripts/new/redis-entrypoint.sh:/opt/redis-entrypoint.sh:ro
+    mem_limit: 192m
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  qdrant:
+    image: qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    ports:
+      - "127.0.0.1:${QDRANT_HTTP_PORT}:6333"
+      - "127.0.0.1:${QDRANT_GRPC_PORT}:6334"
+    volumes: ["qdrant:/qdrant/storage"]
+    mem_limit: 512m
+  object-store:
+    image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${LOCAL_S3_SECRET_KEY}
+    ports:
+      - "127.0.0.1:${LOCAL_S3_PORT}:9000"
+      - "127.0.0.1:${LOCAL_S3_CONSOLE_PORT}:9001"
+    volumes: ["object-store:/data"]
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:9000/health]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+volumes:
+  postgres:
+  redis:
+  qdrant:
+  object-store:

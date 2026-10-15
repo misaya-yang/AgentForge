@@ -1,0 +1,66 @@
+[
+  {
+    "container": "ai-gateway-backend",
+    "files": 452,
+    "mismatches": [],
+    "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
+    "image_ref": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-knowledge-service",
+    "files": 271,
+    "mismatches": [],
+    "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
+    "image_ref": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-knowledge-worker-1",
+    "files": 271,
+    "mismatches": [],
+    "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
+    "image_ref": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-agent-runtime",
+    "image_id": "sha256:6f364bbe35eb44fca3ac14c12368150d9989233a652c3a4fb2c93791ccd44981",
+    "image_ref": "ai-gateway-agent-runtime:local-94cbbddafc17-80992c9505b0",
+    "state": "running",
+    "exit_code": 0,
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-agent-capability-worker-1",
+    "image_id": "sha256:592036aadd8c3088f4d0d01ae42a660f03ac0556934c317db7fa4ca68fecd001",
+    "image_ref": "ai-gateway-agent-capability-worker:local-94cbbddafc17-80992c9505b0",
+    "state": "running",
+    "exit_code": 0,
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-migrate",
+    "image_id": "sha256:3d2ba0e569da3ddf6c2aa932babaf572f75db9979ce2b987fb93f7eb2706d647",
+    "image_ref": "ai-gateway-migrate-local-c87697503830:2.0.0",
+    "state": "exited",
+    "exit_code": 0,
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-frontend",
+    "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
+    "image_ref": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+    "state": "running",
+    "exit_code": 0,
+    "compose_owner": "/Users/yang/projects/AI--Platfform"
+  },
+  {
+    "container": "ai-gateway-frontend",
+    "dist_files": 253,
+    "runtime_generated_excluded": [
+      "runtime-config.js (40-runtime-config.sh generates this from non-secret deployment settings)"
+    ],
+    "mismatches": []
+  }
+]

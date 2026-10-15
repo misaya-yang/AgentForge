@@ -1,0 +1,10 @@
+{
+  "scope": "fresh text-only new turn, not replay of cancelled Python",
+  "thread_id": "01a0e41a-9b1b-76b0-969d-d746ea69f9ed",
+  "status": 503,
+  "safe_error_code": "AI_PLATFORM_AGENT_RUNTIME_THREAD_RESUME_FAILED",
+  "response_keys": [
+    "detail"
+  ],
+  "turn_id": null
+}

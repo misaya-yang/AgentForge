@@ -1,0 +1,124 @@
+[
+  {
+    "case": "output",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Ok": {
+        "execution_id": "sandbox-test",
+        "status": "succeeded",
+        "stdout": "sandbox-ok\n",
+        "stderr": "",
+        "output_files": [
+          {
+            "filename": "result.txt",
+            "mime_type": null,
+            "content_base64": "b2s=",
+            "size_bytes": 2,
+            "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df"
+          }
+        ],
+        "duration_ms": 27,
+        "exit_code": 0,
+        "error_message": null,
+        "side_effect_state": "known"
+      }
+    }
+  },
+  {
+    "case": "input_not_output",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Ok": {
+        "execution_id": "sandbox-test",
+        "status": "succeeded",
+        "stdout": "source\n",
+        "stderr": "",
+        "output_files": [],
+        "duration_ms": 11,
+        "exit_code": 0,
+        "error_message": null,
+        "side_effect_state": "known"
+      }
+    }
+  },
+  {
+    "case": "input_readonly",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Ok": {
+        "execution_id": "sandbox-test",
+        "status": "failed",
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/workspace/.python-1-1788831563888595042/.ai_platform_entrypoint.py\", line 1, in <module>\n    open('input/x.txt','w').write('changed')\n    ^^^^^^^^^^^^^^^^^^^^^^^\nOSError: [Errno 30] Read-only file system: 'input/x.txt'\n",
+        "output_files": [],
+        "duration_ms": 10,
+        "exit_code": 1,
+        "error_message": "python process exited unsuccessfully",
+        "side_effect_state": "known"
+      }
+    }
+  },
+  {
+    "case": "inode_quota",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Err": "OutputLimitExceeded"
+    }
+  },
+  {
+    "case": "total_disk",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Err": "OutputLimitExceeded"
+    }
+  },
+  {
+    "case": "fallocate",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Ok": {
+        "execution_id": "sandbox-test",
+        "status": "failed",
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/workspace/.python-1-1788831565448402543/.ai_platform_entrypoint.py\", line 2, in <module>\n    f=open('output/big.bin','wb');os.posix_fallocate(f.fileno(),0,64*1024*1024)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nOSError: [Errno 27] File too large\n",
+        "output_files": [
+          {
+            "filename": "big.bin",
+            "mime_type": null,
+            "content_base64": "",
+            "size_bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "duration_ms": 22,
+        "exit_code": 1,
+        "error_message": "python process exited unsuccessfully",
+        "side_effect_state": "known"
+      }
+    }
+  },
+  {
+    "case": "kernel_quotas",
+    "passed": true,
+    "exit_code": 0,
+    "result": {
+      "Ok": {
+        "execution_id": "sandbox-test",
+        "status": "succeeded",
+        "stdout": "26218496 96\n",
+        "stderr": "",
+        "output_files": [],
+        "duration_ms": 20,
+        "exit_code": 0,
+        "error_message": null,
+        "side_effect_state": "known"
+      }
+    }
+  }
+]

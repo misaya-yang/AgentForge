@@ -1,0 +1,26 @@
+{
+  "python_core_source": [
+    {
+      "path": "src/api/v1/_assistant_routes/sessions.py",
+      "sha256": "7f482c2dd8ffd05244f2553f6ac9884b9053cb3789a7eee321e52329fba5d139",
+      "matches": true
+    },
+    {
+      "path": "src/services/assistant_entry/source_access.py",
+      "sha256": "19a023627baf085f12b577c635d101254e691bd68e7c266013d9e6e76e0c3aed",
+      "matches": true
+    },
+    {
+      "path": "src/services/images/history.py",
+      "sha256": "1020ed04ccc50165f5b6793e12848ca9384689dd72027a26adac03e36de9a077",
+      "matches": true
+    },
+    {
+      "path": "packages/ai-gateway-core/src/ai_gateway_core/media/image_generation.py",
+      "sha256": "121f60f0e5db9a1eb432c4b7fe1442a24edffa8ef2c2bb1202d5f662d100361b",
+      "matches": true
+    }
+  ],
+  "frontend_asset_count": 188,
+  "frontend_all_match": true
+}

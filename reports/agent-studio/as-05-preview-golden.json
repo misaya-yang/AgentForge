@@ -1,0 +1,115 @@
+{
+  "schema_version": "agent-studio-as05-preview-golden/v1",
+  "phase_id": "AS-05",
+  "feature_id": "AS-F006",
+  "status": "actor_iteration_3_passed_awaiting_fresh_critic",
+  "execution_modes": [
+    "offline_deterministic_browser",
+    "local_repository_owned_stack"
+  ],
+  "external_provider_success_claimed": false,
+  "protected_internal_payloads_rendered": false,
+  "cases": [
+    {
+      "case_id": "saved-draft-isolated-preview",
+      "expected": "Preview pins an exact saved Draft revision and creates an isolated session rather than using unsaved form state or Assistant history.",
+      "observed": "The browser named Draft r8, created a new Draft session, displayed the effective saved model/resource counts, and restored the same Draft history after returning from Version Preview.",
+      "status": "passed",
+      "evidence": [
+        "web/e2e/agent-studio.spec.ts::runs isolated Draft and Version Preview sessions with tool and Knowledge events",
+        "reports/agent-studio/as-05/matrix/preview-draft-events-desktop-1440x900.png"
+      ]
+    },
+    {
+      "case_id": "unsaved-edit-does-not-hot-swap",
+      "expected": "Changing Studio form state cannot mutate the active Preview target or silently rebuild a session.",
+      "observed": "An unsaved-name edit produced an explicit saved-Draft warning. Switching targets required confirmation and a new-session action.",
+      "status": "passed",
+      "evidence": [
+        "web/e2e/agent-studio.spec.ts::runs isolated Draft and Version Preview sessions with tool and Knowledge events"
+      ]
+    },
+    {
+      "case_id": "atomic-metadata-and-draft-save",
+      "expected": "Name, description, Draft spec, resource bindings and revision commit as one ETag-guarded batch; 409, 422 or 503 cannot leave a partial metadata write.",
+      "observed": "The Studio issued no metadata PATCH. API tests covered 409, 422 and 503 rollback; a real PostgreSQL trigger forced failure after the metadata UPDATE and proved the transaction rolled it back together with Draft/resource changes; the live browser reloaded the complete metadata/spec batch after revision 2.",
+      "status": "passed",
+      "evidence": [
+        "tests/api/test_agents_api.py::test_draft_and_metadata_save_is_atomic_across_conflict_validation_and_storage_errors",
+        "tests/database/test_agent_studio_migrations.py::test_repository_enforces_tenant_revision_version_and_hash_only_token_contracts",
+        "web/e2e/agent-studio.spec.ts::saves Draft edits and surfaces validation and 409 conflict states",
+        "web/e2e/agent-studio-live.spec.ts::creates, saves, previews, renders responsively, and cleans up a real Draft"
+      ]
+    },
+    {
+      "case_id": "immutable-version-preview",
+      "expected": "Historical Version Preview resolves the immutable Version spec server-side and does not inherit the current Draft configuration.",
+      "observed": "Version 7 displayed qwen3.7-max with zero capabilities and zero Knowledge sources, distinct from Draft r8, and started its own Version session.",
+      "status": "passed",
+      "evidence": [
+        "tests/api/test_agents_api.py",
+        "tests/services/assistant/test_agent_runtime_resolver.py",
+        "reports/agent-studio/as-05/matrix/preview-version-desktop-1440x900.png"
+      ]
+    },
+    {
+      "case_id": "controlled-tool-and-knowledge-events",
+      "expected": "Preview shows user-safe effective tool and Knowledge activity without rendering arbitrary internal results, prompts, credentials or signed Snapshot fields.",
+      "observed": "The Agent SSE route projected only event-type-specific public fields and dropped unknown events. Raw malicious tool/context/error events containing nested credential-shaped keys, arbitrary results, metadata, arguments and output files reached neither the response nor the browser; the generic Assistant stream contract remained unchanged.",
+      "status": "passed",
+      "evidence": [
+        "web/e2e/agent-studio.spec.ts::runs isolated Draft and Version Preview sessions with tool and Knowledge events",
+        "tests/services/assistant/test_agent_runtime_resolver.py::test_agent_runtime_raw_sse_excludes_arbitrary_tool_context_and_error_payloads",
+        "tests/services/assistant/test_agent_runtime_resolver.py::test_generic_assistant_stream_keeps_its_existing_rich_event_contract",
+        "reports/agent-studio/as-05/matrix/preview-draft-events-desktop-1440x900.png"
+      ]
+    },
+    {
+      "case_id": "stable-preview-failure-taxonomy",
+      "expected": "Configuration, resource, permission, provider and runtime failures remain distinguishable and user-safe.",
+      "observed": "Five fixture scenarios rendered Saved configuration changed, Capability unavailable, Permission denied, Provider unavailable and Runtime failed labels without protected internals.",
+      "status": "passed",
+      "evidence": [
+        "web/e2e/agent-studio.spec.ts::labels configuration Preview failures without exposing internals",
+        "web/e2e/agent-studio.spec.ts::labels resource Preview failures without exposing internals",
+        "web/e2e/agent-studio.spec.ts::labels permission Preview failures without exposing internals",
+        "web/e2e/agent-studio.spec.ts::labels provider Preview failures without exposing internals",
+        "web/e2e/agent-studio.spec.ts::labels runtime Preview failures without exposing internals"
+      ]
+    },
+    {
+      "case_id": "live-model-unavailable-fails-closed",
+      "expected": "A real local Preview without a usable configured provider cannot be represented as a successful model run.",
+      "observed": "The repository-owned stack created a Draft, atomically saved metadata/spec revision 2, reloaded the complete batch, then rendered Model unavailable: Agent model is unavailable at desktop, tablet and mobile sizes. Cleanup removed the Agent and the residual active-row count was zero.",
+      "status": "passed",
+      "external_provider_success": false,
+      "evidence": [
+        "web/e2e/agent-studio-live.spec.ts::creates, saves, previews, renders responsively, and cleans up a real Draft",
+        "reports/agent-studio/as-05/studio-desktop.png",
+        "reports/agent-studio/as-05/studio-tablet.png",
+        "reports/agent-studio/as-05/studio-mobile.png"
+      ]
+    },
+    {
+      "case_id": "existing-assistant-and-route-compatibility",
+      "expected": "Agent Studio remains additive and does not replace existing protected routes or the built-in Assistant fallback.",
+      "observed": "Compose passed the environment flag into the runtime entrypoint. A real built-container false/true exercise removed only Agent routes/navigation while the Assistant composer remained usable, and the full open-source route/Eval/Agent regression passed 31 of 31 tests.",
+      "status": "passed",
+      "evidence": [
+        "web/e2e/agent-studio.spec.ts::removes Agent navigation and routes when the runtime feature flag is off",
+        "web/e2e/agent-studio-live.spec.ts::removes Agent surfaces while preserving the existing Assistant",
+        "tests/scripts/test_web_runtime_config_entrypoint.py",
+        "corepack pnpm@10.33.0 -C web e2e:opensource"
+      ]
+    }
+  ],
+  "receipts": {
+    "agent_studio_e2e": "25 passed, 0 failed, 0 skipped",
+    "existing_route_e2e": "31 passed, 0 failed, 0 skipped",
+    "preview_api": "9 passed, 0 failed, 0 skipped",
+    "assistant_runtime_resolver": "11 passed, 0 failed, 0 skipped",
+    "supplemental": "runtime config plus real PostgreSQL 6 passed; Ruff passed",
+    "live_stack": "normal flow passed after final true restore; flag-off rollback passed; active AS05 Live Agent count after cleanup = 0",
+    "compose": "8 of 8 healthy; sampled total memory approximately 763 MiB"
+  }
+}

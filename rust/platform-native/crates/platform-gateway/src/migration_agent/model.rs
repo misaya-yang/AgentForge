@@ -1,0 +1,1467 @@
+//! Private single-provider model plane: immutable lease authority and budget.
+//! No provider credential crosses to the Runtime or public response payload.
+use super::{AgentError, AgentFuture, Scope, entry::SourceAccess, spec, text};
+use axum::{
+    Json, Router,
+    body::{Body, Bytes, to_bytes},
+    extract::{Request, State},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    routing::post,
+};
+use futures_core::Stream;
+use hmac::{Hmac, Mac};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+use tokio::sync::mpsc;
+pub const LEASE_SCHEMA: &str = "agent-runtime-model-lease/v1";
+#[derive(Clone)]
+pub struct LeaseSigner {
+    secret: Arc<Vec<u8>>,
+}
+impl LeaseSigner {
+    pub fn new(secret: String) -> Result<Self, AgentError> {
+        if secret.chars().count() < 16 {
+            return Err(AgentError::code(503, "RUNTIME_MODEL_LEASE_SECRET_INVALID"));
+        }
+        Ok(Self {
+            secret: Arc::new(secret.into_bytes()),
+        })
+    }
+    pub fn sign(&self, claims: &Value) -> Result<String, AgentError> {
+        validate_claims(claims)?;
+        let mut mac = Hmac::<Sha256>::new_from_slice(&self.secret)
+            .map_err(|_| AgentError::code(503, "RUNTIME_MODEL_LEASE_SECRET_INVALID"))?;
+        mac.update(spec::canonical(claims).as_bytes());
+        Ok(format!("v1:{}", spec::hex(&mac.finalize().into_bytes())))
+    }
+    pub fn verify(&self, signature: &str, claims: &Value) -> Result<(), AgentError> {
+        validate_claims(claims)?;
+        let s = signature
+            .strip_prefix("v1:")
+            .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
+            .ok_or_else(|| AgentError::code(401, "RUNTIME_MODEL_LEASE_SIGNATURE_INVALID"))?;
+        let bytes = (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| AgentError::code(401, "RUNTIME_MODEL_LEASE_SIGNATURE_INVALID"))?;
+        let mut mac = Hmac::<Sha256>::new_from_slice(&self.secret)
+            .map_err(|_| AgentError::code(503, "RUNTIME_MODEL_LEASE_SECRET_INVALID"))?;
+        mac.update(spec::canonical(claims).as_bytes());
+        mac.verify_slice(&bytes)
+            .map_err(|_| AgentError::code(401, "RUNTIME_MODEL_LEASE_SIGNATURE_INVALID"))
+    }
+}
+fn validate_claims(v: &Value) -> Result<(), AgentError> {
+    if v["schema_version"] != LEASE_SCHEMA {
+        return Err(AgentError::code(
+            401,
+            "RUNTIME_MODEL_LEASE_VERSION_UNSUPPORTED",
+        ));
+    }
+    for k in [
+        "lease_id",
+        "snapshot_id",
+        "run_id",
+        "runtime_thread_id",
+        "tenant_id",
+        "user_id",
+        "session_id",
+        "provider_id",
+        "model_id",
+    ] {
+        let s = text(v, k);
+        if s.is_empty() || s.trim() != s {
+            return Err(AgentError::code(401, "RUNTIME_MODEL_LEASE_INVALID"));
+        }
+    }
+    let nonce = text(v, "nonce_sha256");
+    if v["capability_revision"].as_i64().unwrap_or(0) < 1
+        || v["issued_at_ms"].as_i64().is_none()
+        || v["expires_at_ms"].as_i64().unwrap_or(0) <= v["issued_at_ms"].as_i64().unwrap_or(0)
+        || nonce.len() != 64
+        || !nonce
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(AgentError::code(401, "RUNTIME_MODEL_LEASE_INVALID"));
+    }
+    Ok(())
+}
+pub fn lease_claims(row: &Value) -> Result<Value, AgentError> {
+    let mut out = json!({});
+    for k in [
+        "schema_version",
+        "lease_id",
+        "snapshot_id",
+        "run_id",
+        "runtime_thread_id",
+        "tenant_id",
+        "user_id",
+        "session_id",
+        "provider_id",
+        "model_id",
+        "capability_revision",
+        "issued_at_ms",
+        "expires_at_ms",
+        "nonce_sha256",
+    ] {
+        out[k] = row[k].clone();
+    }
+    validate_claims(&out)?;
+    Ok(out)
+}
+pub fn scope_hash(scope: &Scope) -> String {
+    let mut h = Sha256::new();
+    for value in [&scope.tenant_id, &scope.user_id, &scope.session_id] {
+        h.update((value.len() as u64).to_be_bytes());
+        h.update(value.as_bytes());
+    }
+    spec::hex(&h.finalize())
+}
+pub fn estimate_tokens(value: &Value) -> i64 {
+    ((spec::canonical(value).len() as i64 + 3) / 4).max(1)
+}
+fn numeric(v: &Value) -> f64 {
+    v.as_f64()
+        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        .unwrap_or(0.0)
+}
+pub fn cost_microusd(input: i64, output: i64, pricing: &Value) -> i64 {
+    ((input as f64 * numeric(&pricing["input_price_per_1k"]).max(0.0) * 1000.0)
+        + (output as f64 * numeric(&pricing["output_price_per_1k"]).max(0.0) * 1000.0))
+        .ceil()
+        .max(0.0) as i64
+}
+#[derive(Clone)]
+pub struct AuthorizedCall {
+    pub call_id: String,
+    pub lease_id: String,
+    pub run_id: String,
+    pub scope: Scope,
+    pub model_id: String,
+    pub provider_id: String,
+    pub provider_revision: String,
+    pub snapshot: Value,
+    pub estimated_input_tokens: i64,
+    pub reserved_output_tokens: i64,
+}
+pub trait RuntimeProviderCredentials: Send + Sync {
+    fn runtime_provider<'a>(&'a self, tenant: &'a str, id: &'a str) -> AgentFuture<'a, Value>;
+}
+impl<D, C, H, G, E, T> RuntimeProviderCredentials
+    for crate::provider_service::ProviderService<D, C, H, G, E, T>
+where
+    D: crate::provider_service::ProviderDatabase,
+    C: crate::provider_service::ProviderCipher,
+    H: crate::provider_service::ProviderHttp,
+    G: crate::provider_service::ProviderGoogleAuth,
+    E: crate::provider_service::ProviderEnvironment,
+    T: crate::provider_service::ProviderClock,
+{
+    fn runtime_provider<'a>(&'a self, tenant: &'a str, id: &'a str) -> AgentFuture<'a, Value> {
+        Box::pin(async move {
+            self.get_runtime_provider_config(tenant, id)
+                .await
+                .map(|v| v.into_internal_value())
+                .map_err(|_| AgentError::code(503, "RUNTIME_PROVIDER_UNAVAILABLE"))
+        })
+    }
+}
+#[derive(Clone)]
+pub struct AgentModelPlane {
+    pub admission: Option<Arc<crate::capacity_admission::CapacityAdmissionController>>,
+    pub capacity: Option<Arc<crate::capacity::CapacityResolver>>,
+    pub pool: PgPool,
+    pub signer: Arc<LeaseSigner>,
+    pub providers: Arc<dyn RuntimeProviderCredentials>,
+    pub sources: Arc<dyn SourceAccess>,
+    pub client: reqwest::Client,
+    pub internal_token: Arc<String>,
+}
+impl AgentModelPlane {
+    async fn acquire_provider(
+        &self,
+        call: &AuthorizedCall,
+    ) -> Result<Option<Arc<crate::capacity_admission::CapacityLease>>, AgentError> {
+        let (Some(admission), Some(resolver)) = (&self.admission, &self.capacity) else {
+            return Ok(None);
+        };
+        let budgets = resolver
+            .resolve(&crate::capacity::CapacityRequest {
+                tenant_id: call.scope.tenant_id.clone(),
+                service_id: "agent-runtime-provider".into(),
+                request_class: "stream".into(),
+                resource_kind: "provider".into(),
+                provider_id: json!(call.provider_id),
+                upstream_group: Value::Null,
+                is_admin_read: false,
+                service_config: Value::Null,
+            })
+            .map_err(|_| AgentError::code(503, "CAPACITY_UNAVAILABLE"))?;
+        let lease = admission
+            .acquire(
+                &budgets,
+                &crate::capacity_admission::AdmissionRequest {
+                    tenant_id: call.scope.tenant_id.clone(),
+                    user_id: call.scope.user_id.clone(),
+                    service_id: "agent-runtime-provider".into(),
+                    request_class: "stream".into(),
+                    request_id: call.call_id.clone(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(|_| AgentError::code(429, "CAPACITY_REJECTED"))?;
+        Ok(Some(Arc::new(lease)))
+    }
+    pub async fn authorize_and_reserve(
+        &self,
+        body: &Value,
+        metadata: &Value,
+    ) -> Result<AuthorizedCall, AgentError> {
+        let id = super::uuid(text(metadata, "ai_platform_lease_id"))
+            .map_err(|_| AgentError::code(401, "RUNTIME_MODEL_LEASE_INVALID"))?;
+        let data:Value=sqlx::query_scalar("SELECT to_jsonb(l)||jsonb_build_object('snapshot',s.snapshot,'snapshot_sha256',s.snapshot_sha256,'execution_owner_id',o.owner_id,'execution_fence',o.fence,'issued_at_ms',floor(extract(epoch from l.issued_at)*1000)::bigint,'expires_at_ms',floor(extract(epoch from l.expires_at)*1000)::bigint) FROM assistant_runtime_model_leases l JOIN assistant_runtime_snapshots s ON s.snapshot_id=l.snapshot_id AND s.run_id=l.run_id AND s.tenant_id=l.tenant_id AND s.user_id=l.user_id AND s.session_id=l.session_id JOIN assistant_runs r ON r.run_id=l.run_id LEFT JOIN assistant_runtime_execution_owners o ON o.run_id=r.run_id WHERE l.lease_id=$1::uuid AND (o.run_id IS NULL OR o.lease_until>NOW()) AND l.status='active' AND l.expires_at>NOW() AND r.status='running' AND r.engine='agent_runtime' AND NOT EXISTS(SELECT 1 FROM assistant_runtime_snapshot_revocations revoked WHERE revoked.snapshot_id=l.snapshot_id)").bind(&id).fetch_optional(&self.pool).await?.ok_or_else(||AgentError::code(401,"RUNTIME_MODEL_LEASE_NOT_FOUND"))?;
+        let owner = &data["execution_owner_id"];
+        let fence = &data["execution_fence"];
+        let scalar = |v: &Value| {
+            v.as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| v.to_string())
+        };
+        if !owner.is_null()
+            && (text(metadata, "ai_platform_execution_owner") != scalar(owner)
+                || metadata.get("ai_platform_execution_fence").map(&scalar) != Some(scalar(fence)))
+        {
+            return Err(AgentError::code(403, "RUNTIME_EXECUTION_FENCE_LOST"));
+        }
+        let claims = lease_claims(&data)?;
+        self.signer
+            .verify(text(metadata, "ai_platform_lease_signature"), &claims)?;
+        let scope = Scope {
+            tenant_id: text(&claims, "tenant_id").into(),
+            user_id: text(&claims, "user_id").into(),
+            session_id: text(&claims, "session_id").into(),
+        };
+        self.validate_thread_scope(&claims, metadata, &scope)
+            .await?;
+        if body["model"] != claims["model_id"] {
+            return Err(AgentError::code(403, "RUNTIME_MODEL_LEASE_MODEL_MISMATCH"));
+        }
+        let snapshot = &data["snapshot"];
+        if !snapshot.is_object() {
+            return Err(AgentError::code(503, "RUNTIME_MODEL_SNAPSHOT_INVALID"));
+        }
+        if spec::hash(snapshot) != text(&data, "snapshot_sha256") {
+            return Err(AgentError::code(
+                503,
+                "RUNTIME_MODEL_SNAPSHOT_HASH_MISMATCH",
+            ));
+        }
+        self.sources.require_conversation(&scope, false).await?;
+        let input = estimate_tokens(&body["input"]);
+        let output = body["max_output_tokens"]
+            .as_i64()
+            .unwrap_or(
+                snapshot["limits"]["max_output_tokens"]
+                    .as_i64()
+                    .unwrap_or(4096),
+            )
+            .max(1);
+        let cost = cost_microusd(input, output, &snapshot["pricing"]);
+        let call = uuid::Uuid::new_v4().to_string();
+        let hash = spec::hash(&if owner.is_null() {
+            body.clone()
+        } else {
+            json!({"body":body,"execution_fence":fence})
+        });
+        let result = if owner.is_null() {
+            sqlx::query(
+                "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6)",
+            )
+            .bind(&call)
+            .bind(&id)
+            .bind(&hash)
+            .bind(input)
+            .bind(output)
+            .bind(cost)
+            .execute(&self.pool)
+            .await
+        } else {
+            sqlx::query(
+                "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)",
+            )
+            .bind(&call)
+            .bind(&id)
+            .bind(&hash)
+            .bind(input)
+            .bind(output)
+            .bind(cost)
+            .bind(text(&data, "execution_owner_id"))
+            .bind(fence.as_i64().unwrap_or(0))
+            .execute(&self.pool)
+            .await
+        };
+        if let Err(error) = result {
+            let message = error.as_database_error().map(|d| d.message()).unwrap_or("");
+            return Err(if message.contains("MODEL_CALL_REPLAYED") {
+                AgentError::code(409, "RUNTIME_MODEL_CALL_REPLAYED")
+            } else if message.contains("BUDGET_EXHAUSTED") {
+                AgentError::code(429, "RUNTIME_MODEL_LEASE_BUDGET_EXHAUSTED")
+            } else {
+                AgentError::code(403, "RUNTIME_MODEL_LEASE_REJECTED")
+            });
+        }
+        Ok(AuthorizedCall {
+            call_id: call,
+            lease_id: id,
+            run_id: text(&claims, "run_id").into(),
+            scope,
+            model_id: text(&claims, "model_id").into(),
+            provider_id: text(&claims, "provider_id").into(),
+            provider_revision: text(&data, "provider_revision").into(),
+            snapshot: snapshot.clone(),
+            estimated_input_tokens: input,
+            reserved_output_tokens: output,
+        })
+    }
+    async fn validate_thread_scope(
+        &self,
+        claims: &Value,
+        metadata: &Value,
+        scope: &Scope,
+    ) -> Result<(), AgentError> {
+        let denied = || AgentError::code(403, "RUNTIME_MODEL_LEASE_SCOPE_MISMATCH");
+        let thread = text(metadata, "thread_id");
+        let turn = text(metadata, "turn_id");
+        let root_turn = text(metadata, "root_turn_id");
+        let parent = text(metadata, "parent_thread_id");
+        let parent_turn = text(metadata, "parent_turn_id");
+        if text(metadata, "ai_platform_scope_sha256") != scope_hash(scope) {
+            return Err(denied());
+        }
+        if thread == text(claims, "runtime_thread_id") {
+            if turn != text(claims, "run_id")
+                || (!root_turn.is_empty() && root_turn != text(claims, "run_id"))
+                || !parent.is_empty()
+                || !parent_turn.is_empty()
+            {
+                return Err(denied());
+            }
+            return Ok(());
+        }
+        if root_turn != text(claims, "run_id")
+            || thread.is_empty()
+            || turn.is_empty()
+            || parent.is_empty()
+            || parent == thread
+        {
+            return Err(denied());
+        }
+        for id in [thread, turn, parent] {
+            super::uuid(id).map_err(|_| denied())?;
+        }
+        let member:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('parent_kernel_thread_id',parent_kernel_thread_id,'relation_kind',relation_kind) FROM assistant_runtime_thread_members WHERE kernel_thread_id=$1::uuid AND runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5").bind(thread).bind(text(claims,"runtime_thread_id")).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
+        let m = member.ok_or_else(denied)?;
+        if m["relation_kind"] != "subagent"
+            || text(&m, "parent_kernel_thread_id") != super::uuid(parent)?
+        {
+            return Err(denied());
+        }
+        Ok(())
+    }
+    pub async fn complete_call(
+        &self,
+        call: &AuthorizedCall,
+        input: i64,
+        output: i64,
+        provider_request_id: Option<&str>,
+    ) -> Result<(), AgentError> {
+        sqlx::query("SELECT complete_assistant_runtime_model_call($1::uuid,$2,$3,$4,$5)")
+            .bind(&call.call_id)
+            .bind(input)
+            .bind(output)
+            .bind(cost_microusd(input, output, &call.snapshot["pricing"]))
+            .bind(provider_request_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+    pub async fn fail_call(
+        &self,
+        id: &str,
+        code: &str,
+        dispatched: bool,
+    ) -> Result<(), AgentError> {
+        sqlx::query("UPDATE assistant_runtime_model_calls SET status=$2,error_code=$3,completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).bind(if dispatched{"unknown"}else{"failed"}).bind(code).execute(&self.pool).await?;
+        Ok(())
+    }
+    pub async fn stream(
+        &self,
+        body: Value,
+        call: AuthorizedCall,
+    ) -> Result<ModelStream, AgentError> {
+        let mut cleanup = CallCleanup {
+            plane: self.clone(),
+            id: call.call_id.clone(),
+            armed: true,
+            lease: None,
+        };
+        cleanup.lease = match self.acquire_provider(&call).await {
+            Ok(lease) => lease,
+            Err(error) => {
+                self.fail_call(&call.call_id, "capacity_rejected", false)
+                    .await?;
+                return Err(error);
+            }
+        };
+        let preflight = self.prepare(&body, &call).await;
+        let prepared = match preflight {
+            Ok(v) => v,
+            Err(e) => {
+                self.fail_call(&call.call_id, &e.to_string(), false).await?;
+                return Err(e);
+            }
+        };
+        sqlx::query("UPDATE assistant_runtime_model_calls SET status='dispatched',dispatched_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status='reserved'").bind(&call.call_id).execute(&self.pool).await?;
+        let mut response = match self
+            .client
+            .post(prepared.url)
+            .headers(prepared.headers)
+            .json(&prepared.body)
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(_) => {
+                self.fail_call(&call.call_id, "provider_connection_interrupted", true)
+                    .await?;
+                return Err(AgentError::code(502, "RUNTIME_PROVIDER_TRANSPORT_ERROR"));
+            }
+        };
+        if !response.status().is_success() {
+            self.fail_call(
+                &call.call_id,
+                &format!("provider_http_{}", response.status().as_u16()),
+                true,
+            )
+            .await?;
+            return Err(AgentError::code(502, "RUNTIME_PROVIDER_REJECTED"));
+        }
+        let provider_request = response
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let (tx, rx) = mpsc::channel(16);
+        let plane = self.clone();
+        let task = tokio::spawn(async move {
+            let capacity = cleanup.lease.clone();
+            let mut pending = Vec::new();
+            let mut native = super::model_projection::NativeValidator::new(
+                prepared.aliases.clone(),
+                prepared.allowed.clone(),
+                prepared.native_search,
+                text(&call.snapshot["capabilities"]["reasoning"], "visibility") == "stream",
+            );
+            let mut chat = super::model_projection::ChatProjector::new(
+                &call.model_id,
+                call.estimated_input_tokens,
+                prepared.aliases.clone(),
+                prepared.allowed.clone(),
+            );
+            let mut observed = ProviderFrames::default();
+            let work = async {
+                if !prepared.native {
+                    let frame = chat.created();
+                    observed.observe(&frame);
+                    if tx.send(Ok(frame)).await.is_err() {
+                        return Ok(());
+                    }
+                }
+                let mut chat_terminal = false;
+                while let Some(chunk) = response
+                    .chunk()
+                    .await
+                    .map_err(|_| AgentError::code(502, "RUNTIME_PROVIDER_TRANSPORT_ERROR"))?
+                {
+                    for part in chunk.chunks(64 * 1024) {
+                        pending.extend_from_slice(part);
+                        while let Some(pos) = pending.iter().position(|b| *b == b'\n') {
+                            let line: Vec<_> = pending.drain(..=pos).collect();
+                            if line.len() > 2 * 1024 * 1024 {
+                                return Err(AgentError::code(502, "RUNTIME_PROVIDER_FRAME_LIMIT"));
+                            }
+                            let line = std::str::from_utf8(&line)
+                                .map_err(|_| {
+                                    AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INVALID")
+                                })?
+                                .trim_end_matches(['\r', '\n']);
+                            let Some(payload) = line
+                                .strip_prefix("data:")
+                                .map(str::trim)
+                                .filter(|s| !s.is_empty())
+                            else {
+                                continue;
+                            };
+                            if prepared.native {
+                                if let Some(frame) = native.consume(payload)? {
+                                    observed.observe(&frame);
+                                    if tx.send(Ok(frame)).await.is_err() {
+                                        return Ok(());
+                                    }
+                                }
+                            } else if payload == "[DONE]" {
+                                chat_terminal = true;
+                            } else {
+                                let p: Value = serde_json::from_str(payload).map_err(|_| {
+                                    AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INVALID")
+                                })?;
+                                for frame in chat.consume(&p)? {
+                                    observed.observe(&frame);
+                                    if tx.send(Ok(frame)).await.is_err() {
+                                        return Ok(());
+                                    }
+                                }
+                                if p["choices"].as_array().is_some_and(|a| {
+                                    a.iter().any(|v| !v["finish_reason"].is_null())
+                                }) {
+                                    chat_terminal = true;
+                                }
+                            }
+                        }
+                        if pending.len() > 2 * 1024 * 1024 {
+                            return Err(AgentError::code(502, "RUNTIME_PROVIDER_FRAME_LIMIT"));
+                        }
+                    }
+                }
+                if !pending.is_empty() {
+                    return Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INCOMPLETE"));
+                }
+                if prepared.native {
+                    let terminal = native.finish()?;
+                    plane
+                        .complete_call(
+                            &call,
+                            terminal.input,
+                            terminal.output,
+                            terminal
+                                .provider_request_id
+                                .as_deref()
+                                .or(provider_request.as_deref()),
+                        )
+                        .await?;
+                    cleanup.armed = false;
+                    let _ = tx.send(Ok(terminal.frame)).await;
+                    let _ = tx.send(Ok(Bytes::from_static(b"data: [DONE]\n\n"))).await;
+                } else {
+                    if !chat_terminal {
+                        return Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INCOMPLETE"));
+                    }
+                    let (frames, input, output) = chat.complete()?;
+                    plane
+                        .complete_call(&call, input, output, provider_request.as_deref())
+                        .await?;
+                    cleanup.armed = false;
+                    for frame in frames {
+                        if tx.send(Ok(frame)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+                Ok(())
+            };
+            let result: Result<(), AgentError> = if let Some(capacity) = capacity {
+                tokio::select! {result=work=>result,_=capacity.wait_lost()=>Err(AgentError::code(503,"CAPACITY_LEASE_LOST"))}
+            } else {
+                work.await
+            };
+            if let Err(error) = result {
+                let _ = plane
+                    .fail_call(&call.call_id, &error.to_string(), true)
+                    .await;
+                cleanup.armed = false;
+                if error.detail["code"] == "RUNTIME_PROVIDER_TRANSPORT_ERROR" && observed.next > 0 {
+                    let _ = tx.send(Ok(observed.failed())).await;
+                } else {
+                    let _ = tx.send(Err(error)).await;
+                }
+            }
+        });
+        let mut stream = ModelStream {
+            receiver: rx,
+            task,
+            first: None,
+        };
+        match stream.receiver.recv().await {
+            Some(Ok(first)) => {
+                stream.first = Some(first);
+                Ok(stream)
+            }
+            Some(Err(error)) => Err(error),
+            None => Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_EMPTY")),
+        }
+    }
+    async fn prepare(&self, body: &Value, call: &AuthorizedCall) -> Result<Prepared, AgentError> {
+        let provider = self
+            .providers
+            .runtime_provider(&call.scope.tenant_id, &call.provider_id)
+            .await?;
+        if text(&provider, "updated_at") != call.provider_revision {
+            return Err(AgentError::code(409, "RUNTIME_PROVIDER_REVISION_CHANGED"));
+        }
+        let key = text(&provider, "api_key");
+        let base = text(&provider, "runtime_base_url");
+        if key.is_empty() || base.is_empty() {
+            return Err(AgentError::code(503, "RUNTIME_PROVIDER_UNAVAILABLE"));
+        }
+        let wire = text(&call.snapshot["model"], "wire_protocol");
+        let native = wire == "responses_v1";
+        if !native && wire != "chat_completions" {
+            return Err(AgentError::code(422, "RUNTIME_PROVIDER_WIRE_UNSUPPORTED"));
+        }
+        let mut url = reqwest::Url::parse(base)
+            .map_err(|_| AgentError::code(503, "RUNTIME_PROVIDER_ENDPOINT_INVALID"))?;
+        if !matches!(url.scheme(), "https" | "http") || url.host_str().is_none() {
+            return Err(AgentError::code(503, "RUNTIME_PROVIDER_ENDPOINT_INVALID"));
+        }
+        let path = url.path().trim_end_matches('/');
+        let path = if native {
+            if path.ends_with("/responses") {
+                path.into()
+            } else if path.ends_with("/v1") {
+                format!("{path}/responses")
+            } else {
+                format!("{path}/v1/responses")
+            }
+        } else if path.ends_with("/chat/completions") {
+            path.into()
+        } else {
+            format!("{path}/chat/completions")
+        };
+        url.set_path(&path);
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "authorization",
+            format!("Bearer {key}")
+                .parse()
+                .map_err(|_| AgentError::code(503, "RUNTIME_PROVIDER_UNAVAILABLE"))?,
+        );
+        headers.insert("content-type", "application/json".parse().expect("header"));
+        let profile = &call.snapshot["capabilities"];
+        if profile["prompt_cache"]["adapter_id"] == "cache/dashscope-session-v1"
+            && profile["prompt_cache"]["config"]["enabled"] == true
+        {
+            headers.insert(
+                "x-dashscope-session-cache",
+                "enable".parse().expect("header"),
+            );
+        }
+        let (body, aliases, allowed, native_search) = provider_body(body, call, native)?;
+        Ok(Prepared {
+            url,
+            headers,
+            body,
+            aliases,
+            allowed,
+            native,
+            native_search,
+        })
+    }
+}
+struct Prepared {
+    url: reqwest::Url,
+    headers: HeaderMap,
+    body: Value,
+    aliases: BTreeMap<String, (String, String)>,
+    allowed: BTreeSet<(Option<String>, String)>,
+    native: bool,
+    native_search: bool,
+}
+pub struct ModelStream {
+    receiver: mpsc::Receiver<Result<Bytes, AgentError>>,
+    task: tokio::task::JoinHandle<()>,
+    first: Option<Bytes>,
+}
+impl Stream for ModelStream {
+    type Item = Result<Bytes, AgentError>;
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(first) = self.first.take() {
+            return Poll::Ready(Some(Ok(first)));
+        }
+        self.receiver.poll_recv(cx)
+    }
+}
+impl Drop for ModelStream {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+#[derive(Default)]
+struct ProviderFrames {
+    next: i64,
+    response: Option<String>,
+}
+impl ProviderFrames {
+    fn observe(&mut self, frame: &Bytes) {
+        if !frame.starts_with(b"event:") {
+            return;
+        }
+        if self.next == 0 {
+            let text = String::from_utf8_lossy(frame);
+            if let Some(data) = text.lines().find_map(|line| line.strip_prefix("data:")) {
+                if let Ok(value) = serde_json::from_str::<Value>(data.trim()) {
+                    self.response = value["response"]["id"].as_str().map(str::to_owned);
+                }
+            }
+        }
+        self.next += 1;
+    }
+    fn failed(&self) -> Bytes {
+        let mut response = json!({"status":"failed","error":{"type":"runtime_model_plane_error","code":"RUNTIME_PROVIDER_TRANSPORT_ERROR","message":"The provider connection was interrupted. The outcome is unknown; the request was not retried."}});
+        if let Some(id) = &self.response {
+            response["id"] = id.clone().into();
+        }
+        super::model_projection::frame(
+            "response.failed",
+            &json!({"type":"response.failed","sequence_number":self.next,"response":response}),
+        )
+    }
+}
+struct CallCleanup {
+    plane: AgentModelPlane,
+    id: String,
+    armed: bool,
+    lease: Option<Arc<crate::capacity_admission::CapacityLease>>,
+}
+impl Drop for CallCleanup {
+    fn drop(&mut self) {
+        let plane = self.plane.clone();
+        let id = self.id.clone();
+        let armed = self.armed;
+        let lease = self.lease.take();
+        tokio::spawn(async move {
+            if armed {
+                let _=sqlx::query("UPDATE assistant_runtime_model_calls SET status=CASE WHEN status='reserved' THEN 'failed' ELSE 'unknown' END,error_code='model_stream_interrupted',completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).execute(&plane.pool).await;
+            }
+            if let Some(lease) = lease {
+                lease.release().await;
+            }
+        });
+    }
+}
+fn tool_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+}
+fn kernel_tool(name: &str, namespace: Option<&str>) -> bool {
+    let names = [
+        "update_plan",
+        "spawn_subagent",
+        "spawn_agent",
+        "send_input",
+        "wait",
+        "close_agent",
+        "resume_agent",
+        "send_message",
+        "followup_task",
+        "wait_agent",
+        "list_agents",
+        "interrupt_agent",
+    ];
+    match namespace {
+        None | Some("") => {
+            names.contains(&name)
+                || ["collaboration", "multi_agent_v1"]
+                    .iter()
+                    .any(|prefix| names.iter().any(|tool| name == format!("{prefix}{tool}")))
+        }
+        Some("collaboration" | "multi_agent_v1") => names.contains(&name),
+        _ => false,
+    }
+}
+fn output_text(v: &Value) -> Option<String> {
+    if let Some(s) = v.as_str() {
+        return Some(s.into());
+    }
+    let a = v.as_array()?;
+    a.iter()
+        .map(|p| {
+            if matches!(text(p, "type"), "input_text" | "output_text" | "text") {
+                p["text"].as_str().map(str::to_owned)
+            } else {
+                None
+            }
+        })
+        .collect::<Option<Vec<_>>>()
+        .map(|v| v.join(""))
+}
+pub fn validate_transcript(
+    input: &Value,
+    allowed: &BTreeSet<String>,
+    namespaced: &BTreeSet<(String, String)>,
+) -> Result<(), AgentError> {
+    let mut pending: BTreeMap<String, (String, Option<String>, bool)> = BTreeMap::new();
+    let mut complete: BTreeSet<String> = BTreeSet::new();
+    let invalid = || AgentError::code(422, "RUNTIME_TOOL_TRANSCRIPT_INVALID");
+    for item in input.as_array().into_iter().flatten() {
+        match text(item, "type") {
+            "function_call" => {
+                let id = text(item, "call_id");
+                let name = text(item, "name");
+                let namespace = item["namespace"].as_str().map(str::to_owned);
+                if id.is_empty()
+                    || !tool_name(name)
+                    || !item["arguments"].is_string()
+                    || pending.contains_key(id)
+                    || complete.contains(id)
+                {
+                    return Err(invalid());
+                }
+                let yes = kernel_tool(name, namespace.as_deref())
+                    || if let Some(ns) = namespace.as_ref().filter(|s| !s.is_empty()) {
+                        namespaced.contains(&(ns.clone(), name.into()))
+                    } else {
+                        allowed.contains(name)
+                    };
+                pending.insert(id.into(), (name.into(), namespace, yes));
+            }
+            "function_call_output" => {
+                let id = text(item, "call_id");
+                let Some((name, namespace, yes)) = pending.remove(id) else {
+                    return Err(invalid());
+                };
+                let output = output_text(&item["output"]).ok_or_else(invalid)?;
+                if item["name"].as_str().is_some_and(|s| s != name)
+                    || item["namespace"]
+                        .as_str()
+                        .is_some_and(|s| Some(s) != namespace.as_deref())
+                {
+                    return Err(invalid());
+                }
+                if !yes
+                    && !(namespace.as_deref().is_none_or(str::is_empty)
+                        && (output == format!("unsupported call: {name}")
+                            || output == format!("unsupported custom tool call: {name}")))
+                {
+                    return Err(invalid());
+                }
+                complete.insert(id.into());
+            }
+            _ => {}
+        }
+    }
+    if !pending.is_empty() {
+        return Err(invalid());
+    }
+    Ok(())
+}
+fn content_text(v: &Value) -> String {
+    if let Some(s) = v.as_str() {
+        return s.into();
+    }
+    v.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|p| match text(p, "type") {
+            "input_text" | "output_text" | "text" => p["text"].as_str(),
+            "encrypted_content" => p["encrypted_content"].as_str(),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+pub fn responses_to_messages(body: &Value) -> Result<Value, AgentError> {
+    let mut messages = Vec::<Value>::new();
+    if let Some(s) = body["instructions"].as_str().filter(|s| !s.is_empty()) {
+        messages.push(json!({"role":"system","content":s}));
+    }
+    if let Some(s) = body["input"].as_str() {
+        messages.push(json!({"role":"user","content":s}));
+        return Ok(json!(messages));
+    }
+    let input = body["input"]
+        .as_array()
+        .ok_or_else(|| AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"))?;
+    let mut pending = BTreeMap::<String, String>::new();
+    for item in input {
+        let kind = text(item, "type");
+        match kind {
+            "" | "message" | "agent_message" => {
+                let role = if kind == "agent_message" {
+                    "user"
+                } else {
+                    text(item, "role")
+                };
+                if !matches!(role, "user" | "assistant" | "developer" | "system") {
+                    continue;
+                }
+                let text = content_text(&item["content"]);
+                let images: Vec<_> = item["content"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|v| v["type"] == "input_image")
+                    .map(|v| v["image_url"].clone())
+                    .collect();
+                if !images.is_empty()
+                    && (role != "user"
+                        || images.iter().any(|v| {
+                            v.as_str().is_none_or(|s| {
+                                !s.starts_with("data:image/") && !s.starts_with("https://")
+                            })
+                        }))
+                {
+                    return Err(AgentError::code(400, "RUNTIME_IMAGE_INPUT_INVALID"));
+                }
+                if !text.is_empty() || !images.is_empty() {
+                    let content = if images.is_empty() {
+                        json!(text)
+                    } else {
+                        let mut c = vec![];
+                        if !text.is_empty() {
+                            c.push(json!({"type":"text","text":text}));
+                        }
+                        c.extend(
+                            images
+                                .iter()
+                                .map(|url| json!({"type":"image_url","image_url":{"url":url}})),
+                        );
+                        json!(c)
+                    };
+                    messages.push(
+                        json!({"role":if role=="developer"{"system"}else{role},"content":content}),
+                    );
+                }
+            }
+            "function_call" => {
+                let id = text(item, "call_id");
+                let name = text(item, "name");
+                pending.insert(id.into(), name.into());
+                let tool = json!({"id":id,"type":"function","function":{"name":name,"arguments":item["arguments"]}});
+                if let Some(last) = messages.last_mut().filter(|v| v["tool_calls"].is_array()) {
+                    last["tool_calls"].as_array_mut().expect("array").push(tool);
+                } else {
+                    messages.push(json!({"role":"assistant","content":"","tool_calls":[tool]}));
+                }
+            }
+            "function_call_output" => {
+                let id = text(item, "call_id");
+                let name = pending
+                    .remove(id)
+                    .ok_or_else(|| AgentError::code(422, "RUNTIME_TOOL_TRANSCRIPT_INVALID"))?;
+                messages.push(json!({"role":"tool","tool_call_id":id,"name":name,"content":output_text(&item["output"])}));
+            }
+            _ => {}
+        }
+    }
+    if !pending.is_empty() {
+        return Err(AgentError::code(422, "RUNTIME_TOOL_TRANSCRIPT_INVALID"));
+    }
+    if messages.is_empty() {
+        return Err(AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"));
+    }
+    Ok(json!(messages))
+}
+pub fn provider_body(
+    body: &Value,
+    call: &AuthorizedCall,
+    native: bool,
+) -> Result<
+    (
+        Value,
+        BTreeMap<String, (String, String)>,
+        BTreeSet<(Option<String>, String)>,
+        bool,
+    ),
+    AgentError,
+> {
+    let profile = &call.snapshot["capabilities"];
+    let invalid = || AgentError::code(422, "RUNTIME_TOOL_SCHEMA_INVALID");
+    let raw = body
+        .get("tools")
+        .filter(|v| !v.is_null())
+        .cloned()
+        .unwrap_or(json!([]));
+    let raw = raw
+        .as_array()
+        .filter(|a| a.len() <= 256)
+        .ok_or_else(invalid)?;
+    let mut tools = Vec::new();
+    let mut aliases = BTreeMap::new();
+    let mut wire_names = BTreeSet::new();
+    let mut reverse = BTreeMap::new();
+    let mut candidates: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+    for item in raw {
+        if item["type"] == "web_search" {
+            if native && profile["tools"]["web_search_wire"] == "native" {
+                tools.push(json!({"type":"web_search"}));
+            } else if native {
+                return Err(AgentError::code(422, "RUNTIME_TOOL_SCHEMA_UNSUPPORTED"));
+            }
+            continue;
+        }
+        let pairs: Vec<(Option<&str>, &Value)> = if item["type"] == "namespace" {
+            if native && profile["tools"]["namespace_wire"] != "flatten" {
+                return Err(AgentError::code(422, "RUNTIME_TOOL_SCHEMA_UNSUPPORTED"));
+            }
+            let ns = item["name"]
+                .as_str()
+                .filter(|s| tool_name(s))
+                .ok_or_else(invalid)?;
+            item["tools"]
+                .as_array()
+                .filter(|a| a.len() <= 256)
+                .ok_or_else(invalid)?
+                .iter()
+                .map(|v| (Some(ns), v))
+                .collect()
+        } else {
+            vec![(None, item)]
+        };
+        for (ns, item) in pairs {
+            if item["type"] != "function" {
+                return Err(AgentError::code(422, "RUNTIME_TOOL_SCHEMA_UNSUPPORTED"));
+            }
+            let name = item["name"]
+                .as_str()
+                .filter(|s| tool_name(s))
+                .ok_or_else(invalid)?;
+            let description = item["description"]
+                .as_str()
+                .filter(|s| s.chars().count() <= 16384)
+                .ok_or_else(invalid)?;
+            if !item["parameters"].is_object() {
+                return Err(invalid());
+            }
+            let alias = if let Some(ns) = ns {
+                let hash = spec::hex(&Sha256::digest(format!("{ns}\0{name}").as_bytes()));
+                let prefix = format!("ns_{}_", &hash[..10]);
+                format!("{prefix}{}", &name[..name.len().min(64 - prefix.len())])
+            } else {
+                name.into()
+            };
+            if !wire_names.insert(alias.clone()) {
+                return Err(invalid());
+            }
+            if let Some(ns) = ns {
+                aliases.insert(alias.clone(), (ns.into(), name.into()));
+                reverse.insert((ns.to_owned(), name.to_owned()), alias.clone());
+                candidates
+                    .entry(name.into())
+                    .or_default()
+                    .push((ns.into(), name.into()));
+            }
+            let mut tool = json!({"type":"function","name":alias,"description":if let Some(ns)=ns{format!("[{ns}] {description}")}else{description.into()},"parameters":item["parameters"]});
+            if item["strict"].is_boolean() {
+                tool["strict"] = item["strict"].clone();
+            }
+            tools.push(tool);
+        }
+    }
+    if tools.len() > 256 {
+        return Err(invalid());
+    }
+    for (name, ids) in candidates {
+        if ids.len() == 1 && !wire_names.contains(&name) {
+            aliases.insert(name, ids[0].clone());
+        }
+    }
+    let mut input = body["input"].clone();
+    if let Some(a) = input.as_array_mut() {
+        if a.is_empty() {
+            return Err(AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"));
+        }
+        for i in a {
+            if !i.is_object() {
+                return Err(AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"));
+            }
+            if matches!(text(i, "type"), "additional_tools" | "configuration_update") {
+                return Err(AgentError::code(422, "RUNTIME_INPUT_CONTROL_UNSUPPORTED"));
+            }
+            if let Some(content) = i["content"].as_array_mut() {
+                for part in content {
+                    if part["type"] == "encrypted_content" && part["encrypted_content"].is_string()
+                    {
+                        *part = json!({"type":"input_text","text":part["encrypted_content"]});
+                    }
+                }
+            }
+            if i["type"] == "agent_message" {
+                *i = json!({"type":"message","role":"user","content":i["content"]});
+            }
+            if matches!(text(i, "type"), "function_call" | "function_call_output") {
+                let identity =
+                    if let (Some(ns), Some(name)) = (i["namespace"].as_str(), i["name"].as_str()) {
+                        Some((ns.into(), name.into()))
+                    } else {
+                        aliases.get(text(i, "name")).cloned()
+                    };
+                if let Some(alias) = identity.as_ref().and_then(|id| reverse.get(id)) {
+                    i["name"] = alias.clone().into();
+                    i.as_object_mut().expect("object").remove("namespace");
+                }
+            }
+        }
+    } else if input.as_str().is_none_or(str::is_empty) {
+        return Err(AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"));
+    }
+    validate_transcript(&input, &wire_names, &aliases.values().cloned().collect())?;
+    let has_transcript = input.as_array().is_some_and(|a| {
+        a.iter()
+            .any(|v| matches!(text(v, "type"), "function_call" | "function_call_output"))
+    });
+    let readonly = &call.snapshot["readonly_capabilities"];
+    let names = readonly["responses_tool_names"].as_array();
+    let mut choice = readonly
+        .get("responses_tool_choice")
+        .cloned()
+        .unwrap_or(json!("auto"));
+    if has_transcript && choice != "none" {
+        choice = json!("auto");
+    }
+    let parallel = readonly
+        .get("responses_parallel_tool_calls")
+        .cloned()
+        .unwrap_or(json!(true));
+    if !parallel.is_boolean() {
+        return Err(AgentError::code(503, "RUNTIME_MODEL_SNAPSHOT_INVALID"));
+    }
+    let native_search = native
+        && readonly["responses_tool_names"].is_null()
+        && choice != "none"
+        && readonly["items"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|v| v["source"] == "web-search"))
+        && profile["native_search"]["enabled"] == true
+        && profile["tools"]["web_search_wire"] == "native";
+    tools.retain(|tool| {
+        if tool["type"] == "web_search" {
+            native_search
+        } else {
+            names.is_none_or(|a| {
+                let name = aliases
+                    .get(text(tool, "name"))
+                    .map(|(_, n)| n.as_str())
+                    .unwrap_or(text(tool, "name"));
+                a.iter().any(|v| v == name)
+            })
+        }
+    });
+    if native_search && !tools.iter().any(|v| v["type"] == "web_search") {
+        tools.push(json!({"type":"web_search"}));
+    }
+    if let Some(policy) = call.snapshot.get("tool_policy") {
+        let allowed = policy["allowedTools"]
+            .as_array()
+            .ok_or_else(|| AgentError::code(503, "RUNTIME_MODEL_SNAPSHOT_INVALID"))?;
+        tools.retain(|t| {
+            let name = if t["type"] == "web_search" {
+                "web_search"
+            } else {
+                text(t, "name")
+            };
+            let identity = aliases
+                .get(name)
+                .cloned()
+                .map(|(ns, n)| (Some(ns), n))
+                .unwrap_or((None, name.into()));
+            allowed.iter().any(|v| {
+                let ns = v["namespace"]
+                    .as_str()
+                    .filter(|s| !s.is_empty() && *s != "functions")
+                    .map(str::to_owned);
+                ns == identity.0 && text(v, "name") == identity.1
+            })
+        });
+    }
+    if choice == "none" {
+        tools.clear();
+    }
+    if choice.is_object() {
+        let name = text(&choice, "name").to_owned();
+        if let Some(namespace) = choice.get("namespace").filter(|value| !value.is_null()) {
+            let namespace = namespace.as_str()
+                .ok_or_else(|| AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"))?;
+            if !namespace.is_empty() && namespace != "functions" {
+                let alias = reverse.get(&(namespace.to_owned(), name.clone()))
+                    .ok_or_else(|| AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"))?;
+                choice["name"] = alias.clone().into();
+            }
+            choice.as_object_mut().expect("function choice").remove("namespace");
+        } else if let Some(alias) = aliases.get(&name).and_then(|id| reverse.get(id)) {
+            // The legacy bare name is accepted only when unambiguous.
+            choice["name"] = alias.clone().into();
+        }
+        if !tools.iter().any(|v| v["name"] == choice["name"]) {
+            return Err(AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"));
+        }
+    } else if choice == "required" && tools.is_empty() {
+        return Err(AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"));
+    }
+    let allowed: BTreeSet<_> = tools
+        .iter()
+        .filter(|t| t["type"] == "function")
+        .map(|t| {
+            aliases
+                .get(text(t, "name"))
+                .cloned()
+                .map(|(ns, n)| (Some(ns), n))
+                .unwrap_or((None, text(t, "name").into()))
+        })
+        .collect();
+    let mut result = if native {
+        json!({"model":call.model_id,"input":input,"stream":true,"store":false,"max_output_tokens":call.reserved_output_tokens})
+    } else {
+        json!({"model":call.model_id,"messages":responses_to_messages(&json!({"input":input,"instructions":body["instructions"]}))?,"stream":true,"stream_options":{"include_usage":true},"max_tokens":call.reserved_output_tokens})
+    };
+    if native {
+        if let Some(instructions) = body["instructions"].as_str().filter(|s| !s.is_empty()) {
+            result["instructions"] = instructions.into();
+        }
+    }
+    if !tools.is_empty() {
+        result["tools"] = if native {
+            json!(tools)
+        } else {
+            json!(
+                tools
+                    .iter()
+                    .filter(|t| t["type"] == "function")
+                    .map(|t| {
+                        let mut f = t.clone();
+                        f.as_object_mut().expect("object").remove("type");
+                        json!({"type":"function","function":f})
+                    })
+                    .collect::<Vec<_>>()
+            )
+        };
+        result["tool_choice"] = if !native && choice.is_object() {
+            json!({"type":"function","function":{"name":choice["name"]}})
+        } else {
+            choice
+        };
+        result["parallel_tool_calls"] = parallel;
+    }
+    for key in ["temperature", "top_p"] {
+        let v = if key == "temperature" {
+            call.snapshot["parameters"].get(key).unwrap_or(&body[key])
+        } else {
+            &body[key]
+        };
+        if v.is_number() {
+            result[key] = v.clone();
+        }
+    }
+    apply_reasoning_wire(
+        &mut result,
+        profile,
+        text(&call.snapshot["reasoning"], "effective_option"),
+    )?;
+    Ok((result, aliases, allowed, native_search))
+}
+pub fn apply_reasoning_wire(
+    body: &mut Value,
+    profile: &Value,
+    option: &str,
+) -> Result<(), AgentError> {
+    let resolved = super::runtime_contract::reasoning(profile, Some(option))?;
+    let settings = &resolved["settings"];
+    let native = body.get("input").is_some();
+    let mut set = |key: &str, value: Value| -> Result<(), AgentError> {
+        if body.get(key).is_some() {
+            return Err(AgentError::code(422, "RUNTIME_REASONING_WIRE_INVALID"));
+        }
+        body[key] = value;
+        Ok(())
+    };
+    match text(&resolved, "adapter_id") {
+        "reasoning/none-v1" => {}
+        "reasoning/dashscope-thinking-v1" => {
+            set("enable_thinking", settings["enabled"].clone())?;
+            if settings["enabled"] == true && !settings["budget_tokens"].is_null() {
+                set("thinking_budget", settings["budget_tokens"].clone())?;
+            }
+        }
+        "reasoning/dashscope-responses-effort-v1" => {
+            if native {
+                set("reasoning", json!({"effort":settings["effort"]}))?;
+            } else {
+                set("enable_thinking", settings["chat_enabled"].clone())?;
+                if settings["chat_enabled"] == true && !settings["chat_budget_tokens"].is_null() {
+                    set("thinking_budget", settings["chat_budget_tokens"].clone())?;
+                }
+            }
+        }
+        "reasoning/deepseek-thinking-effort-v1" => {
+            let enabled = settings["enabled"] == true;
+            set(
+                "thinking",
+                json!({"type":if enabled{"enabled"}else{"disabled"}}),
+            )?;
+            if enabled && !settings["effort"].is_null() {
+                set("reasoning_effort", settings["effort"].clone())?;
+            }
+            if enabled {
+                body.as_object_mut().expect("body").remove("temperature");
+                body.as_object_mut().expect("body").remove("top_p");
+            }
+        }
+        "reasoning/anthropic-adaptive-v1" => {
+            let enabled = settings["enabled"] == true;
+            set(
+                "thinking",
+                json!({"type":if enabled{"adaptive"}else{"disabled"}}),
+            )?;
+            if enabled && !settings["effort"].is_null() {
+                set("output_config", json!({"effort":settings["effort"]}))?;
+            }
+            if enabled {
+                body.as_object_mut().expect("body").remove("temperature");
+            }
+        }
+        "reasoning/anthropic-budget-v1" => {
+            let enabled = settings["enabled"] == true;
+            set(
+                "thinking",
+                if enabled {
+                    json!({"type":"enabled","budget_tokens":settings["budget_tokens"]})
+                } else {
+                    json!({"type":"disabled"})
+                },
+            )?;
+            if enabled {
+                body.as_object_mut().expect("body").remove("temperature");
+            }
+        }
+        "reasoning/openai-responses-effort-v1" => {
+            if native {
+                set(
+                    "reasoning",
+                    json!({"effort":settings["effort"],"summary":"auto"}),
+                )?;
+            } else {
+                set("reasoning_effort", settings["effort"].clone())?;
+            }
+        }
+        "reasoning/xai-effort-v1" => {
+            if native {
+                set("reasoning", json!({"effort":settings["effort"]}))?;
+            } else {
+                set("reasoning_effort", settings["effort"].clone())?;
+            }
+        }
+        "reasoning/openai-compatible-binary-v1" => {
+            set("enable_thinking", settings["enabled"].clone())?;
+        }
+        "reasoning/gemini-thinking-v1" => {
+            let mut thinking = json!({});
+            if let Some(s) = settings["level"].as_str() {
+                thinking["thinkingLevel"] = s.to_uppercase().into();
+            }
+            for (a, b) in [
+                ("budget_tokens", "thinkingBudget"),
+                ("include_thoughts", "includeThoughts"),
+            ] {
+                if !settings[a].is_null() {
+                    thinking[b] = settings[a].clone();
+                }
+            }
+            if thinking.as_object().is_some_and(|o| !o.is_empty()) {
+                set("generationConfig", json!({"thinkingConfig":thinking}))?;
+            }
+        }
+        _ => return Err(AgentError::code(422, "RUNTIME_REASONING_WIRE_INVALID")),
+    }
+    Ok(())
+}
+pub fn router(plane: Arc<AgentModelPlane>) -> Router {
+    Router::new()
+        .route("/internal/v1/agent-model-plane/responses", post(responses))
+        .with_state(plane)
+}
+fn error_response(e: AgentError) -> Response {
+    (StatusCode::from_u16(e.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),Json(json!({"error":{"type":"runtime_model_plane_error","code":e.detail["code"],"message":"The private model request was rejected."}}))).into_response()
+}
+async fn responses(State(plane): State<Arc<AgentModelPlane>>, request: Request) -> Response {
+    let result = async {
+        let headers = request.headers();
+        let token = headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.strip_prefix("Bearer "))
+            .unwrap_or("");
+        let mut expected = Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison")
+            .expect("HMAC key");
+        expected.update(plane.internal_token.as_bytes());
+        let mut actual = Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison")
+            .expect("HMAC key");
+        actual.update(token.as_bytes());
+        if token.is_empty()
+            || plane.internal_token.is_empty()
+            || actual
+                .verify_slice(&expected.finalize().into_bytes())
+                .is_err()
+        {
+            return Err(AgentError::code(401, "RUNTIME_MODEL_PLANE_UNAUTHORIZED"));
+        }
+        let primary = headers
+            .get("x-agent-turn-metadata")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty());
+        let alternatives: Vec<_> = headers
+            .iter()
+            .filter(|(k, _)| k.as_str().ends_with("-turn-metadata"))
+            .filter_map(|(_, v)| v.to_str().ok())
+            .collect();
+        let raw = primary
+            .or_else(|| {
+                if alternatives.len() == 1 {
+                    Some(alternatives[0])
+                } else {
+                    None
+                }
+            })
+            .unwrap_or("");
+        let metadata: Value = serde_json::from_str(raw)
+            .map_err(|_| AgentError::code(401, "RUNTIME_TURN_METADATA_INVALID"))?;
+        if !metadata.is_object() {
+            return Err(AgentError::code(401, "RUNTIME_TURN_METADATA_INVALID"));
+        }
+        let bytes = to_bytes(request.into_body(), 16 * 1024 * 1024)
+            .await
+            .map_err(|_| AgentError::code(400, "RUNTIME_MODEL_REQUEST_INVALID"))?;
+        let body: Value = serde_json::from_slice(&bytes)
+            .map_err(|_| AgentError::code(400, "RUNTIME_MODEL_REQUEST_INVALID"))?;
+        if !body.is_object() || body["stream"] != true {
+            return Err(AgentError::code(400, "RUNTIME_MODEL_REQUEST_INVALID"));
+        }
+        let call = plane.authorize_and_reserve(&body, &metadata).await?;
+        let stream = plane.stream(body, call).await?;
+        Ok::<_, AgentError>(
+            Response::builder()
+                .header("content-type", "text/event-stream")
+                .header("cache-control", "no-cache")
+                .header("x-accel-buffering", "no")
+                .body(Body::from_stream(stream))
+                .expect("SSE response"),
+        )
+    }
+    .await;
+    match result {
+        Ok(response) => response,
+        Err(error) => error_response(error),
+    }
+}

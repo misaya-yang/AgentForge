@@ -1,0 +1,6 @@
+{
+  "tag": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
+  "source_sha256": "f3c50c535bf1788033e30a1b00836010408df91dbd13adb6039581eecf2e6bb3",
+  "source_files": 273,
+  "scope": "source-only layer over existing installed dependencies; no secrets copied"
+}

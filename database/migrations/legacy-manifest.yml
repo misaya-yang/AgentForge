@@ -1,0 +1,438 @@
+schema: migration-authority/legacy-manifest/v1
+freeze_point: 112_kb_document_progress_retention.sql
+changes:
+  - file: 002_kbms_enhancements.sql
+    sha256: f42a315e4b8579ca59be74703b6c2dc25578acdc33e6bdfbd23fe7eac789b0a5
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 003_proxy_enhancements.sql
+    sha256: 562aa3b7d14d961c1097d511e3c9d4e329e2f6d3759b0df8bd62a93d263ed422
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 004_confluence_integration.sql
+    sha256: 2edb832debe5052acff24ef721c07a3140e96281c886552870137321f8831a48
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 005_account_permission_system.sql
+    sha256: 2b48d2dcd31e701b3040130ec6261ec31b4ccfc1d15615899d59d77189ad0b05
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 006_user_extra_permissions.sql
+    sha256: 97e4280166d37c986a84568f33b6ef7f6feeae54ad2d6bd5ae6451b8bfbd8aa8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 007_confluence_binding_root_page.sql
+    sha256: ab0df16f93764ccd0318d90d20ce5233a2b46d1a07e058c762ad684bba030d8e
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 008_fix_confluence_sync_tasks.sql
+    sha256: ec622af6dfa713b444af548898ffa4a54868a0eaa1262df6db1f72f0ea12fc32
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 009_backfill_binding_tenant_id.sql
+    sha256: 544b520638272c966346d87e79f3273ffa7c00636740acbacfaf7a4c77c06fd8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 010_image_segments.sql
+    sha256: 3f5840739401e3496418c98e55f4bb05cc8e9a7c2636d093120ca4aeff304b25
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 011_confluence_acl.sql
+    sha256: 6018b901f71e201540845ca6d48b024bf6f4fc6b37ec03c9769a845163a352c4
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 012_binding_sync_mode.sql
+    sha256: dc2dff1ef75035d668b0224da00ff72eb44f7daf691e632f8b1cc8336c636ce2
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 013_page_level_sync.sql
+    sha256: c644e8d26516634487b96910621cce828924821204d84d2a6cbac6caf1fd92e6
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 014_multimodal_chunks.sql
+    sha256: 24cc703f65bd8780a204dd3d18c267950bad054dadf3de780c4390381fca12e8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 015_segment_images_fk.sql
+    sha256: f7f710041d85ad6dd63fd25e5c95e30dc6fce516eef6bb200559a4b70572fb59
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 016_confluence_multi_root_pages.sql
+    sha256: cdfa2845c3d34108326ad57e5a0879adfb7379eee55cfb1a53ba370d1a168526
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 016_usage_hourly_aggregates.sql
+    sha256: d726dfa5f34307282bc095346f099aaf948202729f0e9cca834fbd6d2ed3be8b
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 017_usage_metrics.sql
+    sha256: b384d8d3cd3f4a3577e67cc6ae8e8b2a1d07f004f6a6798b629506162aded580
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 018_security_events.sql
+    sha256: 2de6edf1d8315a79f229df36362d6863a5f2ab23e601ad34af7302dec0f012a3
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 019_kb_type_field.sql
+    sha256: 48317a874de0adf55e6fd1d7fcb48c4ffa43ac2705d1ba846a75e727870e5547
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 020_api_keys.sql
+    sha256: fca3f1b634171a2e20c6c19449717ffab72b0d806fbfc4b17a3aa0dfd9af28bf
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 021_artifacts.sql
+    sha256: 09f0566b4dd212be900c445cb59989719bc48d6b1e0a008491252c06c6fde70a
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 022_llm_providers_models.sql
+    sha256: 6506464fa038b253109cdfea80f54461144a1a994446c307e7c9be53181caf11
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 023_segment_content_hash.sql
+    sha256: 8d889dbb68fc8271100ff39f5bfb93da763b716161b19d615023b43ec5379c66
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 024_assistant_memory.sql
+    sha256: e7ba42fd951275d6c4acbe21a4b7d283f36a77cc8416356afb75bb78cf5de1c1
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 025_document_version_control.sql
+    sha256: 233766dfe18cb05a72b97baa0fdf58eb1d2f9fed558709f2be530e5b84cea378
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 026_memory_tenant_isolation.sql
+    sha256: b9f8fa2ac3167a357b570be7f49ed6a6f2ffa2e72dd1ff55f17949209f23ca02
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 027_fix_usage_daily_aggregates_constraint.sql
+    sha256: adf252cd570c9616347e0223ca00b2bb9c83935bc0ade32a7d1990a1a3c6473d
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 028_segments_fulltext_search.sql
+    sha256: a6feb1c19bd6b6cf8f7b7a60c3137c11533b76bc9cb0aeae94aadd1dd657f201
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 029_migrate_openai_to_gemini.sql
+    sha256: 1c0d115e1cec71a6856a955ac25650af2d904b3e5f8ae9c9348f9073546b28f8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 030_fix_timestamp_and_security_constraint.sql
+    sha256: e1e5a85134fd21b7f9ae2b794addb986808ba19f28a6fe7d580f00d8def5750e
+    transaction_mode: transactional
+    rollback_class: restore-required
+  - file: 031_align_model_prices_20260211.sql
+    sha256: 8c87bd618da3702b989a087587c6989495ee3bd93cf4410c87f20d5f1af55c08
+    transaction_mode: transactional
+    rollback_class: restore-required
+  - file: 031_hierarchical_segments.sql
+    sha256: c39cffbd098e66c1d123757cc1eed08bff8a16f2783aa2c6a1e3bd0cf683bb32
+    transaction_mode: transactional
+    rollback_class: restore-required
+  - file: 032_dataset_soft_delete.sql
+    sha256: baf9c1c45e36f9695576672580b2552dde0cd7ff88ada2f2bb5f6cba28258740
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 033_observability_and_quota_governance.sql
+    sha256: d8c2bd5bd660da750cdba62ff4625086ef666dbad9583e719dcebdef352a6c89
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 034_assistant_gateway_foundation.sql
+    sha256: bf18cfcbac565514687a2b17153bf38441a1585bdde31ba7088eca12187c8bb9
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 035_assistant_memory_sot.sql
+    sha256: aef860ab73efa2313d8255815f33c6d14dd2512ada41ce7b9e4bb080cd476295
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 036_assistant_queue_lanes.sql
+    sha256: 53221c2a15e965ff175c17ee33b428a8e5245b3ced9fcd627bd006e40b3d6017
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 037_assistant_skills.sql
+    sha256: 46db684fbe0b7f1dd1b70641b85a5127f0d94056fd939643a8c87d331f10f7e0
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 038_assistant_scheduler_audit.sql
+    sha256: e78327972d54cce2447694709008dadee748328414a889cef893757cd7aec875
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 039_assistant_context_metrics.sql
+    sha256: b2c55b97ca5fa931466484b97ef4c3df9239162a27a39448a24ee89fc5116af1
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 041_quiz_tables.sql
+    sha256: 027fd9fafd9509672a9a31321002e1b67a14c334896b8ef7797fd92f559da17a
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 042_quiz_p1_enhancements.sql
+    sha256: 451503e595a8b2707545ace0e3dbe2c301d3c4aaa3c5ff7e0deefe7e9633406c
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 043_exam_management.sql
+    sha256: 35f1d7dd4341078ed3e01db2f08ef6f3a970fd85fab70fa2d639376a84cc30ca
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 044_tenant_soft_isolation.sql
+    sha256: c4a020f20c5fac97ef8b81d80d96487df11d9fe36a51aa7bae1bf1fef732e733
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 045_conversation_shares.sql
+    sha256: b73ac70aa861bf95526d7b141dc0c059c7a437eb6180a8b69809839870e479df
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 046_user_connectors.sql
+    sha256: 683599af806da141e85411c0a9e70d496855d086db55bc698c1bdc223df88446
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 047_add_qwen36_plus.sql
+    sha256: 8683331c4df75b71899adca0bd91fa31a6c8756a9c984ff2eef4822c83619de2
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 048_add_composite_indexes.sql
+    sha256: 433acc87e5a8aab294b3682f93463dad1bba773b1ec0c360808104cb42aa7619
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 049_session_list_performance.sql
+    sha256: 571dc599bc8c63a41c99fb91da024e9013596db8f94ff69bc79ea5bc8cff7e03
+    transaction_mode: non_transactional
+    rollback_class: old-binary-compatible
+  - file: 050_conversation_share_quiz_attempts.sql
+    sha256: f22fd5ffde091baff63e3a558be67a9c64d92a07610d02e3d3b5720a491187d0
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 055_llm_models_provider_pk.sql
+    sha256: c0b65bcae7b3901de4d555d0e51690da18ec1e005ec7545c09df383ae2fed6aa
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 056_assistant_command_active_partial_index.sql
+    sha256: c9d64592d728fc734246950518ffe35a42610c9b7367e03504288ad86a4bf901
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 057_model_tester_role.sql
+    sha256: b61192b1ad1537b9549a9041fe804712fde683e0ff75e346ded79f316b7c0a16
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 058_usage_request_identity_idempotency.sql
+    sha256: ee8f1be77c5b395c67eb62482d87b4f89eecd6e8148804f0d7a5d29331ecc659
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 059_llm_provider_metadata.sql
+    sha256: ae04dbe2f7ef99285159c1749a379aed2a6065359c8109941015ae35e59580ae
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 060_agent_trace_eval.sql
+    sha256: 33e92f22802bcd2c5366d14ceb3e69ab7d7871074b34f8d9cf595eb5ecb0e852
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 061_trace_eval_sota_core.sql
+    sha256: 77cb57d2c1ecdf2ef1a6736b013d1026e92f30250349549a13820db64bb141ac
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 062_agent_trace_search_indexes.sql
+    sha256: 61022387e28f5b31bd42a2702b9ee45d15b589c684832a40d1322ad16ace8dd7
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 063_eval_console_permissions.sql
+    sha256: 58935b377ea43710b4881d4ee5b54655be64556d102877a74b890dc175d36e70
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 064_eval_platform_contracts.sql
+    sha256: 0409361bf03b561c02e1eae9b5fffcfc2b16ea9744dfd71a2ba3ee5ee88046e9
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 065_kb_ragas_evaluator.sql
+    sha256: 6ac70b906a538b8138931643cdab6ca15d77f3933464d8987f8ba7f3de0813ae
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 066_kb_ragas_score_source.sql
+    sha256: 91f3424c342de88ef9de06e4b0d44f58c55c817c740b84158ac15d8fb3077514
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 067_assistant_run_checkpoints.sql
+    sha256: cb6a0ae181a885eb0282f37ce2767c4de5b5afae61321c5227d69a596bd566a1
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 068_gateway_console_capability_permissions.sql
+    sha256: 98498001e2fc426d8dd4a9b80863d09309c66901011e90c22b6655480ef7eee6
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 069_add_qwen37_plus_default.sql
+    sha256: dba1e0de07ed23bce5bc377fb052a34e379543f918303cc0f717c421a2073e84
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 070_eval_live_regression.sql
+    sha256: e3a68c86a8d6b17430d2b5f85b3ad8ca7dcdae4824e2172c5e2f23d71e84a88e
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 071_agent_studio_domain.sql
+    sha256: ca0ac3cedd2523aa43ad9a63248c85a0527ca17be4d1cfd06eb70392458440ab
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 072_agent_runtime_dimensions.sql
+    sha256: 3498c1b16ac35549590205c4812d414c2f57776e59c5273d5ded7406221c3b78
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 073_agent_runtime_identity_constraints.sql
+    sha256: 3adf2120cc3fab3881ef090c8b3b486082b623b3ac91e3d01d274e8d36e6e8dc
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 074_agent_mcp_registry.sql
+    sha256: 1074a8f24b38ccc07e7e6c8b4843eb2e1e98bc20e00bae9f88442276180670da
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 075_agent_skill_knowledge_bindings.sql
+    sha256: ad054cc90cbfc8b09e1d5a5552afbff24a404e9bc1411f616641cfc4635115a9
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 076_agent_knowledge_content_revision.sql
+    sha256: 63b98e8a0dbe9b46a0293b38d9924be5e059e5350aa6041574c0e0b51d14c3c1
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 077_agent_publication_eval.sql
+    sha256: 8eeefb2177d766291a3b12fe4b23abec258a9f6b5b2dc84f83f740045432bbb4
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 078_agent_release_lifecycle_hardening.sql
+    sha256: 3cf4d70391258fe60f73aa70725b9e6edcc8090b9d584f42cc081c3c081e7969
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 079_agent_channel_runtime.sql
+    sha256: 1f395f722434d95d420b17d4d2151ac647026b677e3e3288cd0dadd03a2705b2
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 080_agent_channel_delivery_hardening.sql
+    sha256: 9dd83ec57642540a99a4ded2726b9e257158200dec1329687f77ce19f69f09bb
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 081_agent_studio_operations_governance.sql
+    sha256: 14cf9d8e85c7464c210f622048ae49bb77619b4f7a4fbc0a37a39e8c87e479fd
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 082_kb_dataset_collection_identity.sql
+    sha256: eeca32bc2f063751c21d74d71d0d04ac7689aa2fcf53ac3a65e2b9bc3f01351a
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 083_artifact_shares.sql
+    sha256: 7f8b921c2e633e806c08bf08b2e188c6da6ccebd255f61581ee53fdadd5a534d
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 084_connector_modes.sql
+    sha256: cb333ef465534b8637ec5440c026a152a1ecfd129db7589ebbc619948702f7c7
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 085_artifact_shares_assistant_schema.sql
+    sha256: 9a1ef9a38570075337cb2fc00d208721d988d77f394b520b6f88c2148e8f16c0
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 086_platform_admin_role.sql
+    sha256: 43cf461cd69852311b333a293c51505f7e2fb5f6d29718b6627ebd6070f4bdf8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 087_artifact_share_attempt_lifecycle.sql
+    sha256: 6ee820d16f512aeab33c6fbe8e769aa22718f87471fc33a6125ee143f9b8d50f
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 088_model_capability_profiles.sql
+    sha256: 3a1ac4ea4e26d957bd7b5bd9542e4db8b81e022ea3f548c4f7b382ee6901dbab
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 089_agent_runtime_thread_store.sql
+    sha256: 820a2dfa8082bd23d50343a1105e123bfb124fd0393bdcb77bef9cf2cbab3766
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 090_agent_runtime_model_leases.sql
+    sha256: c312ac33a579dbfae11f239954c3267abf45daa53f887ba05a41f914bc1d49f8
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 091_qwen_responses_default.sql
+    sha256: e192135a9171a06af4f3fb880cc8ab69ce6e20e96bbdf6a4b2909275c4db01db
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 092_agent_runtime_legacy_import.sql
+    sha256: 59c1a14a79495fb7e4087696d581cc163979244b246de81c6b60511a51e62ce1
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 093_agent_runtime_assistant_session_fks.sql
+    sha256: 6ca56896bef36ac7838ab45b68286691fb4bd5953b5d8e54c6cea379f60515dc
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 094_agent_runtime_legacy_import_normalization.sql
+    sha256: 4a3d2cc31505d79d822abae94587373204660c11dedfcfb4f1f87f489ff127b6
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 095_agent_runtime_single_kernel.sql
+    sha256: 484d39790b261079db8da52b1b0a8267b21ee6e897dd7b741052b69c78508a4e
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 096_agent_capability_executions.sql
+    sha256: b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 097_image_task_runtime_scope.sql
+    sha256: 25ff5374b4e7254155e4e591cdfe8c1bf10443c88eba790b9659910758cbc21a
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 098_local_node_control_plane.sql
+    sha256: 5e292d97c7581de2a45f733ed0ad60855d7a5d2fc34249d063446e6f972c8092
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 099_gateway_memory_tenant_uniqueness.sql
+    sha256: 34b40f63b640e9bd95cdb187a7c2f0b65063d93814f84e8008288b35a63bdcc3
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 100_kb_dataset_query_telemetry.sql
+    sha256: 3e94dbb23e0ed496b26c54fa69e3cfd6373c92bf0f64fe5bc6c6a1d3f94580ef
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 101_kb_ingestion_lifecycle.sql
+    sha256: 9bba0622f0809bbc5249f7c555eaeceb5dfea5d9a64ddd62bd49ec9354828aae
+    transaction_mode: transactional
+    rollback_class: restore-required
+  - file: 102_kb_embedding_versioning_blue_green.sql
+    sha256: dc46af2f778bebb57b796e66f1ed4e0e394adf4e06e37e97a6888aa4f6a879ba
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 103_kb_process_rule_snapshot.sql
+    sha256: 5cbb1e60992ad2dd741d7be9d9f687168e44500e6a654ff614f8de279a7fec0e
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 104_kb_eval_golden.sql
+    sha256: 75313c8c6f43c578344725424a6a49a41d7215a7a2b9a9b9eade017160a25a64
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 105_kb_bm25_v2_lifecycle.sql
+    sha256: 6196555498ea32670d986ae6d81f7582de0bfa0efc727eb9b5f1d8b796d849e3
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 106_kb_segment_attachment_bindings.sql
+    sha256: 79dc22a435fca42902bf6eda10cc9a1f3d32a486cb07754c8151ac0158e0bd71
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 107_kb_parsing_ir.sql
+    sha256: 4b0ae891eff2a387ca631afdef466ae62b50a1b1556eee06c3b72c8d731e125e
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 108_kb_query_feedback_observability.sql
+    sha256: 4c61a9d70c4515bc7ad78fd9a022016bf86aae8d4e123d56445a981805b0f5ae
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 109_kb_document_batch_operations.sql
+    sha256: ed19ed0004f9d283d55c5c3474c2b259d8adcd6ae6612fe8bd6b3521b5036b80
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 110_kb_embedding_migration_action_jobs.sql
+    sha256: 96ead6258455abb0e0518c2f274363018e124796b768baddac40c813ee2def5a
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 111_kb_document_progress_events.sql
+    sha256: b4ebf71df4b12a64be8b732163b8d7b0a33d5a4d68cb3f738b81d368699f48dc
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+  - file: 112_kb_document_progress_retention.sql
+    sha256: 21da389ddff0446d065d5610a1fb74be97d5c249c2d05eed850913d8d04e45cc
+    transaction_mode: transactional
+    rollback_class: forward-fix-only
+historical_rollbacks:
+  - file: 030_fix_timestamp_and_security_constraint_rollback.sql
+    sha256: 97613514aeac0f6d04bbf1fce6f095748f8ece40591262c3fb41c0b5a220607c

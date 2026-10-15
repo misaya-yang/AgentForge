@@ -1,0 +1,59 @@
+# Source-build override for maintainers and contributors.
+#
+# The base docker-compose.yml intentionally contains no build contexts so a
+# normal open-source quickstart pulls published, versioned images. Include this
+# file explicitly when changing source code:
+#
+#   AI_PLATFORM_AGENT_RUNTIME_SOURCE=/path/to/controlled-source make quickstart-build
+#
+# Use the deploy entrypoint: Runtime and capability-worker images are built by
+# the existing composed-source builders and verified as one release unit before
+# Compose starts services. A raw `compose up --build` with only this override
+# cannot rebuild the Rust artifacts.
+
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate/Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: "${PYTHON_BASE_IMAGE:-python:3.12-slim-bookworm}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        PIP_INDEX_URL: "${PIP_INDEX_URL:-https://pypi.org/simple}"
+        PIP_TRUSTED_HOST: "${PIP_TRUSTED_HOST:-}"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: "${PYTHON_BASE_IMAGE:-python:3.12-slim-bookworm}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        DEBIAN_MIRROR: "${DEBIAN_MIRROR:-https://deb.debian.org}"
+        PIP_INDEX_URL: "${PIP_INDEX_URL:-https://pypi.org/simple}"
+        PIP_TRUSTED_HOST: "${PIP_TRUSTED_HOST:-}"
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NODE_BASE_IMAGE: "${NODE_BASE_IMAGE:-node:26.11.1-alpine3.24}"
+        NGINX_BASE_IMAGE: "${NGINX_BASE_IMAGE:-nginx:1.27-alpine}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org}"
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_AUTH_EMAIL_DOMAIN: "${VITE_AUTH_EMAIL_DOMAIN:-${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}"
+        VITE_SUPPORT_EMAIL: "${VITE_SUPPORT_EMAIL:-admin@${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}"
+
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: apps/knowledge-service/Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: "${PYTHON_BASE_IMAGE:-python:3.12-slim-bookworm}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        DEBIAN_MIRROR: "${DEBIAN_MIRROR:-https://deb.debian.org}"
+        PIP_INDEX_URL: "${PIP_INDEX_URL:-https://pypi.org/simple}"
+        PIP_TRUSTED_HOST: "${PIP_TRUSTED_HOST:-}"

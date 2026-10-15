@@ -1,0 +1,22 @@
+{
+  "schema_version": "prd-phase-harness/loop-contract/v2",
+  "type": "goal",
+  "trigger": "manual",
+  "goal": "Implement and prove one bounded Agent Studio phase and its selected feature-oracle behavior without crossing dependency or approval gates.",
+  "cycle": ["observe", "select", "execute", "verify", "record", "decide"],
+  "max_iterations": 3,
+  "state_file": "deploy/runbooks/agent-studio-prd/loop-state.json",
+  "oracle_file": "deploy/runbooks/agent-studio-prd/feature-oracle.json",
+  "done_when": [
+    "The selected phase report has Status: passed or a user-approved waiver.",
+    "Every required command, browser, runtime, eval, security, migration, and regression gate has durable evidence.",
+    "The selected Oracle item is passing or explicitly waived and cites actor plus independent critic artifacts.",
+    "Source facts, continuity boundaries, progress, handoff, loop-state, and rollback notes are current."
+  ],
+  "stop_when": [
+    "A direct dependency is not passed and has no explicit user waiver.",
+    "Credentials, external systems, migration, Docker, deployment, destructive action, or product choice requires missing approval.",
+    "The required fix expands outside likely_edit_paths or changes a global invariant without an approved contract update.",
+    "The same blocker repeats without new evidence or max_iterations is reached."
+  ]
+}

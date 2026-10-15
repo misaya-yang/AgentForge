@@ -1,0 +1,75 @@
+{
+  "schema_version": "real-agent-release-manifest/v1",
+  "release_id": "general-agent-four-domain-release.v1",
+  "suites": [
+    {
+      "suite_id": "general-agent.real-coding.v1",
+      "contract_sha256": "220a6cbd5e18fdaf96b909bde8c418799083614d1e213ee3d32a0f3662b4b237",
+      "coding_host_test_policy": {
+        "receipt_schema": "coding-agent-patch-validation/v1",
+        "evidence_schema": "coding-host-test-evidence/v1",
+        "required_trials": 3,
+        "validator_contract_sha256": "9392d7f725379507dadea4ccebb86837e3f5a39d03a74afccca691d199217fe7",
+        "validator_contract_file_sha256": "526ba7cbfc2cc010882b330f65414d40c391cd8472272533d98e449aea5e3e7f",
+        "verifier_executable_sha256": "bdea31020c6258225daa94584d4ce5d4d304a1ef5ad681de5c46f28300350d6d",
+        "receipt_verifier_executable_sha256": "0e1845b4f53e155d2f19e29fd6c0ddc7d86be3ae783906a272e7dcdaf96377bc",
+        "sandbox_image_reference": "python@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36",
+        "test_commands": [
+          ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_idempotency.py", "-q"],
+          ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_allocation.py", "-q"],
+          ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_service.py", "-q"]
+        ],
+        "allowed_changes": [
+          "src/settlement/allocation.py",
+          "src/settlement/idempotency.py"
+        ],
+        "max_changed_lines": 48,
+        "minimum_parallel_overlap_ms": 25.0
+      },
+      "scenarios": [
+        {
+          "scenario_id": "coding.parallel.settlement-retry",
+          "domain_key": "coding",
+          "domain": "production software engineering",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-research.cra-oss.v1",
+      "contract_sha256": "2ae8f2de407c3617025f75493ff48097a9ef7ddb59d0f26db2b1f14ae36ce005",
+      "scenarios": [
+        {
+          "scenario_id": "research.cra-oss.version-conflict",
+          "domain_key": "research",
+          "domain": "legal-compliance-research",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-legal-title-vii.v1",
+      "contract_sha256": "6f0700743aea302619b647b6cff3c51ec35aeb9d526d568d4cdecae234bb4871",
+      "scenarios": [
+        {
+          "scenario_id": "legal.title-vii.muldrow-transfer",
+          "domain_key": "legal",
+          "domain": "legal-analysis",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-finance.salesforce-fy26q1.v1",
+      "contract_sha256": "326070aad56dd9fc9e8d46e5259507de8145ad50b9d2862524fcd5d190c4e569",
+      "scenarios": [
+        {
+          "scenario_id": "finance.salesforce.cash-quality-liquidity.fy26q1",
+          "domain_key": "finance",
+          "domain": "public-company financial statement analysis",
+          "repetitions": 3
+        }
+      ]
+    }
+  ]
+}

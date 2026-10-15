@@ -1,0 +1,37 @@
+[package]
+name = "ai-platform-gateway-integrations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+ai-platform-gateway-foundation = { path = "../platform-gateway-foundation" }
+axum = { version = "0.8", features = ["multipart"] }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest.workspace = true
+tokio.workspace = true
+sha2 = "0.10"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+base64 = "0.22"
+regex = "1"
+jsonwebtoken = "9.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
+libc = "0.2"
+unicode-normalization = "0.1"
+
+ai-platform-auth = { path = "../platform-auth" }
+encoding_rs = "0.8"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+quick-xml = "0.41"
+scraper = "0.23"
+tiktoken-rs = "0.7"
+sha1 = "0.10"
+md-5 = "0.10"
+unicode-casefold = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }

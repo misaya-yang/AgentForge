@@ -1,0 +1,22 @@
+{
+  "package_id": "P1-01",
+  "state": "verified_local",
+  "scope": "租户身份、ACL epoch001、Gateway actor/删除确认",
+  "proof": "身份反例与真实PostgreSQL双前缀epoch2权限矩阵",
+  "acceptance_scope": "local integration; not external release certification",
+  "source_manifest_sha256": "41b8294a0bb8b2826cb7081c39fca9330601957e5647726f824289de25d248f7",
+  "report": "reports/architecture/phase1-local-acceptance-2026-09-07/README.md",
+  "results": "reports/architecture/phase1-local-acceptance-2026-09-07/results.json",
+  "review": "implementation and final scoped reviews by root plus gateway_eval_arch_review and knowledge_arch_review",
+  "external_release_verdict": "NOT_VERIFIED",
+  "not_run": [
+    "fresh-machine registry pull/quickstart",
+    "full historical frozen artifact and database rollback",
+    "hosted Rust fmt/check/changed-crate CI",
+    "Darwin/Windows and full multi-architecture native distribution",
+    "native CLI real-provider task and published Linux x64 matrix",
+    "formal Eval regression promotion: legacy full prompt/tool fingerprint plus adequate paired sample evidence"
+  ],
+  "path_base": "repository_root",
+  "implementation_commit": "5f36974df3a9a58ca6b4fe907389399c32e8a537"
+}

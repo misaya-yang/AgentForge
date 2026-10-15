@@ -1,0 +1,2465 @@
+{
+  "inventory_sha256": "069c734bf7658c78c799050146b60426a99f83f785e01beab2301c36efe729aa",
+  "objects": [
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "identity_arguments": "uuid, character varying, character varying, character varying, uuid, character varying, character varying, jsonb, uuid",
+      "inventory_name": "append_assistant_capability_event",
+      "kind": "function",
+      "name": "append_assistant_capability_event",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "identity_arguments": "uuid, uuid, character varying, character varying, character varying, uuid, character varying, character varying, character varying, character varying, character varying, character varying, jsonb, character",
+      "inventory_name": "append_assistant_runtime_item",
+      "kind": "function",
+      "name": "append_assistant_runtime_item",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "assistant_capability_reject_event_mutation",
+      "kind": "function",
+      "name": "assistant_capability_reject_event_mutation",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "assistant_capability_reject_terminal_mutation",
+      "kind": "function",
+      "name": "assistant_capability_reject_terminal_mutation",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "assistant_runtime_reject_assignment_update",
+      "kind": "function",
+      "name": "assistant_runtime_reject_assignment_update",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "assistant_runtime_reject_immutable_mutation",
+      "kind": "function",
+      "name": "assistant_runtime_reject_immutable_mutation",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/090_agent_runtime_model_leases.sql"
+      ],
+      "identity_arguments": "uuid, bigint, bigint, bigint, character varying",
+      "inventory_name": "complete_assistant_runtime_model_call",
+      "kind": "function",
+      "name": "complete_assistant_runtime_model_call",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "identity_arguments": "uuid, character varying, character varying, character varying, uuid, bigint",
+      "inventory_name": "dispatch_assistant_capability_execution",
+      "kind": "function",
+      "name": "dispatch_assistant_capability_execution",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/092_agent_runtime_legacy_import.sql"
+      ],
+      "identity_arguments": "uuid, character varying, character varying, character varying, character varying",
+      "inventory_name": "ensure_assistant_runtime_thread",
+      "kind": "function",
+      "name": "ensure_assistant_runtime_thread",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/094_agent_runtime_legacy_import_normalization.sql"
+      ],
+      "identity_arguments": "uuid, character varying, character varying, character varying",
+      "inventory_name": "import_assistant_legacy_session",
+      "kind": "function",
+      "name": "import_assistant_legacy_session",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/090_agent_runtime_model_leases.sql"
+      ],
+      "identity_arguments": "uuid, uuid, uuid, uuid, character varying, character varying, character varying, character varying, character varying, jsonb, character, bigint, character varying, character varying, character varying, character varying, character varying, character, integer, bigint, bigint, bigint, timestamp with time zone, text",
+      "inventory_name": "issue_assistant_runtime_turn",
+      "kind": "function",
+      "name": "issue_assistant_runtime_turn",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "identity_arguments": "uuid, uuid, character varying, character varying, character varying, uuid, character varying, character varying, character varying, bigint, jsonb, character, character varying, character varying, character varying, uuid, character varying, text, jsonb",
+      "inventory_name": "reserve_assistant_capability_execution",
+      "kind": "function",
+      "name": "reserve_assistant_capability_execution",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/090_agent_runtime_model_leases.sql"
+      ],
+      "identity_arguments": "uuid, uuid, character, bigint, bigint, bigint",
+      "inventory_name": "reserve_assistant_runtime_model_call",
+      "kind": "function",
+      "name": "reserve_assistant_runtime_model_call",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/034_assistant_gateway_foundation.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_assistant_gateway_timestamp",
+      "kind": "function",
+      "name": "update_assistant_gateway_timestamp",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/035_assistant_memory_sot.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_assistant_memory_chunks_text_search",
+      "kind": "function",
+      "name": "update_assistant_memory_chunks_text_search",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/024_assistant_memory.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_memory_timestamp",
+      "kind": "function",
+      "name": "update_memory_timestamp",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_audit_dimension_projection",
+      "kind": "function",
+      "name": "agent_audit_dimension_projection",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "identity_arguments": "jsonb",
+      "inventory_name": "agent_audit_redact_jsonb",
+      "kind": "function",
+      "name": "agent_audit_redact_jsonb",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_data_deletion_terminal_guard",
+      "kind": "function",
+      "name": "agent_data_deletion_terminal_guard",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/076_agent_knowledge_content_revision.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_knowledge_bump_content_revision",
+      "kind": "function",
+      "name": "agent_knowledge_bump_content_revision",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/072_agent_runtime_dimensions.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_runtime_reject_revocation_mutation",
+      "kind": "function",
+      "name": "agent_runtime_reject_revocation_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/075_agent_skill_knowledge_bindings.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_skill_reject_version_mutation",
+      "kind": "function",
+      "name": "agent_skill_reject_version_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_assert_owner_invariant",
+      "kind": "function",
+      "name": "agent_studio_assert_owner_invariant",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/078_agent_release_lifecycle_hardening.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_guard_release_evaluation_lifecycle",
+      "kind": "function",
+      "name": "agent_studio_guard_release_evaluation_lifecycle",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_protect_last_owner",
+      "kind": "function",
+      "name": "agent_studio_protect_last_owner",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_protect_member_identity",
+      "kind": "function",
+      "name": "agent_studio_protect_member_identity",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_protect_version_binding_mutation",
+      "kind": "function",
+      "name": "agent_studio_protect_version_binding_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_protect_version_mutation",
+      "kind": "function",
+      "name": "agent_studio_protect_version_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_reject_immutable_mutation",
+      "kind": "function",
+      "name": "agent_studio_reject_immutable_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/077_agent_publication_eval.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_reject_release_evidence_mutation",
+      "kind": "function",
+      "name": "agent_studio_reject_release_evidence_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_require_sealed_version",
+      "kind": "function",
+      "name": "agent_studio_require_sealed_version",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "agent_studio_touch_updated_at",
+      "kind": "function",
+      "name": "agent_studio_touch_updated_at",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "identity_arguments": "uuid, character varying, character varying, character varying, uuid, character varying",
+      "inventory_name": "claim_local_node_dispatch",
+      "kind": "function",
+      "name": "claim_local_node_dispatch",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql"
+      ],
+      "identity_arguments": "integer",
+      "inventory_name": "cleanup_old_usage_records",
+      "kind": "function",
+      "name": "cleanup_old_usage_records",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/087_artifact_share_attempt_lifecycle.sql"
+      ],
+      "identity_arguments": "character varying, character, character varying, uuid, uuid, jsonb, double precision, integer, integer, character varying",
+      "inventory_name": "record_artifact_share_quiz_attempt",
+      "kind": "function",
+      "name": "record_artifact_share_quiz_attempt",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "reject_mcp_snapshot_mutation",
+      "kind": "function",
+      "name": "reject_mcp_snapshot_mutation",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/060_agent_trace_eval.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_agent_traces_timestamp",
+      "kind": "function",
+      "name": "update_agent_traces_timestamp",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_eval_timestamp",
+      "kind": "function",
+      "name": "update_eval_timestamp",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_updated_at_column",
+      "kind": "function",
+      "name": "update_updated_at_column",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/103_kb_process_rule_snapshot.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "guard_dataset_process_rules_immutable",
+      "kind": "function",
+      "name": "guard_dataset_process_rules_immutable",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/112_kb_document_progress_retention.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "prune_kb_document_progress_events",
+      "kind": "function",
+      "name": "prune_kb_document_progress_events",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/111_kb_document_progress_events.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "record_kb_document_progress_event",
+      "kind": "function",
+      "name": "record_kb_document_progress_event",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/028_segments_fulltext_search.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "segments_text_search_update",
+      "kind": "function",
+      "name": "segments_text_search_update",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/031_hierarchical_segments.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_document_summaries_timestamp",
+      "kind": "function",
+      "name": "update_document_summaries_timestamp",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/014_multimodal_chunks.sql"
+      ],
+      "identity_arguments": "",
+      "inventory_name": "update_segment_image_counts",
+      "kind": "function",
+      "name": "update_segment_image_counts",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "api_keys_id_seq",
+      "kind": "sequence",
+      "name": "api_keys_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "audit_logs_id_seq",
+      "kind": "sequence",
+      "name": "audit_logs_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "auth_config_id_seq",
+      "kind": "sequence",
+      "name": "auth_config_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/003_proxy_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "billing_events_id_seq",
+      "kind": "sequence",
+      "name": "billing_events_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "email_domain_config_id_seq",
+      "kind": "sequence",
+      "name": "email_domain_config_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "langgraph_threads_id_seq",
+      "kind": "sequence",
+      "name": "langgraph_threads_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_events_device_sequence_seq",
+      "kind": "sequence",
+      "name": "local_node_events_device_sequence_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "login_audit_id_seq",
+      "kind": "sequence",
+      "name": "login_audit_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "password_history_id_seq",
+      "kind": "sequence",
+      "name": "password_history_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "permissions_id_seq",
+      "kind": "sequence",
+      "name": "permissions_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/003_proxy_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "proxy_routes_id_seq",
+      "kind": "sequence",
+      "name": "proxy_routes_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "rate_limit_config_id_seq",
+      "kind": "sequence",
+      "name": "rate_limit_config_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "rbac_roles_id_seq",
+      "kind": "sequence",
+      "name": "rbac_roles_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "role_permissions_id_seq",
+      "kind": "sequence",
+      "name": "role_permissions_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "semantic_cache_id_seq",
+      "kind": "sequence",
+      "name": "semantic_cache_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "service_health_records_id_seq",
+      "kind": "sequence",
+      "name": "service_health_records_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "tenants_id_seq",
+      "kind": "sequence",
+      "name": "tenants_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/044_tenant_soft_isolation.sql"
+      ],
+      "inventory_name": "tool_audit_log_id_seq",
+      "kind": "sequence",
+      "name": "tool_audit_log_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "usage_statistics_id_seq",
+      "kind": "sequence",
+      "name": "usage_statistics_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/006_user_extra_permissions.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_permissions_id_seq",
+      "kind": "sequence",
+      "name": "user_permissions_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_roles_id_seq",
+      "kind": "sequence",
+      "name": "user_roles_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "users_id_seq",
+      "kind": "sequence",
+      "name": "users_id_seq",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/010_image_segments.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_image_sync_id_seq",
+      "kind": "sequence",
+      "name": "confluence_image_sync_id_seq",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "dataset_permissions_id_seq",
+      "kind": "sequence",
+      "name": "dataset_permissions_id_seq",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/111_kb_document_progress_events.sql"
+      ],
+      "inventory_name": "kb_document_progress_events_event_sequence_seq",
+      "kind": "sequence",
+      "name": "kb_document_progress_events_event_sequence_seq",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/014_multimodal_chunks.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "segment_images_id_seq",
+      "kind": "sequence",
+      "name": "segment_images_id_seq",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/080_agent_channel_delivery_hardening.sql"
+      ],
+      "inventory_name": "agent_runtime_attachments",
+      "kind": "table",
+      "name": "agent_runtime_attachments",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/079_agent_channel_runtime.sql"
+      ],
+      "inventory_name": "agent_runtime_feedback",
+      "kind": "table",
+      "name": "agent_runtime_feedback",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/079_agent_channel_runtime.sql"
+      ],
+      "inventory_name": "agent_runtime_idempotency",
+      "kind": "table",
+      "name": "agent_runtime_idempotency",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/087_artifact_share_attempt_lifecycle.sql"
+      ],
+      "inventory_name": "artifact_share_attempt_tokens",
+      "kind": "table",
+      "name": "artifact_share_attempt_tokens",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/083_artifact_shares.sql",
+        "database/migrations/per_service/assistant/003_artifact_shares.sql"
+      ],
+      "inventory_name": "artifact_share_submitters",
+      "kind": "table",
+      "name": "artifact_share_submitters",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/083_artifact_shares.sql",
+        "database/migrations/085_artifact_shares_assistant_schema.sql",
+        "database/migrations/per_service/assistant/003_artifact_shares.sql"
+      ],
+      "inventory_name": "artifact_shares",
+      "kind": "table",
+      "name": "artifact_shares",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/021_artifacts.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "artifacts",
+      "kind": "table",
+      "name": "artifacts",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/038_assistant_scheduler_audit.sql"
+      ],
+      "inventory_name": "assistant_audit_events",
+      "kind": "table",
+      "name": "assistant_audit_events",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "inventory_name": "assistant_capability_events",
+      "kind": "table",
+      "name": "assistant_capability_events",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/096_agent_capability_executions.sql"
+      ],
+      "inventory_name": "assistant_capability_executions",
+      "kind": "table",
+      "name": "assistant_capability_executions",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/034_assistant_gateway_foundation.sql"
+      ],
+      "inventory_name": "assistant_command_queue",
+      "kind": "table",
+      "name": "assistant_command_queue",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/039_assistant_context_metrics.sql"
+      ],
+      "inventory_name": "assistant_context_breakdown",
+      "kind": "table",
+      "name": "assistant_context_breakdown",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/035_assistant_memory_sot.sql"
+      ],
+      "inventory_name": "assistant_memory_chunks",
+      "kind": "table",
+      "name": "assistant_memory_chunks",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/035_assistant_memory_sot.sql"
+      ],
+      "inventory_name": "assistant_memory_reflections",
+      "kind": "table",
+      "name": "assistant_memory_reflections",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/035_assistant_memory_sot.sql"
+      ],
+      "inventory_name": "assistant_memory_sources",
+      "kind": "table",
+      "name": "assistant_memory_sources",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/067_assistant_run_checkpoints.sql"
+      ],
+      "inventory_name": "assistant_run_checkpoints",
+      "kind": "table",
+      "name": "assistant_run_checkpoints",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/034_assistant_gateway_foundation.sql"
+      ],
+      "inventory_name": "assistant_runs",
+      "kind": "table",
+      "name": "assistant_runs",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_items",
+      "kind": "table",
+      "name": "assistant_runtime_items",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/090_agent_runtime_model_leases.sql"
+      ],
+      "inventory_name": "assistant_runtime_model_calls",
+      "kind": "table",
+      "name": "assistant_runtime_model_calls",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/090_agent_runtime_model_leases.sql"
+      ],
+      "inventory_name": "assistant_runtime_model_leases",
+      "kind": "table",
+      "name": "assistant_runtime_model_leases",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_snapshot_revocations",
+      "kind": "table",
+      "name": "assistant_runtime_snapshot_revocations",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_snapshots",
+      "kind": "table",
+      "name": "assistant_runtime_snapshots",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_thread_members",
+      "kind": "table",
+      "name": "assistant_runtime_thread_members",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_thread_projections",
+      "kind": "table",
+      "name": "assistant_runtime_thread_projections",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_runtime_threads",
+      "kind": "table",
+      "name": "assistant_runtime_threads",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/038_assistant_scheduler_audit.sql"
+      ],
+      "inventory_name": "assistant_scheduler_jobs",
+      "kind": "table",
+      "name": "assistant_scheduler_jobs",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/089_agent_runtime_thread_store.sql"
+      ],
+      "inventory_name": "assistant_session_runtime_assignments",
+      "kind": "table",
+      "name": "assistant_session_runtime_assignments",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/037_assistant_skills.sql"
+      ],
+      "inventory_name": "assistant_skill_runs",
+      "kind": "table",
+      "name": "assistant_skill_runs",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/075_agent_skill_knowledge_bindings.sql"
+      ],
+      "inventory_name": "assistant_skill_version_revocations",
+      "kind": "table",
+      "name": "assistant_skill_version_revocations",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/037_assistant_skills.sql"
+      ],
+      "inventory_name": "assistant_skill_versions",
+      "kind": "table",
+      "name": "assistant_skill_versions",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/037_assistant_skills.sql"
+      ],
+      "inventory_name": "assistant_skills",
+      "kind": "table",
+      "name": "assistant_skills",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/034_assistant_gateway_foundation.sql"
+      ],
+      "inventory_name": "assistant_tool_approvals",
+      "kind": "table",
+      "name": "assistant_tool_approvals",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/050_conversation_share_quiz_attempts.sql"
+      ],
+      "inventory_name": "conversation_share_quiz_attempts",
+      "kind": "table",
+      "name": "conversation_share_quiz_attempts",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/045_conversation_shares.sql"
+      ],
+      "inventory_name": "conversation_shares",
+      "kind": "table",
+      "name": "conversation_shares",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/043_exam_management.sql"
+      ],
+      "inventory_name": "exam_analysis_reports",
+      "kind": "table",
+      "name": "exam_analysis_reports",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/043_exam_management.sql"
+      ],
+      "inventory_name": "exams",
+      "kind": "table",
+      "name": "exams",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/per_service/assistant/002_image_p0_tasks_blobs.sql"
+      ],
+      "inventory_name": "image_blobs",
+      "kind": "table",
+      "name": "image_blobs",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+      ],
+      "inventory_name": "image_idempotency",
+      "kind": "table",
+      "name": "image_idempotency",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+      ],
+      "inventory_name": "image_sessions",
+      "kind": "table",
+      "name": "image_sessions",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/per_service/assistant/002_image_p0_tasks_blobs.sql"
+      ],
+      "inventory_name": "image_tasks",
+      "kind": "table",
+      "name": "image_tasks",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+      ],
+      "inventory_name": "image_turns",
+      "kind": "table",
+      "name": "image_turns",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/041_quiz_tables.sql"
+      ],
+      "inventory_name": "quiz_attempts",
+      "kind": "table",
+      "name": "quiz_attempts",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/041_quiz_tables.sql"
+      ],
+      "inventory_name": "quiz_questions",
+      "kind": "table",
+      "name": "quiz_questions",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/041_quiz_tables.sql"
+      ],
+      "inventory_name": "quiz_shares",
+      "kind": "table",
+      "name": "quiz_shares",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/041_quiz_tables.sql"
+      ],
+      "inventory_name": "quizzes",
+      "kind": "table",
+      "name": "quizzes",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/024_assistant_memory.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "session_memory",
+      "kind": "table",
+      "name": "session_memory",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "sessions",
+      "kind": "table",
+      "name": "sessions",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/024_assistant_memory.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_memory",
+      "kind": "table",
+      "name": "user_memory",
+      "owner": "owner",
+      "schema": "assistant"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_api_tokens",
+      "kind": "table",
+      "name": "agent_api_tokens",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "inventory_name": "agent_data_deletion_requests",
+      "kind": "table",
+      "name": "agent_data_deletion_requests",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_draft_knowledge_bindings",
+      "kind": "table",
+      "name": "agent_draft_knowledge_bindings",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/075_agent_skill_knowledge_bindings.sql"
+      ],
+      "inventory_name": "agent_draft_skill_bindings",
+      "kind": "table",
+      "name": "agent_draft_skill_bindings",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_drafts",
+      "kind": "table",
+      "name": "agent_drafts",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/081_agent_studio_operations_governance.sql"
+      ],
+      "inventory_name": "agent_governance_policies",
+      "kind": "table",
+      "name": "agent_governance_policies",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_members",
+      "kind": "table",
+      "name": "agent_members",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_publications",
+      "kind": "table",
+      "name": "agent_publications",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_publish_events",
+      "kind": "table",
+      "name": "agent_publish_events",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/077_agent_publication_eval.sql"
+      ],
+      "inventory_name": "agent_release_evaluation_events",
+      "kind": "table",
+      "name": "agent_release_evaluation_events",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/077_agent_publication_eval.sql"
+      ],
+      "inventory_name": "agent_release_evaluations",
+      "kind": "table",
+      "name": "agent_release_evaluations",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/077_agent_publication_eval.sql"
+      ],
+      "inventory_name": "agent_release_requests",
+      "kind": "table",
+      "name": "agent_release_requests",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/060_agent_trace_eval.sql"
+      ],
+      "inventory_name": "agent_trace_events",
+      "kind": "table",
+      "name": "agent_trace_events",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "agent_trace_outbox",
+      "kind": "table",
+      "name": "agent_trace_outbox",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/060_agent_trace_eval.sql"
+      ],
+      "inventory_name": "agent_trace_scores",
+      "kind": "table",
+      "name": "agent_trace_scores",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/060_agent_trace_eval.sql"
+      ],
+      "inventory_name": "agent_trace_spans",
+      "kind": "table",
+      "name": "agent_trace_spans",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/060_agent_trace_eval.sql"
+      ],
+      "inventory_name": "agent_traces",
+      "kind": "table",
+      "name": "agent_traces",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_version_capabilities",
+      "kind": "table",
+      "name": "agent_version_capabilities",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_version_knowledge_bindings",
+      "kind": "table",
+      "name": "agent_version_knowledge_bindings",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/072_agent_runtime_dimensions.sql"
+      ],
+      "inventory_name": "agent_version_revocations",
+      "kind": "table",
+      "name": "agent_version_revocations",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/075_agent_skill_knowledge_bindings.sql"
+      ],
+      "inventory_name": "agent_version_skill_bindings",
+      "kind": "table",
+      "name": "agent_version_skill_bindings",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agent_versions",
+      "kind": "table",
+      "name": "agent_versions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/071_agent_studio_domain.sql"
+      ],
+      "inventory_name": "agents",
+      "kind": "table",
+      "name": "agents",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "api_keys",
+      "kind": "table",
+      "name": "api_keys",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "audit_logs",
+      "kind": "table",
+      "name": "audit_logs",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "auth_config",
+      "kind": "table",
+      "name": "auth_config",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/003_proxy_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "billing_events",
+      "kind": "table",
+      "name": "billing_events",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/046_user_connectors.sql"
+      ],
+      "inventory_name": "connector_configs",
+      "kind": "table",
+      "name": "connector_configs",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "connector_credential_principals",
+      "kind": "table",
+      "name": "connector_credential_principals",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "email_domain_config",
+      "kind": "table",
+      "name": "email_domain_config",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/070_eval_live_regression.sql"
+      ],
+      "inventory_name": "eval_baseline_promotions",
+      "kind": "table",
+      "name": "eval_baseline_promotions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "eval_datasets",
+      "kind": "table",
+      "name": "eval_datasets",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "eval_evaluators",
+      "kind": "table",
+      "name": "eval_evaluators",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "eval_examples",
+      "kind": "table",
+      "name": "eval_examples",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/070_eval_live_regression.sql"
+      ],
+      "inventory_name": "eval_experiment_run_cases",
+      "kind": "table",
+      "name": "eval_experiment_run_cases",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "eval_experiment_runs",
+      "kind": "table",
+      "name": "eval_experiment_runs",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/061_trace_eval_sota_core.sql"
+      ],
+      "inventory_name": "eval_experiments",
+      "kind": "table",
+      "name": "eval_experiments",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "langgraph_threads",
+      "kind": "table",
+      "name": "langgraph_threads",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/022_llm_providers_models.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "llm_models",
+      "kind": "table",
+      "name": "llm_models",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/022_llm_providers_models.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "llm_providers",
+      "kind": "table",
+      "name": "llm_providers",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_channels",
+      "kind": "table",
+      "name": "local_node_channels",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_devices",
+      "kind": "table",
+      "name": "local_node_devices",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_events",
+      "kind": "table",
+      "name": "local_node_events",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_executions",
+      "kind": "table",
+      "name": "local_node_executions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_grants",
+      "kind": "table",
+      "name": "local_node_grants",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_pairing_challenges",
+      "kind": "table",
+      "name": "local_node_pairing_challenges",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/098_local_node_control_plane.sql"
+      ],
+      "inventory_name": "local_node_receipts",
+      "kind": "table",
+      "name": "local_node_receipts",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "login_audit",
+      "kind": "table",
+      "name": "login_audit",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_channel_grants",
+      "kind": "table",
+      "name": "mcp_channel_grants",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_connections",
+      "kind": "table",
+      "name": "mcp_connections",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_schema_diffs",
+      "kind": "table",
+      "name": "mcp_schema_diffs",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_servers",
+      "kind": "table",
+      "name": "mcp_servers",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_tool_snapshots",
+      "kind": "table",
+      "name": "mcp_tool_snapshots",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/074_agent_mcp_registry.sql"
+      ],
+      "inventory_name": "mcp_tools",
+      "kind": "table",
+      "name": "mcp_tools",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "model_pricing",
+      "kind": "table",
+      "name": "model_pricing",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "password_history",
+      "kind": "table",
+      "name": "password_history",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "permissions",
+      "kind": "table",
+      "name": "permissions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/003_proxy_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "proxy_routes",
+      "kind": "table",
+      "name": "proxy_routes",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "quota_alerts",
+      "kind": "table",
+      "name": "quota_alerts",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "rate_limit_config",
+      "kind": "table",
+      "name": "rate_limit_config",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "rbac_roles",
+      "kind": "table",
+      "name": "rbac_roles",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/033_observability_and_quota_governance.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "request_traces",
+      "kind": "table",
+      "name": "request_traces",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "role_permissions",
+      "kind": "table",
+      "name": "role_permissions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/018_security_events.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "security_event_daily_aggregates",
+      "kind": "table",
+      "name": "security_event_daily_aggregates",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "semantic_cache",
+      "kind": "table",
+      "name": "semantic_cache",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "service_health_records",
+      "kind": "table",
+      "name": "service_health_records",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "services",
+      "kind": "table",
+      "name": "services",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "tasks",
+      "kind": "table",
+      "name": "tasks",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/044_tenant_soft_isolation.sql"
+      ],
+      "inventory_name": "tenant_mcp_configs",
+      "kind": "table",
+      "name": "tenant_mcp_configs",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/044_tenant_soft_isolation.sql"
+      ],
+      "inventory_name": "tenant_tool_policies",
+      "kind": "table",
+      "name": "tenant_tool_policies",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "tenants",
+      "kind": "table",
+      "name": "tenants",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/044_tenant_soft_isolation.sql"
+      ],
+      "inventory_name": "tool_audit_log",
+      "kind": "table",
+      "name": "tool_audit_log",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "usage_daily_aggregates",
+      "kind": "table",
+      "name": "usage_daily_aggregates",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/016_usage_hourly_aggregates.sql",
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "usage_hourly_aggregates",
+      "kind": "table",
+      "name": "usage_hourly_aggregates",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "usage_records",
+      "kind": "table",
+      "name": "usage_records",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "usage_statistics",
+      "kind": "table",
+      "name": "usage_statistics",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/046_user_connectors.sql"
+      ],
+      "inventory_name": "user_connectors",
+      "kind": "table",
+      "name": "user_connectors",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/006_user_extra_permissions.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_permissions",
+      "kind": "table",
+      "name": "user_permissions",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/017_usage_metrics.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_quotas",
+      "kind": "table",
+      "name": "user_quotas",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/005_account_permission_system.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "user_roles",
+      "kind": "table",
+      "name": "user_roles",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "users",
+      "kind": "table",
+      "name": "users",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/025_document_version_control.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "version_retention_policies",
+      "kind": "table",
+      "name": "version_retention_policies",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/migrations/002_kbms_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "child_chunks",
+      "kind": "table",
+      "name": "child_chunks",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/004_confluence_integration.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_connections",
+      "kind": "table",
+      "name": "confluence_connections",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/010_image_segments.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_image_sync",
+      "kind": "table",
+      "name": "confluence_image_sync",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/004_confluence_integration.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_pages",
+      "kind": "table",
+      "name": "confluence_pages",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/004_confluence_integration.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_space_bindings",
+      "kind": "table",
+      "name": "confluence_space_bindings",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/004_confluence_integration.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_sync_tasks",
+      "kind": "table",
+      "name": "confluence_sync_tasks",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/004_confluence_integration.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "confluence_webhooks",
+      "kind": "table",
+      "name": "confluence_webhooks",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+      ],
+      "inventory_name": "dataset_collection_bindings",
+      "kind": "table",
+      "name": "dataset_collection_bindings",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/002_kbms_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "dataset_keyword_tables",
+      "kind": "table",
+      "name": "dataset_keyword_tables",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "dataset_permissions",
+      "kind": "table",
+      "name": "dataset_permissions",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/002_kbms_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "dataset_process_rules",
+      "kind": "table",
+      "name": "dataset_process_rules",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/002_kbms_enhancements.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "dataset_queries",
+      "kind": "table",
+      "name": "dataset_queries",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/108_kb_query_feedback_observability.sql"
+      ],
+      "inventory_name": "dataset_query_feedback",
+      "kind": "table",
+      "name": "dataset_query_feedback",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "datasets",
+      "kind": "table",
+      "name": "datasets",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/101_kb_ingestion_lifecycle.sql"
+      ],
+      "inventory_name": "document_pipeline_executions",
+      "kind": "table",
+      "name": "document_pipeline_executions",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/031_hierarchical_segments.sql"
+      ],
+      "inventory_name": "document_summaries",
+      "kind": "table",
+      "name": "document_summaries",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/025_document_version_control.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "document_versions",
+      "kind": "table",
+      "name": "document_versions",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "documents",
+      "kind": "table",
+      "name": "documents",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/110_kb_embedding_migration_action_jobs.sql"
+      ],
+      "inventory_name": "embedding_migration_action_jobs",
+      "kind": "table",
+      "name": "embedding_migration_action_jobs",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+      ],
+      "inventory_name": "embedding_migration_progress",
+      "kind": "table",
+      "name": "embedding_migration_progress",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+      ],
+      "inventory_name": "embedding_migrations",
+      "kind": "table",
+      "name": "embedding_migrations",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+      ],
+      "inventory_name": "embedding_vector_cache",
+      "kind": "table",
+      "name": "embedding_vector_cache",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/105_kb_bm25_v2_lifecycle.sql"
+      ],
+      "inventory_name": "kb_bm25_v2_lifecycle",
+      "kind": "table",
+      "name": "kb_bm25_v2_lifecycle",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/109_kb_document_batch_operations.sql"
+      ],
+      "inventory_name": "kb_document_batch_items",
+      "kind": "table",
+      "name": "kb_document_batch_items",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/109_kb_document_batch_operations.sql"
+      ],
+      "inventory_name": "kb_document_batch_operations",
+      "kind": "table",
+      "name": "kb_document_batch_operations",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/111_kb_document_progress_events.sql"
+      ],
+      "inventory_name": "kb_document_progress_events",
+      "kind": "table",
+      "name": "kb_document_progress_events",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/104_kb_eval_golden.sql"
+      ],
+      "inventory_name": "kb_eval_golden",
+      "kind": "table",
+      "name": "kb_eval_golden",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/104_kb_eval_golden.sql"
+      ],
+      "inventory_name": "kb_eval_golden_release",
+      "kind": "table",
+      "name": "kb_eval_golden_release",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/107_kb_parsing_ir.sql"
+      ],
+      "inventory_name": "kb_parsing_ir",
+      "kind": "table",
+      "name": "kb_parsing_ir",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/107_kb_parsing_ir.sql"
+      ],
+      "inventory_name": "kb_parsing_page_cache",
+      "kind": "table",
+      "name": "kb_parsing_page_cache",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/106_kb_segment_attachment_bindings.sql"
+      ],
+      "inventory_name": "kb_segment_attachment_bindings",
+      "kind": "table",
+      "name": "kb_segment_attachment_bindings",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/migrations/014_multimodal_chunks.sql",
+        "database/schema.sql"
+      ],
+      "inventory_name": "segment_images",
+      "kind": "table",
+      "name": "segment_images",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql"
+      ],
+      "inventory_name": "segments",
+      "kind": "table",
+      "name": "segments",
+      "owner": "owner",
+      "schema": "knowledge"
+    },
+    {
+      "evidence": [
+        "database/schema.sql",
+        "database/migrations"
+      ],
+      "inventory_name": "v_active_proxy_services",
+      "kind": "view",
+      "name": "v_active_proxy_services",
+      "owner": "owner",
+      "schema": "gateway"
+    },
+    {
+      "evidence": [
+        "database/schema.sql",
+        "database/migrations"
+      ],
+      "inventory_name": "v_user_billing_summary",
+      "kind": "view",
+      "name": "v_user_billing_summary",
+      "owner": "owner",
+      "schema": "gateway"
+    }
+  ],
+  "schema": "arc03-object-ownership/v1",
+  "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98",
+  "state": "source-commit-bound-pending-live-acl"
+}

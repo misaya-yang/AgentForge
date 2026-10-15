@@ -1,0 +1,11 @@
+{
+  "title": "季度报告",
+  "goal": "面向管理层的季度结论",
+  "locale": "zh-CN",
+  "design_system": "editorial",
+  "blocks": [
+    {"kind": "heading", "level": 1, "text": "摘要"},
+    {"kind": "paragraph", "inlines": [{"kind": "text", "text": "收入增长 "}, {"kind": "strong", "text": "15%"}]},
+    {"kind": "quote", "text": "面向管理层的结论"}
+  ]
+}

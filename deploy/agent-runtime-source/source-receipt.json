@@ -1,0 +1,64 @@
+{
+  "capability_worker_sbom": {
+    "component_count": 621,
+    "format": "CycloneDX-1.5",
+    "path": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
+    "sha256": "7ff759e6b86d1c3be33e1f845409cb4e28961f2f214dc17ebd5277386e5b8e7d"
+  },
+  "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
+  "evidence_provenance": {
+    "base_export_evidence_sha256": "59d67296e784a9163967e9ce200f80b1e9b0b53f40c61284333b0f09f8aab0ec",
+    "base_receipt_sha256": "1f19b8d037db661ad582e3c62d104a63e3128f8f07ee87bd2070e922fc907230",
+    "base_source_unit_sha256": "adcacedcd460087222108c23e76d9419d5335fc4b814f87fbb33ace3bdf5193a",
+    "current_runtime_check_verified": false,
+    "current_runtime_tests_executed": false,
+    "docker_image_verified": false,
+    "metadata_file_sha256": "a187dcddb47a0eb37cdf2888bd4ebe9e560d38923207c24c5f1aa86c1df25638",
+    "method": "source-only atomic recovery terminal overlay delta; inherited unchanged dependency graph and compiled protocol schema",
+    "overlay_delta_sha256": "34ddf7ef28470a850627847cf717b4147c3bbfae46de7fcc2a74afaa34bc5635",
+    "previous_overlay_delta_sha256": "0fdc8c81131e4407e08f4d0b4c659a4c7b258307bab1ab7c0cac1fed0c15524c",
+    "prior_build_receipts_scope": "Historical pre-patch source only; never rewritten or represented as current-patch verification.",
+    "runtime_compiled": false,
+    "schema_generated_by_compiled_protocol_library": true,
+    "schema_reuse_reason": "Only five ai-platform-agent-runtime implementation/test-module paths changed; all manifests/locks and the entire codex-app-server-protocol dependency closure are unchanged.",
+    "worker_compiled": false
+  },
+  "license": {
+    "license_sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "spdx": "Apache-2.0",
+    "upstream_notice_sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+  },
+  "overlay": {
+    "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
+    "file_count": 132,
+    "manifest_schema": "ai-platform/agent-runtime-overlay/v2",
+    "manifest_sha256": "ad579a7301cf5c049712799bc78c42bbb0f6623021916de45fa0fa94e7fc04f7",
+    "sha256": "80c24bd56b1c5bf13d81b70cdec9e25832a49c7a005e862b4aadc5c37979042e",
+    "source_revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d"
+  },
+  "sbom": {
+    "component_count": 1633,
+    "format": "CycloneDX-1.5",
+    "sha256": "f610826098ad48732cbf9bb5c09c77e7551b6d020ae5ac23958501bafbddec5e"
+  },
+  "schema_bundle": {
+    "file_count": 1060,
+    "sha256": "0e8f4bcb6abd17e538e875e0dbe77dbc1e521015bab7f44dfebae4d6e072d49f",
+    "total_bytes": 4037337
+  },
+  "schema_version": "ai-platform/agent-runtime-source-receipt/v1",
+  "source": {
+    "branch": "",
+    "fork_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "git_tree_sha": "572cdecd45cd985f0ad80b63d8b86ffcb345f47a",
+    "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "upstream_url": "https://github.com/openai/codex.git"
+  },
+  "toolchain": {
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
+    "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
+  }
+}

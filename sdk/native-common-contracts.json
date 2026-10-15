@@ -1,0 +1,650 @@
+{
+  "version": 1,
+  "scope": "common-native-implementations",
+  "operations": [
+    {
+      "path": "/api/v1/roles",
+      "method": "get",
+      "operation_id": "list_roles_api_v1_roles_get"
+    },
+    {
+      "path": "/api/v1/roles",
+      "method": "post",
+      "operation_id": "create_role_api_v1_roles_post"
+    },
+    {
+      "path": "/api/v1/roles/permissions",
+      "method": "get",
+      "operation_id": "list_permissions_api_v1_roles_permissions_get"
+    },
+    {
+      "path": "/api/v1/roles/{role_name}",
+      "method": "get",
+      "operation_id": "get_role_api_v1_roles__role_name__get"
+    },
+    {
+      "path": "/api/v1/roles/{role_name}",
+      "method": "put",
+      "operation_id": "update_role_api_v1_roles__role_name__put"
+    },
+    {
+      "path": "/api/v1/roles/{role_name}",
+      "method": "delete",
+      "operation_id": "delete_role_api_v1_roles__role_name__delete"
+    },
+    {
+      "path": "/api/v1/roles/{role_name}/users",
+      "method": "get",
+      "operation_id": "get_role_users_api_v1_roles__role_name__users_get"
+    },
+    {
+      "path": "/api/v1/services",
+      "method": "post",
+      "operation_id": "register_service_api_v1_services_post"
+    },
+    {
+      "path": "/api/v1/services",
+      "method": "get",
+      "operation_id": "list_services_api_v1_services_get"
+    },
+    {
+      "path": "/api/v1/services/{service_id}",
+      "method": "get",
+      "operation_id": "get_service_api_v1_services__service_id__get"
+    },
+    {
+      "path": "/api/v1/services/{service_id}",
+      "method": "put",
+      "operation_id": "update_service_api_v1_services__service_id__put"
+    },
+    {
+      "path": "/api/v1/services/{service_id}",
+      "method": "delete",
+      "operation_id": "delete_service_api_v1_services__service_id__delete"
+    },
+    {
+      "path": "/api/v1/services/{service_id}/schema",
+      "method": "get",
+      "operation_id": "get_service_schema_api_v1_services__service_id__schema_get"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "get",
+      "operation_id": "list_users_api_v1_users_get"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "post",
+      "operation_id": "create_user_api_v1_users_post"
+    },
+    {
+      "path": "/api/v1/users/{user_id}",
+      "method": "get",
+      "operation_id": "get_user_api_v1_users__user_id__get"
+    },
+    {
+      "path": "/api/v1/users/{user_id}",
+      "method": "put",
+      "operation_id": "update_user_api_v1_users__user_id__put"
+    },
+    {
+      "path": "/api/v1/users/{user_id}",
+      "method": "delete",
+      "operation_id": "delete_user_api_v1_users__user_id__delete"
+    },
+    {
+      "path": "/api/v1/users/{user_id}/reset-password",
+      "method": "post",
+      "operation_id": "reset_user_password_api_v1_users__user_id__reset_password_post"
+    },
+    {
+      "path": "/api/v1/users/{user_id}/enable",
+      "method": "post",
+      "operation_id": "enable_user_api_v1_users__user_id__enable_post"
+    },
+    {
+      "path": "/api/v1/users/{user_id}/disable",
+      "method": "post",
+      "operation_id": "disable_user_api_v1_users__user_id__disable_post"
+    },
+    {
+      "path": "/api/v1/users/{user_id}/profile",
+      "method": "put",
+      "operation_id": "update_user_profile_api_v1_users__user_id__profile_put"
+    },
+    {
+      "path": "/api/v1/knowledge/{path}",
+      "method": "get",
+      "operation_id": "proxy_knowledge_api_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/api/v1/knowledge/{path}",
+      "method": "post",
+      "operation_id": "proxy_knowledge_api_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/api/v1/knowledge/{path}",
+      "method": "put",
+      "operation_id": "proxy_knowledge_api_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/api/v1/knowledge/{path}",
+      "method": "patch",
+      "operation_id": "proxy_knowledge_api_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/api/v1/knowledge/{path}",
+      "method": "delete",
+      "operation_id": "proxy_knowledge_api_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/v1/knowledge/{path}",
+      "method": "get",
+      "operation_id": "proxy_knowledge_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/v1/knowledge/{path}",
+      "method": "post",
+      "operation_id": "proxy_knowledge_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/v1/knowledge/{path}",
+      "method": "put",
+      "operation_id": "proxy_knowledge_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/v1/knowledge/{path}",
+      "method": "patch",
+      "operation_id": "proxy_knowledge_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/v1/knowledge/{path}",
+      "method": "delete",
+      "operation_id": "proxy_knowledge_v1_knowledge__path__delete"
+    },
+    {
+      "path": "/api/v1/assistant/sessions",
+      "method": "get",
+      "operation_id": "list_sessions_api_v1_assistant_sessions_get"
+    },
+    {
+      "path": "/api/v1/assistant/sessions",
+      "method": "post",
+      "operation_id": "create_session_api_v1_assistant_sessions_post"
+    },
+    {
+      "path": "/api/v1/assistant/sessions/{session_id}",
+      "method": "get",
+      "operation_id": "get_session_api_v1_assistant_sessions__session_id__get"
+    },
+    {
+      "path": "/api/v1/assistant/sessions/{session_id}/history",
+      "method": "get",
+      "operation_id": "get_session_history_api_v1_assistant_sessions__session_id__history_get"
+    },
+    {
+      "path": "/api/v1/assistant/sessions/{session_id}",
+      "method": "delete",
+      "operation_id": "delete_session_api_v1_assistant_sessions__session_id__delete"
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "method": "post",
+      "operation_id": "login_api_v1_auth_login_post"
+    },
+    {
+      "path": "/api/v1/auth/logout",
+      "method": "post",
+      "operation_id": "logout_api_v1_auth_logout_post"
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "get",
+      "operation_id": "get_current_user_api_v1_auth_me_get"
+    },
+    {
+      "path": "/api/v1/auth/validate-token",
+      "method": "post",
+      "operation_id": "validate_token_api_v1_auth_validate_token_post"
+    },
+    {
+      "path": "/api/v1/auth/change-password",
+      "method": "post",
+      "operation_id": "change_password_api_v1_auth_change_password_post"
+    },
+    {
+      "path": "/api/v1/invoke",
+      "method": "post",
+      "operation_id": "invoke_api_v1_invoke_post"
+    },
+    {
+      "path": "/api/v1/stream",
+      "method": "post",
+      "operation_id": "stream_api_v1_stream_post"
+    },
+    {
+      "path": "/api/v1/submit",
+      "method": "post",
+      "operation_id": "submit_api_v1_submit_post"
+    },
+    {
+      "path": "/api/v1/tasks",
+      "method": "get",
+      "operation_id": "list_tasks_api_v1_tasks_get"
+    },
+    {
+      "path": "/api/v1/tasks/{task_id}",
+      "method": "get",
+      "operation_id": "get_task_api_v1_tasks__task_id__get"
+    },
+    {
+      "path": "/api/v1/tasks/{task_id}",
+      "method": "delete",
+      "operation_id": "cancel_task_api_v1_tasks__task_id__delete"
+    },
+    {
+      "path": "/api/v1/tasks/{task_id}/result",
+      "method": "get",
+      "operation_id": "get_task_result_api_v1_tasks__task_id__result_get"
+    },
+    {
+      "path": "/api/v1/connectors/available",
+      "method": "get",
+      "operation_id": "list_available_connectors_api_v1_connectors_available_get"
+    },
+    {
+      "path": "/api/v1/connectors/mine",
+      "method": "get",
+      "operation_id": "list_my_connectors_api_v1_connectors_mine_get"
+    },
+    {
+      "path": "/api/v1/connectors/auth/{provider}",
+      "method": "get",
+      "operation_id": "initiate_oauth_api_v1_connectors_auth__provider__get"
+    },
+    {
+      "path": "/api/v1/connectors/callback/{provider}",
+      "method": "get",
+      "operation_id": "oauth_callback_api_v1_connectors_callback__provider__get"
+    },
+    {
+      "path": "/api/v1/connectors/{provider}",
+      "method": "delete",
+      "operation_id": "disconnect_connector_api_v1_connectors__provider__delete"
+    },
+    {
+      "path": "/api/v1/api-keys",
+      "method": "post",
+      "operation_id": "create_api_key_api_v1_api_keys_post"
+    },
+    {
+      "path": "/api/v1/api-keys",
+      "method": "get",
+      "operation_id": "list_api_keys_api_v1_api_keys_get"
+    },
+    {
+      "path": "/api/v1/api-keys/{key_id}",
+      "method": "get",
+      "operation_id": "get_api_key_detail_api_v1_api_keys__key_id__get"
+    },
+    {
+      "path": "/api/v1/api-keys/{key_id}/revoke",
+      "method": "post",
+      "operation_id": "revoke_api_key_api_v1_api_keys__key_id__revoke_post"
+    },
+    {
+      "path": "/api/v1/api-keys/{key_id}",
+      "method": "delete",
+      "operation_id": "delete_api_key_api_v1_api_keys__key_id__delete"
+    }
+  ],
+  "source_evidence": {
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_roles_contract.rs": [
+      "pub const ROLES_ROUTES:",
+      "pub fn extend_document",
+      "pub fn operation_id"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/roles_api.rs": [
+      "pub use contract::ROLES_ROUTES;",
+      "contract::role_value(",
+      "contract::allowed_methods(route)",
+      "contract::NAME_MAX",
+      "contract::DESCRIPTION_MAX"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/foundation.rs": [
+      ".merge(roles_api::router(self.roles, cancellation.service.clone()).reset_fallback())",
+      "services_api::router(self.services, cancellation.service.clone()).reset_fallback()",
+      "users_api::router(self.users, cancellation.service.clone()).reset_fallback()",
+      "crate::router_without_knowledge_proxy(",
+      ".merge(ai_platform_auth::http::router(auth.clone(), configured_roles).reset_fallback())",
+      ".merge(task_http::router(auth.clone(), self.tasks).reset_fallback())",
+      ".merge(invocation_http::router(auth, self.dispatcher).reset_fallback())",
+      "self_service_api_keys_api::router("
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/foundation.rs": [
+      "roles: Arc::new(roles_api::RolesApi::new(roles_api::RolesDependencies {",
+      "identity: auth.admission.clone(),",
+      "database: Some(roles_db),",
+      "impl services_api::ServicesIdentityResolver for EndpointAdapters",
+      "services: Arc::new(services_api::ServicesApi::new(",
+      "registry: core.registry.clone(),",
+      "access_database: Some(access_db),",
+      "users: Arc::new(users_api::UsersApi::new(users_api::UsersDependencies {",
+      "profile_identity: auth.admission.clone(),",
+      "database: Some(users_db.clone()),",
+      "user_identity: auth.admission.clone(),",
+      "principal_identity: auth.admission.clone(),",
+      "self_service_api_keys: Arc::new(self_service_api_keys_api::SelfServiceKeysApi::new("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_services_contract.rs": [
+      "pub const SERVICES_ROUTES:",
+      "pub const SERVICE_MUTABLE_FIELDS:",
+      "pub fn extend_document",
+      "pub fn list_schema",
+      "pub fn detail_schema"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/services_api.rs": [
+      "pub use contract::SERVICE_MUTABLE_FIELDS;",
+      "for (_, route, _) in SERVICES_ROUTES",
+      "contract::allowed_methods(route)",
+      "contract::is_dictionary(body)",
+      "contract::registered(&id)",
+      "contract::changed(id)",
+      "contract::schema_value(",
+      "contract::listed_service(",
+      "contract::virtual_assistant(",
+      "pub fn service_to_dict(",
+      "contract::SERVICES_ROUTES[0]"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/protocol.rs": [
+      "pub struct ServiceDefinition {",
+      "pub connector_config: Value,",
+      "pub service_config: Option<ServiceConfig>,"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/request_validation.rs": [
+      "pub enum ContentType {",
+      "pub fn as_str(self)"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs": [
+      "pub fn service_from_value(",
+      "pub struct MemoryRegistryStorage",
+      "pub async fn register_handle("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/service_config_api.rs": [
+      "pub enum ServiceConfigError {",
+      "pub fn response(&self, context: &ConfigAuditRequestContext)"
+    ],
+    "rust/platform-native/crates/platform-client/src/sdk_services.rs": [
+      "pub fn load_request(",
+      "pub fn update_request(",
+      "pub fn read_service("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_users_contract.rs": [
+      "pub const USERS_ROUTES:",
+      "pub const CREATE_FIELDS:",
+      "pub fn user_defaults()",
+      "pub fn extend_document"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/users_api.rs": [
+      "pub use contract::USERS_ROUTES;",
+      "for (_, route, _) in USERS_ROUTES",
+      "contract::allowed_methods(route)",
+      "contract::CREATE_FIELDS",
+      "contract::user_defaults()",
+      "contract::listed(users, total, page, page_size)",
+      "contract::password_reset(&user_id)",
+      "fn routed_operation("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/users_store.rs": [
+      "pub trait UsersDatabase:",
+      "pub struct PgUsersDatabase",
+      "guard::actor(connection, &tenant, &actor, mutation.profile_only)",
+      "guard::target(connection, &tenant, &actor, &id, mutation.profile_only)",
+      "Invalid account status or tier"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/users_store/guard.rs": [
+      "pub(super) enum Denied",
+      "pub(super) async fn actor(",
+      "pub(super) async fn target(",
+      "pub(super) async fn retain_administrator("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/rate_config_api.rs": [
+      "pub fn boolean(",
+      "pub fn integer("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs": [
+      "pub fn python_value_to_string(",
+      "pub fn python_whitespace("
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs": [
+      "pub const PUBLIC_PREFIXES: [&str; 2] = [\"/api/v1/knowledge\", \"/v1/knowledge\"];",
+      "pub const UPSTREAM_PREFIX: &str = \"/api/v1/knowledge\";",
+      "pub const METHODS: [&str; 5] = [\"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\"];",
+      "pub fn dataset_impact(",
+      "pub fn dataset_delete(",
+      "\"streamed-owner-declared-or-opaque\""
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/knowledge_proxy/mod.rs": [
+      "contract::METHODS.iter().fold(",
+      "for prefix in contract::PUBLIC_PREFIXES {",
+      "contract::read_operation(method.as_str(), path)",
+      "contract::dataset_impact(parts.method.as_str(), &path)",
+      "key.allows_knowledge(!read)"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/knowledge_proxy/forwarding.rs": [
+      "use super::contract::public_upstream_path;",
+      "let upstream_path = public_upstream_path(&path);",
+      "*result.status_mut() = status;",
+      "*result.headers_mut() = headers;",
+      "if error.is_timeout() { 504 } else { 502 }"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/knowledge_proxy/management.rs": [
+      "contract::dataset_delete(method.as_str(), path)",
+      "object.remove(\"password\");",
+      "StatusCode::FORBIDDEN => ContentError::new(403, \"Dataset owner access required\")"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/application.rs": [
+      ".merge(super::knowledge_proxy::router(self.knowledge_proxy))"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_content/access.rs": [
+      "pub struct EndpointIdentityResolver {",
+      "pub struct StaticKeyFallback {",
+      "if !bearer && !key {"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_sessions_contract.rs": [
+      "pub const ROUTES:",
+      "pub fn extend_document",
+      "pub fn create_metadata",
+      "pub fn history_response",
+      "(\"DELETE\", ITEM, \"delete_session\")",
+      "pub fn delete_response"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/lib.rs": [
+      ".route(session_contract::COLLECTION, get(sessions))",
+      "(1..=session_contract::LIST_MAX).contains(&limit)",
+      "Json(SessionList { sessions, total })"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/session_history.rs": [
+      ".route(contract::COLLECTION, post(create))",
+      ".route(contract::ITEM, get(detail).delete(delete))",
+      "contract::HISTORY,",
+      "(1..=contract::HISTORY_MAX).contains(&limit)",
+      "Ok(contract::history_response(session_id, messages, total))",
+      "let metadata = match create_metadata(&body)",
+      "cleanup.delete_owned_session(tenant, user, session_id).await",
+      "cleanup.session_deleted(tenant, user, session_id).await",
+      "Json(contract::delete_response(session_id))"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/graph.rs": [
+      "options.sessions.cleanup = Some(self.native_foundation.runtime.clone());"
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/foundation_backends.rs": [
+      "impl sessions_api::SessionsRuntimeCleanup for NativeServicesRuntime {",
+      "sdk_session_cleanup::delete_owned(",
+      "sdk_session_cleanup::is_deleted("
+    ],
+    "rust/platform-native/crates/platform-gateway/src/migration_agent/control.rs": [
+      "fn session_cleanup_result(",
+      "session_cleanup_result(&scope.session_id, &p)"
+    ],
+    "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/sdk_session_cleanup.rs": [
+      "pub async fn delete_owned",
+      "pub async fn is_deleted",
+      "cleanup_core().await?;"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/sessions_api.rs": [
+      "pub trait SessionsRuntimeCleanup:",
+      "fn delete_owned_session",
+      "fn session_deleted"
+    ],
+    "rust/platform-native/crates/platform-auth/src/service.rs": [
+      "pub async fn authenticate(",
+      ".ok_or(ServiceError::Credentials)?",
+      "return Err(ServiceError::Credentials);",
+      "pub use crate::contract::{LoginResponse, UserProfile};"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/session_storage.rs": [
+      "pub async fn lock_session_barrier("
+    ],
+    "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+      "pub enum SelectedCredential",
+      "pub fn select_credential"
+    ],
+    "rust/platform-native/crates/platform-auth/src/contract.rs": [
+      "pub const ROUTES:",
+      "pub struct LoginInput",
+      "pub struct PasswordInput",
+      "pub struct LoginResponse",
+      "pub struct CurrentUserResponse",
+      "pub struct ValidationResponse",
+      "pub fn extend_document"
+    ],
+    "rust/platform-native/crates/platform-auth/src/http.rs": [
+      ".route(contract::LOGIN, post(login))",
+      ".route(contract::LOGOUT, post(logout))",
+      ".route(contract::ME, get(me))",
+      ".route(contract::VALIDATE, post(validate))",
+      ".route(contract::CHANGE_PASSWORD, post(change_password))",
+      "DefaultBodyLimit::max(contract::BODY_LIMIT)",
+      "json!(CurrentUserResponse {",
+      "json!(ValidationResponse {",
+      "contract::logout_response(false)",
+      "contract::logout_response(true)",
+      "contract::password_changed_response()"
+    ],
+    "rust/platform-native/crates/platform-auth/src/lib.rs": [
+      "pub mod contract;"
+    ],
+    "rust/platform-native/crates/platform-auth/src/accounts.rs": [
+      "pub struct Account"
+    ],
+    "rust/platform-native/crates/platform-auth/src/sessions.rs": [
+      "pub struct RedisSessions"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_invocation_task_contract.rs": [
+      "pub const ROUTES:",
+      "pub fn request_schema()",
+      "pub fn response_schema()",
+      "pub fn chunk_schema()",
+      "pub fn task_schema()",
+      "pub fn extend_document"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/invocation_http.rs": [
+      ".route(contract::INVOKE, post(invoke))",
+      ".route(contract::SUBMIT, post(submit))",
+      ".route(contract::STREAM, post(stream))",
+      "pub struct UnifiedRequestSchema",
+      "pub struct UnifiedResponseSchema",
+      "pub struct StreamChunkSchema",
+      "PreflightAuthority::from_session_principal(principal)",
+      "\"event: error\\ndata: {message}\\n\\n\""
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/task_http.rs": [
+      ".route(contract::TASKS, get(list_tasks))",
+      ".route(contract::TASK, get(get_task).delete(cancel_task))",
+      ".route(contract::RESULT, get(get_task_result))",
+      "pub struct TaskSchema",
+      "task.tenant_id == principal.account.tenant_id",
+      "role == \"admin\"",
+      "filter.user_id = Some(principal.account.user_id);",
+      "filter.tenant_id = Some(principal.account.tenant_id);"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/task_manager.rs": [
+      "pub enum TaskStatus",
+      "pub async fn cancel(",
+      "pub async fn get_result(",
+      "CancelResult::Applied | CancelResult::AlreadyCancelled",
+      "TaskStatus::Completed | TaskStatus::Failed => return Err(TaskError::StateConflict)"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/task_actor.rs": [
+      "pub struct TaskActor",
+      "pub fn from_session(",
+      "impl TaskActorValidator for PgTaskActorValidator"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/task_durable_worker.rs": [
+      "TaskActorValidator"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/gateway_dispatcher.rs": [
+      "pub async fn sdk_read_lease(",
+      "pub async fn prepare_stream_session(",
+      "submit_with_session"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_connectors_contract.rs": [
+      "pub const CONNECTOR_USER_ROUTES:",
+      "pub const PERSONAL_ROUTES:",
+      "pub fn extend_document"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_api.rs": [
+      "pub use crate::native_contract::connectors::CONNECTOR_USER_ROUTES;",
+      "for &(_, path, _) in CONNECTOR_USER_ROUTES",
+      "return Ok(ConnectorApiResponse::Redirect { location });"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_service.rs": [
+      "pub async fn available",
+      "pub async fn mine",
+      "pub async fn begin",
+      "pub async fn callback",
+      "pub async fn disconnect",
+      "store.consume(&key).await"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_store.rs": [
+      "pub const LIST_MINE_SQL:",
+      "ConnectorUserOperation::ListMine { user }"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_types.rs": [
+      "pub struct ConnectorRecord"
+    ],
+    "rust/platform-native/crates/platform-auth/src/admission.rs": [
+      "pub async fn resolve",
+      "Ok(SelectedCredential::ApiKey(key))",
+      "Ok(SelectedCredential::Jwt(token))"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_api_keys_contract.rs": [
+      "pub const SELF_SERVICE_API_KEY_ROUTES:",
+      "pub fn key_schema(",
+      "pub fn request_schema()",
+      "pub fn extend_document"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/self_service_api_keys_api.rs": [
+      "pub use crate::native_contract::api_keys::SELF_SERVICE_API_KEY_ROUTES;",
+      ".route(BASE, any(dispatch))",
+      ".route(KEY, any(dispatch))",
+      ".route(REVOKE, any(dispatch))",
+      "pub fn project_response(",
+      "pub fn validate_create("
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/self_service_api_keys.rs": [
+      "pub const DEFAULT_SCOPES:",
+      "impl SelfServiceApiKeyService for SelfServiceApiKeys"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/self_service_api_keys_store.rs": [
+      "impl SelfServiceApiKeyStore"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/http_content_type.rs": [
+      "pub fn is_json_content_type"
+    ],
+    "rust/platform-native/crates/platform-gateway-foundation/src/service_access_resolver.rs": [
+      "pub fn clear_service_access_constraint_cache"
+    ]
+  }
+}

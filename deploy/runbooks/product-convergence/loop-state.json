@@ -1,0 +1,235 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "lifecycle": "terminal",
+  "goal": "Make the product users see match the README: gateway holds identity/credentials/models/connectors, agents declare capabilities, capabilities extend via plugins.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 1,
+  "max_iterations": 8,
+  "last_result": "Program complete. Full pytest 6032 passed/20 skipped; e2e:opensource 46 passed; all local gates green; live-stack items reported in the final report.",
+  "next_action": "None — program terminal. Suggested PR split in reports/code-review/product-convergence-2026-08.md.",
+  "blockers": [],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "PC-00",
+      "file": "phase-00-baseline.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "git log bf74ff6 on product-convergence/main",
+        "make harness-check: 'Harness contract OK.' with 0 warnings after HANDOFF.md + init.sh added"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-01",
+      "file": "phase-01-deletions.md",
+      "depends_on": [
+        "PC-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit 4bd021c refactor: remove Confluence fossil and standalone exams surface",
+        "uv run --all-packages --extra test pytest -q --no-cov tests/api tests/services/quiz tests/services/assistant → 2981 passed, 1 skipped (pre-existing ASSISTANT_MEMORY_POSTGRES_TEST_DSN skip)",
+        "ruff check clean on all touched files",
+        "pnpm -C web type-check && lint && build green (lint 0 errors, 10 pre-existing warnings)",
+        "pnpm -C web e2e:opensource → 41 passed",
+        "make validate-example-config → OK",
+        "rg: zero refs to api/v1/confluence, quiz/list, generate/stream, attempts/export in web/src + web/e2e"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-02C",
+      "file": "phase-02c-default-model.md",
+      "depends_on": [
+        "PC-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit d1d91fd merged",
+        "pytest 3222 passed (post-C smoke)",
+        "rg qwen3.7-plus sdk/ → zero",
+        "validate-example-config OK"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-02D",
+      "file": "phase-02d-first-run-nav-i18n.md",
+      "depends_on": [
+        "PC-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit 9fa4269 merged",
+        "tests/api 538 passed (D track gate)",
+        "e2e:opensource 46 passed incl. first-run + nav-groups",
+        "i18n:check passed"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-02B",
+      "file": "phase-02b-connectors.md",
+      "depends_on": [
+        "PC-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit b40f898 merged",
+        "tests/api + tests/adapters + tests/services green (4929 in full merge smoke)",
+        "rg src.connectors|ConnectorType → zero (vendored XSD exempt)",
+        "verify-agent-studio/migrate-status reported not-run: live stack"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-02M",
+      "file": "phase-02m-merge.md",
+      "depends_on": [
+        "PC-02C",
+        "PC-02D",
+        "PC-02B"
+      ],
+      "status": "done",
+      "evidence": [
+        "merge commits C→D→B on product-convergence/main",
+        "pytest 4929 passed/5 skipped",
+        "e2e:opensource 46 passed",
+        "validate-example-config + harness-check OK",
+        "fix commit: create form empty-model_id gate + spec updates"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-03",
+      "file": "phase-03-quiz-plugin-shares.md",
+      "depends_on": [
+        "PC-02M"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit d78fc87",
+        "full pytest 6032 passed/20 skipped",
+        "e2e:opensource 46 passed",
+        "validate-example-config + harness-check + test-isolation green",
+        "openapi snapshot regenerated (137 contract tests passed)"
+      ],
+      "review": "not_required"
+    },
+    {
+      "id": "PC-04",
+      "file": "phase-04-final-verification.md",
+      "depends_on": [
+        "PC-03"
+      ],
+      "status": "done",
+      "evidence": [
+        "commit c24a989",
+        "complete pytest 6032 passed/20 skipped",
+        "pnpm chain + e2e:opensource 46 passed",
+        "rg terminal checks: qwen3.7-plus sdk/ zero, exams zero, transports rename zero",
+        "report: reports/code-review/product-convergence-2026-08.md"
+      ],
+      "review": "not_required"
+    }
+  ],
+  "features": [
+    {
+      "id": "PC-00-F1",
+      "phase_id": "PC-00",
+      "description": "Checkpoint commit exists on product-convergence/main and the harness is green.",
+      "steps": [
+        "git log shows bf74ff6 on product-convergence/main.",
+        "Run make harness-check; observe exit 0."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-01-F1",
+      "phase_id": "PC-01",
+      "description": "Confluence fossil has zero references in src/ and web/src/ (only the connectors stack remains).",
+      "steps": [
+        "Delete gateway REST surface, frontend pages/routes/api module, tasks tab, knowledge sync cards.",
+        "rg -i confluence src/ web/src/ → only connector-stack and data-compat hits."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-01-F2",
+      "phase_id": "PC-01",
+      "description": "Exams is gone everywhere: backend router, frontend routes/pages/tab/i18n, e2e specs.",
+      "steps": [
+        "rg -i exams src/ web/src/ tests/ web/e2e/ → zero hits."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-01-F3",
+      "phase_id": "PC-01",
+      "description": "quiz.py is a deprecated shim: stream/list/export gone; load-bearing endpoints intact.",
+      "steps": [
+        "Inspect route decorators in src/api/v1/quiz.py; observe exactly generate, {quiz_id} GET, submit, attempts, delete, share create/revoke, public GET+submit."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-02C-F1",
+      "phase_id": "PC-02C",
+      "description": "DEFAULT_MODEL env is the single deployment default; no concrete model ID in any SDK code default.",
+      "steps": [
+        "rg -n 'qwen3.7-plus' sdk/ → zero hits (docs and examples included).",
+        "assistant-service reads DEFAULT_MODEL via settings/core/models/defaults.py; gateway serves it."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-02D-F1",
+      "phase_id": "PC-02D",
+      "description": "GET /api/v1/setup/state returns {configured, missing, mode, default_model} and the console shows the setup banner + dashboard checklist when unconfigured.",
+      "steps": [
+        "Unit test hits the endpoint with a stub app state.",
+        "e2e first-run.spec.ts passes in e2e:opensource (no provider keys by design)."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-02D-F2",
+      "phase_id": "PC-02D",
+      "description": "Nav renders three groups (使用/构建/治理) with dashboard on top; playground labeled 模型调试; i18n:check runs in CI.",
+      "steps": [
+        "e2e nav-group assertions pass in e2e:opensource.",
+        ".github/workflows/ci.yml frontend job includes pnpm -C web i18n:check."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-02B-F1",
+      "phase_id": "PC-02B",
+      "description": "Connector catalog is manageable (admin CRUD + settings page) with a mode column; transports rename is complete.",
+      "steps": [
+        "connector_admin.py tests pass.",
+        "rg 'src.connectors|ConnectorType' src/ → zero."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PC-02B-F2",
+      "phase_id": "PC-02B",
+      "description": "Connector capability binding is validated (enabled config + connected user required) and the agent-studio contract documents it.",
+      "steps": [
+        "New regression test in agent_studio_regression.py passes.",
+        "architecture-contract.md gains connector validation semantics."
+      ],
+      "passes": true
+    }
+  ]
+}

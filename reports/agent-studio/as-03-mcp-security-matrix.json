@@ -1,0 +1,98 @@
+{
+  "schema_version": "agent-studio-as03-mcp-security/v1",
+  "phase_id": "AS-03",
+  "feature_id": "AS-F004",
+  "status": "passed_independent_critic_approved",
+  "provider_calls": 0,
+  "external_smoke": {
+    "status": "deferred",
+    "reason": "No approved third-party MCP OAuth credential or production Secret Store writer is configured; the Phase waiver permits this after mock protocol gates pass."
+  },
+  "checks": [
+    {
+      "id": "tenant-streamable-http-only",
+      "result": "passed",
+      "evidence": "Closed API and DB transport checks reject tenant stdio and every transport except streamable_http."
+    },
+    {
+      "id": "tls-userinfo-and-origin",
+      "result": "passed",
+      "evidence": "Security tests reject non-TLS tenant URLs, URL userinfo, malformed exact origins and disallowed Origin values."
+    },
+    {
+      "id": "ssrf-and-dns-rebinding",
+      "result": "passed",
+      "evidence": "Create and update reject private IP literals and hostnames whose DNS set contains a disallowed address before persistence. Runtime independently repeats the policy; transport-observation tests prove MCP and OAuth request URLs use the validated IP literal while retaining the original Host and TLS SNI, and live discovery returned stable MCP_SSRF_BLOCKED."
+    },
+    {
+      "id": "redirect-denial",
+      "result": "passed",
+      "evidence": "MCP and OAuth clients disable redirect following and reject 3xx responses."
+    },
+    {
+      "id": "oauth-pkce-resource-audience",
+      "result": "passed",
+      "evidence": "Mock OAuth covers S256, one-time identity-bound state, metadata and issuer origin, exact resource and audience, scopes, expiry and replay denial."
+    },
+    {
+      "id": "streamed-response-bound",
+      "result": "passed",
+      "evidence": "MCP and OAuth clients abort chunked bodies while reading once the configured decoded-byte limit is crossed."
+    },
+    {
+      "id": "jsonrpc-and-session-identity",
+      "result": "passed",
+      "evidence": "Protocol version, content type, JSON-RPC request ID and MCP session ID are pinned; confusion and mismatch tests fail closed."
+    },
+    {
+      "id": "secret-ref-only",
+      "result": "passed",
+      "evidence": "Migration 074 has no token or client-secret columns; new MCP and Connector APIs persist opaque secret_ref only and never serialize it."
+    },
+    {
+      "id": "validation-and-log-redaction",
+      "result": "passed",
+      "evidence": "Redacted validation routes omit echoed input and context; upstream bodies, credentials, URLs, resolved IPs and stack details are absent from stable failures and Connector error storage or logging."
+    },
+    {
+      "id": "tenant-and-principal-isolation",
+      "result": "passed",
+      "evidence": "Composite database references and repository predicates reject cross-tenant resources; delegated connections resolve only the authenticated owner and never fall back."
+    },
+    {
+      "id": "public-channel-service-account",
+      "result": "passed",
+      "evidence": "Remote readOnlyHint/risk metadata is never trusted. Anonymous, public and embed eligibility requires a Tenant Admin service-account grant bound to the exact current tool schema hash and channel; schema drift and delegated public use are denied."
+    },
+    {
+      "id": "connector-common-policy",
+      "result": "passed",
+      "evidence": "Confluence Agent runtime resolves the shared principal repository, scopes and channels before invocation; legacy visibility cannot re-add a Connector to an Agent allowlist."
+    },
+    {
+      "id": "immutable-schema-and-contract",
+      "result": "passed",
+      "evidence": "PostgreSQL rejects snapshot updates or deletes; schema hashes remain pure and exact. Compatibility recurses through nested object/array schemas; added properties, unknown validation changes and old-valid/new-invalid payloads are breaking, and any refresh invalidates exact-hash public approval."
+    },
+    {
+      "id": "exact-bound-invocation",
+      "result": "passed",
+      "evidence": "AS-02 allowlist plus repository authorization requires the exact MCP or Connector provider, resource, version or hash and principal before ToolInvoker dispatch."
+    },
+    {
+      "id": "timeout-concurrency-circuit",
+      "result": "passed",
+      "evidence": "Whole-call timeout includes connection-capacity queueing; connection-global semaphore, failure recording, open-circuit denial and recovery behavior pass runtime and PostgreSQL tests."
+    },
+    {
+      "id": "rollback-native-compatibility",
+      "result": "passed",
+      "evidence": "AGENT_STUDIO_MCP_ENABLED=false removes external Agent capabilities while preserving native built-in Assistant behavior and stored registry evidence."
+    },
+    {
+      "id": "mutation-audit-correlation",
+      "result": "passed",
+      "evidence": "Server, connection, channel, discovery and Connector principal mutations return request_id and audit_ref; live CRUD verified the public contract."
+    }
+  ]
+}

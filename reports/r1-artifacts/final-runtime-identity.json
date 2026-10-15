@@ -1,0 +1,35 @@
+{
+  "overlay_sha256": "a55739b4a6c54e1b2f910f574d955c5b8ffe207b3c3d73d4316dc50544a48ee3",
+  "base_sha": "1107bd06082d214c29a61bb8f04e16df483c6fce",
+  "containers": [
+    {
+      "name": "ai-gateway-backend",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
+      "healthy": true
+    },
+    {
+      "name": "ai-gateway-frontend",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+      "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
+      "healthy": true
+    },
+    {
+      "name": "ai-gateway-agent-runtime",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-agent-runtime:local-279ba894152b-a55739b4a6c5",
+      "image_id": "sha256:78e9d72d85502070bed377fa521f2fc01a19f9114e541a5c761f7ad529b6904a",
+      "healthy": true
+    },
+    {
+      "name": "ai-gateway-agent-capability-worker-1",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-agent-capability-worker:local-279ba894152b-a55739b4a6c5",
+      "image_id": "sha256:f7674ea29025cc6211e52f59460a0860ffc9012a43c950e1ffc7d9a449f4e0b3",
+      "healthy": true
+    }
+  ],
+  "source_and_bundle": "source-bundle-identity.json"
+}

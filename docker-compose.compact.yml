@@ -1,0 +1,14 @@
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_TOPOLOGY_MODE: "compact"
+    deploy:
+      replicas: 1
+  agent-runtime:
+    deploy:
+      replicas: 1
+  knowledge-service:
+    environment:
+      KNOWLEDGE_RUNTIME_ROLE: "all"
+  knowledge-worker:
+    profiles: [arc06-full-only]

@@ -1,0 +1,10 @@
+{
+  "active_profile_file": "/Users/yang/Library/Application Support/com.follow.clash/profiles/361504683073736704.yaml",
+  "profile_has_dns": true,
+  "enhanced_mode": null,
+  "filter_mode": "blacklist",
+  "filter_count": 3,
+  "dns_matches_effective": false,
+  "target_filter_present": false,
+  "overrideDns": false
+}

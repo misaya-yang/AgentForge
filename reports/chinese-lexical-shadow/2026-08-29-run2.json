@@ -1,0 +1,635 @@
+{
+  "schema": "chinese-lexical-shadow-v1",
+  "generated_at": "2026-08-29T10:20:31+00:00",
+  "params": {
+    "k": 10,
+    "recall_cut": 5,
+    "corpus_size": 30,
+    "cases": 12
+  },
+  "legs": [
+    {
+      "leg": "pg_simple_emulation",
+      "eligible": true,
+      "slices": {
+        "overall": {
+          "cases": 12,
+          "recall_at_k": 0.4166666666666667,
+          "mrr": 0.4287211683423117,
+          "ndcg_at_k": 0.46409686686383017
+        },
+        "language:zh": {
+          "cases": 6,
+          "recall_at_k": 0.16666666666666666,
+          "mrr": 0.09355344779573455,
+          "ndcg_at_k": 0.12663077975525658
+        },
+        "language:en": {
+          "cases": 6,
+          "recall_at_k": 0.6666666666666666,
+          "mrr": 0.763888888888889,
+          "ndcg_at_k": 0.8015629539724038
+        }
+      },
+      "per_case": [
+        {
+          "case_id": "kb.bakeoff.refund.zh",
+          "language": "zh",
+          "recall_at_k": 0.0,
+          "mrr": 0.041666666666666664,
+          "ndcg_at_k": 0.0,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.refund.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9610012895088121,
+          "top_ids": [
+            "refund-primary",
+            "compaction-window",
+            "approval-window",
+            "password-primary",
+            "compaction-near-token"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.password.zh",
+          "language": "zh",
+          "recall_at_k": 0.0,
+          "mrr": 0.05263157894736842,
+          "ndcg_at_k": 0.0,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.password.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9567680782603095,
+          "top_ids": [
+            "password-primary",
+            "password-near-2fa",
+            "password-near-change",
+            "tenant-primary",
+            "invoice-primary"
+          ],
+          "query_token_count": 7
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.zh",
+          "language": "zh",
+          "recall_at_k": 0.0,
+          "mrr": 0.07142857142857142,
+          "ndcg_at_k": 0.0,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.3950679673211227,
+          "top_ids": [
+            "refund-near-monthly",
+            "refund-near-invoice",
+            "invoice-near-refund",
+            "invoice-primary",
+            "approval-near-log"
+          ],
+          "query_token_count": 8
+        },
+        {
+          "case_id": "kb.bakeoff.approval.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.4457633373123725,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.approval.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "approval-primary",
+            "approval-window",
+            "password-primary",
+            "approval-near-scope",
+            "compaction-window"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.zh",
+          "language": "zh",
+          "recall_at_k": 0.0,
+          "mrr": 0.1111111111111111,
+          "ndcg_at_k": 0.31402134121916697,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.4965403887441782,
+          "top_ids": [
+            "compaction-near-summary",
+            "compaction-near-truncate",
+            "compaction-primary",
+            "approval-near-log",
+            "approval-near-lowrisk"
+          ],
+          "query_token_count": 5
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.zh",
+          "language": "zh",
+          "recall_at_k": 0.0,
+          "mrr": 0.034482758620689655,
+          "ndcg_at_k": 0.0,
+          "top_ids": [
+            "approval-near-log",
+            "approval-near-lowrisk",
+            "approval-near-scope",
+            "approval-primary",
+            "approval-window"
+          ],
+          "query_token_count": 1
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "tenant-primary",
+            "tenant-window",
+            "refund-near-monthly",
+            "tenant-near-metric",
+            "tenant-near-cache"
+          ],
+          "query_token_count": 6
+        }
+      ]
+    },
+    {
+      "leg": "cjk_bigram_proxy",
+      "eligible": true,
+      "slices": {
+        "overall": {
+          "cases": 12,
+          "recall_at_k": 0.75,
+          "mrr": 0.7736111111111111,
+          "ndcg_at_k": 0.7720274251328777
+        },
+        "language:zh": {
+          "cases": 6,
+          "recall_at_k": 0.8333333333333334,
+          "mrr": 0.9166666666666666,
+          "ndcg_at_k": 0.8357342803245033
+        },
+        "language:en": {
+          "cases": 6,
+          "recall_at_k": 0.6666666666666666,
+          "mrr": 0.6305555555555556,
+          "ndcg_at_k": 0.7083205699412519
+        }
+      },
+      "per_case": [
+        {
+          "case_id": "kb.bakeoff.refund.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9828422279067397,
+          "top_ids": [
+            "refund-primary",
+            "refund-near-monthly",
+            "refund-window",
+            "invoice-near-refund",
+            "approval-near-log"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.refund.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.2,
+          "ndcg_at_k": 0.40154698532190075,
+          "top_ids": [
+            "compaction-window",
+            "approval-window",
+            "compaction-near-token",
+            "password-primary",
+            "refund-primary"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.password.zh",
+          "language": "zh",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9173194127129571,
+          "top_ids": [
+            "password-primary",
+            "password-near-2fa",
+            "tenant-near-share",
+            "password-near-change",
+            "approval-near-log"
+          ],
+          "query_token_count": 11
+        },
+        {
+          "case_id": "kb.bakeoff.password.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9567680782603095,
+          "top_ids": [
+            "password-primary",
+            "password-near-2fa",
+            "password-near-change",
+            "invoice-primary",
+            "tenant-primary"
+          ],
+          "query_token_count": 7
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.5261135977086879,
+          "top_ids": [
+            "invoice-window",
+            "refund-near-invoice",
+            "invoice-near-refund",
+            "invoice-primary",
+            "approval-near-log"
+          ],
+          "query_token_count": 12
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.3950679673211227,
+          "top_ids": [
+            "refund-near-monthly",
+            "refund-near-invoice",
+            "invoice-near-refund",
+            "invoice-primary",
+            "approval-near-log"
+          ],
+          "query_token_count": 8
+        },
+        {
+          "case_id": "kb.bakeoff.approval.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6442869262030828,
+          "top_ids": [
+            "approval-near-lowrisk",
+            "approval-primary",
+            "approval-window",
+            "approval-near-scope",
+            "approval-near-log"
+          ],
+          "query_token_count": 14
+        },
+        {
+          "case_id": "kb.bakeoff.approval.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "approval-primary",
+            "approval-window",
+            "password-primary",
+            "approval-near-scope",
+            "compaction-window"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9828422279067397,
+          "top_ids": [
+            "compaction-primary",
+            "invoice-window",
+            "compaction-window",
+            "compaction-near-truncate",
+            "compaction-near-summary"
+          ],
+          "query_token_count": 11
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.4965403887441782,
+          "top_ids": [
+            "compaction-near-summary",
+            "compaction-near-truncate",
+            "compaction-primary",
+            "approval-near-log",
+            "approval-near-lowrisk"
+          ],
+          "query_token_count": 5
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.zh",
+          "language": "zh",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9610012895088121,
+          "top_ids": [
+            "tenant-primary",
+            "invoice-near-refund",
+            "tenant-near-share",
+            "approval-near-log",
+            "tenant-near-metric"
+          ],
+          "query_token_count": 17
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "tenant-primary",
+            "tenant-window",
+            "refund-near-monthly",
+            "tenant-near-metric",
+            "tenant-near-cache"
+          ],
+          "query_token_count": 6
+        }
+      ]
+    },
+    {
+      "leg": "jieba_words",
+      "eligible": true,
+      "slices": {
+        "overall": {
+          "cases": 12,
+          "recall_at_k": 0.7916666666666666,
+          "mrr": 0.8263888888888888,
+          "ndcg_at_k": 0.8516301360415347
+        },
+        "language:zh": {
+          "cases": 6,
+          "recall_at_k": 0.9166666666666666,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9776410160721959
+        },
+        "language:en": {
+          "cases": 6,
+          "recall_at_k": 0.6666666666666666,
+          "mrr": 0.6527777777777778,
+          "ndcg_at_k": 0.7256192560108735
+        }
+      },
+      "per_case": [
+        {
+          "case_id": "kb.bakeoff.refund.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9828422279067397,
+          "top_ids": [
+            "refund-primary",
+            "refund-near-monthly",
+            "refund-window",
+            "invoice-near-refund",
+            "approval-near-log"
+          ],
+          "query_token_count": 5
+        },
+        {
+          "case_id": "kb.bakeoff.refund.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.5053391017396307,
+          "top_ids": [
+            "compaction-window",
+            "compaction-near-token",
+            "refund-primary",
+            "approval-window",
+            "password-primary"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.password.zh",
+          "language": "zh",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9173194127129571,
+          "top_ids": [
+            "password-primary",
+            "password-near-2fa",
+            "tenant-near-share",
+            "password-near-change",
+            "compaction-near-truncate"
+          ],
+          "query_token_count": 6
+        },
+        {
+          "case_id": "kb.bakeoff.password.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9567680782603095,
+          "top_ids": [
+            "password-primary",
+            "password-near-2fa",
+            "password-near-change",
+            "invoice-primary",
+            "tenant-primary"
+          ],
+          "query_token_count": 7
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "invoice-primary",
+            "invoice-window",
+            "refund-near-invoice",
+            "invoice-near-refund",
+            "approval-near-scope"
+          ],
+          "query_token_count": 7
+        },
+        {
+          "case_id": "kb.bakeoff.invoice.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.3950679673211227,
+          "top_ids": [
+            "refund-near-monthly",
+            "refund-near-invoice",
+            "invoice-near-refund",
+            "invoice-primary",
+            "approval-near-log"
+          ],
+          "query_token_count": 8
+        },
+        {
+          "case_id": "kb.bakeoff.approval.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9828422279067397,
+          "top_ids": [
+            "approval-primary",
+            "approval-near-lowrisk",
+            "approval-window",
+            "approval-near-scope",
+            "approval-near-log"
+          ],
+          "query_token_count": 7
+        },
+        {
+          "case_id": "kb.bakeoff.approval.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "approval-primary",
+            "approval-window",
+            "password-primary",
+            "approval-near-scope",
+            "compaction-window"
+          ],
+          "query_token_count": 9
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 0.9828422279067397,
+          "top_ids": [
+            "compaction-primary",
+            "invoice-window",
+            "compaction-window",
+            "compaction-near-truncate",
+            "compaction-near-summary"
+          ],
+          "query_token_count": 6
+        },
+        {
+          "case_id": "kb.bakeoff.compaction.en",
+          "language": "en",
+          "recall_at_k": 0.5,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.4965403887441782,
+          "top_ids": [
+            "compaction-near-summary",
+            "compaction-near-truncate",
+            "compaction-primary",
+            "approval-near-log",
+            "approval-near-lowrisk"
+          ],
+          "query_token_count": 5
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.zh",
+          "language": "zh",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "tenant-primary",
+            "tenant-window",
+            "invoice-near-refund",
+            "approval-near-log",
+            "tenant-near-share"
+          ],
+          "query_token_count": 10
+        },
+        {
+          "case_id": "kb.bakeoff.tenant.en",
+          "language": "en",
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "top_ids": [
+            "tenant-primary",
+            "tenant-window",
+            "refund-near-monthly",
+            "tenant-near-metric",
+            "tenant-near-cache"
+          ],
+          "query_token_count": 6
+        }
+      ]
+    },
+    {
+      "leg": "bge_m3_learned_sparse",
+      "eligible": false,
+      "skip_reason": "BGE-M3 learned-sparse needs FlagEmbedding/torch (absent here); the PRD scopes it to the separate inference container -- deferred to the live phase"
+    }
+  ]
+}

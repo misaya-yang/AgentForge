@@ -1,0 +1,150 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "goal": "Integrate the staged Grok hardening batch, improve platform performance and agent quality, and prove both through Docker and browser evidence.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": "SPD-04",
+  "active_feature": "SPD-F005",
+  "iteration": 1,
+  "max_iterations": 5,
+  "last_result": "SPD-03 passed Web bundle, restore/render, shared SDK SSE, Finance, Engineering, and Research gates. SPD-04 runs current source in the owned healthy Docker stack and passed realistic in-app-browser tool, cancel, and same-session recovery checks with no provider 400. Ten Qwen thinking-low trials completed, but TTFT p50 was 9.280851s against the 3.41s gate.",
+  "next_action": "Carry the provider-visible TTFT gap and the deferred three-cohort stability evidence into the next performance stage without weakening their thresholds.",
+  "blockers": [
+    "Live qwen3.7-plus thinking-low TTFT p50 is 9.280851s, above the 3.41s gate.",
+    "Three eight-task stability cohorts were not run in the user-requested minimum closeout."
+  ],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "SPD-00",
+      "file": "phase-00-integrate-and-repair-the-staged-grok-correctness-batch.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "baseline: 32 passed, 15 failed, 1 skipped in the SPD-00 targeted pytest slice",
+        "baseline: staged changed-file Ruff passed; Web type-check and 7 targeted Node tests passed",
+        "final: 91 targeted Python tests and 20 targeted Web tests passed",
+        "final: PostgreSQL 085/086/087 migration gates passed against local Docker",
+        "review: all five requested changes closed; no new in-scope P1/P2"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "SPD-01",
+      "file": "phase-01-close-streaming-pairing-backpressure-and-telemetry-safety.md",
+      "depends_on": [
+        "SPD-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "317 provider, stop, SSE backpressure, telemetry, and observability tests passed",
+        "invalid Responses/Anthropic/Chat transcripts recorded zero outbound HTTP calls",
+        "independent review: all three requested P2 fixes closed; no new P1/P2"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "SPD-02",
+      "file": "phase-02-optimize-gateway-assistant-and-knowledge-hot-paths.md",
+      "depends_on": [
+        "SPD-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "347 Gateway and Assistant hot-path tests passed",
+        "858 Knowledge tests and offline RAG retrieval gate passed; external answer judge not run",
+        "89 runtime script, container distribution, and topology tests passed",
+        "changed-file Ruff, Compose render, Harness, and Assistant regression gates passed",
+        "independent re-review closed all SPD-02 findings"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "SPD-03",
+      "file": "phase-03-optimize-web-sdk-and-agent-quality.md",
+      "depends_on": [
+        "SPD-02"
+      ],
+      "status": "done",
+      "evidence": [
+        "Web production bundle: public entry 318570 B gzip, Assistant increment 163595 B, restored conversation 215008 B; all budgets passed",
+        "24 Web node tests, Web type-check, lint with zero errors, build, and bundle budget passed",
+        "Shared SSE fixture passed Python/static (3) and CLI (10); publish CI now requires Java/Maven and Dart instead of allowing skips",
+        "Finance, Engineering, and Research focused quality gates and Assistant runtime regression gate passed"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "SPD-04",
+      "file": "phase-04-validate-current-docker-browser-and-live-provider-dual-gates.md",
+      "depends_on": [
+        "SPD-03"
+      ],
+      "status": "blocked",
+      "evidence": [
+        "Migrations 083-087 applied; make hot-update --all, validate, status, and live isolation 7/7 passed on the owned stack",
+        "In-app browser ran a realistic callback-timeout incident with eight paired tool attempts, follow-up planning, owner-scoped cancel 200 in about 1.1s, stream closure in 3.6s, and successful same-session continuation",
+        "No provider HTTP 400 observed in the live browser window",
+        "10/10 qwen3.7-plus thinking-low trials completed; first-event p50 0.014213s, visible TTFT p50 9.280851s, gate failed",
+        "Three eight-task cohorts not run in this minimum closeout"
+      ],
+      "review": "not_required"
+    }
+  ],
+  "features": [
+    {
+      "id": "SPD-F001",
+      "phase_id": "SPD-00",
+      "description": "The staged Grok security batch preserves its protections while bootstrap platform administration, new-chat persistence, quiz attempts, cancellation, and browser-user isolation work through their real entry points.",
+      "steps": [
+        "Exercise platform and tenant admin guards, new-chat create races, quiz start/submit, embedding cancellation, restore cancellation, terminal stream handling, scoped browser storage, and OAuth callback redirects.",
+        "Observe typed statuses, owner checks, released concurrency slots, terminal first-wins behavior, and zero current regression failures."
+      ],
+      "passes": true
+    },
+    {
+      "id": "SPD-F002",
+      "phase_id": "SPD-01",
+      "description": "Every provider boundary rejects malformed tool exchanges before HTTP and slow SSE consumers apply bounded backpressure without breaking cancellation or telemetry.",
+      "steps": [
+        "Run Responses, Anthropic, and Chat Completions pairing failures plus slow-client and disconnect probes.",
+        "Observe zero outbound HTTP for invalid exchanges, producer-ahead at most one, and exactly-once resource release."
+      ],
+      "passes": true
+    },
+    {
+      "id": "SPD-F003",
+      "phase_id": "SPD-02",
+      "description": "Gateway, Assistant, and Knowledge hot paths remove confirmed serial round trips and event-loop blocking while preserving authorization and state semantics.",
+      "steps": [
+        "Run rate-policy, read-only tool batch, MCP reuse, memory I/O, retrieval, embedding, pool, and worker-role benchmarks.",
+        "Observe the declared RTT, parallel wall-clock, cache, deadline, event-loop, and isolation gates without correctness regressions."
+      ],
+      "passes": true
+    },
+    {
+      "id": "SPD-F004",
+      "phase_id": "SPD-03",
+      "description": "The console and SDKs meet bundle/stream contracts and AI Platform improves the three recorded complex-task failure modes without benchmark-specific routing.",
+      "steps": [
+        "Exercise cold routes, 200-message restore, long streaming, four SDK envelopes, and the finance, engineering, and research eval cases.",
+        "Observe bundle and long-task budgets plus semantically grounded structured outputs and real tool receipts."
+      ],
+      "passes": true
+    },
+    {
+      "id": "SPD-F005",
+      "phase_id": "SPD-04",
+      "description": "The current repository source is running in the owned Docker stack and passes static, container, in-app-browser, TTFT, cancellation, and three-cohort quality gates.",
+      "steps": [
+        "Hot-update the owned Compose stack, validate health, run browser journeys, control/canary TTFT, and three complete eight-task cohorts.",
+        "Observe healthy services, no provider 400, resumable stopped sessions, the latency gate, and per-cohort quality acceptance."
+      ],
+      "passes": false
+    }
+  ]
+}

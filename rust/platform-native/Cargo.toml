@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/platform-openapi", "crates/platform-client", "crates/platform-desktop", "crates/platform-auth", "crates/platform-gateway", "crates/platform-gateway-foundation", "crates/platform-gateway-integrations"]
+resolver = "2"
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip", "unbounded_depth"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "net", "signal", "io-util", "fs", "process"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "http2"] }
+[profile.dev]
+debug = 0
+incremental = false

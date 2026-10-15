@@ -1,0 +1,177 @@
+package_id: DR-01
+state: verified
+base_sha: 92c98c0b85c7b9b72254e5023e6086fd8d4792df
+head_sha: 91eadb927a8e0fa02eac39fc1657470bcf84ff73
+working_tree_delivery: false
+commits:
+- 91eadb927a8e0fa02eac39fc1657470bcf84ff73
+changed_paths:
+- rust/agent-runtime-overlay/**
+- src/services/agent_runtime/**
+- src/api/v2/agent.py
+- database/authority/baseline_manifest.py
+- database/migrations/2026_08_post_kb_v1/**
+- packages/ai-gateway-contracts/**
+- tests/**
+- scripts/harness/*recovery*
+- deploy/agent-runtime-source/**
+- docs/design/agent-runtime-durable-recovery.md
+- docs/harness/commands.md
+- sdk/openapi.json
+- Makefile
+- scripts/harness/agent_runtime_supply_chain.py
+- scripts/harness/build_agent_runtime_image.sh
+- scripts/harness/build_agent_capability_worker_image.sh
+contracts_compared:
+- original run/turn/model/authority identity
+- signed model budget
+- owner/fence
+- immutable approval and invocation
+- Worker execution/attempt/receipt
+- Core call/output pairing
+- scoped history and unknown outcome
+- frozen baseline and append-only epochs
+commands:
+- command: uv run --all-packages --extra test pytest -q --no-cov tests/services/agent_runtime/test_execution_fence.py
+    tests/services/agent_runtime/test_model_plane.py tests/services/agent_runtime/test_control_plane.py
+    tests/services/agent_runtime/test_capacity_lifecycle.py tests/services/agent_runtime/test_thread_store.py
+    tests/api/test_agent_v2.py tests/database/test_migration_authority_baseline_manifest.py
+    tests/database/test_migration_authority_manifest_legacy.py tests/harness/test_agent_runtime_supply_chain.py
+  exit_code: 0
+  passed: 200
+  failed: 0
+  skipped: 0
+- command: RUNTIME_RECOVERY_DB_LIVE=1 uv run --all-packages --extra test pytest -q
+    --no-cov tests/database/test_runtime_durable_recovery_live.py
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+- command: AI_PLATFORM_AGENT_RUNTIME_SOURCE=/Users/yang/projects/opensource-harness/codex-harness
+    make agent-runtime-recovery-tests
+  exit_code: 0
+  passed: 160
+  failed: 0
+  skipped: 2
+  skip_reason: Optional opt-in original PG fixtures; separate actual two-role SQL
+    matrix passed
+- command: make agent-runtime-build-local
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make agent-capability-worker-build-local
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make hot-update ARGS="--gateway"
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make validate
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make status
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make agent-runtime-source-contract
+  exit_code: 0
+  passed: 18
+  failed: 0
+  skipped: 0
+- command: make architecture-boundary-gate
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: make verify-openapi-contract
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+- command: make harness-check
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: uv run --all-packages --extra dev ruff check database/authority/baseline_manifest.py
+    packages/ai-gateway-contracts/src/ai_gateway_contracts/database_revision.py scripts/harness/agent_runtime_supply_chain.py
+    scripts/harness/runtime_durable_recovery_gate.py scripts/harness/runtime_recovery_observe.py
+    scripts/harness/runtime_recovery_reference.py src/api/v2/agent.py src/services/agent_runtime/control/capacity.py
+    src/services/agent_runtime/control/event_stream.py src/services/agent_runtime/control/thread_lifecycle.py
+    src/services/agent_runtime/control/turn_start.py src/services/agent_runtime/control_plane.py
+    src/services/agent_runtime/model/authorization.py src/services/agent_runtime/thread_store.py
+    tests/api/test_agent_v2.py tests/database/test_migration_authority_baseline_manifest.py
+    tests/database/test_migration_authority_manifest_legacy.py tests/database/test_runtime_durable_recovery_live.py
+    tests/services/agent_runtime/test_capacity_lifecycle.py tests/services/agent_runtime/test_control_plane.py
+    tests/services/agent_runtime/test_execution_fence.py
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+- command: git diff --check
+  exit_code: 0
+  passed: null
+  failed: 0
+  skipped: 0
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+final_evidence_review: 'PASS: reports/runtime-recovery/independent-review.md'
+review_findings:
+  blocker: 0
+  high: 0
+  medium: 0
+rollback_class: old-binary-compatible
+rollback_condition: Quiesce new durable runs before old Runtime image rollback; additive
+  tables and immutable history retained.
+compose_owner: /Users/yang/projects/AI--Platfform
+database_revision:
+  authority_epoch_sequence: 4
+  verified_reference: database/migrations/2026_08_post_kb_v1/004_verification.json
+model_provider_identity:
+  model: qwen3.8-flash
+  provider: original snapshot and signed lease unchanged
+source:
+  upstream_sha: 279ba894152b2c01c5294cc0723b463b209bdca4
+  overlay_sha256: 22bf4e1ecad56231aadc5bfc5557037b4bc98bc16837ca53fe4ec8645aa40442
+artifact_manifest: reports/runtime-recovery/release-unit.json
+evidence:
+- reports/product/runtime-durable-recovery-2026-09-26.md
+- reports/runtime-recovery/final-history-reconciliation.json
+- reports/runtime-recovery/c4-browser-result.json
+- reports/runtime-recovery/cases/
+- reports/runtime-recovery/independent-review.md
+remaining_risks:
+- Hosted CI and whole-platform HA not run or claimed.
+- Gateway restart continuity is outside this Runtime-only restart proof.
+- Old runs without durable context and unprovable native/descendant recovery fail
+  closed.
+- Real crash matrix used Quiz capability; not every configured provider or tool.
+- Entire R1 remains in progress with separate unverified journeys.
+local_integration:
+  state: integrated
+  target: main
+  mode: local fast-forward
+  implementation_commit: 91eadb927a8e0fa02eac39fc1657470bcf84ff73
+  remote_push_performed: false
+  unrelated_files_preserved: 11
+post_commit_checks:
+- command: RUNTIME_RECOVERY_DB_LIVE=1 uv run --all-packages --extra test pytest -q
+    --no-cov tests/database/test_runtime_durable_recovery_live.py
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+- command: make agent-runtime-source-contract
+  exit_code: 0
+  passed: 18
+  failed: 0
+  skipped: 0

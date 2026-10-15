@@ -1,0 +1,141 @@
+package_id: R1-RP03
+state: verified
+base_sha: 2a5b7d74
+source_branch: codex/r1-remaining-flow-acceptance
+integration:
+  target: main
+  mode: local-fast-forward
+  status: integrated
+  pushed: false
+  branch_deleted: false
+  merged_code_head: 2521d0a4f4e2faadb3f1aaa559bfff7a6bd2800b
+  documentation_followup: true
+full_R1_complete: false
+status_label: CANDIDATE_80
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings:
+  blocker: 0
+  high: 0
+rollback_class: old-binary-compatible
+commands:
+- command: uv run --all-packages --extra test pytest -q --no-cov tests/services/agent_runtime/test_thread_store.py
+    tests/api/test_artifact_shares.py tests/api/test_assistant_attachment_refs.py
+    tests/api/test_assistant_source_access.py tests/api/test_conversation_share_quiz.py
+  exit_code: 0
+  passed: 83
+  failed: 0
+  skipped: 0
+  log: reports/r1-flows/python-last.log
+- command: pnpm -C web exec node --experimental-strip-types --test src/pages/assistant/sharedArtifacts.test.ts
+    src/pages/assistant/restoredMessageStatus.test.ts src/pages/assistant/components/activityTerminalState.test.ts
+  exit_code: 0
+  passed: 8
+  failed: 0
+  skipped: 0
+- command: E2E_EXISTING_ACCOUNT_ONLY=1 E2E_BASE_URL=http://127.0.0.1:8081 E2E_API_URL=http://127.0.0.1:8080
+    pnpm -C web exec playwright test -c playwright.live.config.ts e2e/r1-sharing.spec.ts
+    --workers=1
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+  note: Executed before controlled-expiry test was added; real PDF and Quiz tests
+    only.
+  log: reports/r1-flows/sharing-e2e-retest.log
+- command: E2E_EXISTING_ACCOUNT_ONLY=1 E2E_BASE_URL=http://127.0.0.1:8081 E2E_API_URL=http://127.0.0.1:8080
+    pnpm -C web exec playwright test -c playwright.live.config.ts e2e/r1-sharing.spec.ts
+    --grep "controlled expired" --workers=1
+  exit_code: 0
+  passed: 1
+  failed: 0
+  skipped: 0
+  log: reports/r1-flows/sharing-expiry-e2e.log
+- command: make verify-openapi-contract
+  exit_code: 0
+  passed: 2
+  failed: 0
+  skipped: 0
+- command: uv run --all-packages --extra dev ruff check src/api/v1/artifact_shares.py
+    src/api/v1/_assistant_routes/attachment_refs.py src/services/agent_runtime/thread_store.py
+    tests/api/test_artifact_shares.py tests/api/test_assistant_attachment_refs.py
+    tests/services/agent_runtime/test_thread_store.py
+  exit_code: 0
+- command: pnpm -C web exec tsc --noEmit -p tsconfig.app.json --ignoreDeprecations
+    6.0
+  exit_code: 0
+- command: pnpm -C web exec tsc --noEmit -p tsconfig.node.json --ignoreDeprecations
+    6.0
+  exit_code: 0
+- command: pnpm -C web lint
+  exit_code: 0
+- command: pnpm -C web i18n:check
+  exit_code: 0
+- command: make hot-update ARGS="--python"
+  exit_code: 0
+- command: make hot-update ARGS="--frontend"
+  exit_code: 0
+- command: make architecture-boundary-gate
+  exit_code: 0
+- command: make harness-check
+  exit_code: 0
+- command: git diff --check
+  exit_code: 0
+- command: make validate
+  exit_code: 0
+- command: make status
+  exit_code: 0
+compose_owner: /Users/yang/projects/AI--Platfform
+runtime_source_identity: reports/r1-flows/final-runtime-identity.json
+rust_unit_unchanged: a55739b4a6c5
+python_source_count: 3
+frontend_index_js_count: 184
+frontend_css_count: 5
+real_live:
+- Configured qwen-vl-max correctly read uploaded fixture; nonvision disabled Send
+  with zero runs
+- Original vision history attachment1 and pixel SHA retained; no execution request
+- IAB390 share PDF card/download link, Quiz preview/expiry/management, Tab and ESC/focus
+- Real saved PDF include/exclude, anonymous bytes match and revoked view/download
+  denied
+- Real saved Quiz answer-free public read, 7-day expiry, refreshed owner list and
+  revoked read/start denied
+controlled:
+- 1000 frontend events, 100 stable tool IDs, two preserved scroll positions and one
+  start/stop
+- Exact new share cutoff shortened for one row; view/download200 to410; not naturally
+  elapsed expiry
+review:
+  agent: closure_review
+  verdict: PASS
+  evidence: reports/r1-flows/independent-review.md
+contracts_preserved:
+- Rust owns execution/recovery, Gateway governance; original identities and unknown
+  writes never replay
+- Snapshot selected upload owner/thread/session/run boundaries; no history storage
+  HEAD or writes
+- Frozen public artifact whitelist, current source checks and authenticated download
+  scope
+- Quiz list owner metadata only; no payload/answer keys; revoked source links remain
+  manageable
+- No database/schema/dependency/account/network change; additive GET and published
+  OpenAPI synchronized
+remaining_risks:
+- Full R1 generated-image positive blocked by current Fake-IP CDN DNS; required unverified
+  UI journeys in report
+- Legacy uploads without original display metadata use their stored filename; no invented
+  backfill
+- No hosted CI or new Rust crash matrix run this package; retained accepted DR01/RP02
+  evidence
+report: reports/product/r1-remaining-flows-2026-09-27.md
+accepted_activity_checkpoint:
+  passed: 2
+  failed: 0
+  skipped: 0
+  evidence: reports/r1-flows/activity1000-final.log
+  scope: Same RP03 Stop guard and event tests; controlled frontend fixture at1280/390,
+    not real Worker throughput.
+implementation_commit: 0033b8c6d4bd008049c4283980fbb31f3114d2c8
+head_sha: 2521d0a4f4e2faadb3f1aaa559bfff7a6bd2800b

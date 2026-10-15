@@ -1,0 +1,102 @@
+{
+  "schema_version": "agent-runtime-terminal-status-fixture/v1",
+  "statuses": [
+    {
+      "input": "succeeded",
+      "completion_status": "succeeded",
+      "terminal_in_ledger": true
+    },
+    {
+      "input": "failed",
+      "completion_status": "failed",
+      "terminal_in_ledger": true
+    },
+    {
+      "input": "cancelled",
+      "completion_status": "cancelled",
+      "terminal_in_ledger": true
+    },
+    {
+      "input": "completed",
+      "completion_status": "failed",
+      "terminal_in_ledger": true
+    },
+    {
+      "input": "running",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    },
+    {
+      "input": "awaiting_approval",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    },
+    {
+      "input": "unknown",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    },
+    {
+      "input": "success",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    },
+    {
+      "input": "SUCCEEDED",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    },
+    {
+      "input": "",
+      "completion_status": "failed",
+      "terminal_in_ledger": false
+    }
+  ],
+  "existing_rows": [
+    {
+      "status": "running",
+      "engine": "agent_runtime",
+      "may_complete": true
+    },
+    {
+      "status": "completed",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "succeeded",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "failed",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "cancelled",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "awaiting_approval",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "unknown",
+      "engine": "agent_runtime",
+      "may_complete": false
+    },
+    {
+      "status": "running",
+      "engine": "openai_agents",
+      "may_complete": false
+    },
+    {
+      "status": "running",
+      "engine": "claude_agent_sdk",
+      "may_complete": false
+    }
+  ]
+}

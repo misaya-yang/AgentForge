@@ -1,0 +1,37 @@
+{
+  "schema_version": "ai-platform/repository-quality-candidates/v1",
+  "candidates": [
+    {
+      "id": "file-storage-barrel-only-export",
+      "classification": "confirmed_dead",
+      "path": "src/persistence/storage.py",
+      "symbol": "FileStorage",
+      "disposition": "removed",
+      "required_absence_gate": "repository-wide references plus src.persistence import contract"
+    },
+    {
+      "id": "unused-get-langgraph-proxy",
+      "classification": "confirmed_dead",
+      "path": "src/api/deps.py",
+      "symbol": "get_langgraph_proxy",
+      "disposition": "removed",
+      "required_absence_gate": "route dependency and repository-wide call search"
+    },
+    {
+      "id": "streaming-timeout-placeholder",
+      "classification": "self_proving_test",
+      "path": "tests/proxy/test_streaming.py",
+      "symbol": "test_streaming_timeout_handling",
+      "disposition": "repair_in_place",
+      "replacement_failure_mode": "httpx timeout returns 504 and releases the streaming slot"
+    },
+    {
+      "id": "streaming-connection-placeholder",
+      "classification": "self_proving_test",
+      "path": "tests/proxy/test_streaming.py",
+      "symbol": "test_connection_error_handling",
+      "disposition": "repair_in_place",
+      "replacement_failure_mode": "httpx request error returns 502 and releases the streaming slot"
+    }
+  ]
+}

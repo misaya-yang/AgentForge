@@ -1,0 +1,6 @@
+{
+  "request": { "request_id": "93f0e57e-3828-4a21-9edb-ce8f01bfaa98", "connection_id": "connection", "space_key": "SPACE", "space_id": "space", "root_page_id": "root" },
+  "space": { "connection_id": "connection", "space_key": "SPACE", "space_id": "space", "space_name": "Engineering", "root_page_id": "root", "root_page_title": "Homepage" },
+  "receipt": { "binding_id": "93f0e57e-3828-4a21-9edb-ce8f01bfaa98", "dataset_id": "dataset", "connection_id": "connection", "space_key": "SPACE", "space_id": "space", "space_name": "Engineering", "root_page_id": "root", "root_page_title": "Homepage", "sync_mode": "manual" },
+  "rejection": { "code": "CONFLUENCE_BINDING_NOT_ACCEPTED", "accepted": false, "message": "Binding was not accepted; verify access and source selection" }
+}

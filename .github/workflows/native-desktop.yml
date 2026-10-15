@@ -1,0 +1,118 @@
+name: Native Desktop Candidates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'rust/platform-native/Cargo.toml'
+      - 'rust/platform-native/Cargo.lock'
+      - 'rust/platform-native/README.md'
+      - 'rust/platform-native/crates/*/Cargo.toml'
+      - 'rust/platform-native/crates/platform-client/**'
+      - 'rust/platform-native/crates/platform-desktop/**'
+      - 'scripts/harness/package_desktop.py'
+      - 'scripts/harness/package_platformctl.py'
+      - 'deploy/release/desktop-targets.json'
+      - 'docs/architecture/native-desktop-distribution.md'
+      - 'docs/architecture/native-client-capability-matrix.md'
+      - '.github/workflows/native-desktop.yml'
+      - 'LICENSE'
+      - 'RELEASE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  targets:
+    name: Resolve desktop candidate targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read canonical desktop target manifest
+        id: targets
+        run: echo "matrix=$(python scripts/harness/package_desktop.py --matrix)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build desktop (${{ matrix.name }})
+    needs: targets
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+      CARGO_TARGET_DIR: ${{ runner.temp }}/desktop-target
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.rust_target }}
+      - name: Install Linux native window dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev \
+            libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev
+      - name: Bind build to clean source identity and platform options
+        run: python scripts/harness/package_desktop.py --build-env --target '${{ matrix.name }}' >> "$GITHUB_ENV"
+      - name: Record toolchain
+        run: |
+          rustc --version --verbose
+          cargo --version
+      - name: Build only the desktop binary
+        run: >-
+          cargo build --locked --release
+          --manifest-path rust/platform-native/Cargo.toml
+          -p ai-platform-desktop --bin ai-platform-desktop
+          --target '${{ matrix.rust_target }}'
+      - name: Package and verify extracted offline executable identity
+        run: >-
+          python scripts/harness/package_desktop.py
+          --target '${{ matrix.name }}'
+          --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
+          --output '${{ runner.temp }}/desktop-package'
+      - name: Upload unsigned desktop candidates and receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-platform-desktop-${{ matrix.name }}
+          path: ${{ runner.temp }}/desktop-package/*
+          if-no-files-found: error
+          retention-days: 30
+
+  candidate-results:
+    name: Require every desktop candidate build
+    if: always()
+    needs: [targets, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail if a target failed or was skipped
+        env:
+          TARGETS_RESULT: ${{ needs.targets.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: test "$TARGETS_RESULT" = success && test "$BUILD_RESULT" = success

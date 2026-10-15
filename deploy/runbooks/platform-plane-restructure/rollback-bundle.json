@@ -1,0 +1,53 @@
+{
+  "schema_version": "ai-platform-ppr-rollback-bundle/v1",
+  "captured_at": "2026-08-28T05:05:19Z",
+  "purpose": "PPR-00 digest-pinned rollback baseline at the program-start commit",
+  "program_start": {
+    "git_commit": "f884d1e93d2b7f7258e3299e9d1aac8b7e2c4a82",
+    "branch": "main",
+    "note": "Commit that first added deploy/runbooks/platform-plane-restructure/loop-state.json"
+  },
+  "source_as_of_program_start": {
+    "compose_file": "docker-compose.yml",
+    "compose_file_sha256": "014860438e12f44d8f6751cfbcb28b5f2068bba8019362d49bb081defff07c9d",
+    "env_example_sha256": "c2c059b813cb330e8c287e6b1e3daee0514a69616119f38f1d27aec1ac3845f9",
+    "uv_lock_sha256": "6694b18a25f39172930be810e756ef80ff29f0276babb500dddd839481ad7c07",
+    "pnpm_lock_sha256": "b7346670831469c354036b49c669a6eac248a5d63e73f6a8baea8e29e7103b4c",
+    "runtime_cargo_lock_sha256": "dbdd065635faf9c54d7d67da5cc0c1bf40f0d83dd56a461cba3a8e825fa95b79"
+  },
+  "contracts_as_of_program_start": {
+    "gateway_openapi": {
+      "path": "sdk/openapi.json",
+      "sha256": "a202f10e75f9d5afaaaae7476ac65fc07af7e13f7ef9107232e1eee3a0a23ed7"
+    },
+    "sse_inner_envelopes": {
+      "path": "sdk/fixtures/sse_inner_envelopes.json",
+      "sha256": "cf11fbabded2aa0e34fd95ef2453832d7e0d91cef2d8f775b3f4fce005db5559"
+    }
+  },
+  "database": {
+    "latest_main_migration_at_program_start": "099_gateway_memory_tenant_uniqueness.sql",
+    "schema_downgrade_allowed": false
+  },
+  "running_stack_observed_at_capture": {
+    "compose_project_working_dir": "/Users/yang/projects/AI--Platfform",
+    "caveat": "Image IDs below are what the user's local stack ran at capture time; they are provenance of the observed baseline, not the program-start build. A rollback to exact program-start artifacts rebuilds from git_commit above.",
+    "containers": [
+      { "service": "gateway", "reference": "ghcr.io/misaya-yang/ai-gateway:2.0.0", "image_id": "sha256:182915465264a181972ab3662ce442339cb2676ea6507258d1b5c7d1d1117635" },
+      { "service": "agent-runtime", "reference": "ai-gateway-agent-runtime:local-93c54bca3899-c2f4e4c2ef8e", "image_id": "sha256:bace447b5001eb33c697fc7c6d8e0cc8b6609ef3146730c0108caa3a0b13e7de" },
+      { "service": "agent-capability-worker", "reference": "ai-gateway-agent-capability-worker:local-93c54bca3899-c2f4e4c2ef8e", "image_id": "sha256:3539ff8a3499b36c7f0da448663e77db8fb759ff8e2673d3223e03b69e6bb43f" },
+      { "service": "frontend", "reference": "ghcr.io/misaya-yang/ai-gateway-web:2.0.0", "image_id": "sha256:a9008e15965b3f2b489095984ce93b49d322534ca719aa00a02a5eb7a979d086" },
+      { "service": "knowledge-service", "reference": "ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0", "image_id": "sha256:31bc898f983e89c645d2306956a5116ee3be331907abc8d20018c47cf99d5d02" },
+      { "service": "knowledge-worker", "reference": "ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0", "image_id": "sha256:31bc898f983e89c645d2306956a5116ee3be331907abc8d20018c47cf99d5d02" },
+      { "service": "postgres", "reference": "postgres:16-alpine", "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685" },
+      { "service": "redis", "reference": "redis:7-alpine", "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf" },
+      { "service": "qdrant", "reference": "qdrant/qdrant:v1.18.2", "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c" }
+    ]
+  },
+  "rollback": {
+    "runtime_assignment": "git-checkout-and-rebuild-from-pinned-commit",
+    "requires_schema_downgrade": false,
+    "preserve_volumes": true,
+    "preserve_runtime_items": true
+  }
+}

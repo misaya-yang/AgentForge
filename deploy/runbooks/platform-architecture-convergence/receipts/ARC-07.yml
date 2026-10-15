@@ -1,0 +1,20 @@
+package_id: ARC-07
+state: verified
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [scripts/evidence/**, deploy/evidence/**, deploy/repository-quality/**, scripts/harness/hygiene_check.py, scripts/harness/loc_no_growth_gate.py]
+commits: [951468c7, 02851486, 0b112a6f, 9aaa9cab]
+contracts_compared: [hygiene negative probes, portable evidence manifest, dead-candidate disposition, LOC no-growth]
+commands:
+  - {command: "make hygiene-check", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "make loc-no-growth-gate", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "make evidence-policy-gate", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "uv run --all-packages --extra dev ruff check <branch-changed Python files>", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: NOT_REQUIRED
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+remaining_risks:
+  - "Whole-repository Ruff is not claimed; the changed-file lint gate passed and unrelated historical findings remain outside this package."

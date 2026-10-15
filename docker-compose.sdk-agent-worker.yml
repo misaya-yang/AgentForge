@@ -1,0 +1,43 @@
+# Explicit opt-in overlay; requires the SDK-capable native Gateway deployment.
+# The legacy Python Gateway does not implement these adapters.
+# No builds or public worker port; image must be an operator-selected immutable release.
+services:
+  gateway:
+    environment:
+      SDK_AGENT_WORKER_URL: http://127.0.0.1:8096
+      SDK_AGENT_WORKER_TOKEN: "${SDK_AGENT_WORKER_TOKEN:?SDK_AGENT_WORKER_TOKEN must be an operator-only secret}"
+  sdk-agent-worker:
+    image: "${SDK_AGENT_WORKER_IMAGE:?SDK_AGENT_WORKER_IMAGE must be a tested immutable image tag or digest}"
+    profiles: [sdk-agents]
+    network_mode: service:gateway
+    depends_on:
+      gateway:
+        condition: service_started
+    environment:
+      SDK_AGENT_WORKER_TOKEN: "${SDK_AGENT_WORKER_TOKEN:?SDK_AGENT_WORKER_TOKEN must be an operator-only secret}"
+      # Native Gateway settings default to port8080; override if the operator changes it.
+      SDK_AGENT_GATEWAY_URL: "${SDK_AGENT_GATEWAY_URL:-http://127.0.0.1:8080}"
+      SDK_AGENT_STATE_ROOT: /var/lib/sdk-agent
+      SDK_AGENT_RETENTION_SECONDS: "${SDK_AGENT_RETENTION_SECONDS:?Choose finite retention in seconds (3600 to 7776000)}"
+    volumes:
+      - sdk-agent-state:/var/lib/sdk-agent
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    init: true
+    pids_limit: 128
+    cpus: "1.0"
+    mem_limit: "768m"
+    stop_grace_period: 15s
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, -m, sdk_agent_worker.runtime, health]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+volumes:
+  sdk-agent-state:

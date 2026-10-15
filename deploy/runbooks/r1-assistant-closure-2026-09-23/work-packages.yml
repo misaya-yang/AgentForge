@@ -1,0 +1,231 @@
+schema_version: harness/work-package/v1
+program: r1-assistant-daily-use
+base_sha: 92c98c0b85c7b9b72254e5023e6086fd8d4792df
+packages:
+  - id: DR-01
+    state: verified
+    result: Original run/turn recovers with exclusive execution ownership and no duplicated side effects.
+    base_sha: 92c98c0b85c7b9b72254e5023e6086fd8d4792df
+    depends_on: [DR-00A:direct_verified]
+    owned_paths:
+      - rust/agent-runtime-overlay/**
+      - src/services/agent_runtime/**
+      - src/api/internal/**
+      - src/api/v1/_assistant_routes/runs.py
+      - src/api/v2/agent.py
+      - database/migrations/2026_08_post_kb_v1/**
+      - packages/ai-gateway-contracts/src/ai_gateway_contracts/database_revision.py
+      - tests/**
+      - scripts/harness/agent_runtime_supply_chain.py
+      - scripts/harness/*recovery*
+      - docker/agent-runtime/**
+      - web/e2e/**
+      - web/src/features/chat/**
+      - web/src/pages/assistant/**
+      - web/src/api/agentThreads*
+      - web/src/i18n/locales/**
+      - deploy/agent-runtime-source/**
+    - docs/design/agent-runtime-durable-recovery.md
+      - deploy/runbooks/r1-assistant-closure-2026-09-23/**
+      - docs/design/agent-runtime-durable-recovery.md
+      - docs/harness/architecture.md
+      - docs/harness/commands.md
+      - docs/plans/product-feature-completion-2026-09-23/02-assistant-tools-deliverables.md
+      - reports/product/*recovery*
+      - reports/runtime-recovery/**
+    forbidden_paths:
+      - apps/knowledge-service/**
+      - sdk/src/**
+      - billing/**
+    integration_paths: [Makefile, sdk/openapi.json]
+    must_preserve:
+      - Rust Core remains the only model/tool loop; Gateway owns governance.
+      - Tenant/user/session, original run/turn/model/snapshot and spent budget remain bound.
+      - Unknown writes never replay; one result per original call.
+      - Preserve existing dirty PRD; user now authorizes scoped commit and local main integration; no destructive cleanup.
+    direct_gates:
+      - affected Python pytest and Ruff
+      - affected frontend Node tests and type-check if changed
+      - agent-runtime-source-contract
+      - scoped Rust tests in Docker builder; hosted CI reported separately
+      - harness-check and architecture-boundary-gate
+    integration_gates:
+      - additive migration authority and isolated PostgreSQL competing-owner tests
+      - Core original-turn recovery with paired tool output and signed metadata
+      - Worker reserve/dispatch/reconcile tests with revocation and stale fences
+    live_gates:
+      - serialized final Runtime/Worker Docker build and source identity verification
+      - deterministic controlled crash matrix with no additional execution/attempt
+      - real Qwen task pending approval restart and completed-tool receipt reuse in built-in browser
+      - final make validate and make status
+    skip_policy: {required: none, optional: hosted CI cannot be claimed without an actual run}
+    rollback: Additive old-binary-compatible storage; quiesce new durable runs before old-runtime rollback.
+    review: Independent read-only reviewer; repair blocker/high findings and retest affected scenarios.
+    evidence:
+      - reports/product/runtime-durable-recovery-2026-09-26.md
+      - deploy/runbooks/r1-assistant-closure-2026-09-23/receipts/DR-01.yml
+    stop_conditions:
+      - Credential or tenant boundary failure.
+      - Recovery would require replaying an unknown write.
+      - A conflicting writer or Compose owner is found.
+
+  - id: DR-00A
+    state: direct_verified
+    result: Frozen baseline accepts only append-only checked epochs, enabling recovery migration without weakening existing migration identity.
+    base_sha: 92c98c0b85c7b9b72254e5023e6086fd8d4792df
+    depends_on: []
+    owned_paths: [database/authority/baseline_manifest.py, tests/database/test_migration_authority_baseline_manifest.py, deploy/runbooks/r1-assistant-closure-2026-09-23/**, reports/product/runtime-durable-recovery-2026-09-26.md]
+    forbidden_paths: [database/baselines/**, database/migrations/001_*.sql, apps/**]
+    integration_paths: []
+    must_preserve: [Frozen SQL and policy hashes, original epoch history prefixes and SQL checksums, preserve unrelated work during local integration]
+    direct_gates: [baseline manifest and freeze-tools pytest, affected Ruff]
+    integration_gates: [isolated recovery authority epoch and role matrix]
+    live_gates: [not_required_for_source_provenance]
+    skip_policy: {required: none}
+    rollback: Source-only compatible authority validation fix; frozen artifacts unchanged.
+    review: Independent read-only migration authority review before resuming DR-01.
+    evidence: [reports/product/runtime-durable-recovery-2026-09-26.md]
+    stop_conditions: [A frozen input or prior epoch would be modified, Unknown migration history identity]
+
+  - id: R1-RP01
+    state: verified
+    result: Current source rights follow inherited run context through recovery, approvals, history, Quiz and authenticated downloads; verified R1 increment closes without claiming all R1 journeys.
+    base_sha: 425ce123
+    depends_on: [DR-01:verified]
+    owned_paths:
+      - src/services/assistant_entry/source_access.py
+      - src/services/agent_runtime/**
+      - src/api/v1/_assistant_routes/**
+      - src/api/v1/quiz.py
+      - src/api/v1/artifact_shares.py
+      - src/api/v2/agent.py
+      - tests/api/**
+      - tests/services/agent_runtime/**
+      - web/src/pages/assistant/**
+      - web/src/api/agentThreads.ts
+      - web/src/i18n/locales/**
+      - web/e2e/**
+      - docs/plans/product-feature-completion-2026-09-23/02-assistant-tools-deliverables.md
+      - docs/design/agent-runtime-durable-recovery.md
+      - deploy/runbooks/r1-assistant-closure-2026-09-23/**
+      - reports/product/r1-remaining-acceptance-2026-09-27.md
+      - reports/r1-remaining/**
+    forbidden_paths: [rust/**, apps/**, database/**, sdk/src/**, billing/**]
+    integration_paths: [src/main.py]
+    must_preserve:
+      - Rust remains sole execution/recovery owner; Gateway current source policy cannot replay actions.
+      - Original run/turn/tool identities and terminal outcomes remain stable.
+      - Unknown writes never automatically replay.
+      - User uploads and older public artifacts remain accessible; no presigned download bypass.
+      - No credential logging, new account, password change, migration or dependency.
+      - Latest user permits selective commit and local main merge; no push or branch deletion.
+    direct_gates: [affected Python199, Node10, Ruff, direct app/node TS, affected ESLint, i18n, OpenAPI2, source18, architecture-boundary-gate, harness-check]
+    integration_gates: [live current-source history and SSE replay, actual no-source Quiz share and repeated submission/revoke, original write dispatch count unchanged]
+    live_gates: [serialized hot-update all and source/bundle hashes, real Qwen private KB pending/idle revocation, memory-off and selected attachment facts, controlled upload503 and real Office download E2E2, validate, status]
+    skip_policy: {required: none, optional: full R1 image/PDF/long-task journeys outside this increment remain explicitly unverified}
+    rollback: Source-only old-binary-compatible rollback; no data or schema changes; old anonymous unverifiable Quiz remains denied under current policy.
+    review: Independent read-only closure_review PASS after high/medium repairs; no remaining blocker/high.
+    evidence: [reports/product/r1-remaining-acceptance-2026-09-27.md, reports/r1-remaining/independent-review.md, deploy/runbooks/r1-assistant-closure-2026-09-23/receipts/R1-RP01.yml]
+    stop_conditions: [Unknown write would be replayed, conflicting writer or Compose owner, unrelated scope expansion]
+  - id: R1-RP02
+    state: blocked
+    result: Complete remaining R1 configured images/vision, PDF, long-task stop/resource
+      evidence, activity1000 and sharing/narrow flows without weakening DR01/RP01.
+    base_sha: 1107bd06082d214c29a61bb8f04e16df483c6fce
+    depends_on:
+    - DR-01:verified
+    - R1-RP01:verified
+    owned_paths:
+    - src/api/v1/**
+    - packages/ai-gateway-core/src/ai_gateway_core/media/image_generation.py
+    - packages/ai-gateway-core/tests/test_image_generation_provider.py
+    - src/services/images/**
+    - src/services/assistant_entry/**
+    - src/services/agent_runtime/**
+    - rust/agent-runtime-overlay/**
+    - deploy/agent-runtime-source/**
+    - docs/design/agent-runtime-durable-recovery.md
+    - web/src/components/artifacts/ArtifactsPanel.tsx
+    - web/src/pages/assistant/**
+    - web/src/api/**
+    - web/src/i18n/locales/**
+    - web/e2e/**
+    - tests/**
+    - docs/plans/product-feature-completion-2026-09-23/**
+    - deploy/runbooks/r1-assistant-closure-2026-09-23/**
+    - reports/product/r1-*.md
+    - reports/r1-artifacts/**
+    forbidden_paths:
+    - database/**
+    - apps/**
+    - billing/**
+    - sdk/src/**
+    integration_paths:
+    - src/main.py
+    must_preserve:
+    - Same original run and tool receipt reuse; unknown writes never replay
+    - RP01 current-source access across history/sharing/downloads
+    - Existing models/identity/permissions; no account creation or secret logging
+    - No new engine, dependency or architecture expansion; latest user permits necessary local commits and main integration; no push/delete
+    direct_gates:
+    - affected Python/Node tests and Ruff/TS/ESLint/i18n
+    - harness/architecture/source contracts as affected
+    integration_gates:
+    - real saved artifact content/identity/download checks
+    - worker task/result and process facts after stop
+    - sharing and repeated-operation rights checks
+    live_gates:
+    - current Docker identity and health
+    - IAB image/vision/PDF/stop/narrow flows
+    - controlled1000 event interaction distinctly labeled
+    - independent review and affected retest
+    skip_policy:
+      required: none
+      external_blockers: Configured provider failure must be diagnosed; report actual
+        unavailable prerequisite, continue independent flows.
+    rollback: Source-only compatible unless confirmed defect requires scoped Rust image;
+      no DB migration
+    review: Independent read-only reviewer after implementation/acceptance; repair blocker/high
+      and retest
+    evidence:
+    - reports/product/r1-artifacts-long-task-acceptance-2026-09-27.md
+    stop_conditions:
+    - Unknown write would be replayed
+    - Conflicting writer/Compose owner
+    - Irrelevant scope or credential exposure
+
+  - id: R1-RP03
+    state: verified
+    result: Close independently executable remaining activity1000, sharing/expiry/narrow and configured vision flows without repeating accepted evidence or paid image generation.
+    base_sha: 2a5b7d74
+    depends_on: [DR-01:verified, R1-RP01:verified, R1-RP02:locally_integrated_safe_increment]
+    owned_paths: [sdk/openapi.json, web/src/pages/assistant/**, web/src/pages/SharePage.tsx, web/src/components/ui/dialog.tsx, web/src/components/artifacts/**, web/src/api/**, web/src/i18n/locales/**, web/e2e/**, src/api/v1/**, src/api/v2/agent.py, src/services/assistant_entry/**, src/services/agent_runtime/**, src/api/v1/_assistant_routes/attachment_refs.py, tests/**, docs/plans/product-feature-completion-2026-09-23/**, deploy/runbooks/r1-assistant-closure-2026-09-23/**, reports/r1-flows/**, reports/product/r1-remaining-flows-2026-09-27.md]
+    forbidden_paths: [rust/**, database/**, apps/**, billing/**, sdk/src/**]
+    integration_paths: [src/main.py]
+    must_preserve: [Rust execution/recovery owner, current source and share authorization, original run/tool identities, unknown actions never replay, no dependencies/accounts/secrets/network settings changes, primary writer and three bounded read-only agents, latest user authorizes selective commit and local main integration; no push/delete]
+    direct_gates: [affected tests and Ruff/TS/ESLint/i18n, harness and boundaries as affected]
+    integration_gates: [activity identity and repeated-stop counts, actual shares and revoked/expired guest access, actual uploaded pixels in independent vision path]
+    live_gates: [owned Docker identity and health, built-in browser desktop/390px, independent review and affected retest]
+    skip_policy: {required: none, external_blockers: Image CDN DNS blocks only image generation download; continue independent flows}
+    rollback: Minimal compatible source changes only; no data cleanup or schema migration
+    review: Independent read-only final diff and evidence check
+    evidence: [reports/product/r1-remaining-flows-2026-09-27.md, reports/r1-flows/**]
+    stop_conditions: [Unknown actions would replay, shared network mutation, credential exposure, conflicting writer/owner, scope outside R1]
+
+  - id: R1-RP04
+    state: verified_with_external_image_blocker
+    result: Close only the eight remaining RP03 failure and permission acceptance journeys; fix confirmed defects, preserve accepted R1 outcomes.
+    base_sha: 317f1a14
+    depends_on: [R1-RP03:verified]
+    owned_paths: [web/src/pages/assistant/**, web/src/components/artifacts/**, web/src/api/**, web/src/i18n/locales/**, web/e2e/**, src/api/v1/**, src/api/v2/agent.py, src/services/assistant_entry/**, src/services/agent_runtime/**, tests/**, sdk/openapi.json, docs/plans/product-feature-completion-2026-09-23/**, deploy/runbooks/r1-assistant-closure-2026-09-23/**, reports/r1-boundaries/**, reports/product/r1-final-boundaries-2026-09-27.md]
+    forbidden_paths: [rust/**, database/**, apps/**, billing/**, sdk/src/**]
+    integration_paths: []
+    must_preserve: [Rust execution and recovery ownership, source and sharing rights, same run and tool identity, no unknown write replay, no accounts or credential logging, no shared network changes, latest user permits scoped local commit and main merge but no push or branch delete, primary sole writer and read-only children]
+    direct_gates: [affected regression and Ruff/TS/lint/i18n/build, public contract and boundary gates if affected]
+    integration_gates: [closed-list negative/repeat/actor isolation checks using existing accounts and isolated fixtures]
+    live_gates: [owned final Docker source identity and health, built-in browser affected journeys, independent review and relevant repairs/retest]
+    skip_policy: {required: none, missing_prerequisite: Record exact absent existing account/configuration; continue independent items; no full R1 pass}
+    rollback: Compatible source-only change, no schema/dependency/account/network changes
+    review: Reuse independent closure_review after final evidence; fix blocker/high and retest
+    evidence: [reports/product/r1-final-boundaries-2026-09-27.md, reports/r1-boundaries/**]
+    stop_conditions: [Unknown action would replay, missing scope ownership or actual Rust defect requires package re-declaration before writing, conflicting writer/Compose owner, credentials exposure]

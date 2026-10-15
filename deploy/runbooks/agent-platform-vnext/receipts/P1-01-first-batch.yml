@@ -1,0 +1,193 @@
+{
+  "package_id": "P1-01",
+  "state": "in_progress",
+  "checkpoint": "tenant-boundary-first-batch",
+  "date": "2026-09-07",
+  "branch": "codex/agent-platform-vnext-phase1",
+  "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+  "head_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+  "commits": [],
+  "scope_verdict": "First code batch verified; complete P1-01 acceptance remains pending.",
+  "direct_verdict": "PASS_FOR_RECORDED_SUBSET",
+  "integration_verdict": "PASS_FOR_AUTH_ASGI_SUBSET",
+  "live_verdict": "PASS_FOR_IDENTITY_REJECTION_SUBSET",
+  "release_verdict": "NOT_VERIFIED",
+  "completed": [
+    "Expose credential-derived tenant in /api/v1/auth/me for JWT and database API keys.",
+    "Check credential tenant on every Eval candidate before POST; remove identity hint headers; fail closed without redirects or identity cache.",
+    "Optional V2 expected_tenant_id precondition rejects credential-binding drift before session access.",
+    "Knowledge role grants require actor/dataset tenant equality while explicit user/public/creator/admin semantics are preserved."
+  ],
+  "negative_proof": {
+    "before_production_patch": {
+      "new_tests": 33,
+      "failed": 30,
+      "passed": 3
+    },
+    "cases": [
+      "credential/job tenant mismatch in both directions",
+      "forged identity headers",
+      "missing/public/malformed identity",
+      "HTTP/JSON/transport failure",
+      "credential rebinding before thread create",
+      "real outbox candidate wrapper produces no foreign trace write",
+      "cross-tenant viewer/editor/owner role collision"
+    ]
+  },
+  "commands": [
+    {
+      "command": "uv run --all-packages --extra test pytest -q --no-cov --tb=short tests/api/test_auth_tenant_identity.py tests/services/eval/test_eval_candidate_identity.py tests/services/eval/test_eval_candidate_client.py tests/services/eval/test_candidate_runner.py tests/api/test_agent_v2.py tests/services/knowledge/test_dataset_role_tenant_scope.py tests/services/knowledge/test_gateway_dataset_authorize.py tests/services/knowledge/test_dataset_delete_security.py",
+      "exit_code": 0,
+      "passed": 95,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": "one pre-existing Starlette deprecation warning"
+    },
+    {
+      "command": "uv run --all-packages --extra dev ruff check src/api/v1/auth.py src/api/v2/agent.py src/services/eval/eval_candidate_client.py apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py tests/api/test_auth_tenant_identity.py tests/services/eval/test_eval_candidate_identity.py tests/services/eval/test_eval_candidate_client.py tests/services/knowledge/test_dataset_role_tenant_scope.py",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm -C web exec tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 6.0",
+      "exit_code": 0
+    },
+    {
+      "command": "make snapshot-gateway-openapi",
+      "exit_code": 0,
+      "scope": "Generated full spec in scratch; transferred only CurrentUserResponse and ThreadCreateRequest schemas into existing published SDK snapshot."
+    },
+    {
+      "command": "make verify-openapi-contract",
+      "exit_code": 0,
+      "passed": 2,
+      "selftest_negative_cases": 13,
+      "warnings": "existing duplicate operation ID warnings"
+    },
+    {
+      "command": "make hot-update ARGS=\"--python\"",
+      "exit_code": 0,
+      "scope": "Gateway/Knowledge Python source; no image build, dependency install or schema migration"
+    },
+    {
+      "command": "make validate",
+      "exit_code": 0,
+      "warnings": 1
+    },
+    {
+      "command": "make status",
+      "exit_code": 0,
+      "result": "all listed health checks healthy"
+    }
+  ],
+  "live_identity_probe": {
+    "status": "PASS",
+    "credential_source": "existing dedicated local E2E account; values not retained",
+    "identity_exposes_authoritative_tenant": true,
+    "forged_header_ignored": true,
+    "mismatched_eval_rejected": true,
+    "candidate_requests": [
+      [
+        "GET",
+        "/api/v1/auth/me"
+      ]
+    ],
+    "thread_tenant_precondition_status": 409,
+    "provider_calls": 0,
+    "scope": "local HTTP identity and rejection paths only; no KB DB privilege or release claim"
+  },
+  "live_probe_method": "Inline uv-run Python/httpx HTTP probe against local Gateway with the existing dedicated E2E account, reading credentials only at execution. This was not a committed reusable gate or a provider-backed positive run.",
+  "live_source_identity": [
+    {
+      "path": "src/api/v1/auth.py",
+      "sha256": "9b66371d69b50cf08cad831eff3fce53b37a0f4261bb919f893a6a4ad98ab34c",
+      "container_match": true
+    },
+    {
+      "path": "src/api/v2/agent.py",
+      "sha256": "882683d5885cba213c3b15ec2b2f236b92d755f86a4dabc93c8c9888c9494c1f",
+      "container_match": true
+    },
+    {
+      "path": "src/services/eval/eval_candidate_client.py",
+      "sha256": "79464f67e995d0e54d087cd78446ec2459424770b5643d91a43d2369ffe92359",
+      "container_match": true
+    },
+    {
+      "path": "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py",
+      "container": "ai-gateway-knowledge-service",
+      "sha256": "779340f7bf507276a6505d3cfef310caac130b022adceec1befb1737d22fc7b1",
+      "container_match": true
+    },
+    {
+      "path": "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py",
+      "container": "ai-gateway-knowledge-worker-1",
+      "sha256": "779340f7bf507276a6505d3cfef310caac130b022adceec1befb1737d22fc7b1",
+      "container_match": true
+    }
+  ],
+  "source_file_sha256": {
+    "src/api/v1/auth.py": "9b66371d69b50cf08cad831eff3fce53b37a0f4261bb919f893a6a4ad98ab34c",
+    "src/api/v2/agent.py": "882683d5885cba213c3b15ec2b2f236b92d755f86a4dabc93c8c9888c9494c1f",
+    "src/services/eval/eval_candidate_client.py": "79464f67e995d0e54d087cd78446ec2459424770b5643d91a43d2369ffe92359",
+    "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py": "779340f7bf507276a6505d3cfef310caac130b022adceec1befb1737d22fc7b1",
+    "web/src/api/auth.ts": "6711901e8703c6c894fb01b6e02eda0b421574363eb2b9e9f609ab17c8488127",
+    "sdk/openapi.json": "7344d984c097739b246584d5628ea67626a11789d1b0404f0e5174d383485596",
+    "tests/api/test_auth_tenant_identity.py": "8cb9de62291a157d465462e49526a229dc484bba179aeb151c3bd79a072a29bb",
+    "tests/services/eval/test_eval_candidate_identity.py": "e8c0709c868d0c54b228fa5d6c7f576dff7eeb8bf102b8d5c4357608e5c47ad9",
+    "tests/services/eval/test_eval_candidate_client.py": "8a456be123e8cb1c484c9cd59c774578189dfb8abf415b8ed1b2d1f87a97093b",
+    "tests/services/knowledge/test_dataset_role_tenant_scope.py": "cfa584fe5f10338a831110257d3afe0a48f4cf898173523b468e37787e091e1b"
+  },
+  "source_manifest_sha256": "6cd135c78d283ac737ed59ad7f2a21cf17aca1526371535ff92c35c7992f3b79",
+  "source_manifest_algorithm": "SHA256 of UTF-8 json.dumps(source_file_sha256, sort_keys=True, separators=(comma, colon)); individual hashes cover entire file bytes, including untracked tests.",
+  "reviews": [
+    {
+      "reviewer": "gateway_eval_arch_review",
+      "mode": "read-only source/patch review",
+      "verdict": "no blocking finding in first batch; not a full package or live-test approval"
+    },
+    {
+      "reviewer": "knowledge_arch_review",
+      "mode": "read-only source/patch review",
+      "verdict": "no blocking finding in role guard and permission regressions; ID-02 storage and ID-03 still pending"
+    }
+  ],
+  "remaining_required": [
+    "ID-02 tenant-bound ACL storage migration with old-reader/old-writer compatibility and public/user-sharing proof.",
+    "ID-03 Gateway-owned deletion confirmation and removal of Knowledge access to Gateway users/RBAC data.",
+    "First post-baseline database epoch support and isolated migration/privilege/rollback verification; never mutate frozen baseline to mask drift.",
+    "Full S01/S02/S03 required integration and live matrix before P1-01 verified.",
+    "Later P1 packages and P1-10 release gates, including inherited CLI/native artifact, fresh-machine and rollback obligations."
+  ],
+  "not_run": [
+    "database migration",
+    "isolated live cross-tenant Knowledge dataset fixture",
+    "full Python suite",
+    "Rust/native build",
+    "full Web lint/build",
+    "provider-backed positive Agent run",
+    "fresh-machine and release rollback"
+  ],
+  "preexisting_debt": [
+    "Generated Gateway OpenAPI has 321 paths while published baseline has 296; the 25 existing missing paths are outside these two additive schemas and remain P1-08 reconciliation work."
+  ],
+  "rollback_class": "source-compatible additive APIs; rolling Knowledge back to an unpatched reader restores role collision, so this is not release-safe rollback evidence",
+  "checkpoint_validation": [
+    {
+      "command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-platform-vnext --strict",
+      "exit_code": 0
+    },
+    {
+      "command": "make harness-check",
+      "exit_code": 0,
+      "warnings": "pre-existing kb-rag-ui-t5 legacy loop-state schema warning"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    },
+    {
+      "observation": "Source manifest matched every code/SDK/test file; original dirty core-fixes PRD bytes and predecessor phase/feature/blocker history preserved.",
+      "result": "PASS"
+    }
+  ]
+}

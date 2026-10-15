@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: block-known-production-secrets
+        name: Block known production secrets
+        entry: bash -c 'if grep -InE "sk-hx|sk-f09|gw_gEt" "$@"; then exit 1; fi' --
+        language: system
+        types: [text]
+        exclude: ^docs/plans/six_month/bug/

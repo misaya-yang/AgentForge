@@ -1,0 +1,104 @@
+{
+  "schema_version": "ai-platform-agent-rollback-bundle/v1",
+  "captured_at": "2026-08-25T12:48:39Z",
+  "source": {
+    "git_commit": "4968068b0d00f64feaf8dcde13c1686073e8b3c9",
+    "branch": "main",
+    "compose_file": "docker-compose.yml",
+    "compose_file_sha256": "a0c91d152523e836438b4d1f1de8c20b6d220974c441242ea1bd28ef5aceb444",
+    "resolved_compose_sha256": "4aec9958855236b3bea5355c30ba7aeb9a708efb0a00cd45b2df63901e63246c",
+    "env_example_sha256": "0418cb79669cc6bca1d3ba627520399e87a5e4bde4e7eb755fe35338df4d1fd8",
+    "uv_lock_sha256": "e2556177f20587e8d1b96d0bae6eab8858f7b918d3ca59f7f8ca12ac58367499",
+    "pnpm_lock_sha256": "b7346670831469c354036b49c669a6eac248a5d63e73f6a8baea8e29e7103b4c",
+    "runtime_cargo_lock_sha256": "13a58d438af37ce092236233832aa8441ee0a2e01e3b934b28b4c5cfd8c5ab66"
+  },
+  "contracts": {
+    "gateway_openapi": {
+      "path": "sdk/openapi.json",
+      "sha256": "dd2bfeb81321ccf8619453d73679fe292794b59c001c91551c6435e9b74e841c"
+    },
+    "assistant_openapi": {
+      "path": "tests/fixtures/assistant_openapi_baseline.json",
+      "sha256": "e63785714a6bd73defecfea9bea9df66dd65e3c5b4a725794f903c3c9abfb0ec"
+    },
+    "sse_inner_envelopes": {
+      "path": "sdk/fixtures/sse_inner_envelopes.json",
+      "sha256": "cf11fbabded2aa0e34fd95ef2453832d7e0d91cef2d8f775b3f4fce005db5559"
+    },
+    "prompt_sources": [
+      {
+        "path": "apps/assistant-service/src/assistant_service/core/prompts/system_prompt_v2.py",
+        "sha256": "cae57d26c293df656bad9d64c5bccaa35685cdee46637b7ee8dfc9426acbf571"
+      },
+      {
+        "path": "apps/assistant-service/src/assistant_service/core/prompts/guardrails.py",
+        "sha256": "80aeb16760b966171d656fb9c7ba65b3fe387fbcb3c24c5c795959d0b4590e08"
+      },
+      {
+        "path": "apps/assistant-service/src/assistant_service/core/prompts/generation_prompts.py",
+        "sha256": "65456ec5c066964b69f83f91ec8d43646cc0626a278c81c60872a4e262d7544c"
+      },
+      {
+        "path": "apps/assistant-service/src/assistant_service/core/agent/plugin_catalog.py",
+        "sha256": "88ff7aa6e187a13436ac9b819459ee07dd282c5c844414ab4e2a20df5ccd4aff"
+      }
+    ]
+  },
+  "database": {
+    "latest_applied_migration": "095_agent_runtime_single_kernel.sql",
+    "schema_downgrade_allowed": false
+  },
+  "images": [
+    {
+      "service": "agent-runtime",
+      "reference": "ai-gateway-agent-runtime:local-93c54bca3899-c3add32732c2",
+      "image_id": "sha256:48621aeb2e46269fec0d436b839eca8edc84e9bf9a39ab379f9bba64f989c317"
+    },
+    {
+      "service": "assistant-service",
+      "reference": "ai-gateway-assistant-service:rollback-4968068",
+      "image_id": "sha256:188412769ae68f9f3c931127b2c94b6f29436325928ccfdfa212089208b4c1a2"
+    },
+    {
+      "service": "gateway",
+      "reference": "ai-gateway:rollback-4968068",
+      "image_id": "sha256:c776bc465f7949d0defa9030d995227fe9f750a1507449a00f8e58fab4d297b3"
+    },
+    {
+      "service": "frontend",
+      "reference": "ghcr.io/misaya-yang/ai-gateway-web:2.0.0",
+      "image_id": "sha256:a9008e15965b3f2b489095984ce93b49d322534ca719aa00a02a5eb7a979d086"
+    },
+    {
+      "service": "knowledge-service",
+      "reference": "ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0",
+      "image_id": "sha256:31bc898f983e89c645d2306956a5116ee3be331907abc8d20018c47cf99d5d02"
+    },
+    {
+      "service": "knowledge-worker",
+      "reference": "ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0",
+      "image_id": "sha256:31bc898f983e89c645d2306956a5116ee3be331907abc8d20018c47cf99d5d02"
+    },
+    {
+      "service": "postgres",
+      "reference": "postgres:16-alpine",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+    },
+    {
+      "service": "redis",
+      "reference": "redis:7-alpine",
+      "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+    },
+    {
+      "service": "qdrant",
+      "reference": "qdrant/qdrant:v1.18.2",
+      "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+    }
+  ],
+  "rollback": {
+    "runtime_assignment": "previous-image-and-compose-only",
+    "requires_schema_downgrade": false,
+    "preserve_volumes": true,
+    "preserve_runtime_items": true
+  }
+}

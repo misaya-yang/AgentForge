@@ -1,0 +1,31 @@
+package_id: ARC-08
+state: blocked
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [deploy/release/**, scripts/release/**, reports/agent-runtime/rollback-rehearsal-latest.json, deploy/runbooks/platform-architecture-convergence/**]
+commits: [89301d5c, b549dc2c, 22008611, 4193d18d, 58ff0dc6, 67daac76]
+contracts_compared: [compatibility manifest, release/rollback matrix, version identity, current-stack UI/provider/Knowledge]
+commands:
+  - {command: "make compatibility-manifest-gate", exit_code: 0, passed: null, failed: 0, skipped: 0, result: draft}
+  - {command: "make status", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "make validate", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "make live-openapi-contract-gate", exit_code: 0, passed: 1, failed: 0, skipped: 0}
+  - {command: "make agent-runtime-rollback-rehearsal", exit_code: 2, passed: 0, failed: 0, skipped: 0, result: blocked-before-mutation}
+  - {command: "make verify-agent-studio", exit_code: 2, passed: 37, failed: 3, skipped: 0, result: failed-before-fixture-repair}
+  - {command: "NO_PROXY=localhost,127.0.0.1,::1 corepack pnpm@10.33.0 -C web e2e:opensource", exit_code: 0, passed: 48, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PARTIAL
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: restore-required
+runtime_owner: /Users/yang/projects/AI--Platfform
+provider: DashScope/Qwen
+live_observations: [login, Assistant, tool approvals, cancel/resume, Knowledge upload/retrieval/failure, Studio Preview, trace, admin status]
+blocked_by:
+  - "Hosted Rust fmt/check/changed-crate and multi-arch artifacts were not run."
+  - "Fresh-machine pull/quickstart was not run."
+  - "Frozen Runtime, Assistant and Gateway image IDs are absent and have no registry reference; rollback exited before changing containers."
+  - "Built-Nginx header smoke could not resolve docker/dockerfile:1.7 from the public registry; the offline header contract and current Web build passed."
+  - "Candidate compatibility manifest cannot be promoted from draft without the immutable image and zero-skip receipt set."
+remaining_risks: []

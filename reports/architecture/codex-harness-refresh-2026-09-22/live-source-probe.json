@@ -1,0 +1,406 @@
+{
+  "schema_version": "codex-refresh-live-source-probe/v1",
+  "recorded_at_utc": "2026-09-22T16:26:45.584362+00:00",
+  "status": "PASS",
+  "scope": "On-disk full src tree identity plus explicit hot-update catalog copy and container health; no provider/UI execution",
+  "initial_probe": {
+    "schema_version": "codex-refresh-live-source-probe/v1",
+    "recorded_at_utc": "2026-09-22T16:23:59.680206+00:00",
+    "status": "FAIL",
+    "observation_phase": "before_hot-update-running-final recovery requested by root",
+    "scope": "on-disk Python import resolution and target-file hashes; no provider or UI requests",
+    "validate_log": {
+      "path": "tmp/codex-refresh-integration/validate.log",
+      "status": "PASS_LOG_CONFIRMED",
+      "configuration_passed": true,
+      "runtime_passed": true,
+      "warnings": 1,
+      "warning_kind": "documented_local_bootstrap_default",
+      "exit_code": null,
+      "exit_code_note": "Original shell exit code is not persisted in this log; success messages were independently read."
+    },
+    "status_log": {
+      "path": "tmp/codex-refresh-integration/status.log",
+      "status": "PASS_LOG_CONFIRMED",
+      "containers": [
+        {
+          "name": "ai-gateway-agent-capability-worker-1",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-agent-runtime",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-backend",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-frontend",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-knowledge-service",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-knowledge-worker-1",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-pg",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-qdrant",
+          "healthy": true
+        },
+        {
+          "name": "ai-gateway-redis",
+          "healthy": true
+        }
+      ],
+      "healthy_container_count": 9,
+      "health_checks": [
+        {
+          "check": "PostgreSQL",
+          "status": "Healthy"
+        },
+        {
+          "check": "Redis",
+          "status": "Healthy"
+        },
+        {
+          "check": "Qdrant",
+          "status": "Healthy"
+        },
+        {
+          "check": "Knowledge",
+          "status": "Healthy"
+        },
+        {
+          "check": "Knowledge worker",
+          "status": "Healthy"
+        },
+        {
+          "check": "Gateway",
+          "status": "Healthy"
+        },
+        {
+          "check": "Gateway metrics",
+          "status": "Healthy"
+        },
+        {
+          "check": "Frontend",
+          "status": "Healthy"
+        },
+        {
+          "check": "Agent Runtime",
+          "status": "Healthy"
+        },
+        {
+          "check": "Capability worker",
+          "status": "Healthy"
+        },
+        {
+          "check": "Topology replicas",
+          "status": "Healthy"
+        }
+      ],
+      "exit_code": null,
+      "exit_code_note": "Original shell exit code is not persisted in this log; every displayed service/check is Healthy."
+    },
+    "gateway": {
+      "name": "ai-gateway-backend",
+      "container_id": "12155beacc9d75e985b99853ef013f93c5606b50319360ed0232ea794af8d552",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "working_dir": "/app",
+      "status": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-22T16:15:12.013120173Z",
+      "started_at_utc": "2026-09-22T16:15:30.006294293Z",
+      "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6"
+    },
+    "import_resolution": {
+      "src": "/app/src/__init__.py",
+      "agent_runtime": "/app/src/services/agent_runtime/__init__.py",
+      "control_plane": "/app/src/services/agent_runtime/control_plane.py",
+      "model_plane": "/app/src/services/agent_runtime/model_plane.py",
+      "target_files_found_anywhere_under_src": []
+    },
+    "files": [
+      {
+        "repository_path": "src/services/agent_runtime/control/tool_policy.py",
+        "local_sha256": "b6f2d00156be49dafa49773b4fedb657d1e7fca5eee255d32befa5eb9284c86a",
+        "container_path": "/app/src/services/agent_runtime/control/tool_policy.py",
+        "container_file_exists": false,
+        "container_sha256": null,
+        "match": false,
+        "status": "FAIL_MISSING_CONTAINER_SOURCE"
+      },
+      {
+        "repository_path": "src/services/agent_runtime/model/stream_limits.py",
+        "local_sha256": "1e182bfbc24cc35719d2c871a238af7de3846c08e5288469635eea1087853757",
+        "container_path": "/app/src/services/agent_runtime/model/stream_limits.py",
+        "container_file_exists": false,
+        "container_sha256": null,
+        "match": false,
+        "status": "FAIL_MISSING_CONTAINER_SOURCE"
+      }
+    ],
+    "chronology": {
+      "hot_update_log_modified_at_utc": "2026-09-22T16:11:18.143194+00:00",
+      "hot_update_final_log_modified_at_utc": "2026-09-22T16:12:49.701399+00:00",
+      "validate_log_modified_at_utc": "2026-09-22T16:17:02.926713+00:00",
+      "status_log_modified_at_utc": "2026-09-22T16:17:04.874315+00:00"
+    },
+    "finding": "/app/src is the actual Python source root. Both refresh files were missing, not misplaced under a different import path.",
+    "likely_cause": "Gateway container creation is later than hot-update-final.log completion; a later recreate likely replaced the copied writable-layer source. This is a chronology inference, not yet a reconstructed command trace.",
+    "recovery": "Root acknowledged FAIL and started make hot-update ARGS=\"--all\" against the final running containers. Await root notification before a separate probe.",
+    "not_verified": [
+      "Updated Gateway handler execution",
+      "Provider/model behavior",
+      "Browser acceptance",
+      "Full source-tree identity"
+    ],
+    "prohibited_actions_performed": false
+  },
+  "source_root": "/app/src",
+  "files": [
+    {
+      "repository_path": "src/services/agent_runtime/control/tool_policy.py",
+      "container_path": "/app/src/services/agent_runtime/control/tool_policy.py",
+      "local_sha256": "b6f2d00156be49dafa49773b4fedb657d1e7fca5eee255d32befa5eb9284c86a",
+      "container_sha256": "b6f2d00156be49dafa49773b4fedb657d1e7fca5eee255d32befa5eb9284c86a",
+      "match": true
+    },
+    {
+      "repository_path": "src/services/agent_runtime/model/stream_limits.py",
+      "container_path": "/app/src/services/agent_runtime/model/stream_limits.py",
+      "local_sha256": "1e182bfbc24cc35719d2c871a238af7de3846c08e5288469635eea1087853757",
+      "container_sha256": "1e182bfbc24cc35719d2c871a238af7de3846c08e5288469635eea1087853757",
+      "match": true
+    }
+  ],
+  "whole_source_tree": {
+    "excluded": [
+      "__pycache__/**",
+      "*.pyc",
+      "*.pyo"
+    ],
+    "repository_src_file_count": 331,
+    "expected_deployed_file_count": 332,
+    "container_file_count": 332,
+    "expected_sha256": "af2043fa24f4991aa7d46c09c203f019d53f0fb2b6cd6640095119aa9303df2c",
+    "container_sha256": "af2043fa24f4991aa7d46c09c203f019d53f0fb2b6cd6640095119aa9303df2c",
+    "match": true,
+    "missing": [],
+    "changed": [],
+    "extra": [],
+    "explicit_hot_update_copy": {
+      "source": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json",
+      "destination": "/app/src/core/data/platform_catalog_v1.json",
+      "sha256": "478175466f8c9f13e578ac0440eaaeaa5501cf56d49faf742feb37e2a2e4785d"
+    }
+  },
+  "containers": [
+    {
+      "name": "ai-gateway-backend",
+      "container_id": "12155beacc9d75e985b99853ef013f93c5606b50319360ed0232ea794af8d552",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-22T16:15:12.013120173Z",
+      "started_at_utc": "2026-09-22T16:22:44.954497925Z",
+      "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6"
+    },
+    {
+      "name": "ai-gateway-frontend",
+      "container_id": "f091701297db35d120091a0ef5703c38ba3062c1b4fbb525d053deab06381b13",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-08T03:12:26.844747876Z",
+      "started_at_utc": "2026-09-22T16:22:44.410323633Z",
+      "image": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+      "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1"
+    },
+    {
+      "name": "ai-gateway-agent-runtime",
+      "container_id": "93e569a9073e838813e055483f1191e61134358c18fc36a5ed84132fe45b6ff4",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-22T16:15:11.750918007Z",
+      "started_at_utc": "2026-09-22T16:22:45.438525008Z",
+      "image": "ai-gateway-agent-runtime:local-279ba894152b-5dc36c43638a",
+      "image_id": "sha256:1555865da7494318adfb12eecde2682e606c891d1162b684450608657ef2b3ca"
+    },
+    {
+      "name": "ai-gateway-agent-capability-worker-1",
+      "container_id": "2202613d390c3c3f88d3b664a41e6fb0495660068e324949e37292588df7a6ac",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-22T16:15:11.631264923Z",
+      "started_at_utc": "2026-09-22T16:22:45.434263425Z",
+      "image": "ai-gateway-agent-capability-worker:local-279ba894152b-5dc36c43638a",
+      "image_id": "sha256:2152148bf14fb8716bb10a0a86a525ac425199276bb9b942f9790224a878ba13"
+    },
+    {
+      "name": "ai-gateway-knowledge-service",
+      "container_id": "30945739cfb98b98131d335d334b359be8330b60c653e21d4ecc029995aed775",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-08T03:12:26.502051501Z",
+      "started_at_utc": "2026-09-22T16:22:44.535207966Z",
+      "image": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
+      "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a"
+    },
+    {
+      "name": "ai-gateway-knowledge-worker-1",
+      "container_id": "0ccbe568b3824806bce7c2f6361504ba68cb6b897cb76bc0978e485f21b4b6f9",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-09-22T16:15:11.703641965Z",
+      "started_at_utc": "2026-09-22T16:22:44.581728841Z",
+      "image": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
+      "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a"
+    },
+    {
+      "name": "ai-gateway-pg",
+      "container_id": "c046b93581923528e4598097be89ff711ea3b7043126653bd5951a5d92fb5657",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-08-30T09:42:23.285116169Z",
+      "started_at_utc": "2026-09-22T16:05:17.424967426Z",
+      "image": "postgres:16-alpine",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+    },
+    {
+      "name": "ai-gateway-qdrant",
+      "container_id": "43f7e8a50463ef6d417344274972d8aeffb99b0a15f803c0b6ff228f77cab23a",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-08-30T09:42:23.283154419Z",
+      "started_at_utc": "2026-09-22T16:05:17.425220968Z",
+      "image": "qdrant/qdrant:v1.18.2",
+      "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+    },
+    {
+      "name": "ai-gateway-redis",
+      "container_id": "b14980440c3b181f241e59017111f6ef92ebbf80145025a91fba5727cbebd083",
+      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "owner_matches": true,
+      "state": "running",
+      "health": "healthy",
+      "created_at_utc": "2026-08-30T09:42:23.284190086Z",
+      "started_at_utc": "2026-09-22T16:05:17.424696343Z",
+      "image": "redis:7-alpine",
+      "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+    }
+  ],
+  "validate_log": {
+    "path": "tmp/codex-refresh-integration/validate-final.log",
+    "status": "PASS_LOG_CONFIRMED",
+    "configuration_passed": true,
+    "runtime_passed": true,
+    "warnings": 1,
+    "warning_kind": "documented_local_bootstrap_default",
+    "sha256": "75156fdcd3dd6bd95bbdaef7bb2d177b31858fe89a2cd440db880a821db1209d",
+    "modified_at_utc": "2026-09-22T16:23:19.550063+00:00",
+    "exit_code": null,
+    "exit_code_note": "Original shell exit code not persisted; final success messages independently read."
+  },
+  "status_log": {
+    "path": "tmp/codex-refresh-integration/status-final.log",
+    "status": "PASS_LOG_CONFIRMED",
+    "healthy_container_count": 9,
+    "health_checks": [
+      {
+        "check": "PostgreSQL",
+        "status": "Healthy"
+      },
+      {
+        "check": "Redis",
+        "status": "Healthy"
+      },
+      {
+        "check": "Qdrant",
+        "status": "Healthy"
+      },
+      {
+        "check": "Knowledge",
+        "status": "Healthy"
+      },
+      {
+        "check": "Knowledge worker",
+        "status": "Healthy"
+      },
+      {
+        "check": "Gateway",
+        "status": "Healthy"
+      },
+      {
+        "check": "Gateway metrics",
+        "status": "Healthy"
+      },
+      {
+        "check": "Frontend",
+        "status": "Healthy"
+      },
+      {
+        "check": "Agent Runtime",
+        "status": "Healthy"
+      },
+      {
+        "check": "Capability worker",
+        "status": "Healthy"
+      },
+      {
+        "check": "Topology replicas",
+        "status": "Healthy"
+      }
+    ],
+    "sha256": "946c02034c9c45f782498b7e428a0fdcd685250b1010b1012da52fa03790c2f3",
+    "modified_at_utc": "2026-09-22T16:23:21.657585+00:00",
+    "exit_code": null,
+    "exit_code_note": "Original shell exit code not persisted; all nine containers and eleven health checks verified in final log."
+  },
+  "recovery": "Root ran make hot-update ARGS=\"--all\" against the final running containers after the failed probe; this is the subsequent read-only verification.",
+  "limits": [
+    "Hash comparison establishes on-disk source, not process code-path execution.",
+    "Provider and in-app-browser acceptance belong to root."
+  ],
+  "recreate_evidence": {
+    "create_log": "tmp/codex-refresh-integration/create-candidate-containers.log",
+    "create_log_modified_at_utc": "2026-09-22T16:11:59.025818+00:00",
+    "start_log": "tmp/codex-refresh-integration/candidate-start.log",
+    "start_log_modified_at_utc": "2026-09-22T16:15:39.283082+00:00",
+    "confirmed_lines": [
+      "Container ai-gateway-backend Recreate",
+      "Container ai-gateway-backend Recreated"
+    ],
+    "conclusion": "The later candidate-start command actually recreated the Gateway after the hot copy. This is confirmed by the start log and container creation timestamp.",
+    "trigger_not_verified": "The exact Compose hash/input field that caused recreation was not captured in these two logs; no identical-config claim is made."
+  },
+  "final_hot_update_log": {
+    "path": "tmp/codex-refresh-integration/hot-update-running-final.log",
+    "modified_at_utc": "2026-09-22T16:22:48.650496+00:00"
+  }
+}

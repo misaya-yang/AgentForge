@@ -1,0 +1,62 @@
+{
+  "schema_version": "ai-platform/historical-plan-retirement/v1",
+  "authoritative_successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+  "entries": [
+    {
+      "id": "assistant-upgrade-2026-08",
+      "path": "docs/plans/assistant-upgrade-plan-2026-08.md",
+      "lifecycle": "superseded",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "The Python Assistant runtime described by the plan was retired by the Rust single-kernel cutover.",
+      "document_marker": "> **状态:** superseded"
+    },
+    {
+      "id": "assistant-harness-lighten-2026-08",
+      "path": "docs/plans/assistant-harness-lighten-plan-2026-08.md",
+      "lifecycle": "superseded",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "Its measurements remain useful, but the implementation target no longer exists.",
+      "document_marker": "> **状态:** superseded"
+    },
+    {
+      "id": "kb-rag-optimization-2026-07",
+      "path": "docs/plans/kb-rag-optimization-plan.md",
+      "lifecycle": "superseded",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "The completed RAG upgrade absorbed its implementation scope; convergence owns current platform boundaries.",
+      "document_marker": "> **状态:** superseded"
+    },
+    {
+      "id": "rust-expansion-topology-2026-08",
+      "path": "docs/plans/rust-expansion-and-service-topology-2026-08.md",
+      "lifecycle": "superseded",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "ADR-008 and the convergence program replaced the prior service-topology proposal.",
+      "document_marker": "> **状态:** superseded"
+    },
+    {
+      "id": "sota-performance-optimization-2026-08",
+      "path": "docs/plans/sota-performance-optimization-2026-08.md",
+      "lifecycle": "superseded",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "The document is retained for historical analysis, not current execution.",
+      "document_marker": "> **状态:** superseded as execution instruction"
+    },
+    {
+      "id": "sota-performance-handoff-2026-08",
+      "path": "docs/plans/sota-performance-claude-handoff.md",
+      "lifecycle": "archived",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "The one-time handoff was consumed and cannot be replayed as current instructions.",
+      "document_marker": "> **状态:** archived"
+    },
+    {
+      "id": "rust-0828-acceptance-plan",
+      "path": "docs/plans/rust-0828-full-acceptance-and-kb-integration-test-plan-2026-08-28.md",
+      "lifecycle": "archived",
+      "successor": "docs/plans/platform-architecture-convergence-prd-2026-08.md",
+      "reason": "Its acceptance run is complete; only the dated evidence remains authoritative for that SHA.",
+      "document_marker": "> **状态:** archived"
+    }
+  ]
+}

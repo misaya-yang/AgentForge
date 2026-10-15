@@ -1,0 +1,83 @@
+Built dist/cli.js
+Verified 1 native CLI package target(s): linux-arm64
+[
+  {
+    "id": "ai-gateway-cli@1.5.0",
+    "name": "ai-gateway-cli",
+    "version": "1.5.0",
+    "size": 87935989,
+    "unpackedSize": 308919506,
+    "shasum": "468442092a922bc460e7dc3f82f4483d76c69d1b",
+    "integrity": "sha512-k/akpmKO5Uy1u/amcAb6IAGH4pP0rxyR95PfIJZf/GNphfAfQ7WwiBgFvGOq9VlCVu9ZIHBysl4HfjxoOUZKoQ==",
+    "filename": "ai-gateway-cli-1.5.0.tgz",
+    "files": [
+      {
+        "path": "README.md",
+        "size": 7327,
+        "mode": 420
+      },
+      {
+        "path": "dist/cli.js",
+        "size": 643218,
+        "mode": 420
+      },
+      {
+        "path": "dist/native-source.json",
+        "size": 208,
+        "mode": 420
+      },
+      {
+        "path": "package.json",
+        "size": 1582,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/artifact.json",
+        "size": 832,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/codex",
+        "size": 307609184,
+        "mode": 493
+      },
+      {
+        "path": "vendor/linux-arm64/LICENSE",
+        "size": 10926,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/NOTICE",
+        "size": 242,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/NOTICE.ai-platform.md",
+        "size": 810,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/sbom.cdx.json",
+        "size": 642214,
+        "mode": 420
+      },
+      {
+        "path": "vendor/linux-arm64/source-receipt.json",
+        "size": 1934,
+        "mode": 420
+      },
+      {
+        "path": "vendor/README.md",
+        "size": 821,
+        "mode": 420
+      },
+      {
+        "path": "vendor/source.json",
+        "size": 208,
+        "mode": 420
+      }
+    ],
+    "entryCount": 13,
+    "bundled": []
+  }
+]

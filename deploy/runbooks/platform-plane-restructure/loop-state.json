@@ -1,0 +1,287 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "lifecycle": "superseded",
+  "goal": "Establish attributable performance evidence, choose the least complex topology that meets the measured load, and adopt Rust or new deployment units only when parity, resource, operational, review, and rollback gates all pass without changing public contracts.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "last_completed_phase": "PPR-00",
+  "superseded_by": "docs/prd/platform-architecture-convergence-2026-08.md + docs/architecture/ADR-008-bounded-contexts-no-new-services.md",
+  "iteration": 2,
+  "max_iterations": 3,
+  "last_result": "PPR-F001 iteration 2 (act/verify) completed 2026-08-28: local baseline COLLECTED AND CERTIFIED. Four paid 107-trial DashScope replays with per-trial ppr-timing/v1 reconciliation (receipts reports/performance/assistant-ttft-baseline-2026-08-28-run{1..4}.json, mode 0600): run1/run2 failed v1's per-trial 100 %-ok G3 rule on the intrinsic client<->server residual tail (p50 0.171-0.173, ~97th percentile 0.20-0.21 vs the 0.200 floor; quantiles agree within ~8 ms across both runs — contention ruled out by a quiet re-run; identity_violation 0, ceilings passed); the forced-delay probe (200 ms hot-update inject, tmp/ppr00-probe-200ms.json) proved attribution exact (local_pre +0.2 s, provider_wait unmoved, residuals unchanged) and was reverted with stack re-verified 9/9; user then authorized the G3/v2 quantified certification amendment (per-trial lower bound + no-exclusion + identity-clean stay hard; residual bound -> p99 <= 0.250 with a 0.500 defect ceiling; phase file carries v1 verbatim SUPERSEDED + full run disclosures). run3 passed v2 reconciliation but hit a transient provider congestion burst (first 8 trials, provider_wait up to 45.7 s -> client p95 6.42 s > ceiling, honestly not recordable); run4 CLEAN: 107/107 successful, gate-set 105/105 ok, identity 0, client TTFT p50 1.999 / p95 2.800 (bootstrap CI [2.643, 3.533]), local_pre p95 0.001765 s (25 ms proposal supported ~14x headroom), residual p99 0.191 / max 0.243, recordable=true, exit 0. Local SLI gates FROZEN in the phase file from run4. Post-run reviews (delta, security, server, all independent agents): fail-open corners fixed (single `recordable` certification bit, all-trial v2 accounting, refuse-existing-output guard, sentinel-credential test, cancellation-emits-zero-timing-lines test); 21+23+35 tests pass at review time (final tallies below), make sdk-sse-contract re-passed before freeze, harness-check OK, ruff clean on all touched files (96 pre-existing repo ruff errors elsewhere, untouched by this feature). Known gaps disclosed: per-trial token usage is null on the current stack (adapter reads usage from the context_snapshot streams the Rust cutover removed) — blocks cost evidence for PPR-F009, not this baseline; configuration fingerprint ad7777a predates the uncommitted implementation (methodology note 8 caveat recorded at freeze). Resource profile leg EXECUTED 2026-08-28 under the authorized 82-call budget: ppr00-stream-load-v1 single progressive staircase (levels 1,5,10,20), exit 0, 82/82 streams successful — zero admission rejects, 5xx, stream errors, timeouts, restarts, or 90%-mem guard trips (health-check exec-fallback fix for the expose-only 8094 port held live). Profile-leg independent review RETURNED and its three MAJOR narrative corrections were applied to the phase record before freezing (reviewer's own robust-slope figures were not reproducible and were re-derived independently from the raw samples): steady-window deltas are load-signal FLOORS; slopes 3.33/1.06/3.34 four-point vs 3.43/1.14/3.80 K>=5-robust (agent-runtime/backend/pg, MiB/stream); level-end increments at K=20 +73.6/+22.8/+73.1; retention across between-level settles +9.2/+19.6/+38.6 (runtime); K=20 first-event tail = 16 exceedances confined to ordinals 20-35, none at K<=10; a copied warm-up '~2 s cold-start' claim was corrected from the raw receipts (first events 0.1997/0.1242 s) with a disclosure in the phase record. Done-when item 6 ticked. Report + samples mode 0600. COMPREHENSIVE WHOLE-DELTA FINAL REVIEW (2026-08-28): evidence-chain audit COHERENT; profile-leg second pass TRUST; adversarial probe pass WHOLE-DELTA-OK (7/7 probes; 103 tests, ruff check, harness-check, test-isolation 27 green at review time). Its three accepted driver fail-closed findings fixed post-run with regression tests and disclosed (mid-drain wall-clock re-check; zero-samples can never certify; bare 'rate' token misclassified 'generated'/'separate' as admission rejects -> 'rate_limit'/'rate limit') — none could affect the frozen artifact (400.6 s of 90-min cap; 197 samples; 82/82 clean). Deferred server-side minors recorded as follow-ups (dead IDENTITY_TOLERANCE_SECONDS, duplicated health-URL literals, dirty-tree-blind fingerprint, no ruff format --check gate). DECISION: PPR-F001 PASSES. Final test tallies: 24 benchmark + 23 profile + 23 timing + 35 model-plane, all green; ruff clean.",
+  "next_action": "Program SUPERSEDED 2026-08-29 by the platform-architecture-convergence program (ADR-008 Accepted). Per-phase disposition recorded below: PPR-00 stays complete with frozen evidence (receipts also digested in docs/architecture/baselines/2026-08-post-rag/contract-freeze.json); PPR-01 absorbed into ARC-00C; PPR-08 retained as a provider-experiment backlog item; PPR-02..07/09 superseded by ADR-008's T0 decision (no new resident services). Do not resume any phase from this program.",
+  "blockers": [],
+  "confirmation": {
+    "state": "answered",
+    "asked_at": "2026-08-28",
+    "answered_at": "2026-08-28",
+    "answers": {
+      "replay_channel": "paid DashScope high-sample replay (>=105 raw trials) against the current stack; no shared-env provider-config mutation",
+      "paid_pilot": "authorized; covered as a subset of the high-sample run per methodology note 4",
+      "gate_text_commit": "authorized; executed as standalone commit ad7777a on branch rust-0828 (phase-00 gate text + methodology notes only, no implementation)",
+      "benchmark_credentials": "resolved 2026-08-28: per the user, the benchmark logs in with the project's own account path (admin@AUTH_ALLOWED_EMAIL_DOMAIN + DEFAULT_USER_PASSWORD bootstrap fallback in _runtime_inputs); no separate ASSISTANT_TTFT_* credentials exist or are needed",
+      "g3_v2_amendment": "authorized 2026-08-28 (option A): quantified G3 re-declaration (p99 <= 0.250 + 0.500 ceiling, per-trial lower bound/identity/exclusions unchanged) fixed in the phase file BEFORE run3, disclosed v1-as-SUPERSEDED; included a third paid run",
+      "run4": "authorized 2026-08-28 (option A, immediate): fourth 107-trial paid run after run3's transient provider congestion burst; executed clean -> baseline certified and frozen",
+      "g3_v2_gate_text_commit": "authorized 2026-08-28 (option A): amendment text + run1-4 disclosures + frozen baseline committed standalone as a082b4a on rust-0828 (phase file only; implementation remains uncommitted)",
+      "resource_profile": "authorized 2026-08-28 (option A): full 82-call run at levels 1,5,10,20 (single progressive run with 90%-mem abort guard + 60 s settles standing in for a separate smoke, keeping spend within the authorized ~82 cap; hard cap --max-calls 90). Admission rejects recorded as data (option A, no extra users, no env mutation). Heavy workers kept as-shipped (option A).",
+      "acceptance_merge": "authorized 2026-08-28: review and fix the complete rust-0828 branch bundle, include the reproducibility drivers/tests and redacted performance receipts, then merge locally when all acceptance gates pass; no push authorization."
+    },
+    "follow_up_needed": "none for F001. PPR-01 entry remains a separate future decision because its base-image work carries a new confirmation gate."
+  },
+  "phases": [
+    {
+      "id": "PPR-00",
+      "file": "phase-00-separate-local-and-provider-slis-and-freeze-baseline.md",
+      "depends_on": [],
+      "status": "complete",
+      "evidence": [
+        "2026-08-28 ppr-timing/v1 instrument + reporting implemented and tested: 22 tests tests/services/agent_runtime/test_timing.py, 12 tests tests/scripts/test_assistant_ttft_benchmark.py, unmodified G4 suite tests/services/agent_runtime/test_model_plane.py 35 pass, make sdk-sse-contract pass, ruff clean, local stack hot-updated 9/9 healthy (no provider calls).",
+        "2026-08-28 rollback bundle: deploy/runbooks/platform-plane-restructure/rollback-bundle.json pinned at f884d1e (hashes verified by reviewer).",
+        "2026-08-28 independent reviews: contract/correctness (6 findings fixed, re-verified 'safe to record') and performance/statistics methodology (accept-with-conditions; minimal conditions 1-5 met — condition 5, the audit-stability gate-text commit, executed as ad7777a).",
+        "2026-08-28 audit-stability: pre-declared gates + methodology notes committed standalone as ad7777a (rust-0828); all three confirmation items answered by the user — paid high-sample replay channel, provider pilot authorized, gate commit authorized.",
+        "2026-08-28 baseline collection (iteration 2): four paid 107-trial reconciled replays with receipts in reports/performance/assistant-ttft-baseline-2026-08-28-run{1..4}.json (mode 0600); run1/run2 exposed v1's per-trial G3 rule as uncertifiable over the intrinsic ~0.17 s residual tail (identity_violation 0, ceilings pass both runs); G3/v2 quantified amendment authorized by the user and fixed before run3 (phase file: v1 verbatim SUPERSEDED + full disclosures); run3 passed v2 but hit a transient provider congestion burst (client p95 6.42 s, honestly not recordable); run4 CLEAN and CERTIFIED: 107/107, gate-set 105/105 ok, identity 0, client TTFT p50 1.999 / p95 2.800 s (CI [2.643, 3.533]), local_pre p95 0.001765 s.",
+        "2026-08-28 forced-delay probe: temporary 200 ms pre-dispatch hot-update inject, 10 trials — local_pre_provider_seconds 0.205-0.213 s on every trial, provider_wait unmoved, residuals unchanged (attribution proof); injection reverted, stack re-hot-updated, 9/9 healthy; receipts tmp/ppr00-probe-200ms.json.",
+        "2026-08-28 local SLI gates frozen in phase file from run4 (note-4 inputs: local_pre p95, client TTFT p95, G3/v2 residual bound; projection excluded per pacing caveat). Disclosed gaps: per-trial token usage null on current stack (usage harvested from context_snapshot streams removed by Rust cutover native_agent_parity_benchmark.py:942; blocks PPR-F009 cost evidence, not the baseline); fingerprint ad7777a predates uncommitted implementation (note 8).",
+        "2026-08-28 post-run independent reviews + fixes: delta review (single recordable certification bit; all-trial reconciliation accounting; v2 quantile rule with lower-bound/ceiling structural checks — 21 tests incl. reader-less-not-recordable, warmup-exclusion, isolated-tolerance-still-certifies, lower-bound-blocks, ceiling-blocks, sentinel-credentials-absent, refuse-existing-output), security review (no blockers; A2 output-clobber guard + A5 sentinel test landed), server review (F2 cancelled-stream zero-timing-lines test landed; G4 sdk-sse-contract re-passed); test suite 21+23+35 green, ruff clean on touched files, harness-check OK.",
+        "2026-08-28 ppr00-stream-load-v1 resource profile run: 82/82 paid streams success at levels 1,5,10,20, exit 0, no restarts/guard trips/rejects; per-stream RSS slopes and retention split frozen in phase file 'Named concurrency/resource profile' record; reports/performance/ppr00-resource-2026-08-28{.json,.samples.jsonl} mode 0600; 23 script tests (incl. post-run hardening) + ruff clean; live-exec-verified health fallback.",
+        "2026-08-28 profile-leg independent review (x2 passes): MAJOR narrative corrections applied; reviewer's own robust-slope figures proved NOT reproducible so every frozen number was re-derived from the raw samples; second pass verified all corrections by hand (TRUST); the copied warm-up '~2 s cold-start' claim was corrected from receipts and disclosed in the phase record (review numbers are cross-checked, never copied).",
+        "2026-08-28 comprehensive whole-delta final review: evidence-chain audit COHERENT; profile-leg TRUST; adversarial probe pass WHOLE-DELTA-OK (7/7 probes; 103 tests + ruff check + harness-check + test-isolation 27 at review time). Three accepted driver fail-closed fixes landed post-run with regression tests + disclosure; server-side minors deferred to protect the verified 75/4 tree (follow-ups: dead IDENTITY_TOLERANCE_SECONDS, duplicated health-URL literals, dirty-tree-blind fingerprint, no ruff format --check gate). DECISION: PPR-F001 PASSES.",
+        "2026-08-28 merge acceptance review: fixed three additional resource-driver fail-closed gaps (all-container Compose ownership, missing memory-limit rejection, container-ID recreation detection) and bounded Docker CLI calls; repaired documentation index state and stale cleanup guidance; 27 profile tests and the wider 109-test PPR suite pass, ruff clean, harness-check/test-isolation/sdk-sse/release/runtime gates pass, live container source hashes match the accepted tree, and all 9 services are healthy."
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "PPR-01",
+      "file": "phase-01-make-rust-build-and-distribution-cheap.md",
+      "depends_on": [
+        "PPR-00"
+      ],
+      "status": "superseded",
+      "disposition": "absorbed into ARC-00C (artifact identity, build/update scripts, locks, baseline registration) of platform-architecture-convergence",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-02",
+      "file": "phase-02-freeze-the-plane-contract-as-an-executable-gate.md",
+      "depends_on": [
+        "PPR-00",
+        "PPR-01"
+      ],
+      "status": "superseded",
+      "disposition": "ADR-008 adopts T0 (no new physical plane boundaries); plane ownership stays logical, gated by ARC-00B import-boundary and contract gates",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-03",
+      "file": "phase-03-extract-the-edge-plane.md",
+      "depends_on": [
+        "PPR-02"
+      ],
+      "status": "superseded",
+      "disposition": "ADR-008 rejects the Edge/T2 split; requires a new ADR with measured evidence to reopen",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-04",
+      "file": "phase-04-shadow-and-conditionally-cut-over-the-rust-model-plane.md",
+      "depends_on": [
+        "PPR-02"
+      ],
+      "status": "superseded",
+      "disposition": "ADR-008 rejects the T3 Rust model-plane service; model plane stays a private Gateway route with lease-reserved, ledgered calls",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-05",
+      "file": "phase-05-slim-the-control-plane-and-split-governance.md",
+      "depends_on": [
+        "PPR-02"
+      ],
+      "status": "superseded",
+      "disposition": "ADR-008 rejects the Governance/T1 split; control-plane slimming continues as ARC-01/01B/02 module splits inside the existing service",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-06",
+      "file": "phase-06-give-the-index-plane-capacity.md",
+      "depends_on": [
+        "PPR-02"
+      ],
+      "status": "superseded",
+      "disposition": "knowledge capacity work returns to the knowledge context owners; no index-plane service split under ADR-008",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-07",
+      "file": "phase-07-unify-session-storage.md",
+      "depends_on": [
+        "PPR-02"
+      ],
+      "status": "superseded",
+      "disposition": "session/storage ownership is adjudicated by the ARC-03/ARC-04 same-database role separation, not a separate storage program",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-08",
+      "file": "phase-08-attack-provider-side-latency.md",
+      "depends_on": [
+        "PPR-00"
+      ],
+      "status": "superseded",
+      "disposition": "retained as a provider-experiment backlog item (not part of the architecture convergence scope); its methodology (randomized interleaved trials, precommitted sample size, quality-cohort veto) remains the standard for any future provider-side experiment",
+      "evidence": [],
+      "review": "required"
+    },
+    {
+      "id": "PPR-09",
+      "file": "phase-09-release-gate-and-rollback-on-the-new-topology.md",
+      "depends_on": [
+        "PPR-03",
+        "PPR-04",
+        "PPR-05",
+        "PPR-06",
+        "PPR-07",
+        "PPR-08"
+      ],
+      "status": "superseded",
+      "disposition": "no new topology is adopted (ADR-008 T0); release/rollback discipline continues under the existing FRC-proven rollback-rehearsal contract",
+      "evidence": [],
+      "review": "required"
+    }
+  ],
+  "features": [
+    {
+      "id": "PPR-F001",
+      "phase_id": "PPR-00",
+      "description": "A reproducible timing and load contract attributes end-to-end TTFT to local pre-provider work, provider wait, and local projection, and freezes statistical and resource baselines before topology work.",
+      "steps": [
+        "Define gateway-owned timestamps whose additive components reconcile with end-to-end TTFT within a fixed tolerance.",
+        "Prove controlled pre-provider and post-provider delays move the correct local component and end-to-end TTFT without being misattributed to provider wait.",
+        "Use high-sample local replay for p95 gates and preserve raw provider trials for median, IQR, confidence intervals, and later randomized comparisons.",
+        "Record the named concurrency profile, per-service RSS and CPU curves, current topology result, and a digest-pinned rollback bundle."
+      ],
+      "passes": true
+    },
+    {
+      "id": "PPR-F002",
+      "phase_id": "PPR-01",
+      "description": "A one-line Rust change reaches a healthy container through one authoritative command, a service-sized runtime image, and crate-scoped artifact identity.",
+      "steps": [
+        "Move the runtime stage to an approved minimal base without weakening health, certificates, or runtime-home isolation.",
+        "Make lock.json the only editable image identity and derive every downstream pin.",
+        "Compute artifact identity from each artifact's true source closure rather than the whole overlay.",
+        "Record image size, cold and warm build time, health, supply-chain checks, and independent security review."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F003",
+      "phase_id": "PPR-02",
+      "description": "An approved ADR selects the least complex deploy topology that satisfies PPR-00 evidence and a fail-closed gate enforces logical plane ownership and cross-plane contracts.",
+      "steps": [
+        "Compare T0 existing gateway scaling, T1 Governance isolation, T2 Edge plus Governance isolation, and optional T3 Rust model plane.",
+        "Define service identity, trust propagation, timeout, retry, idempotency, backpressure, error mapping, and SSE ownership for every selected physical boundary.",
+        "Record logical plane ownership as data and fail on unmapped modules or forbidden synchronous dependencies.",
+        "Obtain independent architecture and security approval before unlocking topology changes."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F004",
+      "phase_id": "PPR-03",
+      "description": "Edge is extracted only if measured interference or capacity evidence defeats the simpler T0/T1 alternatives; otherwise the existing deployment is retained with the decision recorded.",
+      "steps": [
+        "Reproduce the PPR-00 load problem and compare gateway replica or worker scaling before adding a service.",
+        "If adopted, implement the ADR-approved authenticated handoff without auth, quota, routing, or SSE ownership drift.",
+        "Prove multi-worker admission never oversells and rate-limit dimensions count once.",
+        "Record adopted or measured-not-adopted outcome with rollback and independent security review."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F005",
+      "phase_id": "PPR-04",
+      "description": "A Rust model projector consumes the same provider frames as Python, proves protocol and accounting parity, and is adopted only when incremental per-stream resources and supported capacity clear precommitted gates.",
+      "steps": [
+        "Build parity from fixtures and a tee of one live provider stream; never issue a second provider request for shadowing.",
+        "Prove byte-identical success, error, cancellation, usage, and provider-omits-usage behavior.",
+        "Measure warmed incremental RSS per stream, peak RSS, CPU, local p99, and supported concurrency at the same container budget.",
+        "Adopt only if the phase gates and independent protocol, accounting, and security reviews pass; otherwise remove the experimental default path."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F006",
+      "phase_id": "PPR-05",
+      "description": "Governance is physically isolated only if a reproducible Eval, audit, or trace load harms Edge or Data; otherwise its asynchronous logical boundary remains in the existing deployment.",
+      "steps": [
+        "Measure heavy Governance load against streaming latency, local timing components, CPU, and RSS.",
+        "Compare bounded asynchronous execution in place with a separate Governance unit.",
+        "If adopted, preserve Eval, trace, audit, billing ownership, fixtures, and failure semantics.",
+        "Record adopted or measured-not-adopted outcome and independent architecture and Eval review."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F007",
+      "phase_id": "PPR-06",
+      "description": "Knowledge ingestion capacity scales without double claims or retrieval interference, and native kernels ship only when profiling proves CPU is the binding constraint and byte boundaries remain identical.",
+      "steps": [
+        "Profile the named workload before changing workers or languages.",
+        "Scale knowledge-worker only with claim and lease safety under concurrency.",
+        "Keep retrieval policy and quality tuning out of this phase.",
+        "Adopt native kernels only on byte-identical corpus results and material measured throughput or CPU benefit."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F008",
+      "phase_id": "PPR-07",
+      "description": "Session storage has one reversible, reviewed ownership decision: migrate legacy history with render parity, or retain the legacy read path with bounded-growth evidence and no data deletion.",
+      "steps": [
+        "Write and review ADR-010 independently of the Index track.",
+        "Rehearse on an isolated copy with before and after API payload and database fingerprints.",
+        "Preserve ON DELETE RESTRICT, tombstones, public API behavior, and a rollback path.",
+        "Request explicit user approval before any real-data migration; defer rather than weaken parity."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F009",
+      "phase_id": "PPR-08",
+      "description": "Provider configuration is evaluated with randomized interleaved trials, confidence intervals, cache and quality evidence, and any default or target change is product-approved.",
+      "steps": [
+        "Run a pilot to estimate variance, then precommit sample size and randomize configurations in interleaved blocks.",
+        "Require enough successful samples for any p95 claim and report confidence intervals, failures, cache hits, cost, and provider timestamps.",
+        "Reject latency wins that lose the representative quality cohort.",
+        "Record met target or evidenced negative conclusion; ask before changing defaults or the product ceiling."
+      ],
+      "passes": false
+    },
+    {
+      "id": "PPR-F010",
+      "phase_id": "PPR-09",
+      "description": "The actually adopted topology has a reviewed serial release contract and digest-pinned rollback rehearsal that preserves sessions and the execution ledger.",
+      "steps": [
+        "Generate the release matrix from adopted phase decisions rather than an aspirational service list.",
+        "Prove every selected logical and physical boundary with current images and receipts.",
+        "Rehearse current-to-frozen-to-current only after explicit approval and preserve database and execution fingerprints.",
+        "Publish one closeout that distinguishes adopted, measured-not-adopted, deferred, and waived outcomes."
+      ],
+      "passes": false
+    }
+  ]
+}

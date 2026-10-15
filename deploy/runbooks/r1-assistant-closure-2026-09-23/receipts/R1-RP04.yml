@@ -1,0 +1,50 @@
+package_id: R1-RP04
+state: verified_with_external_image_blocker
+base_sha: 317f1a14
+source_branch: codex/r1-final-boundaries
+integration: {target: main, status: locally_integrated_safe_increment, pushed: false, branch_deleted: false}
+full_R1_complete: false
+status_label: CANDIDATE_80
+code_review: {agent: closure_review, verdict: PASS, blocker: 0, high: 0, independent_python_passed: 70}
+primary_checks:
+  python: {passed: 93, failed: 0, skipped: 0}
+  new_controlled_e2e: {passed: 5, failed: 0, skipped: 0}
+  real_existing_pdf_e2e: {passed: 1, failed: 0, skipped: 0}
+  real_background_session_switch_e2e: {passed: 1, failed: 0, skipped: 0}
+  e2e_default_existing_account_smoke: {passed: 1, failed: 0, skipped: 0}
+  controlled_account_setup_node: {passed: 4, failed: 0, skipped: 0}
+  frontend_app_types: pass
+  frontend_node_types: pass
+  lint: pass
+  i18n: pass
+  build_bundle_budget: pass
+  ruff: pass
+  architecture_boundary: pass
+  harness: pass
+  diff_check: pass
+  validate: pass_with_one_warning
+  status: pass
+compose_owner: /Users/yang/projects/AI--Platfform
+identity:
+  gateway_changed_python_files: {matched: 3, total: 3}
+  frontend_build_files_excluding_runtime_config: {matched: 255, total: 255}
+real_browser:
+  - ordinary viewer citation opened via current document ACL; revocation redacted preview and answer
+  - natural approval expiration rejected approval; execution count 0; original run count 1 after refresh
+  - original snapshot qwen3.8-flash temperature 0.7 and effective think minimal matched refreshed Activity
+  - existing approval-expiry and PDF sessions switched in real Chromium and IAB; background tab return and refresh retained original runs, no execution POST; ledger counts unchanged
+controlled_browser:
+  - 409 and 422 preadmission retained selected upload and draft, no automatic repeat
+  - transient event GET 503 rejoined same turn with one turn POST and zero interrupts
+  - partial output failure, zero-byte image/document, artifact GET and download 503 displayed safely
+deferred:
+  - actual image generation positive path blocked by external CDN Fake-IP DNS
+  - running-provider task with simultaneous offline/background/session switch was not repeated; existing DR01 and controlled reconnect remain separate evidence
+test_setup_side_effect:
+  existing_model_tester_accounts_password_reset: 5
+  newly_created_accounts: 0
+  cause: Earlier RP04 Playwright invocations omitted E2E_EXISTING_ACCOUNT_ONLY=1
+  evidence: reports/r1-boundaries/e2e-account-side-effect.json
+  prevention: Existing-account login is now the code default; old E2E_EXISTING_ACCOUNT_ONLY=1 remains an optional extra guard; E2E_PROVISION_ACCOUNTS=1 only initializes a fresh isolated environment
+  regression: fake-fetch Node4 passed; two real default-mode E2E runs left five account timestamps and roles unchanged
+evidence: reports/product/r1-final-boundaries-2026-09-27.md

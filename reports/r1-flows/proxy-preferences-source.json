@@ -1,0 +1,27 @@
+{
+  "preferences_path": "/Users/yang/Library/Preferences/com.follow.clash.plist",
+  "keys": [
+    "flutter.config"
+  ],
+  "selected_ids": {
+    "flutter.config.currentProfileId": 361504683073736704
+  },
+  "dns_source_fields": [
+    "enable",
+    "listen",
+    "prefer-h3",
+    "use-hosts",
+    "use-system-hosts",
+    "respect-rules",
+    "ipv6",
+    "default-nameserver",
+    "enhanced-mode",
+    "fake-ip-range",
+    "fake-ip-filter",
+    "nameserver-policy",
+    "nameserver",
+    "fallback",
+    "proxy-server-nameserver",
+    "fallback-filter"
+  ]
+}

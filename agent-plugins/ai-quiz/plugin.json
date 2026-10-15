@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ai-quiz",
+  "version": "1.0.0",
+  "description": "Create interactive quizzes from knowledge-base content through the assistant's built-in generate_quiz tool, grade answers, and share them publicly.",
+  "author": {
+    "name": "AI Gateway Maintainers"
+  },
+  "license": "MIT",
+  "keywords": [
+    "quiz",
+    "exam",
+    "knowledge-base",
+    "assessment",
+    "learning"
+  ],
+  "extensions": {
+    "com.misaya.ai-gateway": {
+      "skills": [
+        "./skills/quiz-generation/SKILL.md"
+      ],
+      "agents": [
+        "./agents/quiz-expert.md"
+      ]
+    }
+  }
+}

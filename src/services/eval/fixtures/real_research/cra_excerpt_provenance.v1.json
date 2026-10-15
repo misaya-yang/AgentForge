@@ -1,0 +1,190 @@
+{
+  "schema_version": "cra-excerpt-provenance/v1",
+  "extractor": {
+    "library": "pypdf",
+    "normalization": "unicode-casefold-alphanumeric-v1",
+    "page_numbering": "pdf-page-one-based"
+  },
+  "sources": [
+    {
+      "source_id": "SRC-PROPOSAL-2022-454",
+      "fixture_snapshot_sha256": "43304af6b8508e02063697a0bf6aa46907608ccdde7ab5721336b6fea112f856",
+      "artifact_sha256": "bb0213d29b01e768e6a20188f8a6960f916de04e2c09f4df99e5ea0589548daa",
+      "matches": [
+        {
+          "evidence_id": "E-PROP-REC10",
+          "locator": "Recital 10",
+          "excerpt_text_sha256": "34ebdcf54e5d51de3211b47a5c18a24958b5694dde523d3316ccb6df5b4075c6",
+          "quotes": [
+            {
+              "pdf_page": 16,
+              "text": "In the context of software, a commercial activity might be characterized not only by charging a price for a product, but also by charging a price for technical support services"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-PROP-ART57",
+          "locator": "Proposed Article 57",
+          "excerpt_text_sha256": "6465592af0ad280638dd5ddfed4479cd251d94a99252b7b4787690cad82d41c2",
+          "quotes": [
+            {
+              "pdf_page": 67,
+              "text": "It shall apply from [24 months after the date of entry into force of this Regulation]. However Article 11 shall apply from [12 months after the date of entry into force of this Regulation]."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "SRC-LAW-2024-2847",
+      "fixture_snapshot_sha256": "95e54bffa916a5f115a5cfc9d721b5103d04bf57e9217024be51bc367c291ac2",
+      "artifact_sha256": "e3ecaabddf6e321fa04097d15dfcccc7309d0fe5896240ab7625a27d74ab1b0a",
+      "matches": [
+        {
+          "evidence_id": "E-LAW-REC15",
+          "locator": "Recital 15",
+          "excerpt_text_sha256": "c614c761699e6f103d4fb0d9b25de686d8a2fbc2706965b5cc0681369a205833",
+          "quotes": [
+            {
+              "pdf_page": 4,
+              "text": "charging a price for technical support services where this does not serve only the recuperation of actual costs"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-REC18",
+          "locator": "Recital 18",
+          "excerpt_text_sha256": "377a16d0162d777ddaf9d623ab931b21824db029a503c1c55e49d76cc982edaf",
+          "quotes": [
+            {
+              "pdf_page": 5,
+              "text": "free and open-source software that are not monetised by their manufacturers should not be considered to be a commercial activity"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-ART3-13",
+          "locator": "Article 3(13)",
+          "excerpt_text_sha256": "dfb28b26c1d2373940cd7f817cba95a4487cce3a9ef6acf00624a5b468112666",
+          "quotes": [
+            {
+              "pdf_page": 29,
+              "text": "manufacturer means a natural or legal person who develops or manufactures products with digital elements"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-ART3-14",
+          "locator": "Article 3(14)",
+          "excerpt_text_sha256": "9ee87001779e838972f657f281679001fa81ab4d5001363ec81de21eb16f75b0",
+          "quotes": [
+            {
+              "pdf_page": 29,
+              "text": "open-source software steward means a legal person, other than a manufacturer, that has the purpose or objective of systematically providing support on a sustained basis"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-ART24-3",
+          "locator": "Article 24(3)",
+          "excerpt_text_sha256": "94dce5062e92eed5c5cd891a6a2d96c985edd1410e77d1672f592468e37f9125",
+          "quotes": [
+            {
+              "pdf_page": 45,
+              "text": "The obligations laid down in Article 14(1) shall apply to open-source software stewards to the extent that they are involved in the development"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-ART69",
+          "locator": "Article 69(2)-(3)",
+          "excerpt_text_sha256": "75ba57966ceb96112c035939f9f71f82264896f27d392820b5ef684fd7d9fe80",
+          "quotes": [
+            {
+              "pdf_page": 66,
+              "text": "Products with digital elements that have been placed on the market before 11 December 2027 shall be subject to the requirements set out in this Regulation only if"
+            },
+            {
+              "pdf_page": 66,
+              "text": "the obligations laid down in Article 14 shall apply to all products with digital elements that fall within the scope of this Regulation that have been placed on the market before 11 December 2027"
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-LAW-ART71",
+          "locator": "Article 71(2)",
+          "excerpt_text_sha256": "dbe5a22e63c0d0cebb1293e4f23ac3a6e7d7b7955efe144b296f8057a09a153e",
+          "quotes": [
+            {
+              "pdf_page": 67,
+              "text": "This Regulation shall apply from 11 December 2027."
+            },
+            {
+              "pdf_page": 67,
+              "text": "Article 14 shall apply from 11 September 2026 and Chapter IV (Articles 35 to 51) shall apply from 11 June 2026."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_id": "SRC-GUIDANCE-2026-5252",
+      "fixture_snapshot_sha256": "4d0701507d2845309c9559ea14740e5ae8ca050dd901c3e880fb101824ebfc77",
+      "artifact_sha256": "fe209c250e3d1f7599e42826d91963666951332927edcf511a2e79fe8d2f8234",
+      "matches": [
+        {
+          "evidence_id": "E-GUIDE-8",
+          "locator": "Paragraph 8",
+          "excerpt_text_sha256": "ef0ae0fb2b93426f5f4043bc649803197f5e5b20df66911878da2a24a4f2e24a",
+          "quotes": [
+            {
+              "pdf_page": 6,
+              "text": "This guidance is not binding for economic operators or other actors subject to the CRA. An authoritative interpretation of the CRA may only be given by the Court of Justice of the European Union."
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-GUIDE-55",
+          "locator": "Paragraph 55",
+          "excerpt_text_sha256": "e9b2081022edb5ac538ee57cf37c4c2a1a7c01bddb7fd0e1e202199f6115bd29",
+          "quotes": [
+            {
+              "pdf_page": 21,
+              "text": "The mere fact that a natural or legal person publishing a FOSS also offers paid support services related to it does not, as such, mean that the product with digital elements is supplied in the course of a commercial activity."
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-GUIDE-56",
+          "locator": "Paragraph 56",
+          "excerpt_text_sha256": "c98704e02b85372c26e1ed4eb6006eef234ffab26c7c2de8e6349702cc050471",
+          "quotes": [
+            {
+              "pdf_page": 21,
+              "text": "The decisive factor is whether access to the FOSS itself (i.e. the provision of the product with digital elements), including its maintenance, is conditioned on remuneration"
+            },
+            {
+              "pdf_page": 21,
+              "text": "Where the FOSS can be downloaded and installed freely, and users can optionally choose to purchase professional services separately, that FOSS is not considered to be placed on the market."
+            }
+          ]
+        },
+        {
+          "evidence_id": "E-GUIDE-EX18",
+          "locator": "Example 18",
+          "excerpt_text_sha256": "bc45fde872aafced04968af0472e7be62a868770959a6e2a7ea298133e4bd491",
+          "quotes": [
+            {
+              "pdf_page": 21,
+              "text": "A natural or legal person publishes a free and open-source command line tool. The tool is freely accessible and anyone can download and install it."
+            },
+            {
+              "pdf_page": 21,
+              "text": "That natural or legal person separately offers professional services, such as optional consultancy services to train users and support them in installing and using the tool. That FOSS is not considered placed on the market within the meaning of the CRA."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

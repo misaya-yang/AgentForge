@@ -1,0 +1,8 @@
+{
+  "scenario": "actual IAB nonvision model",
+  "model": "qwen3.8-flash",
+  "visible_accessible_reason": true,
+  "send_disabled": true,
+  "draft_and_selected_image_retained": true,
+  "run_count": 0
+}

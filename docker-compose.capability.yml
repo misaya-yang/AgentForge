@@ -1,0 +1,5 @@
+# Explicit local-live capability override. The base quickstart intentionally
+# does not expose the Docker daemon to Assistant. Operators using this file
+# accept the local Docker-socket trust boundary and must provide the same
+# absolute workspace path on the host and inside the service container.
+services: {}

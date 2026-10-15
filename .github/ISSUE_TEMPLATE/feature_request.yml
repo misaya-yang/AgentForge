@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest an improvement for AI Gateway.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest useful behavior change.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Gateway/API
+        - Assistant service
+        - Knowledge service
+        - Frontend
+        - SDK/CLI
+        - Docker/CI/deployment
+        - Documentation/governance
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Acceptance evidence
+      description: What command, test, screenshot, metric, or runtime behavior would prove this is complete?
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: This request does not include secrets, tokens, private documents, or production data.
+          required: true

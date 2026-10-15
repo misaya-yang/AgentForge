@@ -1,0 +1,1342 @@
+{
+  "schema_version": "ai-platform-capability-catalog/v1",
+  "capability_revision": 1,
+  "gateway_policy": {
+    "high_risk_tools": [
+      "system_run_lite",
+      "browser_action_lite"
+    ],
+    "medium_risk_tools": [
+      "execute_python_code",
+      "confluence_write"
+    ]
+  },
+  "capabilities": [
+    {
+      "name": "confluence_read",
+      "id": "confluence_read",
+      "version": null,
+      "schema_hash": "sha256:8f116b3fe44e31652042427d3abec8dea29c66f96bdad2e7b87126683fa63466",
+      "description": "Read-only Confluence operations. Pick `action` from: `search` (find pages), `read_page` (fetch one page by id/title/url), `list_spaces` (find workspaces), `get_space` (one space's details), `list_children` (direct child pages of a page). Supply only the params listed per action — see `when_to_use` for full parameter semantics and failure-recovery tips.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Which read operation to perform. REQUIRED.",
+            "enum": [
+              "search",
+              "read_page",
+              "list_spaces",
+              "get_space",
+              "list_children"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "description": "Keyword or phrase. For search: content full-text. For list_spaces: fuzzy match on name/key/description."
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Numeric page id. Required for list_children; one of page_id/title/url for read_page."
+          },
+          "title": {
+            "type": "string",
+            "description": "Exact page title — fallback lookup for read_page when page_id is unknown."
+          },
+          "url": {
+            "type": "string",
+            "description": "Full Confluence URL. read_page extracts page_id automatically."
+          },
+          "space_key": {
+            "type": "string",
+            "description": "Space key (e.g. 'SALES'). For search: narrow to this space. For get_space: lookup."
+          },
+          "space_id": {
+            "type": "string",
+            "description": "Numeric space id. For get_space (preferred over space_key when available)."
+          },
+          "keys": {
+            "type": "array",
+            "description": "For list_spaces: filter to these exact space keys.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "space_type": {
+            "type": "string",
+            "description": "For list_spaces: filter by type.",
+            "enum": [
+              "global",
+              "personal",
+              "collaboration",
+              "knowledge_base"
+            ]
+          },
+          "labels": {
+            "type": "array",
+            "description": "For list_spaces: filter spaces that have ALL these labels.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "For search: which fields to match `query` against. Subset of ['title','text']. Default both. Use ['title'] to recover when title-only pages (schedules, rosters) return 0 hits with default.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "title",
+                "text"
+              ]
+            }
+          },
+          "author": {
+            "type": "string",
+            "description": "For search: filter by creator (Atlassian accountId or username)."
+          },
+          "updated_since": {
+            "type": "string",
+            "description": "For search: ISO date 'YYYY-MM-DD' — only pages modified on/after."
+          },
+          "under_page_id": {
+            "type": "string",
+            "description": "For search: restrict to descendants of this page (subtree scope)."
+          },
+          "cql": {
+            "type": "string",
+            "description": "For search: raw Confluence CQL. OVERRIDES every other search param. Use for advanced operators (exact title=, label=, type=blogpost, negative matches). Caller is responsible for correctness; we only reject control characters."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max results. Defaults vary per action (search=10, list_spaces=50, list_children=25)."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Any Confluence read task: searching pages/spaces, reading a page, navigating page tree.\n\nACTION DETAILS:\n\n• search — find pages. Requires at least one of query, cql, author, updated_since, under_page_id. Optional dimensions:\n    - fields: subset of ['title','text']. DEFAULT both. Pages with Chinese titles often only match title (body is a table with no prose) — if default returns 0, retry fields=['title'] with a shorter, 1-3-token query.\n    - space_key: narrow to one space.\n    - author: accountId or username.\n    - updated_since: ISO date 'YYYY-MM-DD'.\n    - under_page_id: restrict to a page's subtree.\n    - cql: raw Confluence CQL, overrides everything. For exact titles (`title = \"X\"`), labels, blogposts, negatives.\n    - limit: default 10, max 25.\n  Returns the CQL it executed + a diagnostic hint on 0 hits. READ the hint — pick ONE narrower/broader retry, don't blindly re-phrase.\n\n• read_page — full content (up to 20K chars, markdown). Requires ONE of page_id / title / url. URL → page_id auto-extracted. Response includes parent_id + ancestor path — pass parent_id verbatim to confluence_write create_page to make a sibling.\n\n• list_spaces — find workspaces. Params: query (fuzzy on name/key/desc), keys (exact list), space_type, labels, limit (default 50). Use this BEFORE search when intent is 'find the workspace containing…'.\n\n• get_space — one space's metadata. Requires space_id or space_key.\n\n• list_children — direct child pages of a page (one level). Requires page_id. Optional limit (default 25).",
+      "when_not_to_use": "Do not use for mutations (create/update/delete/comment) — use confluence_write instead.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 20000,
+      "implementation_owner": "worker",
+      "connector_provider": "confluence"
+    },
+    {
+      "name": "read_tool_artifact",
+      "id": "read_tool_artifact",
+      "version": null,
+      "schema_hash": "sha256:5a5412563b37fb507194422299b5f456bce025fec0d17082656affa9816a65f5",
+      "description": "Read a bounded UTF-8 character slice from a complete redacted tool-output artifact created in this exact tenant, user, and session. Use the artifact_id from a COMPLETE_REDACTED_ARTIFACT_RECEIPT; offset is a 0-based character offset.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "description": "Opaque artifact id from a tool-output receipt (never a path or URL).",
+            "pattern": "^art_[A-Za-z0-9]{8,64}$",
+            "maxLength": 68
+          },
+          "offset": {
+            "type": "integer",
+            "description": "0-based UTF-8 decoded character offset. Default 0.",
+            "minimum": 0,
+            "maximum": 2000000
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Approximate token budget for this slice (1-8000); default 4000.",
+            "minimum": 1,
+            "maximum": 8000
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": null,
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 15000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "search_knowledge_base",
+      "id": "search_knowledge_base",
+      "version": null,
+      "schema_hash": "sha256:18319e17423808d0bb798005bfdeb5eaf2a1a02724071ec9b0eee918dbff9940",
+      "description": "Search the knowledge base for relevant text documents from specified datasets.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query in natural language. Be specific and include relevant keywords.",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "intent": {
+            "type": "string",
+            "description": "Retrieval intent: general=balanced text retrieval, find_document=locate a specific text document. Default is general.",
+            "enum": [
+              "general",
+              "find_document"
+            ]
+          },
+          "dataset_ids": {
+            "type": "array",
+            "description": "Bound dataset IDs to search. At most 8 datasets are accepted.",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of results to return (1-20). Default is 5.",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Minimum relevance score (0.0-1.0). Lower values return more results. Default is 0.0 (no filtering - AI judges relevance).",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "knowledge",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Use this tool when the user asks questions that might be answered by internal documentation, policies, product information, or other company knowledge. Use find_document intent when looking for specific text-based documents.",
+      "when_not_to_use": "Do not use for questions about current events, external companies, or information that wouldn't be in internal documents.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "spawn_subagent",
+      "id": "spawn_subagent",
+      "version": null,
+      "schema_hash": "sha256:02a397ac0ea18ce5909754f99b59a04052cd6b989633bcfb09660464200c7f40",
+      "description": "Delegate one complex sub-task or a bounded batch of independent sub-tasks. Use tasks[] for real parallel work (1-5 tasks, default concurrency 3); batch results are returned in input order. Built-ins: explore, task, plan. Installed specialists are selected through the host-validated agent_id enum.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "explore",
+              "task",
+              "plan"
+            ],
+            "description": "Built-in agent type."
+          },
+          "agent_id": {
+            "type": "string",
+            "enum": [
+              "ai-quiz:quiz-expert",
+              "community-doublecheck:doublecheck",
+              "community-engineering-reviewers:security-reviewer",
+              "community-engineering-reviewers:system-architecture-reviewer",
+              "community-engineering-reviewers:technical-writer"
+            ],
+            "description": "Installed plugin specialist qualified id."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "Detailed, self-contained instructions for this child."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Required short label for a single child; in tasks[] mode an optional batch label that does not replace each child's description."
+          },
+          "context": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "Single-child context, or shared context inherited only by tasks[] items that do not provide their own context."
+          },
+          "task_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Optional stable logical task id; the host derives one if omitted."
+          },
+          "output_schema": {
+            "type": "object",
+            "description": "Optional bounded strict JSON Schema for this child's output."
+          },
+          "delegation_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Optional stable logical delegation id; identical payloads receive a deterministic host-derived id when omitted."
+          },
+          "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "properties": {
+                "agent_type": {
+                  "type": "string",
+                  "enum": [
+                    "explore",
+                    "task",
+                    "plan"
+                  ],
+                  "description": "Built-in agent type."
+                },
+                "agent_id": {
+                  "type": "string",
+                  "enum": [
+                    "ai-quiz:quiz-expert",
+                    "community-doublecheck:doublecheck",
+                    "community-engineering-reviewers:security-reviewer",
+                    "community-engineering-reviewers:system-architecture-reviewer",
+                    "community-engineering-reviewers:technical-writer"
+                  ],
+                  "description": "Installed plugin specialist qualified id."
+                },
+                "prompt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20000,
+                  "description": "Detailed, self-contained instructions for this child."
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Short task label shown in the UI."
+                },
+                "context": {
+                  "type": "string",
+                  "maxLength": 20000,
+                  "description": "Only the parent context required by this child."
+                },
+                "task_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "description": "Optional stable logical task id; the host derives one if omitted."
+                },
+                "output_schema": {
+                  "type": "object",
+                  "description": "Optional bounded strict JSON Schema for this child's output."
+                }
+              },
+              "required": [
+                "prompt",
+                "description"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "agent_type"
+                  ],
+                  "not": {
+                    "required": [
+                      "agent_id"
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "agent_id"
+                  ],
+                  "not": {
+                    "required": [
+                      "agent_type"
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "description": "Independent tasks to run concurrently; results retain input order."
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Maximum simultaneous children (default 3)."
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "prompt",
+              "description"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "agent_type"
+                ],
+                "not": {
+                  "required": [
+                    "agent_id"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "agent_id"
+                ],
+                "not": {
+                  "required": [
+                    "agent_type"
+                  ]
+                }
+              }
+            ],
+            "not": {
+              "required": [
+                "tasks"
+              ]
+            }
+          },
+          {
+            "required": [
+              "tasks"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "prompt"
+                  ]
+                },
+                {
+                  "required": [
+                    "agent_type"
+                  ]
+                },
+                {
+                  "required": [
+                    "agent_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "task_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "output_schema"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "utility",
+      "when_to_use": "Use when a task requires deep exploration or independent execution. Put mutually independent work in one tasks[] call to parallelize it. For example: 'explore' to search the knowledge base thoroughly, 'plan' to design an approach before executing, 'task' to independently complete a complex sub-task.",
+      "when_not_to_use": "Don't use for simple direct questions or single tool calls.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 300000,
+      "implementation_owner": "runtime"
+    },
+    {
+      "name": "todo_read",
+      "id": "todo_read",
+      "version": null,
+      "schema_hash": "sha256:d746974fa9afd5e951f76f9af38954b0ad7f436f2120dc974da65e5ee39f856f",
+      "description": "Read the current session task list. Returns markdown-formatted todo state so you can see what's done, in progress, and remaining.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "utility",
+      "when_to_use": "Check progress before deciding the next step on a long task.",
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "tool_call",
+      "id": "tool_call",
+      "version": null,
+      "schema_hash": "sha256:befc7c2ed6931e69badac0755ce08b149ba986568a869e142eeb6d527050e1e4",
+      "description": "Invoke one tool returned by tool_search. The underlying tool keeps its normal tenant authorization, approval, sandbox, audit, and retry policy.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Exact tool name returned by tool_search."
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Arguments matching the schema returned by tool_describe.",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "name",
+          "arguments"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "platform_tool_discovery",
+      "approval": "never",
+      "category": "utility",
+      "when_to_use": null,
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "runtime"
+    },
+    {
+      "name": "tool_describe",
+      "id": "tool_describe",
+      "version": null,
+      "schema_hash": "sha256:958d5259e54180ba8526f7351cd66eff0ebfc21356457966f652bb466bdfc2dd",
+      "description": "Return the current full parameter schema for one exact tool name from tool_search.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Exact tool name returned by tool_search."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "platform_tool_discovery",
+      "approval": "never",
+      "category": "utility",
+      "when_to_use": null,
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "runtime"
+    },
+    {
+      "name": "tool_search",
+      "id": "tool_search",
+      "version": null,
+      "schema_hash": "sha256:c230920b955ad364e1e40c64091bb75a82198b0655b9e0e4d541b370dc55eca1",
+      "description": "Search the current authorized tool catalog. Use this when the needed capability is not already listed; an empty query browses the catalog.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Capability, action, or tool name to find."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum matches (1-20, default 5).",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "platform_tool_discovery",
+      "approval": "never",
+      "category": "utility",
+      "when_to_use": null,
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "runtime"
+    },
+    {
+      "name": "web_fetch",
+      "id": "web_fetch",
+      "version": null,
+      "schema_hash": "sha256:3639348286122c760c8a9ae8a5038c57ddc251bf252c944ccf4843e1f051af04",
+      "description": "Fetch a specific URL and return its main textual content. Use this to read a link the user pasted or a URL surfaced by the model's native web search. Not a keyword-search tool — pick a specific URL.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Absolute http(s) URL to fetch."
+          },
+          "max_chars": {
+            "type": "number",
+            "description": "Maximum characters of extracted content to return (default 8000)."
+          },
+          "extract": {
+            "type": "string",
+            "description": "Extraction mode: 'markdown' (readable markdown, default), 'text' (plain text), 'raw' (first N chars of raw HTML).",
+            "enum": [
+              "markdown",
+              "text",
+              "raw"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Use when you have a specific URL to read — a link the user shared, a citation URL from your model's native search, or a doc link you want to inspect.",
+      "when_not_to_use": "Do not use for arbitrary keyword search. Do not use for internal/private hostnames — they will be rejected for safety.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 20000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "search_web",
+      "id": "search_web",
+      "version": null,
+      "schema_hash": "sha256:c64c32b5bcec3706f998a48c63e3197de6f5c34f9ca474a7e3dbd5f342fcc2d4",
+      "description": "Search the public web for one to five queries and return bounded titles, URLs, snippets, and relevance scores. Use this to discover current sources before reading a specific result with web_fetch.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "queries": {
+            "type": "array",
+            "description": "One to five web search queries.",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum results per query (1-10, default 5).",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "queries"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Use when current public information or source discovery is required.",
+      "when_not_to_use": "Do not use when a specific URL is already known; use web_fetch instead.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "confluence_write",
+      "id": "confluence_write",
+      "version": null,
+      "schema_hash": "sha256:81f27af1e7ac32fd09e063de3868127b8478b8e6d0a0a262686f7be2f77ec653",
+      "description": "Confluence write operations. Pick `action` from: `create_page`, `update_page`, `find_replace`, `move_page`, `comment`, `delete_page`. ALL actions require user confirmation (gated by the permission layer). Content accepts markdown; converted to Confluence storage format automatically. See `when_to_use` for per-action parameters and safety rules.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Which write operation to perform. REQUIRED.",
+            "enum": [
+              "create_page",
+              "update_page",
+              "find_replace",
+              "move_page",
+              "comment",
+              "delete_page"
+            ]
+          },
+          "page_id": {
+            "type": "string",
+            "description": "Target page id. Required for update/find_replace/comment/delete."
+          },
+          "space_key": {
+            "type": "string",
+            "description": "For create_page: space to create the page in."
+          },
+          "title": {
+            "type": "string",
+            "description": "For create_page: required. For update_page: optional rename."
+          },
+          "content": {
+            "type": "string",
+            "description": "For create_page / update_page: the page body (markdown or HTML)."
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "For create_page: optional parent page to nest under."
+          },
+          "target_parent_id": {
+            "type": "string",
+            "description": "For move_page: id of the page that will become the NEW parent. Must exist and be in the same space."
+          },
+          "find": {
+            "type": "string",
+            "description": "For find_replace: exact substring to locate. Must appear exactly once."
+          },
+          "replace": {
+            "type": "string",
+            "description": "For find_replace: substring to replace `find` with."
+          },
+          "raw_html": {
+            "type": "boolean",
+            "description": "For find_replace: treat `replace` as raw XHTML (don't escape & / < / >). Default false — plain text is auto-escaped so innocent content like 'A & B' doesn't corrupt page markup. Only set true when intentionally inserting tags like <strong>."
+          },
+          "body": {
+            "type": "string",
+            "description": "For comment: the comment text."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "medium",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "integration",
+      "when_to_use": "User explicitly asks to create, edit, update, comment on, move, or delete a Confluence page. Always confirm destructive actions.\n\nACTION DETAILS:\n\n• create_page — new page. Requires space_key, title, content (markdown accepted). Optional parent_id to nest under a parent. TO CREATE A SIBLING of an existing page: first read_page on the reference — use the parent_id it returns, or use parent_id from a search hit directly. Don't guess.\n\n• update_page — FULL body replacement. Requires page_id, content. Optional title (rename). ⚠️ Overwrites everything — prefer find_replace for small edits on long pages.\n\n• find_replace — targeted partial edit. Requires page_id, find, replace. Refuses if `find` has 0 or >1 matches (narrow pattern until unique). USE FOR 'change X to Y' on long pages. `replace` is auto-escaped as plain text; set raw_html=true only when intentionally inserting XHTML like <strong>.\n\n• move_page — relocate under a new parent (same space). Requires page_id, target_parent_id. Refuses cross-space moves and no-ops.\n\n• comment — add page-level comment. Requires page_id, body.\n\n• delete_page — move to trash. Requires page_id. Confirm title/id with user first.\n\nMarkdown is converted to Confluence storage format automatically: headings (# — ######), bullet/ordered lists, **bold**, *italic*, `inline code`, ```fenced code```, [links](url). Raw HTML also passes through (detected and preserved).",
+      "when_not_to_use": "Never use speculatively. Never delete pages the user did not explicitly name. For reads, use confluence_read.",
+      "requires_confirmation": true,
+      "required_permissions": [],
+      "timeout_ms": 25000,
+      "implementation_owner": "worker",
+      "connector_provider": "confluence"
+    },
+    {
+      "name": "context_compact",
+      "id": "context_compact",
+      "version": null,
+      "schema_hash": "sha256:b87042863fcb2913243f3027fcdb3079bd8f6cfa7d3fd63a014f5ee1da8ddb0d",
+      "description": "Compress older conversation history into a short summary, preserving the most recent user turns intact. Call this when the conversation has grown long and earlier context is no longer directly relevant — for example, after finishing a multi-step subtask and starting a new one. Preserves URLs, code blocks, and referenced artifacts from the compressed region.\n\nA 'turn' is one user message plus all assistant/tool messages that follow it. `keep_recent_turns=3` means the last 3 user questions and everything the assistant did in response stay in full; everything before gets summarized.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "keep_recent_turns": {
+            "type": "integer",
+            "description": "Number of recent user turns to preserve intact (1-10, default 3). Lower = more aggressive compaction."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Optional short reason for the compaction (audit/observability). Example: 'finished research phase, starting draft'."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "utility",
+      "when_to_use": "After completing a discrete subtask and the details of that subtask are no longer needed for the next step. Also when the tool-result history contains large blobs (search results, file contents) that are now stale.",
+      "when_not_to_use": "Don't call this in the middle of a subtask — you'll lose working context. Don't call it if the conversation is short (fewer than keep_recent_turns+1 user messages).",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 2000,
+      "implementation_owner": "runtime"
+    },
+    {
+      "name": "generate_image",
+      "id": "generate_image",
+      "version": null,
+      "schema_hash": "sha256:08a5104c612623f57e16c482b7cd1ea4dd96995c5057d39cd291cfe59cf70e94",
+      "description": "Generate images from text descriptions using AI. Creates high-quality images based on the provided prompt.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Detailed description of the image to generate. Be specific about style, content, colors, composition."
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "Things to avoid in the image (e.g., 'blurry, low quality, distorted')."
+          },
+          "size": {
+            "type": "string",
+            "description": "Image size: '1536*1536', '1024*1024', '720*1280', '1280*720'.",
+            "enum": [
+              "1536*1536",
+              "1024*1024",
+              "720*1280",
+              "1280*720"
+            ]
+          },
+          "style": {
+            "type": "string",
+            "description": "Image style preset.",
+            "enum": [
+              "<auto>",
+              "<photography>",
+              "<portrait>",
+              "<3d cartoon>",
+              "<anime>",
+              "<oil painting>",
+              "<watercolor>",
+              "<sketch>",
+              "<flat illustration>"
+            ]
+          },
+          "n": {
+            "type": "number",
+            "description": "Number of images to generate (1-4). Default is 1."
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "medium",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "generation",
+      "when_to_use": "Use when the user asks to create, generate, draw, or design an image/picture/artwork. Good for: illustrations, photos, artwork, logos, concept art, portraits, landscapes, animals, objects, or any visual content that requires AI image generation.",
+      "when_not_to_use": "Do not use for data visualization or charts (use code execution with matplotlib instead). Do not use if the user just wants to analyze or describe existing images. Do not use for mathematical function plots - use code execution instead.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 120000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "generate_quiz",
+      "id": "generate_quiz",
+      "version": null,
+      "schema_hash": "sha256:9b4ece973284e980c86d013ca5a3e62f3c65765f57f96846374a95a3015a3666",
+      "description": "Create an interactive quiz from content already available in the conversation or from relevant retrieved knowledge. Supply the complete questions array. After a successful call, reply with one brief confirmation because the UI renders the questions and answers.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Quiz title, e.g. 'Quiz: Zakat Rules'"
+          },
+          "description": {
+            "type": "string",
+            "description": "One sentence quiz description"
+          },
+          "difficulty": {
+            "type": "string",
+            "description": "easy, medium, or hard",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ]
+          },
+          "questions": {
+            "type": "array",
+            "description": "Array of question objects. Use EXACTLY the field names below — never \"answer\" (use \"correct_answer\") or \"question\" (use \"question_text\"). For mc_single: correct_answer is a list with ONE letter, e.g. [\"B\"]. For mc_multi: 2-3 letters, e.g. [\"A\",\"C\"]. For true_false: [\"true\"] or [\"false\"]. option.text must be the actual answer text, never the letter itself.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question_num": {
+                  "type": "integer",
+                  "description": "1-based position in the quiz"
+                },
+                "question_type": {
+                  "type": "string",
+                  "enum": [
+                    "mc_single",
+                    "mc_multi",
+                    "true_false"
+                  ],
+                  "description": "mc_single = one correct letter; mc_multi = 2-3 correct letters; true_false = ['true'] or ['false']."
+                },
+                "question_text": {
+                  "type": "string",
+                  "description": "The question itself, as a sentence. Never put the whole thing into options."
+                },
+                "options": {
+                  "type": "array",
+                  "description": "Exactly 4 options for mc_single / mc_multi. Omit or empty for true_false.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "enum": [
+                          "A",
+                          "B",
+                          "C",
+                          "D"
+                        ],
+                        "description": "The option letter."
+                      },
+                      "text": {
+                        "type": "string",
+                        "description": "Actual answer text — never just 'A'/'B'/'C'/'D'."
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "text"
+                    ]
+                  }
+                },
+                "correct_answer": {
+                  "type": "array",
+                  "description": "Letters of the correct option(s): [\"B\"] for mc_single, [\"A\",\"C\"] for mc_multi, [\"true\"] / [\"false\"] for true_false. Never prose, never the option text, never numeric indices.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "explanation": {
+                  "type": "string",
+                  "description": "One sentence on why the answer is correct."
+                }
+              },
+              "required": [
+                "question_num",
+                "question_type",
+                "question_text",
+                "correct_answer"
+              ]
+            }
+          }
+        },
+        "required": [
+          "title",
+          "questions"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "generation",
+      "when_to_use": "Use when the user explicitly asks for a quiz, test, flashcards, or practice questions. Retrieve knowledge first only when the requested quiz depends on available enterprise data; use uploaded content directly when that is the requested source.",
+      "when_not_to_use": "Only skip if the user is asking a factual question expecting a direct answer.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "mcp_docgen__generate_document",
+      "id": "mcp_docgen__generate_document",
+      "version": null,
+      "schema_hash": "sha256:3fd5a1afe50e2e8696cbbf8140fae6c7f96dd819c3eae0b49e913d090d04875a",
+      "description": "Generate a docx / pptx / xlsx / pdf file.",
+      "input_schema": {
+        "description": "Input contract for the single ``generate_document`` tool. The tool surface follows the Anthropic / Vercel \"fewer tools > more tools\" principle: one verb, the ``format`` field selects the backend renderer. Clients do not need to know which Python module produces which format.",
+        "properties": {
+          "format": {
+            "description": "Output format. One of: docx, pptx, xlsx, pdf.",
+            "enum": [
+              "docx",
+              "pptx",
+              "xlsx",
+              "pdf"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "title": {
+            "description": "Document title. Rendered as cover / first heading.",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "goal": {
+            "description": "Short statement of what the document is for — audience, tone, what a reader should walk away with. Drives the planner.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Goal",
+            "type": "string"
+          },
+          "body_markdown": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "STRONGLY RECOMMENDED. Full markdown body — headings + bullets + paragraphs. The planner uses this as ground truth content; call quality drops severely (template skeleton only) when this is missing, because the MCP transport does not currently expose a sampling round-trip back to the caller. Write the complete document in your response first, then pass that exact markdown as ``body_markdown``.",
+            "title": "Body Markdown"
+          },
+          "locale": {
+            "description": "BCP-47 locale (en-US, zh-CN, ar-SA, etc.).",
+            "maxLength": 16,
+            "minLength": 2,
+            "title": "Locale",
+            "type": "string"
+          },
+          "design_system": {
+            "anyOf": [
+              {
+                "enum": [
+                  "claude",
+                  "stripe",
+                  "carbon",
+                  "keynote",
+                  "editorial",
+                  "enterprise"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Named design system. Overrides template palette + typography. Available via the docgen://design-systems resource.",
+            "title": "Design System"
+          },
+          "template_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Brand template. Lower precedence than design_system. Available via the docgen://templates/{tenant_id} resource.",
+            "title": "Template Name"
+          }
+        },
+        "required": [
+          "format",
+          "title",
+          "goal"
+        ],
+        "title": "GenerateDocumentInput",
+        "type": "object"
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "generation",
+      "when_to_use": null,
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 300000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "todo_write",
+      "id": "todo_write",
+      "version": null,
+      "schema_hash": "sha256:0ab68665ca43420e252b523194d2238c27f2140f9b542cde054f00ff5d369057",
+      "description": "Replace the session's task list with the given items. Use this to plan multi-step work and keep focus. Overwrites the current list — call with the full up-to-date list each time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Ordered list of tasks. Each item is an object with 'description' (required) and 'status' (optional, default 'pending'). Status must be one of: pending, in_progress, completed, failed.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed",
+                    "failed"
+                  ]
+                }
+              },
+              "required": [
+                "description"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "utility",
+      "when_to_use": "Right after receiving a multi-step task, to lay out the plan; and whenever task status changes (item done, new step discovered).",
+      "when_not_to_use": null,
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "update_user_memory",
+      "id": "update_user_memory",
+      "version": null,
+      "schema_hash": "sha256:9a73c04e0ad4ac395425538d3e0d57b62fe7a5bbbed92a42af814306f494cff7",
+      "description": "Update the user's long-term memory with new facts or preferences. Use this when the user explicitly asks you to remember something, or when you learn important preferences (e.g. language, coding style, name). Do NOT use for temporary conversation context.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The key for the memory item (e.g., 'user_name', 'favorite_language', 'project_context'). Use snake_case. For delete_source, pass a source_id returned by inspect."
+          },
+          "value": {
+            "type": "string",
+            "description": "The value to remember. Can be a simple string or a JSON string for complex data."
+          },
+          "action": {
+            "type": "string",
+            "description": "Action to perform: 'set' (upsert one key), 'delete' (one key), 'inspect' (list scoped sources), or 'delete_source' (forget one inspected source).",
+            "enum": [
+              "set",
+              "delete",
+              "inspect",
+              "delete_source"
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "description": "Memory profile gate: off, basic, or hybrid. Defaults to hybrid.",
+            "enum": [
+              "off",
+              "basic",
+              "hybrid"
+            ]
+          },
+          "memory_type": {
+            "type": "string",
+            "description": "Memory taxonomy for set action: semantic, situational, or procedural.",
+            "enum": [
+              "procedural",
+              "situational",
+              "semantic"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "utility",
+      "when_to_use": "When the user says 'remember that my name is X', 'I prefer Python', or implies a long-term preference.",
+      "when_not_to_use": "For temporary information relevant only to the current turn.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "execute_python_code",
+      "id": "execute_python_code",
+      "version": null,
+      "schema_hash": "sha256:d1bf42fb0244ebca6a0952b92359c8c75269794255d2c85ec3aa622ec2f41d23",
+      "description": "Execute bounded Python in an isolated capability-worker subprocess. Read supplied files from input/<filename>; write deliverables only to output/<filename>. Input files are read-only. Subprocesses, threads and networking are not permitted.",
+      "input_schema": {"type":"object","required":["code"],"properties":{"code":{"type":"string"},"inputs":{"type":"array","items":{"type":"object","required":["filename","content_base64","size_bytes"],"properties":{"filename":{"type":"string"},"mime_type":{"type":"string"},"content_base64":{"type":"string"},"size_bytes":{"type":"integer","minimum":0}},"additionalProperties":false}}},"additionalProperties":false},
+      "read_only": false,
+      "effect": "write",
+      "risk": "medium",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "on_request",
+      "category": "analysis",
+      "when_to_use": "When bounded Python computation is required.",
+      "when_not_to_use": "For unrestricted host or network operations.",
+      "requires_confirmation": true,
+      "required_permissions": [],
+      "timeout_ms": 120000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "read_attachment",
+      "id": "read_attachment",
+      "version": null,
+      "schema_hash": "sha256:58e310e07f9fb6d19bec3b22bdb37ca6408951998d30865d8c8e9728ed1e9538",
+      "description": "Read tenant, user, and session scoped attachment metadata or bounded extracted content.",
+      "input_schema": {"type":"object","required":["attachment_id","operation"],"properties":{"attachment_id":{"type":"string"},"operation":{"type":"string","enum":["metadata","content"]},"max_chars":{"type":"integer"}},"additionalProperties":false},
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "When an authorized attachment must be inspected.",
+      "when_not_to_use": "When attachment scope or parser safety is uncertain.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "local_node_catalog",
+      "id": "local_node_catalog",
+      "version": "2",
+      "schema_hash": "sha256:cf00d2c3ecd81a22f68a2068a73613a3c1ddacba8a56ee7aa7b4ade497722ac2",
+      "description": "List paired Local Node capabilities.",
+      "input_schema": {"type":"object","required":["device_id"],"properties":{"device_id":{"type":"string"}},"additionalProperties":false},
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "local-node-capability/v2",
+      "kind": "tool",
+      "approval": "never",
+      "category": "local",
+      "when_to_use": "When inspecting a paired device capability snapshot.",
+      "when_not_to_use": "When device ownership is not bound.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 5000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "local_node_describe",
+      "id": "local_node_describe",
+      "version": "2",
+      "schema_hash": "sha256:cf00d2c3ecd81a22f68a2068a73613a3c1ddacba8a56ee7aa7b4ade497722ac2",
+      "description": "Describe one paired Local Node.",
+      "input_schema": {"type":"object","required":["device_id"],"properties":{"device_id":{"type":"string"}},"additionalProperties":false},
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "local-node-capability/v2",
+      "kind": "tool",
+      "approval": "never",
+      "category": "local",
+      "when_to_use": "When reading a current paired device description.",
+      "when_not_to_use": "When device ownership is not bound.",
+      "requires_confirmation": false,
+      "required_permissions": [],
+      "timeout_ms": 5000,
+      "implementation_owner": "worker"
+    },
+    {
+      "name": "local_node_action",
+      "id": "local_node_action",
+      "version": "2",
+      "schema_hash": "sha256:38988293e45f705c4733a673ac58fb6ec5302c16e9dded9b083be35ff77c6b5d",
+      "description": "Dispatch an explicitly authorized operation to a paired Local Node.",
+      "input_schema": {"type":"object","required":["operation","arguments"],"properties":{"operation":{"type":"string"},"arguments":{"type":"object"},"device_id":{"type":"string"}},"additionalProperties":false},
+      "read_only": false,
+      "effect": "write",
+      "risk": "high",
+      "protocol": "local-node-capability/v2",
+      "kind": "tool",
+      "approval": "always",
+      "category": "local",
+      "when_to_use": "When an approved operation must be sent to a paired device.",
+      "when_not_to_use": "For unbound host operations or missing approval.",
+      "requires_confirmation": true,
+      "required_permissions": [],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker"
+    }
+  ]
+}

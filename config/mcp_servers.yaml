@@ -1,0 +1,8 @@
+# MCP Server Configuration
+# Each entry defines an operator-managed remote system that the AI agent can use.
+
+mcp_servers: []
+
+# Built-in document generation is a capability-worker tool. This file is only
+# for platform-managed remote Streamable HTTP servers; tenant registrations
+# remain HTTPS-only.

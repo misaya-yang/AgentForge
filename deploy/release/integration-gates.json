@@ -1,0 +1,88 @@
+{
+  "schema_version": "ai-platform/integration-gates/v1",
+  "gates": {
+    "platform-db": {
+      "tier": "L2",
+      "required_env": ["DATABASE_URL"],
+      "steps": [
+        {"id": "authority-verify", "command": ["python3", "-m", "database.authority", "verify"]},
+        {"id": "authority-fingerprint", "command": ["python3", "-m", "database.authority", "fingerprint"]},
+        {"id": "migration-matrix", "command": ["make", "kb-migration-gate"]}
+      ]
+    },
+    "agent-execution": {
+      "tier": "L2",
+      "required_env": ["AI_PLATFORM_AGENT_RUNTIME_SOURCE", "AI_PLATFORM_AGENT_RUNTIME_IMAGE", "AGENT_CAPABILITY_WORKER_IMAGE"],
+      "steps": [
+        {"id": "thread-store", "command": ["make", "agent-thread-store-contract"]},
+        {"id": "runtime-smoke", "command": ["make", "agent-runtime-smoke"]},
+        {"id": "worker-smoke", "command": ["make", "agent-capability-worker-smoke"]},
+        {"id": "write-contract", "command": ["make", "agent-runtime-write-gate"]}
+      ]
+    },
+    "knowledge": {
+      "tier": "L2",
+      "required_env": ["QDRANT_URL", "RAG_LIVE_DATASET_ID"],
+      "steps": [
+        {"id": "knowledge-units", "command": ["make", "kb-unit-gate"]},
+        {"id": "qdrant-integration", "command": ["make", "kb-integration-smoke"]},
+        {"id": "live-retrieval", "command": ["make", "rag-live-quality-gate"]}
+      ]
+    },
+    "fresh-install": {
+      "tier": "L3",
+      "required_env": ["AI_PLATFORM_RELEASE_LIVE_AUTHORIZED", "AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH", "AI_PLATFORM_FRESH_DATABASE_ADMIN_DSN", "AI_PLATFORM_FRESH_DATABASE_MIGRATOR_DSN", "AI_PLATFORM_FRESH_RUNTIME_RECEIPT"],
+      "fresh_database": {
+        "admin_dsn_env": "AI_PLATFORM_FRESH_DATABASE_ADMIN_DSN",
+        "migrator_dsn_env": "AI_PLATFORM_FRESH_DATABASE_MIGRATOR_DSN"
+      },
+      "external_receipt": {
+        "env": "AI_PLATFORM_FRESH_RUNTIME_RECEIPT",
+        "gate": "fresh-runtime",
+        "commands": [
+          ["make", "quickstart"],
+          ["make", "validate"],
+          ["make", "status"],
+          ["python3", "-m", "scripts.release.version_agreement_gate"]
+        ]
+      },
+      "steps": [
+        {"id": "authority-init-fresh", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "init-fresh"]},
+        {"id": "authority-verify", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "verify"]},
+        {"id": "authority-fingerprint", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "fingerprint"]}
+      ]
+    },
+    "rollback": {
+      "tier": "L3",
+      "required_env": ["AI_PLATFORM_RELEASE_LIVE_AUTHORIZED", "AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH"],
+      "steps": [
+        {"id": "platform-db", "gate": "platform-db"},
+        {"id": "runtime-rollback", "command": ["make", "agent-runtime-rollback-rehearsal"]},
+        {"id": "knowledge-after-rollback", "gate": "knowledge"}
+      ]
+    },
+    "version-agreement": {
+      "tier": "L3",
+      "required_env": [
+        "AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH",
+        "AI_PLATFORM_VERSION_ENDPOINTS",
+        "AI_PLATFORM_VERSION_CONTAINERS"
+      ],
+      "steps": [
+        {"id": "live-service-versions", "command": ["python3", "-m", "scripts.release.version_agreement_gate"]}
+      ]
+    },
+    "all": {
+      "tier": "L3",
+      "required_env": ["AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH"],
+      "steps": [
+        {"id": "platform-db", "gate": "platform-db"},
+        {"id": "agent-execution", "gate": "agent-execution"},
+        {"id": "knowledge", "gate": "knowledge"},
+        {"id": "fresh-install", "gate": "fresh-install"},
+        {"id": "rollback", "gate": "rollback"},
+        {"id": "version-agreement", "gate": "version-agreement"}
+      ]
+    }
+  }
+}

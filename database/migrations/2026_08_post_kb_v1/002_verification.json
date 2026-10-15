@@ -1,0 +1,16 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "sequence": 2,
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "changes": {
+    "1": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "2": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429"
+  },
+  "fingerprints": {
+    "structural": "f8d4fe5bb35269963baad9721f24ce61b94e1d0954f7f07e125f488109e99525",
+    "acl": "631fdd35de84fdac2fdb95f45f7f9a5b21568defed1ce31ead2a894b4e4f41b2",
+    "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+    "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318"
+  },
+  "provenance": "Isolated fresh frozen baseline (all four hashes matched) followed by authority epochs 001 and 002; custom role prefix p1ref_; PostgreSQL16 local test database. No production data copied."
+}

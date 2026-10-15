@@ -1,0 +1,472 @@
+{
+  "schema_version": "arc04-domain-ownership/v1",
+  "generated_at": "2026-08-30T03:50:43Z",
+  "sources": [
+    "reports/inventory/core-import-inventory.json",
+    "reports/inventory/core-persistence-sql-inventory.json"
+  ],
+  "note": "盘点只确定目标 owner 与消费者清单, 不移动代码; 每个领域的迁移单独成批, 遵守 PRD §ARC-04 '每个提交只迁一个领域, 并提供消费者清单'. target_owner 是文档性结论, 迁移批次启动前需按当时的消费者清单复核.",
+  "domains": {
+    "quiz": {
+      "target_owner": "Gateway 领域模块 (quiz 能力, 建议 src/services/quiz)",
+      "rationale": "纯业务实现(评分/访问控制), 无跨服务消费者, 不符合 contracts 准入",
+      "move_conditions": [
+        "单次提交只迁 quiz 一个领域",
+        "消费者: src/api/v1/quiz.py, src/api/v1/conversation_shares.py, sharing.artifact_share_manager(core 内)",
+        "注意 quiz_grader 被 sharing/artifact_share_manager 跨域消费 — 先处理该边或同批迁走",
+        "保留薄 shim + 删除条件, 测试通过后再排期删除"
+      ],
+      "module_count": 3,
+      "total_loc": 510,
+      "direct_io_deps": [],
+      "modules": {
+        "ai_gateway_core.quiz": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/quiz/__init__.py",
+          "loc": 10,
+          "io_deps": []
+        },
+        "ai_gateway_core.quiz.quiz_access_service": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "loc": 294,
+          "io_deps": []
+        },
+        "ai_gateway_core.quiz.quiz_grader": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_grader.py",
+          "loc": 206,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/conversation_shares.py",
+          "src/api/v1/quiz.py"
+        ],
+        "tests": [
+          "tests/api/test_quiz_grading.py"
+        ]
+      },
+      "intra_core_consumers": {
+        "ai_gateway_core.quiz.quiz_grader": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ]
+      },
+      "sql_tables": {
+        "ai_gateway_core.quiz.quiz_access_service": {
+          "write": [
+            "assistant.quiz_attempts",
+            "assistant.quizzes"
+          ],
+          "read": []
+        }
+      }
+    },
+    "skills": {
+      "target_owner": "Gateway 领域模块 (skills 能力, 建议 src/services/skills)",
+      "rationale": "技能解析/执行/注册是业务实现; parser 依赖 yaml(非协议), 不应进 contracts",
+      "move_conditions": [
+        "单次提交只迁 skills 一个领域",
+        "消费者: src/main.py, src/api/v1/skills.py, tests",
+        "artifact_repository 被 persistence.repositories.agent_repository 消费 — 该边属于 god class 分离范围(见分离方案)",
+        "builder 写 assistant_audit_events(agent-runtime 表) — 迁移时一并评估该跨域写"
+      ],
+      "module_count": 9,
+      "total_loc": 1590,
+      "direct_io_deps": [
+        "yaml"
+      ],
+      "modules": {
+        "ai_gateway_core.skills": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/__init__.py",
+          "loc": 57,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.artifact_repository": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py",
+          "loc": 542,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.builder": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/builder.py",
+          "loc": 113,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.builtin": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/builtin/__init__.py",
+          "loc": 5,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.builtin.skill_create": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/builtin/skill_create.py",
+          "loc": 78,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.executor": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/executor.py",
+          "loc": 99,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.models": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/models.py",
+          "loc": 151,
+          "io_deps": []
+        },
+        "ai_gateway_core.skills.parser": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/parser.py",
+          "loc": 254,
+          "io_deps": [
+            "yaml"
+          ]
+        },
+        "ai_gateway_core.skills.registry": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/registry.py",
+          "loc": 291,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/skills.py",
+          "src/main.py"
+        ],
+        "tests": [
+          "tests/api/test_skills_api.py",
+          "tests/database/test_agent_skill_knowledge_migration.py",
+          "tests/packages/core/test_skill_artifact_repository_schema.py",
+          "tests/security/test_skill_entrypoint_policy.py",
+          "tests/security/test_skill_tenant_isolation.py"
+        ]
+      },
+      "intra_core_consumers": {
+        "ai_gateway_core.skills.artifact_repository": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      "sql_tables": {
+        "ai_gateway_core.skills.artifact_repository": {
+          "write": [
+            "assistant.assistant_skill_versions",
+            "assistant.assistant_skills"
+          ],
+          "read": []
+        },
+        "ai_gateway_core.skills.builder": {
+          "write": [
+            "assistant_audit_events"
+          ],
+          "read": []
+        }
+      }
+    },
+    "image": {
+      "target_owner": "Gateway 领域模块 (image 能力, 建议并入 src/services/images)",
+      "rationale": "图像状态机/缩略图/水印是业务实现, 带 PIL/numpy/httpx 重依赖, 与 src/services/images 同源",
+      "move_conditions": [
+        "单次提交只迁 image 一个领域",
+        "消费者: src/services/images/{service,repository}.py, src/api/v1/agent_images.py, tests",
+        "image_state 写 assistant.image_* 五表 — 与 src/services/images/repository.py 的 SQL 一并核对",
+        "PIL/numpy 依赖随模块离开 core 后, core 不再需要这些依赖"
+      ],
+      "module_count": 6,
+      "total_loc": 1624,
+      "direct_io_deps": [
+        "PIL",
+        "httpx",
+        "numpy"
+      ],
+      "modules": {
+        "ai_gateway_core.image": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/__init__.py",
+          "loc": 88,
+          "io_deps": []
+        },
+        "ai_gateway_core.image.callback": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/callback.py",
+          "loc": 149,
+          "io_deps": [
+            "httpx"
+          ]
+        },
+        "ai_gateway_core.image.helpers": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/helpers.py",
+          "loc": 277,
+          "io_deps": []
+        },
+        "ai_gateway_core.image.image_state": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+          "loc": 870,
+          "io_deps": []
+        },
+        "ai_gateway_core.image.thumbnail": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/thumbnail.py",
+          "loc": 49,
+          "io_deps": [
+            "PIL"
+          ]
+        },
+        "ai_gateway_core.image.watermark": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/image/watermark.py",
+          "loc": 191,
+          "io_deps": [
+            "PIL",
+            "numpy"
+          ]
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/agent_images.py",
+          "src/services/images/repository.py",
+          "src/services/images/service.py"
+        ],
+        "tests": [
+          "tests/packages/ai_gateway_core/test_image_task_reservation.py",
+          "tests/services/assistant/test_image_signature_flow.py",
+          "tests/services/images/test_image_task_worker.py"
+        ]
+      },
+      "intra_core_consumers": {},
+      "sql_tables": {
+        "ai_gateway_core.image.image_state": {
+          "write": [
+            "assistant.image_blobs",
+            "assistant.image_idempotency",
+            "assistant.image_sessions",
+            "assistant.image_tasks",
+            "assistant.image_turns"
+          ],
+          "read": []
+        }
+      }
+    },
+    "memory": {
+      "target_owner": "Gateway 领域模块 (memory 能力, 建议 src/services/memory)",
+      "rationale": "会话/用户记忆业务逻辑, 消费者仅 Gateway(container + control_plane)",
+      "move_conditions": [
+        "单次提交只迁 memory 一个领域",
+        "消费者: src/container.py, src/services/agent_runtime/control_plane.py",
+        "写 session_memory/user_memory(memory 域表) — 无跨域 SQL",
+        "persistence.database/agent_repository 也写 memory 表 — god class 分离先行(见分离方案)"
+      ],
+      "module_count": 2,
+      "total_loc": 513,
+      "direct_io_deps": [],
+      "modules": {
+        "ai_gateway_core.memory": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/memory/__init__.py",
+          "loc": 6,
+          "io_deps": []
+        },
+        "ai_gateway_core.memory.service": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "loc": 507,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/container.py",
+          "src/services/agent_runtime/control_plane.py"
+        ]
+      },
+      "intra_core_consumers": {},
+      "sql_tables": {
+        "ai_gateway_core.memory.service": {
+          "write": [
+            "session_memory",
+            "user_memory"
+          ],
+          "read": [
+            "session_memory",
+            "user_memory"
+          ]
+        }
+      }
+    },
+    "sharing": {
+      "target_owner": "Gateway 领域模块 (sharing 能力, 建议 src/services/sharing)",
+      "rationale": "artifact 分享/答题令牌是业务实现, 消费者仅 Gateway API 层",
+      "move_conditions": [
+        "单次提交只迁 sharing 一个领域",
+        "消费者: src/api/v1/artifact_shares.py, src/api/v1/quiz.py, tests",
+        "artifact_share_manager 反向依赖 quiz_grader — 与 quiz 批次协调顺序",
+        "写 assistant.artifact_share* 三表(sharing 域) — 无跨域 SQL"
+      ],
+      "module_count": 2,
+      "total_loc": 506,
+      "direct_io_deps": [],
+      "modules": {
+        "ai_gateway_core.sharing": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/sharing/__init__.py",
+          "loc": 5,
+          "io_deps": []
+        },
+        "ai_gateway_core.sharing.artifact_share_manager": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py",
+          "loc": 501,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/artifact_shares.py",
+          "src/api/v1/quiz.py"
+        ],
+        "tests": [
+          "tests/api/test_artifact_shares.py",
+          "tests/database/test_artifact_share_migration.py"
+        ]
+      },
+      "intra_core_consumers": {},
+      "sql_tables": {
+        "ai_gateway_core.sharing.artifact_share_manager": {
+          "write": [
+            "assistant.artifact_share_attempt_tokens",
+            "assistant.artifact_share_submitters",
+            "assistant.artifact_shares"
+          ],
+          "read": []
+        }
+      }
+    },
+    "knowledge": {
+      "target_owner": "Gateway client owner(knowledge HTTP 客户端归 Gateway 的 client 层, PRD 第一批具名)",
+      "rationale": "proxy_client 是 HTTP 客户端(httpx), PRD §ARC-04 第一批: 'knowledge HTTP proxy → Gateway client owner'; errors/utils 随迁",
+      "move_conditions": [
+        "knowledge-service 是 core 消费方(2 文件) — 迁移不得增加 knowledge→core 依赖数(门禁冻结值 13)",
+        "消费者(以重新生成的 JSON consumers 为准; ARC-01 拆分后为): src/main.py, _assistant_routes/catalog.py, knowledge_authz.py, kb_ragas_client.py, knowledge-service 2 文件, tests",
+        "HTTP 客户端不属于 contracts 内容白名单 — 目标位置是 Gateway 的 client 层而非 contracts"
+      ],
+      "module_count": 4,
+      "total_loc": 521,
+      "direct_io_deps": [
+        "httpx"
+      ],
+      "modules": {
+        "ai_gateway_core.knowledge": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/knowledge/__init__.py",
+          "loc": 46,
+          "io_deps": []
+        },
+        "ai_gateway_core.knowledge.errors": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/knowledge/errors.py",
+          "loc": 19,
+          "io_deps": []
+        },
+        "ai_gateway_core.knowledge.proxy_client": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/knowledge/proxy_client.py",
+          "loc": 410,
+          "io_deps": [
+            "httpx"
+          ]
+        },
+        "ai_gateway_core.knowledge.utils": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/knowledge/utils.py",
+          "loc": 46,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/_assistant_routes/catalog.py",
+          "src/main.py",
+          "src/services/eval/kb_ragas_client.py",
+          "src/services/knowledge_authz.py"
+        ],
+        "knowledge": [
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/sync_service.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding.py"
+        ],
+        "tests": [
+          "tests/packages/ai_gateway_core/test_kb_proxy_client.py"
+        ]
+      },
+      "intra_core_consumers": {},
+      "sql_tables": {}
+    },
+    "eval": {
+      "target_owner": "Gateway 领域模块 (eval 能力, 建议 src/services/eval)",
+      "rationale": "评测执行/候选/采样是业务实现(evaluator_executor 1992 LOC), 消费者为 Gateway eval API 与 harness 脚本",
+      "move_conditions": [
+        "单次提交只迁 eval 一个领域",
+        "消费者: src/api/v1/{eval,agents}.py, src/services/eval/*, scripts/harness/agent_runtime_eval_contract.py, tests",
+        "agent_version_candidate 被 persistence.repositories.agent_repository 消费 — 属 god class 分离范围",
+        "迁移后 scripts/harness 的 import 路径需同批更新(脚本消费者无门禁冻结, 但不得破坏)"
+      ],
+      "module_count": 7,
+      "total_loc": 3350,
+      "direct_io_deps": [],
+      "modules": {
+        "ai_gateway_core.eval": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/__init__.py",
+          "loc": 18,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.agent_version_candidate": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/agent_version_candidate.py",
+          "loc": 671,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.evaluator_executor": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/evaluator_executor.py",
+          "loc": 1992,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.kb_ragas_sample": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/kb_ragas_sample.py",
+          "loc": 144,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.online_sampling": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/online_sampling.py",
+          "loc": 217,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.outbox_worker": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/outbox_worker.py",
+          "loc": 119,
+          "io_deps": []
+        },
+        "ai_gateway_core.eval.runtime_contract": {
+          "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/runtime_contract.py",
+          "loc": 189,
+          "io_deps": []
+        }
+      },
+      "consumers": {
+        "gateway": [
+          "src/api/v1/agents.py",
+          "src/api/v1/eval.py",
+          "src/services/eval/eval_candidate_client.py",
+          "src/services/eval/eval_llm_client.py",
+          "src/services/eval/eval_outbox_worker.py"
+        ],
+        "scripts": [
+          "scripts/harness/agent_runtime_eval_contract.py"
+        ],
+        "tests": [
+          "tests/api/test_agent_publish_api.py",
+          "tests/api/test_eval_traces.py",
+          "tests/database/test_agent_publication_atomicity.py",
+          "tests/packages/ai_gateway_core/test_kb_ragas_sample.py",
+          "tests/services/eval/test_agent_publish_gate.py",
+          "tests/services/eval/test_agent_version_candidate.py",
+          "tests/services/eval/test_candidate_runner.py",
+          "tests/services/eval/test_drive_shipped_entrypoints.py",
+          "tests/services/eval/test_eval_llm_client.py",
+          "tests/services/eval/test_evaluator_executor.py",
+          "tests/services/eval/test_online_sampling.py",
+          "tests/services/eval/test_outbox_worker.py"
+        ]
+      },
+      "intra_core_consumers": {
+        "ai_gateway_core.eval.agent_version_candidate": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "ai_gateway_core.eval.kb_ragas_sample": [
+          "packages/ai-gateway-core/src/ai_gateway_core/eval/evaluator_executor.py"
+        ]
+      },
+      "sql_tables": {}
+    }
+  }
+}

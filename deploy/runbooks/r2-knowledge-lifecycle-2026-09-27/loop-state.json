@@ -1,0 +1,41 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "domain_id": "r2-knowledge-lifecycle",
+  "lifecycle": "active",
+  "status": "in_progress",
+  "goal": "完成 KNO-01～12、AR-06、EV-01 待审核样本切片及 J09～J13/J30 当前候选验收。",
+  "owner": "root single-writer integration session",
+  "base_sha": "37a519a5",
+  "branch": "main",
+  "integrated_main_sha": "b8362ff0",
+  "active_phase": "R2-A",
+  "active_feature": "R2 final browser and authorization acceptance",
+  "active_package": "R2-A",
+  "next_action": "Unlock Codex in-app browser and complete J09-J13/J30 page journeys; run the two-tenant/two-role revocation matrix only with verified existing accounts. Keep unconfigured connector scenarios marked unverified. Review final diff and decide whether to merge the safe increment locally without claiming full R2 completion.",
+  "last_result": "2026-09-28 safe R2 increment b8362ff0 locally fast-forwarded to main, not pushed. Authority epoch 5/6 applied before hot update; Docker healthy with Python/frontend hash parity. Real DashScope hierarchy reprocess KILLed at durable preparing resumed the same execution, with one execution row and exact PG/Qdrant 23+5 identity. Local API archive/restore, impact, source status, Eval pending revision/CAS and internal share auth/revoke passed. KB unit 2020 passed/1 skipped; migration 150 passed; affected Gateway 182 passed; Web Node 188 passed; headless mock smoke 50+11 passed. Independent UI/recovery/backend findings fixed and re-reviewed. Mac locked blocks Codex in-app browser; J09-J13/J30 and real two-role matrix remain pending. See reports/product/r2-closure-progress-2026-09-28.md.",
+  "updated_at": "2026-09-28",
+  "blockers": ["Codex in-app browser cannot operate while macOS is locked", "Only one verified existing E2E account is available for real two-role/two-tenant validation"],
+  "cycle": ["observe", "freeze", "act", "verify", "review", "integrate", "decide"],
+  "iteration": 2,
+  "max_iterations": 20,
+  "phases": [
+    {"id": "R2-A", "file": "README.md", "depends_on": [], "status": "in_progress", "evidence": ["reports/product/r2-special-publication-closure-2026-09-28.md", "reports/product/r2-special-completion-2026-09-28.md", "reports/product/r2-closure-progress-2026-09-28.md"], "review": "recovery findings fixed; final browser matrix pending"},
+    {"id": "R2-B", "file": "README.md", "depends_on": ["R2-A"], "status": "in_progress", "evidence": ["reports/product/r2-closure-progress-2026-09-28.md"], "review": "automated and one-account API evidence only; two-role matrix pending"},
+    {"id": "R2-C", "file": "README.md", "depends_on": ["R2-B"], "status": "in_progress", "evidence": ["reports/product/r2-closure-progress-2026-09-28.md"], "review": "UI reviewer findings fixed; browser journeys pending"},
+    {"id": "R2-D", "file": "README.md", "depends_on": ["R2-C"], "status": "in_progress", "evidence": ["reports/product/r2-closure-progress-2026-09-28.md"], "review": "API share/revoke and Eval revision passed; J30 browser matrix pending"}
+  ],
+  "features": [],
+  "inherited_evidence": [
+    "reports/product/r1-final-boundaries-2026-09-27.md",
+    "reports/product/runtime-durable-recovery-2026-09-26.md"
+  ],
+  "execution_authorization": {
+    "scope": "R2 KNO-01～12, AR-06 and EV-01 pending review slice; independently continue R3/R4/R5 after R2 evidence closure.",
+    "parallel_agents": "User-authorized A/B/C parallel code writers with disjoint file ownership; primary owns shared integration and all live Docker/database/browser/provider actions; cross-review remains independent.",
+    "commit_authorized": true,
+    "local_merge_authorized": true,
+    "push_authorized": false,
+    "delete_branch_authorized": false
+  },
+  "pending_acceptance": ["J09", "J10", "J11", "J12", "J13", "J30"]
+}

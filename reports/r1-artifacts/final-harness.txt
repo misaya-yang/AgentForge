@@ -1,0 +1,14 @@
+Harness contract check
+-- structural lint --
+  required docs           : 18
+  budgeted files          : 2
+  relative links resolved : 115
+  workspace files scanned : 3585
+-- semantic validation --
+  make targets referenced : 55
+  gate schemas validated  : 37
+  programs inspected      : 19
+  WARN  program deploy/runbooks/kb-rag-ui-t5 declares unknown loop-state schema (none)
+  WARN  program deploy/runbooks/r1-assistant-closure-2026-09-23 (v4) is missing init.sh
+
+Harness contract OK.

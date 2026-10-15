@@ -1,0 +1,158 @@
+{{- if .Values.langgraph.enabled }}
+{{- range $name, $agent := .Values.langgraph.agents }}
+{{- if $agent.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-langgraph-{{ $name }}
+  labels:
+    {{- include "ai-gateway.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: langgraph-{{ $name }}
+spec:
+  {{- if not $agent.autoscaling.enabled }}
+  replicas: {{ $agent.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ai-gateway.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: langgraph-{{ $name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "ai-gateway.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: langgraph-{{ $name }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: langgraph-{{ $name }}
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: langgraph-{{ $name }}
+          image: "{{ $.Values.global.imageRegistry }}/{{ $agent.image.repository }}:{{ $agent.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $agent.port }}
+              protocol: TCP
+          env:
+            # Shared LangGraph env
+            {{- range $key, $value := $.Values.langgraph.sharedEnv }}
+            {{- if ne $key "LANGGRAPH_CLOUD_LICENSE_KEY" }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+            - name: LANGGRAPH_CLOUD_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-gateway.fullname" $ }}-secret
+                  key: LANGGRAPH_CLOUD_LICENSE_KEY
+            # Database (agent-specific database for isolation)
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-gateway.fullname" $ }}-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-gateway.fullname" $ }}-secret
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URI
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ include "ai-gateway.postgresHost" $ }}:{{ include "ai-gateway.postgresPort" $ }}/{{ $agent.databaseName }}?sslmode=disable"
+            # Redis (agent-specific db number for isolation)
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-gateway.fullname" $ }}-secret
+                  key: REDIS_PASSWORD
+            - name: REDIS_URI
+              value: "redis://:$(REDIS_PASSWORD)@{{ include "ai-gateway.redisHost" $ }}:{{ include "ai-gateway.redisPort" $ }}/{{ $agent.redisDb }}"
+            # Qdrant
+            - name: QDRANT_URL
+              value: {{ include "ai-gateway.qdrantUrl" $ | quote }}
+            # KB Service (direct, no Gateway round-trip)
+            {{- if $.Values.knowledgeService.enabled }}
+            - name: KB_SERVICE_URL
+              value: {{ include "ai-gateway.knowledgeServiceUrl" $ | quote }}
+            {{- end }}
+            # Agent-specific env
+            {{- range $key, $value := $agent.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /ok
+              port: {{ $agent.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ok
+              port: {{ $agent.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $agent.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-langgraph-{{ $name }}
+  labels:
+    {{- include "ai-gateway.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: langgraph-{{ $name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $agent.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-gateway.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: langgraph-{{ $name }}
+{{- if $agent.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-langgraph-{{ $name }}
+  labels:
+    {{- include "ai-gateway.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: langgraph-{{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ai-gateway.fullname" $ }}-langgraph-{{ $name }}
+  minReplicas: {{ $agent.autoscaling.minReplicas }}
+  maxReplicas: {{ $agent.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $agent.autoscaling.targetCPUUtilization }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

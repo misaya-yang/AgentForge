@@ -1,0 +1,21 @@
+{
+  "implementation_commit": "91eadb927a8e0fa02eac39fc1657470bcf84ff73",
+  "main_contains_implementation": true,
+  "merge_mode": "fast-forward",
+  "remote_push_performed": false,
+  "source_overlay": "22bf4e1ecad56231aadc5bfc5557037b4bc98bc16837ca53fe4ec8645aa40442",
+  "unrelated_files_preserved": 11,
+  "pre_merge_checks": {
+    "python_passed": 200,
+    "architecture": "PASS",
+    "harness": "PASS",
+    "validate": "PASS",
+    "status": "PASS",
+    "image_pair": "PASS"
+  },
+  "post_commit_checks": {
+    "actual_postgres_role_matrix_passed": 2,
+    "source_contract_passed": 18
+  },
+  "full_R1_complete": false
+}

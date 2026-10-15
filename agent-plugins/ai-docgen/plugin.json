@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ai-docgen",
+  "version": "1.0.0",
+  "description": "Generate reviewed DOCX, PPTX, XLSX, and PDF artifacts through the platform capability worker.",
+  "author": {
+    "name": "AI Gateway Maintainers"
+  },
+  "license": "MIT",
+  "keywords": [
+    "documents",
+    "docx",
+    "pptx",
+    "xlsx",
+    "pdf",
+    "office"
+  ],
+  "extensions": {
+    "com.misaya.ai-gateway": {
+      "skills": [
+        "./skills/create-document/SKILL.md"
+      ]
+    }
+  }
+}

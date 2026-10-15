@@ -1,0 +1,1156 @@
+{
+  "base_git_sha": "4e3805409a5bb2a3d0231a8576a58cd9ced537dc",
+  "baseline_id": "2026-08-post-rag",
+  "generator": "scripts/inventory/generate_baselines.py",
+  "methodology": [
+    "Line counts are read from Git blobs at base_git_sha, never working-tree files.",
+    "Test files are classified by path (tests/, e2e/, *.test.ts, *.spec.ts, test_*.py).",
+    "Re-running this generator at the same SHA must yield byte-identical output."
+  ],
+  "oversized_python": {
+    "by_unit": {
+      "ai-gateway-core": 12,
+      "gateway": 23,
+      "knowledge-service": 29,
+      "local-node": 2,
+      "scripts": 11,
+      "tests": 44
+    },
+    "count": 121,
+    "files": [
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+        "is_test": false,
+        "lines": 8996,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+        "is_test": false,
+        "lines": 7256,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/api/routes/knowledge.py",
+        "is_test": false,
+        "lines": 4735,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/vector_store.py",
+        "is_test": false,
+        "lines": 4179,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+        "is_test": false,
+        "lines": 4142,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/retrieval_service.py",
+        "is_test": false,
+        "lines": 4082,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/sync_service.py",
+        "is_test": false,
+        "lines": 3886,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/ingestion_service.py",
+        "is_test": false,
+        "lines": 3545,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py",
+        "is_test": false,
+        "lines": 3417,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/chunking.py",
+        "is_test": false,
+        "lines": 3416,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/worker.py",
+        "is_test": false,
+        "lines": 2989,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/database/test_agent_studio_migrations.py",
+        "is_test": true,
+        "lines": 2779,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/judge_real_agent_receipts.py",
+        "is_test": false,
+        "lines": 2608,
+        "unit": "scripts"
+      },
+      {
+        "file": "scripts/real_agent_scenario_runner.py",
+        "is_test": false,
+        "lines": 2422,
+        "unit": "scripts"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+        "is_test": false,
+        "lines": 2398,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/knowledge/test_bm25_v2_shadow.py",
+        "is_test": true,
+        "lines": 2284,
+        "unit": "tests"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+        "is_test": false,
+        "lines": 2261,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "tests/services/knowledge/test_hierarchical_document_deletion.py",
+        "is_test": true,
+        "lines": 2193,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding.py",
+        "is_test": false,
+        "lines": 2185,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/api/test_eval_traces.py",
+        "is_test": true,
+        "lines": 2183,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/knowledge_service.py",
+        "is_test": false,
+        "lines": 2171,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+        "is_test": false,
+        "lines": 2134,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/document_service.py",
+        "is_test": false,
+        "lines": 2117,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "src/api/v1/agents.py",
+        "is_test": false,
+        "lines": 2022,
+        "unit": "gateway"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/eval/evaluator_executor.py",
+        "is_test": false,
+        "lines": 1992,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "tests/services/eval/test_evaluator_executor.py",
+        "is_test": true,
+        "lines": 1955,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/native_agent_parity_benchmark.py",
+        "is_test": false,
+        "lines": 1944,
+        "unit": "scripts"
+      },
+      {
+        "file": "tests/database/test_agent_publication_atomicity.py",
+        "is_test": true,
+        "lines": 1858,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/scripts/test_validate_env_quickstart.py",
+        "is_test": true,
+        "lines": 1833,
+        "unit": "tests"
+      },
+      {
+        "file": "src/proxy/transparent_proxy.py",
+        "is_test": false,
+        "lines": 1817,
+        "unit": "gateway"
+      },
+      {
+        "file": "src/adapters/langgraph_proxy.py",
+        "is_test": false,
+        "lines": 1779,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/knowledge/test_dataset_create_security.py",
+        "is_test": true,
+        "lines": 1685,
+        "unit": "tests"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+        "is_test": false,
+        "lines": 1655,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/storage/image_storage.py",
+        "is_test": false,
+        "lines": 1637,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "tests/scripts/test_judge_real_agent_receipts.py",
+        "is_test": true,
+        "lines": 1630,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py",
+        "is_test": false,
+        "lines": 1613,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/test_image_sync.py",
+        "is_test": true,
+        "lines": 1593,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/backfill_bm25_v2.py",
+        "is_test": false,
+        "lines": 1532,
+        "unit": "scripts"
+      },
+      {
+        "file": "tests/database/test_kb_dual_verb_queue.py",
+        "is_test": true,
+        "lines": 1531,
+        "unit": "tests"
+      },
+      {
+        "file": "src/adapters/langgraph.py",
+        "is_test": false,
+        "lines": 1505,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/knowledge/test_bm25_v2_lifecycle.py",
+        "is_test": true,
+        "lines": 1463,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_migration.py",
+        "is_test": false,
+        "lines": 1442,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/api/schemas/knowledge.py",
+        "is_test": false,
+        "lines": 1428,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/knowledge/test_active_read_routes.py",
+        "is_test": true,
+        "lines": 1404,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/internal/confluence_capabilities.py",
+        "is_test": false,
+        "lines": 1389,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/agent_runtime/test_control_plane.py",
+        "is_test": true,
+        "lines": 1388,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/langgraph_tools.py",
+        "is_test": false,
+        "lines": 1385,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "src/main.py",
+        "is_test": false,
+        "lines": 1336,
+        "unit": "gateway"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/ingestion/document_image_extractor.py",
+        "is_test": false,
+        "lines": 1328,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/knowledge/test_retrieve_batch.py",
+        "is_test": true,
+        "lines": 1298,
+        "unit": "tests"
+      },
+      {
+        "file": "src/services/eval/agent_observation_adapter.py",
+        "is_test": false,
+        "lines": 1285,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/knowledge/test_embedding_versioning_unit.py",
+        "is_test": true,
+        "lines": 1284,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/ppr00_resource_profile.py",
+        "is_test": false,
+        "lines": 1282,
+        "unit": "scripts"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/mcp/client.py",
+        "is_test": false,
+        "lines": 1272,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "tests/services/test_vector_store_search.py",
+        "is_test": true,
+        "lines": 1250,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/scripts/test_backfill_bm25_v2.py",
+        "is_test": true,
+        "lines": 1226,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/unit/test_acl_permissions.py",
+        "is_test": true,
+        "lines": 1226,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/v1/proxy.py",
+        "is_test": false,
+        "lines": 1224,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/agent_runtime/test_model_plane.py",
+        "is_test": true,
+        "lines": 1204,
+        "unit": "tests"
+      },
+      {
+        "file": "src/services/eval/golden.py",
+        "is_test": false,
+        "lines": 1195,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/database/test_kb_embedding_versioning_migration.py",
+        "is_test": true,
+        "lines": 1192,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/v1/dashboard.py",
+        "is_test": false,
+        "lines": 1149,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/api/test_agent_runtime_envelope.py",
+        "is_test": true,
+        "lines": 1148,
+        "unit": "tests"
+      },
+      {
+        "file": "src/services/billing/quota_service.py",
+        "is_test": false,
+        "lines": 1141,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/api/test_agent_runtime_api.py",
+        "is_test": true,
+        "lines": 1137,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/document_processor.py",
+        "is_test": false,
+        "lines": 1134,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/local-node/src/local_node/transport.py",
+        "is_test": false,
+        "lines": 1127,
+        "unit": "local-node"
+      },
+      {
+        "file": "tests/scripts/test_real_agent_scenario_runner.py",
+        "is_test": true,
+        "lines": 1108,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/core_boundary/inventory_core_consumption.py",
+        "is_test": false,
+        "lines": 1106,
+        "unit": "scripts"
+      },
+      {
+        "file": "src/api/v1/eval.py",
+        "is_test": false,
+        "lines": 1088,
+        "unit": "gateway"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/text_reranker.py",
+        "is_test": false,
+        "lines": 1076,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/knowledge/test_worker_dual_verb_routing.py",
+        "is_test": true,
+        "lines": 1076,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "is_test": true,
+        "lines": 1050,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/services/knowledge/test_ingestion_identity_fence.py",
+        "is_test": true,
+        "lines": 1043,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/retrieval.py",
+        "is_test": false,
+        "lines": 1031,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/database/test_kb_embedding_action_jobs.py",
+        "is_test": true,
+        "lines": 1030,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/v1/responses.py",
+        "is_test": false,
+        "lines": 1028,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/database/test_agent_runtime_thread_store_migration.py",
+        "is_test": true,
+        "lines": 1025,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/v1/config.py",
+        "is_test": false,
+        "lines": 1021,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/assistant/durable_subagent_harness.py",
+        "is_test": true,
+        "lines": 1018,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/hierarchical_indexer.py",
+        "is_test": false,
+        "lines": 1017,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "scripts/harness/agent_runtime_supply_chain.py",
+        "is_test": false,
+        "lines": 1013,
+        "unit": "scripts"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/bm25_v2_lifecycle.py",
+        "is_test": false,
+        "lines": 998,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/scripts/test_native_agent_parity_benchmark.py",
+        "is_test": true,
+        "lines": 996,
+        "unit": "tests"
+      },
+      {
+        "file": "src/proxy/langgraph_run_body.py",
+        "is_test": false,
+        "lines": 990,
+        "unit": "gateway"
+      },
+      {
+        "file": "src/api/v1/connectors.py",
+        "is_test": false,
+        "lines": 987,
+        "unit": "gateway"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+        "is_test": false,
+        "lines": 986,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "tests/services/eval/test_golden_regression_gate.py",
+        "is_test": true,
+        "lines": 959,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/local-node/scripts/local_live_acceptance.py",
+        "is_test": false,
+        "lines": 956,
+        "unit": "local-node"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/main.py",
+        "is_test": false,
+        "lines": 955,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/chunking_manager.py",
+        "is_test": false,
+        "lines": 946,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/api/test_agents_api.py",
+        "is_test": true,
+        "lines": 946,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/api/test_agent_publish_api.py",
+        "is_test": true,
+        "lines": 941,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/database/test_bm25_v2_lifecycle_tierb.py",
+        "is_test": true,
+        "lines": 930,
+        "unit": "tests"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/scheduler.py",
+        "is_test": false,
+        "lines": 915,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "src/api/schemas/assistant.py",
+        "is_test": false,
+        "lines": 913,
+        "unit": "gateway"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/client.py",
+        "is_test": false,
+        "lines": 905,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "src/services/eval/rag_regression.py",
+        "is_test": false,
+        "lines": 905,
+        "unit": "gateway"
+      },
+      {
+        "file": "src/api/v1/quota.py",
+        "is_test": false,
+        "lines": 883,
+        "unit": "gateway"
+      },
+      {
+        "file": "src/services/images/service.py",
+        "is_test": false,
+        "lines": 880,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/services/eval/test_agent_observation_adapter.py",
+        "is_test": true,
+        "lines": 879,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/database/test_migration_authority_runner_recovery.py",
+        "is_test": true,
+        "lines": 878,
+        "unit": "tests"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/proxy/base.py",
+        "is_test": false,
+        "lines": 873,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+        "is_test": false,
+        "lines": 870,
+        "unit": "ai-gateway-core"
+      },
+      {
+        "file": "src/container.py",
+        "is_test": false,
+        "lines": 868,
+        "unit": "gateway"
+      },
+      {
+        "file": "scripts/collect_cra_compliance_research.py",
+        "is_test": false,
+        "lines": 867,
+        "unit": "scripts"
+      },
+      {
+        "file": "scripts/harness/agent_runtime_text_gate.py",
+        "is_test": false,
+        "lines": 867,
+        "unit": "scripts"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/image_processor.py",
+        "is_test": false,
+        "lines": 854,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/services/knowledge/test_chunking_segment_index_state.py",
+        "is_test": true,
+        "lines": 853,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/deps.py",
+        "is_test": false,
+        "lines": 850,
+        "unit": "gateway"
+      },
+      {
+        "file": "apps/knowledge-service/src/knowledge_service/services/knowledge/qa_service.py",
+        "is_test": false,
+        "lines": 839,
+        "unit": "knowledge-service"
+      },
+      {
+        "file": "tests/database/test_migration_authority_manifest_legacy.py",
+        "is_test": true,
+        "lines": 837,
+        "unit": "tests"
+      },
+      {
+        "file": "src/api/v1/langgraph.py",
+        "is_test": false,
+        "lines": 835,
+        "unit": "gateway"
+      },
+      {
+        "file": "tests/integration/test_assistant_api_e2e_live.py",
+        "is_test": true,
+        "lines": 835,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/services/knowledge/test_lifecycle_db_authority.py",
+        "is_test": true,
+        "lines": 835,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/api/test_kb_proxy_body_limits.py",
+        "is_test": true,
+        "lines": 832,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/rust/resource_lock.py",
+        "is_test": false,
+        "lines": 827,
+        "unit": "scripts"
+      },
+      {
+        "file": "tests/services/knowledge/test_ingestion_incremental_upsert.py",
+        "is_test": true,
+        "lines": 826,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/services/knowledge/test_embedding_migration_routes.py",
+        "is_test": true,
+        "lines": 824,
+        "unit": "tests"
+      },
+      {
+        "file": "scripts/eval_fixtures/verify_coding_parallel_fixture.py",
+        "is_test": false,
+        "lines": 805,
+        "unit": "scripts"
+      },
+      {
+        "file": "packages/ai-gateway-core/src/ai_gateway_core/agent_plugins.py",
+        "is_test": false,
+        "lines": 803,
+        "unit": "ai-gateway-core"
+      }
+    ],
+    "production_count": 77,
+    "threshold_lines": 800
+  },
+  "oversized_typescript": {
+    "by_unit": {
+      "other": 56
+    },
+    "count": 56,
+    "files": [
+      {
+        "file": "web/src/pages/assistant/hooks/useChatSession.ts",
+        "is_test": false,
+        "lines": 3765,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/chat-experience.spec.ts",
+        "is_test": true,
+        "lines": 2917,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/eval/index.tsx",
+        "is_test": false,
+        "lines": 2585,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/playground/hooks/usePlaygroundStream.ts",
+        "is_test": false,
+        "lines": 1902,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/ServiceConfigDialog.tsx",
+        "is_test": false,
+        "lines": 1829,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DocumentsTab.tsx",
+        "is_test": false,
+        "lines": 1691,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/api/knowledge.ts",
+        "is_test": false,
+        "lines": 1513,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/index.tsx",
+        "is_test": false,
+        "lines": 1485,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/EmbeddingMigrationPanel.tsx",
+        "is_test": false,
+        "lines": 1367,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx",
+        "is_test": false,
+        "lines": 1355,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/SettingsTab.tsx",
+        "is_test": false,
+        "lines": 1323,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/eval-trace.spec.ts",
+        "is_test": true,
+        "lines": 1150,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/UserManagement.tsx",
+        "is_test": false,
+        "lines": 1040,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/types/knowledge.ts",
+        "is_test": false,
+        "lines": 1004,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/components/Quiz/QuizCard.tsx",
+        "is_test": false,
+        "lines": 995,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/ProviderStatusCard.tsx",
+        "is_test": false,
+        "lines": 991,
+        "unit": "other"
+      },
+      {
+        "file": "sdk/cli/src/app.tsx",
+        "is_test": false,
+        "lines": 964,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DatasetUploadDialog.tsx",
+        "is_test": false,
+        "lines": 954,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/api/assistant.ts",
+        "is_test": false,
+        "lines": 924,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/llm/ModelForm.tsx",
+        "is_test": false,
+        "lines": 912,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/Datasets.tsx",
+        "is_test": false,
+        "lines": 909,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/types.ts",
+        "is_test": false,
+        "lines": 908,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/agent-studio.spec.ts",
+        "is_test": true,
+        "lines": 881,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/knowledge-embedding-migration.spec.ts",
+        "is_test": true,
+        "lines": 860,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/artifacts/ArtifactsPanel.tsx",
+        "is_test": false,
+        "lines": 859,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/api/eval.ts",
+        "is_test": false,
+        "lines": 858,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/agent-publish.spec.ts",
+        "is_test": true,
+        "lines": 851,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/Settings.tsx",
+        "is_test": false,
+        "lines": 802,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/UserEdit.tsx",
+        "is_test": false,
+        "lines": 792,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/QATab.tsx",
+        "is_test": false,
+        "lines": 746,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/Services.tsx",
+        "is_test": false,
+        "lines": 741,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/hooks/useAgentTimeline.ts",
+        "is_test": false,
+        "lines": 718,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/agent/AgentTimeline.tsx",
+        "is_test": false,
+        "lines": 710,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/components/buildTimeline.ts",
+        "is_test": false,
+        "lines": 703,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/knowledge-rag-eval.spec.ts",
+        "is_test": true,
+        "lines": 700,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/agents/AgentStudioPage.tsx",
+        "is_test": false,
+        "lines": 685,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/agents/AgentReleasePanel.tsx",
+        "is_test": false,
+        "lines": 670,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/local-os/useLocalOSControl.ts",
+        "is_test": false,
+        "lines": 666,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/knowledge-eval-cases.spec.ts",
+        "is_test": true,
+        "lines": 648,
+        "unit": "other"
+      },
+      {
+        "file": "web/e2e/knowledge-document-lifecycle.spec.ts",
+        "is_test": true,
+        "lines": 643,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/dashboard/components/panels/RequestTracePanel.tsx",
+        "is_test": false,
+        "lines": 612,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/lib/sse.ts",
+        "is_test": false,
+        "lines": 609,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/playground/hooks/usePlaygroundSessions.ts",
+        "is_test": false,
+        "lines": 609,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/assistant/components/ChatMessage.tsx",
+        "is_test": false,
+        "lines": 605,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/playground/utils/langgraph.ts",
+        "is_test": false,
+        "lines": 601,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/playground/index.tsx",
+        "is_test": false,
+        "lines": 594,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/types/agents.ts",
+        "is_test": false,
+        "lines": 587,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/features/chat/stream/reducer.ts",
+        "is_test": false,
+        "lines": 584,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/RetrievalTab.tsx",
+        "is_test": false,
+        "lines": 572,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/api/agents.ts",
+        "is_test": false,
+        "lines": 566,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/ConversationSidebar.tsx",
+        "is_test": false,
+        "lines": 563,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/components/agent/ArtifactCard.tsx",
+        "is_test": false,
+        "lines": 556,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/dashboard/DashboardLayout.tsx",
+        "is_test": false,
+        "lines": 555,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/layouts/AppLayout.tsx",
+        "is_test": false,
+        "lines": 542,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DocumentRow.tsx",
+        "is_test": false,
+        "lines": 537,
+        "unit": "other"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/ChunkCard.tsx",
+        "is_test": false,
+        "lines": 536,
+        "unit": "other"
+      }
+    ],
+    "production_count": 48,
+    "threshold_lines": 500
+  },
+  "rust_large_informational": {
+    "count": 4,
+    "files": [
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/thread_processor.rs",
+        "is_test": false,
+        "lines": 6003,
+        "unit": "other"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/mod.rs",
+        "is_test": false,
+        "lines": 4283,
+        "unit": "other"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server-client/src/lib.rs",
+        "is_test": false,
+        "lines": 2216,
+        "unit": "other"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/src/lib.rs",
+        "is_test": false,
+        "lines": 2066,
+        "unit": "other"
+      }
+    ],
+    "note": "Pinned upstream Rust is not churned for LOC targets (PRD ARC-07E); listed only so reviewers know the shape of the overlay.",
+    "threshold_lines": 2000
+  },
+  "schema": "ai-gateway/baseline/loc-baseline/v1",
+  "thresholds": {
+    "policy": "PRD AC-M22 / ARC-07E: oversized files are no-growth; new files stay under threshold; exceptions need owner + reason + expiry.",
+    "python_new_file_max": 800,
+    "typescript_new_file_max": 500
+  },
+  "totals": {
+    "python": {
+      "files": 1277,
+      "lines": 442706
+    },
+    "python_production": {
+      "files": 716,
+      "lines": 278527
+    },
+    "rust_overlay": {
+      "files": 88,
+      "lines": 55577
+    },
+    "typescript": {
+      "files": 384,
+      "lines": 106082
+    },
+    "typescript_production": {
+      "files": 318,
+      "lines": 89716
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "run_id": "e5dd2355-a4cc-4845-84d6-1b7f461bd378",
+  "session_id": "bd666280-8c00-45f0-b91f-48487c0c8517",
+  "status": "cancelled",
+  "executions": [
+    {
+      "execution_id": "01a0e41c-0f2a-7eb1-87ce-421a27b3d65b",
+      "attempt_id": "call_199dbab1f1bf4e998b1fa968",
+      "tool_call_id": "call_199dbab1f1bf4e998b1fa968",
+      "capability_id": "execute_python_code",
+      "status": "side_effect_unknown",
+      "dispatched_at": "2026-09-27T18:23:59.309802+00:00",
+      "terminal_at": "2026-09-27T18:24:13.810565+00:00",
+      "error_code": null
+    }
+  ]
+}

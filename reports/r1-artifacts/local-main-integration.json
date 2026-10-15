@@ -1,0 +1,26 @@
+{
+  "implementation_commit": "9373a65005fbbf440937d79433606262c52bd5cc",
+  "integration": "local main fast-forward completed",
+  "source_checks": [
+    {
+      "path": "src/api/v1/_assistant_routes/sessions.py",
+      "git_blob_matches_runtime_source": true
+    },
+    {
+      "path": "src/services/assistant_entry/source_access.py",
+      "git_blob_matches_runtime_source": true
+    },
+    {
+      "path": "src/services/images/history.py",
+      "git_blob_matches_runtime_source": true
+    },
+    {
+      "path": "packages/ai-gateway-core/src/ai_gateway_core/media/image_generation.py",
+      "git_blob_matches_runtime_source": true
+    }
+  ],
+  "runtime_overlay": "a55739b4a6c5",
+  "frontend_asset_count": 188,
+  "push_performed": false,
+  "full_R1_complete": false
+}

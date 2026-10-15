@@ -1,0 +1,56 @@
+{
+  "text_delta": {
+    "sse": "data: {\"event_type\":\"text_delta\",\"data\":\"Hi\"}\n\n",
+    "event_type": "text_delta",
+    "text": "Hi"
+  },
+  "done": {
+    "sse": "data: {\"event_type\":\"done\",\"data\":{}}\n\n",
+    "event_type": "done"
+  },
+  "error": {
+    "sse": "data: {\"event_type\":\"error\",\"data\":{\"message\":\"boom\"}}\n\n",
+    "event_type": "error",
+    "message": "boom"
+  },
+  "cancelled": {
+    "sse": "data: {\"event_type\":\"cancelled\",\"data\":{\"reason\":\"user_stop\"}}\n\n",
+    "event_type": "cancelled",
+    "reason": "user_stop"
+  },
+  "run_finished": {
+    "sse": "data: {\"event_type\":\"run_finished\",\"data\":{}}\n\n",
+    "event_type": "run_finished"
+  },
+  "run_error": {
+    "sse": "data: {\"event_type\":\"run_error\",\"data\":{\"message\":\"run failed\"}}\n\n",
+    "event_type": "run_error",
+    "message": "run failed"
+  },
+  "null_data": {
+    "sse": "data: {\"event_type\":\"status\",\"data\":null}\n\n",
+    "event_type": "status",
+    "value": null
+  },
+  "number_data": {
+    "sse": "data: {\"event_type\":\"status\",\"data\":42}\n\n",
+    "event_type": "status",
+    "value": 42
+  },
+  "boolean_data": {
+    "sse": "data: {\"event_type\":\"status\",\"data\":true}\n\n",
+    "event_type": "status",
+    "value": true
+  },
+  "array_data": {
+    "sse": "data: {\"event_type\":\"status\",\"data\":[1,2]}\n\n",
+    "event_type": "status",
+    "value": [1, 2]
+  },
+  "agent_v2_item": {
+    "sse": "id: 7\nevent: item\ndata: {\"schema_version\":\"agent-event/v2\",\"thread_id\":\"thread-1\",\"sequence\":7,\"event\":{\"type\":\"rollout/item\",\"payload\":{\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"hello\"}]} }},\"timestamp\":\"2026-08-21T00:00:00Z\"}\n\n",
+    "event_type": "item",
+    "sequence": 7,
+    "text": "hello"
+  }
+}

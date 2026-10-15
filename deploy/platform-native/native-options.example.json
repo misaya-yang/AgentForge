@@ -1,0 +1,19 @@
+{
+  "kernel_revision": "<verified-runtime-kernel-revision>",
+  "worker_writes_enabled": false,
+  "local_utc_offset_seconds": 0,
+  "allow_private_knowledge_http": true,
+  "sandbox_origin": "<reviewed-sandbox-origin>",
+  "sandbox_token": "<operator-supplied-token>",
+  "pdf": {
+    "pdfinfo": "/usr/bin/pdfinfo",
+    "pdftotext": "/usr/bin/pdftotext",
+    "pdftoppm": "/usr/bin/pdftoppm",
+    "scratch_root": "/app/data/pdf-scratch",
+    "allow_attachment_alternative": false
+  },
+  "local_channel": "disabled",
+  "confluence_registration": "disabled",
+  "model_publication": "absent",
+  "provider_publication": "absent"
+}

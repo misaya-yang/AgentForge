@@ -1,0 +1,108 @@
+FROM rust:1.95.0-bookworm AS builder
+
+ARG CARGO_BUILD_JOBS=2
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+# GNU ld exceeds the 4 GiB local Docker budget when statically linking the
+# embedded Codex kernel.  lld is materially more memory efficient.  Use the
+# configurable HTTPS mirrors only for this build-time tool; the runtime stage
+# performs no package installation or network access.
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends lld \
+    && rm -rf /var/lib/apt/lists/* \
+    && ld.lld --version
+
+WORKDIR /source/codex-rs
+COPY codex-rs/ ./
+
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo build --locked --profile dev-small \
+        -p ai-platform-agent-runtime --bin ai-platform-agent-runtime \
+    && cp target/dev-small/ai-platform-agent-runtime /tmp/ai-platform-agent-runtime
+
+# Export evidence from the compiled protocol library without invoking Rust on
+# the host. The ordinary runtime image remains the final/default target.
+FROM builder AS source-evidence
+
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    mkdir -p /tmp/source-evidence/schema \
+    && CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
+       RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+       cargo run --locked --profile dev-small -p codex-app-server-protocol \
+         --example ai_platform_export_schema -- /tmp/source-evidence/schema \
+    && cargo metadata --locked --format-version 1 > /tmp/source-evidence/cargo-metadata.json \
+    && cp Cargo.lock /tmp/source-evidence/Cargo.lock \
+    && cargo --version > /tmp/source-evidence/cargo-version.txt \
+    && rustc --version > /tmp/source-evidence/rustc-version.txt
+
+# Scoped local verification stays inside the same BuildKit builder/cache;
+# it is separate evidence from the hosted CI changed-crate gate.
+FROM builder AS scoped-tests
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo test --locked --profile dev-small -p ai-platform-agent-runtime --lib \
+    && CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+       cargo test --locked --profile dev-small -p ai-platform-capability-worker --lib
+
+FROM scoped-tests AS recovery-tests
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo test --locked --profile dev-small -p codex-core --test durable_recovery recover_turn_preserves_model_lease_metadata_and_replacement_owner \
+    && RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+       cargo test --locked --profile dev-small -p codex-core --test durable_recovery root_turn_suspension_preserves_unfinished_turn_history
+
+FROM scratch AS source-evidence-export
+COPY --from=source-evidence /tmp/source-evidence/ /
+
+FROM rust:1.95.0-bookworm AS runtime
+
+ARG AI_PLATFORM_AGENT_RUNTIME_FORK_SHA
+ARG AI_PLATFORM_AGENT_RUNTIME_SCHEMA_SHA256
+
+LABEL org.opencontainers.image.title="AI Platform Agent Runtime" \
+      org.opencontainers.image.source="https://github.com/openai/codex" \
+      org.opencontainers.image.revision="${AI_PLATFORM_AGENT_RUNTIME_FORK_SHA}" \
+      com.misaya.ai-platform.agent-runtime.schema-sha256="${AI_PLATFORM_AGENT_RUNTIME_SCHEMA_SHA256}" \
+      com.misaya.ai-platform.agent-runtime.artifact="agent_runtime" \
+      com.misaya.ai-platform.agent-runtime.binary="ai-platform-agent-runtime"
+
+RUN useradd --create-home --home-dir /var/lib/ai-platform-agent-runtime --uid 10001 agent-runtime \
+    && install -d -o agent-runtime -g agent-runtime /workspace /var/lib/ai-platform-agent-runtime/runtime-home
+
+COPY LICENSE NOTICE /opt/ai-platform-agent-runtime/
+COPY --from=builder /tmp/ai-platform-agent-runtime /usr/local/bin/ai-platform-agent-runtime
+COPY codex-rs/ai-platform-agent-runtime/container-entrypoint.sh /usr/local/bin/ai-platform-agent-runtime-entrypoint
+
+ENV AI_PLATFORM_RUNTIME_BIND=0.0.0.0:8094 \
+    AI_PLATFORM_RUNTIME_WORKDIR=/workspace \
+    AI_PLATFORM_AGENT_HOME=/var/lib/ai-platform-agent-runtime/runtime-home \
+    CODEX_HOME=/var/lib/ai-platform-agent-runtime/runtime-home \
+    RUST_BACKTRACE=1
+
+USER 10001:10001
+WORKDIR /workspace
+EXPOSE 8094
+
+ENTRYPOINT ["ai-platform-agent-runtime-entrypoint"]

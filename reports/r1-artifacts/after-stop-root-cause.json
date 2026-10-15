@@ -1,0 +1,14 @@
+{
+  "original_run": {
+    "run_id": "e5dd2355-a4cc-4845-84d6-1b7f461bd378",
+    "status": "cancelled",
+    "fence": 1,
+    "owner_expired": true
+  },
+  "safe_log_codes": {
+    "RUNTIME_EXECUTION_FENCE_LOST": 0,
+    "thread_store_failure": 0,
+    "agent_thread_lifecycle_rejected": 0,
+    "runtime store error": 0
+  }
+}

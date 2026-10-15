@@ -1,0 +1,128 @@
+{
+  "schema_version": "ai-platform/release-rollback-matrix/v1",
+  "status": "NOT_RUN",
+  "release_id": null,
+  "source_git_sha": null,
+  "scenarios": [
+    {
+      "id": "offline-release-suite",
+      "tier": "L1",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "harness-check"], ["make", "affected-gates", "BASE_SHA=main"], ["make", "architecture-boundary-gate"], ["make", "verify-openapi-contract"], ["make", "web-quality-gate"], ["make", "rust-changed-crate-gate", "BASE_SHA=main"], ["make", "hygiene-check"], ["make", "loc-no-growth-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final settled candidate SHA and unified offline rerun are not yet recorded."
+    },
+    {
+      "id": "database-fresh-upgrade-role-matrix",
+      "tier": "L2",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "platform-db-convergence-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "The final candidate database matrix has not yet been executed and promoted to durable evidence."
+    },
+    {
+      "id": "multi-arch-artifact-and-version-agreement",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "agent-runtime-release-gate"], ["python3", "-m", "scripts.release.version_agreement_gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final Runtime and Worker OCI indexes, digests, and all live version projections are not yet bound to one release id."
+    },
+    {
+      "id": "docker-source-image-identity",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "validate"], ["make", "status"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "The final candidate images have not yet been rebuilt and inspected against the settled source SHA."
+    },
+    {
+      "id": "assistant-live-journeys",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "agent-execution-integration-gate"], ["make", "agent-runtime-text-gate"], ["pnpm", "-C", "web", "exec", "playwright", "test", "--config", "playwright.live.config.ts", "--workers=1", "e2e/assistant-memory.spec.ts", "e2e/assistant-history.spec.ts", "e2e/knowledge-workflow.spec.ts", "e2e/quiz-workflow.spec.ts", "e2e/site-walkthrough.spec.ts"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final UI Assistant, tool approval, cancellation, refresh, restart, and paid-provider journeys are not yet recorded at the candidate SHA."
+    },
+    {
+      "id": "knowledge-live-journeys",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "knowledge-integration-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final upload, ingestion, retrieval, citation, competition, and recovery journeys are not yet recorded."
+    },
+    {
+      "id": "degraded-failure-recovery",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "agent-execution-integration-gate"], ["make", "knowledge-integration-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final disconnect, worker restart, dependency failure, and recovery evidence is not yet complete."
+    },
+    {
+      "id": "compact-scale-topology",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "single-instance-guard"], ["make", "status"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Compact and scale topology journeys have not yet both run on the candidate images."
+    },
+    {
+      "id": "fresh-environment-quickstart",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "fresh-install-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Fresh-environment pull and quickstart has not yet executed for the candidate manifest."
+    },
+    {
+      "id": "current-frozen-current",
+      "tier": "L3",
+      "category": "rollback",
+      "required": true,
+      "commands": [["make", "platform-rollback-rehearsal"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "The whole-platform current-to-frozen-to-current rehearsal has not yet run at the candidate SHA."
+    },
+    {
+      "id": "database-recovery-classes",
+      "tier": "L3",
+      "category": "rollback",
+      "required": true,
+      "commands": [["make", "platform-db-convergence-gate"], ["make", "platform-rollback-rehearsal"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Old-binary-compatible, forward-fix-only, and restore-required outcomes are not yet reconciled in the final receipt."
+    },
+    {
+      "id": "final-review-and-closeout",
+      "tier": "L3",
+      "category": "release",
+      "required": true,
+      "commands": [["make", "platform-release-gate"]],
+      "status": "NOT_RUN",
+      "evidence": [],
+      "blocker": "Final blocker/high review findings and release receipts have not yet been closed at one immutable candidate SHA."
+    }
+  ]
+}

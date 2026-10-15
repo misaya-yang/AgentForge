@@ -1,0 +1,26 @@
+[project]
+name = "ai-platform-sdk-agent-worker"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["openai-agents==0.23.1", "claude-agent-sdk==0.2.165", "starlette>=1.3.1,<2", "uvicorn>=0.35,<1"]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sdk_agent_worker"]
+
+# Build tools are locked separately and are never copied into the runtime image.
+[dependency-groups]
+build = ["hatchling==1.27.0"]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_version == '3.12'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64' and python_version == '3.12'",
+]
+
+# The optional image owns its lock; it is not part of the Gateway uv workspace.
+[tool.uv.workspace]
+members = []

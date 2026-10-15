@@ -1,0 +1,70 @@
+{
+  "overlay_sha256": "22bf4e1ecad56231aadc5bfc5557037b4bc98bc16837ca53fe4ec8645aa40442",
+  "containers": [
+    {
+      "container": "ai-gateway-agent-runtime",
+      "image": "ai-gateway-agent-runtime:local-279ba894152b-22bf4e1ecad5",
+      "image_id": "sha256:d085575ea6eed245f9f59395ef6651a482d72615f23f7c78aed60dccb8184108",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "container": "ai-gateway-agent-capability-worker-1",
+      "image": "ai-gateway-agent-capability-worker:local-279ba894152b-22bf4e1ecad5",
+      "image_id": "sha256:0c449319307187e052d82bed40bb63b27d619da4a730144475a8e768d655dc0e",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "container": "ai-gateway-backend",
+      "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "container": "ai-gateway-frontend",
+      "image": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+      "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    }
+  ],
+  "fault_files_absent": true,
+  "release_artifacts": {
+    "agent_runtime": {
+      "binary": "ai-platform-agent-runtime",
+      "candidate_start_allowed": true,
+      "image_digest": "sha256:d085575ea6eed245f9f59395ef6651a482d72615f23f7c78aed60dccb8184108",
+      "image_ref": "local-image://sha256:d085575ea6eed245f9f59395ef6651a482d72615f23f7c78aed60dccb8184108",
+      "platforms": [
+        "linux/arm64"
+      ],
+      "protocol": "ai-platform-agent-runtime-http-sse/v1"
+    },
+    "app_server": {
+      "binary": "codex-app-server",
+      "candidate_start_allowed": false,
+      "image_digest": null,
+      "image_ref": null,
+      "platforms": [
+        "linux/arm64"
+      ],
+      "protocol": "codex-app-server-jsonrpc/v2"
+    },
+    "capability_worker": {
+      "binary": "ai-platform-capability-worker",
+      "candidate_start_allowed": true,
+      "image_digest": "sha256:0c449319307187e052d82bed40bb63b27d619da4a730144475a8e768d655dc0e",
+      "image_ref": "local-image://sha256:0c449319307187e052d82bed40bb63b27d619da4a730144475a8e768d655dc0e",
+      "platforms": [
+        "linux/arm64"
+      ],
+      "protocol": "ai-platform-capability-contract/v2"
+    }
+  }
+}

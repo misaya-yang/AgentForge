@@ -1,0 +1,58 @@
+{
+  "services": [
+    {
+      "name": "/ai-gateway-backend",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+      "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
+      "health": "healthy"
+    },
+    {
+      "name": "/ai-gateway-frontend",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+      "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
+      "health": "healthy"
+    },
+    {
+      "name": "/ai-gateway-agent-runtime",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-agent-runtime:local-279ba894152b-a55739b4a6c5",
+      "image_id": "sha256:78e9d72d85502070bed377fa521f2fc01a19f9114e541a5c761f7ad529b6904a",
+      "health": "healthy"
+    },
+    {
+      "name": "/ai-gateway-agent-capability-worker-1",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "ai-gateway-agent-capability-worker:local-279ba894152b-a55739b4a6c5",
+      "image_id": "sha256:f7674ea29025cc6211e52f59460a0860ffc9012a43c950e1ffc7d9a449f4e0b3",
+      "health": "healthy"
+    },
+    {
+      "name": "/ai-gateway-pg",
+      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "image": "postgres:16-alpine",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "health": "healthy"
+    }
+  ],
+  "python_source_sha256": {
+    "src/api/v1/artifact_shares.py": "fafe3e0659821f636320eed2e2482a9c1802462c76ea3cbd51ff0f59ff09ca8f",
+    "src/api/v1/_assistant_routes/attachment_refs.py": "a4daa66e98fc8b669c16aa0f633c2ef770b559b7ef492da270d8e2ba1a3ec6de",
+    "src/services/agent_runtime/thread_store.py": "01edc76fb945f175c0cd56d314dc7e5a5977fc7fbcfda942da74cb96bb941448"
+  },
+  "frontend_file_count": 184,
+  "frontend_all_sha256_equal": true,
+  "rust_unchanged_from_RP02": true,
+  "cdn_dns_readonly": {
+    "host": "dashscope-463f.oss-accelerate.aliyuncs.com",
+    "all_public": false,
+    "fake_ip": true,
+    "address_count": 1
+  },
+  "frontend_css_file_count": 5,
+  "frontend_css_sha256_equal": true,
+  "expected_implementation_commit": "0033b8c6d4bd008049c4283980fbb31f3114d2c8",
+  "merged_code_head": "2521d0a4f4e2faadb3f1aaa559bfff7a6bd2800b",
+  "git_blob_source_sha256_equal": true
+}

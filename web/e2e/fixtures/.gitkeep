@@ -1,0 +1,2 @@
+Static E2E test data lives here: seed payloads, sample uploads, golden JSON.
+Imported by specs in web/e2e/. See ../README.md.

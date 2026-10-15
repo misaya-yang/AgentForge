@@ -1,0 +1,4709 @@
+{
+  "postgresql": {
+    "functions": [
+      "agent_audit_dimension_projection",
+      "agent_audit_redact_jsonb",
+      "agent_data_deletion_terminal_guard",
+      "agent_knowledge_bump_content_revision",
+      "agent_runtime_reject_revocation_mutation",
+      "agent_skill_reject_version_mutation",
+      "agent_studio_assert_owner_invariant",
+      "agent_studio_guard_release_evaluation_lifecycle",
+      "agent_studio_protect_last_owner",
+      "agent_studio_protect_member_identity",
+      "agent_studio_protect_version_binding_mutation",
+      "agent_studio_protect_version_mutation",
+      "agent_studio_reject_immutable_mutation",
+      "agent_studio_reject_release_evidence_mutation",
+      "agent_studio_require_sealed_version",
+      "agent_studio_touch_updated_at",
+      "append_assistant_capability_event",
+      "append_assistant_runtime_item",
+      "assistant_capability_reject_event_mutation",
+      "assistant_capability_reject_terminal_mutation",
+      "assistant_runtime_reject_assignment_update",
+      "assistant_runtime_reject_immutable_mutation",
+      "claim_local_node_dispatch",
+      "cleanup_old_usage_records",
+      "complete_assistant_runtime_model_call",
+      "dispatch_assistant_capability_execution",
+      "ensure_assistant_runtime_thread",
+      "guard_dataset_process_rules_immutable",
+      "import_assistant_legacy_session",
+      "issue_assistant_runtime_turn",
+      "prune_kb_document_progress_events",
+      "record_artifact_share_quiz_attempt",
+      "record_kb_document_progress_event",
+      "reject_mcp_snapshot_mutation",
+      "reserve_assistant_capability_execution",
+      "reserve_assistant_runtime_model_call",
+      "segments_text_search_update",
+      "update_agent_traces_timestamp",
+      "update_assistant_gateway_timestamp",
+      "update_assistant_memory_chunks_text_search",
+      "update_document_summaries_timestamp",
+      "update_eval_timestamp",
+      "update_memory_timestamp",
+      "update_segment_image_counts",
+      "update_updated_at_column"
+    ],
+    "sequences_explicit": [],
+    "sequences_implicit_serial": [
+      {
+        "columns": [
+          "api_keys.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "api_keys_id_seq",
+        "parent_table": "api_keys",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "audit_logs.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "audit_logs_id_seq",
+        "parent_table": "audit_logs",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "auth_config.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "auth_config_id_seq",
+        "parent_table": "auth_config",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "billing_events.id"
+        ],
+        "defined_in": [
+          "database/migrations/003_proxy_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "billing_events_id_seq",
+        "parent_table": "billing_events",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "confluence_image_sync.id"
+        ],
+        "defined_in": [
+          "database/migrations/010_image_segments.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "confluence_image_sync_id_seq",
+        "parent_table": "confluence_image_sync",
+        "schema": "knowledge"
+      },
+      {
+        "columns": [
+          "dataset_permissions.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "dataset_permissions_id_seq",
+        "parent_table": "dataset_permissions",
+        "schema": "knowledge"
+      },
+      {
+        "columns": [
+          "email_domain_config.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "email_domain_config_id_seq",
+        "parent_table": "email_domain_config",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "kb_document_progress_events.event_sequence"
+        ],
+        "defined_in": [
+          "database/migrations/111_kb_document_progress_events.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "kb_document_progress_events_event_sequence_seq",
+        "parent_table": "kb_document_progress_events",
+        "schema": "knowledge"
+      },
+      {
+        "columns": [
+          "langgraph_threads.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "langgraph_threads_id_seq",
+        "parent_table": "langgraph_threads",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "local_node_events.device_sequence"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "local_node_events_device_sequence_seq",
+        "parent_table": "local_node_events",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "login_audit.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "login_audit_id_seq",
+        "parent_table": "login_audit",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "password_history.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "password_history_id_seq",
+        "parent_table": "password_history",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "permissions.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "permissions_id_seq",
+        "parent_table": "permissions",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "proxy_routes.id"
+        ],
+        "defined_in": [
+          "database/migrations/003_proxy_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "proxy_routes_id_seq",
+        "parent_table": "proxy_routes",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "rate_limit_config.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "rate_limit_config_id_seq",
+        "parent_table": "rate_limit_config",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "rbac_roles.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "rbac_roles_id_seq",
+        "parent_table": "rbac_roles",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "role_permissions.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "role_permissions_id_seq",
+        "parent_table": "role_permissions",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "segment_images.id"
+        ],
+        "defined_in": [
+          "database/migrations/014_multimodal_chunks.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "segment_images_id_seq",
+        "parent_table": "segment_images",
+        "schema": "knowledge"
+      },
+      {
+        "columns": [
+          "semantic_cache.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "semantic_cache_id_seq",
+        "parent_table": "semantic_cache",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "service_health_records.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "service_health_records_id_seq",
+        "parent_table": "service_health_records",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "tenants.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "tenants_id_seq",
+        "parent_table": "tenants",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "tool_audit_log.id"
+        ],
+        "defined_in": [
+          "database/migrations/044_tenant_soft_isolation.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "tool_audit_log_id_seq",
+        "parent_table": "tool_audit_log",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "usage_statistics.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "usage_statistics_id_seq",
+        "parent_table": "usage_statistics",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "user_permissions.id"
+        ],
+        "defined_in": [
+          "database/migrations/006_user_extra_permissions.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "user_permissions_id_seq",
+        "parent_table": "user_permissions",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "user_roles.id"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "user_roles_id_seq",
+        "parent_table": "user_roles",
+        "schema": "gateway"
+      },
+      {
+        "columns": [
+          "users.id"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "kind": "implicit (SERIAL column)",
+        "name": "users_id_seq",
+        "parent_table": "users",
+        "schema": "gateway"
+      }
+    ],
+    "tables": [
+      {
+        "aliases": [
+          "agent_api_tokens"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_api_tokens",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_data_deletion_requests"
+        ],
+        "defined_in": [
+          "database/migrations/081_agent_studio_operations_governance.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_data_deletion_requests",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_draft_knowledge_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_draft_knowledge_bindings",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_draft_skill_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/075_agent_skill_knowledge_bindings.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_draft_skill_bindings",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_drafts"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_drafts",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_governance_policies"
+        ],
+        "defined_in": [
+          "database/migrations/081_agent_studio_operations_governance.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_governance_policies",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_members"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_members",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_publications"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_publications",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_publish_events"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_publish_events",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_release_evaluation_events"
+        ],
+        "defined_in": [
+          "database/migrations/077_agent_publication_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_release_evaluation_events",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_release_evaluations"
+        ],
+        "defined_in": [
+          "database/migrations/077_agent_publication_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_release_evaluations",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_release_requests"
+        ],
+        "defined_in": [
+          "database/migrations/077_agent_publication_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_release_requests",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_runtime_attachments"
+        ],
+        "defined_in": [
+          "database/migrations/080_agent_channel_delivery_hardening.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_runtime_attachments",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_runtime_feedback"
+        ],
+        "defined_in": [
+          "database/migrations/079_agent_channel_runtime.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_runtime_feedback",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_runtime_idempotency"
+        ],
+        "defined_in": [
+          "database/migrations/079_agent_channel_runtime.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_runtime_idempotency",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_trace_events"
+        ],
+        "defined_in": [
+          "database/migrations/060_agent_trace_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_trace_events",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_trace_outbox"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_trace_outbox",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_trace_scores"
+        ],
+        "defined_in": [
+          "database/migrations/060_agent_trace_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_trace_scores",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_trace_spans"
+        ],
+        "defined_in": [
+          "database/migrations/060_agent_trace_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_trace_spans",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_traces"
+        ],
+        "defined_in": [
+          "database/migrations/060_agent_trace_eval.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agent_traces",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_version_capabilities"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_version_capabilities",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_version_knowledge_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_version_knowledge_bindings",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_version_revocations"
+        ],
+        "defined_in": [
+          "database/migrations/072_agent_runtime_dimensions.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [],
+        "table": "agent_version_revocations",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "agent_version_skill_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/075_agent_skill_knowledge_bindings.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_version_skill_bindings",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agent_versions"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "agent_versions",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "agents"
+        ],
+        "defined_in": [
+          "database/migrations/071_agent_studio_domain.sql"
+        ],
+        "function_writers": [
+          "agent_studio_protect_last_owner"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "agents",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "api_keys"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/api_key_repository.py",
+          "src/services/auth/api_key_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/api_key_repository.py",
+          "gateway:src/services/auth/api_key_service.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/api_key_repository.py",
+          "gateway:src/services/auth/api_key_service.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "api_keys",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/api_key_repository.py",
+          "src/services/auth/api_key_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant.artifact_share_attempt_tokens"
+        ],
+        "defined_in": [
+          "database/migrations/087_artifact_share_attempt_lifecycle.sql"
+        ],
+        "function_writers": [
+          "assistant.record_artifact_share_quiz_attempt"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "table": "artifact_share_attempt_tokens",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ]
+      },
+      {
+        "aliases": [
+          "artifact_share_submitters",
+          "assistant.artifact_share_submitters"
+        ],
+        "defined_in": [
+          "database/migrations/083_artifact_shares.sql",
+          "database/migrations/per_service/assistant/003_artifact_shares.sql"
+        ],
+        "function_writers": [
+          "assistant.record_artifact_share_quiz_attempt"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "table": "artifact_share_submitters",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ]
+      },
+      {
+        "aliases": [
+          "artifact_shares",
+          "assistant.artifact_shares"
+        ],
+        "defined_in": [
+          "database/migrations/083_artifact_shares.sql",
+          "database/migrations/085_artifact_shares_assistant_schema.sql",
+          "database/migrations/per_service/assistant/003_artifact_shares.sql"
+        ],
+        "function_writers": [
+          "assistant.record_artifact_share_quiz_attempt"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ],
+        "table": "artifact_shares",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py"
+        ]
+      },
+      {
+        "aliases": [
+          "artifacts"
+        ],
+        "defined_in": [
+          "database/migrations/021_artifacts.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "table": "artifacts",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+          "src/api/v1/conversation_shares.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_audit_events"
+        ],
+        "defined_in": [
+          "database/migrations/038_assistant_scheduler_audit.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/builder.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/builder.py"
+        ],
+        "table": "assistant_audit_events",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/builder.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_capability_events"
+        ],
+        "defined_in": [
+          "database/migrations/096_agent_capability_executions.sql"
+        ],
+        "function_writers": [
+          "append_assistant_capability_event"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs"
+        ],
+        "static_writers": [],
+        "table": "assistant_capability_events",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_capability_executions"
+        ],
+        "defined_in": [
+          "database/migrations/096_agent_capability_executions.sql"
+        ],
+        "function_writers": [
+          "append_assistant_capability_event",
+          "dispatch_assistant_capability_execution",
+          "reserve_assistant_capability_execution"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/api/internal/confluence_capabilities.py",
+          "src/api/internal/image_capabilities.py",
+          "src/api/internal/office_artifacts.py",
+          "src/api/internal_mcp_broker.py",
+          "src/services/agent_runtime/thread_store.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:src/api/internal/confluence_capabilities.py",
+          "gateway:src/api/internal/image_capabilities.py",
+          "gateway:src/api/internal/office_artifacts.py",
+          "gateway:src/api/internal_mcp_broker.py",
+          "gateway:src/services/agent_runtime/thread_store.py"
+        ],
+        "static_writers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:src/api/internal/confluence_capabilities.py",
+          "gateway:src/api/internal/image_capabilities.py",
+          "gateway:src/api/internal/office_artifacts.py",
+          "gateway:src/api/internal_mcp_broker.py",
+          "gateway:src/services/agent_runtime/thread_store.py"
+        ],
+        "table": "assistant_capability_executions",
+        "writer_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/api/internal/confluence_capabilities.py",
+          "src/api/internal/image_capabilities.py",
+          "src/api/internal/office_artifacts.py",
+          "src/api/internal_mcp_broker.py",
+          "src/services/agent_runtime/thread_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_command_queue"
+        ],
+        "defined_in": [
+          "database/migrations/034_assistant_gateway_foundation.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "assistant_command_queue",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_context_breakdown"
+        ],
+        "defined_in": [
+          "database/migrations/039_assistant_context_metrics.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "assistant_context_breakdown",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_memory_chunks"
+        ],
+        "defined_in": [
+          "database/migrations/035_assistant_memory_sot.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/agent_runtime_cleanup.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime_cleanup.py"
+        ],
+        "static_writers": [],
+        "table": "assistant_memory_chunks",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_memory_reflections"
+        ],
+        "defined_in": [
+          "database/migrations/035_assistant_memory_sot.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "assistant_memory_reflections",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_memory_sources"
+        ],
+        "defined_in": [
+          "database/migrations/035_assistant_memory_sot.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/agent_runtime_cleanup.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime_cleanup.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/agent_runtime_cleanup.py"
+        ],
+        "table": "assistant_memory_sources",
+        "writer_files": [
+          "src/services/agent_runtime_cleanup.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_run_checkpoints"
+        ],
+        "defined_in": [
+          "database/migrations/067_assistant_run_checkpoints.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "table": "assistant_run_checkpoints",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runs"
+        ],
+        "defined_in": [
+          "database/migrations/034_assistant_gateway_foundation.sql"
+        ],
+        "function_writers": [
+          "issue_assistant_runtime_turn"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/model/authorization.py",
+          "src/services/agent_runtime/thread_store.py",
+          "src/services/assistant_entry/run_queries.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "gateway:src/services/assistant_entry/run_queries.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "gateway:src/services/assistant_entry/run_queries.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs"
+        ],
+        "table": "assistant_runs",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/model/authorization.py",
+          "src/services/agent_runtime/thread_store.py",
+          "src/services/assistant_entry/run_queries.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runtime_items"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [
+          "append_assistant_runtime_item"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/events.rs",
+          "src/services/agent_runtime/thread_store.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/events.rs"
+        ],
+        "static_writers": [],
+        "table": "assistant_runtime_items",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_runtime_model_calls"
+        ],
+        "defined_in": [
+          "database/migrations/090_agent_runtime_model_leases.sql"
+        ],
+        "function_writers": [
+          "complete_assistant_runtime_model_call",
+          "reserve_assistant_runtime_model_call"
+        ],
+        "reader_files": [
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/model/accounting.py",
+          "src/services/agent_runtime/model/chat_completions.py",
+          "src/services/agent_runtime/model/native_responses.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/model/accounting.py",
+          "gateway:src/services/agent_runtime/model/chat_completions.py",
+          "gateway:src/services/agent_runtime/model/native_responses.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/model/accounting.py",
+          "gateway:src/services/agent_runtime/model/chat_completions.py",
+          "gateway:src/services/agent_runtime/model/native_responses.py"
+        ],
+        "table": "assistant_runtime_model_calls",
+        "writer_files": [
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/model/accounting.py",
+          "src/services/agent_runtime/model/chat_completions.py",
+          "src/services/agent_runtime/model/native_responses.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runtime_model_leases"
+        ],
+        "defined_in": [
+          "database/migrations/090_agent_runtime_model_leases.sql"
+        ],
+        "function_writers": [
+          "complete_assistant_runtime_model_call",
+          "issue_assistant_runtime_turn",
+          "reserve_assistant_runtime_model_call"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/control/turn_start.py",
+          "src/services/agent_runtime/model/authorization.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/control/turn_start.py",
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs"
+        ],
+        "static_writers": [
+          "gateway:src/services/agent_runtime/control/run_ledger.py",
+          "gateway:src/services/agent_runtime/control/turn_start.py",
+          "gateway:src/services/agent_runtime/model/authorization.py"
+        ],
+        "table": "assistant_runtime_model_leases",
+        "writer_files": [
+          "src/services/agent_runtime/control/run_ledger.py",
+          "src/services/agent_runtime/control/turn_start.py",
+          "src/services/agent_runtime/model/authorization.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runtime_snapshot_revocations"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/services/agent_runtime/model/authorization.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs"
+        ],
+        "static_writers": [],
+        "table": "assistant_runtime_snapshot_revocations",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_runtime_snapshots"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [
+          "issue_assistant_runtime_turn"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "src/services/agent_runtime/model/authorization.py",
+          "src/services/agent_runtime/thread_store.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs"
+        ],
+        "static_writers": [],
+        "table": "assistant_runtime_snapshots",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_runtime_thread_members"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [
+          "ensure_assistant_runtime_thread"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+          "src/services/agent_runtime/model/authorization.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime/model/authorization.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs"
+        ],
+        "static_writers": [
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs"
+        ],
+        "table": "assistant_runtime_thread_members",
+        "writer_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runtime_thread_projections"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [
+          "import_assistant_legacy_session"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ],
+        "static_writers": [
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ],
+        "table": "assistant_runtime_thread_projections",
+        "writer_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_runtime_threads"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [
+          "append_assistant_runtime_item",
+          "ensure_assistant_runtime_thread",
+          "import_assistant_legacy_session"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs",
+          "src/services/agent_runtime/control/thread_lifecycle.py",
+          "src/services/agent_runtime/thread_store.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/agent_runtime/control/thread_lifecycle.py",
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ],
+        "static_writers": [
+          "gateway:src/services/agent_runtime/control/thread_lifecycle.py",
+          "gateway:src/services/agent_runtime/thread_store.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs"
+        ],
+        "table": "assistant_runtime_threads",
+        "writer_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs",
+          "src/services/agent_runtime/control/thread_lifecycle.py",
+          "src/services/agent_runtime/thread_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_scheduler_jobs"
+        ],
+        "defined_in": [
+          "database/migrations/038_assistant_scheduler_audit.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "assistant_scheduler_jobs",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_session_runtime_assignments"
+        ],
+        "defined_in": [
+          "database/migrations/089_agent_runtime_thread_store.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/assistant_runtime_assignment.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/assistant_runtime_assignment.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/assistant_runtime_assignment.py"
+        ],
+        "table": "assistant_session_runtime_assignments",
+        "writer_files": [
+          "src/services/assistant_runtime_assignment.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_skill_runs"
+        ],
+        "defined_in": [
+          "database/migrations/037_assistant_skills.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "assistant_skill_runs",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_skill_version_revocations"
+        ],
+        "defined_in": [
+          "database/migrations/075_agent_skill_knowledge_bindings.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "static_writers": [],
+        "table": "assistant_skill_version_revocations",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant_skill_versions"
+        ],
+        "defined_in": [
+          "database/migrations/037_assistant_skills.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "table": "assistant_skill_versions",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_skills"
+        ],
+        "defined_in": [
+          "database/migrations/037_assistant_skills.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ],
+        "table": "assistant_skills",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant_tool_approvals"
+        ],
+        "defined_in": [
+          "database/migrations/034_assistant_gateway_foundation.sql"
+        ],
+        "function_writers": [
+          "dispatch_assistant_capability_execution"
+        ],
+        "reader_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs",
+          "src/services/assistant_entry/run_queries.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/services/assistant_entry/run_queries.py",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs"
+        ],
+        "static_writers": [
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "runtime:rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs"
+        ],
+        "table": "assistant_tool_approvals",
+        "writer_files": [
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs"
+        ]
+      },
+      {
+        "aliases": [
+          "audit_logs"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/api/v1/mcp.py",
+          "src/services/metrics/audit_event_writer.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/api/v1/mcp.py",
+          "gateway:src/services/metrics/audit_event_writer.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/api/v1/mcp.py",
+          "gateway:src/services/metrics/audit_event_writer.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "audit_logs",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/api/v1/mcp.py",
+          "src/services/metrics/audit_event_writer.py"
+        ]
+      },
+      {
+        "aliases": [
+          "auth_config"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "auth_config",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "billing_events"
+        ],
+        "defined_in": [
+          "database/migrations/003_proxy_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ],
+        "table": "billing_events",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ]
+      },
+      {
+        "aliases": [
+          "child_chunks"
+        ],
+        "defined_in": [
+          "database/migrations/002_kbms_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "child_chunks",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "confluence_connections"
+        ],
+        "defined_in": [
+          "database/migrations/004_confluence_integration.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "confluence_connections",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "confluence_image_sync"
+        ],
+        "defined_in": [
+          "database/migrations/010_image_segments.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "knowledge",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "confluence_image_sync",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "confluence_pages"
+        ],
+        "defined_in": [
+          "database/migrations/004_confluence_integration.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "confluence_pages",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "confluence_space_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/004_confluence_integration.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "confluence_space_bindings",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "confluence_sync_tasks"
+        ],
+        "defined_in": [
+          "database/migrations/004_confluence_integration.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "confluence_sync_tasks",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "confluence_webhooks"
+        ],
+        "defined_in": [
+          "database/migrations/004_confluence_integration.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "knowledge",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "confluence_webhooks",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "connector_configs"
+        ],
+        "defined_in": [
+          "database/migrations/046_user_connectors.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "src/api/v1/connector_admin.py",
+          "src/api/v1/connectors.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "gateway:src/api/v1/connector_admin.py",
+          "gateway:src/api/v1/connectors.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "gateway:src/api/v1/connector_admin.py",
+          "gateway:src/api/v1/connectors.py"
+        ],
+        "table": "connector_configs",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "src/api/v1/connector_admin.py",
+          "src/api/v1/connectors.py"
+        ]
+      },
+      {
+        "aliases": [
+          "connector_credential_principals"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "connector_credential_principals",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "conversation_share_quiz_attempts"
+        ],
+        "defined_in": [
+          "database/migrations/050_conversation_share_quiz_attempts.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "static_writers": [
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "table": "conversation_share_quiz_attempts",
+        "writer_files": [
+          "src/api/v1/conversation_shares.py"
+        ]
+      },
+      {
+        "aliases": [
+          "conversation_shares"
+        ],
+        "defined_in": [
+          "database/migrations/045_conversation_shares.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "static_writers": [
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "table": "conversation_shares",
+        "writer_files": [
+          "src/api/v1/conversation_shares.py"
+        ]
+      },
+      {
+        "aliases": [
+          "dataset_collection_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "static_writers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "dataset_collection_bindings",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "dataset_keyword_tables"
+        ],
+        "defined_in": [
+          "database/migrations/002_kbms_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "dataset_keyword_tables",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "dataset_permissions"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "dataset_permissions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "dataset_process_rules"
+        ],
+        "defined_in": [
+          "database/migrations/002_kbms_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "dataset_process_rules",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "dataset_queries"
+        ],
+        "defined_in": [
+          "database/migrations/002_kbms_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "dataset_queries",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "knowledge.dataset_query_feedback"
+        ],
+        "defined_in": [
+          "database/migrations/108_kb_query_feedback_observability.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "dataset_query_feedback",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "datasets"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [
+          "agent_knowledge_bump_content_revision"
+        ],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/db/connection.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_metadata.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/db/connection.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_metadata.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/db/connection.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_metadata.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "datasets",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/db/connection.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_metadata.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ]
+      },
+      {
+        "aliases": [
+          "document_pipeline_executions"
+        ],
+        "defined_in": [
+          "database/migrations/101_kb_ingestion_lifecycle.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "document_pipeline_executions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      },
+      {
+        "aliases": [
+          "document_summaries"
+        ],
+        "defined_in": [
+          "database/migrations/031_hierarchical_segments.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "document_summaries",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "document_versions"
+        ],
+        "defined_in": [
+          "database/migrations/025_document_version_control.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "document_versions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "documents"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/worker.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/services/knowledge/worker.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/services/knowledge/worker.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ],
+        "table": "documents",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/worker.py"
+        ]
+      },
+      {
+        "aliases": [
+          "email_domain_config"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "email_domain_config",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "embedding_migration_action_jobs"
+        ],
+        "defined_in": [
+          "database/migrations/110_kb_embedding_migration_action_jobs.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "static_writers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "embedding_migration_action_jobs",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "embedding_migration_progress"
+        ],
+        "defined_in": [
+          "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [],
+        "static_writers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "embedding_migration_progress",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "embedding_migrations"
+        ],
+        "defined_in": [
+          "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "static_writers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "embedding_migrations",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "embedding_vector_cache"
+        ],
+        "defined_in": [
+          "database/migrations/102_kb_embedding_versioning_blue_green.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "static_writers": [
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ],
+        "table": "embedding_vector_cache",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_baseline_promotions"
+        ],
+        "defined_in": [
+          "database/migrations/070_eval_live_regression.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_baseline_promotions",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_datasets"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_datasets",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_evaluators"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_evaluators",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_examples"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_examples",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_experiment_run_cases"
+        ],
+        "defined_in": [
+          "database/migrations/070_eval_live_regression.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_experiment_run_cases",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_experiment_runs"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_experiment_runs",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "eval_experiments"
+        ],
+        "defined_in": [
+          "database/migrations/061_trace_eval_sota_core.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ],
+        "table": "eval_experiments",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "exam_analysis_reports"
+        ],
+        "defined_in": [
+          "database/migrations/043_exam_management.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "exam_analysis_reports",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "exams"
+        ],
+        "defined_in": [
+          "database/migrations/043_exam_management.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "exams",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "assistant.image_blobs"
+        ],
+        "defined_in": [
+          "database/migrations/per_service/assistant/002_image_p0_tasks_blobs.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "table": "image_blobs",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant.image_idempotency"
+        ],
+        "defined_in": [
+          "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "table": "image_idempotency",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant.image_sessions"
+        ],
+        "defined_in": [
+          "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "table": "image_sessions",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant.image_tasks"
+        ],
+        "defined_in": [
+          "database/migrations/per_service/assistant/002_image_p0_tasks_blobs.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+          "src/services/images/service.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+          "gateway:src/services/images/service.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+          "gateway:src/services/images/service.py"
+        ],
+        "table": "image_tasks",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+          "src/services/images/service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "assistant.image_turns"
+        ],
+        "defined_in": [
+          "database/migrations/per_service/assistant/001_image_session_artifacts.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ],
+        "table": "image_turns",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py"
+        ]
+      },
+      {
+        "aliases": [
+          "kb_bm25_v2_lifecycle"
+        ],
+        "defined_in": [
+          "database/migrations/105_kb_bm25_v2_lifecycle.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py"
+        ],
+        "table": "kb_bm25_v2_lifecycle",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py"
+        ]
+      },
+      {
+        "aliases": [
+          "kb_document_batch_items"
+        ],
+        "defined_in": [
+          "database/migrations/109_kb_document_batch_operations.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "table": "kb_document_batch_items",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ]
+      },
+      {
+        "aliases": [
+          "kb_document_batch_operations"
+        ],
+        "defined_in": [
+          "database/migrations/109_kb_document_batch_operations.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ],
+        "table": "kb_document_batch_operations",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/document_batches.py"
+        ]
+      },
+      {
+        "aliases": [
+          "kb_document_progress_events"
+        ],
+        "defined_in": [
+          "database/migrations/111_kb_document_progress_events.sql"
+        ],
+        "function_writers": [
+          "knowledge.prune_kb_document_progress_events",
+          "knowledge.record_kb_document_progress_event"
+        ],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "static_writers": [],
+        "table": "kb_document_progress_events",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "kb_eval_golden"
+        ],
+        "defined_in": [
+          "database/migrations/104_kb_eval_golden.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "table": "kb_eval_golden",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "kb_eval_golden_release"
+        ],
+        "defined_in": [
+          "database/migrations/104_kb_eval_golden.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ],
+        "table": "kb_eval_golden_release",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"
+        ]
+      },
+      {
+        "aliases": [
+          "knowledge.kb_parsing_ir"
+        ],
+        "defined_in": [
+          "database/migrations/107_kb_parsing_ir.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "table": "kb_parsing_ir",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ]
+      },
+      {
+        "aliases": [
+          "knowledge.kb_parsing_page_cache"
+        ],
+        "defined_in": [
+          "database/migrations/107_kb_parsing_ir.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "table": "kb_parsing_page_cache",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ]
+      },
+      {
+        "aliases": [
+          "knowledge.kb_segment_attachment_bindings"
+        ],
+        "defined_in": [
+          "database/migrations/106_kb_segment_attachment_bindings.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "table": "kb_segment_attachment_bindings",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ]
+      },
+      {
+        "aliases": [
+          "langgraph_threads"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "langgraph_threads",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "llm_models"
+        ],
+        "defined_in": [
+          "database/migrations/022_llm_providers_models.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/services/llm/model_service.py",
+          "src/services/llm/provider_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/llm/model_service.py",
+          "gateway:src/services/llm/provider_service.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/llm/model_service.py",
+          "gateway:src/services/llm/provider_service.py"
+        ],
+        "table": "llm_models",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/services/llm/model_service.py",
+          "src/services/llm/provider_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "llm_providers"
+        ],
+        "defined_in": [
+          "database/migrations/022_llm_providers_models.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/tenant_provider.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/services/llm/model_service.py",
+          "src/services/llm/provider_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/llm/model_service.py",
+          "gateway:src/services/llm/provider_service.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/services/knowledge/tenant_provider.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:src/services/llm/model_service.py",
+          "gateway:src/services/llm/provider_service.py"
+        ],
+        "table": "llm_providers",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "src/services/llm/model_service.py",
+          "src/services/llm/provider_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_channels"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/control_plane.py",
+          "src/services/local_node/repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:src/services/local_node/control_plane.py",
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "table": "local_node_channels",
+        "writer_files": [
+          "src/services/local_node/control_plane.py",
+          "src/services/local_node/repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_devices"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/control_plane.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/services/local_node/control_plane.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/local_node/control_plane.py"
+        ],
+        "table": "local_node_devices",
+        "writer_files": [
+          "src/services/local_node/control_plane.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_events"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/control_plane.py",
+          "src/services/local_node/repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/services/local_node/control_plane.py",
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/local_node/control_plane.py",
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "table": "local_node_events",
+        "writer_files": [
+          "src/services/local_node/control_plane.py",
+          "src/services/local_node/repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_executions"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [
+          "claim_local_node_dispatch"
+        ],
+        "reader_files": [
+          "src/services/local_node/repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "table": "local_node_executions",
+        "writer_files": [
+          "src/services/local_node/repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_grants"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/control_plane.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/services/local_node/control_plane.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/local_node/control_plane.py"
+        ],
+        "table": "local_node_grants",
+        "writer_files": [
+          "src/services/local_node/control_plane.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_pairing_challenges"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/control_plane.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:src/services/local_node/control_plane.py"
+        ],
+        "table": "local_node_pairing_challenges",
+        "writer_files": [
+          "src/services/local_node/control_plane.py"
+        ]
+      },
+      {
+        "aliases": [
+          "local_node_receipts"
+        ],
+        "defined_in": [
+          "database/migrations/098_local_node_control_plane.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/services/local_node/repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "static_writers": [
+          "gateway:src/services/local_node/repository.py"
+        ],
+        "table": "local_node_receipts",
+        "writer_files": [
+          "src/services/local_node/repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "login_audit"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "login_audit",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_channel_grants"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_channel_grants",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_connections"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_connections",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_schema_diffs"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_schema_diffs",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_servers"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_servers",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_tool_snapshots"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_tool_snapshots",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "mcp_tools"
+        ],
+        "defined_in": [
+          "database/migrations/074_agent_mcp_registry.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ],
+        "table": "mcp_tools",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "model_pricing"
+        ],
+        "defined_in": [
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/model_pricing.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/model_pricing.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/model_pricing.py"
+        ],
+        "table": "model_pricing",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/model_pricing.py"
+        ]
+      },
+      {
+        "aliases": [
+          "password_history"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "password_history",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "permissions"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [],
+        "table": "permissions",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "proxy_routes"
+        ],
+        "defined_in": [
+          "database/migrations/003_proxy_enhancements.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "proxy_routes",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "quiz_attempts"
+        ],
+        "defined_in": [
+          "database/migrations/041_quiz_tables.sql"
+        ],
+        "function_writers": [
+          "assistant.record_artifact_share_quiz_attempt"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py"
+        ],
+        "table": "quiz_attempts",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "quiz_questions"
+        ],
+        "defined_in": [
+          "database/migrations/041_quiz_tables.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "src/api/v1/artifact_shares.py",
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "gateway:src/api/v1/artifact_shares.py",
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "static_writers": [],
+        "table": "quiz_questions",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "quiz_shares"
+        ],
+        "defined_in": [
+          "database/migrations/041_quiz_tables.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [],
+        "schema": "assistant",
+        "static_readers": [],
+        "static_writers": [],
+        "table": "quiz_shares",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "quizzes"
+        ],
+        "defined_in": [
+          "database/migrations/041_quiz_tables.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "src/api/v1/artifact_shares.py",
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "gateway:src/api/v1/artifact_shares.py",
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "gateway:src/api/v1/artifact_shares.py",
+          "gateway:src/api/v1/conversation_shares.py"
+        ],
+        "table": "quizzes",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+          "src/api/v1/artifact_shares.py",
+          "src/api/v1/conversation_shares.py"
+        ]
+      },
+      {
+        "aliases": [
+          "quota_alerts"
+        ],
+        "defined_in": [
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/quota.py",
+          "src/services/billing/quota_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/api/v1/quota.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "static_writers": [
+          "gateway:src/api/v1/quota.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "table": "quota_alerts",
+        "writer_files": [
+          "src/api/v1/quota.py",
+          "src/services/billing/quota_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "rate_limit_config"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "rate_limit_config",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "rbac_roles"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "rbac_roles",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "request_traces"
+        ],
+        "defined_in": [
+          "database/migrations/033_observability_and_quota_governance.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/eval/trace_retention_scheduler.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/eval/trace_retention_scheduler.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/eval/trace_retention_scheduler.py"
+        ],
+        "table": "request_traces",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/eval/trace_retention_scheduler.py"
+        ]
+      },
+      {
+        "aliases": [
+          "role_permissions"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "role_permissions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "security_event_daily_aggregates"
+        ],
+        "defined_in": [
+          "database/migrations/018_security_events.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "security_event_daily_aggregates",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "segment_images"
+        ],
+        "defined_in": [
+          "database/migrations/014_multimodal_chunks.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [
+          "update_segment_image_counts"
+        ],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "segment_images",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py"
+        ]
+      },
+      {
+        "aliases": [
+          "segments"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [
+          "update_segment_image_counts"
+        ],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ],
+        "schema": "knowledge",
+        "static_readers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ],
+        "table": "segments",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/bm25_v2_lifecycle.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/embedding_version_store.py",
+          "apps/knowledge-service/src/knowledge_service/persistence/knowledge_artifacts.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_gate.py"
+        ]
+      },
+      {
+        "aliases": [
+          "semantic_cache"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "semantic_cache",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "service_health_records"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "service_health_records",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "services"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/service_repository.py",
+          "src/main.py",
+          "src/proxy/config_loader.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/service_repository.py",
+          "gateway:src/main.py",
+          "gateway:src/proxy/config_loader.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/service_repository.py",
+          "gateway:src/main.py",
+          "gateway:src/proxy/config_loader.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "services",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/service_repository.py",
+          "src/main.py",
+          "src/proxy/config_loader.py"
+        ]
+      },
+      {
+        "aliases": [
+          "session_memory"
+        ],
+        "defined_in": [
+          "database/migrations/024_assistant_memory.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "session_memory",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs"
+        ]
+      },
+      {
+        "aliases": [
+          "sessions"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [
+          "import_assistant_legacy_session"
+        ],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/session_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+          "src/api/v1/conversation_shares.py"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/session_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+          "gateway:src/api/v1/conversation_shares.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/session_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+          "gateway:src/api/v1/conversation_shares.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "sessions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/session_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+          "src/api/v1/conversation_shares.py"
+        ]
+      },
+      {
+        "aliases": [
+          "tasks"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/task_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/task_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/task_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "tasks",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/task_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "tenant_mcp_configs"
+        ],
+        "defined_in": [
+          "database/migrations/044_tenant_soft_isolation.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/tenant_policies.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/api/v1/tenant_policies.py"
+        ],
+        "static_writers": [
+          "gateway:src/api/v1/tenant_policies.py"
+        ],
+        "table": "tenant_mcp_configs",
+        "writer_files": [
+          "src/api/v1/tenant_policies.py"
+        ]
+      },
+      {
+        "aliases": [
+          "tenant_tool_policies"
+        ],
+        "defined_in": [
+          "database/migrations/044_tenant_soft_isolation.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/tenant_policies.py",
+          "src/core/assistant_capability_catalog.py",
+          "src/services/agent_runtime/capability_catalog.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/api/v1/tenant_policies.py",
+          "gateway:src/core/assistant_capability_catalog.py",
+          "gateway:src/services/agent_runtime/capability_catalog.py"
+        ],
+        "static_writers": [
+          "gateway:src/api/v1/tenant_policies.py",
+          "gateway:src/core/assistant_capability_catalog.py",
+          "gateway:src/services/agent_runtime/capability_catalog.py"
+        ],
+        "table": "tenant_tool_policies",
+        "writer_files": [
+          "src/api/v1/tenant_policies.py",
+          "src/core/assistant_capability_catalog.py",
+          "src/services/agent_runtime/capability_catalog.py"
+        ]
+      },
+      {
+        "aliases": [
+          "tenants"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "tenants",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "tool_audit_log"
+        ],
+        "defined_in": [
+          "database/migrations/044_tenant_soft_isolation.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "src/api/v1/tenant_policies.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:src/api/v1/tenant_policies.py"
+        ],
+        "static_writers": [],
+        "table": "tool_audit_log",
+        "writer_files": []
+      },
+      {
+        "aliases": [
+          "usage_daily_aggregates"
+        ],
+        "defined_in": [
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/aggregation_task.py",
+          "src/services/billing/quota_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/aggregation_task.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/aggregation_task.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "table": "usage_daily_aggregates",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/aggregation_task.py",
+          "src/services/billing/quota_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "usage_hourly_aggregates"
+        ],
+        "defined_in": [
+          "database/migrations/016_usage_hourly_aggregates.sql",
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ],
+        "table": "usage_hourly_aggregates",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py"
+        ]
+      },
+      {
+        "aliases": [
+          "usage_records"
+        ],
+        "defined_in": [
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [
+          "cleanup_old_usage_records"
+        ],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/aggregation_task.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/aggregation_task.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/services/billing/aggregation_task.py"
+        ],
+        "table": "usage_records",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/services/billing/aggregation_task.py"
+        ]
+      },
+      {
+        "aliases": [
+          "usage_statistics"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/context_metrics.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/context_metrics.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/context_metrics.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "usage_statistics",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/context_metrics.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "user_connectors"
+        ],
+        "defined_in": [
+          "database/migrations/046_user_connectors.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "src/api/v1/connector_admin.py",
+          "src/api/v1/connectors.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "gateway:src/api/v1/connector_admin.py",
+          "gateway:src/api/v1/connectors.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "gateway:src/api/v1/connector_admin.py",
+          "gateway:src/api/v1/connectors.py"
+        ],
+        "table": "user_connectors",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+          "src/api/v1/connector_admin.py",
+          "src/api/v1/connectors.py"
+        ]
+      },
+      {
+        "aliases": [
+          "user_memory"
+        ],
+        "defined_in": [
+          "database/migrations/024_assistant_memory.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs"
+        ],
+        "schema": "assistant",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "capability_worker:rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "user_memory",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs"
+        ]
+      },
+      {
+        "aliases": [
+          "user_permissions"
+        ],
+        "defined_in": [
+          "database/migrations/006_user_extra_permissions.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "user_permissions",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py"
+        ]
+      },
+      {
+        "aliases": [
+          "user_quotas"
+        ],
+        "defined_in": [
+          "database/migrations/017_usage_metrics.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/api/v1/quota.py",
+          "src/services/billing/aggregation_task.py",
+          "src/services/billing/quota_service.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/api/v1/quota.py",
+          "gateway:src/services/billing/aggregation_task.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:src/api/v1/quota.py",
+          "gateway:src/services/billing/aggregation_task.py",
+          "gateway:src/services/billing/quota_service.py"
+        ],
+        "table": "user_quotas",
+        "writer_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "src/api/v1/quota.py",
+          "src/services/billing/aggregation_task.py",
+          "src/services/billing/quota_service.py"
+        ]
+      },
+      {
+        "aliases": [
+          "user_roles"
+        ],
+        "defined_in": [
+          "database/migrations/005_account_permission_system.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "user_roles",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "users"
+        ],
+        "defined_in": [
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "static_writers": [
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "gateway:packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py",
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "knowledge_worker:apps/knowledge-service/src/knowledge_service/persistence/database.py"
+        ],
+        "table": "users",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py"
+        ]
+      },
+      {
+        "aliases": [
+          "version_retention_policies"
+        ],
+        "defined_in": [
+          "database/migrations/025_document_version_control.sql",
+          "database/schema.sql"
+        ],
+        "function_writers": [],
+        "reader_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "schema": "gateway",
+        "static_readers": [],
+        "static_writers": [
+          "knowledge_api:apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ],
+        "table": "version_retention_policies",
+        "writer_files": [
+          "apps/knowledge-service/src/knowledge_service/persistence/datasets.py"
+        ]
+      }
+    ],
+    "types": [],
+    "views": [
+      "v_active_proxy_services",
+      "v_user_billing_summary"
+    ]
+  },
+  "schema": "arc03-data-access-policy/v1",
+  "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98",
+  "state": "source-commit-bound-pending-live-acl"
+}

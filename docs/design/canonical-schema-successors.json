@@ -1,0 +1,182 @@
+{
+  "schema_version": "ai-platform/canonical-successor-source-plan/v1",
+  "status": "inactive_source_candidate",
+  "baseline_id": "2026_08_post_kb_v1",
+  "predecessor_epoch": 17,
+  "predecessor_manifest_sha256": "4fb04ae84fdf7a128126677ed41c827d35b9fa55c9317e5ae68d9386db5c8d15",
+  "candidate_epoch": 20,
+  "sequence_allocation": "proposed_only_requires_root_review",
+  "database_actions_authorized": false,
+  "fingerprint_status": "not_measured",
+  "frozen_preimages": {
+    "database/baselines/2026_08_post_kb_v1/cutover_convergence.sql": "878512b97b6012216cdc96c64ac731da5eeeb2d46bb4628bd84aa2725f937216",
+    "database/baselines/2026_08_post_kb_v1/data-access-inventory.json": "069c734bf7658c78c799050146b60426a99f83f785e01beab2301c36efe729aa",
+    "database/baselines/2026_08_post_kb_v1/grants-policy.json": "473f856a5102b892e31ad7cb62352e1bdcd2c80473dc25a289ae7e9af6e41da8",
+    "database/baselines/2026_08_post_kb_v1/grants.sql": "3a6722dfd3e0b5d9f949f46f4860ac2b9d3a58ec7ebb582d057bd3a3fa79608a",
+    "database/baselines/2026_08_post_kb_v1/init.sql": "750094aecc48514ab33284f6e72f62f4f7f7191d5f2d4ac594ee805e45d05a6a",
+    "database/baselines/2026_08_post_kb_v1/manifest.json": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+    "database/baselines/2026_08_post_kb_v1/ownership-policy.json": "742585d52891e881155178665d26f02d814f7bd76a86ca3af1d4f45e3a1fd49f",
+    "database/baselines/2026_08_post_kb_v1/reference_data.sql": "d2ff4d253115e9a4aeaca8ce78bfcbbc34e10e554bd4368ef4d5201fa5a0a9f3",
+    "database/baselines/2026_08_post_kb_v1/verify.sql": "19e806da96353774c5fe9cc0f1ecba06a334412d3757d51173eca0cb6688431b",
+    "database/migrations/2026_08_post_kb_v1/001_knowledge_tenant_permissions.sql": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "database/migrations/2026_08_post_kb_v1/001_verification.json": "aa9b1cc63196d5c5b407a6c78136b2d27b9fe0fdc92c301d09a191ab5b4d2a97",
+    "database/migrations/2026_08_post_kb_v1/002_gateway_eval_leases.sql": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+    "database/migrations/2026_08_post_kb_v1/002_verification.json": "6b664c49971c3ebf79b4644481758e9cf5bc554946a2f08fd4757a23bed7a82f",
+    "database/migrations/2026_08_post_kb_v1/003_assistant_quiz_attempt_idempotency.sql": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09",
+    "database/migrations/2026_08_post_kb_v1/003_verification.json": "602f8bfc3f8d49123c6f10c739ace98bb8e9d136328a4ecb30e522798bfcdfbb",
+    "database/migrations/2026_08_post_kb_v1/004_runtime_durable_recovery.sql": "d24958b1edf5e7735a91fcd256e1c32abb2778109a6b3270cceb68380874fa59",
+    "database/migrations/2026_08_post_kb_v1/004_verification.json": "73017a1278bdee3a7b0d8ded824a90a86655cba0b8272275f8a331f0eac96468",
+    "database/migrations/2026_08_post_kb_v1/005_knowledge_dataset_archive.sql": "13a08304508c8ab686116e2d597a80a5079f27642c3cdac383a1285aca474b81",
+    "database/migrations/2026_08_post_kb_v1/005_verification.json": "56ed7d5410e6df1352dacf2b3f67c7be858f19ba0e88e2822e261a0c0f7ae411",
+    "database/migrations/2026_08_post_kb_v1/006_assistant_internal_share_scope.sql": "d47e7d07ad46588859ccf136aa949c5467b363bc0ed4192a81e7cdcd40a29249",
+    "database/migrations/2026_08_post_kb_v1/006_verification.json": "6ef18bc6e30ec14471429a81e987da1cf225a340fb1a9a480410d014dee59895",
+    "database/migrations/2026_08_post_kb_v1/007_agent_publication_expiry.sql": "40e352e8b71e5105554f38bdebb01e02aff65ba13cbd619b97456c9496c97132",
+    "database/migrations/2026_08_post_kb_v1/007_verification.json": "6fc374a72c1ef2fbc986f1cd7b32eb9a1170d1fb727ee53f450b6e242332676a",
+    "database/migrations/2026_08_post_kb_v1/008_agent_version_preview_pin.sql": "e5d3dc757d908e08d06a8f83802f990abe52506a36a74cb72b0148f0c5f8583e",
+    "database/migrations/2026_08_post_kb_v1/008_verification.json": "0a42b29e5959d8149572b7b58302c4bd61307cee9ed8e662378950dea14d0ede",
+    "database/migrations/2026_08_post_kb_v1/009_agent_preview_shape_total.sql": "6df4cfa2532457e35fa5204934f14aee90f4d52e731a5bd9502793df8f45b947",
+    "database/migrations/2026_08_post_kb_v1/009_verification.json": "517a421ec7edf9e8cc90fe24f5787a52507e603e859db0a200a5b1d4bb473e08",
+    "database/migrations/2026_08_post_kb_v1/010_agent_runtime_publication_pin_fk.sql": "1b1cda6570185efff0402e9dbed58d894650f00251f94e04af235bbb2199b8cf",
+    "database/migrations/2026_08_post_kb_v1/010_verification.json": "04bb79b7c572c0f529ebdfac3e46a3597b0a9c48d85d49ca6a51c6f210bc67c8",
+    "database/migrations/2026_08_post_kb_v1/011_gateway_scheduled_tasks.sql": "6516cb0f53f97ee90e26c137b35867aedffd7a1944872e069f0d78ad76404f7c",
+    "database/migrations/2026_08_post_kb_v1/011_verification.json": "e2f0ffdfc3b703f3d0a8e6bed16a386bb473d624f51912ff1a6bec4c3fcc8246",
+    "database/migrations/2026_08_post_kb_v1/012_gateway_plugin_lifecycle.sql": "8febf4cf126f8e5bd041ae058b1ee16a00bb629873cb2b3215839d68edaa2146",
+    "database/migrations/2026_08_post_kb_v1/012_verification.json": "9214dc39c3cc74f52ea162e6763f5ed8cb47156b66b578c96fa31a1da71aa248",
+    "database/migrations/2026_08_post_kb_v1/013_gateway_scheduled_notifications.sql": "720dc875b0c6db222f3c9f6620a29d625fdc6d7403745009a09f16328964b8a8",
+    "database/migrations/2026_08_post_kb_v1/013_verification.json": "75a1fe3217e35382305cca45a4be956c42e798d463d40c53eee4f20339d4377c",
+    "database/migrations/2026_08_post_kb_v1/014_gateway_sdk_session_cleanup.sql": "7be3a1a0d97535c99f07efc8c57063dc4d4f6801894acdf46a44f07ac3dc9773",
+    "database/migrations/2026_08_post_kb_v1/014_verification.json": "a9cd07c4685f2adc9021556060de7135d58766aed3f440a4beadec0c7a61eb0b",
+    "database/migrations/2026_08_post_kb_v1/015_sdk_capability_authority.sql": "234a85f7666c807e7506cd4b2a5ba9e5b166cdf0a0b94f6aab778b2182795a87",
+    "database/migrations/2026_08_post_kb_v1/015_verification.json": "a7d66226edf4f006a241b0440af31d29e736fb6ede40b1e9634c7b7e0fc50a80",
+    "database/migrations/2026_08_post_kb_v1/016_sdk_usage_audit_lookup.sql": "986198ff37db3515894f6a989cb2292938af696ac3528f501e72d379547d3a55",
+    "database/migrations/2026_08_post_kb_v1/016_verification.json": "f379ec48eaf3df81c7c0cd9c988d1da10379723bdafc0ed9a8137794e2bf052d",
+    "database/migrations/2026_08_post_kb_v1/017_sdk_execution_lineage.sql": "b5041b00ea9c1524162fb2f32cbbe77e9f30441018a2f3d9fb578bb688c3d4b1",
+    "database/migrations/2026_08_post_kb_v1/017_verification.json": "e98d4f817a9b2de08142e4181cd9b306f5c4cf075c712f34790bba499b6e6ab3",
+    "database/migrations/2026_08_post_kb_v1/manifest.yml": "4fb04ae84fdf7a128126677ed41c827d35b9fa55c9317e5ae68d9386db5c8d15",
+    "database/bootstrap/extensions.sql": "91c9fa26af49a1d8693c3713062b83b6a4becd670e2eb2f01118aa864724042b",
+    "database/bootstrap/legacy_duplicate_reconciliation.sql": "88999a8baeae694782a296755f485eeeec950e93330f5ce0ec7a2fe7bb0576f0",
+    "database/bootstrap/legacy_structural_reconciliation.sql": "09ca03db6ade0643895b5abf78bba2a5f6ca66502cf0ca3e560b0f85df9d1fc4",
+    "database/bootstrap/roles.sql": "3a750df7b2665c93dbf094bfbd6314ccee1baae02d36d1527c9d7b5c0ad7456d",
+    "database/authority/ledger_acl.py": "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc",
+    "database/authority/ledger_acl_v1.json": "e1e12e4578b3edd3fa8ed9178f4adc0ba4fc22faac1d41a68e1bffd7ee1d1850"
+  },
+  "candidate_profiles": {
+    "native_gateway_memory": [
+      18,
+      20
+    ],
+    "native_gateway_durable": [
+      20,
+      20
+    ],
+    "native_knowledge": [
+      19,
+      20
+    ],
+    "python_knowledge_reader": [
+      19,
+      20
+    ],
+    "python_knowledge_existing_direct_read": [
+      5,
+      17
+    ],
+    "python_gateway": [
+      2,
+      10
+    ]
+  },
+  "successors": [
+    {
+      "proposal": "docs/design/application-schema-admission.sql.proposal",
+      "change": {
+        "sequence": 18,
+        "name": "application_schema_admission",
+        "file": "018_application_schema_admission.sql",
+        "sha256": "d24f6d8b4b04eb3429e2672983be9b3aef033a5026ff357ff15f82f942af9442",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NULL AND to_regclass('public.platform_schema_baselines') IS NOT NULL AND to_regclass('public.platform_schema_changes') IS NOT NULL AND to_regclass('public.platform_schema_change_attempts') IS NOT NULL"
+        ],
+        "postconditions": [
+          "SELECT p.prosecdef AND p.provolatile='s' AND p.pronargs=0 AND p.prorettype='jsonb'::regtype AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND p.proowner=n.nspowner FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+          "SELECT count(*)=4 AND bool_and(a.privilege_type='EXECUTE' AND a.grantor=p.proowner AND (a.grantee=p.proowner OR (NOT a.is_grantable AND pg_get_userbyid(a.grantee) IN (left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker')))) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+          "SELECT gateway.platform_schema_admission_snapshot_v1()->>'schema_version'='ai-platform/schema-admission-snapshot/v1'",
+          "SELECT NOT (rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls) FROM pg_roles WHERE rolname=current_user"
+        ],
+        "timeout_seconds": 30,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Candidate018 metadata-only reader. Same transaction installs function and ledger record; structural and ACL fingerprint measurement required. No application activation authorized by this source. Knowledge admission must require019 trigger fix, durable Gateway020; legacy Python Gateway ceiling10 unchanged."
+      }
+    },
+    {
+      "proposal": "docs/design/knowledge-progress-trigger-authority.sql.proposal",
+      "change": {
+        "sequence": 19,
+        "name": "knowledge_progress_trigger_authority",
+        "file": "019_knowledge_progress_trigger_authority.sql",
+        "sha256": "9349f691a519ec9f9f8cfc4217ca75ddd816192e9a4e254aa7c397377070d11c",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL AND to_regclass('knowledge.documents') IS NOT NULL AND to_regclass('knowledge.kb_document_progress_events') IS NOT NULL",
+          "SELECT NOT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+          "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+        ],
+        "postconditions": [
+          "SELECT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+          "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+          "SELECT NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname IN (left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker') AND (has_table_privilege(r.oid,'knowledge.kb_document_progress_events','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_function_privilege(r.oid,'knowledge.record_kb_document_progress_event()'::regprocedure,'EXECUTE')))"
+        ],
+        "timeout_seconds": 30,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Candidate019 repairs confirmed Knowledge worker SQLSTATE42501 without granting direct progress-ledger DML or sequence rights. Same owner and payload/retention contract; only hardened owner-powered trigger. Requires explicit action-time authorization and actual-login/worker-role matrix. Source-body MD5 is an exact source comparison, not a measured database fingerprint."
+      }
+    },
+    {
+      "proposal": "docs/design/generic-task-durable-schema.sql.proposal",
+      "change": {
+        "sequence": 20,
+        "name": "gateway_task_deliveries",
+        "file": "020_gateway_task_deliveries.sql",
+        "sha256": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT to_regclass('gateway.tasks') IS NOT NULL AND to_regclass('gateway.task_deliveries') IS NULL AND to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL",
+          "SELECT p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+        ],
+        "postconditions": [
+          "SELECT c.relkind='r' AND c.relowner=n.nspowner AND pg_get_userbyid(c.relowner)=current_user AND obj_description(c.oid,'pg_class')='gateway.generic-task-delivery/v1' FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.oid='gateway.task_deliveries'::regclass",
+          "SELECT count(*)=10 AND bool_and(a.grantor=c.relowner AND (a.grantee=c.relowner OR (pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway' AND NOT a.is_grantable AND a.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.task_deliveries'::regclass",
+          "SELECT NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attacl IS NOT NULL)",
+          "SELECT count(*)=13 AND bool_and(NOT attisdropped) FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attnum>0",
+          "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND contype='f' AND confrelid='gateway.tasks'::regclass AND convalidated) AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND NOT convalidated)",
+          "SELECT i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indnkeyatts=3 AND i.indnatts=3 AND i.indkey[0]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='priority' AND NOT attisdropped) AND (i.indoption[0] & 1)=1 AND i.indkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='admitted_at' AND NOT attisdropped) AND i.indkey[2]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='task_id' AND NOT attisdropped) AND pg_get_expr(i.indpred,i.indrelid)=$$(state = 'pending'::text)$$ FROM pg_index i WHERE i.indexrelid='gateway.task_deliveries_pending_order'::regclass AND i.indrelid='gateway.task_deliveries'::regclass"
+        ],
+        "timeout_seconds": 30,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Candidate020 Gateway-only delivery ledger. Exact SELECT/INSERT/UPDATE; no DELETE/TRUNCATE/REFERENCES/TRIGGER or other application/PUBLIC access. Memory remains default; durable requires canonical020 and local ledger guard plus Redis authority. Quiesce all task writers before opt-in; no legacy row import, reset/replay or destructive rollback."
+      }
+    }
+  ],
+  "required_gates": [
+    "explicit_action_time_authority_approval",
+    "per_epoch_four_fingerprint_measurement",
+    "canonical_upgrade_replay_fresh_install",
+    "actual_role_reader_and_trigger_and_ledger",
+    "native_and_python_startup_fail_closed",
+    "durable_redis_race_crash_http_acceptance"
+  ],
+  "no_verification_files": true
+}

@@ -1,0 +1,209 @@
+{
+  "evidence": {
+    "atomic_write_stale_rollback_replay": {
+      "after_sha256": "1e753cecd2c128e766bd033d1ed933755b270cfa98fbc9f575a5deccc27cbc5e",
+      "before_sha256": "d77e7d10c6f88ca46c312334ffb0d81be56ca1403d510ebe36f6f58f134c2729",
+      "disk_after_write_sha256": "1e753cecd2c128e766bd033d1ed933755b270cfa98fbc9f575a5deccc27cbc5e",
+      "human_edit_preserved": true,
+      "idempotent_replay_added_events": false,
+      "idempotent_replay_same_receipt": true,
+      "rollback_matches_original": true,
+      "rollback_restored_sha256": "d77e7d10c6f88ca46c312334ffb0d81be56ca1403d510ebe36f6f58f134c2729",
+      "stale_target_denied": true,
+      "status": "passed"
+    },
+    "exact_file_list_read_search_hash": {
+      "binary_file_skipped_by_text_search": true,
+      "boundary": {
+        "analysis_after_revoke_denied": true,
+        "list_after_revoke_denied": true,
+        "path_escape_denied": true,
+        "read_after_revoke_denied": true,
+        "search_after_revoke_denied": true,
+        "watch_after_revoke_denied": true
+      },
+      "citations": [
+        {
+          "column": 10,
+          "file_sha256": "3e0a49a49bb83f9f1d261a355e98c0f78168600df894b92d5ac639e1f38be3aa",
+          "line": 2,
+          "relative_path": "docs/alpha.txt"
+        },
+        {
+          "column": 1,
+          "file_sha256": "f7fd1555589738e7bf3a10282ea84344729ac7e5f51f57ede4845a116d4527ef",
+          "line": 2,
+          "relative_path": "docs/beta.md"
+        },
+        {
+          "column": 1,
+          "file_sha256": "b61c8acd46d2eb6f8a750cdf3cc441d56ba9b09711e3553f4638ef481cbc5b17",
+          "line": 1,
+          "relative_path": "docs/nested/gamma.txt"
+        }
+      ],
+      "content_in_receipt": false,
+      "files": [
+        {
+          "bytes": 39,
+          "encoding": "utf-8",
+          "relative_path": "docs/alpha.txt",
+          "sha256": "3e0a49a49bb83f9f1d261a355e98c0f78168600df894b92d5ac639e1f38be3aa"
+        },
+        {
+          "bytes": 34,
+          "encoding": "utf-8",
+          "relative_path": "docs/beta.md",
+          "sha256": "f7fd1555589738e7bf3a10282ea84344729ac7e5f51f57ede4845a116d4527ef"
+        },
+        {
+          "bytes": 28,
+          "encoding": "utf-8",
+          "relative_path": "docs/nested/gamma.txt",
+          "sha256": "b61c8acd46d2eb6f8a750cdf3cc441d56ba9b09711e3553f4638ef481cbc5b17"
+        },
+        {
+          "bytes": 9,
+          "encoding": null,
+          "relative_path": "docs/nested/binary.dat",
+          "sha256": "110e888b5d6e080e386975f26a1cc5a722cbf6ebf14d62a1d66c849ae8f2d006"
+        }
+      ],
+      "listed": [
+        [
+          "docs",
+          "directory"
+        ],
+        [
+          "docs/alpha.txt",
+          "file"
+        ],
+        [
+          "docs/beta.md",
+          "file"
+        ],
+        [
+          "docs/nested",
+          "directory"
+        ],
+        [
+          "docs/nested/binary.dat",
+          "file"
+        ],
+        [
+          "docs/nested/gamma.txt",
+          "file"
+        ]
+      ],
+      "search_query_sha256": "66e0988d1198afe049f2a5fedbb6e89c20c12dc3bc01ab3f5c13576d624f6e9b",
+      "status": "passed"
+    },
+    "ledger": {
+      "atomic_write_event_order": [
+        "policy_check",
+        "awaiting_approval",
+        "dispatched",
+        "running",
+        "succeeded"
+      ],
+      "cancel_event_order": [
+        "policy_check",
+        "awaiting_approval",
+        "dispatched",
+        "running",
+        "cancelled"
+      ],
+      "event_count_before_tamper": 31,
+      "raw_process_output_stored_in_event_metadata": false,
+      "sequences_contiguous": true,
+      "sqlite_file_created": true,
+      "status": "passed",
+      "tamper_detected": true,
+      "unique_terminal_per_action": true
+    },
+    "runtime_disconnect": {
+      "automatic_replay": false,
+      "real_child_status": "cancelled",
+      "runtime_offline": true,
+      "status": "passed",
+      "stop_latency_ms": 1.996,
+      "transport_scope": "LocalNodeRuntime disconnect entrypoint exercised in-process; no real WSS socket/reconnect was exercised",
+      "unresolved_terminal": "unknown"
+    },
+    "structured_process": {
+      "argv_vector": [
+        "/usr/bin/env"
+      ],
+      "cancel_latency_ms": 1.664,
+      "cancel_status": "cancelled",
+      "child_environment_names": [
+        "LANG",
+        "LC_ALL",
+        "LOCAL_NODE_ALLOWED",
+        "PATH"
+      ],
+      "cwd_is_granted_root": true,
+      "executable": "/usr/bin/env",
+      "exit_code": 0,
+      "network_deny_without_sandbox": "failed_closed",
+      "provider_key_absent": true,
+      "status": "passed",
+      "stream_chunk_count": 1
+    },
+    "watch": {
+      "event_kinds": [
+        "create",
+        "modify",
+        "rename",
+        "delete"
+      ],
+      "event_sequences": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "latency_ms": [
+        54.553,
+        54.567,
+        60.55,
+        60.944
+      ],
+      "metadata_only": true,
+      "sample_p95_ms": 60.944,
+      "scope_note": "four-event live smoke; not the required 15-minute OS-A24 soak",
+      "status": "passed",
+      "stopped": true
+    }
+  },
+  "evidence_tiers": {
+    "E1_contract_only": [
+      "platform signature uses an explicit test-only HMAC verifier",
+      "outbound control-plane URL is validated but no WSS socket/reconnect is opened"
+    ],
+    "E2_local_live": [
+      "real temporary-disk list/read/search/hash",
+      "real background watcher create/modify/rename/delete smoke",
+      "real atomic replace, stale-target preservation, rollback and replay",
+      "real allowlisted argv process, clean environment, streaming and cancellation",
+      "real disconnect-triggered child termination and SQLite ledger tamper detection"
+    ],
+    "not_claimed": [
+      "native secure credential storage or production device identity",
+      "browser Computer Use",
+      "desktop App Computer Use",
+      "OpenAI Responses provider execution",
+      "trusted local approval UI",
+      "15-minute OS-A24 soak"
+    ]
+  },
+  "generated_at": "2026-08-12T16:08:12.493638+00:00",
+  "harness": "apps/local-node/scripts/local_live_acceptance.py",
+  "host": {
+    "machine": "arm64",
+    "python": "3.11.15",
+    "system": "Darwin"
+  },
+  "overall_status": "passed",
+  "schema_version": 1
+}

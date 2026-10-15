@@ -1,0 +1,5 @@
+*
+!pyproject.toml
+!uv.lock
+!sdk_agent_worker/
+!sdk_agent_worker/*.py

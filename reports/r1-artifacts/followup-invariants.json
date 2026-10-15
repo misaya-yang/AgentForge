@@ -1,0 +1,12 @@
+{
+  "original_thread_reused": true,
+  "cancelled_and_succeeded_expired_owner_followups": "passed",
+  "unknown_execution_and_attempt_unchanged": true,
+  "pending_never_dispatched": true,
+  "refresh_history_no_additional_run": true,
+  "history_unique_success_bodies": {
+    "R1_AFTER_CANCEL_OK": true,
+    "R1_AFTER_SUCCESS_OK": true
+  },
+  "original_unknown_preserved": true
+}

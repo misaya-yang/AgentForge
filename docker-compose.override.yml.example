@@ -1,0 +1,46 @@
+# =============================================================================
+# AI Gateway - Docker Compose Override (Development)
+# =============================================================================
+# This file is for local development overrides.
+# Copy to docker-compose.override.yml and customize as needed.
+# The override file is automatically loaded when running docker-compose up
+# =============================================================================
+
+services:
+  gateway:
+    # Mount source code for hot-reload development
+    volumes:
+      - ./src:/app/src:ro
+      - ./database:/app/database:ro
+      - ./config:/app/config:ro
+      - gateway-uploads:/app/uploads
+      - gateway-logs:/app/logs
+    # Enable debug mode
+    environment:
+      LOG_LEVEL: DEBUG
+    # Expose additional debug ports
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:5678:5678"  # debugpy port
+
+  frontend:
+    # Use development build
+    build:
+      args:
+        NODE_ENV: development
+    environment:
+      NODE_ENV: development
+
+  # Expose database ports for local access (loopback only)
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"

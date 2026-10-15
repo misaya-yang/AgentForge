@@ -1,0 +1,69 @@
+{
+  "name": "ai-gateway-cli",
+  "version": "1.5.0",
+  "description": "Independent Agent Runtime CLI with local provider profiles and third-party API compatibility",
+  "type": "module",
+  "bin": {
+    "ai-gateway": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js --watch",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "posttest": "node --test scripts/check-session-resume.mjs scripts/check-session-client.mjs scripts/check-terminal-presentation.mjs scripts/check-gateway-stream.mjs",
+    "verify:native": "node scripts/verify-native-package.mjs",
+    "prepack": "npm run build && npm run verify:native",
+    "prepublishOnly": "npm run build && npm run verify:native"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "assistant",
+    "agent",
+    "mcp",
+    "runtime",
+    "slash-commands",
+    "terminal",
+    "responses-api"
+  ],
+  "author": "AI Gateway Maintainers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misaya-yang/AI--Platfform.git",
+    "directory": "sdk/cli"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "dist/",
+    "vendor/"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "ink": "^7.0.6",
+    "ink-text-input": "^6.0.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^19.2.7",
+    "@types/react": "^19.2.17",
+    "@types/node": "^25.9.3",
+    "meow": "^14.1.0",
+    "fast-glob": "^3.3.3",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0",
+    "cli-highlight": "^2.1.11",
+    "chalk": "^5.6.2",
+    "typescript": "^6.0.3",
+    "esbuild": "^0.28.1",
+    "vitest": "^4.1.9"
+  }
+}

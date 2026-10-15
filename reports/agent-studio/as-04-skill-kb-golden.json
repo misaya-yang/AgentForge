@@ -1,0 +1,159 @@
+{
+  "schema_version": "agent-studio-as04-golden/v1",
+  "phase_id": "AS-04",
+  "feature_id": "AS-F005",
+  "execution_mode": "offline-deterministic-plus-local-postgres",
+  "provider_calls": 0,
+  "status": "passed",
+  "historical_replay_claimed": false,
+  "critic_history": [
+    {
+      "iteration": 1,
+      "verdict": "changes_requested",
+      "finding": "AS04-C01: catalog metadata and counts did not change for a same-count Segment content edit"
+    },
+    {
+      "iteration": 2,
+      "verdict": "changes_requested",
+      "finding": "AS04-C02/C03/C04: retrieval-effective Dataset config was absent from the fingerprint, telemetry polluted revisions and run hashes, and per-Dataset retrieval/image config was not executed end to end"
+    },
+    {
+      "iteration": 3,
+      "verdict": "changes_requested",
+      "finding": "AS04-C04/C05: production AgentLoop did not schedule auto retrieval or expose a Knowledge-only tool, and production composition did not wire current tool/Dataset policy"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "instruction-only-upload",
+      "expected": "A tenant upload cannot select source, builtin, filesystem, network, or executable entrypoints; the server assigns an exact db identity.",
+      "observed": "Forged entrypoint/source aliases were rejected and a valid SKILL.md round-tripped with a server-owned db://<skill_id>/<version_id> entrypoint.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/security/test_skill_entrypoint_policy.py::test_tenant_upload_rejects_source_entrypoint_and_exec_aliases",
+        "tests/security/test_skill_entrypoint_policy.py::test_valid_upload_normalizes_to_exact_non_executable_db_entrypoint",
+        "tests/api/test_skills_api.py::test_valid_upload_round_trips_full_content_with_server_owned_identity"
+      ]
+    },
+    {
+      "case_id": "immutable-exact-skill-version",
+      "expected": "An Agent Version loads the exact immutable full Skill content and never drifts to a later version.",
+      "observed": "PostgreSQL rejected content mutation, Agent Version sealed version/hash rows, and runtime selected the old exact instructions after a newer version existed.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/database/test_agent_skill_knowledge_migration.py::test_skill_versions_are_immutable_exact_and_tenant_scoped",
+        "tests/database/test_agent_skill_knowledge_migration.py::test_agent_version_seals_exact_skill_and_current_disable_revokes_run",
+        "tests/services/assistant/test_skill_version_binding.py::test_runtime_loads_only_full_exact_content_and_later_version_does_not_drift"
+      ]
+    },
+    {
+      "case_id": "tenant-user-version-isolation",
+      "expected": "Same-named Skills cannot collide across tenants, users, or versions, and one exact binding cannot widen selection.",
+      "observed": "Scoped cache and database authorization denied wrong tenant/user/version reads and selection remained an exact subset.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/security/test_skill_tenant_isolation.py::test_same_named_skill_cache_isolated_by_tenant_user_and_version",
+        "tests/security/test_skill_tenant_isolation.py::test_wrong_user_or_version_cannot_read_scoped_skill",
+        "tests/security/test_skill_tenant_isolation.py::test_selection_cannot_expand_beyond_exact_scoped_version"
+      ]
+    },
+    {
+      "case_id": "request-scoped-first-turn-skill",
+      "expected": "The exact bound Skill is visible and invokable during the current turn without entering the process-global tool registry or expanding permissions.",
+      "observed": "A per-run tool overlay exposed the versioned tool on the first turn, returned the exact instructions, kept the global registry empty, and retained only declared permissions below the Agent allowlist.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/services/assistant/test_skill_version_binding.py::test_bridge_registers_only_versioned_skill_tool_and_permissions_do_not_expand",
+        "tests/services/assistant/test_skill_version_binding.py::test_exact_skill_tool_overlay_is_request_scoped_and_invokable",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_exact_agent_skill_is_first_turn_visible_invokable_and_not_global"
+      ]
+    },
+    {
+      "case_id": "skill-revocation-and-rollback",
+      "expected": "Disabled, revoked, missing, or feature-disabled exact Skills fail before model/tool execution while stored bindings remain intact.",
+      "observed": "Disable/revoke authorization failed closed with AGENT_SKILL_UNAVAILABLE, the model tool history stayed empty, and the Agent-only kill switch preserved the exact binding metadata.",
+      "status": "passed",
+      "provider_calls": 0,
+      "evidence_tests": [
+        "tests/services/assistant/test_skill_version_binding.py::test_agent_skill_kill_switch_preserves_binding_but_disables_execution",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_exact_agent_skill_kill_switch_fails_before_model_execution",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_revoked_exact_agent_skill_fails_before_model_execution"
+      ]
+    },
+    {
+      "case_id": "knowledge-three-time-authorization",
+      "expected": "A normalized Dataset binding is authorized at save, publish, and each run; partial, revoked, or deleted access fails closed.",
+      "observed": "Unauthorized save rolled back, normalized Draft/Version rows sealed retrieval config, revoked publish failed, and production DB-backed policy mapping returned AGENT_KNOWLEDGE_UNAVAILABLE for deleted/revoked runtime access.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/database/test_agent_skill_knowledge_migration.py::test_dataset_acl_is_rechecked_at_save_publish_and_run",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_runtime_knowledge_resolver_requires_complete_acl_result",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_gateway_run_fails_closed_after_dataset_revoke_or_delete",
+        "tests/services/assistant/test_agent_runtime_resolver.py::test_production_composition_wires_current_resource_policy"
+      ]
+    },
+    {
+      "case_id": "per-dataset-retrieval-config",
+      "expected": "Every bound Dataset keeps an exact sealed mode, top_k, threshold and include_images policy; mixed modes have deterministic auto/tool/off orchestration, and model arguments cannot override the sealed values.",
+      "observed": "Unknown fields and invalid/duplicate Dataset identities failed closed. The Gateway Snapshot retained a sorted by_dataset map and deterministic aggregate mode; AgentLoop pre-retrieved exact auto bindings, exposed Knowledge tooling for tool bindings, excluded off bindings, stopped before the model when all auto retrieval failed, and included the sealed map in cache and trace identity.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_agent_knowledge_config_rejects_unknown_fields_and_invalid_bindings",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_snapshot_preserves_each_dataset_retrieval_and_image_config",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_kb_executor_applies_sealed_config_per_dataset",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_auto_rag_applies_sealed_config_per_dataset",
+        "tests/services/assistant/test_agent_runtime_resolver.py::test_assistant_maps_sealed_retrieval_config_per_dataset",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_agent_mixed_knowledge_auto_retrieves_and_tool_mode_stays_model_driven",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_agent_auto_knowledge_failure_stops_before_model_fallback"
+      ]
+    },
+    {
+      "case_id": "live-knowledge-provenance",
+      "expected": "Each run records bound live Dataset IDs plus content- and retrieval-effective revision fingerprints as provenance, while excluding credentials, telemetry and derived counters and never claiming historical replay.",
+      "observed": "Transactional content_revision advances on document, segment and hierarchical retrieval changes but not progress/error/timing/count/hash telemetry. The authorized catalog hashes allowlisted non-secret retrieval config, AgentLoop hashes only authoritative fingerprints plus sealed config, and a missing fingerprint fails closed. Same-count content and config-only edits change the next run hash; telemetry does not; historical_replayable stays false.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_snapshot_marks_live_content_as_provenance_only_not_replayable",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_each_run_captures_live_revision_and_explicit_replay_limit",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_bound_dataset_without_authoritative_revision_is_unavailable",
+        "tests/database/test_agent_skill_knowledge_migration.py::test_knowledge_content_revision_changes_for_same_count_content_edit",
+        "tests/services/knowledge/test_dataset_revision_fingerprint.py::test_catalog_fingerprint_changes_with_authoritative_content_revision",
+        "tests/services/knowledge/test_dataset_revision_fingerprint.py::test_catalog_fingerprint_changes_with_retrieval_effective_config",
+        "tests/services/knowledge/test_dataset_revision_fingerprint.py::test_catalog_fingerprint_excludes_credential_values",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_config_only_catalog_change_changes_next_run_provenance_hash",
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_catalog_telemetry_and_counts_do_not_change_run_hash",
+        "tests/services/knowledge/test_dataset_revision_fingerprint.py::test_successful_reindex_advances_authoritative_content_revision"
+      ]
+    },
+    {
+      "case_id": "knowledge-unavailable-provenance",
+      "expected": "A bound Dataset absent from the live catalog is marked unavailable and is never represented as retrieved or replayable.",
+      "observed": "The runtime emitted state=unavailable, catalog_complete=false, content_mode=live_latest, and historical_replayable=false.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/services/assistant/test_agent_knowledge_binding.py::test_missing_live_dataset_produces_unavailable_provenance"
+      ]
+    },
+    {
+      "case_id": "builtin-assistant-compatibility",
+      "expected": "The bundled read-only Skill and existing Assistant Skill/Knowledge paths remain available when no Agent binding is present.",
+      "observed": "skill-create remained listable/readable/testable but immutable through tenant CRUD, and adjacent Assistant/runtime regression bundles passed.",
+      "status": "passed",
+      "evidence_tests": [
+        "tests/api/test_skills_api.py::test_builtin_skill_create_remains_listed_readable_and_testable",
+        "tests/api/test_skills_api.py::test_builtin_skill_create_is_read_only_through_tenant_artifact_api",
+        "tests/services/assistant/test_agentloop_streaming_first_contract.py::test_streaming_first_emits_turn_contract_snapshot_and_terminal_envelope"
+      ]
+    }
+  ],
+  "live_receipts": {
+    "postgres_migrations_075_076": "tracked and exercised against the repository-owned local PostgreSQL service; no migration remains pending",
+    "skill_crud": "upload, redacted list, permission-policy rejection, immutable metadata version/hash change, exact detail, and soft delete passed",
+    "skill_runtime": "exact request-scoped load, bridge, and invoke passed with the global registry empty",
+    "knowledge_runtime": "save/publish/run ACL, per-Dataset sealed retrieval/image execution, retrieval-effective non-secret catalog fingerprint and live provenance flow passed; missing revision and soft deletion failed closed",
+    "content_revision": "live rolled-back PostgreSQL probe produced 0 -> 1 -> 1 -> 2 -> 3 -> 3 -> 4 for document insert, document telemetry, Segment insert, hierarchy edit, Segment telemetry and document content; bulk coalescing and same-count edits also passed",
+    "production_policy_probe": "running Assistant image used the production composition root and real PostgreSQL to prove non-expanding tool policy, current Dataset ACL and deletion revocation; uniquely scoped probe rows were removed and the follow-up count was zero",
+    "compose": "8/8 repository-owned services healthy after serial hot update and stub restoration; sampled stack memory remained approximately 725-727 MiB",
+    "provider_calls": 0
+  }
+}

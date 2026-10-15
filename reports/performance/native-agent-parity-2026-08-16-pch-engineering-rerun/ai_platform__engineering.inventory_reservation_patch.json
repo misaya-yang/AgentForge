@@ -1,0 +1,19 @@
+{
+  "domain": "software-engineering",
+  "passed": false,
+  "system": "ai_platform",
+  "task_id": "engineering.inventory_reservation_patch",
+  "turns": [
+    {
+      "duration_seconds": null,
+      "metadata": {},
+      "ordinal": 1,
+      "output": "",
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed_output": null,
+      "passed": false,
+      "reason": "gateway_approval_limit_exceeded",
+      "terminal_status": "infrastructure_error"
+    }
+  ]
+}

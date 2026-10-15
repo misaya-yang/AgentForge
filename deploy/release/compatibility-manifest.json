@@ -1,0 +1,98 @@
+{
+  "schema_version": "ai-platform/compatibility-manifest/v1",
+  "status": "draft",
+  "release_id": null,
+  "source": {"git_sha": null, "git_tree_sha": null},
+  "services": {
+    "gateway": {
+      "image_digest": null,
+      "identity": {"mode": "http_version", "service_id": "gateway", "release_id": null, "git_sha": null, "image_digest": null}
+    },
+    "frontend": {
+      "image_digest": null,
+      "identity": {"mode": "container_image", "service_id": "frontend", "release_id": null, "git_sha": null, "image_digest": null, "image_version": null}
+    },
+    "knowledge-service": {
+      "image_digest": null,
+      "identity": {"mode": "http_version", "service_id": "knowledge-service", "release_id": null, "git_sha": null, "image_digest": null}
+    },
+    "knowledge-worker": {
+      "image_digest": null,
+      "identity": {"mode": "container_image", "service_id": "knowledge-worker", "release_id": null, "git_sha": null, "image_digest": null, "image_version": null}
+    },
+    "migrator": {
+      "image_digest": null,
+      "identity": {"mode": "container_image", "service_id": "migrator", "release_id": null, "git_sha": null, "image_digest": null, "image_version": null}
+    },
+    "agent-runtime": {
+      "image_digest": null,
+      "identity": {"mode": "container_image", "service_id": "agent-runtime", "release_id": null, "git_sha": null, "image_digest": null}
+    },
+    "capability-worker": {
+      "image_digest": null,
+      "identity": {"mode": "container_image", "service_id": "capability-worker", "release_id": null, "git_sha": null, "image_digest": null}
+    }
+  },
+  "runtime_overlay": {
+    "lock": "deploy/agent-runtime-source/lock.json",
+    "lock_sha256": null,
+    "upstream_sha": null,
+    "overlay_sha256": null,
+    "runtime_schema_digest": null,
+    "capability_worker_schema_digest": null
+  },
+  "database": {
+    "baseline_id": "2026_08_post_kb_v1",
+    "baseline_manifest_sha256": null,
+    "migration_revision": null,
+    "grants_revision": null
+  },
+  "contracts": {
+    "openapi_sha256": null,
+    "sse_fixture_sha256": null,
+    "capability_contract_sha256": null,
+    "agent_event_schema_sha256": null
+  },
+  "topology": {
+    "compact_profile_revision": null,
+    "scale_profile_revision": null,
+    "service_topology_revision": null,
+    "data_access_revision": null,
+    "quality_baseline_revision": null,
+    "evidence_policy_revision": null
+  },
+  "toolchains": {"python_major": "3", "node_major": "26", "rust": null},
+  "release_evidence": {
+    "matrix_path": "deploy/release/release-rollback-matrix.json",
+    "integration_gates_path": "deploy/release/integration-gates.json",
+    "retirement_manifest_path": "deploy/release/historical-plan-retirement.json",
+    "matrix_schema_path": "deploy/release/schemas/release-rollback-matrix-v1.schema.json",
+    "receipt_schema_path": "deploy/release/schemas/integration-gate-receipt-v1.schema.json",
+    "retirement_schema_path": "deploy/release/schemas/historical-plan-retirement-v1.schema.json",
+    "closeout_template_path": "deploy/release/FINAL-CLOSEOUT-TEMPLATE.md",
+    "matrix_sha256": "699a77c4452d06759bdf77e56f90899484bca0b093e1c5ef95f26d2ff3c1b3ba",
+    "integration_gates_sha256": "d20b2ffe571b50ca2328a8d9a351c715374bae13168d13101d1a07c702268aa6",
+    "retirement_manifest_sha256": "25f294b6fc95317415729b9699172a386c0eea625dd2750e4369cf742c19f0f2",
+    "matrix_schema_sha256": "f19cec5ad32b3f84df869ef88b08e070b6459754a81df7a05b90f46a266720af",
+    "receipt_schema_sha256": "ce99c9d1ae8add61c5bce20ff52bf497ff91360e91aab0ca6f7e55b88954fec0",
+    "retirement_schema_sha256": "0169db8988017bd94cc776d6911ad23fc5d389f5d5c2235a48551dc446221976",
+    "closeout_template_sha256": "07eea6c8ed59b36ae2153a640bcb0cd925e41d5dc07f7c6090559894bd8dc379"
+  },
+  "vectors": {
+    "qdrant_dataset_revision": null,
+    "memory_namespace_revision": null,
+    "collection_or_alias": null,
+    "embedding_provider": null,
+    "embedding_model": null,
+    "embedding_dimension": null,
+    "bm25_revision": null
+  },
+  "receipts": {
+    "platform_db": null,
+    "agent_execution": null,
+    "knowledge": null,
+    "fresh_install": null,
+    "rollback": null,
+    "version_agreement": null
+  }
+}

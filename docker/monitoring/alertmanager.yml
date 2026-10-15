@@ -1,0 +1,84 @@
+# Alertmanager Configuration
+
+global:
+  resolve_timeout: 5m
+  # SMTP settings for email alerts (configure as needed)
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alertmanager@example.com'
+  # smtp_auth_username: 'alertmanager'
+  # smtp_auth_password: 'password'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Info alerts - less frequent
+    - match:
+        severity: info
+      receiver: 'default-receiver'
+      repeat_interval: 24h
+
+# Receivers
+receivers:
+  - name: 'default-receiver'
+    # Webhook for custom integrations
+    webhook_configs:
+      - url: 'http://gateway:8001/api/v1/webhooks/alerts'
+        send_resolved: true
+
+  - name: 'critical-receiver'
+    webhook_configs:
+      - url: 'http://gateway:8001/api/v1/webhooks/alerts'
+        send_resolved: true
+    # Slack notification (configure as needed)
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/xxx/yyy/zzz'
+    #     channel: '#alerts-critical'
+    #     title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+    #     text: '{{ .CommonAnnotations.description }}'
+
+  - name: 'warning-receiver'
+    webhook_configs:
+      - url: 'http://gateway:8001/api/v1/webhooks/alerts'
+        send_resolved: true
+    # Slack notification (configure as needed)
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/xxx/yyy/zzz'
+    #     channel: '#alerts-warning'
+    #     title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+    #     text: '{{ .CommonAnnotations.description }}'
+
+# Inhibition rules
+inhibit_rules:
+  # If a critical alert fires, suppress warnings for the same alertname
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname']
+
+  # If gateway is down, suppress other gateway alerts
+  - source_match:
+      alertname: 'GatewayDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['job']

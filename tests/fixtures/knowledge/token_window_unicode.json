@@ -1,0 +1,107 @@
+[
+  {
+    "name": "ascii",
+    "text": "alpha beta gamma delta epsilon",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "chinese",
+    "text": "你好世界中文资料",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "emoji",
+    "text": "资料😀🚀文档",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "combining",
+    "text": "áक्षिb́",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "literal_replacement",
+    "text": "abc�世界",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "realistic512",
+    "text": "hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello hello 世界😀",
+    "limit": 512,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "overlap",
+    "text": "世界😀世界😀世界😀世界😀世界😀世界😀世界😀世界😀世界😀世界😀世界😀世界😀",
+    "limit": 5,
+    "overlap": 2,
+    "error": false
+  },
+  {
+    "name": "dense_overlap",
+    "text": "资料😀资料😀资料😀资料😀资料😀资料😀",
+    "limit": 4,
+    "overlap": 3,
+    "error": false
+  },
+  {
+    "name": "arabic",
+    "text": "العربيةالعربيةالعربيةالعربيةالعربيةالعربيةالعربيةالعربية",
+    "limit": 4,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "tiny_chinese",
+    "text": "世",
+    "limit": 1,
+    "overlap": 0,
+    "error": true
+  },
+  {
+    "name": "tiny_emoji",
+    "text": "😀",
+    "limit": 1,
+    "overlap": 0,
+    "error": true
+  },
+  {
+    "name": "empty",
+    "text": "",
+    "limit": 1,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "trim_reencode_differ",
+    "text": " differ",
+    "limit": 1,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "trim_reencode_includ",
+    "text": " includ",
+    "limit": 1,
+    "overlap": 0,
+    "error": false
+  },
+  {
+    "name": "trim_reencode_comple",
+    "text": " comple",
+    "limit": 1,
+    "overlap": 0,
+    "error": false
+  }
+]

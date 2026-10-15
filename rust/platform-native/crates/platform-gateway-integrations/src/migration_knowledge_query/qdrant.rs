@@ -1,0 +1,1795 @@
+use super::{
+    config::RetrieveRequest,
+    lexical,
+    types::{Dataset, QueryError, Result},
+};
+use reqwest::{Client, Method, Url};
+#[path = "qdrant_resilience.rs"]
+mod resilience;
+use resilience::{Failure, Policy, Resilience};
+use serde_json::{Value, json};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
+};
+
+#[derive(Clone)]
+pub struct QdrantStore {
+    client: Client,
+    origin: Url,
+    api_key: Option<String>,
+    pub timeout: Duration,
+    pub max_retries: usize,
+    pub retry_base_delay: Duration,
+    pub interactive_max_retries: usize,
+    pub interactive_deadline: Duration,
+    pub health_receipt_ttl: Duration,
+    resilience: Resilience,
+    pub bm25_v2_enabled: bool,
+    pub bm25_v2_capability_ttl: Duration,
+    capability_receipts: Arc<tokio::sync::Mutex<BTreeMap<String, Instant>>>,
+    shadow_failures: Arc<AtomicU64>,
+    shadow_failed_points: Arc<AtomicU64>,
+}
+#[derive(Clone, Debug)]
+pub struct VectorHit {
+    pub point_id: String,
+    pub score: f64,
+    pub payload: Value,
+    pub vector: Option<Vec<f64>>,
+}
+impl QdrantStore {
+    pub fn new(client: Client, origin: Url, api_key: Option<String>) -> Result<Self> {
+        if !["http", "https"].contains(&origin.scheme())
+            || origin.host_str().is_none()
+            || origin.query().is_some()
+            || origin.fragment().is_some()
+        {
+            return Err(QueryError::Validation("invalid Qdrant origin".into()));
+        }
+        Ok(Self {
+            client,
+            origin,
+            api_key,
+            timeout: Duration::from_secs(30),
+            max_retries: 3,
+            retry_base_delay: Duration::from_millis(500),
+            interactive_max_retries: 2,
+            interactive_deadline: Duration::from_secs(3),
+            health_receipt_ttl: Duration::from_secs(2),
+            resilience: Resilience::default(),
+            bm25_v2_enabled: false,
+            bm25_v2_capability_ttl: Duration::from_secs(300),
+            capability_receipts: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
+            shadow_failures: Arc::new(AtomicU64::new(0)),
+            shadow_failed_points: Arc::new(AtomicU64::new(0)),
+        })
+    }
+    fn url(&self, collection: &str, suffix: &[&str]) -> Result<Url> {
+        if collection.trim().is_empty() {
+            return Err(QueryError::VectorStore);
+        }
+        let mut url = self.origin.clone();
+        {
+            let mut path = url
+                .path_segments_mut()
+                .map_err(|_| QueryError::VectorStore)?;
+            path.pop_if_empty().push("collections").push(collection);
+            for s in suffix {
+                path.push(s);
+            }
+        }
+        Ok(url)
+    }
+    fn policy(&self) -> Policy {
+        Policy {
+            max_retries: self.max_retries,
+            retry_base_delay: self.retry_base_delay,
+            interactive_max_retries: self.interactive_max_retries,
+            interactive_deadline: self.interactive_deadline,
+            health_receipt_ttl: self.health_receipt_ttl,
+        }
+    }
+    /// Scope is restored on completion, error and cancellation. Nested entrypoints
+    /// inherit the earlier absolute deadline, just like the source ContextVar.
+    pub(super) async fn with_interactive_budget<F: std::future::Future>(
+        &self,
+        future: F,
+    ) -> F::Output {
+        resilience::with_budget(self.interactive_deadline, future).await
+    }
+    pub(super) fn publication_deadline(&self, fallback: Duration) -> Instant {
+        let local = Instant::now() + fallback;
+        resilience::current_deadline().map_or(local, |deadline| local.min(deadline.into_std()))
+    }
+    fn transport_failure(error: reqwest::Error) -> Failure<QueryError> {
+        if error.is_timeout()
+            || error.is_connect()
+            || error.is_body()
+            || (error.is_request() && !error.is_builder())
+        {
+            Failure::Transient(QueryError::VectorStore)
+        } else {
+            Failure::Permanent(QueryError::VectorStore)
+        }
+    }
+    fn status_failure(status: reqwest::StatusCode) -> Failure<QueryError> {
+        if status.as_u16() == 429 || status.is_server_error() {
+            Failure::Transient(QueryError::VectorStore)
+        } else {
+            Failure::Permanent(QueryError::VectorStore)
+        }
+    }
+    async fn request_json(
+        &self,
+        method: Method,
+        url: Url,
+        body: Option<&Value>,
+        interactive: bool,
+    ) -> Result<Value> {
+        self.resilience
+            .execute(&self.policy(), self.timeout, interactive, |timeout| {
+                let mut request = self
+                    .client
+                    .request(method.clone(), url.clone())
+                    .timeout(timeout);
+                if let Some(key) = &self.api_key {
+                    request = request.header("api-key", key);
+                }
+                if let Some(body) = body {
+                    request = request.json(body);
+                }
+                async move {
+                    let response = request.send().await.map_err(Self::transport_failure)?;
+                    if !response.status().is_success() {
+                        return Err(Self::status_failure(response.status()));
+                    }
+                    let body: Value = response.json().await.map_err(Self::transport_failure)?;
+                    if body["status"].as_str().is_some_and(|status| status != "ok") {
+                        return Err(Failure::Permanent(QueryError::VectorStore));
+                    }
+                    Ok(body["result"].clone())
+                }
+            })
+            .await
+            .map_err(|_| QueryError::VectorStore)
+    }
+    async fn call(
+        &self,
+        method: Method,
+        collection: &str,
+        suffix: &[&str],
+        body: Option<&Value>,
+        write: bool,
+    ) -> Result<Value> {
+        self.call_mode(
+            method,
+            collection,
+            suffix,
+            body,
+            write,
+            resilience::interactive_calls(),
+        )
+        .await
+    }
+    async fn call_interactive(
+        &self,
+        method: Method,
+        collection: &str,
+        suffix: &[&str],
+        body: Option<&Value>,
+        write: bool,
+    ) -> Result<Value> {
+        self.call_mode(method, collection, suffix, body, write, true)
+            .await
+    }
+    async fn call_mode(
+        &self,
+        method: Method,
+        collection: &str,
+        suffix: &[&str],
+        body: Option<&Value>,
+        write: bool,
+        interactive: bool,
+    ) -> Result<Value> {
+        let mut url = self.url(collection, suffix)?;
+        if write {
+            url.query_pairs_mut().append_pair("wait", "true");
+        }
+        self.request_json(method, url, body, interactive).await
+    }
+    pub(super) async fn delete_collection_scoped(&self, dataset: &Dataset) -> Result<()> {
+        let deleted = self
+            .call(Method::DELETE, dataset.collection()?, &[], None, false)
+            .await?;
+        if deleted == Value::Bool(true) {
+            Ok(())
+        } else {
+            Err(QueryError::VectorStore)
+        }
+    }
+    pub async fn collection_info(&self, name: &str) -> Result<Value> {
+        self.call(Method::GET, name, &[], None, false).await
+    }
+    pub async fn collection_exists(&self, name: &str) -> Result<bool> {
+        if name.is_empty() {
+            return Ok(false);
+        }
+        let url = self.url(name, &[])?;
+        self.resilience
+            .execute(&self.policy(), self.timeout, false, |timeout| {
+                let mut request = self.client.get(url.clone()).timeout(timeout);
+                if let Some(key) = &self.api_key {
+                    request = request.header("api-key", key);
+                }
+                async move {
+                    let response = request.send().await.map_err(Self::transport_failure)?;
+                    if response.status().as_u16() == 404 {
+                        Ok(false)
+                    } else if response.status().is_success() {
+                        Ok(true)
+                    } else {
+                        Err(Self::status_failure(response.status()))
+                    }
+                }
+            })
+            .await
+            .map_err(|_| QueryError::VectorStore)
+    }
+    pub async fn require_collection_readable(&self, dataset: &Dataset) -> Result<Value> {
+        let name = dataset.collection()?;
+        let info = self
+            .call_interactive(Method::GET, name, &[], None, false)
+            .await?;
+        let metadata = &info["config"]["metadata"];
+        if let Some(scope) = metadata.get("knowledge_scope") {
+            if scope["schema_version"].as_u64() != Some(1)
+                || scope["tenant_id"].as_str() != Some(dataset.tenant_id.trim())
+                || scope["dataset_id"].as_str() != Some(dataset.dataset_id.trim())
+                || dataset.tenant_id.trim().is_empty()
+                || dataset.dataset_id.trim().is_empty()
+            {
+                return Err(QueryError::CollectionAuthority(
+                    "collection immutable dataset/tenant scope mismatch".into(),
+                ));
+            }
+        } else if dataset.tenant_id.trim().is_empty() || dataset.dataset_id.trim().is_empty() {
+            return Err(QueryError::CollectionAuthority(
+                "legacy collection requires explicit dataset and tenant scope".into(),
+            ));
+        }
+        if let Some(profile) = metadata.get("knowledge_lexical") {
+            super::lexical_v2::validate_collection_profile(profile)?;
+        }
+        if dataset.index_config["retrieval"]["lexical"]["active_version"].as_str()
+            == Some("bm25_v2")
+        {
+            if !self.bm25_v2_enabled {
+                return Err(QueryError::Validation(
+                    "bm25_v2 is disabled by the service kill switch".into(),
+                ));
+            }
+            if metadata["knowledge_lexical"]["active_version"] != "bm25_v2" {
+                return Err(QueryError::CollectionAuthority(
+                    "collection is not cut over to bm25_v2".into(),
+                ));
+            }
+        }
+        Ok(info)
+    }
+    pub async fn ensure_collection(&self, dataset: &Dataset, dimension: usize) -> Result<String> {
+        self.ensure_collection_options(dataset, dimension, true, false)
+            .await
+    }
+    pub(super) async fn ensure_collection_policy(
+        &self,
+        dataset: &Dataset,
+        dimension: usize,
+        allow_existing: bool,
+    ) -> Result<String> {
+        self.ensure_collection_options(dataset, dimension, allow_existing, false)
+            .await
+    }
+    /// Administrative dataset-patch path. The caller owns the dataset mutation
+    /// lease and SQL compare-and-swap; active selection is lifecycle-only.
+    pub async fn reconcile_lexical_collection(
+        &self,
+        dataset: &Dataset,
+        dimension: usize,
+    ) -> Result<String> {
+        self.ensure_collection_options(dataset, dimension, true, true)
+            .await
+    }
+    async fn ensure_collection_options(
+        &self,
+        dataset: &Dataset,
+        dimension: usize,
+        allow_existing: bool,
+        lexical_transition: bool,
+    ) -> Result<String> {
+        if dataset.dataset_id.trim().is_empty()
+            || dataset.tenant_id.trim().is_empty()
+            || dimension == 0
+        {
+            return Err(QueryError::Validation(
+                "collection ownership and dimension are required".into(),
+            ));
+        }
+        let sanitize = super::migration::sanitize;
+        let desired = sanitize(dataset.collection_name.as_deref().unwrap_or(&format!(
+            "kb_{}_{}",
+            sanitize(&dataset.dataset_id),
+            dimension
+        )));
+        let mut actual = desired.clone();
+        if self.collection_exists(&desired).await? {
+            if !allow_existing {
+                return Err(QueryError::Validation("collection already exists".into()));
+            }
+            let info = self.collection_info(&desired).await?;
+            if info["config"]["params"]["vectors"]["size"].as_u64() == Some(dimension as u64) {
+                self.finish_existing_collection(dataset, &desired, dimension, lexical_transition)
+                    .await?;
+                return Ok(desired);
+            }
+            actual = sanitize(&format!("{desired}_d{dimension}"));
+        }
+        let lexical = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
+        if lexical.active {
+            return Err(QueryError::Validation(
+                "bm25_v2 active mode requires a completed shadow backfill receipt".into(),
+            ));
+        }
+        let mut sparse = json!({"bm25":{"modifier":"idf"}});
+        let mut metadata = json!({"knowledge_scope":{"schema_version":1,"dataset_id":dataset.dataset_id,"tenant_id":dataset.tenant_id}});
+        if lexical.shadow {
+            self.ensure_bm25_v2_capability(&lexical).await?;
+            sparse["bm25_v2"] = json!({"modifier":"idf"});
+            metadata["knowledge_lexical"] = lexical.collection_profile();
+        }
+        let body = json!({"vectors":{"size":dimension,"distance":"Cosine"},"sparse_vectors":sparse,"metadata":metadata,"hnsw_config":{"m":16,"ef_construct":200,"full_scan_threshold":10000},"optimizers_config":{"indexing_threshold":20000}});
+        let created = self
+            .call(Method::PUT, &actual, &[], Some(&body), false)
+            .await?;
+        if created != true {
+            if allow_existing {
+                self.finish_existing_collection(dataset, &actual, dimension, lexical_transition)
+                    .await?;
+                return Ok(actual);
+            }
+            return Err(QueryError::CollectionAuthority(
+                "collection could not be claimed".into(),
+            ));
+        }
+        let post_create: Result<()> = async {
+            for field in [
+                "tenant_id",
+                "dataset_id",
+                "document_id",
+                "segment_id",
+                "source_type",
+                "language",
+                "madhab",
+                "authority_rank",
+                "section_title",
+                "metadata.topic",
+                "metadata.keywords",
+            ] {
+                let schema = if field == "tenant_id" && lexical.shadow {
+                    json!({"type":"keyword","is_tenant":true})
+                } else if field == "authority_rank" {
+                    json!("integer")
+                } else {
+                    json!("keyword")
+                };
+                let _ = self
+                    .call(
+                        Method::PUT,
+                        &actual,
+                        &["index"],
+                        Some(&json!({"field_name":field,"field_schema":schema})),
+                        true,
+                    )
+                    .await;
+            }
+            if lexical.shadow {
+                self.ensure_filtering_profile(&actual, &lexical, true, Some(false), true)
+                    .await?;
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(error) = post_create {
+            let _ = self.call(Method::DELETE, &actual, &[], None, false).await;
+            return Err(error);
+        }
+        Ok(actual)
+    }
+    async fn finish_existing_collection(
+        &self,
+        dataset: &Dataset,
+        name: &str,
+        dimension: usize,
+        lexical_transition: bool,
+    ) -> Result<()> {
+        let mut scoped = dataset.clone();
+        scoped.collection_name = Some(name.into());
+        let info = self.collection_info(name).await?;
+        if info["config"]["params"]["vectors"]["size"].as_u64() != Some(dimension as u64) {
+            return Err(QueryError::CollectionAuthority(
+                "collection dimension mismatch".into(),
+            ));
+        }
+        let info = self.ensure_immutable_scope(&scoped, info).await?;
+        // Legacy sparse installation is best effort in the Python adapter.
+        if info["config"]["params"]["sparse_vectors"]
+            .get("bm25")
+            .is_none()
+        {
+            let _ = self
+                .call(
+                    Method::PATCH,
+                    name,
+                    &[],
+                    Some(&json!({"sparse_vectors":{"bm25":{"modifier":"idf"}}})),
+                    false,
+                )
+                .await;
+        }
+        let requested = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
+        self.ensure_lexical_selection(
+            &scoped,
+            &requested,
+            !dataset.index_config["retrieval"]["lexical"].is_null(),
+            lexical_transition,
+            false,
+        )
+        .await?;
+        Ok(())
+    }
+    fn require_write_scope(&self, dataset: &Dataset, info: &Value) -> Result<()> {
+        let s = &info["config"]["metadata"]["knowledge_scope"];
+        if s["schema_version"] != 1
+            || s["dataset_id"] != dataset.dataset_id
+            || s["tenant_id"] != dataset.tenant_id
+        {
+            return Err(QueryError::CollectionAuthority(
+                "collection is missing immutable dataset/tenant scope".into(),
+            ));
+        }
+        Ok(())
+    }
+    fn completed(result: &Value) -> Result<()> {
+        if result["status"].as_str() == Some("completed") {
+            Ok(())
+        } else {
+            Err(QueryError::VectorStore)
+        }
+    }
+    pub fn filter(dataset: &Dataset, request: Option<&RetrieveRequest>, enabled: bool) -> Value {
+        let mut must = vec![
+            json!({"key":"tenant_id","match":{"value":dataset.tenant_id}}),
+            json!({"key":"dataset_id","match":{"value":dataset.dataset_id}}),
+        ];
+        if enabled {
+            must.push(json!({"should":[{"key":"enabled","match":{"value":true}},{"is_empty":{"key":"enabled"}}]}))
+        }
+        if let Some(r) = request {
+            for (key, value) in [
+                ("document_id", r.document_id.as_deref()),
+                ("source_type", r.source_type_filter.as_deref()),
+                ("language", r.language_filter.as_deref()),
+            ] {
+                if let Some(v) = value.filter(|v| !v.is_empty()) {
+                    must.push(json!({"key":key,"match":{"value":v}}))
+                }
+            }
+            if let Some(m) = r.metadata_filter.as_ref().and_then(Value::as_object) {
+                for (k, v) in m {
+                    if v.is_string() || v.is_i64() || v.is_u64() || v.is_boolean() {
+                        must.push(json!({"key":format!("metadata.{k}"),"match":{"value":v}}))
+                    }
+                }
+            }
+        }
+        json!({"must":must})
+    }
+    pub async fn search(
+        &self,
+        dataset: &Dataset,
+        vector: &[f64],
+        top_k: usize,
+        request: &RetrieveRequest,
+    ) -> Result<Vec<VectorHit>> {
+        self.require_collection_readable(dataset).await?;
+        let body = json!({"query":vector,"limit":top_k,"filter":Self::filter(dataset,Some(request),true),"with_payload":true,"with_vector":false});
+        self.query(dataset, &body).await
+    }
+    async fn query(&self, dataset: &Dataset, body: &Value) -> Result<Vec<VectorHit>> {
+        let result = self
+            .call_interactive(
+                Method::POST,
+                dataset.collection()?,
+                &["points", "query"],
+                Some(body),
+                false,
+            )
+            .await?;
+        Self::hits(&result["points"])
+    }
+    fn hits(v: &Value) -> Result<Vec<VectorHit>> {
+        v.as_array()
+            .ok_or(QueryError::VectorStore)?
+            .iter()
+            .map(|p| {
+                Ok(VectorHit {
+                    point_id: id_string(&p["id"]).ok_or(QueryError::VectorStore)?,
+                    score: p["score"]
+                        .as_f64()
+                        .filter(|n| n.is_finite())
+                        .ok_or(QueryError::VectorStore)?,
+                    payload: p["payload"].clone(),
+                    vector: vector_values(&p["vector"]),
+                })
+            })
+            .collect()
+    }
+    pub async fn sparse_search(
+        &self,
+        dataset: &Dataset,
+        query: &str,
+        top_k: usize,
+        request: &RetrieveRequest,
+    ) -> Result<Vec<VectorHit>> {
+        self.require_collection_readable(dataset).await?;
+        let profile = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
+        let (query, using) = if profile.active {
+            self.verify_bm25_v2_readiness(dataset, &profile).await?;
+            (profile.document(query), "bm25_v2")
+        } else {
+            let (i, v) = lexical::sparse_vector(query, true);
+            if i.is_empty() {
+                return Ok(vec![]);
+            }
+            (json!({"indices":i,"values":v}), "bm25")
+        };
+        self.query(dataset,&json!({"query":query,"using":using,"limit":top_k,"filter":Self::filter(dataset,Some(request),true),"with_payload":true})).await
+    }
+    pub async fn hybrid_search_native(
+        &self,
+        dataset: &Dataset,
+        query: &str,
+        vector: &[f64],
+        top_k: usize,
+        dense_k: usize,
+        sparse_k: usize,
+        rrf_k: usize,
+        weights: Option<(f64, f64)>,
+        request: &RetrieveRequest,
+    ) -> Result<Vec<VectorHit>> {
+        self.require_collection_readable(dataset).await?;
+        let profile = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
+        let (sparse, using) = if profile.active {
+            self.verify_bm25_v2_readiness(dataset, &profile).await?;
+            (profile.document(query), "bm25_v2")
+        } else {
+            let (i, v) = lexical::sparse_vector(query, true);
+            (json!({"indices":i,"values":v}), "bm25")
+        };
+        let filter = Self::filter(dataset, Some(request), true);
+        let mut rrf = json!({"k":rrf_k});
+        if let Some((d, b)) = weights {
+            rrf["weights"] = json!([d, b]);
+        }
+        self.query(dataset,&json!({"prefetch":[{"query":vector,"limit":dense_k,"filter":filter},{"query":sparse,"using":using,"limit":sparse_k,"filter":filter}],"query":{"rrf":rrf},"limit":top_k,"with_payload":true})).await
+    }
+    pub async fn snapshot_points(&self, dataset: &Dataset, ids: &[String]) -> Result<Vec<Value>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        self.require_collection_readable(dataset).await?;
+        let value = self
+            .call(
+                Method::POST,
+                dataset.collection()?,
+                &["points"],
+                Some(&json!({"ids":ids,"with_payload":true,"with_vector":true})),
+                false,
+            )
+            .await?;
+        let mut seen = BTreeSet::new();
+        let mut out = Vec::new();
+        for p in value.as_array().ok_or(QueryError::VectorStore)? {
+            let mut p = p.clone();
+            let id = id_string(&p["id"]).ok_or(QueryError::VectorStore)?;
+            if !ids.contains(&id) || !seen.insert(id) || p["vector"].is_null() {
+                return Err(QueryError::VectorStore);
+            }
+            for (key, expected) in [
+                ("tenant_id", &dataset.tenant_id),
+                ("dataset_id", &dataset.dataset_id),
+            ] {
+                if p["payload"][key]
+                    .as_str()
+                    .is_some_and(|v| !v.is_empty() && v != expected)
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "snapshot point escaped dataset/tenant scope".into(),
+                    ));
+                }
+                p["payload"][key] = json!(expected)
+            }
+            out.push(p)
+        }
+        Ok(out)
+    }
+    pub async fn retrieve_vectors(
+        &self,
+        dataset: &Dataset,
+        ids: &[String],
+    ) -> Result<BTreeMap<String, Vec<f64>>> {
+        resilience::with_interactive_calls(async {
+            let mut result = BTreeMap::new();
+            for p in self.snapshot_points(dataset, ids).await? {
+                if let Some(v) = vector_values(&p["vector"]) {
+                    result.insert(id_string(&p["id"]).ok_or(QueryError::VectorStore)?, v);
+                }
+            }
+            Ok(result)
+        })
+        .await
+    }
+    pub async fn upsert_points(&self, dataset: &Dataset, points: &[Value]) -> Result<()> {
+        if points.is_empty() {
+            return Ok(());
+        }
+        // A fresh collection profile is authoritative over stale caller config.
+        let info = self.collection_info(dataset.collection()?).await?;
+        self.require_write_scope(dataset, &info)?;
+        let metadata = &info["config"]["metadata"];
+        let raw = metadata.get("knowledge_lexical");
+        let profile = if let Some(raw) = raw {
+            super::lexical_v2::validate_collection_profile(raw)?;
+            super::lexical_v2::LexicalProfile::from_collection(raw)?
+        } else {
+            let mut blank = dataset.clone();
+            blank.index_config = json!({});
+            super::lexical_v2::LexicalProfile::from_dataset(&blank)?
+        };
+        let eligible = super::lexical_v2::eligible;
+        let shadow_only = profile.shadow && !profile.active;
+        let mut invalidation_failed = false;
+        if raw.is_some() && points.iter().any(|p| eligible(&p["payload"])) {
+            if let Err(error) = self
+                .invalidate_receipt(dataset.collection()?, metadata, "runtime_upsert")
+                .await
+            {
+                if profile.active {
+                    return Err(error);
+                }
+                invalidation_failed = true;
+            }
+        }
+        if profile.active && !self.bm25_v2_enabled {
+            return Err(QueryError::Validation("bm25_v2 is disabled".into()));
+        }
+        let preflight: Result<()> = async {
+            if !profile.shadow {
+                return Ok(());
+            }
+            for field in ["bm25", "bm25_v2"] {
+                if info["config"]["params"]["sparse_vectors"][field]["modifier"] != "idf" {
+                    return Err(QueryError::CollectionAuthority(
+                        "bm25_v2 writes require both sparse fields with IDF".into(),
+                    ));
+                }
+            }
+            self.ensure_bm25_v2_capability(&profile).await?;
+            self.ensure_filtering_profile(
+                dataset.collection()?,
+                &profile,
+                false,
+                Some(profile.active),
+                true,
+            )
+            .await?;
+            Ok(())
+        }
+        .await;
+        if profile.active {
+            preflight.as_ref().map_err(Clone::clone)?;
+        }
+        let preflight_failed = preflight.is_err();
+        let mut prepared = Vec::new();
+        let mut updates = Vec::new();
+        let mut invalid_shadow = 0u64;
+        for point in points {
+            let mut p = point.clone();
+            let text = p["payload"]["text"].as_str().unwrap_or("").to_owned();
+            let is_eligible = eligible(&p["payload"]);
+            if p["id"].is_null() {
+                return Err(QueryError::VectorStore);
+            }
+            for (key, value) in [
+                ("tenant_id", &dataset.tenant_id),
+                ("dataset_id", &dataset.dataset_id),
+            ] {
+                if p["payload"][key]
+                    .as_str()
+                    .is_some_and(|s| !s.trim().is_empty() && s.trim() != value)
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "point escaped immutable collection scope".into(),
+                    ));
+                }
+                p["payload"][key] = json!(value)
+            }
+            if p["vector"].is_array() {
+                let dense = p["vector"].clone();
+                p["vector"] = json!({"":dense});
+            }
+            if !p["vector"].is_object() {
+                if profile.active {
+                    return Err(QueryError::VectorStore);
+                }
+                invalid_shadow += u64::from(shadow_only);
+                prepared.push(p);
+                continue;
+            }
+            p["vector"]
+                .as_object_mut()
+                .ok_or(QueryError::VectorStore)?
+                .remove("bm25_v2");
+            if info["config"]["params"]["sparse_vectors"]
+                .get("bm25")
+                .is_some()
+                && p["vector"].get("bm25").is_none()
+            {
+                let (i, v) = lexical::sparse_vector(&text, false);
+                let (i, v) = if i.is_empty() {
+                    (vec![0], vec![1.0])
+                } else {
+                    (i, v)
+                };
+                p["vector"]["bm25"] = json!({"indices":i,"values":v});
+            }
+            let mut marker = if p["payload"]["_lexical"].is_object() {
+                p["payload"]["_lexical"].clone()
+            } else {
+                json!({})
+            };
+            let mut versions = marker["versions"].as_array().cloned().unwrap_or_default();
+            for version in [json!("lexical_v1"), json!("bm25_v2")] {
+                if !versions.contains(&version) {
+                    versions.push(version)
+                }
+            }
+            if raw.is_some() {
+                if let Some(payload) = p["payload"].as_object_mut() {
+                    payload.remove("_lexical");
+                }
+            }
+            for (k, v) in profile
+                .marker(&text)
+                .as_object()
+                .ok_or(QueryError::VectorStore)?
+            {
+                marker[k] = v.clone();
+            }
+            marker["versions"] = json!(versions);
+            if profile.active && is_eligible {
+                if text.trim().is_empty() {
+                    return Err(QueryError::VectorStore);
+                }
+                p["vector"]["bm25_v2"] = profile.document(&text);
+                p["payload"]["_lexical"] = marker;
+            } else if shadow_only && !preflight_failed && is_eligible {
+                if text.trim().is_empty() {
+                    invalid_shadow += 1;
+                } else {
+                    updates.push((p["id"].clone(), text, marker));
+                }
+            }
+            prepared.push(p);
+        }
+        let dimension = prepared
+            .first()
+            .and_then(|p| p["vector"].get("").or_else(|| p["vector"].get("dense")))
+            .and_then(Value::as_array)
+            .map(Vec::len);
+        if dimension
+            .is_some_and(|n| info["config"]["params"]["vectors"]["size"].as_u64() != Some(n as u64))
+        {
+            return Err(QueryError::CollectionAuthority(
+                "point dimension differs from collection".into(),
+            ));
+        }
+        let batch_size = match prepared.len() {
+            0..=50 => 32,
+            51..=200 => 16,
+            201..=500 => 8,
+            _ => 4,
+        };
+        for batch in prepared.chunks(batch_size) {
+            let result = self
+                .call(
+                    Method::PUT,
+                    dataset.collection()?,
+                    &["points"],
+                    Some(&json!({"points":batch})),
+                    true,
+                )
+                .await?;
+            Self::completed(&result)?;
+        }
+        if shadow_only {
+            let mut failed = invalid_shadow;
+            let mut failure = preflight_failed || invalidation_failed;
+            if !preflight_failed && !updates.is_empty() {
+                let update:Result<()>=async{
+                let vectors:Vec<_>=updates.iter().map(|(id,text,_)|json!({"id":id,"vector":{"bm25_v2":profile.document(text)}})).collect();
+                let result=self.call(Method::PUT,dataset.collection()?,&["points","vectors"],Some(&json!({"points":vectors})),true).await?;Self::completed(&result)?;
+                for(id,_,marker)in &updates{let result=self.call(Method::POST,dataset.collection()?,&["points","payload"],Some(&json!({"points":[id],"payload":{"_lexical":marker}})),true).await?;Self::completed(&result)?;}Ok(())
+            }.await;
+                if update.is_err() {
+                    failure = true;
+                    failed += updates.len() as u64;
+                }
+            }
+            if failure || failed > 0 {
+                self.shadow_failures.fetch_add(1, Ordering::Relaxed);
+                self.shadow_failed_points.fetch_add(
+                    failed.max(if failure && failed == 0 {
+                        points.len() as u64
+                    } else {
+                        0
+                    }),
+                    Ordering::Relaxed,
+                );
+            }
+        }
+        Ok(())
+    }
+    pub fn bm25_v2_shadow_write_stats(&self) -> Value {
+        json!({"failures":self.shadow_failures.load(Ordering::Relaxed),"failed_points":self.shadow_failed_points.load(Ordering::Relaxed)})
+    }
+    pub async fn delete_points(&self, dataset: &Dataset, ids: &[String]) -> Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        self.require_collection_readable(dataset).await?;
+        let mut filter = Self::filter(dataset, None, false);
+        filter["must"]
+            .as_array_mut()
+            .ok_or(QueryError::VectorStore)?
+            .push(json!({"has_id":ids}));
+        let r = self
+            .call(
+                Method::POST,
+                dataset.collection()?,
+                &["points", "delete"],
+                Some(&json!({"filter":filter})),
+                true,
+            )
+            .await?;
+        Self::completed(&r)
+    }
+    pub async fn scroll(
+        &self,
+        dataset: &Dataset,
+        filter: &Value,
+        with_vectors: bool,
+    ) -> Result<Vec<Value>> {
+        self.require_collection_readable(dataset).await?;
+        let mut offset = Value::Null;
+        let mut out = Vec::new();
+        let mut offsets = BTreeSet::new();
+        loop {
+            let body = json!({"filter":filter,"limit":256,"offset":offset,"with_payload":true,"with_vector":with_vectors});
+            let result = self
+                .call(
+                    Method::POST,
+                    dataset.collection()?,
+                    &["points", "scroll"],
+                    Some(&body),
+                    false,
+                )
+                .await?;
+            out.extend(
+                result["points"]
+                    .as_array()
+                    .ok_or(QueryError::VectorStore)?
+                    .iter()
+                    .cloned(),
+            );
+            offset = result["next_page_offset"].clone();
+            if offset.is_null() {
+                break;
+            }
+            if !offsets.insert(offset.to_string()) {
+                return Err(QueryError::VectorStore);
+            }
+        }
+        Ok(out)
+    }
+    pub async fn verify_bm25_v2_readiness(
+        &self,
+        dataset: &Dataset,
+        profile: &super::lexical_v2::LexicalProfile,
+    ) -> Result<Value> {
+        resilience::with_interactive_calls(async {
+            if !self.bm25_v2_enabled {
+                return Err(QueryError::Validation("bm25_v2 is disabled".into()));
+            }
+            let info = self.require_collection_readable(dataset).await?;
+            super::lexical_v2::verify_active(self, dataset, profile, &info).await
+        })
+        .await
+    }
+}
+pub fn id_string(v: &Value) -> Option<String> {
+    v.as_str()
+        .map(str::to_owned)
+        .or_else(|| v.as_u64().map(|n| n.to_string()))
+}
+fn vector_values(v: &Value) -> Option<Vec<f64>> {
+    let v = if v.is_object() { v.get("")? } else { v };
+    v.as_array()?.iter().map(Value::as_f64).collect()
+}
+
+impl QdrantStore {
+    async fn list_collection_names(&self) -> Result<Vec<String>> {
+        let mut url = self.origin.clone();
+        url.path_segments_mut()
+            .map_err(|_| QueryError::VectorStore)?
+            .pop_if_empty()
+            .push("collections");
+        let data = self.request_json(Method::GET, url, None, false).await?;
+        data["collections"]
+            .as_array()
+            .ok_or(QueryError::VectorStore)?
+            .iter()
+            .map(|c| {
+                c["name"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .ok_or(QueryError::VectorStore)
+            })
+            .collect()
+    }
+    async fn count_points(&self, name: &str, filter: Option<&Value>) -> Result<u64> {
+        let mut body = json!({"exact":true});
+        if let Some(filter) = filter {
+            body["filter"] = filter.clone()
+        }
+        self.call(Method::POST, name, &["points", "count"], Some(&body), false)
+            .await?["count"]
+            .as_u64()
+            .ok_or(QueryError::VectorStore)
+    }
+    async fn invalidate_receipt(&self, name: &str, metadata: &Value, reason: &str) -> Result<()> {
+        if metadata["knowledge_lexical"].is_null() {
+            return Ok(());
+        }
+        let mut metadata = metadata.clone();
+        metadata["knowledge_bm25_v2_backfill"] = json!({"status":"invalidated","reason":reason});
+        let result = self
+            .call(
+                Method::PATCH,
+                name,
+                &[],
+                Some(&json!({"metadata":metadata})),
+                false,
+            )
+            .await?;
+        if result == Value::Bool(true) {
+            Ok(())
+        } else {
+            Err(QueryError::VectorStore)
+        }
+    }
+    fn deletion_filter(dataset: &Dataset, document: Option<&str>) -> Result<Value> {
+        if dataset.tenant_id.trim().is_empty() || dataset.dataset_id.trim().is_empty() {
+            return Err(QueryError::Validation(
+                "tenant_id and dataset_id are required for deletion".into(),
+            ));
+        }
+        let mut must = vec![
+            json!({"key":"dataset_id","match":{"value":dataset.dataset_id}}),
+            json!({"should":[{"key":"tenant_id","match":{"value":dataset.tenant_id}},{"is_empty":{"key":"tenant_id"}}]}),
+        ];
+        if let Some(document) = document {
+            if document.trim().is_empty() {
+                return Err(QueryError::Validation(
+                    "document_id is required for deletion".into(),
+                ));
+            }
+            must.push(json!({"key":"document_id","match":{"value":document}}))
+        }
+        Ok(json!({"must":must}))
+    }
+    /// Caller must hold the ingestion dataset-exclusive lease and persisted fence.
+    pub async fn delete_document_points(&self, dataset: &Dataset, document_id: &str) -> Result<()> {
+        let filter = Self::deletion_filter(dataset, Some(document_id))?;
+        let owned = self.owned_mutation_collections(dataset, &filter).await?;
+        for (name, metadata) in owned {
+            self.invalidate_receipt(&name, &metadata, "runtime_document_delete")
+                .await?;
+            let result = self
+                .call(
+                    Method::POST,
+                    &name,
+                    &["points", "delete"],
+                    Some(&json!({"filter":filter})),
+                    true,
+                )
+                .await?;
+            Self::completed(&result)?;
+        }
+        Ok(())
+    }
+    /// Complete ownership is proven before deleting a collection. Mixed legacy
+    /// collections lose only exact authorized dataset points.
+    pub async fn delete_dataset_collections(&self, dataset: &Dataset) -> Result<()> {
+        let names = dataset.collection_name.iter().cloned().collect::<Vec<_>>();
+        self.delete_dataset_collections_with_names(dataset, &names)
+            .await
+    }
+    pub async fn delete_dataset_collections_with_names(
+        &self,
+        dataset: &Dataset,
+        authoritative_names: &[String],
+    ) -> Result<()> {
+        let filter = Self::deletion_filter(dataset, None)?;
+        let mut actions = Vec::new();
+        for name in self.list_collection_names().await? {
+            let info = self.collection_info(&name).await?;
+            let metadata = info["config"]["metadata"].clone();
+            let authoritative = authoritative_names.contains(&name);
+            if let Some(scope) = metadata.get("knowledge_scope") {
+                if scope["schema_version"] != 1
+                    || scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
+                    || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "malformed immutable collection scope".into(),
+                    ));
+                }
+                if scope["tenant_id"] == dataset.tenant_id
+                    && scope["dataset_id"] == dataset.dataset_id
+                {
+                    actions.push((name, true, metadata))
+                } else if authoritative {
+                    return Err(QueryError::CollectionAuthority(
+                        "authoritative collection scope mismatch".into(),
+                    ));
+                }
+                continue;
+            }
+            let total = self.count_points(&name, None).await?;
+            let matching = self.count_points(&name, Some(&filter)).await?;
+            if total == 0 {
+                if authoritative {
+                    actions.push((name, true, metadata))
+                }
+            } else if matching == total {
+                actions.push((name, true, metadata))
+            } else if matching > 0 {
+                actions.push((name, false, metadata))
+            } else if authoritative {
+                return Err(QueryError::CollectionAuthority(
+                    "authoritative collection contains no matching dataset points".into(),
+                ));
+            }
+        }
+        for (name, whole, metadata) in actions {
+            if whole {
+                if !self.collection_exists(&name).await? {
+                    continue;
+                }
+                let r = self.call(Method::DELETE, &name, &[], None, false).await?;
+                if r != Value::Bool(true) {
+                    return Err(QueryError::VectorStore);
+                }
+            } else {
+                self.invalidate_receipt(&name, &metadata, "runtime_dataset_delete")
+                    .await?;
+                let r = self
+                    .call(
+                        Method::POST,
+                        &name,
+                        &["points", "delete"],
+                        Some(&json!({"filter":filter})),
+                        true,
+                    )
+                    .await?;
+                Self::completed(&r)?
+            }
+        }
+        Ok(())
+    }
+}
+impl QdrantStore {
+    pub async fn document_point_ids_by_collection(
+        &self,
+        dataset: &Dataset,
+        document_id: &str,
+    ) -> Result<BTreeMap<String, Vec<String>>> {
+        let filter = Self::deletion_filter(dataset, Some(document_id))?;
+        let mut result = BTreeMap::new();
+        for name in self.list_collection_names().await? {
+            let info = self.collection_info(&name).await?;
+            if let Some(scope) = info["config"]["metadata"].get("knowledge_scope") {
+                if scope["schema_version"] != 1 {
+                    return Err(QueryError::CollectionAuthority(
+                        "malformed immutable collection scope".into(),
+                    ));
+                }
+                if scope["tenant_id"] != dataset.tenant_id
+                    || scope["dataset_id"] != dataset.dataset_id
+                {
+                    continue;
+                }
+            } else if self.count_points(&name, Some(&filter)).await? == 0 {
+                continue;
+            }
+            let mut d = dataset.clone();
+            d.collection_name = Some(name.clone());
+            let points = self.scroll(&d, &filter, false).await?;
+            let ids = points
+                .iter()
+                .map(|p| id_string(&p["id"]).ok_or(QueryError::VectorStore))
+                .collect::<Result<Vec<_>>>()?;
+            result.insert(name, ids);
+        }
+        Ok(result)
+    }
+    pub(super) async fn scroll_all(&self, dataset: &Dataset) -> Result<Vec<Value>> {
+        self.scroll(dataset, &json!({}), false).await
+    }
+}
+impl QdrantStore {
+    pub async fn publish_lexical_receipt(&self, dataset: &Dataset, receipt: &Value) -> Result<()> {
+        if receipt["status"] != "complete"
+            || receipt["collection_name"].as_str() != Some(dataset.collection()?)
+            || receipt["dataset_id"] != dataset.dataset_id
+            || receipt["tenant_id"] != dataset.tenant_id
+        {
+            return Err(QueryError::CollectionAuthority(
+                "invalid lexical receipt scope".into(),
+            ));
+        }
+        self.require_collection_readable(dataset).await?;
+        let result = self
+            .call(
+                Method::PATCH,
+                dataset.collection()?,
+                &[],
+                Some(&json!({"metadata":{"knowledge_bm25_v2_backfill":receipt}})),
+                false,
+            )
+            .await?;
+        if result != true
+            || self.collection_info(dataset.collection()?).await?["config"]["metadata"]["knowledge_bm25_v2_backfill"]
+                != *receipt
+        {
+            return Err(QueryError::VectorStore);
+        }
+        Ok(())
+    }
+    pub async fn invalidate_lexical_receipt(&self, dataset: &Dataset, reason: &str) -> Result<()> {
+        let info = self.collection_info(dataset.collection()?).await?;
+        self.require_write_scope(dataset, &info)?;
+        self.invalidate_receipt(dataset.collection()?, &info["config"]["metadata"], reason)
+            .await
+    }
+    pub(super) async fn select_lexical_profile(
+        &self,
+        dataset: &Dataset,
+        profile: &super::lexical_v2::LexicalProfile,
+    ) -> Result<()> {
+        self.ensure_lexical_selection(dataset, profile, true, true, true)
+            .await
+            .map(|_| ())
+    }
+}
+impl QdrantStore {
+    pub async fn search_hierarchy(
+        &self,
+        dataset: &Dataset,
+        vector: &[f64],
+        top_k: usize,
+        documents: &[String],
+        threshold: Option<f64>,
+    ) -> Result<Vec<VectorHit>> {
+        self.require_collection_readable(dataset).await?;
+        let mut filter = Self::filter(dataset, None, true);
+        if !documents.is_empty() {
+            filter["must"]
+                .as_array_mut()
+                .ok_or(QueryError::VectorStore)?
+                .push(json!({"key":"document_id","match":{"any":documents}}))
+        }
+        let mut body = json!({"query":vector,"limit":top_k,"filter":filter,"with_payload":true});
+        if let Some(t) = threshold {
+            body["score_threshold"] = json!(t)
+        }
+        self.query(dataset, &body).await
+    }
+}
+impl QdrantStore {
+    /// One provider batch for all rewritten queries. Each retains its candidate
+    /// windows and filter; the serving pipeline globally ranks the union once.
+    pub async fn hybrid_search_batch(
+        &self,
+        d: &Dataset,
+        specs: &[(String, Vec<f64>, RetrieveRequest, usize, usize)],
+        top_k: usize,
+        rrf_k: usize,
+        weights: Option<(f64, f64)>,
+    ) -> Result<Vec<Vec<VectorHit>>> {
+        if specs.is_empty() {
+            return Ok(vec![]);
+        }
+        self.require_collection_readable(d).await?;
+        let profile = super::lexical_v2::LexicalProfile::from_dataset(d)?;
+        if profile.active {
+            self.verify_bm25_v2_readiness(d, &profile).await?;
+        }
+        let mut searches = Vec::new();
+        for (text, vector, request, dense_k, sparse_k) in specs {
+            let (sparse, using) = if profile.active {
+                (profile.document(text), "bm25_v2")
+            } else {
+                let (i, v) = lexical::sparse_vector(text, true);
+                (json!({"indices":i,"values":v}), "bm25")
+            };
+            let filter = Self::filter(d, Some(request), true);
+            let mut rrf = json!({"k":rrf_k});
+            if let Some((dense, sparse)) = weights {
+                rrf["weights"] = json!([dense, sparse])
+            }
+            searches.push(json!({"prefetch":[{"query":vector,"limit":dense_k,"filter":filter},{"query":sparse,"using":using,"limit":sparse_k,"filter":filter}],"query":{"rrf":rrf},"limit":top_k,"with_payload":true}));
+        }
+        let result = self
+            .call_interactive(
+                Method::POST,
+                d.collection()?,
+                &["points", "query", "batch"],
+                Some(&json!({"searches":searches})),
+                false,
+            )
+            .await?;
+        let rows = result
+            .as_array()
+            .filter(|a| a.len() == specs.len())
+            .ok_or(QueryError::VectorStore)?;
+        rows.iter().map(|r| Self::hits(&r["points"])).collect()
+    }
+}
+impl QdrantStore {
+    async fn ensure_immutable_scope(&self, d: &Dataset, info: Value) -> Result<Value> {
+        let metadata = &info["config"]["metadata"];
+        if metadata.get("knowledge_scope").is_some() {
+            self.require_write_scope(d, &info)?;
+            return Ok(info);
+        }
+        let name = d.collection()?;
+        let expected =
+            json!({"schema_version":1,"dataset_id":d.dataset_id,"tenant_id":d.tenant_id});
+        let filter = Self::filter(d, None, false);
+        let total = self.count_points(name, None).await?;
+        let matching = self.count_points(name, Some(&filter)).await?;
+        if total == 0 || total != matching {
+            return Err(QueryError::CollectionAuthority(
+                "empty or mixed legacy collection cannot be safely adopted".into(),
+            ));
+        }
+        let adopting = json!({"schema_version":0,"status":"adopting","dataset_id":d.dataset_id,"tenant_id":d.tenant_id});
+        let updated = self
+            .call(
+                Method::PATCH,
+                name,
+                &[],
+                Some(&json!({"metadata":{"knowledge_scope":adopting}})),
+                false,
+            )
+            .await?;
+        if updated != true
+            || self.collection_info(name).await?["config"]["metadata"]["knowledge_scope"]
+                != adopting
+        {
+            return Err(QueryError::CollectionAuthority(
+                "collection adoption marker did not converge".into(),
+            ));
+        }
+        let total = self.count_points(name, None).await?;
+        let matching = self.count_points(name, Some(&filter)).await?;
+        if total != matching {
+            let _=self.call(Method::PATCH,name,&[],Some(&json!({"metadata":{"knowledge_scope":{"schema_version":0,"adoption_failed":true}}})),false).await;
+            return Err(QueryError::CollectionAuthority(
+                "collection changed during ownership adoption".into(),
+            ));
+        }
+        let updated = self
+            .call(
+                Method::PATCH,
+                name,
+                &[],
+                Some(&json!({"metadata":{"knowledge_scope":expected}})),
+                false,
+            )
+            .await?;
+        let info = self.collection_info(name).await?;
+        if updated != true || info["config"]["metadata"]["knowledge_scope"] != expected {
+            return Err(QueryError::CollectionAuthority(
+                "collection adoption finalization did not converge".into(),
+            ));
+        }
+        Ok(info)
+    }
+}
+impl QdrantStore {
+    /// Discover every immutable-owned or matching legacy collection before any
+    /// mutation. A malformed ownership/profile declaration fails the whole plan.
+    async fn owned_mutation_collections(
+        &self,
+        dataset: &Dataset,
+        filter: &Value,
+    ) -> Result<Vec<(String, Value)>> {
+        let mut owned = Vec::new();
+        for name in self.list_collection_names().await? {
+            let info = self.collection_info(&name).await?;
+            let metadata = info["config"]["metadata"].clone();
+            if let Some(scope) = metadata.get("knowledge_scope") {
+                if scope["schema_version"] != 1
+                    || scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
+                    || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "malformed immutable collection scope".into(),
+                    ));
+                }
+                if scope["tenant_id"] != dataset.tenant_id
+                    || scope["dataset_id"] != dataset.dataset_id
+                {
+                    continue;
+                }
+            } else if self.count_points(&name, Some(filter)).await? == 0 {
+                continue;
+            }
+            if let Some(profile) = metadata.get("knowledge_lexical") {
+                super::lexical_v2::validate_collection_profile(profile)?;
+            }
+            owned.push((name, metadata));
+        }
+        Ok(owned)
+    }
+    fn segment_mutation_filter(
+        dataset: &Dataset,
+        document_id: &str,
+        segment_id: &str,
+    ) -> Result<Value> {
+        if segment_id.trim().is_empty() {
+            return Err(QueryError::Validation("segment_id is required".into()));
+        }
+        let mut filter = Self::deletion_filter(dataset, Some(document_id))?;
+        filter["must"].as_array_mut().ok_or(QueryError::VectorStore)?.push(json!({"should":[{"key":"segment_id","match":{"value":segment_id.trim()}},{"has_id":[segment_id.trim()]}]}));
+        Ok(filter)
+    }
+    /// Caller holds the dataset lifecycle lease and persisted deletion fence.
+    pub async fn delete_segment_points(
+        &self,
+        dataset: &Dataset,
+        document_id: &str,
+        segment_id: &str,
+    ) -> Result<()> {
+        let filter = Self::segment_mutation_filter(dataset, document_id, segment_id)?;
+        for (name, metadata) in self.owned_mutation_collections(dataset, &filter).await? {
+            self.invalidate_receipt(&name, &metadata, "runtime_segment_delete")
+                .await?;
+            let result = self
+                .call(
+                    Method::POST,
+                    &name,
+                    &["points", "delete"],
+                    Some(&json!({"filter":filter})),
+                    true,
+                )
+                .await?;
+            Self::completed(&result)?;
+        }
+        Ok(())
+    }
+    /// Caller holds the dataset lifecycle lease; PostgreSQL is final authority.
+    pub async fn set_segment_payload_enabled(
+        &self,
+        dataset: &Dataset,
+        document_id: &str,
+        segment_id: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        let filter = Self::segment_mutation_filter(dataset, document_id, segment_id)?;
+        self.set_scoped_payload_enabled(
+            dataset,
+            &filter,
+            enabled,
+            "runtime_segment_visibility_update",
+        )
+        .await
+    }
+    pub async fn set_document_payload_enabled(
+        &self,
+        dataset: &Dataset,
+        document_id: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        let filter = Self::deletion_filter(dataset, Some(document_id))?;
+        self.set_scoped_payload_enabled(
+            dataset,
+            &filter,
+            enabled,
+            "runtime_document_visibility_update",
+        )
+        .await
+    }
+    async fn set_scoped_payload_enabled(
+        &self,
+        dataset: &Dataset,
+        filter: &Value,
+        enabled: bool,
+        reason: &str,
+    ) -> Result<()> {
+        for (name, metadata) in self.owned_mutation_collections(dataset, filter).await? {
+            self.invalidate_receipt(&name, &metadata, reason).await?;
+            let result = self
+                .call(
+                    Method::POST,
+                    &name,
+                    &["points", "payload"],
+                    Some(&json!({"filter":filter,"payload":{"enabled":enabled}})),
+                    true,
+                )
+                .await?;
+            Self::completed(&result)?;
+        }
+        Ok(())
+    }
+}
+impl QdrantStore {
+    async fn ensure_lexical_selection(
+        &self,
+        dataset: &Dataset,
+        requested: &super::lexical_v2::LexicalProfile,
+        configured: bool,
+        allow_transition: bool,
+        active_authorized: bool,
+    ) -> Result<bool> {
+        use super::lexical_v2::{LexicalProfile, validate_collection_profile};
+        let name = dataset.collection()?;
+        let mut info = self.collection_info(name).await?;
+        let raw = info["config"]["metadata"].get("knowledge_lexical");
+        let mut stored = if let Some(raw) = raw {
+            validate_collection_profile(raw)?;
+            Some(LexicalProfile::from_collection(raw)?)
+        } else {
+            None
+        };
+        let sparse = info["config"]["params"]["sparse_vectors"].clone();
+        let has_v2 = sparse.get("bm25_v2").is_some();
+        if stored.is_some() && !has_v2 {
+            return Err(QueryError::CollectionAuthority(
+                "bm25_v2 metadata is missing its sparse field".into(),
+            ));
+        }
+        let explicit_remove = !configured && allow_transition && stored.is_some();
+        let mut selected = stored.clone().unwrap_or_else(|| requested.clone());
+        let mut add_field = false;
+        if has_v2 {
+            if sparse["bm25_v2"]["modifier"] != "idf" {
+                return Err(QueryError::CollectionAuthority(
+                    "bm25_v2 sparse field requires IDF".into(),
+                ));
+            }
+            if stored.is_none() && configured {
+                if !allow_transition {
+                    return Err(QueryError::CollectionAuthority(
+                        "bm25_v2 schema adoption requires an administrator transition".into(),
+                    ));
+                }
+                if self.count_points(name, None).await? > 0 {
+                    return Err(QueryError::CollectionAuthority(
+                        "refusing to mix unknown unversioned bm25_v2 encodings".into(),
+                    ));
+                }
+                if requested.active {
+                    return Err(QueryError::CollectionAuthority(
+                        "bm25_v2 active mode requires a completed shadow phase".into(),
+                    ));
+                }
+                selected = requested.clone();
+                selected.runtime_revision = 1;
+                stored = Some(selected.clone());
+            }
+            if let Some(old) = &stored {
+                if explicit_remove {
+                    selected = old.clone();
+                    selected.active = false;
+                    selected.shadow = false;
+                    selected.runtime_revision += 1;
+                } else if !configured {
+                    selected = old.clone();
+                } else {
+                    if requested.schema_fingerprint() != old.schema_fingerprint() {
+                        return Err(QueryError::CollectionAuthority("bm25_v2 encoding is immutable; use a new collection for changed parameters".into()));
+                    }
+                    let changed = requested.active != old.active
+                        || requested.shadow != old.shadow
+                        || requested.filtering_fingerprint() != old.filtering_fingerprint();
+                    selected = if changed && allow_transition {
+                        let mut next = requested.clone();
+                        next.runtime_revision = old.runtime_revision + 1;
+                        next
+                    } else {
+                        old.clone()
+                    };
+                }
+            }
+        } else if configured && requested.shadow {
+            if !allow_transition {
+                return Err(QueryError::CollectionAuthority(
+                    "enabling bm25_v2 shadow writes requires an administrator transition".into(),
+                ));
+            }
+            if requested.active {
+                return Err(QueryError::CollectionAuthority(
+                    "bm25_v2 active mode requires a completed shadow phase".into(),
+                ));
+            }
+            add_field = true;
+            selected = requested.clone();
+            selected.runtime_revision = 1;
+        }
+        if !has_v2 && !add_field {
+            return Ok(false);
+        }
+        if selected.active && !active_authorized {
+            return Err(QueryError::CollectionAuthority(
+                "bm25_v2 active cutover is lifecycle-only".into(),
+            ));
+        }
+        if !self.bm25_v2_enabled {
+            let emergency =
+                allow_transition && stored.is_some() && !selected.active && !selected.shadow;
+            if !emergency
+                && (selected.active
+                    || (allow_transition && configured && (requested.shadow || requested.active)))
+            {
+                return Err(QueryError::Validation(
+                    "bm25_v2 is disabled by the service kill switch".into(),
+                ));
+            }
+            if !emergency {
+                return Ok(false);
+            }
+        }
+        if info["config"]["metadata"].get("knowledge_scope").is_none() && allow_transition {
+            info = self.ensure_immutable_scope(dataset, info).await?;
+        }
+        self.require_write_scope(dataset, &info)?;
+        if selected.shadow || selected.active {
+            if sparse["bm25"]["modifier"] != "idf" {
+                return Err(QueryError::CollectionAuthority(
+                    "bm25_v2 must retain lexical_v1 with IDF".into(),
+                ));
+            }
+            self.ensure_bm25_v2_capability(&selected).await?;
+            self.ensure_filtering_profile(name, &selected, true, None, false)
+                .await?;
+        }
+        let expected = selected.collection_profile();
+        let changed = info["config"]["metadata"]["knowledge_lexical"] != expected;
+        if stored.as_ref().is_some_and(|old| old.active) && !selected.active {
+            self.ensure_filtering_profile(name, &selected, true, Some(false), true)
+                .await?;
+        }
+        if add_field || changed {
+            let mut body = json!({"metadata":{"knowledge_lexical":expected}});
+            if add_field {
+                body["sparse_vectors"] = json!({"bm25_v2":{"modifier":"idf"}})
+            }
+            if self
+                .call(Method::PATCH, name, &[], Some(&body), false)
+                .await?
+                != true
+            {
+                return Err(QueryError::VectorStore);
+            }
+        }
+        if selected.shadow || stored.is_some() {
+            self.ensure_filtering_profile(name, &selected, true, Some(false), true)
+                .await?;
+        }
+        Ok(add_field || changed)
+    }
+    fn payload_index_ready(info: &Value, field: &str) -> bool {
+        let schema = &info["payload_schema"][field];
+        let kind = schema["data_type"].as_str().or_else(|| schema.as_str());
+        let expected = match field {
+            "level" => "integer",
+            "enabled" => "bool",
+            _ => "keyword",
+        };
+        kind == Some(expected) && (field != "tenant_id" || schema["params"]["is_tenant"] == true)
+    }
+    fn strict_filtering_ready(info: &Value) -> bool {
+        let strict = &info["config"]["strict_mode_config"];
+        strict["enabled"] == true
+            && strict["unindexed_filtering_retrieve"] == false
+            && strict["unindexed_filtering_update"] == false
+    }
+    pub(super) async fn ensure_filtering_profile(
+        &self,
+        name: &str,
+        profile: &super::lexical_v2::LexicalProfile,
+        allow_mutation: bool,
+        enforce_strict: Option<bool>,
+        manage_strict: bool,
+    ) -> Result<Value> {
+        let mut info = self.collection_info(name).await?;
+        let strict = profile.filtering["strict_unindexed_filtering"] == true;
+        let fields: &[&str] = if strict {
+            &[
+                "tenant_id",
+                "dataset_id",
+                "content_type",
+                "level",
+                "enabled",
+                "document_id",
+                "source_type",
+                "language",
+                "_lexical.bm25_v2_schema_fingerprint",
+                "_lexical.filtering_profile_fingerprint",
+            ]
+        } else {
+            &["tenant_id", "dataset_id"]
+        };
+        let missing: Vec<_> = fields
+            .iter()
+            .copied()
+            .filter(|field| !Self::payload_index_ready(&info, field))
+            .collect();
+        if !missing.is_empty() && !allow_mutation {
+            return Err(QueryError::CollectionAuthority(
+                "bm25_v2 filtering indexes are unavailable".into(),
+            ));
+        }
+        for field in &missing {
+            let schema = match *field {
+                "tenant_id" => json!({"type":"keyword","is_tenant":true}),
+                "level" => json!("integer"),
+                "enabled" => json!("bool"),
+                _ => json!("keyword"),
+            };
+            self.call(
+                Method::PUT,
+                name,
+                &["index"],
+                Some(&json!({"field_name":field,"field_schema":schema})),
+                true,
+            )
+            .await?;
+        }
+        if !missing.is_empty() {
+            info = self.collection_info(name).await?;
+            if fields.iter().any(|f| !Self::payload_index_ready(&info, f)) {
+                return Err(QueryError::CollectionAuthority(
+                    "bm25_v2 filtering indexes did not converge".into(),
+                ));
+            }
+        }
+        if !manage_strict {
+            return Ok(info);
+        }
+        let required = enforce_strict.unwrap_or(profile.active) && strict;
+        let disabled = info["config"]["strict_mode_config"].is_null()
+            || info["config"]["strict_mode_config"]["enabled"] == false;
+        if (required && !Self::strict_filtering_ready(&info)) || (!required && !disabled) {
+            if !allow_mutation {
+                return Err(QueryError::CollectionAuthority(
+                    "strict filtering mode differs from lexical profile".into(),
+                ));
+            }
+            let config = if required {
+                json!({"enabled":true,"unindexed_filtering_retrieve":false,"unindexed_filtering_update":false})
+            } else {
+                json!({"enabled":false})
+            };
+            if self
+                .call(
+                    Method::PATCH,
+                    name,
+                    &[],
+                    Some(&json!({"strict_mode_config":config})),
+                    false,
+                )
+                .await?
+                != true
+            {
+                return Err(QueryError::VectorStore);
+            }
+            info = self.collection_info(name).await?;
+            if (required && !Self::strict_filtering_ready(&info))
+                || (!required && info["config"]["strict_mode_config"]["enabled"] != false)
+            {
+                return Err(QueryError::CollectionAuthority(
+                    "strict filtering mode did not converge".into(),
+                ));
+            }
+        }
+        Ok(info)
+    }
+    /// Runtime protocol probe from the canonical adapter, never an assumed
+    /// capability receipt. No provider call occurs until this method is invoked.
+    pub(super) async fn ensure_bm25_v2_capability(
+        &self,
+        profile: &super::lexical_v2::LexicalProfile,
+    ) -> Result<()> {
+        if !self.bm25_v2_enabled {
+            return Err(QueryError::Validation(
+                "bm25_v2 is disabled by the service kill switch".into(),
+            ));
+        }
+        let key = profile.schema_fingerprint();
+        let mut receipts = self.capability_receipts.lock().await;
+        if receipts
+            .get(&key)
+            .is_some_and(|until| *until > Instant::now())
+        {
+            return Ok(());
+        }
+        let name = format!("kb_bm25_v2_canary_{}", uuid::Uuid::new_v4().simple());
+        let repeated = uuid::Uuid::new_v4().to_string();
+        let diluted = uuid::Uuid::new_v4().to_string();
+        let unrelated = uuid::Uuid::new_v4().to_string();
+        let mut probe = self.clone();
+        probe.timeout = probe.timeout.min(Duration::from_secs(15));
+        let mut created = false;
+        let operation:Result<()>=async{
+            if probe.call(Method::PUT,&name,&[],Some(&json!({"vectors":{},"sparse_vectors":{"bm25_v2":{"modifier":"idf"}}})),false).await?!=true{return Err(QueryError::VectorStore)}created=true;
+            let points=json!([{"id":repeated,"vector":{"bm25_v2":profile.document("alpha alpha alpha")}}, {"id":diluted,"vector":{"bm25_v2":profile.document("alpha filler filler filler filler filler")}}, {"id":unrelated,"vector":{"bm25_v2":profile.document("beta gamma")}}]);
+            probe.call(Method::PUT,&name,&["points"],Some(&json!({"points":points})),true).await?;
+            let result=probe.call(Method::POST,&name,&["points","query"],Some(&json!({"query":profile.document("alpha"),"using":"bm25_v2","limit":2,"with_payload":false})),false).await?;
+            let hits=result["points"].as_array().ok_or(QueryError::VectorStore)?;
+            if hits.len()<2||id_string(&hits[0]["id"]).as_deref()!=Some(repeated.as_str())||hits[0]["score"].as_f64().unwrap_or(0.0)<=0.0||hits[0]["score"].as_f64().unwrap_or(0.0)<=hits[1]["score"].as_f64().unwrap_or(0.0)||hits.iter().filter_map(|h|id_string(&h["id"])).collect::<BTreeSet<_>>()!=BTreeSet::from([repeated.clone(),diluted.clone()]){return Err(QueryError::CollectionAuthority("native BM25 capability probe returned unexpected TF/length ranking".into()))}Ok(())
+        }.await;
+        let cleanup = if created {
+            probe
+                .call(Method::DELETE, &name, &[], None, false)
+                .await
+                .and_then(|v| {
+                    if v == true {
+                        Ok(())
+                    } else {
+                        Err(QueryError::VectorStore)
+                    }
+                })
+        } else {
+            Ok(())
+        };
+        if operation.is_err() && cleanup.is_err() {
+            return Err(QueryError::CollectionAuthority(
+                "native BM25 capability probe and cleanup failed".into(),
+            ));
+        }
+        operation?;
+        cleanup?;
+        receipts.insert(key, Instant::now() + self.bm25_v2_capability_ttl);
+        Ok(())
+    }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "coding-agent-validator/v1",
+  "case_id": "coding.parallel.settlement-retry",
+  "allowed_changes": [
+    "src/settlement/allocation.py",
+    "src/settlement/idempotency.py"
+  ],
+  "required_investigation_areas": ["allocation", "idempotency"],
+  "required_diagnosis_evidence": {
+    "allocation": "community-doublecheck:doublecheck",
+    "idempotency": "community-engineering-reviewers:security-reviewer"
+  },
+  "required_rejected_hint_ids": [
+    "INCREASE_IDEMPOTENCY_TTL",
+    "ROUND_EACH_SHARE_INDEPENDENTLY"
+  ],
+  "max_changed_lines": 48,
+  "minimum_child_duration_ms": 25,
+  "minimum_parallel_overlap_ms": 25,
+  "sandbox_image_reference": "python@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36",
+  "test_commands": [
+    ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_idempotency.py", "-q"],
+    ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_allocation.py", "-q"],
+    ["$PYTHON", "-m", "unittest", "discover", "-s", "tests", "-p", "test_service.py", "-q"]
+  ],
+  "execution_boundary": "Run only in a disposable local checkout with no provider credentials. The verifier strips inherited secrets and never invokes a shell."
+}

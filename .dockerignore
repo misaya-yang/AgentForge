@@ -1,0 +1,86 @@
+# =============================================================================
+# Docker Build Ignore File
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+.tools
+venv
+env
+ENV
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+temp/
+
+# Local environment
+.env
+.env.*
+.env.local
+.env.*.local
+
+# Frontend (handled separately)
+web/
+!web/Dockerfile
+!web/nginx.conf
+
+# Documentation, harness, runbooks, and evidence — none are needed at runtime.
+docs/
+deploy/
+reports/
+harness.yml
+.claude/
+*.md
+!README.md
+
+# Docker files (don't include in build context)
+docker/
+docker-compose*.yml
+Dockerfile*
+
+# Backups
+backups/
+
+# Uploads (runtime data)
+uploads/
+
+# Tests
+tests/
+
+# Scripts (not needed in container)
+scripts/
+
+# Config examples
+*.example
+*.sample

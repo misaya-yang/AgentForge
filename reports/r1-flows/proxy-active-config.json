@@ -1,0 +1,12 @@
+{
+  "effective_file": "/Users/yang/Library/Application Support/com.follow.clash/config.yaml",
+  "controller_reachable": false,
+  "sqlite_tables": [
+    "profiles",
+    "scripts",
+    "rules",
+    "profile_rule_mapping",
+    "proxy_groups",
+    "icon_records"
+  ]
+}

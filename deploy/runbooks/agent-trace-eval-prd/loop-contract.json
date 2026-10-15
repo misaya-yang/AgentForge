@@ -1,0 +1,36 @@
+{
+  "schema_version": "prd-phase-harness/loop-contract/v1",
+  "goal": "Run one bounded phase and one feature-oracle item until evidence proves pass, block, or fail.",
+  "cycle": [
+    "observe",
+    "select",
+    "execute",
+    "verify",
+    "record",
+    "decide"
+  ],
+  "max_iterations": 3,
+  "state_file": "deploy/runbooks/agent-trace-eval-prd/loop-state.json",
+  "oracle_file": "deploy/runbooks/agent-trace-eval-prd/feature-oracle.json",
+  "progress_file": "deploy/runbooks/agent-trace-eval-prd/progress-log.md",
+  "handoff_file": "deploy/runbooks/agent-trace-eval-prd/agent-handoff.md",
+  "continuity_file": "deploy/runbooks/agent-trace-eval-prd/continuity-ledger.md",
+  "done_when": [
+    "Selected phase report exists.",
+    "Required validation evidence is recorded.",
+    "Feature oracle status is passing, blocked, or waived.",
+    "Source packet and continuity ledger contain current code facts and boundary decisions.",
+    "Independent critic verdict and minimal-change scope notes are recorded.",
+    "Terminal phase records whole-demand regression evidence or an explicit blocker."
+  ],
+  "continue_when": [
+    "Validator is clean.",
+    "Work remains in the selected phase.",
+    "Iteration is below max_iterations."
+  ],
+  "stop_when": [
+    "Credentials or approvals are missing.",
+    "Validation fails outside phase scope.",
+    "Edits outside the phase boundary are required."
+  ]
+}

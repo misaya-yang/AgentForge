@@ -1,0 +1,10 @@
+{
+  "task_id": "imt_d1114c2d36b048cda63f",
+  "session_id": "a00b4fc4-fc22-4234-8505-3771d0cf3a99",
+  "status": "unknown",
+  "error_code": "outcome_unknown",
+  "model_id": "wan2.6-t2i",
+  "duration_seconds": 7.564566,
+  "effective_model_id": null,
+  "artifact_count": 0
+}

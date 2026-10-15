@@ -1,0 +1,430 @@
+[
+  {
+    "name": "text_stop_usage_done",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: {\"choices\":[],\"usage\":{\"total_tokens\":3}}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": 3,
+    "error": null
+  },
+  {
+    "name": "semantic_stop_eof",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "final_stop_no_blank",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "legitimate_empty",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "done_alone",
+    "lines": [
+      "data: [DONE]",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_incomplete"
+  },
+  {
+    "name": "empty_eof",
+    "lines": [],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_incomplete"
+  },
+  {
+    "name": "partial_eof",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_incomplete"
+  },
+  {
+    "name": "partial_done_no_stop",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_incomplete"
+  },
+  {
+    "name": "finish_length",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "finish_content_filter",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"content_filter\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "finish_tool_calls",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "finish_function_call",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"function_call\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "finish_unknown",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"unknown\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "provider_error",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "event: error",
+      "data: {\"error\":{\"message\":\"secret must not echo\"}}",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_provider_error"
+  },
+  {
+    "name": "malformed_before_terminal",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "",
+      "data: {bad",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "invalid_json_shape",
+    "lines": [
+      "data: []",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "nonzero_choice",
+    "lines": [
+      "data: {\"choices\":[{\"index\":1,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "multiple_choices",
+    "lines": [
+      "data: {\"choices\":[{},{}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "content_after_stop",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_after_terminal"
+  },
+  {
+    "name": "tool_delta",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[]},\"finish_reason\":null}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_unsupported_finish"
+  },
+  {
+    "name": "multiline_data",
+    "lines": [
+      "data: {\"choices\": [",
+      "data: {\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}",
+      "data: ]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "ok",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "comments_metadata",
+    "lines": [
+      ": keepalive",
+      "event: message",
+      "id: one",
+      "retry: 10",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "bare_json_compat",
+    "lines": [
+      "{\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "{\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "[DONE]"
+    ],
+    "text": "partial 中文",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "usage_zero",
+    "lines": [
+      "data: {\"choices\":[],\"usage\":{\"total_tokens\":0}}",
+      "",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "",
+    "tokens": 0,
+    "error": null
+  },
+  {
+    "name": "data_without_event_boundary",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial 中文\"},\"finish_reason\":null}]}",
+      "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "empty_error_event",
+    "lines": [
+      "event: error",
+      "data: {\"message\":\"upstream error\"}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "same_frame_delta_and_stop",
+    "lines": [
+      "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"final\"},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ],
+    "text": "final",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "invalid_tokens",
+    "lines": [
+      "data: {\"choices\":[],\"usage\":{\"total_tokens\":true}}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "nan",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x\":NaN}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "infinity",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x\":Infinity}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "negative_infinity",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x\":-Infinity}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "lone_surrogate",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{\"content\":\"\\ud800\"},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "metadata_surrogate",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x\":\"\\udfff\"}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "valid_surrogate_pair",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{\"content\":\"\\ud83d\\ude00\"},\"finish_reason\":\"stop\"}]}",
+      ""
+    ],
+    "text": "😀",
+    "tokens": null,
+    "error": null
+  },
+  {
+    "name": "float_overflow",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"extra\":{\"x\":1e999}}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "negative_float_overflow",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"extra\":{\"x\":-1e999}}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  },
+  {
+    "name": "integer_overflow",
+    "lines": [
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"extra\":{\"x\":10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000}}",
+      ""
+    ],
+    "text": "",
+    "tokens": null,
+    "error": "qa_stream_invalid"
+  }
+]

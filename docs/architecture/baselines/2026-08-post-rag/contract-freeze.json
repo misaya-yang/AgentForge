@@ -1,0 +1,335 @@
+{
+  "base_git_sha": "4e3805409a5bb2a3d0231a8576a58cd9ced537dc",
+  "baseline_id": "2026-08-post-rag",
+  "frozen": {
+    "capability_v2": {
+      "authority": {
+        "bytes": 60897,
+        "exists": true,
+        "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/lib.rs",
+        "sha256": "4364d818559b7ff5d7891ea77c9a4124351ec2cb75d1d5c2c9c906978a13d9e6"
+      },
+      "fixtures": [
+        {
+          "bytes": 54495,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json",
+          "sha256": "cc4a0e02e9ee09517ce5028be9c3622c9edd5f6168abdaf300e34015a423f80e"
+        },
+        {
+          "bytes": 394,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/mcp_read_request_v1.json",
+          "sha256": "8553cb0ca28ef0739d1985f621591d756b5f3f59e85dcebbd217c1faa96a62a8"
+        },
+        {
+          "bytes": 459,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/attachment_read_request_v1.json",
+          "sha256": "690f307590790be78bf5112733f2c9be288fbcf9b140d68cc80b8841d70e3852"
+        },
+        {
+          "bytes": 369,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/attachment_zip_bomb_manifest.json",
+          "sha256": "f2db9a5d588c8161707559f182784f5b7a6e8ee85ed3b46050f37d881e7205df"
+        },
+        {
+          "bytes": 411,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/en_semantic.json",
+          "sha256": "6f862b2f5590d943e25258bf7bc6d49b0ce34bf220024081b82650d8cf53c06f"
+        },
+        {
+          "bytes": 377,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/zh_semantic.json",
+          "sha256": "3d2b766a530ad56ada30a70c2f6dbd94052cf2cdc31a8495c7bf9c8bf23d6d11"
+        },
+        {
+          "bytes": 364,
+          "exists": true,
+          "path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/visual_input.json",
+          "sha256": "6c2ce4c32b7e31648c541b65f7324a12afabbecb1241a8049a491bf6b778ec50"
+        }
+      ],
+      "note": "The Rust contract crate (CapabilityDescriptorV2) is the single authority; Python CapabilityDescriptor in src/services/agent_runtime/readonly_capabilities.py is the read-only projection used by the Runtime adapter."
+    },
+    "compose_resolution": {
+      "canonical_sha256": "52402ea105194637b8e61be826531f48079137ca3801fd36ac887597dda918d1",
+      "note": "Parsed structurally from the committed Compose files (offline). `docker compose config` additionally resolves ${VAR} interpolation against .env; run `make validate-config` for the rendered form.",
+      "services": {
+        "docker-compose.build.yml": {
+          "frontend": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "gateway": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "knowledge-service": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "migrate": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          }
+        },
+        "docker-compose.capability.yml": {},
+        "docker-compose.dev.yml": {
+          "gateway": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "knowledge-service": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "knowledge-worker": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          }
+        },
+        "docker-compose.kbms.yml": {
+          "postgres": {
+            "build": null,
+            "container_name": "ai-gateway-kbms-postgres",
+            "image": null
+          },
+          "qdrant": {
+            "build": null,
+            "container_name": "ai-gateway-kbms-qdrant",
+            "image": null
+          },
+          "redis": {
+            "build": null,
+            "container_name": "ai-gateway-kbms-redis",
+            "image": null
+          }
+        },
+        "docker-compose.yml": {
+          "agent-capability-worker": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "agent-runtime": {
+            "build": null,
+            "container_name": "ai-gateway-agent-runtime",
+            "image": null
+          },
+          "frontend": {
+            "build": null,
+            "container_name": "ai-gateway-frontend",
+            "image": null
+          },
+          "gateway": {
+            "build": null,
+            "container_name": "ai-gateway-backend",
+            "image": null
+          },
+          "gateway-init": {
+            "build": null,
+            "container_name": "ai-gateway-init",
+            "image": null
+          },
+          "knowledge-service": {
+            "build": null,
+            "container_name": "ai-gateway-knowledge-service",
+            "image": null
+          },
+          "knowledge-worker": {
+            "build": null,
+            "container_name": null,
+            "image": null
+          },
+          "migrate": {
+            "build": null,
+            "container_name": "ai-gateway-migrate",
+            "image": null
+          },
+          "postgres": {
+            "build": null,
+            "container_name": "ai-gateway-pg",
+            "image": null
+          },
+          "qdrant": {
+            "build": null,
+            "container_name": "ai-gateway-qdrant",
+            "image": null
+          },
+          "redis": {
+            "build": null,
+            "container_name": "ai-gateway-redis",
+            "image": null
+          },
+          "tempo": {
+            "build": null,
+            "container_name": "ai-gateway-tempo",
+            "image": null
+          }
+        }
+      }
+    },
+    "database_functions": {
+      "canonical_sha256": "03ac2f213a3f26b13ea654e5558f1d5ca6d29413d161d2c20db340c662b368f7",
+      "derived_from": [
+        "database/schema.sql",
+        "database/migrations/**"
+      ],
+      "function_count": 45,
+      "functions": [
+        "agent_audit_dimension_projection",
+        "agent_audit_redact_jsonb",
+        "agent_data_deletion_terminal_guard",
+        "agent_knowledge_bump_content_revision",
+        "agent_runtime_reject_revocation_mutation",
+        "agent_skill_reject_version_mutation",
+        "agent_studio_assert_owner_invariant",
+        "agent_studio_guard_release_evaluation_lifecycle",
+        "agent_studio_protect_last_owner",
+        "agent_studio_protect_member_identity",
+        "agent_studio_protect_version_binding_mutation",
+        "agent_studio_protect_version_mutation",
+        "agent_studio_reject_immutable_mutation",
+        "agent_studio_reject_release_evidence_mutation",
+        "agent_studio_require_sealed_version",
+        "agent_studio_touch_updated_at",
+        "append_assistant_capability_event",
+        "append_assistant_runtime_item",
+        "assistant.record_artifact_share_quiz_attempt",
+        "assistant_capability_reject_event_mutation",
+        "assistant_capability_reject_terminal_mutation",
+        "assistant_runtime_reject_assignment_update",
+        "assistant_runtime_reject_immutable_mutation",
+        "claim_local_node_dispatch",
+        "cleanup_old_usage_records",
+        "complete_assistant_runtime_model_call",
+        "dispatch_assistant_capability_execution",
+        "ensure_assistant_runtime_thread",
+        "guard_dataset_process_rules_immutable",
+        "import_assistant_legacy_session",
+        "issue_assistant_runtime_turn",
+        "knowledge.prune_kb_document_progress_events",
+        "knowledge.record_kb_document_progress_event",
+        "reject_mcp_snapshot_mutation",
+        "reserve_assistant_capability_execution",
+        "reserve_assistant_runtime_model_call",
+        "segments_text_search_update",
+        "update_agent_traces_timestamp",
+        "update_assistant_gateway_timestamp",
+        "update_assistant_memory_chunks_text_search",
+        "update_document_summaries_timestamp",
+        "update_eval_timestamp",
+        "update_memory_timestamp",
+        "update_segment_image_counts",
+        "update_updated_at_column"
+      ]
+    },
+    "image_revisions": {
+      "compose_defaults": "see compose_resolution.services['docker-compose.yml'][*].image",
+      "runtime_worker_local_tags": "docker-compose.yml pins local-<upstream_sha12>-<overlay_sha12> tags by default; versioned multi-arch images are an ARC-00C/ARC-08 deliverable.",
+      "rust_overlay_identity": {
+        "cargo_lock_sha256": "dbdd065635faf9c54d7d67da5cc0c1bf40f0d83dd56a461cba3a8e825fa95b79",
+        "file_count": 103,
+        "schema_version": "ai-platform/agent-runtime-overlay/v1",
+        "sha256": "c489b7e4d1479ec3d761bcfbcaf3c32e1eed0ca444e1be8edb2346ce000651ef",
+        "source_revision": "c84c011f403a18be3db3e6c0f2cb603ee7ea1cdd",
+        "upstream_sha": "93c54bca38996b56d344a2ca65f01627b1953b27"
+      }
+    },
+    "openapi_snapshot": {
+      "bytes": 1080012,
+      "exists": true,
+      "path": "sdk/openapi.json",
+      "path_count": 296,
+      "sha256": "a202f10e75f9d5afaaaae7476ac65fc07af7e13f7ef9107232e1eee3a0a23ed7"
+    },
+    "ppr00_performance_baseline": {
+      "receipts": [
+        {
+          "bytes": 129153,
+          "exists": true,
+          "path": "reports/performance/assistant-ttft-baseline-2026-08-28-run1.json",
+          "sha256": "2d5ff85ad4fd20b9c59ad48f588d24c5d36fc1f16021d57acbed0e192da3a590"
+        },
+        {
+          "bytes": 129217,
+          "exists": true,
+          "path": "reports/performance/assistant-ttft-baseline-2026-08-28-run2.json",
+          "sha256": "3e253d2af6b673bed04483a5f59a2b4fa66fda30267affd3638b94b248aacd52"
+        },
+        {
+          "bytes": 129720,
+          "exists": true,
+          "path": "reports/performance/assistant-ttft-baseline-2026-08-28-run3.json",
+          "sha256": "d85523a1a2da5d0cbccad6f7b1088e38483da297dd9659dd8259a4ad405bbb31"
+        },
+        {
+          "bytes": 129616,
+          "exists": true,
+          "path": "reports/performance/assistant-ttft-baseline-2026-08-28-run4.json",
+          "sha256": "024ae46d304954eea8a21a298e0804e52b7f47c9d668b80efd91ba472ffdb16d"
+        }
+      ],
+      "status": "PPR-00 evidence frozen as-is (run4 is the certified recordable run per deploy/runbooks/platform-plane-restructure/loop-state.json); content is never rewritten."
+    },
+    "rust_overlay_manifest": {
+      "contents": {
+        "cargo_lock_sha256": "dbdd065635faf9c54d7d67da5cc0c1bf40f0d83dd56a461cba3a8e825fa95b79",
+        "file_count": 103,
+        "schema_version": "ai-platform/agent-runtime-overlay/v1",
+        "sha256": "c489b7e4d1479ec3d761bcfbcaf3c32e1eed0ca444e1be8edb2346ce000651ef",
+        "source_revision": "c84c011f403a18be3db3e6c0f2cb603ee7ea1cdd",
+        "upstream_sha": "93c54bca38996b56d344a2ca65f01627b1953b27"
+      },
+      "path": "rust/agent-runtime-overlay/manifest.json",
+      "sha256": "4b80eb137dbcceb36cbfef2fc287a51f464c810cb578d8fabff2da3eb6d3d7a5"
+    },
+    "sse_fixture": {
+      "bytes": 1868,
+      "exists": true,
+      "path": "sdk/fixtures/sse_inner_envelopes.json",
+      "sha256": "cf11fbabded2aa0e34fd95ef2453832d7e0d91cef2d8f775b3f4fce005db5559"
+    }
+  },
+  "generator": "scripts/inventory/generate_baselines.py",
+  "live_stack_required": [
+    {
+      "command": "uv run --all-packages --extra test pytest -q --no-cov tests/integration/test_gateway_openapi_contract.py",
+      "contract": "Live Gateway OpenAPI superset diff",
+      "note": "requires a running gateway (GATEWAY_BASE_URL)"
+    },
+    {
+      "command": "SDK_SSE_CONTRACT_REQUIRE_ALL=1 make sdk-sse-contract",
+      "contract": "SDK SSE envelope live agreement",
+      "note": "fixture contract itself is offline; the full matrix needs the stack"
+    },
+    {
+      "command": "make agent-runtime-contract / make agent-capability-worker-build-local",
+      "contract": "Runtime/Worker image digests from a builder",
+      "note": "ARC-00C decides the builder mode; digests cannot be computed offline"
+    },
+    {
+      "command": "make agent-runtime-write-gate",
+      "contract": "Capability V2 Worker revalidation in a live Turn",
+      "note": "live write-path proof for the frozen contract crate"
+    },
+    {
+      "command": "make validate-config",
+      "contract": "Compose rendered resolution against .env",
+      "note": "resolves ${VAR} interpolation that the offline parse keeps symbolic"
+    }
+  ],
+  "purpose": "ARC-00A freeze of every offline-computable public contract digest. Later packages compare against these digests; a mismatch means deliberate contract change and needs the contract-delta manifest described in the PRD (AC-M04).",
+  "schema": "ai-gateway/baseline/contract-freeze/v1"
+}

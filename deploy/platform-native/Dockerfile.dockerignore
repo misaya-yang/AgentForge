@@ -1,0 +1,26 @@
+# Allowlist: never transmit the checkout, env files or credentials as context.
+**
+!rust/
+!rust/platform-native/
+!rust/platform-native/Cargo.toml
+!rust/platform-native/Cargo.lock
+!rust/platform-native/crates/
+!rust/platform-native/crates/**/
+!rust/platform-native/crates/**/Cargo.toml
+!rust/platform-native/crates/**/*.rs
+!rust/platform-native/crates/**/*.json
+!rust/platform-native/crates/**/*.sql
+!packages/
+!packages/ai-gateway-core/
+!packages/ai-gateway-core/src/
+!packages/ai-gateway-core/src/ai_gateway_core/
+!packages/ai-gateway-core/src/ai_gateway_core/image/
+!packages/ai-gateway-core/src/ai_gateway_core/image/assets/
+!packages/ai-gateway-core/src/ai_gateway_core/image/assets/watermark.png
+**/.git
+**/.env*
+**/target
+**/node_modules
+**/.venv
+**/secrets
+**/credentials*

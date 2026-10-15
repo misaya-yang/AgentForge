@@ -1,0 +1,13 @@
+{
+  "format": "pptx",
+  "required_parts": [
+    "[Content_Types].xml",
+    "ppt/presentation.xml",
+    "ppt/theme/theme1.xml",
+    "ppt/slideMasters/slideMaster1.xml",
+    "ppt/slideLayouts/slideLayout1.xml"
+  ],
+  "text_fragments": ["视觉输入标题", "段落", "图片替代文本"],
+  "image_part_count": 1,
+  "visual_acceptance": "requires_office_viewer"
+}

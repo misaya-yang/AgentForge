@@ -1,0 +1,12 @@
+{
+  "active_profile_id": 361504683073736704,
+  "overwrite_type": "standard",
+  "overrideDns": false,
+  "persistent_dns_source": "/Users/yang/Library/Preferences/com.follow.clash.plist / flutter.config JSON / patchClashConfig.dns",
+  "effective_dns_file": "/Users/yang/Library/Application Support/com.follow.clash/config.yaml",
+  "enhanced_mode": "fake-ip",
+  "fake_ip_filter_mode": "blacklist",
+  "existing_filter_count": 2,
+  "persistent_matches_generated_dns": false,
+  "target_filter_present": false
+}
