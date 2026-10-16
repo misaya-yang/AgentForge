@@ -1,32 +1,32 @@
 //! Native local capability boundary. No listener or ambient filesystem authority.
+pub mod approvals;
 pub mod computer;
 pub mod config;
-#[cfg(unix)]
-pub mod macos;
 pub mod credentials;
-pub mod signing;
-pub mod identity;
-pub mod approvals;
 pub mod envelope;
-pub mod ledger;
-pub mod outbox;
-pub mod transport;
-pub mod runner;
-#[cfg(unix)]
-pub mod workspace;
-#[cfg(unix)]
-pub mod files;
-#[cfg(unix)]
-pub mod processes;
 #[cfg(unix)]
 pub mod file_dispatch;
 #[cfg(unix)]
-pub mod watcher;
+pub mod files;
+pub mod identity;
+pub mod ledger;
+#[cfg(unix)]
+pub mod macos;
+pub mod outbox;
+#[cfg(unix)]
+pub mod processes;
+pub mod runner;
 #[cfg(unix)]
 pub mod service;
+pub mod signing;
+pub mod transport;
+#[cfg(unix)]
+pub mod watcher;
+#[cfg(unix)]
+pub mod workspace;
 use serde_json::Value;
-use unicode_casefold::UnicodeCaseFold;
 use sha2::{Digest, Sha256};
+use unicode_casefold::UnicodeCaseFold;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("local capability denied: {0}")]
@@ -41,28 +41,102 @@ pub enum Error {
     Stale,
     #[error("outbound transport unavailable")]
     Transport,
+    #[error("remote returned HTTP status {0}")]
+    HttpStatus(u16),
     #[error("invalid control-plane protocol")]
     Protocol,
 }
 pub type Result<T> = std::result::Result<T, Error>;
-impl From<rusqlite::Error> for Error { fn from(_: rusqlite::Error) -> Self { Self::Storage } }
-impl From<std::io::Error> for Error { fn from(_: std::io::Error) -> Self { Self::Storage } }
-pub fn now() -> f64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64() }
+impl From<rusqlite::Error> for Error {
+    fn from(_: rusqlite::Error) -> Self {
+        Self::Storage
+    }
+}
+impl From<std::io::Error> for Error {
+    fn from(_: std::io::Error) -> Self {
+        Self::Storage
+    }
+}
+pub fn now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+}
 pub fn canonical(value: &Value) -> String {
     match value {
-        Value::Object(o) => { let mut keys: Vec<_> = o.keys().collect(); keys.sort(); format!("{{{}}}", keys.into_iter().map(|k| format!("{}:{}", serde_json::to_string(k).unwrap(), canonical(&o[k]))).collect::<Vec<_>>().join(",")) },
-        Value::Array(a) => format!("[{}]", a.iter().map(canonical).collect::<Vec<_>>().join(",")),
+        Value::Object(o) => {
+            let mut keys: Vec<_> = o.keys().collect();
+            keys.sort();
+            format!(
+                "{{{}}}",
+                keys.into_iter()
+                    .map(|k| format!("{}:{}", serde_json::to_string(k).unwrap(), canonical(&o[k])))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+        }
+        Value::Array(a) => format!(
+            "[{}]",
+            a.iter().map(canonical).collect::<Vec<_>>().join(",")
+        ),
         Value::Number(n) if n.is_f64() => python_float(n.as_f64().expect("finite JSON number")),
         _ => value.to_string(),
     }
 }
-pub fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
-pub fn digest(value: &Value) -> String { sha256(canonical(value).as_bytes()) }
+pub fn sha256(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+pub fn digest(value: &Value) -> String {
+    sha256(canonical(value).as_bytes())
+}
 pub fn sanitize(value: &Value) -> Value {
     match value {
-        Value::Object(o) => Value::Object(o.iter().map(|(k,v)| { let low=k.chars().case_fold().collect::<String>(); let sensitive=["secret","token","password","passwd","credential","authorization","cookie","private_key","error_detail"].iter().any(|s|low.contains(s)) || ["stdout","stderr","content","raw_content"].contains(&low.as_str()); (k.clone(), if sensitive { Value::String("[REDACTED]".into()) } else { sanitize(v) }) }).collect()),
+        Value::Object(o) => Value::Object(
+            o.iter()
+                .map(|(k, v)| {
+                    let low = k.chars().case_fold().collect::<String>();
+                    let sensitive = [
+                        "secret",
+                        "token",
+                        "password",
+                        "passwd",
+                        "credential",
+                        "authorization",
+                        "cookie",
+                        "private_key",
+                        "error_detail",
+                    ]
+                    .iter()
+                    .any(|s| low.contains(s))
+                        || ["stdout", "stderr", "content", "raw_content"].contains(&low.as_str());
+                    (
+                        k.clone(),
+                        if sensitive {
+                            Value::String("[REDACTED]".into())
+                        } else {
+                            sanitize(v)
+                        },
+                    )
+                })
+                .collect(),
+        ),
         Value::Array(a) => Value::Array(a.iter().map(sanitize).collect()),
-        Value::String(s) if ["-----begin private key-----","-----begin rsa private key-----","bearer ","sk-","ghp_","secret_canary","secret-canary"].iter().any(|m|s.chars().case_fold().collect::<String>().contains(m)) => Value::String("[REDACTED]".into()),
+        Value::String(s)
+            if [
+                "-----begin private key-----",
+                "-----begin rsa private key-----",
+                "bearer ",
+                "sk-",
+                "ghp_",
+                "secret_canary",
+                "secret-canary",
+            ]
+            .iter()
+            .any(|m| s.chars().case_fold().collect::<String>().contains(m)) =>
+        {
+            Value::String("[REDACTED]".into())
+        }
         _ => value.clone(),
     }
 }

@@ -52,6 +52,15 @@ fn can_access(tier: &str, roles: &[String], required: &str) -> bool {
     required == "public"
         || (required == "premium" && ["premium", "enterprise", "admin"].contains(&tier))
 }
+fn supports_assistant_text_output(capabilities: &Value) -> bool {
+    capabilities["modalities"]["output"]
+        .as_array()
+        .is_some_and(|modalities| {
+            modalities
+                .iter()
+                .any(|modality| modality.as_str() == Some("text"))
+        })
+}
 fn project(rows: Vec<ModelRow>, tier: &str, roles: &[String]) -> Vec<Model> {
     let mut models = Vec::new();
     for row in rows {
@@ -76,6 +85,12 @@ fn project(rows: Vec<ModelRow>, tier: &str, roles: &[String]) -> Vec<Model> {
             row.supports_tools,
             row.supports_vision,
         );
+        // The Assistant model selector is for text-generation turns. Keep
+        // embedding models in model administration and the embeddings API,
+        // while allowing models that can produce both text and embeddings.
+        if !supports_assistant_text_output(&effective_capabilities) {
+            continue;
+        }
         models.push(Model {
             name: row
                 .display_name
@@ -106,7 +121,13 @@ fn project(rows: Vec<ModelRow>, tier: &str, roles: &[String]) -> Vec<Model> {
     models
 }
 pub(super) async fn list(State(state): State<Gateway>, headers: HeaderMap) -> Response {
-    let principal = match super::resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
+    let principal = match super::resolve_read_identity(
+        &state.auth,
+        state.identity.as_deref(),
+        &headers,
+    )
+    .await
+    {
         Ok(user) => user,
         Err(response) => return response,
     };
@@ -116,6 +137,49 @@ pub(super) async fn list(State(state): State<Gateway>, headers: HeaderMap) -> Re
             StatusCode::SERVICE_UNAVAILABLE,
             "Model service is unavailable",
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ModelRow, project};
+    use serde_json::{Value, json};
+
+    fn row(model_id: &str, output_modalities: &[&str]) -> ModelRow {
+        ModelRow {
+            model_id: model_id.into(),
+            provider_id: "dashscope".into(),
+            display_name: Some(model_id.into()),
+            context_window: 128_000,
+            max_output_tokens: 4_096,
+            capability_revision: 1,
+            supports_tools: true,
+            supports_vision: false,
+            catalog_capabilities: Value::Null,
+            capability_overrides: json!({"modalities":{"output":output_modalities}}),
+            input_price_per_1k: 0.0,
+            output_price_per_1k: 0.0,
+            access_level: "public".into(),
+            sort_order: 0,
+        }
+    }
+
+    #[test]
+    fn assistant_catalog_excludes_embedding_only_but_keeps_text_capable_models() {
+        let models = project(
+            vec![
+                row("text-embedding-v4", &["embedding"]),
+                row("qwen-chat", &["text"]),
+                row("text-and-embedding", &["text", "embedding"]),
+            ],
+            "public",
+            &[],
+        );
+
+        assert_eq!(
+            models.iter().map(|model| model.id.as_str()).collect::<Vec<_>>(),
+            ["qwen-chat", "text-and-embedding"]
+        );
     }
 }
 pub(crate) async fn visible(
@@ -136,4 +200,3 @@ pub(crate) async fn visible(
         .bind(&principal.tenant_id).fetch_all(pool).await?;
     Ok(project(rows, tier, roles))
 }
-

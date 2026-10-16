@@ -113,3 +113,94 @@ policy. In particular this introspection change does not grant external
 sessionless JWTs or missing-profile keys access to protected endpoints. The
 retained source's broader external-identity federation on those endpoints remains
 a separately documented policy difference pending its owning decision.
+
+## JWT signing key rotation
+
+The Gateway defaults to `asymmetric_keyring`. Configure an explicit `active_kid`
+and one or more asymmetric keys under `authentication.jwt.keyring`. Supported
+signing algorithms are `RS256`, `ES256`, and `EdDSA`. Each entry contains a public
+`public_jwk`; only the active entry names a `private_key_env`, whose environment
+value is a PKCS#8 PEM private key. Private key bytes never enter settings summaries
+or the public JWKS. The active key has no `verify_until`. A retired key has no
+private-key environment reference and must set `verify_until` to its absolute Unix
+expiry time.
+
+Example shape (the `n` and `e` values below are placeholders, not usable keys):
+
+```yaml
+authentication:
+  jwt:
+    enabled: true
+    mode: asymmetric_keyring
+    algorithms: [RS256]
+    active_kid: gateway-2026-10
+    keyring:
+      - kid: gateway-2026-10
+        algorithm: RS256
+        private_key_env: GATEWAY_JWT_ACTIVE_PRIVATE_PEM
+        public_jwk:
+          kty: RSA
+          alg: RS256
+          use: sig
+          key_ops: [verify]
+          kid: gateway-2026-10
+          n: <base64url-public-modulus>
+          e: AQAB
+      - kid: gateway-2026-07
+        algorithm: RS256
+        verify_until: <absolute-unix-seconds>
+        public_jwk:
+          kty: RSA
+          alg: RS256
+          use: sig
+          key_ops: [verify]
+          kid: gateway-2026-07
+          n: <base64url-public-modulus>
+          e: AQAB
+```
+
+The native environment loader accepts the same settings through
+`GATEWAY_AUTHENTICATION__JWT__ALGORITHMS`,
+`GATEWAY_AUTHENTICATION__JWT__ACTIVE_KID`, and
+`GATEWAY_AUTHENTICATION__JWT__KEYRING` (the last value is a JSON array).
+`GATEWAY_JWT_MODE=asymmetric_keyring` selects the secure default explicitly for
+environment-only deployments. Keep `JWT_SECRET` and
+`GATEWAY_AUTHENTICATION__JWT__SECRET` empty in this mode. The local deployment
+environment maps `GATEWAY_JWT_ACTIVE_PRIVATE_PEM` into the Gateway process; point
+the active key's `private_key_env` at that variable. When storing PEM in `.env`,
+encode line breaks as the two characters `\n`; the native settings loader restores
+them before parsing the private key. Secret providers may supply normal PEM
+newlines directly. `scripts/new/init-env.sh` encodes newlines from an exported PEM
+value when it writes the local `.env` file.
+
+On rotation, deploy the new active key together with the previous public JWK and
+set that old entry's `verify_until` later than the last token's `exp`. Account
+session tokens last at most 10,800 seconds. The old key remains accepted until
+`verify_until`; at that time verification rejects it and JWKS omits it. New
+asymmetric tokens include `kid`; an absent or unknown `kid` is rejected. The
+public `GET /.well-known/jwks.json` endpoint publishes only live asymmetric public
+keys with verify-only key operations.
+
+Existing JWT_SECRET-only deployments must explicitly select
+`legacy_single_hs256` using `GATEWAY_JWT_MODE` or `authentication.jwt.mode`.
+That migration mode uses exactly one HS256 key and continues to accept old tokens
+without a `kid`; it publishes an empty JWKS because an HMAC secret has no public
+verification key. There is no automatic fallback from asymmetric configuration
+to the legacy secret. The local quickstart example opts into this mode explicitly;
+production should use the asymmetric keyring.
+In asymmetric mode, leave the legacy `JWT_SECRET` unset/empty; configuring both
+legacy secret material and an asymmetric keyring is rejected.
+
+The live two-endpoint smoke script
+[`scripts/verify-jwt-key-rotation-http.mjs`](../../../../scripts/verify-jwt-key-rotation-http.mjs)
+checks a pre-rotation login against the post-rotation Gateway, new-key issuance,
+public-only JWKS, unknown-`kid` rejection, and Redis-backed logout revocation. Run
+`node scripts/verify-jwt-key-rotation-http.mjs --dry-run` to check its local
+helpers without sending requests. Run it only against two Gateway deployments
+sharing the intended test account database and Redis session store by setting
+`JWT_ROTATION_BEFORE_URL`,
+`JWT_ROTATION_AFTER_URL`, `JWT_ROTATION_EMAIL`, `JWT_ROTATION_PASSWORD`,
+`JWT_ROTATION_OLD_KID`, and `JWT_ROTATION_NEW_KID`, then running
+`node scripts/verify-jwt-key-rotation-http.mjs`. It prints only pass/fail stage
+names, never credentials, tokens or response bodies. Unit tests cover injected-time
+key retirement and token expiry without waiting for a real token lifetime.

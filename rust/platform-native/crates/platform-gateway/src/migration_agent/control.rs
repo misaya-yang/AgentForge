@@ -42,6 +42,24 @@ fn session_cleanup_result(session_id: &str, payload: &Value) -> Result<bool, Age
     ))
 }
 
+fn native_search_selection(readonly: &Value, profile: &Value) -> Result<bool, AgentError> {
+    let requested = readonly["items"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["source"] == "web-search"));
+    let supported = profile["native_search"]["enabled"] == true
+        && profile["tools"]["web_search_wire"] == "native";
+    if requested && !supported {
+        return Err(AgentError::code(
+            422,
+            "AI_PLATFORM_AGENT_RUNTIME_NATIVE_SEARCH_UNAVAILABLE",
+        ));
+    }
+    Ok(requested
+        && readonly["responses_tool_choice"] != "none"
+        && readonly["responses_tool_names"].is_null()
+        && supported)
+}
+
 pub trait RuntimeModels: Send + Sync {
     fn model<'a>(
         &'a self,
@@ -199,6 +217,9 @@ pub struct TurnRequest {
     pub enable_dynamic_tools: bool,
     pub image_inputs: Vec<String>,
     pub resolved_snapshot: Option<Value>,
+    /// Server-resolved built-in Local Node grant binding. Never populated from
+    /// the model-authored tool arguments or a pinned/preview AgentSpec.
+    pub local_node_capability: Option<Value>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AgentTurn {
@@ -244,6 +265,14 @@ fn failed_thread_create(
     }
 }
 
+fn catalog_descriptor_matches_allowlist(descriptor: &Value, allowlist: &Value) -> bool {
+    ["version", "schema_hash"].iter().all(|field| {
+        descriptor[*field] == allowlist[*field]
+            || (matches!(text(allowlist, "type"), "platform" | "connector")
+                && allowlist[*field].is_null())
+    })
+}
+
 pub struct EventReceiver {
     receiver: mpsc::Receiver<Result<Value, AgentError>>,
     task: tokio::task::JoinHandle<()>,
@@ -264,6 +293,40 @@ impl Drop for EventReceiver {
         self.task.abort();
     }
 }
+
+#[cfg(test)]
+mod local_node_catalog_binding_tests {
+    use super::*;
+
+    #[test]
+    fn connector_allowlist_null_version_and_hash_are_pinned_to_catalog_output() {
+        let descriptor = json!({
+            "version":"2",
+            "schema_hash":format!("sha256:{}", "a".repeat(64))
+        });
+        let allowlist = json!({
+            "type":"connector",
+            "version":null,
+            "schema_hash":null
+        });
+        assert!(catalog_descriptor_matches_allowlist(
+            &descriptor,
+            &allowlist
+        ));
+
+        let mut stale = allowlist.clone();
+        stale["version"] = json!("1");
+        assert!(!catalog_descriptor_matches_allowlist(&descriptor, &stale));
+
+        let mut mismatched_schema = allowlist;
+        mismatched_schema["schema_hash"] = json!(format!("sha256:{}", "b".repeat(64)));
+        assert!(!catalog_descriptor_matches_allowlist(
+            &descriptor,
+            &mismatched_schema
+        ));
+    }
+}
+
 impl RuntimeControlPlane {
     pub fn new(
         pool: PgPool,
@@ -281,7 +344,8 @@ impl RuntimeControlPlane {
         {
             return Err(AgentError::code(503, "AGENT_RUNTIME_UNAVAILABLE"));
         }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
@@ -887,17 +951,11 @@ impl RuntimeControlPlane {
                     continue;
                 }
                 let a = matching[0];
-                for field in ["version", "schema_hash"] {
-                    if d[field] != a[field]
-                        && !(field == "schema_hash"
-                            && matches!(text(a, "type"), "platform" | "connector")
-                            && a[field].is_null())
-                    {
-                        return Err(AgentError::code(
-                            409,
-                            "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_CATALOG_SCOPE_MISMATCH",
-                        ));
-                    }
+                if !catalog_descriptor_matches_allowlist(d, a) {
+                    return Err(AgentError::code(
+                        409,
+                        "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_CATALOG_SCOPE_MISMATCH",
+                    ));
                 }
                 out.push(d.clone());
             }
@@ -999,8 +1057,13 @@ impl RuntimeControlPlane {
                         .and_then(|a| a.iter().find(|a| a["id"] == d["id"]))
                         .cloned()
                         .unwrap_or(json!({}));
+                    let capability_type = if a["type"] == "connector" {
+                        json!("connector")
+                    } else {
+                        d["kind"].clone()
+                    };
                     for (k, v) in [
-                        ("type", d["kind"].clone()),
+                        ("type", capability_type),
                         ("id", d["id"].clone()),
                         ("name", d["name"].clone()),
                         ("version", d["version"].clone()),
@@ -1188,6 +1251,12 @@ impl RuntimeControlPlane {
             ));
         }
         let policy = json!({"reasoning_option":request.reasoning_option,"legacy_thinking_level":request.legacy_thinking_level,"max_tokens":request.max_tokens,"temperature":request.temperature,"style_guidance":request.style_guidance,"memory_mode":memory_mode,"memory_profile":memory_profile,"enable_dynamic_tools":request.enable_dynamic_tools});
+        if request.local_node_capability.is_some() && request.resolved_snapshot.is_some() {
+            return Err(AgentError::code(
+                409,
+                "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_BINDING_INVALID",
+            ));
+        }
         let signed = if let Some(snapshot) = request.resolved_snapshot.clone() {
             if text(&snapshot, "tenant_id") != scope.tenant_id
                 || snapshot["model"]["id"] != request.model_id
@@ -1213,8 +1282,9 @@ impl RuntimeControlPlane {
             if let Some(value) = request.legacy_thinking_level.as_ref() {
                 parameters.insert("thinking_mode".into(), json!(value));
             }
-            let model_ref = json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
-            let launch = entry::builtin_launch(
+            let model_ref =
+                json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
+            let mut launch = entry::builtin_launch(
                 &scope,
                 &model_ref,
                 profile,
@@ -1222,7 +1292,17 @@ impl RuntimeControlPlane {
                 &policy,
                 &instructions,
             );
-            json!({"schema_version":"agent-runtime/v1","tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"agent_id":"__builtin_assistant__","agent_version_id":null,"model":launch["model"],"model_profile":profile,"agent_spec":launch["agent_spec"],"capabilities":[],"knowledge":launch["knowledge_bindings"],"memory":launch["memory_policy"],"channel_policy":launch["channel_policy"],"fingerprints":launch["fingerprints"],"publication":{"channel":"builtin","auth_mode":"private"}})
+            if let Some(capability) = &request.local_node_capability {
+                launch["agent_spec"]["capabilities"] = json!([capability]);
+                launch["fingerprints"]["spec"] =
+                    json!(format!("sha256:{}", spec::hash(&launch["agent_spec"])));
+                launch["fingerprints"]["tool_schema"] = json!(format!(
+                    "sha256:{}",
+                    spec::hash(&launch["agent_spec"]["capabilities"])
+                ));
+            }
+            let capabilities = launch["agent_spec"]["capabilities"].clone();
+            json!({"schema_version":"agent-runtime/v1","tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"agent_id":"__builtin_assistant__","agent_version_id":null,"model":launch["model"],"model_profile":profile,"agent_spec":launch["agent_spec"],"capabilities":capabilities,"knowledge":launch["knowledge_bindings"],"memory":launch["memory_policy"],"channel_policy":launch["channel_policy"],"fingerprints":launch["fingerprints"],"publication":{"channel":"builtin","auth_mode":"private"}})
         };
         let agent_spec = &signed["agent_spec"];
         let instructions = agent_spec["developerInstructions"]
@@ -1289,13 +1369,7 @@ impl RuntimeControlPlane {
             )
             .await?;
         }
-        let search = readonly["responses_tool_choice"] != "none"
-            && readonly["responses_tool_names"].is_null()
-            && readonly["items"]
-                .as_array()
-                .is_some_and(|a| a.iter().any(|v| v["source"] == "web-search"))
-            && profile["native_search"]["enabled"] == true
-            && profile["tools"]["web_search_wire"] == "native";
+        let search = native_search_selection(&readonly, profile)?;
         let thread = self
             .ensure_thread(
                 &scope,
@@ -1350,7 +1424,7 @@ impl RuntimeControlPlane {
         snapshot["eval_fingerprint"] = json!({"system_prompt_hash":spec::hash(&snapshot["instructions"]),"tool_schema_hash":spec::hash(&json!(contract::dynamic_tools(&readonly)?))});
         let expires = chrono::Utc::now()
             + chrono::Duration::seconds(self.options.lease_ttl_seconds.clamp(30, 3600));
-        sqlx::query("SELECT issue_assistant_runtime_turn($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,'agent-runtime-snapshot/v1',$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)").bind(&snapshot_id).bind(&lease_id).bind(&run).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(text(&assignment,"kernel_revision")).bind(&snapshot).bind(spec::hash(&snapshot)).bind(revision).bind(text(&reasoning,"effective_option")).bind("agent-runtime-model-lease/v1").bind(provider_id).bind(&request.model_id).bind(provider_revision).bind(&nonce).bind(calls).bind((context_window*calls).min(10000000)).bind((output*calls).min(1000000)).bind(self.options.max_cost_microusd.max(1)).bind(expires).bind(&request.message).execute(&self.pool).await?;
+        sqlx::query("SELECT issue_assistant_runtime_turn($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,'agent-runtime-snapshot/v1',$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)").bind(&snapshot_id).bind(&lease_id).bind(&run).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(text(&assignment,"kernel_revision")).bind(&snapshot).bind(spec::hash(&snapshot)).bind(revision).bind(text(&reasoning,"effective_option")).bind("agent-runtime-model-lease/v1").bind(provider_id).bind(&request.model_id).bind(provider_revision).bind(&nonce).bind(i32::try_from(calls).expect("bounded model call count fits int4")).bind((context_window*calls).min(10000000)).bind((output*calls).min(1000000)).bind(self.options.max_cost_microusd.max(1)).bind(expires).bind(&request.message).execute(&self.pool).await?;
         let lease:Value=sqlx::query_scalar("SELECT to_jsonb(l)||jsonb_build_object('issued_at_ms',floor(extract(epoch from issued_at)*1000)::bigint,'expires_at_ms',floor(extract(epoch from expires_at)*1000)::bigint) FROM assistant_runtime_model_leases l WHERE lease_id=$1::uuid").bind(&lease_id).fetch_optional(&self.pool).await?.ok_or_else(||AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_LEASE_ISSUE_FAILED"))?;
         let signature = self.signer.sign(&super::model::lease_claims(&lease)?)?;
         let effort = reasoning["canonical_effort"]
@@ -1981,12 +2055,60 @@ mod failed_thread_create_tests {
             Some(fingerprint.as_str())
         );
 
-        let error = failed_thread_create(Some(thread(Some(&"b".repeat(64)))), &fingerprint)
-            .unwrap_err();
+        let error =
+            failed_thread_create(Some(thread(Some(&"b".repeat(64)))), &fingerprint).unwrap_err();
         assert_eq!(error.status, 409);
         assert_eq!(
             error.detail,
             json!({"code":"AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_THREAD_RECREATE_REQUIRED"})
         );
+    }
+}
+
+#[cfg(test)]
+mod native_search_admission_tests {
+    use super::*;
+
+    fn readonly(web_search: bool) -> Value {
+        let items = if web_search {
+            json!([{"source":"web-search"}])
+        } else {
+            json!([])
+        };
+        json!({
+            "items": items,
+            "responses_tool_choice": "auto",
+            "responses_tool_names": null
+        })
+    }
+
+    fn profile(enabled: bool, wire: &str) -> Value {
+        json!({
+            "native_search": {"enabled": enabled},
+            "tools": {"web_search_wire": wire}
+        })
+    }
+
+    #[test]
+    fn rejects_web_search_before_dispatch_when_model_does_not_support_it() {
+        for unsupported in [profile(false, "disabled"), profile(true, "disabled")] {
+            let error = native_search_selection(&readonly(true), &unsupported).unwrap_err();
+            assert_eq!(error.status, 422);
+            assert_eq!(
+                error.detail,
+                json!({"code":"AI_PLATFORM_AGENT_RUNTIME_NATIVE_SEARCH_UNAVAILABLE"})
+            );
+        }
+    }
+
+    #[test]
+    fn enables_native_search_only_for_a_supported_selected_request() {
+        assert!(native_search_selection(&readonly(true), &profile(true, "native")).unwrap());
+        let unsupported_profile = profile(false, "disabled");
+        assert!(!native_search_selection(&readonly(false), &unsupported_profile).unwrap());
+
+        let mut tool_choice_none = readonly(true);
+        tool_choice_none["responses_tool_choice"] = json!("none");
+        assert!(!native_search_selection(&tool_choice_none, &profile(true, "native")).unwrap());
     }
 }

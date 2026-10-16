@@ -73,6 +73,9 @@ impl SettingsProjection<'_> {
         let role = role.trim();
         AuthConfiguration {
             jwt_secret: a.jwt.secret.clone(),
+            jwt_mode: a.jwt.mode,
+            jwt_active_kid: a.jwt.active_kid.clone(),
+            jwt_keys: a.jwt.key_configs(self.environment, true),
             jwt_audience: a.jwt.audience.clone(),
             jwt_issuer: a.jwt.issuer.clone(),
             jwt_algorithms: a.jwt.algorithms.clone(),

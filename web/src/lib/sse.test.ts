@@ -27,10 +27,20 @@ const hooks = registerHooks({
     return { ...loaded, source: `import.meta.env = { DEV: false };\n${loaded.source}` };
   },
 });
-const { sseFetch, sseFetchEvents, sseFetchAGUI } = await import("./sse.ts");
+const { SSEHttpError, sseFetch, sseFetchEvents, sseFetchAGUI } = await import("./sse.ts");
 hooks.deregister();
 
 const transports = [sseFetch, sseFetchEvents, sseFetchAGUI];
+
+test("status-mode SSE errors expose only the HTTP status, not endpoint response text", async t => {
+  const response = new Response('{"detail":"private provider response"}', { status: 401 });
+  t.mock.method(globalThis, "fetch", async () => response);
+  await assert.rejects(sseFetch("/fixture", { httpErrorMode: "status" }).next(), error =>
+    error instanceof SSEHttpError && error.status === 401
+      && error.message === "SSE request failed: 401"
+      && !error.message.includes("private provider response"));
+  assert.equal(response.body?.locked, false);
+});
 
 for (const transport of transports) {
   test(`${transport.name} cancels an open HTTP body on an early terminal return`, async t => {

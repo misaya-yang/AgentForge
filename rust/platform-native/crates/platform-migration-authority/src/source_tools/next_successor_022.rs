@@ -1257,16 +1257,43 @@ mod tests {
     }
 
     #[test]
-    fn active_022_verifies_the_exact_021_preimage_and_measured_extension() {
+    fn canonical_source_preserves_the_reviewed_022_prefix() {
         let root = repository_root();
-        let (plan, verified) = verify_activated_source(&root).unwrap();
-        assert_eq!(verified.epoch, CANDIDATE_EPOCH);
-        assert_eq!(verified.changes.len(), CANDIDATE_EPOCH as usize);
-        assert_eq!(plan["candidate_epoch"], CANDIDATE_EPOCH);
-        assert_eq!(
-            plan["approved_predecessor_package_lock_sha256"],
-            APPROVED_021_LOCK_SHA256
-        );
-        assert_eq!(plan["fingerprint_status"], "not_measured");
+        let active = manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap();
+        if active.epoch == CANDIDATE_EPOCH {
+            let (plan, verified) = verify_activated_source(&root).unwrap();
+            assert_eq!(verified.epoch, CANDIDATE_EPOCH);
+            assert_eq!(verified.changes.len(), CANDIDATE_EPOCH as usize);
+            assert_eq!(plan["candidate_epoch"], CANDIDATE_EPOCH);
+            assert_eq!(
+                plan["approved_predecessor_package_lock_sha256"],
+                APPROVED_021_LOCK_SHA256
+            );
+            assert_eq!(plan["fingerprint_status"], "not_measured");
+        } else if active.epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH {
+            let (_, verified) =
+                crate::source_tools::next_successor_023::verify_activated_source(&root).unwrap();
+            assert_eq!(
+                verified.epoch,
+                crate::source_tools::next_successor_023::CANDIDATE_EPOCH
+            );
+            assert_eq!(
+                verified.changes.len(),
+                crate::source_tools::next_successor_023::CANDIDATE_EPOCH as usize
+            );
+        } else if active.epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH {
+            let (_, verified) =
+                crate::source_tools::next_successor_024::verify_activated_source(&root).unwrap();
+            assert_eq!(
+                verified.epoch,
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH
+            );
+            assert_eq!(
+                verified.changes.len(),
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH as usize
+            );
+        } else {
+            panic!("unexpected canonical schema epoch");
+        }
     }
 }

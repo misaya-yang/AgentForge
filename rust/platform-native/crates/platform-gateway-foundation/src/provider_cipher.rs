@@ -1,20 +1,8 @@
-//! Native adapter for `ai_gateway_core.security.secrets`, re-exported by
-//! `src/core/crypto.py`. This module owns no configuration or long-lived secret.
-//! Construction is inert; callers pass the configured key to each operation.
-//!
-//! SHA-256 key derivation and the `enc:` envelope match the source. Fernet 0.2.2
-//! (RustCrypto backend) owns all encryption, authentication and padding. No TTL
-//! is imposed. Python 3.12's permissive Base64 decoding is normalized before
-//! Fernet authenticates the exact decoded bytes; invalid tokens and invalid UTF-8
-//! preserve the original input. Python 3.13 differs on malformed padding; the
-//! deployment target here follows the repository Dockerfile's Python 3.12.
-//!
-//! Fernet's encryption API panics on clock/entropy errors rather than returning
-//! a Result. A narrow unwind boundary preserves the source's input fallback in
-//! unwind builds. Its synthetic seam is tested, not actual OS entropy failure.
-//! Panic-abort builds, allocator aborts and process termination cannot recover.
-//! No panic hook is changed and no secret-bearing diagnostic is emitted here.
-//! Master-key generation and the source's LRU cache are outside this adapter.
+//! Authenticated provider-secret envelopes, compatible with existing Fernet
+//! `enc:` records. Stored nonempty credentials require an envelope and a key;
+//! missing keys, invalid tokens and crypto failures return a redacted error.
+//! Construction is inert and callers supply the key explicitly. Legacy Base64
+//! normalization preserves existing authenticated token bytes, never plaintext.
 
 use crate::provider_service::{ProviderCipher, ServiceError};
 use base64::{
@@ -44,17 +32,19 @@ impl fmt::Debug for NativeProviderCipher {
 
 impl ProviderCipher for NativeProviderCipher {
     fn encrypt(&self, value: &str, encryption_key: &str) -> Result<String, ServiceError> {
-        // The upstream API owns its clock and OS entropy. Catch its documented
-        // unwrap/expect failures only at this call boundary, never across service
-        // or database work. Existing enc: strings are deliberately encrypted again.
-        Ok(encrypt_with(value, encryption_key, |cipher, bytes| {
+        // Preserve the established envelope format. Crypto failure must never
+        // turn a successful storage write into an unencrypted credential.
+        encrypt_with(value, encryption_key, |cipher, bytes| {
             Ok(cipher.encrypt(bytes))
-        }))
+        })
     }
 
     fn decrypt(&self, value: &str, encryption_key: &str) -> Result<String, ServiceError> {
+        if value.is_empty() {
+            return Ok(String::new());
+        }
         if !is_encrypted(value) {
-            return Ok(value.to_owned());
+            return Err(ServiceError::Cipher);
         }
         let plaintext = get_fernet(encryption_key).and_then(|cipher| {
             let token = normalize_python312_base64(&value[4..])?;
@@ -67,7 +57,7 @@ impl ProviderCipher for NativeProviderCipher {
             let bytes = cipher.decrypt_at_time(&token, None, u64::MAX - 60).ok()?;
             String::from_utf8(bytes).ok()
         });
-        Ok(plaintext.unwrap_or_else(|| value.to_owned()))
+        plaintext.ok_or(ServiceError::Cipher)
     }
 }
 
@@ -81,30 +71,29 @@ fn derive_fernet_key(encryption_key: &str) -> String {
 }
 
 fn get_fernet(encryption_key: &str) -> Option<Fernet> {
-    if encryption_key.is_empty() {
+    if encryption_key.trim().is_empty() {
         None
     } else {
         Fernet::new(&derive_fernet_key(encryption_key))
     }
 }
 
-/// The private Result seam exercises source exception fallback without replacing
-/// crypto, exposing deterministic IVs, or claiming an actual OS failure occurred.
-fn encrypt_with<F>(value: &str, encryption_key: &str, encrypt: F) -> String
+/// Keep OS clock/entropy failures inside the credential boundary and fail closed.
+fn encrypt_with<F>(value: &str, encryption_key: &str, encrypt: F) -> Result<String, ServiceError>
 where
     F: FnOnce(&Fernet, &[u8]) -> Result<String, ()> + UnwindSafe,
 {
     if value.is_empty() {
-        return value.to_owned();
+        return Ok(String::new());
     }
     let Some(cipher) = get_fernet(encryption_key) else {
-        return value.to_owned();
+        return Err(ServiceError::Cipher);
     };
     std::panic::catch_unwind(|| encrypt(&cipher, value.as_bytes()))
         .ok()
         .and_then(Result::ok)
         .map(|token| format!("enc:{token}"))
-        .unwrap_or_else(|| value.to_owned())
+        .ok_or(ServiceError::Cipher)
 }
 
 /// Normalize the *encoding*, not the token. CPython 3.12 urlsafe_b64decode first
@@ -154,3 +143,70 @@ fn normalize_python312_base64(input: &str) -> Option<String> {
         .map(|bytes| URL_SAFE.encode(bytes))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stored_plaintext_and_invalid_envelopes_are_rejected_without_echoing_input() {
+        let cipher = NativeProviderCipher::new();
+        for value in ["synthetic-secret", "enc:", "enc:invalid-token"] {
+            let error = cipher.decrypt(value, "synthetic-master-key").unwrap_err();
+            assert_eq!(error, ServiceError::Cipher);
+            assert!(!error.to_string().contains(value));
+        }
+        assert_eq!(cipher.decrypt("", "").unwrap(), "");
+    }
+
+    #[test]
+    fn existing_envelope_roundtrip_requires_the_matching_key() {
+        let cipher = NativeProviderCipher::new();
+        let sealed = cipher.encrypt("synthetic-密钥", "matching-key").unwrap();
+        assert!(is_encrypted(&sealed));
+        assert_eq!(
+            cipher.decrypt(&sealed, "matching-key").unwrap(),
+            "synthetic-密钥"
+        );
+        assert_eq!(
+            cipher.decrypt(&sealed, "another-key"),
+            Err(ServiceError::Cipher)
+        );
+        assert_eq!(cipher.decrypt(&sealed, ""), Err(ServiceError::Cipher));
+        let mut tampered = sealed.into_bytes();
+        tampered[20] = if tampered[20] == b'A' { b'B' } else { b'A' };
+        assert_eq!(
+            cipher.decrypt(std::str::from_utf8(&tampered).unwrap(), "matching-key"),
+            Err(ServiceError::Cipher)
+        );
+    }
+
+    #[test]
+    fn failed_encryption_never_returns_the_original_credential() {
+        let secret = "synthetic-secret";
+        assert_eq!(
+            encrypt_with(secret, "", |_, _| unreachable!()),
+            Err(ServiceError::Cipher)
+        );
+        assert_eq!(
+            encrypt_with(secret, "key", |_, _| Err(())),
+            Err(ServiceError::Cipher)
+        );
+        assert_eq!(
+            encrypt_with(secret, "key", |_, _| panic!("synthetic crypto failure")),
+            Err(ServiceError::Cipher)
+        );
+        assert_eq!(
+            NativeProviderCipher::new().encrypt(secret, "   "),
+            Err(ServiceError::Cipher)
+        );
+    }
+
+    #[test]
+    fn authenticated_non_utf8_credentials_are_rejected() {
+        let token = get_fernet("key").unwrap().encrypt(&[0xff, 0xfe]);
+        assert_eq!(
+            NativeProviderCipher::new().decrypt(&format!("enc:{token}"), "key"),
+            Err(ServiceError::Cipher)
+        );
+    }
+}

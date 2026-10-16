@@ -60,7 +60,7 @@ fn valid_tracestate(value: &str) -> bool {
             .all(|byte| byte == b' ' || (0x21..=0x7e).contains(&byte))
 }
 /// Capture only bounded correlation for one request's detached work. This is
-/// not an identity carrier: no actor, authorization, cookies or baggage survive.
+/// not an identity carrier: actor, authorization, cookies and baggage never survive.
 /// An absent tracing adapter remains absent; never use raw incoming headers.
 pub fn capture() -> OutboundContext {
     let context = current();
@@ -92,6 +92,14 @@ pub fn internal_http_headers(
     turn_id: Option<&str>,
     execution_id: Option<&str>,
 ) -> Result<BTreeMap<String, String>, String> {
+    // Do not forward raw caller-supplied trace headers. The active middleware
+    // carrier below is the only source for downstream trace context.
+    existing.retain(|key, _| {
+        !matches!(
+            key.to_ascii_lowercase().as_str(),
+            "traceparent" | "tracestate" | "baggage"
+        )
+    });
     let mut lowered: BTreeSet<String> = existing.keys().map(|k| k.to_lowercase()).collect();
     let context = capture();
     let request_id = context.request_id;

@@ -2,18 +2,18 @@
   "schema_version": "native-enterprise-upgrade/v1",
   "goal": "Deliver the complete enterprise AI Gateway product against the existing plan, including connected functionality, integrations, reliability and final acceptance.",
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
-  "lifecycle": "active",
-  "status": "in_progress",
-  "last_updated": "2026-10-16T07:17:53.230Z",
-  "priority": "repository_cleanup_commit_push_then_real_machine_acceptance",
-  "active_phase": "repository_layout_checkpoint",
-  "next_action": "Finish cleanup gates and push this checkpoint; confirm a clean working tree. Then reuse the single existing project from the new root, build current source, and close Assistant, Knowledge and Local Node end-to-end journeys.",
+  "lifecycle": "paused_at_owner_request",
+  "status": "checkpoint_for_pc_continuation",
+  "last_updated": "2026-10-16T12:11:33.756Z",
+  "priority": "preserve_verified_checkpoint_and_resume_on_feature_branches",
+  "active_phase": "owner_requested_wrap_up",
+  "next_action": "On explicit continuation, start a short-lived branch from codex/native-workflows-20261016; first resolve SDK embedding 502 and prove durable usage, then complete LocalNode approved read/search/revoke acceptance. Do not restart Docker during this wrap-up.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
     "One Compose project agentforge-dev-7801d4a9a4; no additional infrastructure or Buildx builders.",
     "One serialized Cargo/Docker writer; targets, credentials and captures outside the repository.",
-    "Owner explicitly authorizes this checkpoint commit/push and subsequent local browser/provider/database acceptance.",
+    "Owner authorizes checkpoint commit/push; owner closed Docker and requested immediate wrap-up. No more live acceptance in this run.",
     "Original Git history is unavailable and waived; do not request it again."
   ],
   "capabilities": [
@@ -80,52 +80,239 @@
     "native_workspace_typecheck": {
       "status": "passed",
       "command": "make native-check",
-      "scope": "Whole native workspace, all targets, after relocation and missing Utc test-import repair"
+      "scope": "Final whole native workspace, all targets, after closing source fixes"
     },
     "schema": {
-      "source_epoch": 22,
-      "main_database_epoch": 22,
-      "locked_inputs": 186,
-      "package_lock_sha256": "df91c12df09ecd9f6361eceaf476ac3230cff43e1548217cfcd214286ee37855",
-      "next_epoch_023": "Proposal/code staged only; not wired, compiled as an active transition, or activated"
+      "source_epoch": 24,
+      "main_database_epoch": 24,
+      "locked_inputs": 194,
+      "package_lock_sha256": "912572fc1a7abad3587051d7c37ca4d999c79a187b96bd1eba9dac09305b7789",
+      "next_epoch_023": "Active, isolated measurement and own-role checks passed, main native migration and verification passed; see schema-023-real.json",
+      "status": "passed_real_database",
+      "epoch": 24,
+      "package_input_count": 194,
+      "isolated_measurement": "passed",
+      "main_migrate": "passed",
+      "main_verify": "passed",
+      "authority_unit_activation_followup": "passed_74_tests_after_probe_helper_repair",
+      "report": "reports/native-current-acceptance-20261016/schema-024-real.json"
     },
     "sdk_workflow": "Bounded API and browser two-turn Qwen continuity plus known effect-free cancellation recovery passed; see sdk-qwen-real.json",
     "authentication": "64 actual public cases passed on the previous source-bound process; see auth-rbac-real.json",
-    "runtime_images": "Current overlay identity refreshed; runnable image claims invalidated. Rebuild current Runtime and Worker before acceptance.",
-    "local_environment": "Owned host services and six project containers stopped for relocation; volumes preserved. Container labels still name the previous root until controlled same-project recreation.",
+    "runtime_images": {
+      "status": "built_verified_then_stopped_at_owner_request",
+      "overlay_sha256": "037ec2fc11eb46e3475730e78edc0da09e3c8add2bbfb2acf15b74cb82246ce1",
+      "receipt": "reports/native-current-acceptance-20261016/closing-runtime-real.json"
+    },
+    "local_environment": "Owner closed Docker; owned Gateway, Knowledge, SDK Worker, Vite and OTLP collector were stopped. LocalNode CLI was already stopped. Same six volumes retained.",
     "repository_cleanup": {
       "status": "passed",
       "receipt": "reports/repository-layout-20261016.json",
       "deployment_contracts_passed": 43,
       "topology_contracts_passed": 31,
       "harness_errors": 0,
-      "commit_push": "next action"
+      "commit_push": {
+        "status": "pushed",
+        "commit": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+        "remote": "git@github.com:misaya-yang/AgentForge.git",
+        "branch": "main",
+        "remote_hash_verified": true,
+        "working_tree_clean_before_subsequent_tasks": true
+      }
+    },
+    "safe_native_logging": {
+      "status": "source_tested_real_diagnostics_observed_then_stopped",
+      "foundation_subprocess_tests": 6,
+      "ingest_safe_diagnostic_tests": 2,
+      "observed_sqlstate": "42501",
+      "worker_warning_proves_delivery": true
+    },
+    "knowledge_workflows": {
+      "status": "partial",
+      "text_version_lifecycle": "passed_real_public_api_v1_edit_v2_historical_source_restore_v1_as_v4",
+      "text_pdf_reindex": "passed_real_public_api_after_023",
+      "native_qdrant_hybrid_and_qwen_rerank": "passed_real_public_api",
+      "historical_source_content_hash": "passed",
+      "qa_and_browser": "passed_desktop_qwen_streamed_answer_and_exact_saved_source_version",
+      "focused_ingest_tests": {
+        "passed": 25,
+        "failed": 0
+      },
+      "evidence": [
+        "reports/native-current-acceptance-20261016/knowledge-text-version-lifecycle-real.json",
+        "reports/native-current-acceptance-20261016/knowledge-qwen-rerank-real.json",
+        "reports/native-current-acceptance-20261016/knowledge-qa-citation-real.json",
+        "reports/native-current-acceptance-20261016/knowledge-text-editor-browser-real.json",
+        "reports/native-current-acceptance-20261016/knowledge-qa-stream-browser-real.json",
+        "reports/native-current-acceptance-20261016/embedding-migration-real.json"
+      ],
+      "text_editor_browser": "passed_v4_edit_to_v5_restore_v1_as_v7",
+      "qa_model": "qwen3.8-flash",
+      "vector_bm25_rerank_browser": "passed_three_vector_and_keyword_hits_with_qwen_rerank_scores",
+      "retrieval_deadline_seconds": 15,
+      "default_rerank_tool_test": {
+        "passed": 1,
+        "failed": 0
+      },
+      "embedding_migration": "passed_real_1024_to_768_backfill_gate_cutover_rollback_cancel_abort"
+    },
+    "openai_compat": {
+      "status": "partial_latest_embeddings_502",
+      "routes": "models_chat_completions_embeddings",
+      "official_sdk": {
+        "name": "openai-node",
+        "version": "7.34.0",
+        "stock_sdk": true,
+        "max_retries": 0,
+        "custom_auth_headers": false
+      },
+      "checks": {
+        "models_list": "passed",
+        "chat_completion": "passed",
+        "stream_text_finish_and_usage": "passed",
+        "embeddings": "failed_HTTP_502_upstream_error",
+        "embedding_dimensions": "not_verified_on_latest_rerun"
+      },
+      "bearer_key_model_scope": "passed_2_models_and_404_out_of_scope",
+      "foundation_unit_tests": {
+        "passed": 223,
+        "failed": 0
+      },
+      "report": "reports/native-current-acceptance-20261016/openai-official-sdk-real.json",
+      "usage_persistence": "unverified_after_63_character_service_id_fix"
+    },
+    "provider_credential_protection": {
+      "status": "partial",
+      "nonempty_plaintext_or_invalid_ciphertext": "fail_closed",
+      "encryption_failure": "fail_closed",
+      "startup_validates_persisted_provider_secrets": "passed_current_gateway_restart",
+      "focused_tests": {
+        "passed": 4,
+        "failed": 0
+      },
+      "kms_and_rotation": "pending"
+    },
+    "main_assistant": {
+      "status": "partial",
+      "supported_model": "qwen3.7-plus",
+      "real_two_turn_memory_web_search": "passed",
+      "cancel_after_provider_text_and_recovery": "passed",
+      "upstream_compute_stop_ack": "not_exposed_by_provider",
+      "flash_web_capability_rejection": "passed_real422_zero_run_and_model_call_rows",
+      "flash_memory_recall": "failed_cause_undetermined",
+      "report": "reports/native-current-acceptance-20261016/main-assistant-model-capability-acceptance.json",
+      "closing_browser": "partial_not_final_memory_acceptance",
+      "closing_browser_report": "reports/native-current-acceptance-20261016/main-assistant-closing-browser-real.json"
+    },
+    "local_node": {
+      "status": "partial_stopped_before_owner_approval",
+      "tls_pinned_ca": "passed",
+      "fresh_pairing": "passed",
+      "grant_read_search_revoke": "not_accepted_file_list_waited_for_approval_read_search_revoke_unverified",
+      "old_unsigned_binary_keychain_item": "retained_unmodified_fresh_dedicated_identity_created",
+      "report": "reports/native-current-acceptance-20261016/native-cli-real.json"
+    },
+    "authentication_signing_key_rotation": {
+      "status": "source_implemented_unit_passed",
+      "auth_lib_tests": {
+        "passed": 14,
+        "failed": 0
+      },
+      "current_test_runtime": "explicit_legacy_single_hs256",
+      "asymmetric_rotation_http_acceptance": "pending"
+    },
+    "frontend_closing": {
+      "type_check": "passed",
+      "tests": {
+        "passed": 2050,
+        "failed": 0
+      },
+      "production_build": "passed",
+      "i18n_check": "passed"
+    },
+    "unfinished_expansions": {
+      "delivery_source": "removed_at_owner_request",
+      "schema_025": "inactive_and_not_in_delivery_tree",
+      "oidc_scim": "not_shipped",
+      "sandbox_hardening_p1": "not_shipped",
+      "online_eval_canary": "not_accepted_existing_worker_returned_eval_job_failed_RuntimeError"
+    },
+    "closing_tests": {
+      "native_all_targets": "passed",
+      "native_selected_libraries": {
+        "passed": 525,
+        "failed": 0
+      },
+      "auth_and_tracing_integration": {
+        "passed": 4,
+        "failed": 0
+      },
+      "deployment_contracts": {
+        "passed": 44,
+        "failed": 0
+      },
+      "migration_authority": {
+        "passed": 74,
+        "failed": 0
+      },
+      "runtime_library": {
+        "passed": 101,
+        "failed": 0,
+        "ignored": 3
+      },
+      "worker_library": {
+        "passed": 86,
+        "failed": 0,
+        "ignored": 1
+      },
+      "frontend": {
+        "passed": 2050,
+        "failed": 0,
+        "type_check": "passed",
+        "i18n": "passed",
+        "production_build": "passed"
+      },
+      "harness": {
+        "errors": 0,
+        "preexisting_warnings": 5
+      }
     }
   },
   "blockers": [
     {
-      "id": "assistant-current-binary",
-      "cause": "Runtime projection INSERT grant is now present through measured successor022, but the latest public start still used an old compiled Gateway and returned AGENT_STORAGE_UNAVAILABLE.",
-      "affected_scope": "Main Assistant thread/turn, tool, approval and recovery acceptance",
-      "next_action": "Build current Gateway and Runtime/Worker images, launch the same project, repeat public thread start and original history before further diagnosis."
+      "id": "assistant-current-cohort-storage",
+      "cause": "Confirmed max-call int4 binding, issuer/reserve6 SECURITY DEFINER and reserve8 UUID parameter cast have been corrected. Real model dispatch is now reached; default flash model lacks native web search support.",
+      "affected_scope": "Main Assistant text, tools, cancel and recovery acceptance",
+      "next_action": "Preserve passed API evidence and model capability rejection; complete the natural-language browser memory acceptance on explicit continuation.",
+      "state": "storage_resolved_browser_memory_not_finally_accepted"
     },
     {
       "id": "knowledge-uncached-vector-and-versions",
-      "cause": "Some uncached hybrid queries return vector-store unavailable; newly ingested documents lacked immutable version rows.",
+      "cause": "Schema023 rights activated; public text/PDF reindex, exact historical source hash, v1-edit-v2-restore lifecycle and native Qdrant fusion plus real qwen3-rerank have passed.",
       "affected_scope": "Reliable retrieval and versioned source citations",
-      "next_action": "Rebuild the staged safe Qdrant diagnostics and transactional version-publication fix; publicly reindex existing text/PDF, verify source hashes/current ACL and repeat uncached queries."
+      "next_action": "Preserve evidence; do not repeat the completed lifecycle audit.",
+      "state": "resolved_core_and_desktop_qa_source_flows_passed"
     },
     {
       "id": "local-node-023-and-control",
-      "cause": "Scoped device-credential successor023 and TLS composition are staged but not active.",
+      "cause": "024 column rights are active and verified. Pairing succeeds with a fresh dedicated identity; the old item was bound to a previous unsigned binary. Existing item and ACLs were preserved.",
       "affected_scope": "Production pairing, approved reads/writes, remote cancel and emergency-stop journeys",
-      "next_action": "Finish and measure the least-privilege transition; activate through native authority and run real TLS pairing/control with the retained optional sandbox boundary."
+      "next_action": "Start with current native-cli-real.json; complete exact snapshot-bound file.list/read/search approval, receipt and revoke/deny journeys without replaying expired or uncertain runs.",
+      "state": "pairing_passed_approved_action_workflow_not_accepted"
     },
     {
-      "id": "builder-relocation",
-      "cause": "Buildx helper derives a builder name from the absolute source path; lifting the repository changes that hash.",
-      "affected_scope": "Next source image build",
-      "next_action": "Reuse the existing validated agentforge-rust-c4b4565e14f050b5 builder; adapt operator selection if needed before invoking the build helper."
+      "id": "knowledge-embedding-migration-permissions",
+      "cause": "Actual API SELECTs and Worker pending query fail42501 on the exact versioning tables used by the existing control flow.",
+      "affected_scope": "Describe/start/job/cancel/cutover/rollback/abort and Worker pending/evidence",
+      "next_action": "Preserve evidence in embedding-migration-real.json.",
+      "state": "resolved_real_migration_cutover_rollback_cancel_abort_passed"
+    },
+    {
+      "id": "official-sdk-embedding-and-durable-usage",
+      "cause": "Final stock SDK rerun passed models/chat/SSE but embeddings returned HTTP 502. Oversized managed service IDs separately caused asynchronous usage persistence failures; source length fix is tested, durable persistence not yet reverified.",
+      "affected_scope": "Standard SDK embeddings, reproducible mixed request flow and durable usage/quota acceptance",
+      "next_action": "Resolve embedding 502 and verify durable usage on a resumed environment. Docker is closed by owner.",
+      "state": "unresolved_recorded_for_next_branch"
     }
   ],
   "history": {
@@ -137,6 +324,125 @@
     "reports/native-current-acceptance-20261016/schema-021-real.json",
     "reports/native-current-acceptance-20261016/sdk-qwen-real.json",
     "reports/native-current-acceptance-20261016/auth-rbac-real.json",
-    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json"
-  ]
+    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json",
+    "reports/native-current-acceptance-20261016/post-clean-runtime.json",
+    "reports/native-current-acceptance-20261016/main-assistant-issuer-permission-failure.json",
+    "reports/native-current-acceptance-20261016/knowledge-publication-permission-failure.json",
+    "reports/native-current-acceptance-20261016/schema-023-real.json"
+  ],
+  "requirements_upgrade": {
+    "source": "docs/research/enterprise-platform-gap-analysis-2026-10.md",
+    "accepted_by_owner": "2026-10-16",
+    "execution_authority": "this existing program",
+    "current_stage": 0,
+    "scheduling": "Disjoint implementation and complete workflow verification; intermediate reports only for concrete blockers or finished deliverables.",
+    "items": [
+      {
+        "id": "P0-1",
+        "scope": "E3",
+        "capability": "Standard SDK entry, provider protocols, safe failover and TPM",
+        "status": "in_progress"
+      },
+      {
+        "id": "P0-2",
+        "scope": "E8",
+        "capability": "OIDC/SCIM, signing-key rotation and current credential revocation",
+        "status": "pending"
+      },
+      {
+        "id": "P0-3",
+        "scope": "E8",
+        "capability": "Transaction-scoped tenant RLS and tamper-evident audit",
+        "status": "pending"
+      },
+      {
+        "id": "P0-4",
+        "scope": "E8",
+        "capability": "Correlated structured logs, trace/metrics export and authenticated monitoring",
+        "status": "partial"
+      },
+      {
+        "id": "P0-5",
+        "scope": "E8",
+        "capability": "Guardrail hooks, fail-closed stored secrets and key rotation",
+        "status": "partial"
+      },
+      {
+        "id": "P1-1",
+        "scope": "E8",
+        "capability": "HA with durable ownership/recovery evidence",
+        "status": "pending"
+      },
+      {
+        "id": "P1-2",
+        "scope": "E8",
+        "capability": "Complete native CI and signed supply chain",
+        "status": "pending"
+      },
+      {
+        "id": "P1-3",
+        "scope": "E8",
+        "capability": "Native deployment and documentation consistency",
+        "status": "partial"
+      },
+      {
+        "id": "P1-4",
+        "scope": "E5",
+        "capability": "Reliable default rerank and complete RAG lifecycle",
+        "status": "in_progress"
+      },
+      {
+        "id": "P1-5",
+        "scope": "E8",
+        "capability": "Online sampled evaluation and canary specifications",
+        "status": "pending"
+      },
+      {
+        "id": "P1-6",
+        "scope": "E1",
+        "capability": "Stronger optional user-code sandbox isolation",
+        "status": "pending"
+      },
+      {
+        "id": "P1-7",
+        "scope": "E2/E7",
+        "capability": "MCP server, A2A, ACP and Skill interoperability",
+        "status": "pending"
+      },
+      {
+        "id": "P1-8",
+        "scope": "E4/UX",
+        "capability": "Enterprise channels with real workflow acceptance",
+        "status": "pending"
+      },
+      {
+        "id": "P2-1",
+        "scope": "E8/UX",
+        "capability": "Domain naming and dependency cleanup",
+        "status": "pending"
+      },
+      {
+        "id": "P2-2",
+        "scope": "E8",
+        "capability": "FinOps allocation and cost-aware routing",
+        "status": "pending"
+      },
+      {
+        "id": "P2-3",
+        "scope": "E8",
+        "capability": "Compliance mappings, model cards and AI-BOM",
+        "status": "pending"
+      }
+    ],
+    "definition_of_done": [
+      "Official SDK integration with correct usage/quota",
+      "OIDC and SCIM deactivation within five minutes",
+      "Cross-tenant RLS denial without application predicates",
+      "Provider-correlated traces with tokens/cost/TTFT",
+      "Measured guardrails and fail-closed stored credentials",
+      "Two-instance rolling upgrade and measured recovery",
+      "Native CI and signed images",
+      "Deliverable compliance artifacts"
+    ]
+  }
 }

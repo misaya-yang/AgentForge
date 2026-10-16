@@ -11,9 +11,21 @@ export interface SSEFetchOptions extends RequestInit {
   timeoutMs?: number;
   /** sseFetchEvents only: retain raw named/data-less and [DONE] control frames. */
   preserveControlFrames?: boolean;
+  /** Return only the HTTP status instead of parsing an endpoint error body. */
+  httpErrorMode?: "status";
 }
 
 const DEFAULT_SSE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+export class SSEHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`SSE request failed: ${status}`);
+    this.name = "SSEHttpError";
+    this.status = status;
+  }
+}
 
 function authenticatedHeaders(headers?: HeadersInit): Headers {
   const resolved = new Headers(headers);
@@ -200,6 +212,7 @@ export async function* sseFetch<T>(
   url: string,
   init: SSEFetchOptions
 ): AsyncGenerator<T, void, void> {
+  const { httpErrorMode, ...requestInit } = init;
   const debug = import.meta.env.DEV && isSseDebugEnabled();
   const startTime = performance.now();
   if (debug) {
@@ -210,7 +223,7 @@ export async function* sseFetch<T>(
   let resp: Response;
   try {
     resp = await fetch(url, {
-      ...init,
+      ...requestInit,
       headers: authenticatedHeaders(init.headers),
       signal: timeoutSignal,
     });
@@ -226,6 +239,11 @@ export async function* sseFetch<T>(
   }
   
   if (!resp.ok || !resp.body) {
+    if (httpErrorMode === "status") {
+      await resp.body?.cancel().catch(() => {});
+      cleanupTimeout();
+      throw new SSEHttpError(resp.status);
+    }
     try {
       const errorDetail = await readResponseErrorDetail(resp);
       const suffix = errorDetail ? ` ${errorDetail}` : "";

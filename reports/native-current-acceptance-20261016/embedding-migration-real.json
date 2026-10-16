@@ -1,0 +1,580 @@
+{
+  "schema": "native-public-embedding-migration-acceptance/v1",
+  "dataset_id": "native-embedding-migration-20261016-388c1dd50c",
+  "markers": {
+    "primary": "EMBED_MIGRATION_NATIVE_388C1DD50C",
+    "cancellation": "EMBED_MIGRATION_CANCEL_388C1DD50C"
+  },
+  "control": {
+    "provider": "dashscope",
+    "model": "text-embedding-v4",
+    "dimension": 1024
+  },
+  "target": {
+    "provider": "dashscope",
+    "model": "text-embedding-v4",
+    "dimension": 768
+  },
+  "started_at": "2026-10-16T10:24:29.508Z",
+  "stages": [
+    {
+      "name": "create_private_synthetic_dataset",
+      "status": "passed"
+    },
+    {
+      "name": "publish_control_v4_1024",
+      "status": "passed"
+    },
+    {
+      "name": "control_dense_retrieval",
+      "status": "passed",
+      "mode": "dense"
+    },
+    {
+      "name": "describe_and_start_target_v4_768",
+      "status": "passed"
+    },
+    {
+      "name": "backfill_job_and_progress",
+      "status": "passed"
+    },
+    {
+      "name": "verify_job",
+      "status": "passed"
+    },
+    {
+      "name": "evaluation_gate",
+      "status": "passed"
+    },
+    {
+      "name": "cutover_target_768",
+      "status": "passed"
+    },
+    {
+      "name": "target_dense_retrieval_and_exact_source",
+      "status": "passed",
+      "mode": "dense"
+    },
+    {
+      "name": "rollback_to_v4_1024",
+      "status": "passed"
+    },
+    {
+      "name": "rollback_dense_retrieval_and_exact_source",
+      "status": "passed",
+      "mode": "dense"
+    },
+    {
+      "name": "publish_second_synthetic_item_on_original_binding",
+      "status": "passed",
+      "mode": "dense"
+    },
+    {
+      "name": "cancel_action_terminal",
+      "status": "passed",
+      "action": "backfill"
+    },
+    {
+      "name": "abort_shadow_and_keep_original_serving",
+      "status": "passed"
+    },
+    {
+      "name": "original_dense_retrieval_after_abort",
+      "status": "passed",
+      "mode": "dense"
+    }
+  ],
+  "auth_refreshes": 3,
+  "dataset": {
+    "http_status": 200,
+    "dataset_id": "native-embedding-migration-20261016-388c1dd50c",
+    "source_collection": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+    "source_identity": {
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "dimension": 1024
+    }
+  },
+  "primary_document_id": "4274773e-10a8-4875-b557-b3ee9182a940",
+  "control_document": {
+    "document_id": "4274773e-10a8-4875-b557-b3ee9182a940",
+    "current_version": 1,
+    "content_sha256": "c7b55163af0193d36451c6716b685b3003ee1fa620b5c73cdbb7beaaf44204b4",
+    "content_bytes": 197
+  },
+  "initial_description": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": null,
+    "target_binding": null,
+    "migration": null,
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "unknown",
+    "recent_job_states": []
+  },
+  "retrievals": [
+    {
+      "label": "control_before_migration",
+      "http_status": 200,
+      "mode": "dense",
+      "result_count": 1,
+      "document_hit_count": 1,
+      "source_version": 1,
+      "source_hash": "c7b55163af0193d36451c6716b685b3003ee1fa620b5c73cdbb7beaaf44204b4",
+      "marker_present": true,
+      "exact_public_source_http_status": 200,
+      "exact_public_source_hash_match": true,
+      "active_version": null
+    },
+    {
+      "label": "target_v4_768_after_cutover",
+      "http_status": 200,
+      "mode": "dense",
+      "result_count": 1,
+      "document_hit_count": 1,
+      "source_version": 1,
+      "source_hash": "c7b55163af0193d36451c6716b685b3003ee1fa620b5c73cdbb7beaaf44204b4",
+      "marker_present": true,
+      "exact_public_source_http_status": 200,
+      "exact_public_source_hash_match": true,
+      "active_version": null
+    },
+    {
+      "label": "control_after_rollback",
+      "http_status": 200,
+      "mode": "dense",
+      "result_count": 1,
+      "document_hit_count": 1,
+      "source_version": 1,
+      "source_hash": "c7b55163af0193d36451c6716b685b3003ee1fa620b5c73cdbb7beaaf44204b4",
+      "marker_present": true,
+      "exact_public_source_http_status": 200,
+      "exact_public_source_hash_match": true,
+      "active_version": null
+    },
+    {
+      "label": "control_before_cancel_abort",
+      "http_status": 200,
+      "mode": "dense",
+      "result_count": 5,
+      "document_hit_count": 5,
+      "source_version": 1,
+      "source_hash": "5518a5c0b59dc275a179720d1e299612735a3dad3468db09d3fe7d78f86570ca",
+      "marker_present": true,
+      "exact_public_source_http_status": 200,
+      "exact_public_source_hash_match": true,
+      "active_version": null
+    },
+    {
+      "label": "original_binding_after_abort",
+      "http_status": 200,
+      "mode": "dense",
+      "result_count": 5,
+      "document_hit_count": 5,
+      "source_version": 1,
+      "source_hash": "5518a5c0b59dc275a179720d1e299612735a3dad3468db09d3fe7d78f86570ca",
+      "marker_present": true,
+      "exact_public_source_http_status": 200,
+      "exact_public_source_hash_match": true,
+      "active_version": null
+    }
+  ],
+  "resumed_at": "2026-10-16T10:27:03.169Z",
+  "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+  "start": {
+    "http_status": 200,
+    "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+    "migration_state": "shadow_build",
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "shadow",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    }
+  },
+  "backfill_job": {
+    "job_id": "5af9f328-38b6-4d30-a7a4-1a3390e805bc",
+    "action": "backfill",
+    "state": "succeeded",
+    "attempt_count": 1,
+    "error_present": false,
+    "operator_cancelled": false,
+    "result_migration_state": "backfilling",
+    "passed": null,
+    "remaining": 0
+  },
+  "after_backfill": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "shadow",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "backfilling",
+      "error_present": false,
+      "pending_chunks": 0
+    },
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "healthy",
+    "recent_job_states": [
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "verify_job": {
+    "job_id": "48996fb1-989d-4b8f-9af2-574c7a4bd5b2",
+    "action": "verify",
+    "state": "succeeded",
+    "attempt_count": 1,
+    "error_present": false,
+    "operator_cancelled": false,
+    "result_migration_state": "verified",
+    "passed": null,
+    "remaining": 0
+  },
+  "after_verify": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "shadow",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "verified",
+      "error_present": false,
+      "pending_chunks": 0
+    },
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "healthy",
+    "recent_job_states": [
+      {
+        "action": "verify",
+        "state": "succeeded"
+      },
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "gate_job": {
+    "job_id": "8ca63ffe-d390-4e45-a1ab-780efd05e495",
+    "action": "gate",
+    "state": "succeeded",
+    "attempt_count": 1,
+    "error_present": false,
+    "operator_cancelled": false,
+    "result_migration_state": "ready",
+    "passed": true,
+    "remaining": 0
+  },
+  "after_gate": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "shadow",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "ready",
+      "error_present": false,
+      "pending_chunks": 0
+    },
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "healthy",
+    "recent_job_states": [
+      {
+        "action": "gate",
+        "state": "succeeded"
+      },
+      {
+        "action": "verify",
+        "state": "succeeded"
+      },
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "cutover": {
+    "http_status": 200,
+    "migration_state": "completed"
+  },
+  "after_cutover": {
+    "serving_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "retained",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "completed",
+      "error_present": false,
+      "pending_chunks": 0
+    },
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "healthy",
+    "recent_job_states": [
+      {
+        "action": "gate",
+        "state": "succeeded"
+      },
+      {
+        "action": "verify",
+        "state": "succeeded"
+      },
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "rollback": {
+    "http_status": 200,
+    "migration_state": "rolled_back"
+  },
+  "after_rollback": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "shadow",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "rolled_back",
+      "error_present": false,
+      "pending_chunks": 0
+    },
+    "pending_chunks": 0,
+    "enabled_chunks": 1,
+    "collection_health": "healthy",
+    "recent_job_states": [
+      {
+        "action": "gate",
+        "state": "succeeded"
+      },
+      {
+        "action": "verify",
+        "state": "succeeded"
+      },
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "cancel_control_document": {
+    "document_id": "e30deae5-157c-4cc6-8db7-2d941cfa7f64",
+    "current_version": 1,
+    "content_sha256": "5518a5c0b59dc275a179720d1e299612735a3dad3468db09d3fe7d78f86570ca",
+    "content_bytes": 55870
+  },
+  "reopen": {
+    "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+    "reopened": true,
+    "migration_state": "backfilling"
+  },
+  "cancel_job": {
+    "action": "backfill",
+    "http_status": 200,
+    "job_id": "bbe66dd5-dc0b-49ca-b515-187b054e264e",
+    "state": "failed",
+    "attempt_count": 0,
+    "error_present": true,
+    "operator_cancelled": true,
+    "result_migration_state": null,
+    "passed": null,
+    "remaining": 0
+  },
+  "abort": {
+    "http_status": 200,
+    "migration_state": "abandoned"
+  },
+  "after_abort": {
+    "serving_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "source_binding": {
+      "binding_id": "aad9e85e-59db-4a0f-a622-716f67cff795",
+      "state": "serving",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_1024",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 1024
+    },
+    "target_binding": {
+      "binding_id": "2c2de591-ab60-4b81-a785-79effd550a99",
+      "state": "retired",
+      "collection_name": "kb_native-embedding-migration-20261016-388c1dd50c_768_vafc7653d",
+      "provider": "dashscope",
+      "model": "text-embedding-v4",
+      "model_version": "",
+      "dimension": 768
+    },
+    "migration": {
+      "migration_id": "ffdbfe86-a751-41c0-a5a1-2eaaada31d4d",
+      "state": "abandoned",
+      "error_present": true,
+      "pending_chunks": 30
+    },
+    "pending_chunks": 30,
+    "enabled_chunks": 30,
+    "collection_health": "unknown",
+    "recent_job_states": [
+      {
+        "action": "backfill",
+        "state": "failed"
+      },
+      {
+        "action": "gate",
+        "state": "succeeded"
+      },
+      {
+        "action": "verify",
+        "state": "succeeded"
+      },
+      {
+        "action": "backfill",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "finished_at": "2026-10-16T10:27:50.611Z",
+  "overall": "passed"
+}

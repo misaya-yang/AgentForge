@@ -75,9 +75,12 @@ fn main() -> ExitCode {
     };
     let result = runtime.block_on(async {
         // Before constructing pools, matching the shared source startup order.
-        let tracing = ai_platform_gateway_foundation::distributed_tracing::initialize("gateway");
+        let _tracing = ai_platform_gateway_foundation::distributed_tracing::initialize("gateway");
         let result = run(document).await;
-        let _ = tokio::task::spawn_blocking(move || tracing.shutdown()).await;
+        let _ = tokio::task::spawn_blocking(
+            ai_platform_gateway_foundation::distributed_tracing::shutdown,
+        )
+        .await;
         result
     });
     // Process boundary: remaining async connection tasks are dropped with this

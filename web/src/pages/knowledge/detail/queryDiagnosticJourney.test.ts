@@ -357,6 +357,7 @@ for (const locale of ["en-US", "zh-CN"]) test(`${locale}: retrieval separates fa
   for (const [metadata, vector, keyword] of [
     [{}, "not-reported", "not-reported"],
     [{ vector_hits_count: 0, keyword_hits_count: 4 }, 0, 4],
+    [{ dense_hits: 0, bm25_hits: 4 }, 0, 4],
     [{ vector_hits_count: null, keyword_hits_count: -1 }, "not-reported", "not-reported"],
     [{ vector_hits_count: 1.5, keyword_hits_count: "2" }, "not-reported", "not-reported"],
   ] as const) {
@@ -378,12 +379,57 @@ for (const locale of ["en-US", "zh-CN"]) test(`${locale}: retrieval separates fa
       && node.props.children === -1), "malformed keyword counts must not appear in adjacent statistics");
     assert.equal(retrieval.child("SaveKnowledgeFailureDialog").sourceTraceId, "accepted-trace");
   }
+  const hitTestsBeforeEdit = e.calls.filter(c => c.method === "POST" && c.url.endsWith("/hit_test")).length;
   (nodes(retrieval.tree(), "Textarea")[0]!.props.onChange as (event: unknown) => void)({ target: { value: "edited question" } });
   await shell.flush(); retrieval.render(shell.child("RetrievalTab"));
   assert.ok(text(retrieval.tree()).includes(e.i18n.t("knowledge.detail.retrievalReady")));
   assert.equal(nodes(retrieval.tree(), "SaveKnowledgeFailureDialog").length, 0);
-  assert.equal(e.calls.filter(c => c.method === "POST").length, 5, "editing never executes a query");
+  assert.equal(e.calls.filter(c => c.method === "POST" && c.url.endsWith("/hit_test")).length, hitTestsBeforeEdit,
+    "editing never executes a query");
   assert.ok(!text(retrieval.tree()).includes("knowledge.detail."));
+  shell.dispose(); retrieval.dispose();
+});
+
+for (const locale of ["en-US", "zh-CN"]) test(`${locale}: rerank degradation and native hit counts are clear without exposing provider errors`, async () => {
+  const e = environment(locale);
+  e.setRead(async (url, options) => {
+    if (url.endsWith("/config")) {
+      return { dataset_id: "dataset-a", retrieval: { rerank: { enabled: true, provider: "dashscope", model: "qwen3-rerank" } } };
+    }
+    return e.defaultRead(url, options);
+  });
+  e.setWrite(async (url, body) => {
+    if (url.endsWith("/hit_test")) return {
+      results: [{ document_id: "doc-a", segment_id: "segment-a", text: "retrieved context", score: 0.5 }],
+      metadata: {
+        mode: "hybrid", rerank: true, rerank_degraded: "error",
+        rerank_error: "private provider response detail", dense_hits: 0, bm25_hits: 2,
+      },
+      trace_id: "accepted-trace", query_fingerprint: "accepted-fingerprint",
+    };
+    return e.defaultWrite(url, body);
+  });
+  const shell = host("../DatasetDetail.tsx", "KnowledgeDatasetDetailPage", e);
+  shell.render(); await shell.flush();
+  let hit = shell.child("RetrievalTab").hitTest as Data;
+  (hit.setQuery as (value: string) => void)("current question");
+  (hit.setRerank as (value: boolean) => void)(true);
+  await shell.flush(); hit = shell.child("RetrievalTab").hitTest as Data;
+  await (hit.runHitTest as () => Promise<void>)(); await shell.flush();
+
+  const retrieval = host("./RetrievalTab.tsx", "RetrievalTab", e, shell.child("RetrievalTab"));
+  retrieval.render();
+  const rendered = text(retrieval.tree());
+  assert.ok(rendered.includes(e.i18n.t("knowledge.detail.rerankUnavailable")));
+  assert.ok(!rendered.includes("private provider response detail"));
+  const hitCounts = nodes(retrieval.tree(), "div")
+    .filter(node => node.props.className === "text-lg font-bold text-primary/90"
+      || node.props.className === "text-lg font-bold text-amber-700 dark:text-amber-400")
+    .map(node => node.props.children);
+  assert.deepEqual(hitCounts, [0, 2]);
+  const request = e.calls.find(call => call.method === "POST" && call.url.endsWith("/hit_test"));
+  assert.equal(request?.body?.rerank, true);
+  assert.equal(request?.body?.rerank_model, "qwen3-rerank");
   shell.dispose(); retrieval.dispose();
 });
 

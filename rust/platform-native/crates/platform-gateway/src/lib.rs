@@ -1,5 +1,3 @@
-pub use ai_platform_gateway_foundation::request_governance;
-pub use ai_platform_gateway_foundation::distributed_tracing;
 pub use ai_platform_gateway_foundation::assistant_catalog;
 pub use ai_platform_gateway_foundation::billing;
 pub use ai_platform_gateway_foundation::billing_store;
@@ -7,6 +5,8 @@ pub use ai_platform_gateway_foundation::capacity;
 pub use ai_platform_gateway_foundation::capacity_admission;
 pub use ai_platform_gateway_foundation::circuit_breaker;
 pub use ai_platform_gateway_foundation::client_ip;
+pub use ai_platform_gateway_foundation::distributed_tracing;
+pub use ai_platform_gateway_foundation::request_governance;
 pub mod config;
 pub use ai_platform_gateway_foundation::dispatch_preflight;
 pub use ai_platform_gateway_foundation::dispatcher;
@@ -15,6 +15,7 @@ pub use ai_platform_gateway_foundation::gateway_dispatcher;
 pub use ai_platform_gateway_foundation::generic_rest_adapter;
 pub(crate) use ai_platform_gateway_foundation::http_content_type;
 pub use ai_platform_gateway_foundation::invocation_http;
+pub use ai_platform_gateway_foundation::openai_model_catalog;
 pub mod knowledge;
 pub mod knowledge_http;
 pub use ai_platform_gateway_foundation::load_shedder;
@@ -32,9 +33,9 @@ pub mod session_history;
 pub use ai_platform_gateway_foundation::session_manager;
 pub use ai_platform_gateway_foundation::session_storage;
 pub use ai_platform_gateway_foundation::stream_statistics;
-pub use ai_platform_gateway_foundation::task_http;
 pub use ai_platform_gateway_foundation::task_actor;
 pub use ai_platform_gateway_foundation::task_delivery;
+pub use ai_platform_gateway_foundation::task_http;
 pub use ai_platform_gateway_foundation::task_manager;
 pub use ai_platform_gateway_foundation::task_storage;
 pub use ai_platform_gateway_foundation::task_worker;
@@ -46,6 +47,9 @@ use ai_platform_auth::{
     api_keys::{SelectedCredential, select_credential},
     service::AuthService,
 };
+use ai_platform_gateway_foundation::native_contract::sessions::{
+    self as session_contract, ListLimit as Limit, SessionList,
+};
 use axum::{
     Json, Router,
     extract::{Query, State},
@@ -54,7 +58,6 @@ use axum::{
     routing::get,
 };
 use serde::Serialize;
-use ai_platform_gateway_foundation::native_contract::sessions::{self as session_contract, ListLimit as Limit, SessionList};
 use serde_json::{Value, json};
 use sqlx::{FromRow, PgPool};
 use std::sync::Arc;
@@ -109,15 +112,30 @@ fn base_router(
         Router::new()
     };
     Router::new()
-        .route(session_contract::COLLECTION, get(sessions).head(read_method_not_allowed))
-        .route("/api/v1/assistant/models", get(models::list).head(read_method_not_allowed))
+        .route(
+            session_contract::COLLECTION,
+            get(sessions).head(read_method_not_allowed),
+        )
+        .route(
+            "/api/v1/assistant/models",
+            get(models::list).head(read_method_not_allowed),
+        )
         .with_state(Gateway {
             auth: auth.clone(),
             pool: pool.clone(),
             identity: options.identity.clone(),
         })
-        .merge(config::router_with_identity(auth.clone(), pool.clone(), options.runtime, options.identity.clone()))
-        .merge(knowledge::router_with_identity(auth.clone(), options.knowledge.clone(), options.identity.clone()))
+        .merge(config::router_with_identity(
+            auth.clone(),
+            pool.clone(),
+            options.runtime,
+            options.identity.clone(),
+        ))
+        .merge(knowledge::router_with_identity(
+            auth.clone(),
+            options.knowledge.clone(),
+            options.identity.clone(),
+        ))
         .merge(knowledge_proxy)
         .merge(session_history::router(
             auth.clone(),
@@ -125,8 +143,15 @@ fn base_router(
             options.sessions,
             options.identity.clone(),
         ))
-        .merge(assistant_catalog::router_with_identity(auth, pool, options.catalog,
-            options.identity.map(|identity| Arc::new(CatalogReadIdentity(identity)) as Arc<dyn assistant_catalog::CatalogIdentityResolver>)))
+        .merge(assistant_catalog::router_with_identity(
+            auth,
+            pool,
+            options.catalog,
+            options.identity.map(|identity| {
+                Arc::new(CatalogReadIdentity(identity))
+                    as Arc<dyn assistant_catalog::CatalogIdentityResolver>
+            }),
+        ))
 }
 
 #[derive(Serialize, FromRow)]
@@ -164,13 +189,28 @@ fn error(status: StatusCode, detail: &'static str) -> Response {
 }
 struct CatalogReadIdentity(Arc<dyn migration_content::ContentAccess>);
 impl assistant_catalog::CatalogIdentityResolver for CatalogReadIdentity {
-    fn resolve<'a>(&'a self, headers: &'a HeaderMap)
-        -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<assistant_catalog::CatalogIdentity, Response>> + Send + 'a>> {
+    fn resolve<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<assistant_catalog::CatalogIdentity, Response>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(async move {
-            let user = self.0.resolve(headers).await.map_err(IntoResponse::into_response)?;
+            let user = self
+                .0
+                .resolve(headers)
+                .await
+                .map_err(IntoResponse::into_response)?;
             Ok(assistant_catalog::CatalogIdentity {
-                user_id: user.user_id, tenant_id: user.tenant_id, tier: user.tier,
-                roles: user.roles, is_authenticated: user.is_authenticated,
+                user_id: user.user_id,
+                tenant_id: user.tenant_id,
+                tier: user.tier,
+                roles: user.roles,
+                is_authenticated: user.is_authenticated,
             })
         })
     }
@@ -185,16 +225,21 @@ async fn resolve_read_identity(
     headers: &HeaderMap,
 ) -> Result<migration_content::ContentIdentity, Response> {
     if let Some(identity) = identity {
-        return identity.resolve(headers).await.map_err(IntoResponse::into_response);
+        return identity
+            .resolve(headers)
+            .await
+            .map_err(IntoResponse::into_response);
     }
     let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
         Ok(SelectedCredential::Jwt(token)) => token,
         _ => return Err(error(StatusCode::UNAUTHORIZED, "Authentication required")),
     };
-    let principal = auth.authenticate(token).await.map_err(|e| error(
-        StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-        "Authentication failed",
-    ))?;
+    let principal = auth.authenticate(token).await.map_err(|e| {
+        error(
+            StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
+            "Authentication failed",
+        )
+    })?;
     Ok(migration_content::ContentIdentity {
         user_id: principal.account.user_id,
         tenant_id: principal.account.tenant_id,
@@ -202,6 +247,7 @@ async fn resolve_read_identity(
         roles: principal.authority.roles,
         permissions: principal.authority.permissions,
         is_authenticated: true,
+        allowed_models: None,
     })
 }
 
@@ -214,10 +260,11 @@ async fn sessions(
         Ok(Query(Limit { limit })) if (1..=session_contract::LIST_MAX).contains(&limit) => limit,
         _ => return error(StatusCode::UNPROCESSABLE_ENTITY, "Invalid limit"),
     };
-    let principal = match resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
-        Ok(user) => user,
-        Err(response) => return response,
-    };
+    let principal =
+        match resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
+            Ok(user) => user,
+            Err(response) => return response,
+        };
     // Identity always comes from verified authority, never optional public filters.
     if principal.user_id.is_empty() || principal.tenant_id.is_empty() {
         return error(StatusCode::UNAUTHORIZED, "Authentication required");
@@ -445,33 +492,62 @@ mod native_session_contract_tests {
     #[test]
     fn actual_list_serializer_matches_source_owned_session_shape() {
         let row = SessionSummary {
-            session_id: "s".into(), user_id: "u".into(), tenant_id: "t".into(),
-            service_id: None, created_at: None, updated_at: None,
+            session_id: "s".into(),
+            user_id: "u".into(),
+            tenant_id: "t".into(),
+            service_id: None,
+            created_at: None,
+            updated_at: None,
             metadata: json!({"title":null,"folder":null,"pinned":null,"langgraph_thread_id":null}),
             message_count: 0,
         };
-        let actual = serde_json::to_value(SessionList { sessions: vec![row], total: 1 }).unwrap();
+        let actual = serde_json::to_value(SessionList {
+            sessions: vec![row],
+            total: 1,
+        })
+        .unwrap();
         let shape = session_contract::session_schema();
-        assert_eq!(actual["sessions"][0].as_object().unwrap().keys().collect::<Vec<_>>(),
-            shape["properties"].as_object().unwrap().keys().collect::<Vec<_>>());
-        assert_eq!(actual["sessions"][0]["created_at"],Value::Null);
-        assert_eq!(actual["sessions"][0]["message_count"],0);
-        assert_eq!(actual["total"],1);
+        assert_eq!(
+            actual["sessions"][0]
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>(),
+            shape["properties"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(actual["sessions"][0]["created_at"], Value::Null);
+        assert_eq!(actual["sessions"][0]["message_count"], 0);
+        assert_eq!(actual["total"], 1);
     }
     #[test]
     fn actual_query_extractor_preserves_limit_rules() {
         let uri = "/?unknown=ignored".parse().unwrap();
-        assert_eq!(Query::<Limit>::try_from_uri(&uri).unwrap().0.limit,50);
-        assert_eq!(Query::<session_contract::HistoryLimit>::try_from_uri(&uri).unwrap().0.limit,100);
+        assert_eq!(Query::<Limit>::try_from_uri(&uri).unwrap().0.limit, 50);
+        assert_eq!(
+            Query::<session_contract::HistoryLimit>::try_from_uri(&uri)
+                .unwrap()
+                .0
+                .limit,
+            100
+        );
         for invalid in ["/?limit=2&limit=3", "/?limit=1.5", "/?limit=oops"] {
             let uri = invalid.parse().unwrap();
             assert!(Query::<Limit>::try_from_uri(&uri).is_err());
             assert!(Query::<session_contract::HistoryLimit>::try_from_uri(&uri).is_err());
         }
-        for (text, allowed) in [("/?limit=0",false),("/?limit=1",true),("/?limit=200",true),("/?limit=201",false)] {
+        for (text, allowed) in [
+            ("/?limit=0", false),
+            ("/?limit=1", true),
+            ("/?limit=200", true),
+            ("/?limit=201", false),
+        ] {
             let uri = text.parse().unwrap();
-            let limit=Query::<Limit>::try_from_uri(&uri).unwrap().0.limit;
-            assert_eq!((1..=session_contract::LIST_MAX).contains(&limit),allowed);
+            let limit = Query::<Limit>::try_from_uri(&uri).unwrap().0.limit;
+            assert_eq!((1..=session_contract::LIST_MAX).contains(&limit), allowed);
         }
     }
 }
@@ -482,7 +558,10 @@ mod read_identity_tests;
 /// FastAPI GET declarations do not implicitly expose HEAD.
 pub(crate) async fn read_method_not_allowed() -> axum::response::Response {
     use axum::response::IntoResponse;
-    (axum::http::StatusCode::METHOD_NOT_ALLOWED,
-     [("allow", "GET")],
-     axum::Json(serde_json::json!({"detail":"Method Not Allowed"}))).into_response()
+    (
+        axum::http::StatusCode::METHOD_NOT_ALLOWED,
+        [("allow", "GET")],
+        axum::Json(serde_json::json!({"detail":"Method Not Allowed"})),
+    )
+        .into_response()
 }

@@ -107,6 +107,7 @@ impl GatewayGraph {
         knowledge: KnowledgeAuthorities,
         models: ModelServices,
     ) -> Result<Self, BootstrapError> {
+        let openai_provider_environment = config.provider_environment.clone();
         // Shared private capability endpoints must agree on the same authority.
         if config.content.capability_internal_token != config.compat.internal_token
             || config.content.capability_proof_secret != config.compat.proof_secret
@@ -252,6 +253,7 @@ impl GatewayGraph {
             &core,
             &auth,
             &models,
+            openai_provider_environment,
             authorities.access.clone(),
             shared.clone(),
             config.foundation,

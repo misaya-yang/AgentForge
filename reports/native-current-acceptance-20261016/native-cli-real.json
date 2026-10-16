@@ -1,67 +1,171 @@
 {
   "schema_version": 1,
-  "evidence_kind": "live_public_gateway_probe",
-  "overall": "partial_live_acceptance_blocked_before_pairing",
-  "recorded_at_utc": "2026-10-16T04:54:51.252148+00:00",
+  "evidence_kind": "live_native_local_node_and_public_main_acceptance",
+  "overall": "partial_live_acceptance_stopped_at_owner_approval_before_local_dispatch",
+  "recorded_at_utc": "2026-10-16T12:08:56.941533+00:00",
   "gateway_origin": "http://127.0.0.1:8080",
   "credential_source": "private ~/.cache/agentforge/secrets/native-current-login.json body.access_token; token not recorded",
-  "fixture_root": "~/.cache/agentforge/local-application/cli-acceptance-20261016",
+  "fixture_root": "~/.cache/agentforge/local-application/local-node-control-acceptance-20261016/workspace",
   "fixture_created": [
-    "read_source.txt",
-    "write_expected.txt"
+    "marker.txt"
   ],
   "fixture_sha256": {
-    "read_source.txt": "a9285b5a971b1de32200155400da30e0ae8feb8a398738884adf7f66b5cc1b0d",
-    "write_expected.txt": "3a8dbf548d6a2808c20fb13726843423e3c0d43f391665625fa73ca07eb452be"
+    "marker.txt": "2f8f05e2c602ae5134b9c0ac1cf36693e74495d1a4acf74a2cae58e7b96bbc77"
   },
   "native_executable": {
-    "local_node_on_path": false,
-    "platformctl_on_path": false,
-    "repository_target_binary_found": false,
-    "built_or_executed": false
+    "repository_target_binary_found": true,
+    "built_or_executed": true,
+    "binary": "~/.cache/agentforge/targets/dots-native-1.99.0/debug/local-node",
+    "stable_binary_rebuilt_during_acceptance": false,
+    "owned_serve_pid_at_stop": 45755,
+    "owned_serve_process_state": "already stopped when cleanup was requested",
+    "private_state_preserved": [
+      "device-identity.json",
+      "ledger.sqlite",
+      "outbox.sqlite",
+      "replay.sqlite",
+      "approval-nonces.sqlite"
+    ]
   },
   "public_api_observations": [
     {
       "method": "GET",
       "path": "/health",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/v1/local-nodes",
       "status": 200,
-      "owned_device_count": 0
+      "gateway_pid": 45388
     },
     {
       "method": "POST",
       "path": "/api/v1/local-nodes/pairing/challenges",
       "status": 201,
-      "challenge_id": "d54bbc27-337c-4a98-803c-5bb60d815060",
-      "user_code": "[REDACTED]",
-      "expires_at": "2026-10-16T04:55:51.234899+00:00"
+      "challenge_id": "0d8be00d-9884-4e82-a44d-bb9f8b549430",
+      "user_code": "[REDACTED]"
     },
     {
       "method": "POST",
-      "path": "/api/v1/local-nodes/pairing/challenges/d54bbc27-337c-4a98-803c-5bb60d815060/complete",
-      "status": 503,
-      "attestation_supplied": false
+      "path": "/api/v1/local-nodes/pairing/challenges/{challenge_id}/complete",
+      "device_id": "dev_6afd9bc9bec7f48ad30d0a64",
+      "credential": "[REDACTED]",
+      "client_exit_code": 0,
+      "result": "trusted pairing completed; owner inventory confirmed the device"
     },
     {
       "method": "GET",
-      "path": "/api/v1/local-nodes",
+      "path": "/api/v1/local-nodes/{device_id}/grants",
       "status": 200,
-      "owned_device_count": 0
+      "device_id": "dev_6afd9bc9bec7f48ad30d0a64",
+      "grant_id": "cfbfa9d4-18b3-4470-b3f2-f13660a993dc",
+      "grant_status": "active",
+      "capabilities_type": "array",
+      "capabilities": [
+        "list",
+        "read",
+        "search",
+        "watch"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/local-nodes/{device_id}/status",
+      "status": 200,
+      "device_id": "dev_6afd9bc9bec7f48ad30d0a64",
+      "device_status": "online",
+      "capability_revision": 2,
+      "heartbeat_fresh_at_preflight": true
     }
   ],
   "workflow_status": {
-    "owner_identity_and_gateway_auth": "verified_by_authenticated owner-scoped list response",
-    "owned_device_inventory": "empty at start; remained empty after attempted pairing completion",
-    "pairing_challenge_create": "live request attempted; challenge secret redacted; expires in 60 seconds",
-    "trusted_pairing_completion": "blocked_or_rejected; no native device proof supplied",
-    "native_cli_pairing": "unverified; available source CLI exposes diagnostics only and no executable is installed",
-    "file_read_write_approval_deny_no_replay_offline_revocation": "unverified; no paired device or native runner available"
+    "owner_identity_and_gateway_auth": "passed; authenticated owner API reads succeeded",
+    "native_cli_pairing": "passed; trusted v2 pairing created device dev_6afd9bc9bec7f48ad30d0a64",
+    "owned_device_inventory": "passed; one paired device observed",
+    "owner_grant": "passed; active read grant cfbfa9d4-18b3-4470-b3f2-f13660a993dc",
+    "grant_capabilities_json_shape": "passed; capabilities returned as a JSON array",
+    "permission_snapshot_sync": "passed; device capability_revision advanced to 2",
+    "client_reconnect": "passed once; same binary/config/identity reconnected and returned a fresh heartbeat",
+    "local_node_read_approval_preview": "source implementation and focused tests passed in Gateway build; live approval preview was not verified before stop",
+    "file_list": "unverified; Main requested file.list but stopped at required owner approval before dispatch",
+    "file_read": "unverified; not reached",
+    "file_search": "unverified; not reached",
+    "write": "not performed; outside this final read-only acceptance",
+    "revocation_and_denial": "unverified; owner grant remained active when live requests were stopped",
+    "offline_and_no_replay": "not fully verified; no retry was issued for any uncertain/expired run",
+    "pending_final_run": "last observed at approval_required for file.list; no owner decision was sent after user stop",
+    "cleanup": "owned serve PID 45755 was already stopped; device identity and local durable state preserved"
   },
-  "source_boundary_observation": "Source review only: local-node CLI implements doctor diagnostics; transport pairing/exchange require injected signer, secure credential store, verifier and controlled dispatcher. This source observation is not live acceptance.",
+  "source_boundary_observation": "Native Rust CLI v2 pairing/secure identity and Gateway heartbeat permission snapshot sync were exercised live. The final public Main run reached the explicit owner approval gate; it did not execute a local file action.",
   "secrets_redacted": true,
-  "no_real_user_files_or_existing_node_config_accessed": true
+  "no_real_user_files_or_existing_node_config_accessed": true,
+  "superseded_pre_pairing_probe": {
+    "note": "The original pre-pairing inventory/challenge probe below was superseded by the successful native v2 pairing recorded here.",
+    "public_api_observations": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/local-nodes",
+        "status": 200,
+        "owned_device_count": 0
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/local-nodes/pairing/challenges",
+        "status": 201,
+        "challenge_id": "d54bbc27-337c-4a98-803c-5bb60d815060",
+        "user_code": "[REDACTED]",
+        "expires_at": "2026-10-16T04:55:51.234899+00:00"
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/local-nodes/pairing/challenges/d54bbc27-337c-4a98-803c-5bb60d815060/complete",
+        "status": 503,
+        "attestation_supplied": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/local-nodes",
+        "status": 200,
+        "owned_device_count": 0
+      }
+    ]
+  },
+  "main_attempts": [
+    {
+      "session_id": "5a01e2f1-2b12-4a39-bb8f-620b2f3bbf41",
+      "http_status": 503,
+      "reconciliation": "public session history total=0 and device events=0; no retry"
+    },
+    {
+      "session_id": "d11af6f7-4045-49a6-9378-016da6f55f24",
+      "run_id": "83a745e1-b57e-429e-ae46-163d29a6fee5",
+      "http_status": 200,
+      "tool_operation": "list_directory",
+      "approval_id": "01a14484-6b52-7143-8610-56a942a4e533",
+      "approval_status": "cancelled_after_expiry",
+      "device_events": 0,
+      "replayed": false
+    },
+    {
+      "session_id": "8c19e1b6-0554-495a-bac7-e6b031dd296d",
+      "run_id": "58211465-e48c-44c9-a0ef-b12078ef78dd",
+      "http_status": 200,
+      "model_id": "qwen3.7-plus",
+      "event": "approval_required",
+      "sequence": 48,
+      "tool_operation": "file.list",
+      "tool_call_id": "call_3a2cbbbcef3a423b8909d0c9",
+      "approval_id": "01a14499-2473-7bb1-a346-519852d75ea0",
+      "approval_decision": "not submitted after user stop",
+      "local_dispatch_or_receipt": "not observed",
+      "file_read": "not reached",
+      "file_search": "not reached"
+    }
+  ],
+  "implementation_validation": {
+    "strict_local_node_read_approval_preview": "implemented; only file.list, file.read, file.search with exact snapshot-bound device/grant and bounded closed arguments are previewable; all other local_node_action operations fail closed",
+    "focused_test_filter": "local_node_read_approval_tests",
+    "gateway_validation": "root reported Gateway tests passed, including all 3 new focused preview tests"
+  }
 }

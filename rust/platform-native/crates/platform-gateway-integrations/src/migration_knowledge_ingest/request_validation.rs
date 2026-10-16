@@ -923,6 +923,8 @@ pub(super) const PREVIEW: u8 = 15;
 pub(super) const PREVIEW_CONFIGURED: u8 = 16;
 pub(super) const DATASET_DELETE: u8 = 17;
 pub(super) const RESTORE: u8 = 18;
+pub(super) const TEXT_SOURCE_REPLACE: u8 = 19;
+pub(super) const MAX_TEXT_SOURCE_REPLACE_BYTES: usize = 1024 * 1024;
 pub(super) struct TypedJson<T, const KIND: u8>(pub T);
 impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send, const KIND: u8> FromRequest<S>
     for TypedJson<T, KIND>
@@ -1246,6 +1248,28 @@ pub(super) fn legacy_body(kind: u8, value: Value) -> Result<Value, Response> {
             v.string("reason", false, true, 0, 500);
         }
         RESTORE => v.string("reason", false, true, 0, usize::MAX),
+        TEXT_SOURCE_REPLACE => {
+            v.string("content", true, false, 1, 1_000_000);
+            v.integer(
+                "expected_current_version",
+                true,
+                false,
+                1,
+                Some(i32::MAX as i64),
+            );
+            v.extra(&["content", "expected_current_version"]);
+            if v.errors.is_empty() {
+                let content = v.value["content"].as_str().unwrap();
+                if content.as_bytes().len() > MAX_TEXT_SOURCE_REPLACE_BYTES {
+                    v.field_value_error(
+                        "content",
+                        "text source replacement exceeds the 1 MiB byte limit",
+                    );
+                } else if content.trim().is_empty() {
+                    v.field_value_error("content", "text source replacement cannot be blank");
+                }
+            }
+        }
         _ => {}
     }
     v.finish()
@@ -1378,3 +1402,29 @@ impl<S: Send + Sync, const DIGITS_ONLY: bool> axum::extract::FromRequestParts<S>
 #[cfg(test)]
 #[path = "knowledge_migration_parity_schema.rs"]
 mod knowledge_migration_parity_schema;
+
+#[cfg(test)]
+mod text_source_replace_validation_tests {
+    use super::*;
+
+    #[test]
+    fn text_source_replace_requires_bounded_text_and_positive_expected_version() {
+        let valid = json!({"content":"next source", "expected_current_version":1});
+        assert!(legacy_body(TEXT_SOURCE_REPLACE, valid).is_ok());
+
+        for invalid in [
+            json!({"content":"next source", "expected_current_version":0}),
+            json!({"content":"   ", "expected_current_version":1}),
+            json!({"content":"next source", "expected_current_version":1, "title":"ignored"}),
+        ] {
+            assert!(legacy_body(TEXT_SOURCE_REPLACE, invalid).is_err());
+        }
+
+        let oversized = "x".repeat(MAX_TEXT_SOURCE_REPLACE_BYTES + 1);
+        assert!(legacy_body(
+            TEXT_SOURCE_REPLACE,
+            json!({"content":oversized, "expected_current_version":1})
+        )
+        .is_err());
+    }
+}

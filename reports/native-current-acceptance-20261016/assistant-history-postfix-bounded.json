@@ -1,0 +1,58 @@
+{
+  "schema": "native-main-assistant-history-postfix-bounded/v1",
+  "recorded_at_utc": "2026-10-16T07:50:05Z",
+  "status": "passed_bounded_public_history_read",
+  "scope": "read-only history route check for the original empty pre-thread Main Assistant session; no provider turn",
+  "target": {
+    "gateway_origin": "http://127.0.0.1:8080",
+    "session_id": "270ba79a-39da-40b2-ae7b-da5631edd5a4",
+    "gateway_pid": 15362,
+    "gateway_binary_path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/gateway",
+    "gateway_binary_sha256": "9bc11b057461473de34a12af9a113f59eb130287bcb6cc9ccca9fd5225796d8b",
+    "source_checkpoint": "22d9ce0",
+    "source_file": "rust/platform-native/crates/platform-gateway/src/session_history.rs",
+    "source_file_sha256": "e394f62ad3b62dc1f3818a48e3d54b612b822b6748c8bcafeb3a210660310abe",
+    "build_evidence": [
+      "runtime-work/post-clean-current-native-build.log",
+      "runtime-work/post-clean-current-native-processes.json"
+    ]
+  },
+  "previous_receipt": {
+    "path": "reports/native-current-acceptance-20261016/assistant-history-real.json",
+    "case_id": "restore_original_owned_prethread_session_history",
+    "http_status": 500,
+    "request_id": "9cc5d30e-1452-43fc-9c91-7d5afc6204f7",
+    "previous_gateway_binary_sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d",
+    "previous_source_distribution_sha256": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23"
+  },
+  "current_public_api_checks": [
+    {
+      "method": "GET",
+      "path": "/api/v1/assistant/sessions/270ba79a-39da-40b2-ae7b-da5631edd5a4/history?limit=500",
+      "http_status": 200,
+      "response_summary": {
+        "session_id": "270ba79a-39da-40b2-ae7b-da5631edd5a4",
+        "total": 0,
+        "messages_count": 0
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/assistant/sessions/270ba79a-39da-40b2-ae7b-da5631edd5a4",
+      "http_status": 200,
+      "response_summary": {
+        "session_id": "270ba79a-39da-40b2-ae7b-da5631edd5a4",
+        "message_count": 0,
+        "created_at": "2026-10-16T04:49:02.678282+00:00",
+        "updated_at": "2026-10-16T04:49:02.678282+00:00"
+      }
+    }
+  ],
+  "interpretation": "The original history route now returns HTTP 200. Session detail agrees that the record has zero messages, consistent with the existing evidence that initial thread start was rejected before any accepted turn. Empty history is therefore expected for this session and was not repaired by writing data.",
+  "environment_note": "A later /health/ready request returned HTTP 503 during the Runtime/CapabilityWorker image switch; the root owner confirmed those processes were intentionally stopped. This is recorded as the environment switch window, not as a Gateway regression.",
+  "limitations": [
+    "This verifies the fixed read path for one existing empty session only.",
+    "It does not verify active conversation history projection or provider execution; those are reserved for the separately prepared end-to-end run."
+  ],
+  "data_mutations": false
+}

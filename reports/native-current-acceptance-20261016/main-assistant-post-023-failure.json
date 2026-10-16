@@ -1,0 +1,88 @@
+{
+  "schema_version": "main-assistant-public-failure-evidence/v1",
+  "observed_at_utc": "2026-10-16T09:07:50Z",
+  "scope": "read-only public Gateway API diagnostics; no turns replayed",
+  "text_session_id": "c284cd77-8f7c-4c2f-b2eb-7f788d220675",
+  "first_text": {
+    "request_id": "bed73b83-09d7-4b37-8fa8-8fc1473a390c",
+    "run_id": "85ecab7a-e2e6-4e0d-bcce-8249b0428456",
+    "public_run_status": "failed",
+    "public_run_error": null,
+    "public_terminal_reason": null,
+    "public_usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_microusd": 0
+    },
+    "history_event": {
+      "event_type": "run_error",
+      "data": {
+        "status": "failed"
+      }
+    }
+  },
+  "web_search": {
+    "request_id": "4ac035cb-b5c1-42ea-9717-799d429cfe34",
+    "run_id": "5aa2f28e-2dcc-48da-a2b4-b99c66ab5aea",
+    "harness_stage": "failed",
+    "harness_code": "web_search_start_or_successful_result_missing",
+    "tool_call_start_observed": false,
+    "successful_tool_result_observed": false,
+    "public_run_status": "failed",
+    "public_run_error": null,
+    "public_terminal_reason": null,
+    "public_usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_microusd": 0
+    },
+    "history_event": {
+      "event_type": "run_error",
+      "data": {
+        "status": "failed"
+      }
+    }
+  },
+  "cancellation_session_id": "4741dfff-cc77-4c6a-888e-1d73e028c059",
+  "cancellation": {
+    "request_id": "efbe2af8-7059-426a-83c2-76dfdd568489",
+    "run_id": "bcc7fac2-36e1-4cef-aeb4-35d5d9289967",
+    "cancel_request_id": "da8e2076-f5a8-4799-a48e-e7cfd2f470d7",
+    "observed_active_status": "running",
+    "cancel_acknowledged": true,
+    "public_terminal_status": "cancelled"
+  },
+  "post_cancel_recovery": {
+    "request_id": "abf11ec7-91b6-4c48-8166-725743a4a462",
+    "run_id": "d0fff4fa-4dce-4d7d-9bc4-507de449b3a6",
+    "public_run_status": "failed",
+    "public_run_error": null,
+    "public_terminal_reason": null,
+    "public_usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_microusd": 0
+    },
+    "history_event": {
+      "event_type": "run_error",
+      "data": {
+        "status": "failed"
+      }
+    }
+  },
+  "session_history": {
+    "text_session_history_total": 4,
+    "cancellation_session_history_total": 4,
+    "note": "Both session histories contain user/assistant pairs; session detail message_count was 0 for both while history total was 4."
+  },
+  "diagnostic_limits": {
+    "stable_public_error_code": null,
+    "public_run_detail_fields": "error and terminal_reason are null; history run_error event exposes status only",
+    "provider_dispatch": "not inferred from harness intent or zero-usage totals",
+    "session_tools_endpoint": "GET returned HTTP 500 for both sessions; no tool-call listing was available"
+  },
+  "source_artifacts": [
+    "~/.cache/agentforge/runtime-work/post-clean-main-assistant-023-e2e.json",
+    "~/.cache/agentforge/runtime-work/post-clean-main-assistant-023-e2e-events.jsonl"
+  ]
+}

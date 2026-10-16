@@ -421,9 +421,39 @@ export async function getDocument(
 }
 
 /** Citation reads require the document to remain active even for editors. */
-export async function getActiveDocumentSource(datasetId: string, documentId: string): Promise<Document> {
+export async function getActiveDocumentSource(
+  datasetId: string,
+  documentId: string,
+  options: KnowledgeRequestOptions = {},
+): Promise<Document> {
   const { data } = await api.get<Document>(
     `/api/v1/knowledge/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/source`,
+    { signal: options.signal, timeout: options.timeoutMs },
+  );
+  return data;
+}
+
+export interface ReplaceDocumentContentResponse {
+  status: "pending" | "unchanged";
+  document_id: string;
+  previous_version?: number;
+  candidate_version?: number;
+  current_version?: number;
+  execution_id?: string;
+  message?: string;
+}
+
+/** Queue a replacement for a published text source using an optimistic version fence. */
+export async function replaceDocumentContent(
+  datasetId: string,
+  documentId: string,
+  payload: { content: string; expected_current_version: number },
+  options: KnowledgeRequestOptions = {},
+): Promise<ReplaceDocumentContentResponse> {
+  const { data } = await api.put<ReplaceDocumentContentResponse>(
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/content`,
+    payload,
+    { signal: options.signal, timeout: options.timeoutMs },
   );
   return data;
 }
@@ -1264,6 +1294,7 @@ export async function* qaQueryStream(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
     signal,
+    httpErrorMode: "status",
   })) {
     yield chunk;
   }

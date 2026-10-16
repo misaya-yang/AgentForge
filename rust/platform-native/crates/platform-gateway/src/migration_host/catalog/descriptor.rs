@@ -125,17 +125,8 @@ impl Descriptor {
             "platform_tool_discovery",
             "tool",
         ];
-        let kind = record
-            .map(|r| text(r, "kind"))
-            .filter(|k| kinds.contains(k))
-            .map(str::to_owned)
-            .or_else(|| {
-                kinds
-                    .iter()
-                    .find(|k| tags.contains(&format!("kind:{k}")))
-                    .map(|s| s.to_string())
-            })
-            .or_else(|| tags.contains("fixture").then(|| "tool".into()))
+        let kind = projected_kind(record.map(|r| text(r, "kind")), &tags)
+            .filter(|kind| kinds.contains(&kind.as_str()))
             .ok_or_else(invalid)?;
         // A Worker activation is not inferred from the echoed catalog revision.
         // Both sides must select the same immutable deployment generation. This
@@ -227,6 +218,59 @@ impl Descriptor {
             result["connector_binding"] = v["connector_binding"].clone();
         }
         result
+    }
+}
+
+fn projected_kind(record_kind: Option<&str>, tags: &BTreeSet<String>) -> Option<String> {
+    if tags.contains("binding-type:connector") {
+        return Some("connector".into());
+    }
+    record_kind
+        .filter(|kind| {
+            [
+                "knowledge",
+                "mcp",
+                "connector",
+                "office_read",
+                "platform_tool_discovery",
+                "tool",
+            ]
+            .contains(kind)
+        })
+        .map(str::to_owned)
+        .or_else(|| {
+            [
+                "knowledge",
+                "mcp",
+                "connector",
+                "office_read",
+                "platform_tool_discovery",
+                "tool",
+            ]
+            .iter()
+            .find(|kind| tags.contains(&format!("kind:{kind}")))
+            .map(|kind| (*kind).to_owned())
+        })
+        .or_else(|| tags.contains("fixture").then(|| "tool".into()))
+}
+
+#[cfg(test)]
+mod connector_projection_tests {
+    use super::*;
+
+    #[test]
+    fn connector_binding_tag_overrides_a_tool_record_kind_for_runtime_binding() {
+        let tags = BTreeSet::from(["kind:tool".to_owned(), "binding-type:connector".to_owned()]);
+        assert_eq!(
+            projected_kind(Some("tool"), &tags).as_deref(),
+            Some("connector")
+        );
+
+        let ordinary_tool = BTreeSet::from(["kind:tool".to_owned()]);
+        assert_eq!(
+            projected_kind(Some("tool"), &ordinary_tool).as_deref(),
+            Some("tool")
+        );
     }
 }
 pub(super) fn permitted(subjects: &BTreeSet<String>, required: &BTreeSet<String>) -> bool {

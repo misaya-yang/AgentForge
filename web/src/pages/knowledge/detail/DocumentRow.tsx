@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Archive, ArchiveRestore, Flame, History, RefreshCcw, Tags, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Flame, History, Pencil, RefreshCcw, Tags, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DocumentVersionHistory } from "./DocumentVersionHistory";
 import { DocumentProcessingDiagnostics } from "./DocumentProcessingDiagnostics";
+import { DocumentTextEditorDialog } from "./DocumentTextEditorDialog";
+import { canEditTextSource } from "./documentTextEditing";
 
 const STAGE_LABEL_KEYS: Record<DocumentStage, string> = {
   parsing: "knowledge.documentRow.stageParsing",
@@ -64,6 +66,7 @@ export function DocumentRow({
   busyLifecycle = false,
   canManageProcessing = false,
   onVersionRestored,
+  onTextSourcePublished,
   showCheckbox = false,
 }: {
   doc: Document;
@@ -85,6 +88,7 @@ export function DocumentRow({
   busyLifecycle?: boolean;
   canManageProcessing?: boolean;
   onVersionRestored?: () => void;
+  onTextSourcePublished?: () => void;
   showCheckbox?: boolean;
 }) {
   const { t, i18n } = useTranslation();
@@ -92,6 +96,7 @@ export function DocumentRow({
   const [pipelineAction, setPipelineAction] = useState<DocumentPipelineAction | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [textEditorOpen, setTextEditorOpen] = useState(false);
 
   // Lifecycle badges are driven by the resolved display status, so they stay
   // correct whether the payload carries a backend stamp (post-D1 lists and
@@ -370,6 +375,22 @@ export function DocumentRow({
           >
             <Tags className="h-3.5 w-3.5" />
           </button>
+          {canEditTextSource(doc) && (
+            <button
+              data-testid={`doc-edit-text-source-${doc.document_id}`}
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7"
+              onClick={(event) => {
+                event.stopPropagation();
+                setTextEditorOpen(true);
+              }}
+              disabled={loading || documentBusy}
+              title={t("knowledge.documentRow.editTextSource")}
+              aria-label={t("knowledge.documentRow.editTextSource")}
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
           <button
             className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7"
             onClick={(e) => {
@@ -540,6 +561,14 @@ export function DocumentRow({
         open={versionHistoryOpen}
         onOpenChange={setVersionHistoryOpen}
         onRestored={onVersionRestored}
+      />
+      <DocumentTextEditorDialog
+        datasetId={datasetId}
+        documentId={doc.document_id}
+        documentTitle={doc.title || t("knowledge.documentRow.untitledDocument")}
+        open={textEditorOpen}
+        onOpenChange={setTextEditorOpen}
+        onPublished={onTextSourcePublished}
       />
     </>
   );

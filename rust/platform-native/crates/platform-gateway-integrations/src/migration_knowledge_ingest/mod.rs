@@ -66,10 +66,56 @@ pub enum IngestError {
     PublicationContended,
     GenerationChanged,
     Database,
+    DatabaseDiagnostic {
+        sqlstate: Option<String>,
+        error_class: &'static str,
+        statement: &'static str,
+        object: &'static str,
+    },
     Storage,
     Parser(String),
     Index(String),
     Cancelled,
+}
+impl IngestError {
+    pub(crate) fn with_database_context(
+        self,
+        statement: &'static str,
+        object: &'static str,
+    ) -> Self {
+        let (sqlstate, error_class, current_statement, current_object) = match self {
+            Self::DatabaseDiagnostic {
+                sqlstate,
+                error_class,
+                statement,
+                object,
+            } => (sqlstate, error_class, statement, object),
+            Self::Database => (None, "database", "unclassified", "unclassified"),
+            other => return other,
+        };
+        if current_statement != "unclassified" {
+            return Self::DatabaseDiagnostic {
+                sqlstate,
+                error_class,
+                statement: current_statement,
+                object: current_object,
+            };
+        }
+        tracing::warn!(
+            target: "ai_platform_knowledge::ingest",
+            sqlstate = sqlstate.as_deref().unwrap_or("unavailable"),
+            error_class,
+            statement_tag = statement,
+            object,
+            "Knowledge database operation failed"
+        );
+        Self::DatabaseDiagnostic {
+            sqlstate,
+            error_class,
+            statement,
+            object,
+        }
+    }
 }
 impl fmt::Display for IngestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -81,16 +127,96 @@ impl fmt::Display for IngestError {
                 f.write_str("document or dataset index update is already in progress")
             }
             Self::GenerationChanged => f.write_str("document or dataset generation changed; retry"),
-            Self::Database => f.write_str("knowledge persistence unavailable"),
+            Self::Database | Self::DatabaseDiagnostic { .. } => {
+                f.write_str("knowledge persistence unavailable")
+            }
             Self::Storage => f.write_str("knowledge source storage unavailable"),
             Self::Cancelled => f.write_str("knowledge ingestion cancelled"),
         }
     }
 }
 impl std::error::Error for IngestError {}
+fn safe_sqlstate(value: &str) -> Option<String> {
+    if value.len() == 5 && value.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+        Some(value.to_ascii_uppercase())
+    } else {
+        None
+    }
+}
+fn sqlx_error_class(error: &sqlx::Error) -> &'static str {
+    match error {
+        sqlx::Error::Configuration(_) => "configuration",
+        sqlx::Error::InvalidArgument(_) => "invalid_argument",
+        sqlx::Error::Database(_) => "database",
+        sqlx::Error::Io(_) => "io",
+        sqlx::Error::Tls(_) => "tls",
+        sqlx::Error::Protocol(_) => "protocol",
+        sqlx::Error::RowNotFound => "row_not_found",
+        sqlx::Error::TypeNotFound { .. } => "type_not_found",
+        sqlx::Error::ColumnIndexOutOfBounds { .. } => "column_index_out_of_bounds",
+        sqlx::Error::ColumnNotFound(_) => "column_not_found",
+        sqlx::Error::ColumnDecode { .. } => "column_decode",
+        sqlx::Error::Encode(_) => "encode",
+        sqlx::Error::Decode(_) => "decode",
+        sqlx::Error::AnyDriverError(_) => "any_driver",
+        sqlx::Error::PoolTimedOut => "pool_timeout",
+        sqlx::Error::PoolClosed => "pool_closed",
+        sqlx::Error::WorkerCrashed => "worker_crashed",
+        sqlx::Error::InvalidSavePointStatement => "invalid_savepoint",
+        sqlx::Error::BeginFailed => "transaction_begin",
+        _ => "other",
+    }
+}
 impl From<sqlx::Error> for IngestError {
-    fn from(_: sqlx::Error) -> Self {
-        Self::Database
+    fn from(error: sqlx::Error) -> Self {
+        let sqlstate = error
+            .as_database_error()
+            .and_then(|database| database.code())
+            .and_then(|code| safe_sqlstate(code.as_ref()));
+        Self::DatabaseDiagnostic {
+            sqlstate,
+            error_class: sqlx_error_class(&error),
+            statement: "unclassified",
+            object: "unclassified",
+        }
+    }
+}
+#[cfg(test)]
+mod database_diagnostic_tests {
+    use super::{IngestError, safe_sqlstate, sqlx_error_class};
+
+    #[test]
+    fn sqlstate_diagnostic_accepts_only_five_alphanumeric_bytes() {
+        assert_eq!(safe_sqlstate("42501").as_deref(), Some("42501"));
+        assert_eq!(safe_sqlstate("ab123").as_deref(), Some("AB123"));
+        assert!(safe_sqlstate("4250").is_none());
+        assert!(safe_sqlstate("42501 secret").is_none());
+    }
+
+    #[test]
+    fn non_database_column_errors_keep_a_static_class_and_generic_public_text() {
+        let decode = sqlx::Error::ColumnDecode {
+            index: "private_column".into(),
+            source: Box::new(std::io::Error::other("private decoded value")),
+        };
+        assert_eq!(sqlx_error_class(&decode), "column_decode");
+        let error = IngestError::from(decode);
+        assert_eq!(error.to_string(), "knowledge persistence unavailable");
+        match error {
+            IngestError::DatabaseDiagnostic {
+                sqlstate,
+                error_class,
+                ..
+            } => {
+                assert!(sqlstate.is_none());
+                assert_eq!(error_class, "column_decode");
+            }
+            other => panic!("expected a database diagnostic, got {other}"),
+        }
+        assert_eq!(
+            sqlx_error_class(&sqlx::Error::ColumnNotFound("private_column".into())),
+            "column_not_found"
+        );
     }
 }
 impl From<std::io::Error> for IngestError {
@@ -273,6 +399,7 @@ pub const SOURCE_METADATA_KEYS: &[&str] = &[
     "_document_recover_stage",
     "_document_pipeline_execution_id",
     "_document_pending_restore_version",
+    "_document_pending_text_update_version",
     "_document_restored_source_version",
     "_special_publication_generation_id",
     "_special_source_manifest",
@@ -290,6 +417,13 @@ pub const SOURCE_METADATA_KEYS: &[&str] = &[
     "ocr_processed",
     "structured_parsing",
 ];
+pub(crate) const HIDDEN_VERSION_CHANGE_TYPES_SQL: &str =
+    "'pending_restore','pending_before_restore','pending_update'";
+
+pub(crate) fn is_hidden_version_change_type(change_type: &str) -> bool {
+    change_type.starts_with("pending_")
+}
+
 pub fn source_metadata_key(key: &str) -> bool {
     SOURCE_METADATA_KEYS.contains(&key)
 }

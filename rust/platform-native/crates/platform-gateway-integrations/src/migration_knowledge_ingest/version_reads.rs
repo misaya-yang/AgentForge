@@ -35,7 +35,8 @@ impl IngestionService {
         let generation = super::document_reads::generation(&ds)?;
         let doc = self.require_active_document(&ds, document).await?;
         let versions = self.store.list_versions(document, limit, offset).await?;
-        let total:i64=sqlx::query_scalar("SELECT COUNT(*) FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore')").bind(document).fetch_one(&self.store.pool).await?;
+        let query = format!("SELECT COUNT(*) FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ({})", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+        let total:i64=sqlx::query_scalar(&query).bind(document).fetch_one(&self.store.pool).await?;
         self.require_read_generation(actor, dataset, &generation)
             .await?;
         Ok(

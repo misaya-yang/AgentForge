@@ -12,6 +12,7 @@ use ai_platform_local_node::{
 use serde_json::{Value, json};
 use std::{
     collections::HashMap,
+    fmt,
     io::{IsTerminal, Read},
     path::{Path, PathBuf},
     process::ExitCode,
@@ -28,6 +29,28 @@ operator-pinned platform Ed25519 public keys, and explicit workspace grants.
 Private keys and device credentials are held in the native secure credential
 store. Pairing codes are read only from piped stdin. The companion opens no
 listener, discovers no endpoint from environment, and never expands grants.";
+
+#[derive(Debug)]
+enum PairingError {
+    Message(&'static str),
+    HttpStatus(u16),
+}
+impl From<&'static str> for PairingError {
+    fn from(message: &'static str) -> Self {
+        Self::Message(message)
+    }
+}
+impl fmt::Display for PairingError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Message(message) => formatter.write_str(message),
+            Self::HttpStatus(status) => write!(
+                formatter,
+                "pairing returned HTTP status {status}; inspect owner device status before retrying this one-use challenge"
+            ),
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 fn secure_store(service: &str) -> Result<Box<dyn SecureCredentialStore>, &'static str> {
@@ -232,13 +255,13 @@ fn read_pairing_code_from_pipe() -> Result<String, &'static str> {
     Ok(code.to_owned())
 }
 
-async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'static str> {
+async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, PairingError> {
     let config = OperatorConfig::read(config_path).map_err(|_| "operator config invalid")?;
     if uuid::Uuid::parse_str(challenge_id).is_err() {
-        return Err("challenge ID invalid");
+        return Err(PairingError::Message("challenge ID invalid"));
     }
     if config.capability_claims().is_empty() {
-        return Err("pairing requires an explicit workspace grant");
+        return Err(PairingError::Message("pairing requires an explicit workspace grant"));
     }
     #[cfg(unix)]
     if let Some(helper_path) = &config.approval_helper {
@@ -248,7 +271,7 @@ async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'sta
     let verifier = pinned_platform_verifier(&config)?;
     let grants = configured_grants(&config)?;
     if grants.is_empty() {
-        return Err("pairing requires an explicit workspace grant");
+        return Err(PairingError::Message("pairing requires an explicit workspace grant"));
     }
     let permission_snapshot_digest = config
         .permission_snapshot_digest()
@@ -257,7 +280,7 @@ async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'sta
     let identity_store = secure_store(DEVICE_IDENTITY_KEYCHAIN_SERVICE)?;
     let outbound_store = secure_store(DEVICE_CREDENTIAL_KEYCHAIN_SERVICE)?;
     if !identity_store.ready() || !outbound_store.ready() {
-        return Err("native secure credential storage unavailable");
+        return Err(PairingError::Message("native secure credential storage unavailable"));
     }
     let identity = DeviceIdentity::load_or_create(&config.state_directory, identity_store.as_ref())
         .map_err(|_| "native secure device identity unavailable")?;
@@ -297,9 +320,12 @@ async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'sta
             "expires_at":credential.expires_at,
             "credential":"[REDACTED]"
         })),
-        Err(_) => Err(
+        Err(ai_platform_local_node::Error::HttpStatus(status)) => {
+            Err(PairingError::HttpStatus(status))
+        }
+        Err(_) => Err(PairingError::Message(
             "pairing outcome not confirmed; inspect owner device status before retrying this one-use challenge",
-        ),
+        )),
     }
 }
 
@@ -456,16 +482,19 @@ async fn main() -> ExitCode {
             }
         }
         [command, operation, flag, path]
-            if command == "config" && operation == "validate" && flag == "--file" => match validate_config(Path::new(path)) {
-            Ok(report) => {
-                output(&report);
-                ExitCode::SUCCESS
+            if command == "config" && operation == "validate" && flag == "--file" =>
+        {
+            match validate_config(Path::new(path)) {
+                Ok(report) => {
+                    output(&report);
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("local-node: error: {error}");
+                    ExitCode::from(2)
+                }
             }
-            Err(error) => {
-                eprintln!("local-node: error: {error}");
-                ExitCode::from(2)
-            }
-        },
+        }
         [
             command,
             config_flag,
@@ -473,27 +502,34 @@ async fn main() -> ExitCode {
             challenge_flag,
             challenge,
             code_flag,
-        ] if command == "pair" && config_flag == "--config"
-            && challenge_flag == "--challenge-id" && code_flag == "--user-code-stdin" => match run_pair(Path::new(path), challenge).await {
-            Ok(report) => {
-                output(&report);
-                ExitCode::SUCCESS
+        ] if command == "pair"
+            && config_flag == "--config"
+            && challenge_flag == "--challenge-id"
+            && code_flag == "--user-code-stdin" =>
+        {
+            match run_pair(Path::new(path), challenge).await {
+                Ok(report) => {
+                    output(&report);
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("local-node: error: {error}");
+                    ExitCode::FAILURE
+                }
             }
-            Err(error) => {
-                eprintln!("local-node: error: {error}");
-                ExitCode::FAILURE
+        }
+        [command, flag, path] if command == "serve" && flag == "--config" => {
+            match run_serve(Path::new(path)).await {
+                Ok(report) => {
+                    output(&report);
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("local-node: error: {error}");
+                    ExitCode::FAILURE
+                }
             }
-        },
-        [command, flag, path] if command == "serve" && flag == "--config" => match run_serve(Path::new(path)).await {
-            Ok(report) => {
-                output(&report);
-                ExitCode::SUCCESS
-            }
-            Err(error) => {
-                eprintln!("local-node: error: {error}");
-                ExitCode::FAILURE
-            }
-        },
+        }
         _ => {
             eprintln!("local-node: error: invalid arguments; use --help");
             ExitCode::from(2)

@@ -101,6 +101,7 @@ listed in [`harness/architecture.md`](harness/architecture.md) §6.
 
 ## Research
 
+- [`research/enterprise-platform-gap-analysis-2026-10.md`](research/enterprise-platform-gap-analysis-2026-10.md) — **active** — 对标 2025–2026 业界实践的企业级差距分析、评分卡、P0/P1/P2 升级清单与路线图；源码评审，执行归属 `native-enterprise-upgrade`，不是第二个状态权威。
 - [`research/ai-assistant-harness-4oss-comparison-research-2026-08.md`](research/ai-assistant-harness-4oss-comparison-research-2026-08.md) — comparison against four open-source assistant harnesses.
 
 ## Programs

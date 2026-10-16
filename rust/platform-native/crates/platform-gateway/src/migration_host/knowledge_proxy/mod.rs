@@ -279,6 +279,7 @@ impl KnowledgeProxy {
             roles: principal.roles().to_vec(),
             permissions: principal.permissions().to_vec(),
             tier: principal.tier().into(),
+            allowed_models: principal.api_key().map(|key| key.allowed_models.clone()),
         })
     }
 }

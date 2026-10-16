@@ -10,7 +10,7 @@ use crate::*;
 use axum::http::HeaderMap;
 use redis::aio::ConnectionManager;
 use serde_json::Value;
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 /// Process singletons also used by middleware, model probes and recording paths.
 /// Passing them here avoids an admin endpoint observing a second empty instance.
@@ -224,12 +224,22 @@ impl invocation_http::InvocationIdentityResolver for EndpointAdapters {
             Ok(invocation_http::InvocationIdentity {
                 user_id: user.user_id,
                 tenant_id: user.tenant_id,
+                is_authenticated: user.is_authenticated,
+                tier: user.tier,
                 roles: user.roles,
                 permissions: user.permissions,
+                allowed_models: user.allowed_models,
                 session_principal: None,
                 session_jwt_selected,
             })
         })
+    }
+
+    fn api_key_header(&self) -> Option<axum::http::HeaderName> {
+        self.content
+            .identities
+            .api_key_enabled
+            .then(|| self.content.identities.api_key_header.clone())
     }
 }
 impl tool_inventory_api::ToolInventoryIdentityResolver for EndpointAdapters {
@@ -452,6 +462,7 @@ pub fn assemble_foundation(
     core: &CoreServices,
     auth: &AuthServices,
     models: &ModelServices,
+    provider_environment: BTreeMap<String, String>,
     content: Arc<NativeContentAccess>,
     shared: FoundationShared,
     config: FoundationConfiguration,
@@ -459,6 +470,13 @@ pub fn assemble_foundation(
     history: Arc<knowledge::KnowledgeService>,
 ) -> Result<AssembledFoundation, BootstrapError> {
     let failed = |name| BootstrapError::Construction(name);
+    let openai_model_catalog = Arc::new(
+        super::openai_model_catalog::DatabaseOpenAiModelCatalog::new(
+            models.models.clone(),
+            models.providers.clone(),
+            provider_environment,
+        ),
+    );
     let timestamps = Arc::new(config.timestamps);
     let rbac = (*core.rbac).clone();
     let users_db = Arc::new(
@@ -625,6 +643,7 @@ pub fn assemble_foundation(
     let health_monitor = Arc::new(SharedHealth(core.health_monitor.clone()));
     let audit = shared.audit;
     let apis = FoundationApis {
+        openai_model_catalog,
         introspection: auth.introspection.clone(),
         auth_config: Arc::new(auth_config_api::AuthConfigApi::new(
             auth_config_api::AuthConfigDependencies {

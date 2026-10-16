@@ -502,8 +502,11 @@ mod canonical_context_tests {
         crate::invocation_http::InvocationIdentity {
             user_id: user.into(),
             tenant_id: tenant.into(),
+            is_authenticated: true,
+            tier: "public".into(),
             roles: roles.iter().map(|r| r.to_string()).collect(),
             permissions: vec![],
+            allowed_models: None,
             session_principal: None,
             session_jwt_selected: false,
         }

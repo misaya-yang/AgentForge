@@ -1,0 +1,517 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "epoch": 23,
+  "changes": [
+    {
+      "sequence": 1,
+      "name": "knowledge_tenant_permissions",
+      "file": "001_knowledge_tenant_permissions.sql",
+      "sha256": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT NOT EXISTS (SELECT 1 FROM knowledge.dataset_permissions p LEFT JOIN knowledge.datasets d ON d.dataset_id=p.dataset_id WHERE p.subject_type NOT IN ('user','role') OR (p.subject_type='role' AND (d.tenant_id IS NULL OR btrim(d.tenant_id)='' OR d.tenant_id<>btrim(d.tenant_id))))"
+      ],
+      "postconditions": [
+        "SELECT NOT EXISTS (SELECT 1 FROM knowledge.dataset_permissions WHERE subject_type='role')",
+        "SELECT count(*)=2 FROM pg_constraint WHERE conrelid='knowledge.dataset_permissions'::regclass AND conname IN ('dataset_permission_subject_scope','dataset_permission_tenant_fk')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "ID-02/03: role grants bound to dataset tenant; old-reader/writer safe; Knowledge has no users/RBAC privileges. Public user/role ACL contract unchanged."
+    },
+    {
+      "sequence": 2,
+      "name": "gateway_eval_leases",
+      "file": "002_gateway_eval_leases.sql",
+      "sha256": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.agent_trace_outbox') IS NOT NULL AND to_regclass('gateway.eval_experiment_run_cases') IS NOT NULL",
+        "SELECT NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='agent_trace_outbox' AND column_name='claim_token')"
+      ],
+      "postconditions": [
+        "SELECT count(*)=4 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='agent_trace_outbox' AND column_name IN ('owner_id','claim_token','lease_until','heartbeat_at')",
+        "SELECT count(*)=2 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='eval_experiment_run_cases' AND column_name IN ('runtime_handle','dispatch_state')",
+        "SELECT count(*)=3 FROM pg_constraint WHERE connamespace='gateway'::regnamespace AND conname IN ('eval_outbox_running_lease','eval_case_handle_object','eval_case_dispatch_state')",
+        "SELECT NOT EXISTS (SELECT 1 FROM gateway.agent_trace_outbox WHERE status='running' AND (owner_id IS NULL OR claim_token IS NULL OR lease_until IS NULL))"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "EV-02: quiesce legacy workers before applying; preserved running history becomes expired for handle reconciliation; all new worker writes fenced by owner and claim token. Requires epoch 2 reader/writer floor. Verification fingerprints must be generated on isolated authority DB, not inferred."
+    },
+    {
+      "sequence": 3,
+      "name": "assistant_quiz_attempt_idempotency",
+      "file": "003_assistant_quiz_attempt_idempotency.sql",
+      "sha256": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.quiz_attempts') IS NOT NULL AND to_regclass('assistant.artifact_share_attempt_tokens') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT count(*)=2 FROM information_schema.columns WHERE table_schema='assistant' AND table_name='quiz_attempts' AND column_name IN ('result_payload','attempt_token_hash')",
+        "SELECT to_regclass('assistant.idx_quiz_attempts_share_token_once') IS NOT NULL",
+        "SELECT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='assistant' AND p.proname='record_artifact_share_quiz_attempt_v2')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R1 AR-04: stable logged-in and public quiz result replay without duplicate attempt count; additive fields and a versioned atomic public function."
+    },
+    {
+      "sequence": 4,
+      "name": "runtime_durable_recovery",
+      "file": "004_runtime_durable_recovery.sql",
+      "sha256": "d24958b1edf5e7735a91fcd256e1c32abb2778109a6b3270cceb68380874fa59",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.assistant_capability_executions') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('assistant.assistant_runtime_execution_owners') IS NOT NULL AND to_regclass('assistant.assistant_runtime_invocations') IS NOT NULL"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R1 J03: fenced Rust execution ownership, durable original invocation and dispatch authority. Quiesce old Runtime before migration."
+    },
+    {
+      "sequence": 5,
+      "name": "knowledge_dataset_archive",
+      "file": "005_knowledge_dataset_archive.sql",
+      "sha256": "13a08304508c8ab686116e2d597a80a5079f27642c3cdac383a1285aca474b81",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('knowledge.datasets') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='knowledge' AND table_name='datasets' AND column_name='is_archived')"
+      ],
+      "postconditions": [
+        "SELECT count(*)=4 FROM information_schema.columns WHERE table_schema='knowledge' AND table_name='datasets' AND column_name IN ('is_archived','archived_at','archived_by','archive_reason')",
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='knowledge.datasets'::regclass AND conname='dataset_archive_state_consistent')",
+        "SELECT to_regclass('knowledge.idx_datasets_archived_tenant_created_at') IS NOT NULL"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "KNO-01: owner-only reversible dataset archive; content, ACL and Agent bindings remain intact while new readers exclude archived datasets. Old Knowledge binaries must not serve archived rows."
+    },
+    {
+      "sequence": 6,
+      "name": "assistant_internal_share_scope",
+      "file": "006_assistant_internal_share_scope.sql",
+      "sha256": "d47e7d07ad46588859ccf136aa949c5467b363bc0ed4192a81e7cdcd40a29249",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.conversation_shares') IS NOT NULL AND to_regclass('assistant.artifact_shares') IS NOT NULL",
+        "SELECT NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='assistant' AND table_name IN ('conversation_shares','artifact_shares') AND column_name='audience')"
+      ],
+      "postconditions": [
+        "SELECT count(*)=4 FROM information_schema.columns WHERE table_schema='assistant' AND table_name IN ('conversation_shares','artifact_shares') AND column_name IN ('audience','source_scope')",
+        "SELECT count(*)=4 FROM pg_constraint WHERE connamespace='assistant'::regnamespace AND conname IN ('conversation_shares_audience_check','conversation_shares_scope_check','artifact_shares_audience_check','artifact_shares_scope_check')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "AR-06: public shares retain their legacy audience by default; internal shares require a private JSON object source scope. New Gateway readers must enforce audience before internal writes are enabled."
+    },
+    {
+      "sequence": 7,
+      "name": "agent_publication_expiry",
+      "file": "007_agent_publication_expiry.sql",
+      "sha256": "40e352e8b71e5105554f38bdebb01e02aff65ba13cbd619b97456c9496c97132",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.agent_publications') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='agent_publications' AND column_name='expires_at')"
+      ],
+      "postconditions": [
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='agent_publications' AND column_name='expires_at' AND data_type='timestamp with time zone')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R3 D03/AG-06: additive authoritative expiry for future public Agent publications; legacy/internal NULL remains compatible. Migrate before starting new Gateway readers."
+    },
+    {
+      "sequence": 8,
+      "name": "agent_version_preview_pin",
+      "file": "008_agent_version_preview_pin.sql",
+      "sha256": "e5d3dc757d908e08d06a8f83802f990abe52506a36a74cb72b0148f0c5f8583e",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.sessions') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='assistant.sessions'::regclass AND conname='sessions_agent_runtime_shape_check')"
+      ],
+      "postconditions": [
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='assistant.sessions'::regclass AND conname='sessions_agent_runtime_shape_check' AND convalidated)"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R3 AG-03: permit exact immutable Version Preview pins without a Draft revision or Publication; preserve existing builtin, Draft Preview, and published session shapes."
+    },
+    {
+      "sequence": 9,
+      "name": "agent_preview_shape_total",
+      "file": "009_agent_preview_shape_total.sql",
+      "sha256": "6df4cfa2532457e35fa5204934f14aee90f4d52e731a5bd9502793df8f45b947",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.sessions') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='assistant.sessions'::regclass AND conname='sessions_agent_runtime_shape_check')"
+      ],
+      "postconditions": [
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='assistant.sessions'::regclass AND conname='sessions_agent_runtime_shape_check' AND convalidated AND position('agent_draft_revision IS NOT NULL' in pg_get_constraintdef(oid)) > 0 AND position('channel IS NOT NULL' in pg_get_constraintdef(oid)) > 0)"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R3 AG-03: close PostgreSQL CHECK UNKNOWN acceptance for empty Preview targets and NULL channels while preserving both Draft and immutable Version Preview pins."
+    },
+    {
+      "sequence": 10,
+      "name": "agent_runtime_publication_pin_fk",
+      "file": "010_agent_runtime_publication_pin_fk.sql",
+      "sha256": "1b1cda6570185efff0402e9dbed58d894650f00251f94e04af235bbb2199b8cf",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT count(*)=4 FROM pg_constraint WHERE conname IN ('sessions_runtime_publication_identity_fk','assistant_runs_runtime_publication_identity_fk','assistant_run_checkpoints_runtime_publication_identity_fk','agent_traces_runtime_publication_identity_fk')"
+      ],
+      "postconditions": [
+        "SELECT count(*)=4 FROM pg_constraint WHERE conname IN ('sessions_runtime_publication_agent_fk','assistant_runs_runtime_publication_agent_fk','assistant_run_checkpoints_runtime_publication_agent_fk','agent_traces_runtime_publication_agent_fk') AND convalidated",
+        "SELECT NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname IN ('sessions_runtime_publication_identity_fk','assistant_runs_runtime_publication_identity_fk','assistant_run_checkpoints_runtime_publication_identity_fk','agent_traces_runtime_publication_identity_fk'))",
+        "SELECT count(*)=4 FROM pg_constraint WHERE conname IN ('sessions_runtime_publication_fk','assistant_runs_runtime_publication_fk','assistant_run_checkpoints_runtime_publication_fk','agent_traces_runtime_publication_fk') AND convalidated",
+        "SELECT count(*)=4 FROM pg_constraint WHERE conname IN ('sessions_runtime_agent_version_fk','assistant_runs_runtime_agent_version_fk','assistant_run_checkpoints_runtime_agent_version_fk','agent_traces_runtime_agent_version_fk') AND convalidated"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "R3 AG-08: let Publication pointers change while existing sessions, runs, checkpoints and traces retain their immutable Version pin and Publication/Agent association."
+    },
+    {
+      "sequence": 11,
+      "name": "gateway_scheduled_tasks",
+      "file": "011_gateway_scheduled_tasks.sql",
+      "sha256": "6516cb0f53f97ee90e26c137b35867aedffd7a1944872e069f0d78ad76404f7c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.scheduled_tasks') IS NULL AND to_regclass('gateway.scheduled_task_executions') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.scheduled_tasks') IS NOT NULL AND to_regclass('gateway.scheduled_task_executions') IS NOT NULL",
+        "SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid='gateway.scheduled_execution_one_active'::regclass AND indisunique AND indisvalid)",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.scheduled_tasks','SELECT,INSERT,UPDATE') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.scheduled_task_executions','SELECT,INSERT,UPDATE')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Gateway scheduled-task policy/receipts only; existing runtime owns execution. Exact isolated reference fingerprint generation is a release prerequisite."
+    },
+    {
+      "sequence": 12,
+      "name": "gateway_plugin_lifecycle",
+      "file": "012_gateway_plugin_lifecycle.sql",
+      "sha256": "8febf4cf126f8e5bd041ae058b1ee16a00bb629873cb2b3215839d68edaa2146",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.tenant_plugin_bindings') IS NULL AND to_regclass('gateway.audit_logs') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.tenant_plugin_bindings') IS NOT NULL",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.tenant_plugin_bindings','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.tenant_plugin_bindings','DELETE')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Tenant admission selection and atomic configuration audit; never executable installation. New Gateway readers require epoch 12. Do not roll back to readers that ignore lifecycle policy after writes. Canonical isolated reference fingerprint generation and permission verification pending."
+    },
+    {
+      "sequence": 13,
+      "name": "gateway_scheduled_notifications",
+      "file": "013_gateway_scheduled_notifications.sql",
+      "sha256": "720dc875b0c6db222f3c9f6620a29d625fdc6d7403745009a09f16328964b8a8",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.scheduled_task_executions') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='scheduled_task_executions' AND column_name='notification_read_at')"
+      ],
+      "postconditions": [
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='scheduled_task_executions' AND column_name='notification_read_at' AND data_type='timestamp with time zone' AND is_nullable='YES')",
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.scheduled_task_executions'::regclass AND conname='scheduled_execution_notification_terminal' AND convalidated)",
+        "SELECT count(*)=2 FROM pg_index WHERE indexrelid IN ('gateway.scheduled_notification_history'::regclass,'gateway.scheduled_notification_unread'::regclass) AND indisvalid",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.scheduled_task_executions','SELECT,UPDATE')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Additive owner acknowledgement on terminal scheduler receipts only; existing table privileges remain unchanged. Preserve epoch012. Exact isolated epoch013 reference fingerprints and canonical verification are pending prerequisites; no fabricated verification artifact."
+    },
+    {
+      "sequence": 14,
+      "name": "gateway_sdk_session_cleanup",
+      "file": "014_gateway_sdk_session_cleanup.sql",
+      "sha256": "7be3a1a0d97535c99f07efc8c57063dc4d4f6801894acdf46a44f07ac3dc9773",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.sessions') IS NOT NULL AND to_regclass('gateway.sdk_session_barriers') IS NULL AND to_regclass('gateway.sdk_session_scopes') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.sdk_session_barriers') IS NOT NULL AND to_regclass('gateway.sdk_session_scopes') IS NOT NULL",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.sdk_session_scopes','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.sdk_session_scopes','DELETE')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Gateway scope evidence/outbox only. Drain old SDK adapters before activation; they bypass deletion admission barriers. Measure all four canonical epoch14 fingerprints and verify role isolation before rollout. No fabricated verification artifact."
+    },
+    {
+      "sequence": 15,
+      "name": "sdk_capability_authority",
+      "file": "015_sdk_capability_authority.sql",
+      "sha256": "234a85f7666c807e7506cd4b2a5ba9e5b166cdf0a0b94f6aab778b2182795a87",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.sdk_session_barriers') IS NOT NULL AND to_regclass('assistant.assistant_sdk_runs') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('assistant.assistant_sdk_runs') IS NOT NULL AND to_regclass('assistant.assistant_sdk_tool_calls') IS NOT NULL",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_sdk_tool_calls','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'capability_worker','assistant.assistant_sdk_runs','UPDATE')"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Paired genuine SDK authority/admission/Runtime/Worker release. Runtime-only schema contracts preserved. New writers require epoch15; drain old Gateway/SDK workers before activation. Measure all four canonical epoch15 fingerprints and verify isolated role grants before rollout; no fabricated verification artifact."
+    },
+    {
+      "sequence": 16,
+      "name": "sdk_usage_audit_lookup",
+      "file": "016_sdk_usage_audit_lookup.sql",
+      "sha256": "986198ff37db3515894f6a989cb2292938af696ac3528f501e72d379547d3a55",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "old-binary-compatible",
+      "preconditions": [
+        "SELECT to_regclass('gateway.audit_logs') IS NOT NULL AND to_regclass('gateway.sdk_usage_audit_lookup') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am a ON a.oid=c.relam WHERE i.indexrelid='gateway.sdk_usage_audit_lookup'::regclass AND i.indrelid='gateway.audit_logs'::regclass AND i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indnkeyatts=5 AND i.indnatts=5 AND a.amname='btree' AND pg_get_indexdef(i.indexrelid,1,true)='tenant_id' AND pg_get_indexdef(i.indexrelid,2,true)='user_id' AND pg_get_indexdef(i.indexrelid,3,true)='resource_id' AND pg_get_indexdef(i.indexrelid,4,true)='action' AND pg_get_indexdef(i.indexrelid,5,true)='id' AND pg_get_expr(i.indpred,i.indrelid) = $$(((event_type)::text = 'sdk_usage_observation'::text) AND ((resource_type)::text = 'sdk_request'::text))$$)"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Additive non-unique partial lookup index only; no row, table, ownership or grant changes. Transactional index construction briefly blocks audit writers: schedule a maintenance/drain window and honor timeout/lock budget. New SDK observation writers require this index; preserve epochs 14/15. Canonical isolated fingerprint and generic-plan verification required; no shared/live database application authorized by this artifact."
+    },
+    {
+      "sequence": 17,
+      "name": "sdk_execution_lineage",
+      "file": "017_sdk_execution_lineage.sql",
+      "sha256": "b5041b00ea9c1524162fb2f32cbbe77e9f30441018a2f3d9fb578bb688c3d4b1",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "old-binary-compatible",
+      "preconditions": [
+        "SELECT to_regprocedure('assistant.issue_sdk_execution(uuid,character varying,character varying,character varying,character varying,character varying,character varying,character,uuid,bigint,jsonb,character,uuid)') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT position('SDK_EMPTY_SELECTION_INVALID' in pg_get_functiondef('assistant.issue_sdk_execution(uuid,character varying,character varying,character varying,character varying,character varying,character varying,character,uuid,bigint,jsonb,character,uuid)'::regprocedure))>0"
+      ],
+      "timeout_seconds": 300,
+      "lock_budget_seconds": 10,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Additive replacement of Gateway-only admission function. Explicit empty snapshot accepts no governed capabilities and has five-minute lifetime; existing governed admission retains thirty minutes. No table, grants, FK or function signature changes. Ship native Gateway and SDK worker as a paired release after epoch17; old binaries remain supported by the database. Drain before reverting binaries to avoid losing common lineage admission. Canonical verification must be measured on disposable PostgreSQL before rollout."
+    },
+    {
+      "sequence": 18,
+      "name": "application_schema_admission",
+      "file": "018_application_schema_admission.sql",
+      "sha256": "d24f6d8b4b04eb3429e2672983be9b3aef033a5026ff357ff15f82f942af9442",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NULL AND to_regclass('public.platform_schema_baselines') IS NOT NULL AND to_regclass('public.platform_schema_changes') IS NOT NULL AND to_regclass('public.platform_schema_change_attempts') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT p.prosecdef AND p.provolatile='s' AND p.pronargs=0 AND p.prorettype='jsonb'::regtype AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND p.proowner=n.nspowner FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+        "SELECT count(*)=4 AND bool_and(a.privilege_type='EXECUTE' AND a.grantor=p.proowner AND (a.grantee=p.proowner OR (NOT a.is_grantable AND pg_get_userbyid(a.grantee) IN (left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker')))) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+        "SELECT gateway.platform_schema_admission_snapshot_v1()->>'schema_version'='ai-platform/schema-admission-snapshot/v1'",
+        "SELECT NOT (rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls) FROM pg_roles WHERE rolname=current_user"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate018 metadata-only reader. Same transaction installs function and ledger record; structural and ACL fingerprint measurement required. No application activation authorized by this source. Knowledge admission must require019 trigger fix, durable Gateway020; legacy Python Gateway ceiling10 unchanged."
+    },
+    {
+      "sequence": 19,
+      "name": "knowledge_progress_trigger_authority",
+      "file": "019_knowledge_progress_trigger_authority.sql",
+      "sha256": "9349f691a519ec9f9f8cfc4217ca75ddd816192e9a4e254aa7c397377070d11c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL AND to_regclass('knowledge.documents') IS NOT NULL AND to_regclass('knowledge.kb_document_progress_events') IS NOT NULL",
+        "SELECT NOT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+      ],
+      "postconditions": [
+        "SELECT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname IN (left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker') AND (has_table_privilege(r.oid,'knowledge.kb_document_progress_events','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_function_privilege(r.oid,'knowledge.record_kb_document_progress_event()'::regprocedure,'EXECUTE')))"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate019 repairs confirmed Knowledge worker SQLSTATE42501 without granting direct progress-ledger DML or sequence rights. Same owner and payload/retention contract; only hardened owner-powered trigger. Requires explicit action-time authorization and actual-login/worker-role matrix. Source-body MD5 is an exact source comparison, not a measured database fingerprint."
+    },
+    {
+      "sequence": 20,
+      "name": "gateway_task_deliveries",
+      "file": "020_gateway_task_deliveries.sql",
+      "sha256": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.tasks') IS NOT NULL AND to_regclass('gateway.task_deliveries') IS NULL AND to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL",
+        "SELECT p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+      ],
+      "postconditions": [
+        "SELECT c.relkind='r' AND c.relowner=n.nspowner AND pg_get_userbyid(c.relowner)=current_user AND obj_description(c.oid,'pg_class')='gateway.generic-task-delivery/v1' FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.oid='gateway.task_deliveries'::regclass",
+        "SELECT count(*)=10 AND bool_and(a.grantor=c.relowner AND (a.grantee=c.relowner OR (pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway' AND NOT a.is_grantable AND a.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.task_deliveries'::regclass",
+        "SELECT NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attacl IS NOT NULL)",
+        "SELECT count(*)=13 AND bool_and(NOT attisdropped) FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attnum>0",
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND contype='f' AND confrelid='gateway.tasks'::regclass AND convalidated) AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND NOT convalidated)",
+        "SELECT i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indnkeyatts=3 AND i.indnatts=3 AND i.indkey[0]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='priority' AND NOT attisdropped) AND (i.indoption[0] & 1)=1 AND i.indkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='admitted_at' AND NOT attisdropped) AND i.indkey[2]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='task_id' AND NOT attisdropped) AND pg_get_expr(i.indpred,i.indrelid)=$$(state = 'pending'::text)$$ FROM pg_index i WHERE i.indexrelid='gateway.task_deliveries_pending_order'::regclass AND i.indrelid='gateway.task_deliveries'::regclass"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate020 Gateway-only delivery ledger. Exact SELECT/INSERT/UPDATE; no DELETE/TRUNCATE/REFERENCES/TRIGGER or other application/PUBLIC access. Memory remains default; durable requires canonical020 and local ledger guard plus Redis authority. Quiesce all task writers before opt-in; no legacy row import, reset/replay or destructive rollback."
+    },
+    {
+      "sequence": 21,
+      "name": "knowledge_worker_ingestion_writes",
+      "file": "021_knowledge_worker_ingestion_writes.sql",
+      "sha256": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('knowledge.dataset_process_rules') IS NOT NULL AND to_regclass('knowledge.document_pipeline_executions') IS NOT NULL",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','UPDATE')"
+      ],
+      "postconditions": [
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','TRIGGER')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','TRIGGER')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate021 grants only the Knowledge worker INSERT on immutable dataset_process_rules and UPDATE on document_pipeline_executions, required by the normal prepare_execution and complete_execution ingestion path. Root review and isolated own-role rollback probe are required before activation."
+    },
+    {
+      "sequence": 22,
+      "name": "assistant_runtime_thread_projection_insert",
+      "file": "022_assistant_runtime_thread_projection_insert.sql",
+      "sha256": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.assistant_runtime_thread_projections') IS NOT NULL AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT')"
+      ],
+      "postconditions": [
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE')",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRIGGER')",
+        "SELECT count(*)=1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='assistant.assistant_runtime_thread_projections'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'runtime' AND a.grantor=c.relowner AND a.privilege_type='INSERT' AND NOT a.is_grantable"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate 022 grants only INSERT on assistant.assistant_runtime_thread_projections to the owner-prefix runtime role. The normal create_thread path already has required rights elsewhere; root review and isolated own-role rollback probe are required before activation."
+    },
+    {
+      "sequence": 23,
+      "name": "native_workflow_authority",
+      "file": "023_native_workflow_authority.sql",
+      "sha256": "80f3b91376dbc773c71359490801718924c93313a6bfbf10153718fe674dd6e2",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.local_node_devices') IS NOT NULL AND to_regclass('gateway.local_node_channels') IS NOT NULL AND to_regclass('gateway.local_node_executions') IS NOT NULL AND to_regclass('gateway.local_node_pairing_challenges') IS NOT NULL AND to_regclass('gateway.local_node_grants') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials') IS NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at')",
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_channels' AND column_name='fingerprint') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_executions','UPDATE')",
+        "SELECT to_regclass('knowledge.dataset_collection_bindings') IS NOT NULL AND to_regclass('knowledge.embedding_migrations') IS NOT NULL AND to_regclass('knowledge.embedding_migration_action_jobs') IS NOT NULL AND to_regclass('knowledge.embedding_migration_progress') IS NOT NULL AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.embedding_migration_progress','SELECT')",
+        "SELECT to_regclass('knowledge.kb_document_batch_operations') IS NOT NULL AND to_regclass('knowledge.kb_document_batch_items') IS NOT NULL AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','DELETE')",
+        "SELECT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('assistant.issue_assistant_runtime_turn(uuid,uuid,uuid,uuid,character varying,character varying,character varying,character varying,character varying,jsonb,character,bigint,character varying,character varying,character varying,character varying,character varying,character,integer,bigint,bigint,bigint,timestamp with time zone,text)') AND pg_get_userbyid(p.proowner)=left(current_user,length(current_user)-5)||'owner' AND p.prosecdef=false AND p.proconfig IS NULL AND md5(p.prosrc)='159e51eac39d08f2dc99a046212422c9' AND (SELECT count(*)=2 AND bool_and(pg_get_userbyid(a.grantor)=left(current_user,length(current_user)-5)||'owner' AND NOT a.is_grantable AND a.privilege_type='EXECUTE' AND pg_get_userbyid(a.grantee)=ANY(ARRAY[left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'owner'])) FROM aclexplode(p.proacl) a)) AND EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('assistant.reserve_assistant_runtime_model_call(uuid,uuid,character,bigint,bigint,bigint)') AND pg_get_userbyid(p.proowner)=left(current_user,length(current_user)-5)||'owner' AND p.prosecdef=false AND p.proconfig IS NULL AND md5(p.prosrc)='e9011ffbb32bb9fe4a5e62c18d39154f' AND (SELECT count(*)=2 AND bool_and(pg_get_userbyid(a.grantor)=left(current_user,length(current_user)-5)||'owner' AND NOT a.is_grantable AND a.privilege_type='EXECUTE' AND pg_get_userbyid(a.grantee)=ANY(ARRAY[left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'owner'])) FROM aclexplode(p.proacl) a)) AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_snapshots','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runs','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_model_leases','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_model_calls','INSERT')",
+        "SELECT to_regclass('knowledge.document_versions') IS NOT NULL AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','change_type','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','metadata','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','content','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','content_hash','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','document_id','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','version_number','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','title','UPDATE')"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.local_node_device_credentials') IS NOT NULL AND (SELECT count(*)=11 AND bool_and(column_name=ANY(ARRAY['credential_id','credential_sha256','tenant_id','user_id','device_id','channel_id','expires_at','accepted_through_sequence','last_seen_at','revoked_at','created_at'])) FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials' AND column_name IN ('credential','token','secret','plaintext'))",
+        "SELECT to_regclass('gateway.local_node_device_credentials_active_channel') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials_owner_device') IS NOT NULL AND (SELECT count(*)=6 FROM pg_constraint WHERE conrelid='gateway.local_node_device_credentials'::regclass AND conname=ANY(ARRAY['local_node_device_credentials_pkey','local_node_device_credentials_credential_sha256_key','local_node_device_credentials_credential_sha256_check','local_node_device_credentials_sequence_check','local_node_device_credentials_device_scope_fkey','local_node_device_credentials_channel_id_fkey'])) AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at' AND data_type='timestamp with time zone' AND is_nullable='YES')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRIGGER') AND (SELECT count(*)=3 AND bool_and(pg_get_userbyid(a.grantor)=current_user AND NOT a.is_grantable AND a.privilege_type=ANY(ARRAY['SELECT','INSERT','UPDATE'])) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.local_node_device_credentials'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.dataset_collection_bindings','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migrations','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_action_jobs','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.embedding_migration_progress','UPDATE')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.embedding_migration_progress','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.embedding_migration_progress','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.embedding_migration_progress','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.embedding_migration_progress','UPDATE')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_operations','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_api','knowledge.kb_document_batch_items','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_operations','DELETE') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.kb_document_batch_items','DELETE')",
+        "SELECT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('assistant.issue_assistant_runtime_turn(uuid,uuid,uuid,uuid,character varying,character varying,character varying,character varying,character varying,jsonb,character,bigint,character varying,character varying,character varying,character varying,character varying,character,integer,bigint,bigint,bigint,timestamp with time zone,text)') AND pg_get_userbyid(p.proowner)=left(current_user,length(current_user)-5)||'owner' AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[] AND md5(p.prosrc)='159e51eac39d08f2dc99a046212422c9' AND (SELECT count(*)=2 AND bool_and(pg_get_userbyid(a.grantor)=left(current_user,length(current_user)-5)||'owner' AND NOT a.is_grantable AND a.privilege_type='EXECUTE' AND pg_get_userbyid(a.grantee)=ANY(ARRAY[left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'owner'])) FROM aclexplode(p.proacl) a)) AND EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('assistant.reserve_assistant_runtime_model_call(uuid,uuid,character,bigint,bigint,bigint)') AND pg_get_userbyid(p.proowner)=left(current_user,length(current_user)-5)||'owner' AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[] AND md5(p.prosrc)='e9011ffbb32bb9fe4a5e62c18d39154f' AND (SELECT count(*)=2 AND bool_and(pg_get_userbyid(a.grantor)=left(current_user,length(current_user)-5)||'owner' AND NOT a.is_grantable AND a.privilege_type='EXECUTE' AND pg_get_userbyid(a.grantee)=ANY(ARRAY[left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'owner'])) FROM aclexplode(p.proacl) a)) AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_snapshots','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runs','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_model_leases','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','assistant.assistant_runtime_model_calls','INSERT')",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','UPDATE') AND has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','change_type','UPDATE') AND has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','metadata','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','content','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','content_hash','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','document_id','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','version_number','UPDATE') AND NOT has_column_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_versions','title','UPDATE')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "One reviewed 023 extension adds hash-only Local Node credentials, two indexes, durable cancel_requested_at, the confirmed Knowledge API embedding-migration privilege sets, Knowledge Worker pending-progress SELECT and batch-poller SELECT/UPDATE, and only column-scoped UPDATE on document_versions.change_type and metadata for publication state and special-source provenance. The Worker still has no table UPDATE and no UPDATE on content, content_hash, document_id, version_number, or title. It also changes only SECURITY DEFINER and the fixed search_path on the two exact existing Assistant runtime functions whose frozen bodies perform owner-controlled writes. Gateway receives no direct INSERT rights on their protected tables. The functions retain exact source bodies, owner, and EXECUTE ACLs. No DELETE is added to the first three embedding tables, no API INSERT/UPDATE is added to progress, and API batch-table rights remain unchanged. Frozen 001-022 and the verified channel fingerprint remain unchanged. Root review and isolated own-role acceptance are required before activation."
+    }
+  ]
+}

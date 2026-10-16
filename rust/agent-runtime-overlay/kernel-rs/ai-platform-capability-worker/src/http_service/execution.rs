@@ -194,9 +194,8 @@ pub(super) async fn create_execution(
             "execution request is invalid",
         )
     })?;
-    let mut resource_binding = resource_binding_value(
-        &runtime_binding, &scope, &request.lease.run_id, &descriptor,
-    );
+    let mut resource_binding =
+        resource_binding_value(&runtime_binding, &scope, &request.lease.run_id, &descriptor);
     if let Some(active) = &state.plugin_activation
         && active.managed.contains(&descriptor.id)
     {

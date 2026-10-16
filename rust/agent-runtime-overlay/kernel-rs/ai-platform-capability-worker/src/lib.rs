@@ -122,6 +122,10 @@ pub struct RuntimeConnectorBinding {
     pub schema_hash: Option<String>,
     #[serde(default)]
     pub risk_level: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permission_snapshot_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_capability_revision: Option<u64>,
     pub channel: String,
 }
 
@@ -160,22 +164,73 @@ impl RuntimeConnectorBinding {
                     || self.risk_level.as_deref().is_none_or(|value| {
                         !matches!(value, "low" | "medium" | "high" | "critical")
                     })
+                    || self.permission_snapshot_digest.is_some()
+                    || self.device_capability_revision.is_some()
                 {
                     Err(StoreError::RuntimeBindingUnauthorized)
                 } else {
                     Ok(())
                 }
             }
-            "catalog" if self.principal_type.is_none() && self.grant_id.is_none() => Ok(()),
-            "grant"
-                if matches!(
-                    self.principal_type.as_deref(),
-                    Some("service_account") | Some("user_delegated")
-                ) && self
-                    .grant_id
-                    .as_deref()
-                    .is_some_and(|value| uuid::Uuid::parse_str(value).is_ok()) =>
+            "catalog"
+                if self.provider != "local_node"
+                    && self.principal_type.is_none()
+                    && self.grant_id.is_none()
+                    && self.permission_snapshot_digest.is_none()
+                    && self.device_capability_revision.is_none() =>
             {
+                Ok(())
+            }
+            "grant"
+                if self.provider == "local_node"
+                    && self.tool_name == "local_node_action"
+                    && self.principal_type.as_deref() == Some("user_delegated")
+                    && self
+                        .grant_id
+                        .as_deref()
+                        .is_some_and(|value| uuid::Uuid::parse_str(value).is_ok())
+                    && self.connection_id.as_deref().is_some_and(|value| {
+                        value.strip_prefix("dev_").is_some_and(|suffix| {
+                            suffix.len() == 24
+                                && suffix.bytes().all(|byte| {
+                                    byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+                                })
+                        })
+                    })
+                    && self
+                        .permission_snapshot_digest
+                        .as_deref()
+                        .is_some_and(|value| {
+                            value.len() == 64
+                                && value.bytes().all(|byte| {
+                                    byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+                                })
+                        })
+                    && self
+                        .device_capability_revision
+                        .is_some_and(|revision| revision > 0)
+                    && self.schema_hash.is_none()
+                    && self.risk_level.is_none()
+                    && self.channel == "builtin" =>
+            {
+                Ok(())
+            }
+            "grant"
+                if self.provider != "local_node"
+                    && matches!(
+                        self.principal_type.as_deref(),
+                        Some("service_account") | Some("user_delegated")
+                    )
+                    && self
+                        .grant_id
+                        .as_deref()
+                        .is_some_and(|value| uuid::Uuid::parse_str(value).is_ok()) =>
+            {
+                if self.permission_snapshot_digest.is_some()
+                    || self.device_capability_revision.is_some()
+                {
+                    return Err(StoreError::RuntimeBindingUnauthorized);
+                }
                 Ok(())
             }
             _ => Err(StoreError::RuntimeBindingUnauthorized),
@@ -961,6 +1016,27 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn local_node_runtime_binding_requires_a_revisioned_owner_snapshot() {
+        let mut binding = RuntimeConnectorBinding {
+            binding_type: "grant".into(),
+            provider: "local_node".into(),
+            tool_name: "local_node_action".into(),
+            principal_type: Some("user_delegated".into()),
+            grant_id: Some("cfbfa9d4-18b3-4470-b3f2-f13660a993dc".into()),
+            connection_id: Some("dev_aaaaaaaaaaaaaaaaaaaaaaaa".into()),
+            schema_hash: None,
+            risk_level: None,
+            permission_snapshot_digest: Some("a".repeat(64)),
+            device_capability_revision: Some(2),
+            channel: "builtin".into(),
+        };
+        assert!(binding.validate("local_node_action").is_ok());
+
+        binding.permission_snapshot_digest = None;
+        assert!(binding.validate("local_node_action").is_err());
+    }
 
     fn new_execution(id: &str) -> NewExecution {
         NewExecution {

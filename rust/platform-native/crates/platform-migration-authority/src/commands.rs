@@ -227,7 +227,17 @@ pub async fn startup_check(authority: &MigrationAuthority, principal: &str) -> R
             // Match the runtime's default and its explicit environment override.
             // The production Gateway repeats this admission from its resolved
             // settings before password/catalog writes or worker startup.
-            let profile = match std::env::var("GATEWAY_TASK_DELIVERY_MODE") {
+            let local_node_profile = match std::env::var("AI_PLATFORM_LOCAL_NODE_CHANNEL_ENABLED") {
+                Ok(value) if matches!(value.as_str(), "true" | "1" | "enabled") => true,
+                Ok(value) if matches!(value.as_str(), "false" | "0" | "disabled") => false,
+                Err(std::env::VarError::NotPresent) => false,
+                _ => {
+                    return Err(AuthorityError::Refused(
+                        "invalid Local Node channel setting".into(),
+                    ));
+                }
+            };
+            let delivery_profile = match std::env::var("GATEWAY_TASK_DELIVERY_MODE") {
                 Ok(value) if value == "memory" => {
                     crate::application_guard::ApplicationPrincipal::Gateway
                 }
@@ -242,6 +252,11 @@ pub async fn startup_check(authority: &MigrationAuthority, principal: &str) -> R
                         "invalid Gateway task delivery mode".into(),
                     ));
                 }
+            };
+            let profile = if local_node_profile {
+                crate::application_guard::ApplicationPrincipal::GatewayLocalNode
+            } else {
+                delivery_profile
             };
             crate::application_guard::require_compatible_schema(&mut conn, profile).await?;
             conn.close().await?;

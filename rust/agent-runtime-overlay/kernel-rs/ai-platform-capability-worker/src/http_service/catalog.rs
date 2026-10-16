@@ -39,11 +39,17 @@ pub(super) async fn catalog(
             "catalog scope does not match forwarded identity",
         ));
     }
-    let activation = state.plugin_activation.as_ref()
-        .map(|active| active.receipt.activation_id.clone()).unwrap_or_else(|| "none".into());
-    Ok(([("x-ai-platform-plugin-activation", activation)], Json(CapabilityCatalogV2 {
-        schema_version: CAPABILITY_CATALOG_SCHEMA_VERSION.to_string(),
-        capability_revision: request.capability_revision,
-        capabilities: state.capability_registry.values().cloned().collect(),
-    })))
+    let activation = state
+        .plugin_activation
+        .as_ref()
+        .map(|active| active.receipt.activation_id.clone())
+        .unwrap_or_else(|| "none".into());
+    Ok((
+        [("x-ai-platform-plugin-activation", activation)],
+        Json(CapabilityCatalogV2 {
+            schema_version: CAPABILITY_CATALOG_SCHEMA_VERSION.to_string(),
+            capability_revision: request.capability_revision,
+            capabilities: state.capability_registry.values().cloned().collect(),
+        }),
+    ))
 }

@@ -40,6 +40,7 @@ async fn native_manual_sync_requests_bind_exact_target_body_and_actor() {
         roles: vec!["user".into()],
         permissions: vec![],
         tier: "normal".into(),
+        allowed_models: None,
     };
     let mut incoming = HeaderMap::new();
     for (name, value) in [
@@ -140,6 +141,50 @@ async fn native_manual_sync_requests_bind_exact_target_body_and_actor() {
     if let Ok(path) = std::env::var("KNOWLEDGE_HYBRID_CONTRACT_OUTPUT") {
         std::fs::write(path, serde_json::to_vec_pretty(&exported).unwrap()).unwrap();
     }
+}
+
+#[tokio::test]
+async fn signed_knowledge_hop_uses_only_active_request_id() {
+    let client = reqwest::Client::new();
+    let origin = reqwest::Url::parse("https://knowledge.example.invalid/").unwrap();
+    let mut incoming = HeaderMap::new();
+    incoming.insert("x-request-id", HeaderValue::from_static("caller-spoof"));
+    let context = crate::migration_host::context::OutboundContext {
+        request_id: "gateway-request-42".into(),
+        trace_carrier: BTreeMap::new(),
+    };
+    let request = crate::migration_host::context::scoped(context, async {
+        signed_request(
+            &client,
+            &origin,
+            &auth(false),
+            "x-custom-key",
+            Method::GET,
+            "/api/v1/knowledge/dataset/retrieve",
+            "",
+            incoming,
+            Vec::new(),
+        )
+        .unwrap()
+    })
+    .await;
+    assert_eq!(request.headers()["x-request-id"], "gateway-request-42");
+
+    let mut unscoped_headers = HeaderMap::new();
+    unscoped_headers.insert("x-request-id", HeaderValue::from_static("caller-spoof"));
+    let unscoped = signed_request(
+        &client,
+        &origin,
+        &auth(false),
+        "x-custom-key",
+        Method::GET,
+        "/api/v1/knowledge/dataset/retrieve",
+        "",
+        unscoped_headers,
+        Vec::new(),
+    )
+    .unwrap();
+    assert!(!unscoped.headers().contains_key("x-request-id"));
 }
 
 #[tokio::test]

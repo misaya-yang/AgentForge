@@ -720,6 +720,14 @@ impl IngestionService {
             .filter(|v| v.is_object())
             .cloned();
         let pending = pending_owned.as_ref();
+        let pending_update_owned = metadata
+            .get("_document_pending_text_update_version")
+            .filter(|v| v.is_object())
+            .cloned();
+        let pending_update = pending_update_owned.as_ref();
+        if pending.is_some() && pending_update.is_some() {
+            return Err(IngestError::GenerationChanged);
+        }
         let mut content = string(doc, "content").to_owned();
         let mut patch = json!({});
         if let Some(pending) = pending {
@@ -736,6 +744,32 @@ impl IngestionService {
                     .ingest_special_restore(lease, dataset, doc, index, execution, &target)
                     .await;
             }
+        } else if let Some(pending_update) = pending_update {
+            let previous = integer(pending_update, "previous_version");
+            let candidate = integer(pending_update, "candidate_version");
+            if previous <= 0
+                || previous != integer(doc, "current_version")
+                || candidate <= previous
+                || pending_update["previous_content_hash"]
+                    != sha256(string(doc, "content").as_bytes())
+            {
+                return Err(IngestError::GenerationChanged);
+            }
+            let target: Value = sqlx::query_scalar(
+                "SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type='pending_update'",
+            )
+            .bind(document_id)
+            .bind(candidate as i32)
+            .fetch_optional(lease.connection())
+            .await?
+            .ok_or(IngestError::GenerationChanged)?;
+            let candidate_content = string(&target, "content");
+            if candidate_content.trim().is_empty()
+                || string(&target, "content_hash") != sha256(candidate_content.as_bytes())
+            {
+                return Err(IngestError::GenerationChanged);
+            }
+            content = candidate_content.to_owned();
         }
 
         if effective_mode == "scanned" && action != "reembed" {
@@ -744,8 +778,9 @@ impl IngestionService {
                 .await;
         }
         let reembed = action == "reembed";
+        let pending_candidate = pending.is_some() || pending_update.is_some();
         let streamed = !reembed
-            && pending.is_none()
+            && !pending_candidate
             && effective_mode != "multimodal"
             && integer(doc, "size_bytes") > self.large_file_threshold as i64;
         if streamed {
@@ -767,6 +802,7 @@ impl IngestionService {
             .await?;
             if !streamed
                 && pending.is_none()
+                && pending_update.is_none()
                 && metadata.get("_document_restored_source_version").is_none()
                 && content.trim().chars().count() < self.reextraction_min_chars
                 && metadata["original_file_key"]
@@ -976,7 +1012,7 @@ impl IngestionService {
         };
         let mut image_points = BTreeMap::new();
         let mut replace_images = false;
-        if !reembed && pending.is_none() {
+        if !reembed && !pending_candidate {
             let receipts = metadata
                 .get("extracted_images")
                 .cloned()
@@ -1033,6 +1069,7 @@ impl IngestionService {
             &content,
             &patch,
             pending,
+            pending_update,
             &old,
             &mut chunks,
             reembed,

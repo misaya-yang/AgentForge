@@ -16,6 +16,7 @@ use crate::migration_host::{
     middleware::DrainState,
     readiness::{ReadinessConfig, ReadinessState},
     resources::ConnectionResources,
+    settings::DatabaseApiKeyVerifierAvailability,
     version::VersionConfig,
 };
 use ai_platform_migration_authority::application_guard::ApplicationPrincipal;
@@ -23,6 +24,15 @@ use std::{collections::BTreeMap, net::SocketAddr, sync::Arc};
 
 impl GatewayDocument {
     pub async fn construct(mut self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
+        let scrape_token = match self.environment.remove("METRICS_SCRAPE_TOKEN") {
+            Some(token)
+                if token.len() >= 32 && token.bytes().all(|byte| byte.is_ascii_graphic()) =>
+            {
+                Some(Arc::new(token))
+            }
+            Some(_) => return Err(BootstrapError::Configuration("metrics_scrape_token")),
+            None => None,
+        };
         let local_node_channel_config =
             crate::migration_host::local_node_channel::LocalNodeChannelConfig::from_environment(
                 &self.environment,
@@ -44,10 +54,15 @@ impl GatewayDocument {
                 "durable_profile_requires_database_and_redis",
             ));
         }
-        let admission_principal = match settings.task_delivery_mode.as_str() {
+        let delivery_principal = match settings.task_delivery_mode.as_str() {
             "memory" => ApplicationPrincipal::Gateway,
             "durable" => ApplicationPrincipal::GatewayDurable,
             _ => return Err(BootstrapError::Configuration("task_delivery_mode")),
+        };
+        let admission_principal = if local_node_channel_config.is_some() {
+            ApplicationPrincipal::GatewayLocalNode
+        } else {
+            delivery_principal
         };
         let address = SocketAddr::new(
             settings
@@ -128,12 +143,20 @@ impl GatewayDocument {
             .redis
             .clone()
             .ok_or(BootstrapError::Construction("redis"))?;
+        let database_api_key_verifier = if settings.authentication.api_key.enabled
+            && !pools.data.is_closed()
+        {
+            DatabaseApiKeyVerifierAvailability::Available
+        } else {
+            DatabaseApiKeyVerifierAvailability::Unavailable
+        };
         let drain = Arc::new(DrainState::default());
         let readiness = Arc::new(
             ReadinessState::new(
                 resources,
                 ReadinessConfig {
-                    auth_config_ready: settings.auth_ready(),
+                    auth_config_ready: settings
+                        .auth_ready_with_database_api_key_verifier(database_api_key_verifier),
                     model_plane_ready: false,
                     runtime_url: Some(runtime_url),
                     capability_worker_url: Some(capability_worker_url),
@@ -189,6 +212,7 @@ impl GatewayDocument {
             )?),
         };
         let authorities = self.authorities(redis.clone())?;
+        super::models::validate_stored_credentials(&pools, &config.provider_encryption_key).await?;
         let models = super::models::ModelServices::native(
             &pools,
             config.provider_encryption_key.clone(),
@@ -265,6 +289,7 @@ impl GatewayDocument {
                 identity: graph.admission.clone(),
                 rbac: graph.core.rbac.clone(),
                 collector,
+                scrape_token,
             },
         );
         let (_, rates) = project_rates(&SettingsProjection {

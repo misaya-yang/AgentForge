@@ -7,6 +7,7 @@ use super::{
     middleware::MiddlewareConfig,
     resources::{DatabaseSettings, RedisSettings},
 };
+use ai_platform_auth::{JwtKeyConfig, JwtSigningMode};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
@@ -14,19 +15,126 @@ use std::{collections::BTreeMap, sync::Arc};
 #[serde(default)]
 pub struct JwtSettings {
     pub enabled: bool,
+    pub mode: JwtSigningMode,
     pub secret: String,
     pub algorithms: Vec<String>,
     pub audience: Option<String>,
     pub issuer: Option<String>,
+    pub active_kid: Option<String>,
+    pub keyring: Vec<JwtKeySettings>,
+}
+#[derive(Clone, Deserialize)]
+#[serde(default)]
+pub struct JwtKeySettings {
+    pub kid: String,
+    pub algorithm: String,
+    pub public_jwk: Value,
+    /// Name of the environment variable holding the active private PEM.
+    /// Retired verification keys must not have this set.
+    pub private_key_env: Option<String>,
+    /// Absolute Unix time after which this retired key is neither accepted nor
+    /// included in JWKS. The active signing key leaves this unset.
+    pub verify_until: Option<u64>,
+}
+impl Default for JwtKeySettings {
+    fn default() -> Self {
+        Self {
+            kid: String::new(),
+            algorithm: String::new(),
+            public_jwk: Value::Null,
+            private_key_env: None,
+            verify_until: None,
+        }
+    }
 }
 impl Default for JwtSettings {
     fn default() -> Self {
         Self {
             enabled: false,
+            mode: JwtSigningMode::AsymmetricKeyring,
             secret: String::new(),
-            algorithms: vec!["HS256".into()],
+            algorithms: vec![],
             audience: None,
             issuer: None,
+            active_kid: None,
+            keyring: vec![],
+        }
+    }
+}
+impl JwtSettings {
+    pub(crate) fn key_configs(
+        &self,
+        environment: &BTreeMap<String, String>,
+        include_private_key: bool,
+    ) -> Vec<JwtKeyConfig> {
+        self.keyring
+            .iter()
+            .map(|key| JwtKeyConfig {
+                kid: key.kid.clone(),
+                algorithm: key.algorithm.clone(),
+                public_jwk: key.public_jwk.clone(),
+                private_key_pem: if include_private_key {
+                    key.private_key_env
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|name| !name.is_empty())
+                        .and_then(|name| environment.get(name))
+                        .map(|value| value.replace("\\n", "\n"))
+                } else {
+                    None
+                },
+                verify_until: key.verify_until,
+            })
+            .collect()
+    }
+
+    fn configuration_shape_ready(&self) -> bool {
+        match self.mode {
+            JwtSigningMode::LegacySingleHs256 => {
+                self.secret.trim().len() >= 32
+                    && self.keyring.is_empty()
+                    && (self.algorithms.is_empty() || self.algorithms.as_slice() == ["HS256"])
+            }
+            JwtSigningMode::AsymmetricKeyring => {
+                if !self.secret.trim().is_empty()
+                    || self.active_kid.as_deref().is_none_or(str::is_empty)
+                    || self.keyring.is_empty()
+                {
+                    return false;
+                }
+                let Some(active) = self
+                    .keyring
+                    .iter()
+                    .find(|key| Some(key.kid.as_str()) == self.active_kid.as_deref())
+                else {
+                    return false;
+                };
+                if active
+                    .private_key_env
+                    .as_deref()
+                    .is_none_or(|name| name.trim().is_empty())
+                    || active.verify_until.is_some()
+                    || self.keyring.iter().any(|key| {
+                        key.kid.is_empty()
+                            || (key.kid != active.kid
+                                && (key.private_key_env.is_some() || key.verify_until.is_none()))
+                    })
+                    || self.keyring.iter().enumerate().any(|(index, key)| {
+                        self.keyring[..index]
+                            .iter()
+                            .any(|previous| previous.kid == key.kid)
+                    })
+                {
+                    return false;
+                }
+                self.algorithms.is_empty()
+                    || (self.algorithms.iter().all(|algorithm| {
+                        self.keyring.iter().any(|key| key.algorithm == *algorithm)
+                    }) && self
+                        .keyring
+                        .iter()
+                        .all(|key| self.algorithms.contains(&key.algorithm)))
+            }
         }
     }
 }
@@ -36,6 +144,11 @@ pub struct ApiKeySettings {
     pub enabled: bool,
     pub header_name: String,
     pub keys: Vec<String>,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DatabaseApiKeyVerifierAvailability {
+    Unavailable,
+    Available,
 }
 impl Default for ApiKeySettings {
     fn default() -> Self {
@@ -162,6 +275,21 @@ impl HostSettings {
     ) -> Result<Self, String> {
         let mut settings: Self =
             serde_json::from_value(value).map_err(|_| "Invalid gateway settings".to_owned())?;
+        if let Some(mode) = environment
+            .get("GATEWAY_AUTHENTICATION__JWT__MODE")
+            .or_else(|| environment.get("GATEWAY_JWT_MODE"))
+        {
+            settings.authentication.jwt.mode = match mode.trim() {
+                "asymmetric_keyring" => JwtSigningMode::AsymmetricKeyring,
+                "legacy_single_hs256" => JwtSigningMode::LegacySingleHs256,
+                _ => {
+                    return Err(
+                        "GATEWAY_JWT_MODE must be asymmetric_keyring or legacy_single_hs256"
+                            .to_owned(),
+                    );
+                }
+            };
+        }
         if let Some(v) = environment.get("DEFAULT_MODEL") {
             settings.default_model = v.clone();
         }
@@ -180,6 +308,7 @@ impl HostSettings {
         if environment
             .get("GATEWAY_ENV")
             .is_some_and(|v| v.to_lowercase() == "production")
+            && settings.authentication.jwt.mode == JwtSigningMode::LegacySingleHs256
             && [
                 "",
                 "default-secret-change-me",
@@ -196,9 +325,19 @@ impl HostSettings {
         Ok(settings)
     }
     pub fn auth_ready(&self) -> bool {
+        self.auth_ready_with_database_api_key_verifier(
+            DatabaseApiKeyVerifierAvailability::Unavailable,
+        )
+    }
+    pub fn auth_ready_with_database_api_key_verifier(
+        &self,
+        database_verifier: DatabaseApiKeyVerifierAvailability,
+    ) -> bool {
         let a = &self.authentication;
-        !(a.jwt.enabled && (a.jwt.secret.trim().is_empty() || a.jwt.algorithms.is_empty())
-            || a.api_key.enabled && a.api_key.keys.is_empty())
+        !(a.jwt.enabled && !a.jwt.configuration_shape_ready()
+            || a.api_key.enabled
+                && a.api_key.keys.is_empty()
+                && database_verifier == DatabaseApiKeyVerifierAvailability::Unavailable)
     }
     pub fn middleware(&self) -> MiddlewareConfig {
         MiddlewareConfig {
@@ -227,22 +366,26 @@ impl HostSettings {
         {
             config.trusted_proxy_cidrs = cidrs.split(',').map(str::to_owned).collect();
         }
-        if a.jwt.enabled && !a.jwt.secret.is_empty() {
-            let insecure = [
-                "",
-                "default-secret-change-me",
-                "your-jwt-secret-key",
-                "secret",
-                "changeme",
-            ]
-            .contains(&a.jwt.secret.as_str());
+        if a.jwt.enabled {
+            let insecure_legacy_secret = a.jwt.mode == JwtSigningMode::LegacySingleHs256
+                && [
+                    "",
+                    "default-secret-change-me",
+                    "your-jwt-secret-key",
+                    "secret",
+                    "changeme",
+                ]
+                .contains(&a.jwt.secret.as_str());
             let dev = environment
                 .get("GATEWAY_DEV_MODE")
                 .is_some_and(|v| matches!(v.to_lowercase().as_str(), "1" | "true"));
-            if !insecure || dev {
-                if let Ok(decoder) = JwtDecoder::new(
+            let keys = a.jwt.key_configs(environment, false);
+            if !insecure_legacy_secret || dev {
+                if let Ok(decoder) = JwtDecoder::from_keyring_config(
+                    a.jwt.mode,
                     &a.jwt.secret,
-                    &a.jwt.algorithms,
+                    a.jwt.active_kid.as_deref(),
+                    &keys,
                     a.jwt.audience.as_deref(),
                     a.jwt.issuer.as_deref(),
                 ) {
@@ -410,6 +553,7 @@ fn parse_host_env_leaf(path: &[&str], raw: &str) -> Result<Value, String> {
         && matches!(
             name,
             "algorithms"
+                | "keyring"
                 | "keys"
                 | "allow_origins"
                 | "allow_methods"
@@ -455,5 +599,144 @@ mod task_delivery_mode_tests {
             ("GATEWAY_TASK_WORKER_CONCURRENCY".into(), "0".into()),
         ]);
         assert!(HostSettings::from_environment(&env).is_err());
+    }
+}
+
+#[cfg(test)]
+mod jwt_mode_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn asymmetric_keyring_is_the_default_and_hmac_requires_explicit_compatibility() {
+        let mut jwt = JwtSettings::default();
+        assert_eq!(jwt.mode, JwtSigningMode::AsymmetricKeyring);
+        assert!(!jwt.configuration_shape_ready());
+
+        jwt.secret = "synthetic-legacy-secret-material-32-bytes".into();
+        assert!(!jwt.configuration_shape_ready());
+        jwt.mode = JwtSigningMode::LegacySingleHs256;
+        assert!(jwt.configuration_shape_ready());
+        jwt.algorithms = vec!["RS256".into()];
+        assert!(!jwt.configuration_shape_ready());
+    }
+
+    #[test]
+    fn environment_selects_legacy_mode_only_when_explicit() {
+        let environment =
+            BTreeMap::from([("GATEWAY_JWT_MODE".into(), "legacy_single_hs256".into())]);
+        let settings = HostSettings::from_resolved_json(json!({}), &environment).unwrap();
+        assert_eq!(
+            settings.authentication.jwt.mode,
+            JwtSigningMode::LegacySingleHs256
+        );
+    }
+
+    #[test]
+    fn asymmetric_keyring_can_be_supplied_as_nested_json_configuration() {
+        let environment = BTreeMap::from([
+            (
+                "GATEWAY_AUTHENTICATION__JWT__ENABLED".into(),
+                "true".into(),
+            ),
+            (
+                "GATEWAY_AUTHENTICATION__JWT__MODE".into(),
+                "asymmetric_keyring".into(),
+            ),
+            (
+                "GATEWAY_AUTHENTICATION__JWT__ACTIVE_KID".into(),
+                "current".into(),
+            ),
+            (
+                "GATEWAY_AUTHENTICATION__JWT__ALGORITHMS".into(),
+                r#"["EdDSA"]"#.into(),
+            ),
+            (
+                "GATEWAY_AUTHENTICATION__JWT__KEYRING".into(),
+                r#"[{"kid":"current","algorithm":"EdDSA","private_key_env":"JWT_CURRENT_PRIVATE_PEM","public_jwk":{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"current","x":"fixture"}}]"#.into(),
+            ),
+        ]);
+        let settings = HostSettings::from_environment(&environment).unwrap();
+        assert!(settings.auth_ready());
+        assert_eq!(settings.authentication.jwt.keyring.len(), 1);
+        assert_eq!(
+            settings.authentication.jwt.keyring[0]
+                .private_key_env
+                .as_deref(),
+            Some("JWT_CURRENT_PRIVATE_PEM")
+        );
+    }
+
+    #[test]
+    fn private_key_material_resolves_only_from_explicit_environment_snapshot() {
+        let pem = "synthetic-line-one\nsynthetic-line-two\n";
+        let escaped = pem.replace('\n', "\\n");
+        let settings = JwtSettings {
+            mode: JwtSigningMode::AsymmetricKeyring,
+            active_kid: Some("current".into()),
+            keyring: vec![JwtKeySettings {
+                kid: "current".into(),
+                algorithm: "EdDSA".into(),
+                public_jwk: json!({}),
+                private_key_env: Some("JWT_CURRENT_PRIVATE_PEM".into()),
+                verify_until: None,
+            }],
+            ..Default::default()
+        };
+        let environment = BTreeMap::from([("JWT_CURRENT_PRIVATE_PEM".into(), escaped)]);
+        let signing_keys = settings.key_configs(&environment, true);
+        let verification_keys = settings.key_configs(&environment, false);
+
+        assert!(signing_keys[0].private_key_pem.as_deref() == Some(pem));
+        assert!(verification_keys[0].private_key_pem.is_none());
+    }
+}
+
+#[cfg(test)]
+mod auth_readiness_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn empty_static_keys_require_an_available_database_verifier() {
+        let settings = HostSettings::from_resolved_json(
+            json!({"authentication":{"api_key":{"enabled":true,"keys":[]}}}),
+            &BTreeMap::new(),
+        )
+        .unwrap();
+
+        assert!(!settings.auth_ready());
+        assert!(!settings.auth_ready_with_database_api_key_verifier(
+            DatabaseApiKeyVerifierAvailability::Unavailable
+        ));
+        assert!(settings.auth_ready_with_database_api_key_verifier(
+            DatabaseApiKeyVerifierAvailability::Available
+        ));
+    }
+
+    #[test]
+    fn database_api_key_readiness_does_not_override_invalid_jwt_configuration() {
+        let settings = HostSettings::from_resolved_json(
+            json!({"authentication":{"jwt":{"enabled":true},"api_key":{"enabled":true,"keys":[]}}}),
+            &BTreeMap::new(),
+        )
+        .unwrap();
+
+        assert!(!settings.auth_ready_with_database_api_key_verifier(
+            DatabaseApiKeyVerifierAvailability::Available
+        ));
+    }
+
+    #[test]
+    fn flat_jwt_mode_is_projected_before_auth_readiness() {
+        let environment = BTreeMap::from([("GATEWAY_JWT_MODE".into(), "legacy_single_hs256".into())]);
+        let settings = HostSettings::from_resolved_json(
+            json!({"authentication":{"jwt":{"enabled":true,"secret":"synthetic-legacy-secret-material-32-bytes","algorithms":["HS256"]}}}),
+            &environment,
+        )
+        .unwrap();
+
+        assert_eq!(settings.authentication.jwt.mode, JwtSigningMode::LegacySingleHs256);
+        assert!(settings.auth_ready());
     }
 }

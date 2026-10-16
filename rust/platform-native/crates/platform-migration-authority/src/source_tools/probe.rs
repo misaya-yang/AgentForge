@@ -693,7 +693,7 @@ mod tests {
                     _scratch: None,
                 };
             }
-            assert!(matches!(current_epoch.epoch, 20 | 21 | 22));
+            assert!(matches!(current_epoch.epoch, 20 | 21 | 22 | 23 | 24));
             let (_, verified_epoch) = successors::verify_activated_source(&current).unwrap();
             assert_eq!(verified_epoch.epoch, current_epoch.epoch);
 
@@ -789,12 +789,123 @@ mod tests {
     fn project_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..")
     }
-    fn preimage_root(source_root: &Path) -> PathBuf {
-        let receipt: Value = serde_json::from_slice(
-            &std::fs::read(source_root.join("reports/dots-source-import-20261015.json")).unwrap(),
+    fn current_source_root() -> PathBuf {
+        project_root().canonicalize().unwrap()
+    }
+
+    fn active_epoch(source_root: &Path) -> i32 {
+        manifest::load_epoch_manifest(
+            &source_root
+                .join("database/migrations")
+                .join(BASELINE)
+                .join("manifest.yml"),
+        )
+        .unwrap()
+        .epoch
+    }
+
+    fn copy_active_024_source(source_root: &Path, destination: &Path) -> PathBuf {
+        std::fs::create_dir(destination).unwrap();
+        crate::source_tools::next_successor::copy_tree(
+            &source_root.join("database"),
+            &destination.join("database"),
         )
         .unwrap();
-        PathBuf::from(receipt["previous_checkout"].as_str().unwrap())
+        for relative in [
+            "docs/design/canonical-schema-successor-024.json",
+            "docs/design/canonical-schema-successor-024-approved23-package-lock.json",
+            "docs/design/canonical-schema-successor-024-approved23-manifest.yml",
+            "docs/design/local-node-pairing-channel-select-024.sql.proposal",
+        ] {
+            let target = destination.join(relative);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(source_root.join(relative), target).unwrap();
+        }
+        destination.canonicalize().unwrap()
+    }
+
+    fn write_synthetic_024_measurement(source_root: &Path, preview_root: &Path) {
+        let (candidate, _) =
+            crate::source_tools::next_successor_024::verify_preview(source_root, preview_root)
+                .unwrap();
+        let previous_reference_path = source_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join("023_verification.json");
+        let previous_reference: Value =
+            serde_json::from_slice(&std::fs::read(&previous_reference_path).unwrap()).unwrap();
+        let mut raw_fingerprints: BTreeMap<String, String> =
+            serde_json::from_value(previous_reference["raw_fingerprints"].clone()).unwrap();
+        let mut raw_acl_lines: Vec<String> = serde_json::from_value(
+            previous_reference["acl_compatibility"]["raw_acl_lines"].clone(),
+        )
+        .unwrap();
+        raw_acl_lines.extend([
+            "column_acl:gateway.local_node_pairing_challenges.challenge_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_pairing_challenges.user_code_sha256:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_pairing_challenges.tenant_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_pairing_challenges.user_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_pairing_challenges.consumed_at:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_pairing_challenges.expires_at:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.channel_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.device_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.tenant_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.user_id:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.status:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.receipt_cursor:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.fingerprint:gateway:SELECT:grantopt=0".to_owned(),
+            "column_acl:gateway.local_node_channels.created_at:gateway:SELECT:grantopt=0".to_owned(),
+        ]);
+        raw_acl_lines.sort();
+        let raw_acl_sha256 = crate::fingerprint::canonical_digest(&raw_acl_lines);
+        raw_fingerprints.insert("acl".into(), raw_acl_sha256.clone());
+        let (base_acl_sha256, raw_acl_sha256, base_acl_lines) =
+            measure_successors::acl_reference(&raw_fingerprints, &raw_acl_lines).unwrap();
+        let evidence = measure_successors::SingleStepEvidence {
+            applied: candidate
+                .epoch
+                .changes
+                .iter()
+                .map(|change| (change.sequence, change.sha256.clone()))
+                .collect(),
+            raw_fingerprints,
+            base_acl_sha256,
+            raw_acl_sha256,
+            raw_acl_lines,
+            base_acl_lines,
+        };
+        let reference =
+            crate::source_tools::next_successor_024::verification_reference(&candidate, &evidence);
+        let epoch_dir = preview_root.join("database/migrations").join(BASELINE);
+        let reference_path = epoch_dir.join("024_verification.json");
+        crate::source_tools::next_successor::write_reference(&reference_path, &reference).unwrap();
+        let manifest_path = epoch_dir.join("manifest.yml");
+        let measurement = json!({
+            "schema":"ai-platform/canonical-next-successor-measurement/v1",
+            "status":"measured_external_preview",
+            "database_actions":true,
+            "database_actions_scope":"named_isolated_database_only",
+            "source_activation":false,
+            "expected_database":"schema_successor_verify_offlineprobe024",
+            "predecessor_epoch":crate::source_tools::next_successor_024::PREDECESSOR_EPOCH,
+            "candidate_epoch":crate::source_tools::next_successor_024::CANDIDATE_EPOCH,
+            "source_plan_sha256":candidate.plan_sha256,
+            "approved_predecessor_package_lock_sha256":candidate.package_lock_sha256,
+            "predecessor_manifest_sha256":candidate.plan["predecessor_manifest_sha256"],
+            "candidate_manifest_sha256":manifest::file_sha256(&manifest_path).unwrap(),
+            "baseline_manifest_sha256":candidate.baseline_sha256,
+            "candidate_sql_sha256":candidate.proposal_sha256,
+            "successor_sequences":[crate::source_tools::next_successor_024::CANDIDATE_EPOCH],
+            "predecessor_measurement_receipt_sha256":candidate.predecessor_measurement_sha256,
+            "predecessor_activation_receipt_sha256":candidate.predecessor_activation_sha256,
+            "verification_ref_sha256":manifest::file_sha256(&reference_path).unwrap(),
+            "post_migration_noop":true
+        });
+        std::fs::write(
+            epoch_dir.join("SUCCESSOR_024_MEASUREMENT.json"),
+            serde_json::to_vec_pretty(&measurement).unwrap(),
+        )
+        .unwrap();
     }
 
     #[test]
@@ -836,155 +947,134 @@ mod tests {
     }
 
     #[test]
-    fn external_preview_binds_source_and_rejects_candidate_tampering() {
-        let source_fixture = SourceFixture::source_17();
-        let source_root = source_fixture.root.clone();
-        let preimage_root = preimage_root(&source_root);
+    fn current_successor_preview_binds_source_and_rejects_candidate_tampering() {
+        let source_root = current_source_root();
         let scratch = Scratch::new("external-preview");
-        let candidate_root = scratch.0.join("candidate");
-        let receipt = successors::materialize_with_preimage_root(
-            &source_root,
-            &candidate_root,
-            Some(&preimage_root),
-        )
-        .unwrap();
-        assert_eq!(receipt["epoch"], 20);
-
-        let identity =
-            source_contract_with_preimage_root(&candidate_root, &source_root, Some(&preimage_root))
+        if active_epoch(&source_root) == crate::source_tools::next_successor_024::PREDECESSOR_EPOCH
+        {
+            let candidate_root = scratch.0.join("candidate");
+            crate::source_tools::next_successor_024::materialize(&source_root, &candidate_root)
                 .unwrap();
-        assert_eq!(identity["baseline_id"], BASELINE);
-        assert_eq!(identity["epoch"], 20);
-        assert_eq!(identity["production_requeue_sha256"], REQUEUE_SQL_SHA256);
-
-        let support_file = candidate_root.join("database/bootstrap/extensions.sql");
-        let mut changed = std::fs::read(&support_file).unwrap();
-        changed.extend_from_slice(b"\n-- tampered");
-        std::fs::write(support_file, changed).unwrap();
-        assert!(
-            successors::verify_preview_with_preimage_root(
-                &source_root,
-                &candidate_root,
-                Some(&preimage_root)
+            crate::source_tools::next_successor_024::verify_preview(&source_root, &candidate_root)
+                .unwrap();
+            let candidate_sql = candidate_root
+                .join("database/migrations")
+                .join(BASELINE)
+                .join(crate::source_tools::next_successor_024::NEXT_SQL_FILE);
+            let mut changed = std::fs::read(&candidate_sql).unwrap();
+            changed.extend_from_slice(b"\n-- tampered");
+            std::fs::write(candidate_sql, changed).unwrap();
+            assert!(
+                crate::source_tools::next_successor_024::verify_preview(
+                    &source_root,
+                    &candidate_root
+                )
+                .is_err()
+            );
+        } else {
+            assert_eq!(
+                active_epoch(&source_root),
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH
+            );
+            let (plan, verified) =
+                crate::source_tools::next_successor_024::verify_activated_source(&source_root)
+                    .unwrap();
+            assert_eq!(plan["predecessor_epoch"], 23);
+            assert_eq!(verified.epoch, 24);
+            let archived_023: Value = serde_json::from_slice(
+                &std::fs::read(
+                    source_root
+                        .join("docs/design/canonical-schema-successor-024-approved23-manifest.yml"),
+                )
+                .unwrap(),
             )
-            .is_err()
-        );
+            .unwrap();
+            assert_eq!(
+                serde_json::to_value(&verified.changes[..23]).unwrap(),
+                archived_023["changes"]
+            );
+            let copied_source =
+                copy_active_024_source(&source_root, &scratch.0.join("source-copy"));
+            crate::source_tools::next_successor_024::verify_activated_source(&copied_source)
+                .unwrap();
+            let candidate_sql = copied_source
+                .join("database/migrations")
+                .join(BASELINE)
+                .join(crate::source_tools::next_successor_024::NEXT_SQL_FILE);
+            let mut changed = std::fs::read(&candidate_sql).unwrap();
+            changed.extend_from_slice(b"\n-- tampered");
+            std::fs::write(candidate_sql, changed).unwrap();
+            assert!(
+                crate::source_tools::next_successor_024::verify_activated_source(&copied_source)
+                    .is_err()
+            );
+        }
     }
 
     #[test]
-    fn measured_preview_accepts_only_bound_reference_set() {
-        // This builds synthetic JSON evidence to exercise the offline verifier;
+    fn current_measured_successor_accepts_only_bound_reference_set() {
+        // The epoch-23 branch builds synthetic evidence for the offline verifier;
         // it does not claim that a database measurement ran.
-        let source_fixture = SourceFixture::source_17();
-        let source_root = source_fixture.root.clone();
-        let preimage_root = preimage_root(&source_root);
+        let source_root = current_source_root();
         let scratch = Scratch::new("measured-preview");
-        let candidate_root = scratch.0.join("candidate");
-        successors::materialize_with_preimage_root(
-            &source_root,
-            &candidate_root,
-            Some(&preimage_root),
-        )
-        .unwrap();
+        if active_epoch(&source_root) == crate::source_tools::next_successor_024::PREDECESSOR_EPOCH
+        {
+            let candidate_root = scratch.0.join("candidate");
+            crate::source_tools::next_successor_024::materialize(&source_root, &candidate_root)
+                .unwrap();
+            write_synthetic_024_measurement(&source_root, &candidate_root);
+            assert!(
+                crate::source_tools::next_successor_024::verify_measured_preview(
+                    &source_root,
+                    &candidate_root
+                )
+                .is_ok(),
+                "synthetic source-bound 024 artifacts should validate offline"
+            );
 
-        let paths = AuthorityPaths {
-            database_dir: candidate_root.join("database"),
-        };
-        let (baseline, baseline_sha) = commands::load_baseline(&paths, BASELINE).unwrap();
-        let epoch_path = paths.epoch_dir(BASELINE).join("manifest.yml");
-        let epoch = manifest::load_epoch_manifest(&epoch_path).unwrap();
-        let epoch_sha = manifest::file_sha256(&epoch_path).unwrap();
-        let mut references = serde_json::Map::new();
-        for sequence in 18..=20 {
-            let changes = epoch
-                .changes
-                .iter()
-                .filter(|change| change.sequence <= sequence)
-                .map(|change| (change.sequence.to_string(), json!(change.sha256)))
-                .collect::<serde_json::Map<_, _>>();
-            let reference = json!({
-                "baseline_id": BASELINE,
-                "sequence": sequence,
-                "baseline_manifest_sha256": baseline_sha,
-                "changes": changes,
-                "fingerprints": baseline.fingerprints()
-            });
-            let name = format!("{sequence:03}_verification.json");
-            let path = paths.epoch_dir(BASELINE).join(&name);
-            std::fs::write(&path, serde_json::to_vec(&reference).unwrap()).unwrap();
-            references.insert(name, json!(manifest::file_sha256(&path).unwrap()));
-        }
-        let source_plan_sha = manifest::file_sha256(
-            &source_root.join("docs/design/canonical-schema-successors.json"),
-        )
-        .unwrap();
-        let import_path = source_root.join("reports/dots-source-import-20261015.json");
-        let import: Value = serde_json::from_slice(&std::fs::read(&import_path).unwrap()).unwrap();
-        let (producer_descriptor_sha256, producer_replacements_verified) =
-            crate::source_tools::measure_successors::verify_native_producer_descriptor(
-                &source_root,
-                &baseline,
-                &baseline_sha,
+            let reference_path = candidate_root
+                .join("database/migrations")
+                .join(BASELINE)
+                .join("024_verification.json");
+            let mut reference: Value =
+                serde_json::from_slice(&std::fs::read(&reference_path).unwrap()).unwrap();
+            reference["changes"]["24"] = json!("0".repeat(64));
+            std::fs::write(
+                &reference_path,
+                serde_json::to_vec_pretty(&reference).unwrap(),
             )
             .unwrap();
-        let source_distribution = json!({
-            "archive_sha256": import["archive_sha256"],
-            "import_manifest_sha256": import["manifest_sha256"],
-            "import_receipt_sha256": manifest::file_sha256(&import_path).unwrap(),
-            "source_files": 4599,
-            "rust_files": 2082,
-            "verified_source_files": 4599,
-            "all_source_files_match_archive": true,
-            "python_source_files_in_archive": 0,
-            "producer_descriptor_sha256": producer_descriptor_sha256,
-            "producer_replacements_verified": producer_replacements_verified,
-            "historical_preimage_sha256": "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc",
-            "historical_preimage_verified": true,
-            "historical_git_blobs_verified": false
-        });
-        let measurement_receipt = json!({
-            "schema": "ai-platform/canonical-successor-measurement/v1",
-            "status": "measured_external_preview",
-            "database_actions": true,
-            "database_actions_scope": "named_isolated_database_only",
-            "source_activation": false,
-            "expected_database": "schema_successor_verify_abcdefgh",
-            "source_plan_sha256": source_plan_sha,
-            "baseline_manifest_sha256": baseline_sha,
-            "epoch_manifest_sha256": epoch_sha,
-            "successor_sequences": [18, 19, 20],
-            "verification_refs": references,
-            "post_migration_noop": true,
-            "source_distribution": source_distribution
-        });
-        std::fs::write(
-            candidate_root.join("SUCCESSOR_MEASUREMENT.json"),
-            serde_json::to_vec(&measurement_receipt).unwrap(),
-        )
-        .unwrap();
-        assert!(
-            successors::verify_measured_preview_with_preimage_root(
-                &source_root,
-                &candidate_root,
-                Some(&preimage_root)
-            )
-            .is_ok(),
-            "synthetic but source-bound artifact shape should validate offline"
-        );
-
-        std::fs::write(
-            paths.epoch_dir(BASELINE).join("018_verification.json"),
-            br#"{"tampered":true}"#,
-        )
-        .unwrap();
-        assert!(
-            successors::verify_measured_preview_with_preimage_root(
-                &source_root,
-                &candidate_root,
-                Some(&preimage_root)
-            )
-            .is_err()
-        );
+            assert!(
+                crate::source_tools::next_successor_024::verify_measured_preview(
+                    &source_root,
+                    &candidate_root
+                )
+                .is_err()
+            );
+        } else {
+            assert_eq!(
+                active_epoch(&source_root),
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH
+            );
+            let (plan, verified) =
+                crate::source_tools::next_successor_024::verify_activated_source(&source_root)
+                    .unwrap();
+            assert_eq!(plan["predecessor_epoch"], 23);
+            assert_eq!(verified.changes.len(), 24);
+            let copied_source =
+                copy_active_024_source(&source_root, &scratch.0.join("source-copy"));
+            crate::source_tools::next_successor_024::verify_activated_source(&copied_source)
+                .unwrap();
+            let reference_path = copied_source
+                .join("database/migrations")
+                .join(BASELINE)
+                .join("024_verification.json");
+            std::fs::write(&reference_path, br#"{"tampered":true}"#).unwrap();
+            assert!(
+                crate::source_tools::next_successor_024::verify_activated_source(&copied_source)
+                    .is_err()
+            );
+        }
     }
 
     #[test]

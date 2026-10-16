@@ -1,0 +1,53 @@
+{
+  "schema": "agentforge/knowledge-publication-permission-failure/v1",
+  "captured_at": "2026-10-16T08:49:56.103Z",
+  "dataset_id": "native-knowledge-acceptance-20261016",
+  "document_id": "5557c9c6-5fa9-42cf-b217-3aa3f225848c",
+  "execution_id": "0155cffd058c4ea2aebef53a54dbf540",
+  "request_started_at": "2026-10-16T08:39:56.681Z",
+  "postgres_failure_at": "2026-10-16T08:40:01.833561753Z",
+  "worker_safe_warning_at": "2026-10-16T08:40:01.836138Z",
+  "sqlstate": "42501",
+  "error_class": "database",
+  "operation": "SELECT active immutable source version FOR UPDATE",
+  "object": "knowledge.document_versions",
+  "principal": "ai_gateway_knowledge_worker",
+  "actual_permissions": {
+    "select": true,
+    "insert": true,
+    "delete": true,
+    "update": false,
+    "update_change_type": false,
+    "update_metadata": false
+  },
+  "cause": "PostgreSQL requires UPDATE on at least one column for the requested row lock. The failure precedes create_version; INSERT is already granted.",
+  "reviewed_minimum_successor_correction": {
+    "worker_only_column_updates": [
+      "change_type",
+      "metadata"
+    ],
+    "change_type_reason": "Existing ordinary and special restore publication finalizes pending version classifications.",
+    "metadata_reason": "Existing Worker hierarchy/vision publication and restore merge their historical source manifest into version metadata; own-role read-only EXPLAIN confirms42501.",
+    "content_columns_remain_without_update": [
+      "content",
+      "content_hash",
+      "document_id",
+      "version_number",
+      "title"
+    ],
+    "table_update_remains": false
+  },
+  "separate_batch_poller_gap": {
+    "tables": [
+      "knowledge.kb_document_batch_operations",
+      "knowledge.kb_document_batch_items"
+    ],
+    "worker_rights_required": [
+      "SELECT",
+      "UPDATE"
+    ],
+    "ordinary_publication_cause": false
+  },
+  "status": "blocked_pending_canonical_successor_023",
+  "raw_logs": "Private mode0600 captures only; no raw SQL driver text, DSN or provider credentials included."
+}

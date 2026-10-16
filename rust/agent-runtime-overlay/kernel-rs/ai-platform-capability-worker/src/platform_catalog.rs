@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 const CATALOG_SCHEMA_VERSION: &str = "ai-platform-capability-catalog/v1";
+const LOCAL_NODE_CAPABILITY_PROTOCOL: &str = "local-node-capability/v2";
 const MIN_CAPABILITIES: usize = 1;
 const MAX_CAPABILITIES: usize = 256;
 
@@ -193,16 +194,22 @@ fn validate_record(record: &PlatformCapabilityRecord) -> Result<(), PlatformCata
             "implementation_owner",
         ));
     }
-    if let Some(provider) = record.connector_provider.as_deref()
-        && (record.implementation_owner != "worker"
-            || record.protocol != "internal"
+    if let Some(provider) = record.connector_provider.as_deref() {
+        let protocol_matches_provider = match provider {
+            "confluence" => record.protocol == "internal",
+            "local_node" => record.protocol == LOCAL_NODE_CAPABILITY_PROTOCOL,
+            _ => false,
+        };
+        if record.implementation_owner != "worker"
             || record.kind != "tool"
-            || !is_capability_name(provider))
-    {
-        return Err(PlatformCatalogError::Field(
-            record.name.clone(),
-            "connector_provider",
-        ));
+            || !is_capability_name(provider)
+            || !protocol_matches_provider
+        {
+            return Err(PlatformCatalogError::Field(
+                record.name.clone(),
+                "connector_provider",
+            ));
+        }
     }
     if !matches!(
         record.category.as_str(),
@@ -565,6 +572,46 @@ mod tests {
     }
 
     #[test]
+    fn connector_provider_protocols_are_bound_to_their_worker_channels() {
+        let catalog = load_platform_catalog().expect("embedded catalog must load");
+        let local_node = catalog
+            .capabilities
+            .iter()
+            .find(|record| record.id == "local_node_action")
+            .expect("Local Node action");
+        assert_eq!(local_node.connector_provider.as_deref(), Some("local_node"));
+        assert_eq!(local_node.protocol, LOCAL_NODE_CAPABILITY_PROTOCOL);
+        validate_record(local_node).expect("Local Node provider must use its v2 protocol");
+
+        let mut mismatched_local_node = local_node.clone();
+        mismatched_local_node.protocol = "internal".into();
+        assert!(matches!(
+            validate_record(&mismatched_local_node),
+            Err(PlatformCatalogError::Field(_, "connector_provider"))
+        ));
+
+        let mut mismatched_confluence = catalog
+            .capabilities
+            .iter()
+            .find(|record| record.connector_provider.as_deref() == Some("confluence"))
+            .expect("Confluence connector capability")
+            .clone();
+        mismatched_confluence.protocol = LOCAL_NODE_CAPABILITY_PROTOCOL.into();
+        assert!(matches!(
+            validate_record(&mismatched_confluence),
+            Err(PlatformCatalogError::Field(_, "connector_provider"))
+        ));
+
+        let mut unknown_provider = local_node.clone();
+        unknown_provider.connector_provider = Some("unknown_connector".into());
+        unknown_provider.protocol = "internal".into();
+        assert!(matches!(
+            validate_record(&unknown_provider),
+            Err(PlatformCatalogError::Field(_, "connector_provider"))
+        ));
+    }
+
+    #[test]
     fn worker_registry_contains_only_implemented_read_capabilities() {
         let descriptors = worker_capability_catalog().expect("worker catalog must load");
         for capability_id in [
@@ -612,6 +659,12 @@ mod tests {
         assert!(enabled.contains_key("generate_image"));
         assert!(enabled.contains_key("execute_python_code"));
         assert!(enabled.contains_key("local_node_action"));
+        assert!(
+            enabled["local_node_action"]
+                .tags
+                .iter()
+                .any(|tag| tag == "binding-type:connector")
+        );
         assert!(enabled.contains_key("mcp_docgen__generate_document"));
         for capability_id in [
             "mcp_docgen__modify_document",

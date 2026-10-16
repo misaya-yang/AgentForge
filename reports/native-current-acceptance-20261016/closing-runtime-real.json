@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-16T11:37:33.283Z",
+  "project": "agentforge-dev-7801d4a9a4",
+  "overlay_sha256": "037ec2fc11eb46e3475730e78edc0da09e3c8add2bbfb2acf15b74cb82246ce1",
+  "source_revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d+037ec2fc11eb",
+  "runtime": {
+    "image": "ai-gateway-agent-runtime:local-092d3acd6bec-037ec2fc11eb",
+    "digest": "sha256:0d99354adc57d8a053c8ff0ad19350e069c0eeacd80d410a5abcf34a16371d63"
+  },
+  "worker": {
+    "image": "ai-gateway-agent-capability-worker:local-092d3acd6bec-037ec2fc11eb",
+    "digest": "sha256:b3e6c5355276c344008b1000b86153f6e121ed8263dbb5dc07cb0b285fd82939"
+  },
+  "docker_library_tests": {
+    "runtime": {
+      "passed": 101,
+      "failed": 0,
+      "ignored": 3
+    },
+    "worker": {
+      "passed": 86,
+      "failed": 0,
+      "ignored": 1
+    }
+  },
+  "source_lock_image_pair": "passed",
+  "same_six_volumes_preserved": true,
+  "gateway_readiness": {
+    "status": "passed_HTTP_200_before_owner_stop",
+    "thread_create": "passed_HTTP_201",
+    "current_process_state": "stopped_at_owner_request"
+  },
+  "notes": [
+    "Fixed closed provider/protocol validator for LocalNode startup.",
+    "Timeout fixture now deterministically exercises deadline and cancellation; production success is not falsely rejected.",
+    "P1 sandbox WIP excluded."
+  ],
+  "environment_at_handoff": {
+    "docker": "closed_by_owner",
+    "docker_restarted": false,
+    "owned_host_services": "stopped",
+    "local_node_cli": "already_stopped_when_cleanup_requested",
+    "volumes": "preserved_not_removed"
+  }
+}

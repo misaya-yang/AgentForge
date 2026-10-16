@@ -99,14 +99,18 @@ impl HttpsTransport {
             request = request.header("Authorization", format!("Device {}", c.secret));
         }
         let mut response = request.send().await.map_err(|_| Error::Transport)?;
-        if response.status() != reqwest::StatusCode::OK
-            || response
-                .headers()
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.split(';').next())
-                .map(str::trim)
-                != Some("application/json")
+        if response.status() != reqwest::StatusCode::OK {
+            // A status code is safe pairing diagnostics; never include a response
+            // body, which may contain a credential or other sensitive detail.
+            return Err(Error::HttpStatus(response.status().as_u16()));
+        }
+        if response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(';').next())
+            .map(str::trim)
+            != Some("application/json")
         {
             return Err(Error::Protocol);
         }
@@ -169,6 +173,14 @@ mod tests {
         ] {
             assert!(HttpsTransport::new(url, Duration::from_secs(20)).is_err());
         }
+    }
+
+    #[test]
+    fn http_status_diagnostics_never_need_the_response_body() {
+        assert_eq!(
+            Error::HttpStatus(422).to_string(),
+            "remote returned HTTP status 422"
+        );
     }
 
     #[test]

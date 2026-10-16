@@ -1,13 +1,245 @@
 //! Historical source snapshots and transactional restore admission.
 use super::{
     Actor, Dataset, IngestError, IngestionService, Result, canonical_json,
-    chunking::ChunkingConfig, hierarchy::CandidatePlan, integer, object, require_index_writable,
-    sha256, sql, store::KnowledgeWriteStore, string,
+    chunking::ChunkingConfig, dataset_ingestion_identity, hierarchy::CandidatePlan, integer,
+    object, require_index_writable, sha256, sql, store::KnowledgeWriteStore, string,
 };
 use serde_json::{Value, json};
 use sqlx::Connection;
 use std::collections::BTreeMap;
+
+fn current_text_source_matches_active_version(
+    document: &Value,
+    active: &Value,
+    expected_version: i32,
+) -> bool {
+    let content = string(document, "content");
+    expected_version > 0
+        && string(document, "source_type") == "text"
+        && string(document, "status") == "completed"
+        && document["enabled"].as_bool() != Some(false)
+        && document["archived"].as_bool() != Some(true)
+        && integer(document, "current_version") == expected_version as i64
+        && integer(active, "version_number") == expected_version as i64
+        && !super::is_hidden_version_change_type(&string(active, "change_type"))
+        && string(active, "content") == content
+        && string(active, "content_hash") == sha256(content.as_bytes())
+}
+
 impl IngestionService {
+    pub async fn replace_text_source(
+        &self,
+        actor: &Actor,
+        dataset: &str,
+        document: &str,
+        expected_current_version: i32,
+        content: &str,
+    ) -> Result<Value> {
+        if content.len() > super::request_validation::MAX_TEXT_SOURCE_REPLACE_BYTES {
+            return Err(IngestError::Validation(
+                "text source replacement exceeds the 1 MiB byte limit".into(),
+            ));
+        }
+        let content = super::parser::sanitize_text(content)?;
+        if content.trim().is_empty() {
+            return Err(IngestError::Validation(
+                "text source replacement cannot be blank".into(),
+            ));
+        }
+        let initial = self
+            .store
+            .require_dataset_access(actor, dataset, "editor")
+            .await?;
+        require_index_writable(&initial)?;
+        let identity = dataset_ingestion_identity(&initial);
+        let mut lease = self.store.document_lease(dataset, document).await?;
+        let fresh = self
+            .store
+            .require_dataset_access(actor, dataset, "editor")
+            .await?;
+        let mut tx = lease.connection().begin().await?;
+        let authoritative = KnowledgeWriteStore::require_identity(
+            &mut tx,
+            dataset,
+            Some(&identity),
+        )
+        .await?;
+        if fresh["tenant_id"] != authoritative["tenant_id"] {
+            return Err(IngestError::GenerationChanged);
+        }
+        require_index_writable(&authoritative)?;
+        let index = object(&authoritative["index_config"]);
+        if string(&index["chunking"], "mode")
+            .trim()
+            .eq_ignore_ascii_case("hierarchical")
+        {
+            return Err(IngestError::Validation(
+                "text source replacement currently requires standard text chunking".into(),
+            ));
+        }
+        ChunkingConfig::from_value(&index["chunking"])?;
+        let current: Value = sqlx::query_scalar(
+            "SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 FOR UPDATE",
+        )
+        .bind(document)
+        .bind(dataset)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(IngestError::NotFound)?;
+        let metadata = object(&current["metadata"]);
+        if string(&current, "source_type") != "text"
+            || !["", "text_only"].contains(&string(&metadata, "processing_mode"))
+        {
+            return Err(IngestError::Validation(
+                "text source replacement is only available for plain text documents".into(),
+            ));
+        }
+        if current["enabled"].as_bool() == Some(false)
+            || current["archived"].as_bool() == Some(true)
+            || string(&current, "status") != "completed"
+            || metadata.get("_document_lifecycle_reindex").is_some()
+            || metadata.get("_document_pending_restore_version").is_some()
+            || metadata
+                .get("_document_pending_text_update_version")
+                .is_some()
+        {
+            return Err(IngestError::GenerationChanged);
+        }
+        let previous = integer(&current, "current_version");
+        if previous <= 0 || previous != expected_current_version as i64 {
+            return Err(IngestError::GenerationChanged);
+        }
+        let active_query = format!(
+            "SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ({})",
+            super::HIDDEN_VERSION_CHANGE_TYPES_SQL
+        );
+        let active: Value = sqlx::query_scalar(&active_query)
+            .bind(document)
+            .bind(expected_current_version)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(IngestError::GenerationChanged)?;
+        if !current_text_source_matches_active_version(
+            &current,
+            &active,
+            expected_current_version,
+        ) {
+            return Err(IngestError::GenerationChanged);
+        }
+        let old_content = string(&current, "content");
+        let old_hash = sha256(old_content.as_bytes());
+        if content == old_content {
+            tx.rollback().await?;
+            lease.release().await?;
+            return Ok(json!({
+                "status":"unchanged",
+                "document_id":document,
+                "current_version":previous
+            }));
+        }
+
+        let mut version_metadata = metadata.clone();
+        if let Some(fields) = version_metadata.as_object_mut() {
+            for key in [
+                "_document_ingest_action",
+                "_document_recover_stage",
+                "_document_pipeline_execution_id",
+                "_document_pending_restore_version",
+                "_document_pending_text_update_version",
+                "_document_restored_source_version",
+            ] {
+                fields.remove(key);
+            }
+        }
+        let candidate = KnowledgeWriteStore::create_version(
+            &mut tx,
+            document,
+            &content,
+            "pending_update",
+            Some(string(&current, "title")),
+            &version_metadata,
+            Some("Text source replacement"),
+            Some(&actor.user_id),
+            false,
+        )
+        .await?;
+        let candidate_version = integer(&candidate, "version_number");
+        if candidate_version <= previous {
+            return Err(IngestError::GenerationChanged);
+        }
+        let pending = json!({
+            "previous_version":previous,
+            "candidate_version":candidate_version,
+            "previous_content_hash":old_hash,
+        });
+        let processing_mode = string(&metadata, "processing_mode");
+        let processing_mode = if processing_mode.trim().is_empty() {
+            "text_only"
+        } else {
+            &processing_mode
+        };
+        let snapshot = json!({
+            "index_config":index.clone(),
+            "chunking":object(&index["chunking"]),
+            "processing_mode":processing_mode,
+        });
+        let rule = KnowledgeWriteStore::record_process_rule(
+            &mut tx,
+            dataset,
+            processing_mode,
+            &snapshot,
+            Some(&actor.user_id),
+        )
+        .await?;
+        let execution = KnowledgeWriteStore::record_execution(
+            &mut tx,
+            dataset,
+            document,
+            "reprocess",
+            "api",
+            Some(&actor.user_id),
+            Some(&rule),
+            &snapshot,
+        )
+        .await?;
+        let attached = sqlx::query(
+            "UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object('_document_pending_text_update_version',$3::jsonb) WHERE document_id=$1 AND dataset_id=$2 AND status='completed' AND current_version=$4 AND content=$5 AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_pending_restore_version') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_pending_text_update_version') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_lifecycle_reindex') RETURNING document_id",
+        )
+        .bind(document)
+        .bind(dataset)
+        .bind(&pending)
+        .bind(expected_current_version)
+        .bind(old_content)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if attached.is_none() {
+            return Err(IngestError::GenerationChanged);
+        }
+        if !KnowledgeWriteStore::enqueue_on(
+            &mut tx,
+            dataset,
+            document,
+            Some("reprocess"),
+            None,
+            Some(&execution),
+            true,
+        )
+        .await?
+        {
+            return Err(IngestError::GenerationChanged);
+        }
+        tx.commit().await?;
+        lease.release().await?;
+        Ok(json!({
+            "status":"pending",
+            "document_id":document,
+            "previous_version":previous,
+            "candidate_version":candidate_version,
+            "execution_id":execution,
+            "message":"Text source replacement was queued; the current version remains active until publication completes."
+        }))
+    }
+
     pub async fn restore_version(
         &self,
         actor: &Actor,
@@ -44,7 +276,8 @@ impl IngestionService {
                 "Document is not active and restore-ready".into(),
             ));
         }
-        let target:Value=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ('pending_restore','pending_before_restore')").bind(document).bind(version).fetch_optional(&mut *tx).await?.ok_or(IngestError::NotFound)?;
+        let visible_version_query = format!("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ({})", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+        let target:Value=sqlx::query_scalar(&visible_version_query).bind(document).bind(version).fetch_optional(&mut *tx).await?.ok_or(IngestError::NotFound)?;
         let target_meta = object(&target["metadata"]);
         let source = object(&target_meta["_special_source_manifest"]);
         let kind = string(&source, "source_kind");
@@ -302,5 +535,50 @@ impl IngestionService {
             total_pages: None,
             extracted_texts: BTreeMap::new(),
         })
+    }
+}
+
+#[cfg(test)]
+mod text_source_replacement_tests {
+    use super::*;
+
+    #[test]
+    fn source_replacement_admission_rejects_stale_or_nonactive_versions() {
+        let content = "published v1";
+        let document = json!({
+            "source_type":"text",
+            "status":"completed",
+            "enabled":true,
+            "archived":false,
+            "current_version":7,
+            "content":content,
+        });
+        let active = json!({
+            "version_number":7,
+            "change_type":"updated",
+            "content":content,
+            "content_hash":sha256(content.as_bytes()),
+        });
+        assert!(current_text_source_matches_active_version(&document, &active, 7));
+        assert!(!current_text_source_matches_active_version(&document, &active, 6));
+
+        let pending = json!({
+            "version_number":7,
+            "change_type":"pending_update",
+            "content":content,
+            "content_hash":sha256(content.as_bytes()),
+        });
+        assert!(!current_text_source_matches_active_version(&document, &pending, 7));
+        let changed_content = json!({
+            "version_number":7,
+            "change_type":"updated",
+            "content":"different source",
+            "content_hash":sha256(b"different source"),
+        });
+        assert!(!current_text_source_matches_active_version(
+            &document,
+            &changed_content,
+            7
+        ));
     }
 }

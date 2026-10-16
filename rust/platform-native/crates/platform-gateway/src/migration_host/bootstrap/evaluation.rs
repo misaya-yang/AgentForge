@@ -15,8 +15,8 @@ use crate::{
     },
     usage_parser::python_whitespace,
 };
-use jsonwebtoken::Algorithm;
-use std::{collections::BTreeMap, str::FromStr, sync::Arc, time::Duration};
+use ai_platform_auth::{JwtKeyConfig, JwtSigningMode, TokenCodec};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// Contains captured signing/credential material; deliberately not Debug/Serialize.
 pub struct EvaluationConfiguration {
@@ -31,8 +31,10 @@ pub struct EvaluationConfiguration {
     pub candidate_origin: String,
     pub candidate_token: Option<String>,
     pub candidate_api_key: Option<String>,
+    pub jwt_mode: JwtSigningMode,
     pub jwt_secret: String,
-    pub jwt_algorithm: String,
+    pub jwt_active_kid: Option<String>,
+    pub jwt_keys: Vec<JwtKeyConfig>,
     pub jwt_audience: Option<String>,
     pub jwt_issuer: Option<String>,
 }
@@ -92,12 +94,10 @@ impl EvaluationConfiguration {
                 .or_else(|| nonblank("GATEWAY_API_KEY")),
             // Use the same resolved signing authority as the actual Gateway.
             // No parallel default/dev secret is generated for evaluations.
+            jwt_mode: jwt.mode,
             jwt_secret: jwt.secret.clone(),
-            jwt_algorithm: jwt
-                .algorithms
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "HS256".into()),
+            jwt_active_kid: jwt.active_kid.clone(),
+            jwt_keys: jwt.key_configs(environment, true),
             jwt_audience: jwt.audience.clone(),
             jwt_issuer: jwt.issuer.clone(),
         })
@@ -123,17 +123,20 @@ impl EvaluationServices {
                 concurrency: config.concurrency,
             }));
         }
-        let algorithm = Algorithm::from_str(&config.jwt_algorithm)
-            .map_err(|_| BootstrapError::Configuration("eval_jwt_algorithm"))?;
-        let signer = Arc::new(
-            EvalJwtSigner::new(
-                config.jwt_secret.as_bytes(),
-                algorithm,
-                config.jwt_audience,
-                config.jwt_issuer,
-            )
-            .map_err(|_| BootstrapError::Configuration("eval_jwt"))?,
-        );
+        let codec = TokenCodec::from_keyring(
+            config.jwt_mode,
+            config.jwt_secret.as_bytes(),
+            config.jwt_active_kid.as_deref(),
+            &config.jwt_keys,
+            config.jwt_audience.clone(),
+            config.jwt_issuer.clone(),
+        )
+        .map_err(|_| BootstrapError::Configuration("eval_jwt"))?;
+        let signer = Arc::new(EvalJwtSigner::from_signer(
+            codec.signer(),
+            config.jwt_audience,
+            config.jwt_issuer,
+        ));
         let llm = if config.judge_enabled {
             Some(Arc::new(
                 EvalGatewayLlmClient::new(

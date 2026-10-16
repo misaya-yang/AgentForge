@@ -10,7 +10,7 @@ use std::{
     path::{Component, Path},
 };
 
-pub const LOCK_SHA256: &str = "df91c12df09ecd9f6361eceaf476ac3230cff43e1548217cfcd214286ee37855";
+pub const LOCK_SHA256: &str = "912572fc1a7abad3587051d7c37ca4d999c79a187b96bd1eba9dac09305b7789";
 pub const PREDECESSOR_LOCK_SHA256: &str =
     "13a31fc7ca785e218f5c799f962226fbe4b393df1c0ef1abd079117cd24baf54";
 const LOCK: &str = "authority/package-authority-lock.json";

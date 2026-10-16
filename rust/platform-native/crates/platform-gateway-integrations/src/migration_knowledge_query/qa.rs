@@ -51,50 +51,7 @@ impl QaService {
         }
     }
     pub fn validate_selector(&self, selector: &LlmSelector) -> Result<()> {
-        let provider = selector
-            .provider
-            .as_deref()
-            .unwrap_or(&self.config.provider)
-            .trim()
-            .to_lowercase();
-        let model = selector
-            .model
-            .as_deref()
-            .unwrap_or(&self.config.model)
-            .trim();
-        if !self.config.allowed_providers.contains(&provider)
-            || !self.config.allowed_models.contains(model)
-        {
-            return Err(QueryError::Validation(
-                "QA provider or model is not allowlisted".into(),
-            ));
-        }
-        if provider != "dashscope" {
-            return Err(QueryError::Validation(
-                "Only the server-owned DashScope QA provider is enabled".into(),
-            ));
-        }
-        if self.config.api_key.is_empty() || self.config.base_url.is_empty() {
-            return Err(QueryError::Validation(
-                "DashScope QA is not configured".into(),
-            ));
-        }
-        if selector
-            .temperature
-            .is_some_and(|v| !v.is_finite() || !(0.0..=2.0).contains(&v))
-            || selector
-                .max_tokens
-                .is_some_and(|v| !(1..=4096).contains(&v))
-            || selector
-                .system_prompt
-                .as_ref()
-                .is_some_and(|s| s.chars().count() > 4000)
-        {
-            return Err(QueryError::Validation(
-                "QA generation preferences are outside permitted bounds".into(),
-            ));
-        }
-        Ok(())
+        validate_selector_config(&self.config, selector)
     }
     fn payload(
         &self,
@@ -332,6 +289,41 @@ impl QaService {
         Ok(())
     }
 }
+fn validate_selector_config(config: &QaConfig, selector: &LlmSelector) -> Result<()> {
+    let provider = selector
+        .provider
+        .as_deref()
+        .unwrap_or(&config.provider)
+        .trim()
+        .to_lowercase();
+    let model = selector.model.as_deref().unwrap_or(&config.model).trim();
+    if !config.allowed_providers.contains(&provider) || !config.allowed_models.contains(model) {
+        return Err(QueryError::Validation(
+            "QA provider or model is not allowlisted".into(),
+        ));
+    }
+    if config.api_key.is_empty() || config.base_url.is_empty() {
+        return Err(QueryError::Validation(
+            "QA provider is not configured".into(),
+        ));
+    }
+    if selector
+        .temperature
+        .is_some_and(|v| !v.is_finite() || !(0.0..=2.0).contains(&v))
+        || selector
+            .max_tokens
+            .is_some_and(|v| !(1..=4096).contains(&v))
+        || selector
+            .system_prompt
+            .as_ref()
+            .is_some_and(|s| s.chars().count() > 4000)
+    {
+        return Err(QueryError::Validation(
+            "QA generation preferences are outside permitted bounds".into(),
+        ));
+    }
+    Ok(())
+}
 pub fn manual_source(metadata: &Value) -> bool {
     metadata["source_type"] == "manual"
         || metadata["manual_source_override"] == true
@@ -567,4 +559,43 @@ pub fn aggregate_test_results(results: &[Value]) -> Value {
         )
     };
     json!({"total":results.len(),"answer_accuracy":accuracy,"avg_retrieval_recall":average("retrieval_recall"),"avg_retrieval_precision":average("retrieval_precision"),"timing":{"avg_retrieval_ms":time("retrieval_ms"),"avg_llm_ms":time("llm_ms"),"avg_total_ms":time("total_ms")}})
+}
+
+#[cfg(test)]
+mod selector_tests {
+    use super::*;
+
+    fn config(provider: &str, model: &str) -> QaConfig {
+        QaConfig {
+            provider: provider.into(),
+            model: model.into(),
+            allowed_providers: BTreeSet::from([provider.into()]),
+            allowed_models: BTreeSet::from([model.into()]),
+            api_key: "configured".into(),
+            base_url: "https://provider.example/v1".into(),
+            timeout: Duration::from_secs(30),
+        }
+    }
+
+    #[test]
+    fn configured_provider_and_model_are_accepted() {
+        for (provider, model) in [
+            ("dashscope", "qwen3.8-flash"),
+            ("gemini", "gemini-2.0-flash"),
+        ] {
+            let config = config(provider, model);
+            assert!(validate_selector_config(&config, &LlmSelector::default()).is_ok());
+        }
+    }
+
+    #[test]
+    fn selector_cannot_escape_provider_or_model_allowlists() {
+        let config = config("dashscope", "qwen3.8-flash");
+        let selector = LlmSelector {
+            provider: Some("gemini".into()),
+            model: Some("gemini-2.0-flash".into()),
+            ..LlmSelector::default()
+        };
+        assert!(validate_selector_config(&config, &selector).is_err());
+    }
 }

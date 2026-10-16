@@ -1,0 +1,69 @@
+{
+  "schema": "agentforge/post-clean-runtime-acceptance/v1",
+  "captured_at": "2026-10-16T08:07:32.474Z",
+  "clean_pushed_checkpoint": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "started_from_clean_tree": true,
+  "source_images": {
+    "captured_at": "2026-10-16T07:58:36.020Z",
+    "overlay_sha256": "20f13835e49d829e1c4f3989f391acc40a52342a365ba70a2191311e558b2387",
+    "runtime": {
+      "image": "ai-gateway-agent-runtime:local-092d3acd6bec-20f13835e49d",
+      "digest": "sha256:8b4f1e204634931bed7caff7c6dd846fc2bb5de55e9eccdb8b5d65b6d3381707"
+    },
+    "capability_worker": {
+      "image": "ai-gateway-agent-capability-worker:local-092d3acd6bec-20f13835e49d",
+      "digest": "sha256:16dd15a029a4eb64ae196333be9fc7c5decc40603e1b8c5679481705cc4d0ecd"
+    },
+    "builder": "agentforge-rust-c4b4565e14f050b5"
+  },
+  "project": {
+    "name": "agentforge-dev-7801d4a9a4",
+    "root": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild",
+    "all_container_roots_updated": true,
+    "volumes_preserved": [
+      "agentforge-dev-7801d4a9a4_agent-runtime-home",
+      "agentforge-dev-7801d4a9a4_agent-capability-workspaces",
+      "agentforge-dev-7801d4a9a4_redis",
+      "agentforge-dev-7801d4a9a4_postgres",
+      "agentforge-dev-7801d4a9a4_qdrant",
+      "agentforge-dev-7801d4a9a4_object-store"
+    ],
+    "health": [
+      {
+        "service": "runtime",
+        "status": 200
+      },
+      {
+        "service": "capability-worker",
+        "status": 200
+      },
+      {
+        "service": "gateway-readiness",
+        "status": 200
+      }
+    ]
+  },
+  "gateway": {
+    "pid": 30358,
+    "binary_sha256": "9bc11b057461473de34a12af9a113f59eb130287bcb6cc9ccca9fd5225796d8b",
+    "source_schema_epoch": 22,
+    "kernel_revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d+20f13835e49d"
+  },
+  "frontend": {
+    "rerank_settings_save_reload": "passed",
+    "model": "qwen3-rerank",
+    "focused_tests": 19,
+    "app_and_node_typecheck": "passed",
+    "i18n": "passed",
+    "screenshot": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/local-application/screenshots/post-clean-qwen-rerank-settings-saved-20261016.png"
+  },
+  "bounded_history": "Original never-started session now history/detail200 and empty as expected; see assistant-history-postfix-bounded.json",
+  "not_accepted": [
+    "Main Assistant first text returned503 AGENT_STORAGE_UNAVAILABLE even on the current matching Runtime/Worker cohort; exact stage/SQLSTATE under diagnosis, no successful turn or provider completion claimed.",
+    "Knowledge reindex publication failed; initial missing document_versions INSERT diagnosis was disproved by fresh direct catalog/privilege checks, no such grant will be added.",
+    "Knowledge embedding migration GET and Worker pending have confirmed exact42501 table rights gaps; inactive023 will include the minimum required API/control and Worker progress SELECT alongside LocalNode credentials.",
+    "Some fresh retrieval requests return BM25 only or vector-store failure; versioned source view remains unavailable for prior documents.",
+    "LocalNode production pairing/control remains unverified and successor023 inactive."
+  ],
+  "status": "in_progress"
+}

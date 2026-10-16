@@ -88,9 +88,16 @@ pub(super) async fn run_execution(
     // Check again at actual dispatch, including restart recovery. Never replay
     // an old descriptor using a replacement plugin activation or implementation.
     let pack_bound = descriptor.tags.iter().any(|tag| tag.starts_with("plugin-"))
-        || state.plugin_activation.as_ref().is_some_and(|active| active.managed.contains(&descriptor.id))
+        || state
+            .plugin_activation
+            .as_ref()
+            .is_some_and(|active| active.managed.contains(&descriptor.id))
         || !dispatch.record.resource_binding["plugin_activation"].is_null();
-    let saved_descriptor = dispatch.record.resource_binding.get("descriptor").cloned()
+    let saved_descriptor = dispatch
+        .record
+        .resource_binding
+        .get("descriptor")
+        .cloned()
         .and_then(|value| serde_json::from_value::<CapabilityDescriptorV2>(value).ok());
     if descriptor.validate().is_err()
         || descriptor.id != capability_id
@@ -100,12 +107,22 @@ pub(super) async fn run_execution(
         || (pack_bound && saved_descriptor.as_ref() != Some(&descriptor))
     {
         let payload = BTreeMap::from([(
-            "error_code".to_string(), Value::String("plugin_activation_changed".to_string()),
+            "error_code".to_string(),
+            Value::String("plugin_activation_changed".to_string()),
         )]);
-        if let Err(error) = state.store.append_event(
-            &scope, &execution_id, &event_id_unchecked(&execution_id, 4), "terminal",
-            CapabilityExecutionStatus::Failed, payload, Some(&fence),
-        ).await {
+        if let Err(error) = state
+            .store
+            .append_event(
+                &scope,
+                &execution_id,
+                &event_id_unchecked(&execution_id, 4),
+                "terminal",
+                CapabilityExecutionStatus::Failed,
+                payload,
+                Some(&fence),
+            )
+            .await
+        {
             tracing::error!(%execution_id, %error, "failed to persist plugin activation denial");
         }
         state.forget_cancellation(&execution_id).await;

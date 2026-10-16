@@ -571,7 +571,7 @@ impl RetrievalService {
             c.metadata["_term_matches"] = details["term_matches"].clone();
             c.metadata["_term_ratio"] = details["term_ratio"].clone();
         }
-        let mut meta = json!({"mode":cfg.mode,"fusion_method":cfg.fusion_method,"dense_weight":cfg.dense_weight,"bm25_weight":cfg.bm25_weight,"rrf_k":cfg.rrf_k,"native_hybrid":native_used,"fusion_applied_by":if native_used{"qdrant"}else{"python"},"dense_hits":dense_count,"bm25_hits":bm25_count,"inactive_candidates":inactive,"pipeline_stages":[],"timings_ms":{"dense_prepare_ms":dense_prepare_ms},"recall_max_parallel":self.max_query_concurrency,"score_threshold":if cfg.mode=="dense"{cfg.threshold}else{0.0}});
+        let mut meta = json!({"mode":cfg.mode,"fusion_method":cfg.fusion_method,"dense_weight":cfg.dense_weight,"bm25_weight":cfg.bm25_weight,"rrf_k":cfg.rrf_k,"native_hybrid":native_used,"fusion_applied_by":if native_used{"qdrant"}else{"python"},"dense_hits":dense_count,"bm25_hits":bm25_count,"rerank":cfg.rerank,"inactive_candidates":inactive,"pipeline_stages":[],"timings_ms":{"dense_prepare_ms":dense_prepare_ms},"recall_max_parallel":self.max_query_concurrency,"score_threshold":if cfg.mode=="dense"{cfg.threshold}else{0.0}});
         if let Some(e) = native_error {
             meta["native_hybrid_error"] = json!(e)
         }

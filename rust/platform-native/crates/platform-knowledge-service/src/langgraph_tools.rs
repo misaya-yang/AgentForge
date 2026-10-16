@@ -61,7 +61,7 @@ impl Default for KBRetrievalInput {
             mode: "hybrid".into(),
             intent: "general".into(),
             document_id: None,
-            rerank: false,
+            rerank: true,
             mmr: false,
         }
     }
@@ -81,7 +81,7 @@ impl Default for KBToolConfig {
         Self {
             top_k: 5,
             mode: "hybrid".into(),
-            rerank: false,
+            rerank: true,
             mmr: false,
             include_scores: true,
             max_content_length: 2000,
@@ -163,6 +163,9 @@ fn threshold(value: Option<&Value>) -> Result<Option<f64>> {
                 invalid("knowledge tool score_threshold must be finite and between 0 and 1")
             }),
     }
+}
+fn rerank_enabled(model: &Value) -> bool {
+    model["reranking_enable"].as_bool().unwrap_or(true)
 }
 fn datasets(ids: Vec<String>) -> Result<Vec<String>> {
     if !(1..=8).contains(&ids.len()) {
@@ -527,7 +530,7 @@ impl DifyCompatibleKBAPI {
             query: query.clone(),
             top_k: k,
             mode: mode.into(),
-            rerank: Some(model["reranking_enable"].as_bool().unwrap_or(false)),
+            rerank: Some(rerank_enabled(&model)),
             ..Default::default()
         };
         let (rows, _) = self
@@ -885,5 +888,21 @@ mod tests {
         assert_eq!(request.query, "x");
         assert_eq!(request.score_threshold, Some(0.25));
         assert!(!request.extra.contains_key("intent"));
+    }
+
+    #[test]
+    fn knowledge_tool_rerank_defaults_on_but_explicit_opt_out_is_preserved() {
+        assert!(KBRetrievalInput::default().rerank);
+        let config = KBToolConfig::default();
+        assert!(config.rerank);
+
+        let default_request = request(&config, &json!({"query":"question"}), true).unwrap();
+        assert_eq!(default_request.rerank, Some(true));
+        let opted_out = request(&config, &json!({"query":"question","rerank":false}), true).unwrap();
+        assert_eq!(opted_out.rerank, Some(false));
+
+        assert!(rerank_enabled(&json!({})));
+        assert!(!rerank_enabled(&json!({"reranking_enable":false})));
+        assert!(rerank_enabled(&json!({"reranking_enable":true})));
     }
 }

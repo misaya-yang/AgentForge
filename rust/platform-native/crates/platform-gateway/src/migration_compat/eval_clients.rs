@@ -3,15 +3,15 @@ use super::{
     common::{CompatError, hex, text},
     eval::normalize_ragas_results,
 };
+use ai_platform_auth::{JwtSigner, TokenCodec};
 use hmac::{Hmac, Mac};
-use jsonwebtoken::{Algorithm, EncodingKey, Header};
+use jsonwebtoken::Algorithm;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Duration};
 
 pub struct EvalJwtSigner {
-    key: EncodingKey,
-    algorithm: Algorithm,
+    signer: JwtSigner,
     audience: Option<String>,
     issuer: Option<String>,
 }
@@ -23,30 +23,28 @@ impl EvalJwtSigner {
         issuer: Option<String>,
     ) -> Result<Self, CompatError> {
         let invalid = || CompatError::new(503, "Eval judge JWT configuration invalid");
-        if secret.is_empty() {
+        if algorithm != Algorithm::HS256 {
             return Err(invalid());
         }
-        let key = match algorithm {
-            Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
-                EncodingKey::from_secret(secret)
-            }
-            Algorithm::RS256
-            | Algorithm::RS384
-            | Algorithm::RS512
-            | Algorithm::PS256
-            | Algorithm::PS384
-            | Algorithm::PS512 => EncodingKey::from_rsa_pem(secret).map_err(|_| invalid())?,
-            Algorithm::ES256 | Algorithm::ES384 => {
-                EncodingKey::from_ec_pem(secret).map_err(|_| invalid())?
-            }
-            Algorithm::EdDSA => EncodingKey::from_ed_pem(secret).map_err(|_| invalid())?,
-        };
+        let codec =
+            TokenCodec::new(secret, audience.clone(), issuer.clone()).map_err(|_| invalid())?;
         Ok(Self {
-            key,
-            algorithm,
+            signer: codec.signer(),
             audience,
             issuer,
         })
+    }
+
+    pub fn from_signer(
+        signer: JwtSigner,
+        audience: Option<String>,
+        issuer: Option<String>,
+    ) -> Self {
+        Self {
+            signer,
+            audience,
+            issuer,
+        }
     }
     pub fn token(&self, tenant: &str, delegation: Option<&Value>) -> Result<String, CompatError> {
         let user = if let Some(delegation) = delegation {
@@ -73,7 +71,8 @@ impl EvalJwtSigner {
         if let Some(issuer) = &self.issuer {
             payload["iss"] = json!(issuer);
         }
-        jsonwebtoken::encode(&Header::new(self.algorithm), &payload, &self.key)
+        self.signer
+            .sign(&payload)
             .map_err(|_| CompatError::new(503, "Eval judge JWT signing failed"))
     }
 }
@@ -118,7 +117,8 @@ impl EvalGatewayLlmClient {
     ) -> Result<Self, CompatError> {
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder().retry(reqwest::retry::never())
+            http: reqwest::Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
@@ -208,7 +208,8 @@ impl KbRagasClient {
         }
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder().retry(reqwest::retry::never())
+            http: reqwest::Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))

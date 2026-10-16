@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-10-16T10:08:49.460Z",
+  "gateway_pid": 68524,
+  "status": "passed",
+  "checks": [
+    {
+      "route": "/v1/models",
+      "status": 401,
+      "error_code": "authentication_required",
+      "error_type": "authentication_error",
+      "no_response_content": true
+    },
+    {
+      "route": "/v1/chat/completions",
+      "status": 401,
+      "error_code": "authentication_required",
+      "error_type": "authentication_error",
+      "no_response_content": true
+    },
+    {
+      "route": "/v1/embeddings",
+      "status": 401,
+      "error_code": "authentication_required",
+      "error_type": "authentication_error",
+      "no_response_content": true
+    }
+  ]
+}

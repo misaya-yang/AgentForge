@@ -1028,6 +1028,31 @@ fn validate_heartbeat(request: &HeartbeatRequest) -> Result<(), ()> {
     {
         return Err(());
     }
+    if !request.doctor["permission_snapshot_digest"]
+        .as_str()
+        .is_some_and(|digest| lower_hex(digest, 64))
+    {
+        return Err(());
+    }
+    let claims = request.doctor["capability_claims"].as_array().ok_or(())?;
+    if claims.len() > 32
+        || claims.iter().any(|claim| {
+            claim.as_str().is_none_or(|claim| {
+                !matches!(
+                    claim,
+                    "file.read" | "file.search" | "file.watch" | "file.write"
+                )
+            })
+        })
+        || claims.windows(2).any(|pair| {
+            pair[0]
+                .as_str()
+                .zip(pair[1].as_str())
+                .is_none_or(|(left, right)| left >= right)
+        })
+    {
+        return Err(());
+    }
     let mut previous = None;
     for receipt in &request.receipts {
         if receipt.sequence == 0
@@ -1217,6 +1242,39 @@ pub(super) fn canonical_json(value: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn heartbeat_request() -> HeartbeatRequest {
+        HeartbeatRequest {
+            protocol_version: PROTOCOL_V2.into(),
+            kind: "heartbeat".into(),
+            device_id: "dev_aaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            receipts: vec![],
+            doctor: json!({
+                "status":"ready",
+                "capability_claims":["file.read","file.search","file.watch"],
+                "permission_snapshot_digest":"a".repeat(64),
+                "os_permission_evidence":"not_provided_by_device_signature"
+            }),
+            sent_at: unix_now(),
+        }
+    }
+
+    #[test]
+    fn heartbeat_requires_a_canonical_bounded_permission_snapshot() {
+        let mut request = heartbeat_request();
+        assert!(validate_heartbeat(&request).is_ok());
+
+        request.doctor["permission_snapshot_digest"] = json!("A".repeat(64));
+        assert!(validate_heartbeat(&request).is_err());
+
+        request = heartbeat_request();
+        request.doctor["capability_claims"] = json!(["file.read", "file.read"]);
+        assert!(validate_heartbeat(&request).is_err());
+
+        request = heartbeat_request();
+        request.doctor["capability_claims"] = json!(["file.read", "filesystem.root"]);
+        assert!(validate_heartbeat(&request).is_err());
+    }
 
     fn context() -> WorkerContext {
         WorkerContext {

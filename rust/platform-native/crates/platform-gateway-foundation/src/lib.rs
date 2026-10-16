@@ -1,5 +1,4 @@
 //! Internal gateway compilation boundary; gateway reexports the public API.
-pub mod native_contract;
 pub mod architecture_status_api;
 pub mod assistant_catalog;
 pub mod assistant_memory_api;
@@ -69,6 +68,9 @@ pub mod model_catalog_sync;
 pub mod model_failover;
 pub mod model_provider_storage;
 pub mod model_service;
+pub mod native_contract;
+pub mod openai_model_access;
+pub mod openai_model_catalog;
 #[doc(hidden)]
 pub mod postgres_operation;
 pub mod presign_api;
@@ -112,10 +114,10 @@ pub mod sessions_api;
 pub mod setup_api;
 pub mod stream_statistics;
 pub mod system_status_api;
-pub mod task_http;
 pub mod task_actor;
 pub mod task_delivery;
 mod task_durable_worker;
+pub mod task_http;
 pub mod task_manager;
 pub mod task_storage;
 pub mod task_worker;
@@ -134,8 +136,8 @@ pub mod python_json;
 
 pub mod sdk_agent_config;
 
-pub mod sdk_read_grants;
 pub mod sdk_capabilities;
+pub mod sdk_read_grants;
 
 pub mod model_catalog_review;
 

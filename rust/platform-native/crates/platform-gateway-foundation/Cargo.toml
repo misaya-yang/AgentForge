@@ -6,9 +6,11 @@ license.workspace = true
 [dependencies]
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
-opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "grpc-tonic", "tls-roots"] }
+opentelemetry = { version = "0.31", default-features = false, features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "metrics", "grpc-tonic", "tls-roots"] }
+tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt", "json"] }
+tracing = "0.1"
 ai-platform-auth = { path = "../platform-auth" }
 axum = { version = "0.8", features = ["multipart", "ws"] }
 serde.workspace = true

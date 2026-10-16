@@ -19,11 +19,22 @@ async fn internal_headers_preserve_safe_correlation_and_reset_after_request_scop
             trace_carrier: BTreeMap::from([
                 ("traceparent".into(), PARENT.into()),
                 ("tracestate".into(), "vendor=value".into()),
+                (
+                    "baggage".into(),
+                    "ai-platform.request-class=interactive".into(),
+                ),
             ]),
         },
         async {
             context::internal_http_headers(
-                BTreeMap::from([("x-service-auth".into(), "opaque".into())]),
+                BTreeMap::from([
+                    ("x-service-auth".into(), "opaque".into()),
+                    (
+                        "traceparent".into(),
+                        "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01".into(),
+                    ),
+                    ("baggage".into(), "caller=untrusted".into()),
+                ]),
                 Some("run-a"),
                 Some("turn-a"),
                 Some("execution-a"),
@@ -44,6 +55,7 @@ async fn internal_headers_preserve_safe_correlation_and_reset_after_request_scop
             ("x-ai-execution-id".into(), "execution-a".into())
         ])
     );
+    assert!(!value.contains_key("baggage"));
     assert!(context::current().request_id.is_empty());
     assert!(
         context::internal_http_headers(BTreeMap::new(), Some("run-a\nsecret=value"), None, None)

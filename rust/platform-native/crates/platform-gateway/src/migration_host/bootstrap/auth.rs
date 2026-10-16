@@ -5,8 +5,8 @@ use crate::migration_content::{
     access::{EndpointIdentityResolver, StaticKeyFallback},
 };
 use ai_platform_auth::{
-    PasswordEngine, TokenCodec, accounts::PgAccounts, admission::AdmissionService,
-    service::AuthService, sessions::RedisSessions,
+    JwtKeyConfig, JwtSigningMode, PasswordEngine, TokenCodec, accounts::PgAccounts,
+    admission::AdmissionService, service::AuthService, sessions::RedisSessions,
 };
 use axum::http::HeaderName;
 use redis::aio::ConnectionManager;
@@ -15,6 +15,9 @@ use std::sync::Arc;
 
 pub struct AuthConfiguration {
     pub jwt_secret: String,
+    pub jwt_mode: JwtSigningMode,
+    pub jwt_active_kid: Option<String>,
+    pub jwt_keys: Vec<JwtKeyConfig>,
     pub jwt_audience: Option<String>,
     pub jwt_issuer: Option<String>,
     pub jwt_algorithms: Vec<String>,
@@ -38,23 +41,45 @@ impl AuthServices {
         redis: ConnectionManager,
         config: AuthConfiguration,
     ) -> Result<Self, BootstrapError> {
-        // TokenCodec supports HS256; never silently reinterpret other algorithms.
-        if config.jwt_algorithms != ["HS256"] {
+        if config.jwt_mode == JwtSigningMode::LegacySingleHs256
+            && !config.jwt_algorithms.is_empty()
+            && config.jwt_algorithms != ["HS256"]
+        {
             return Err(BootstrapError::Configuration("jwt_algorithms"));
+        }
+        if config.jwt_mode == JwtSigningMode::AsymmetricKeyring {
+            let configured: std::collections::BTreeSet<_> =
+                config.jwt_algorithms.iter().map(String::as_str).collect();
+            let keyring_algorithms: std::collections::BTreeSet<_> = config
+                .jwt_keys
+                .iter()
+                .map(|key| key.algorithm.as_str())
+                .collect();
+            if !configured.is_empty() && configured != keyring_algorithms {
+                return Err(BootstrapError::Configuration("jwt_algorithms"));
+            }
         }
         let header = HeaderName::from_bytes(config.api_key_header.as_bytes())
             .map_err(|_| BootstrapError::Configuration("api_key_header"))?;
+        let codec = TokenCodec::from_keyring(
+            config.jwt_mode,
+            config.jwt_secret.as_bytes(),
+            config.jwt_active_kid.as_deref(),
+            &config.jwt_keys,
+            config.jwt_audience.clone(),
+            config.jwt_issuer.clone(),
+        )
+        .map_err(|_| BootstrapError::Configuration("jwt_keyring"))?;
         let introspection = Arc::new(
             super::super::credential_introspection::CredentialIntrospection {
                 pool: pools.data.clone(),
                 decoder: Arc::new(
-                    super::super::jwt::JwtDecoder::new(
-                        &config.jwt_secret,
-                        &config.jwt_algorithms,
+                    super::super::jwt::JwtDecoder::from_keyring(
+                        codec.keyring(),
                         config.jwt_audience.as_deref(),
                         config.jwt_issuer.as_deref(),
                     )
-                    .map_err(|_| BootstrapError::Configuration("jwt"))?,
+                    .map_err(|_| BootstrapError::Configuration("jwt_keyring"))?,
                 ),
                 sessions: Some(RedisSessions::new(redis.clone())),
                 jwt_enabled: config.jwt_enabled,
@@ -68,12 +93,6 @@ impl AuthServices {
                 static_key_role: config.static_key_role.clone(),
             },
         );
-        let codec = TokenCodec::new(
-            config.jwt_secret.as_bytes(),
-            config.jwt_audience,
-            config.jwt_issuer,
-        )
-        .map_err(|_| BootstrapError::Configuration("jwt"))?;
         let passwords = PasswordEngine::new(config.password_concurrency)
             .map_err(|_| BootstrapError::Configuration("password_concurrency"))?;
         let auth = Arc::new(AuthService::new(

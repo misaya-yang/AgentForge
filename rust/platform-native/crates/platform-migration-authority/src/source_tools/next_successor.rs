@@ -1516,7 +1516,7 @@ mod tests {
     }
 
     #[test]
-    fn current_source_is_exact_020_or_fully_verified_021_or_022() {
+    fn current_source_is_exact_020_or_fully_verified_021_through_023() {
         let root = repository_root();
         let path = root.join(ACTIVE_MANIFEST_RELATIVE);
         let active = manifest::load_epoch_manifest(&path).unwrap();
@@ -1553,6 +1553,32 @@ mod tests {
                 assert_eq!(
                     verified.changes.len(),
                     crate::source_tools::next_successor_022::CANDIDATE_EPOCH as usize
+                );
+            }
+            epoch if epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH => {
+                let (_, verified) =
+                    crate::source_tools::next_successor_023::verify_activated_source(&root)
+                        .unwrap();
+                assert_eq!(
+                    verified.epoch,
+                    crate::source_tools::next_successor_023::CANDIDATE_EPOCH
+                );
+                assert_eq!(
+                    verified.changes.len(),
+                    crate::source_tools::next_successor_023::CANDIDATE_EPOCH as usize
+                );
+            }
+            epoch if epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH => {
+                let (_, verified) =
+                    crate::source_tools::next_successor_024::verify_activated_source(&root)
+                        .unwrap();
+                assert_eq!(
+                    verified.epoch,
+                    crate::source_tools::next_successor_024::CANDIDATE_EPOCH
+                );
+                assert_eq!(
+                    verified.changes.len(),
+                    crate::source_tools::next_successor_024::CANDIDATE_EPOCH as usize
                 );
             }
             _ => panic!("unexpected canonical schema epoch"),

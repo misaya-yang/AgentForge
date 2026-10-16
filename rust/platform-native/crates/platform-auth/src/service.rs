@@ -1,7 +1,7 @@
 //! Authentication service orchestration. Live PostgreSQL/Redis acceptance is required.
 pub use crate::contract::{LoginResponse, UserProfile};
 use crate::{
-    Claims, PasswordEngine, TokenCodec,
+    Claims, JwtKeyRing, PasswordEngine, TokenCodec,
     accounts::{Account, AuditAction, AuditContext, Authority, PgAccounts, StoreError},
     normalize_email,
     sessions::RedisSessions,
@@ -44,7 +44,7 @@ pub struct Principal {
 pub struct AuthService {
     accounts: PgAccounts,
     sessions: RedisSessions,
-    codec: TokenCodec,
+    codec: std::sync::Arc<TokenCodec>,
     passwords: PasswordEngine,
     domain: String,
     clock: fn() -> Result<u64, ServiceError>,
@@ -60,7 +60,7 @@ impl AuthService {
         Self {
             accounts,
             sessions,
-            codec,
+            codec: std::sync::Arc::new(codec),
             passwords,
             domain,
             clock: || {
@@ -71,6 +71,13 @@ impl AuthService {
             },
         }
     }
+
+    /// Public verification material only. The keyring's signing fields remain
+    /// private and are never included in logs, configuration summaries or JWKS.
+    pub fn jwt_keyring(&self) -> std::sync::Arc<JwtKeyRing> {
+        self.codec.keyring()
+    }
+
     fn account_state(account: &Account, now: u64) -> Result<(), ServiceError> {
         if account
             .locked_until

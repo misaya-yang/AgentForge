@@ -164,9 +164,15 @@ impl WorkerState {
 
     /// Install a verified deployment snapshot after all executors are wired.
     /// A manifest cannot turn an absent/disabled implementation into readiness.
-    pub fn with_plugin_activation(mut self, active: crate::plugin_packs::ActivePacks)
-        -> Result<Self, crate::plugin_packs::PackError> {
-        for id in active.registry.keys().filter(|id| active.managed.contains(*id)) {
+    pub fn with_plugin_activation(
+        mut self,
+        active: crate::plugin_packs::ActivePacks,
+    ) -> Result<Self, crate::plugin_packs::PackError> {
+        for id in active
+            .registry
+            .keys()
+            .filter(|id| active.managed.contains(*id))
+        {
             if !self.plugin_executor_configured(id) {
                 return Err(crate::plugin_packs::PackError::Incompatible);
             }
@@ -178,14 +184,20 @@ impl WorkerState {
 
     fn plugin_executor_configured(&self, id: &str) -> bool {
         match id {
-            "confluence_read" | "search_knowledge_base" | "web_fetch" | "search_web"
-                | "read_tool_artifact" | "todo_read" => self.read_executor.is_some(),
+            "confluence_read"
+            | "search_knowledge_base"
+            | "web_fetch"
+            | "search_web"
+            | "read_tool_artifact"
+            | "todo_read" => self.read_executor.is_some(),
             "read_attachment" => self.attachment_executor.is_some(),
             "todo_write" | "update_user_memory" => self.write_executor.is_some(),
             "generate_quiz" => self.quiz_executor.is_some(),
             "confluence_write" | "generate_image" => self.external_write_executor.is_some(),
             "mcp_docgen__generate_document" => self.office_executor.is_some(),
-            "execute_python_code" => self.python_executor.is_some() && self.python_artifact_store.is_some(),
+            "execute_python_code" => {
+                self.python_executor.is_some() && self.python_artifact_store.is_some()
+            }
             // The current default LocalNode transport is explicitly unavailable;
             // a future real transport must supply an authoritative readiness seam.
             _ => false,
@@ -197,8 +209,9 @@ impl WorkerState {
     fn admits_plugin_descriptor(&self, descriptor: &CapabilityDescriptorV2) -> bool {
         let tagged = descriptor.tags.iter().any(|tag| tag.starts_with("plugin-"));
         match &self.plugin_activation {
-            Some(active) if tagged || active.managed.contains(&descriptor.id) =>
-                self.capability_registry.get(&descriptor.id) == Some(descriptor),
+            Some(active) if tagged || active.managed.contains(&descriptor.id) => {
+                self.capability_registry.get(&descriptor.id) == Some(descriptor)
+            }
             _ => !tagged,
         }
     }
@@ -459,7 +472,10 @@ async fn health(State(state): State<WorkerState>) -> impl IntoResponse {
             },
         )]),
         capabilities,
-        plugin_activation: state.plugin_activation.as_ref().map(|active| active.receipt.clone()),
+        plugin_activation: state
+            .plugin_activation
+            .as_ref()
+            .map(|active| active.receipt.clone()),
     };
     (
         if store_ready {
@@ -730,6 +746,28 @@ mod tests {
         assert!(state.capability_registry.contains_key("local_node_action"));
         assert!(state.capability_registry.contains_key("search_web"));
         assert_eq!(state.capability_registry.len(), 19);
+    }
+
+    #[test]
+    fn write_enabled_startup_loads_embedded_local_node_connector_contract() {
+        let state = WorkerState::try_new_with_writes(
+            Arc::new(MemoryStore::default()),
+            "internal-token".to_string(),
+            b"lease-signing-secret-that-is-long-enough".to_vec(),
+            false,
+            true,
+        )
+        .expect("full embedded worker catalog must load at startup");
+        let action = &state.capability_registry["local_node_action"];
+
+        assert_eq!(action.protocol, "local-node-capability/v2");
+        assert!(action.tags.iter().any(|tag| tag == "connector:local_node"));
+        assert!(
+            action
+                .tags
+                .iter()
+                .any(|tag| tag == "binding-type:connector")
+        );
     }
 
     #[test]

@@ -166,7 +166,7 @@
     "migrations/2026_08_post_kb_v1/019_verification.json": "c2242553ad6579bf633c3bf8f57f55f4c75cfdbfa134342583a0423786e98d4b",
     "migrations/2026_08_post_kb_v1/020_gateway_task_deliveries.sql": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
     "migrations/2026_08_post_kb_v1/020_verification.json": "ec021f78081800e3ee3b20b186fda536fcec499f71b8d39ae6c2b917e6b1b2b2",
-    "migrations/2026_08_post_kb_v1/manifest.yml": "d723f09097401133748454355cad52e886df50c628d964b2fc55ca256685fc89",
+    "migrations/2026_08_post_kb_v1/manifest.yml": "a6428f52d129e9ad2daa6453f61cff4ef7953ba13b147ab46a6703bc5a8765a1",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_ACTIVATION.json": "e15a270db4d2bb6d4b11e98b80421459008f1ce8ff145df2807281e25b102561",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_MEASUREMENT.json": "0cc2f885fdbf430091b834b3e491f2561cd333e18983402f3db240541558dab2",
     "migrations/legacy-manifest.yml": "26c94878bf39861ff810c2608f6359425e695da64b0100e453b4d63c90765664",
@@ -186,7 +186,15 @@
     "migrations/2026_08_post_kb_v1/022_assistant_runtime_thread_projection_insert.sql": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
     "migrations/2026_08_post_kb_v1/022_verification.json": "c363e5b3f6cff0b5a8394fa1106a1729048d1254c14fda122eea262221ee2120",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_022_MEASUREMENT.json": "b202d269b13a43a2789cfb052ee1a9d9af71dba449b5d5841e6d33e000cd4c54",
-    "migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json": "5ac38c281890ebbfea6539f37077d888ae04b54cb1da3fd89aef784250afd6fa"
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json": "5ac38c281890ebbfea6539f37077d888ae04b54cb1da3fd89aef784250afd6fa",
+    "migrations/2026_08_post_kb_v1/023_native_workflow_authority.sql": "80f3b91376dbc773c71359490801718924c93313a6bfbf10153718fe674dd6e2",
+    "migrations/2026_08_post_kb_v1/023_verification.json": "63496399d60180d02a80cb570a9992171d0074e7781ef403a2dec3df8409e740",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_023_MEASUREMENT.json": "60c2bbf3cc270cc032ebee7372b9ed4525548b84591ac6a6f080edc124972d3e",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_023_ACTIVATION.json": "9be1abfa1934909c43190fa61232dba7ac2137ec3d48314bede62299a8df2dae",
+    "migrations/2026_08_post_kb_v1/024_local_node_pairing_channel_select_columns.sql": "772e6bdd409416444042195d3f320042f83fd29db64807dfabce10987599f2c2",
+    "migrations/2026_08_post_kb_v1/024_verification.json": "330a3abe40fb6c8932ab3fb9014dff1554961824013a1ff0fcf0f24fa875f22b",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_024_MEASUREMENT.json": "7c0086e441de4809a354bd14e88d3a70cea419a1ee7519aa741ca955b03b7747",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_024_ACTIVATION.json": "8ae7e69d575ef581c5cc7723fe12957c26146e118ed0ca5817c5f44b4f6ffc15"
   },
   "schema": "migration-authority/source-distribution/v1"
 }

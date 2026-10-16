@@ -8,9 +8,28 @@ use sqlx::{PgConnection, PgPool, Postgres, pool::PoolConnection};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn source_version_matches(row: &Value, content: &str) -> bool {
-    !string(row, "change_type").starts_with("pending_")
+    !super::is_hidden_version_change_type(&string(row, "change_type"))
         && string(row, "content") == content
         && string(row, "content_hash") == sha256(content.as_bytes())
+}
+
+fn pending_text_update_matches(
+    current: &Value,
+    pending: &Value,
+    previous: i64,
+    candidate: i64,
+    expected_content: &str,
+    content: &str,
+) -> bool {
+    current["metadata"]["_document_pending_text_update_version"] == *pending
+        && previous > 0
+        && previous == integer(current, "current_version")
+        && candidate > previous
+        && pending["previous_version"] == previous
+        && pending["candidate_version"] == candidate
+        && pending["previous_content_hash"] == sha256(expected_content.as_bytes())
+        && string(current, "content") == expected_content
+        && !content.trim().is_empty()
 }
 
 pub(crate) fn dataset_permission_short_circuit(actor: &Actor, dataset: &Value) -> Option<i32> {
@@ -614,7 +633,8 @@ impl KnowledgeWriteStore {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(v) FROM (SELECT version_id,document_id,version_number,content_hash,confluence_version,confluence_updated_at,title,word_count,change_type,change_reason,changed_by,created_at FROM knowledge.document_versions) v WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore') ORDER BY version_number DESC LIMIT $2 OFFSET $3").bind(document).bind(limit.clamp(1,100)).bind(offset.max(0)).fetch_all(&self.pool).await?)
+        let query = format!("SELECT to_jsonb(v) FROM (SELECT version_id,document_id,version_number,content_hash,confluence_version,confluence_updated_at,title,word_count,change_type,change_reason,changed_by,created_at FROM knowledge.document_versions) v WHERE document_id=$1 AND change_type NOT IN ({}) ORDER BY version_number DESC LIMIT $2 OFFSET $3", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+        Ok(sqlx::query_scalar(&query).bind(document).bind(limit.clamp(1,100)).bind(offset.max(0)).fetch_all(&self.pool).await?)
     }
     pub async fn get_version(
         &self,
@@ -622,7 +642,8 @@ impl KnowledgeWriteStore {
         version: i32,
         include_pending: bool,
     ) -> Result<Value> {
-        sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND ($3 OR change_type NOT IN ('pending_restore','pending_before_restore'))").bind(document).bind(version).bind(include_pending).fetch_optional(&self.pool).await?.ok_or(IngestError::NotFound)
+        let query = format!("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND ($3 OR change_type NOT IN ({}))", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+        sqlx::query_scalar(&query).bind(document).bind(version).bind(include_pending).fetch_optional(&self.pool).await?.ok_or(IngestError::NotFound)
     }
     pub async fn record_process_rule(
         conn: &mut PgConnection,
@@ -774,6 +795,7 @@ impl KnowledgeWriteStore {
         metadata_patch: &Value,
         expected_content: &str,
         pending: Option<&Value>,
+        pending_update: Option<&Value>,
         replace_images: bool,
         lexical: Option<(
             &crate::migration_knowledge_query::lexical_lifecycle::LexicalLifecycle,
@@ -785,6 +807,9 @@ impl KnowledgeWriteStore {
         Self::require_identity(&mut tx, dataset, Some(expected)).await?;
         let current:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 AND status='indexing' FOR UPDATE").bind(document).bind(dataset).fetch_optional(&mut *tx).await?.ok_or(IngestError::GenerationChanged)?;
         if string(&current, "content") != expected_content {
+            return Err(IngestError::GenerationChanged);
+        }
+        if pending.is_some() && pending_update.is_some() {
             return Err(IngestError::GenerationChanged);
         }
         if let Some(pending) = pending {
@@ -808,10 +833,47 @@ impl KnowledgeWriteStore {
                 if sqlx::query("UPDATE knowledge.document_versions SET change_type=$4 WHERE document_id=$1 AND version_number=$2 AND change_type=$3 AND content=$5 RETURNING version_id").bind(document).bind(number as i32).bind(status).bind(next).bind(text).fetch_optional(&mut *tx).await?.is_none(){return Err(IngestError::GenerationChanged)}
             }
             sqlx::query("UPDATE knowledge.documents SET current_version=$2,version_count=COALESCE(version_count,0)+2,metadata=(COALESCE(metadata,'{}'::jsonb)-'_document_pending_restore_version')||jsonb_build_object('_document_restored_source_version',$2::integer) WHERE document_id=$1").bind(document).bind(candidate as i32).execute(&mut *tx).await?;
+        } else if let Some(pending_update) = pending_update {
+            let previous = integer(pending_update, "previous_version");
+            let candidate = integer(pending_update, "candidate_version");
+            let content_hash = sha256(content.as_bytes());
+            if !pending_text_update_matches(
+                &current,
+                pending_update,
+                previous,
+                candidate,
+                expected_content,
+                content,
+            ) {
+                return Err(IngestError::GenerationChanged);
+            }
+            let changed = sqlx::query("UPDATE knowledge.document_versions SET change_type='updated' WHERE document_id=$1 AND version_number=$2 AND change_type='pending_update' AND content=$3 AND content_hash=$4 RETURNING version_id")
+                .bind(document)
+                .bind(candidate as i32)
+                .bind(content)
+                .bind(&content_hash)
+                .fetch_optional(&mut *tx)
+                .await?;
+            if changed.is_none() {
+                return Err(IngestError::GenerationChanged);
+            }
+            let published = sqlx::query("UPDATE knowledge.documents SET current_version=$2,version_count=COALESCE(version_count,0)+1,size_bytes=octet_length($3),metadata=(COALESCE(metadata,'{}'::jsonb)-'_document_pending_text_update_version'-'_document_restored_source_version') WHERE document_id=$1 AND dataset_id=$4 AND status='indexing' AND current_version=$5 AND content=$6 RETURNING document_id")
+                .bind(document)
+                .bind(candidate as i32)
+                .bind(content)
+                .bind(dataset)
+                .bind(previous as i32)
+                .bind(expected_content)
+                .fetch_optional(&mut *tx)
+                .await?;
+            if published.is_none() {
+                return Err(IngestError::GenerationChanged);
+            }
         } else if !content.trim().is_empty() {
             let current_version = integer(&current, "current_version");
             let active: Option<Value> = if current_version > 0 {
-                sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ('pending_restore','pending_before_restore') FOR UPDATE")
+                let query = format!("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ({}) FOR UPDATE", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+                sqlx::query_scalar(&query)
                     .bind(document)
                     .bind(current_version as i32)
                     .fetch_optional(&mut *tx)
@@ -823,7 +885,8 @@ impl KnowledgeWriteStore {
                 .as_ref()
                 .is_some_and(|version| source_version_matches(version, content))
             {
-                let has_published_version: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore'))")
+                let query = format!("SELECT EXISTS(SELECT 1 FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ({}))", super::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+                let has_published_version: bool = sqlx::query_scalar(&query)
                     .bind(document)
                     .fetch_one(&mut *tx)
                     .await?;
@@ -862,7 +925,13 @@ impl KnowledgeWriteStore {
                     None,
                     true,
                 )
-                .await?;
+                .await
+                .map_err(|error| {
+                    error.with_database_context(
+                        "document_version_create",
+                        "knowledge.document_versions",
+                    )
+                })?;
             }
         }
         Self::insert_segments(&mut tx, chunks).await?;
@@ -1081,6 +1150,87 @@ mod source_version_tests {
             "content_hash": hash,
         });
         assert!(!source_version_matches(&pending, content));
+
+        let staged_edit = json!({
+            "change_type": "pending_update",
+            "content": content,
+            "content_hash": hash,
+        });
+        assert!(!source_version_matches(&staged_edit, content));
+    }
+
+    #[test]
+    fn every_pending_version_type_is_hidden_from_public_source_selection() {
+        for change_type in [
+            "pending_restore",
+            "pending_before_restore",
+            "pending_update",
+        ] {
+            assert!(super::super::is_hidden_version_change_type(change_type));
+        }
+        for change_type in ["created", "updated", "restored"] {
+            assert!(!super::super::is_hidden_version_change_type(change_type));
+        }
+        assert!(super::super::HIDDEN_VERSION_CHANGE_TYPES_SQL.contains("'pending_update'"));
+    }
+
+    #[test]
+    fn pending_text_update_requires_the_exact_active_generation_before_activation() {
+        let previous_content = "v1 source";
+        let next_content = "v2 source";
+        let pointer = json!({
+            "previous_version":4,
+            "candidate_version":5,
+            "previous_content_hash":sha256(previous_content.as_bytes()),
+        });
+        let current = json!({
+            "current_version":4,
+            "content":previous_content,
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(pending_text_update_matches(
+            &current,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+
+        let stale_current = json!({
+            "current_version":3,
+            "content":previous_content,
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(!pending_text_update_matches(
+            &stale_current,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+        let stale_content = json!({
+            "current_version":4,
+            "content":"changed after staging",
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(!pending_text_update_matches(
+            &stale_content,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+        assert!(!pending_text_update_matches(
+            &current,
+            &pointer,
+            4,
+            4,
+            previous_content,
+            next_content
+        ));
     }
 }
 

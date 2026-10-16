@@ -11,7 +11,7 @@ use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
 const ADMISSION_SNAPSHOT_VERSION: &str = "ai-platform/schema-admission-snapshot/v1";
-const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 22;
+const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 24;
 const BASELINE_MANIFEST_BYTES: &[u8] =
     include_bytes!("../../../../../database/baselines/2026_08_post_kb_v1/manifest.json");
 const EPOCH_MANIFEST_BYTES: &[u8] =
@@ -21,6 +21,8 @@ const EPOCH_MANIFEST_BYTES: &[u8] =
 pub enum ApplicationPrincipal {
     /// Default Gateway task delivery uses the in-memory queue.
     Gateway,
+    /// Explicit Local Node channel support requires its selected-column grants.
+    GatewayLocalNode,
     /// Explicit durable delivery requires successor020.
     GatewayDurable,
     KnowledgeApi,
@@ -146,6 +148,7 @@ fn compiled_contract(baseline_bytes: &[u8], epoch_bytes: &[u8]) -> Result<Admiss
 fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
     match principal {
         ApplicationPrincipal::Gateway => (18, source_epoch),
+        ApplicationPrincipal::GatewayLocalNode => (24, source_epoch),
         ApplicationPrincipal::GatewayDurable => (20, source_epoch),
         ApplicationPrincipal::KnowledgeApi => (19, source_epoch),
         ApplicationPrincipal::KnowledgeWorker if source_epoch >= 21 => (21, source_epoch),
@@ -160,7 +163,7 @@ fn validate_snapshot_value(
 ) -> Result<()> {
     if !(20..=MAX_SUPPORTED_SUCCESSOR_EPOCH).contains(&contract.source_epoch) {
         return Err(refused(
-            "application admission requires an exact measured 018-020, 018-021, or 018-022 manifest",
+            "application admission requires an exact measured successor manifest through epoch 024",
         ));
     }
     if !exact_keys(
@@ -531,6 +534,144 @@ mod tests {
         assert!(
             validate_snapshot_value(
                 &snapshot(&contract, 22),
+                ApplicationPrincipal::KnowledgeWorker,
+                &contract,
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn compiled_023_keeps_existing_application_windows_and_rejects_future_epochs() {
+        let contract = fixture_contract(23);
+        for epoch in 18..=23 {
+            assert!(
+                validate_snapshot_value(
+                    &snapshot(&contract, epoch),
+                    ApplicationPrincipal::Gateway,
+                    &contract,
+                )
+                .is_ok()
+            );
+        }
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 19),
+                ApplicationPrincipal::GatewayDurable,
+                &contract,
+            )
+            .is_err()
+        );
+        for epoch in 20..=23 {
+            assert!(
+                validate_snapshot_value(
+                    &snapshot(&contract, epoch),
+                    ApplicationPrincipal::GatewayDurable,
+                    &contract,
+                )
+                .is_ok()
+            );
+        }
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 18),
+                ApplicationPrincipal::KnowledgeApi,
+                &contract,
+            )
+            .is_err()
+        );
+        for epoch in 19..=23 {
+            assert!(
+                validate_snapshot_value(
+                    &snapshot(&contract, epoch),
+                    ApplicationPrincipal::KnowledgeApi,
+                    &contract,
+                )
+                .is_ok()
+            );
+        }
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 20),
+                ApplicationPrincipal::KnowledgeWorker,
+                &contract,
+            )
+            .is_err()
+        );
+        for epoch in 21..=23 {
+            assert!(
+                validate_snapshot_value(
+                    &snapshot(&contract, epoch),
+                    ApplicationPrincipal::KnowledgeWorker,
+                    &contract,
+                )
+                .is_ok()
+            );
+        }
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 24),
+                ApplicationPrincipal::Gateway,
+                &contract,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn local_node_feature_requires_epoch_024_without_raising_other_profiles() {
+        let contract = fixture_contract(24);
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 23),
+                ApplicationPrincipal::GatewayLocalNode,
+                &contract,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 24),
+                ApplicationPrincipal::GatewayLocalNode,
+                &contract,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 25),
+                ApplicationPrincipal::GatewayLocalNode,
+                &contract,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 18),
+                ApplicationPrincipal::Gateway,
+                &contract,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 20),
+                ApplicationPrincipal::GatewayDurable,
+                &contract,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 19),
+                ApplicationPrincipal::KnowledgeApi,
+                &contract,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_snapshot_value(
+                &snapshot(&contract, 21),
                 ApplicationPrincipal::KnowledgeWorker,
                 &contract,
             )

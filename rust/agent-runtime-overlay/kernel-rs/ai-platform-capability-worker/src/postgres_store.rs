@@ -690,12 +690,19 @@ impl ExecutionStore for PostgresExecutionStore {
             (row, false)
         } else {
             let row = sqlx::query(AUTHORIZE_SDK_BINDING_SQL)
-                .bind(uuid(run_id)?).bind(&scope.tenant_id).bind(&scope.user_id)
+                .bind(uuid(run_id)?)
+                .bind(&scope.tenant_id)
+                .bind(&scope.user_id)
                 .bind(&scope.session_id)
                 .bind(i64::try_from(capability_revision).map_err(|_| StoreError::Internal)?)
-                .bind(&identity.name).bind(&identity.capability_id).bind(&identity.version)
-                .bind(&identity.schema_hash).fetch_optional(&self.pool).await
-                .map_err(database_error)?.ok_or(StoreError::RuntimeBindingUnauthorized)?;
+                .bind(&identity.name)
+                .bind(&identity.capability_id)
+                .bind(&identity.version)
+                .bind(&identity.schema_hash)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(database_error)?
+                .ok_or(StoreError::RuntimeBindingUnauthorized)?;
             (row, true)
         };
         let revision: i64 = row
@@ -765,8 +772,11 @@ impl ExecutionStore for PostgresExecutionStore {
         } else {
             parse_approval_policy(&matched_approval_policy)?
         };
-        if effect != identity.effect || approval_policy != identity.approval_policy
-            || (sdk_authority && effect == CapabilityEffect::Read && approval_policy != ApprovalPolicy::Never)
+        if effect != identity.effect
+            || approval_policy != identity.approval_policy
+            || (sdk_authority
+                && effect == CapabilityEffect::Read
+                && approval_policy != ApprovalPolicy::Never)
         {
             return Err(StoreError::RuntimeBindingUnauthorized);
         }

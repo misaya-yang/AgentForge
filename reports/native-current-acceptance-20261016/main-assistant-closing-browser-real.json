@@ -1,0 +1,25 @@
+{
+  "status": "partial_not_final_memory_acceptance",
+  "recorded_at": "2026-10-16T12:11:33.756Z",
+  "model": "qwen3.7-plus",
+  "v2_thread_create": {
+    "status": 201,
+    "redundant_gateway_database_insert_removed": true
+  },
+  "completed_browser_turn": {
+    "runtime_state": "Completed",
+    "duration_ms": 15690,
+    "ttft_ms": 8040,
+    "text_duration_ms": 13810,
+    "response": "Model refused the synthetic marker request; this does not prove marker recall."
+  },
+  "subsequent_natural_project_name_turn": {
+    "last_observed": "Running",
+    "final_result": "unverified_when_owner_closed_Docker"
+  },
+  "previous_api_acceptance": "main-assistant-model-capability-acceptance.json",
+  "limits": [
+    "No final browser two-turn memory success is claimed for this closing attempt.",
+    "No further provider calls were made after the stop instruction."
+  ]
+}

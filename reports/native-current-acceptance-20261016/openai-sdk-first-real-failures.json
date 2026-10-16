@@ -1,0 +1,36 @@
+{
+  "status": "failed_pending_fix",
+  "verified_at": "2026-10-16T11:03:34.656Z",
+  "sdk": {
+    "name": "openai-node",
+    "version": "7.34.0",
+    "stock_sdk": true,
+    "max_retries": 0
+  },
+  "authentication": {
+    "jwt_catalogue": "passed_8_models",
+    "service_key_x_api_key": "passed_authentication",
+    "service_key_bearer": "failed_http401"
+  },
+  "model_scope": {
+    "allowed_models": [
+      "qwen3.8-flash",
+      "text-embedding-v4"
+    ],
+    "out_of_scope_requested": "qwen-plus",
+    "out_of_scope_result": "failed_security_expectation_http200_completion",
+    "max_tokens": 1
+  },
+  "sdk_steps": {
+    "models": "passed_8_models",
+    "chat_completion": {
+      "model": "qwen3.8-flash",
+      "status": 502,
+      "code": "upstream_error"
+    },
+    "stream": "not_run_after_chat_failure",
+    "embeddings": "not_run_after_chat_failure"
+  },
+  "next_action": "Fix trusted model scopes, standard Bearer service-key admission and actual Flash provider compatibility; rerun unmodified official SDK flow.",
+  "secrets": "No keys, JWTs, provider headers or raw provider bodies included."
+}

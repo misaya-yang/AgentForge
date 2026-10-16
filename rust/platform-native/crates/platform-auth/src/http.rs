@@ -1,13 +1,14 @@
 //! Router factory only; never opens a listener or loads production configuration.
 use crate::contract::{self, CurrentUserResponse, LoginInput, PasswordInput, ValidationResponse};
 use crate::{
+    JwtKeyRing,
     accounts::AuditContext,
     service::{AuthService, ServiceError},
 };
 use axum::{
     Json, Router,
     extract::{ConnectInfo, DefaultBodyLimit, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -52,6 +53,7 @@ fn build_router(
     configured_roles: BTreeMap<String, Vec<String>>,
     introspection: Option<Arc<dyn CredentialIntrospectionResolver>>,
 ) -> Router {
+    let jwks = jwks_router(service.jwt_keyring());
     Router::new()
         .route(contract::LOGIN, post(login))
         .route(contract::LOGOUT, post(logout))
@@ -64,6 +66,34 @@ fn build_router(
             introspection,
             configured_roles: Arc::new(configured_roles),
         })
+        .merge(jwks)
+}
+
+/// Public standards-compatible key discovery. The verifier ring owns no public
+/// signing API, and this projection serializes only normalized public JWKs.
+pub fn jwks_router(keyring: Arc<JwtKeyRing>) -> Router {
+    Router::new()
+        .route(contract::JWKS, get(jwks))
+        .with_state(keyring)
+}
+
+async fn jwks(State(keyring): State<Arc<JwtKeyRing>>) -> Response {
+    let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(duration) => duration.as_secs(),
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"detail":"Authentication authority unavailable"})),
+            )
+                .into_response();
+        }
+    };
+    let mut response = Json(keyring.jwks_at(now)).into_response();
+    response.headers_mut().insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=60"),
+    );
+    response
 }
 #[derive(Debug)]
 enum ApiError {
@@ -287,5 +317,48 @@ mod contract_tests {
 
         assert_eq!(roles, vec!["admin", "console:users:view"]);
         assert_eq!(tier, "normal");
+    }
+
+    #[tokio::test]
+    async fn jwks_handler_returns_only_public_keys() {
+        let config = crate::JwtKeyConfig {
+            kid: "http-test-key".into(),
+            algorithm: "EdDSA".into(),
+            public_jwk: json!({
+                "kty":"OKP",
+                "crv":"Ed25519",
+                "alg":"EdDSA",
+                "use":"sig",
+                "key_ops":["verify"],
+                "kid":"http-test-key",
+                "x":"pfn5-ZeMp4J4fOvlMv-I86va0mSjqPxX0xdwvEHc_oI"
+            }),
+            private_key_pem: Some(
+                include_str!("../tests/fixtures/jwt-rotation-old-ed25519-private.pem").to_owned(),
+            ),
+            verify_until: None,
+        };
+        let codec = crate::TokenCodec::from_keyring(
+            crate::JwtSigningMode::AsymmetricKeyring,
+            b"",
+            Some("http-test-key"),
+            &[config],
+            None,
+            None,
+        )
+        .unwrap();
+        let response = jwks(State(codec.keyring())).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[CACHE_CONTROL], "public, max-age=60");
+        let bytes = axum::body::to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .unwrap();
+        let document: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(document["keys"].as_array().unwrap().len(), 1);
+        assert_eq!(document["keys"][0]["kid"], "http-test-key");
+        assert_eq!(document["keys"][0]["key_ops"], json!(["verify"]));
+        for private_field in ["d", "p", "q", "dp", "dq", "qi", "oth", "k"] {
+            assert!(document["keys"][0].get(private_field).is_none());
+        }
     }
 }

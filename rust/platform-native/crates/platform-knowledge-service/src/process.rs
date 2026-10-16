@@ -9,7 +9,7 @@ use crate::pdf_backend::{PopplerPdfBackend, PopplerPdfConfig};
 use crate::{migration_knowledge_ingest as ingest, migration_knowledge_query as query};
 use serde_json::Value;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     path::PathBuf,
     sync::Arc,
     time::Duration,
@@ -388,9 +388,24 @@ impl ProcessSettings {
             .map(|v| v.trim().to_owned())
             .collect();
         let mut qa = QaSettings::default();
-        qa.model = e.text("LLM_MODEL", "gemini-2.0-flash");
+        qa.provider = e
+            .text("LLM_PROVIDER", &qa.provider)
+            .trim()
+            .to_lowercase();
+        qa.allowed_providers = e
+            .list("LLM_ALLOWED_PROVIDERS", vec![qa.provider.clone()])?
+            .into_iter()
+            .map(|provider| provider.trim().to_lowercase())
+            .filter(|provider| !provider.is_empty())
+            .collect();
+        qa.model = e.text("LLM_MODEL", &qa.model).trim().to_owned();
         qa.base_url = e.text("LLM_BASE_URL", "");
-        qa.allowed_models = BTreeSet::from([qa.model.clone()]);
+        qa.allowed_models = e
+            .list("LLM_ALLOWED_MODELS", vec![qa.model.clone()])?
+            .into_iter()
+            .map(|model| model.trim().to_owned())
+            .filter(|model| !model.is_empty())
+            .collect();
         let scratch = working_directory
             .join(e.text("KNOWLEDGE_NATIVE__SCRATCH_ROOT", "data/knowledge-scratch"));
         let mut parser = ingest::parser::ParserConfig::new(scratch.clone());
@@ -703,5 +718,65 @@ impl ProcessSettings {
                 Err(error)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod qa_loader_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn from_values_loads_qa_provider_model_and_both_allowlists() {
+        let mut values = BTreeMap::from([
+            ("ENVIRONMENT".into(), "test".into()),
+            (
+                "AI_PLATFORM_INTERNAL_TOKEN".into(),
+                "offline-qa-loader-token".into(),
+            ),
+            (
+                "AI_PLATFORM_CAPABILITY_PROOF_SECRET".into(),
+                "offline-qa-loader-proof".into(),
+            ),
+            ("INTERNAL_COMM_STATE_BACKEND".into(), "memory".into()),
+            ("INTERNAL_IDEMPOTENCY_BACKEND".into(), "memory".into()),
+            ("KNOWLEDGE_RUNTIME_ROLE".into(), "api".into()),
+            ("GATEWAY_URL".into(), "http://127.0.0.1:8080".into()),
+            ("GATEWAY_ENCRYPTION_KEY".into(), "offline-encryption".into()),
+            ("LLM_PROVIDER".into(), "dashscope".into()),
+            ("LLM_MODEL".into(), "qwen3.8-flash".into()),
+            (
+                "LLM_BASE_URL".into(),
+                "https://dashscope.example/v1".into(),
+            ),
+            (
+                "LLM_ALLOWED_PROVIDERS".into(),
+                r#"["dashscope"]"#.into(),
+            ),
+            (
+                "LLM_ALLOWED_MODELS".into(),
+                r#"["qwen3.8-flash"]"#.into(),
+            ),
+            ("DASHSCOPE_API_KEY".into(), "offline-qa-key".into()),
+        ]);
+        values.insert("KNOWLEDGE_NATIVE__PDF_ENABLED".into(), "false".into());
+        let settings = ProcessSettings::from_values(
+            values,
+            PathBuf::from("/tmp/knowledge-qa-loader-test"),
+        )
+        .unwrap();
+        let qa = settings.configuration.qa.unwrap();
+        assert_eq!(qa.provider, "dashscope");
+        assert_eq!(qa.model, "qwen3.8-flash");
+        assert_eq!(qa.base_url, "https://dashscope.example/v1");
+        assert_eq!(qa.allowed_providers, BTreeSet::from(["dashscope".into()]));
+        assert_eq!(qa.allowed_models, BTreeSet::from(["qwen3.8-flash".into()]));
+        let projected = qa.project(&settings.configuration.provider_keys).unwrap();
+        assert_eq!(projected.provider, "dashscope");
+        assert_eq!(projected.model, "qwen3.8-flash");
+        assert_eq!(projected.base_url, "https://dashscope.example/v1");
+        assert_eq!(projected.allowed_providers, BTreeSet::from(["dashscope".into()]));
+        assert_eq!(projected.allowed_models, BTreeSet::from(["qwen3.8-flash".into()]));
+        assert_eq!(projected.api_key, "offline-qa-key");
     }
 }

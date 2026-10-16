@@ -941,6 +941,12 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join(BASELINE)
             .join("manifest.yml"),
     )?;
+    if current_manifest.epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH {
+        return crate::source_tools::next_successor_024::verify_activated_source(&root);
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH {
+        return crate::source_tools::next_successor_023::verify_activated_source(&root);
+    }
     if current_manifest.epoch == crate::source_tools::next_successor_022::CANDIDATE_EPOCH {
         return crate::source_tools::next_successor_022::verify_activated_source(&root);
     }
@@ -1425,6 +1431,30 @@ mod tests {
             assert_eq!(
                 verified.changes.len(),
                 crate::source_tools::next_successor_022::CANDIDATE_EPOCH as usize
+            );
+            assert!(validate_with_preimage_root(&root, None).is_err());
+        } else if epoch.epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH {
+            assert!(activated);
+            let (_, verified) = verify_activated_source(&root).unwrap();
+            assert_eq!(
+                verified.epoch,
+                crate::source_tools::next_successor_023::CANDIDATE_EPOCH
+            );
+            assert_eq!(
+                verified.changes.len(),
+                crate::source_tools::next_successor_023::CANDIDATE_EPOCH as usize
+            );
+            assert!(validate_with_preimage_root(&root, None).is_err());
+        } else if epoch.epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH {
+            assert!(activated);
+            let (_, verified) = verify_activated_source(&root).unwrap();
+            assert_eq!(
+                verified.epoch,
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH
+            );
+            assert_eq!(
+                verified.changes.len(),
+                crate::source_tools::next_successor_024::CANDIDATE_EPOCH as usize
             );
             assert!(validate_with_preimage_root(&root, None).is_err());
         } else {

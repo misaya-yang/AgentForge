@@ -309,6 +309,13 @@ pub struct StaticKeyFallback {
     pub role: String,
 }
 impl EndpointIdentityResolver {
+    fn is_openai_compat_path(path: &str) -> bool {
+        matches!(
+            path,
+            "/v1/models" | "/v1/chat/completions" | "/v1/embeddings"
+        )
+    }
+
     pub async fn resolve_request(
         &self,
         headers: &HeaderMap,
@@ -343,7 +350,11 @@ impl EndpointIdentityResolver {
             )));
         }
         if !bearer {
-            if let Some(fallback) = &self.static_keys {
+            // OpenAI-compatible keys are bound database credentials. Do not let
+            // a process-local static key fallback widen this public surface.
+            if !Self::is_openai_compat_path(path)
+                && let Some(fallback) = &self.static_keys
+            {
                 let raw = headers
                     .get(&self.api_key_header)
                     .and_then(|v| v.to_str().ok())
@@ -373,6 +384,7 @@ impl EndpointIdentityResolver {
                             tier: if role == "admin" { "admin" } else { "normal" }.into(),
                             is_authenticated: true,
                             permissions: vec![],
+                            allowed_models: None,
                         });
                     }
                 }
@@ -397,6 +409,7 @@ impl EndpointIdentityResolver {
             permissions: principal.permissions().to_vec(),
             tier: principal.tier().into(),
             is_authenticated: true,
+            allowed_models: principal.api_key().map(|key| key.allowed_models.clone()),
         })
     }
 }

@@ -3,12 +3,8 @@
 //! Construction is inert. The host supplies independent, session-pinned data
 //! and cancellation pools, their search_path, clock, and secure byte provider.
 //! Pairing completion is one supervised transaction; the other source pool
-//! acquisitions remain independent operations. JSONB read columns deliberately
-//! become strings: the canonical asyncpg pool has no JSON decoder configured.
-//! See packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py,
-//! Database.connect(), and src/main.py's binding of container.database._pool.
-//! A host with custom source JSON codecs needs a separately reviewed adapter;
-//! this constructor deliberately reproduces the canonical default pool.
+//! acquisitions remain independent operations. Public JSONB fields retain JSON
+//! types, so capability lists remain arrays in device and grant responses.
 use crate::{
     local_nodes_types::{
         LocalNodesClock, LocalNodesControlPlane, LocalNodesError, LocalNodesFuture,
@@ -91,6 +87,14 @@ fn source_row(mut value: Value) -> Value {
     }
     value
 }
+
+fn require_json_array(row: Value, key: &'static str) -> Result<Value, LocalNodesError> {
+    if row.get(key).is_some_and(Value::is_array) {
+        Ok(row)
+    } else {
+        Err(LocalNodesError::Internal)
+    }
+}
 impl PgLocalNodesControlPlane {
     pub fn new(
         pool: PgPool,
@@ -117,11 +121,13 @@ impl PgLocalNodesControlPlane {
         let owner = owner.clone();
         let device_id = device_id.to_owned();
         let row: Option<Value> = self.operations.acquire().await.map_err(pg_error)?.execute(move |connection| Box::pin(async move {
-            sqlx::query_scalar("SELECT to_jsonb(d) || jsonb_build_object('capabilities', d.capabilities::text) FROM local_node_devices d WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3")
+            sqlx::query_scalar("SELECT to_jsonb(d) FROM local_node_devices d WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3")
                 .bind(device_id).bind(owner.tenant_id).bind(owner.user_id).fetch_optional(connection).await
         })).await.map_err(pg_error)?;
         match row {
-            Some(row) if row.get("revoked_at").is_some_and(Value::is_null) => Ok(source_row(row)),
+            Some(row) if row.get("revoked_at").is_some_and(Value::is_null) => {
+                require_json_array(source_row(row), "capabilities")
+            }
             _ => Err(LocalNodesError::repository(
                 "device is not owned or does not exist",
             )),
@@ -231,10 +237,14 @@ impl PgLocalNodesControlPlane {
         self.device(owner, &device_id).await?;
         let owner = owner.clone();
         let rows: Vec<Value> = self.operations.acquire().await.map_err(pg_error)?.execute(move |connection| Box::pin(async move {
-            sqlx::query_scalar("SELECT to_jsonb(g) FROM (SELECT grant_id,device_id,kind,display_name,capabilities::text AS capabilities,resource_ref,session_id,revision,status,created_at,expires_at FROM local_node_grants WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 ORDER BY created_at DESC) g")
+            sqlx::query_scalar("SELECT to_jsonb(g) FROM (SELECT grant_id,device_id,kind,display_name,capabilities,resource_ref,session_id,revision,status,created_at,expires_at FROM local_node_grants WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 ORDER BY created_at DESC) g")
                 .bind(owner.tenant_id).bind(owner.user_id).bind(device_id).fetch_all(connection).await
         })).await.map_err(pg_error)?;
-        Ok(json!({"grants": rows.into_iter().map(source_row).collect::<Vec<_>>()}))
+        let rows = rows
+            .into_iter()
+            .map(|row| require_json_array(source_row(row), "capabilities"))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(json!({"grants":rows}))
     }
     async fn create_grant(
         &self,
@@ -254,10 +264,10 @@ impl PgLocalNodesControlPlane {
         let resource = optional_text(&args, "resource_ref");
         let session = optional_text(&args, "session_id");
         let row: Value = self.operations.acquire().await.map_err(pg_error)?.execute(move |connection| Box::pin(async move {
-            sqlx::query_scalar("WITH inserted AS (INSERT INTO local_node_grants(grant_id,tenant_id,user_id,device_id,kind,display_name,capabilities,resource_ref,session_id,revision,status) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,1,'active') RETURNING *) SELECT to_jsonb(g) || jsonb_build_object('capabilities',g.capabilities::text) FROM inserted g")
+            sqlx::query_scalar("WITH inserted AS (INSERT INTO local_node_grants(grant_id,tenant_id,user_id,device_id,kind,display_name,capabilities,resource_ref,session_id,revision,status) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,1,'active') RETURNING *) SELECT to_jsonb(g) FROM inserted g")
                 .bind(grant_id).bind(owner.tenant_id).bind(owner.user_id).bind(device_id).bind(kind).bind(display).bind(capabilities).bind(resource).bind(session).fetch_one(connection).await
         })).await.map_err(pg_error)?;
-        Ok(json!({"grant":source_row(row)}))
+        Ok(json!({"grant":require_json_array(source_row(row),"capabilities")?}))
     }
     async fn revoke_grant(
         &self,
@@ -302,6 +312,30 @@ impl PgLocalNodesControlPlane {
         Ok(
             json!({"device_id":device_id,"events":rows.into_iter().map(source_row).collect::<Vec<_>>(),"after_sequence":after}),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_node_capabilities_remain_json_arrays() {
+        let row = json!({"capabilities":["list","read","search","watch"]});
+        let checked = require_json_array(row, "capabilities").unwrap();
+        assert_eq!(
+            checked["capabilities"],
+            json!(["list", "read", "search", "watch"])
+        );
+
+        assert!(
+            require_json_array(
+                json!({"capabilities":"[\"list\",\"read\"]"}),
+                "capabilities"
+            )
+            .is_err()
+        );
+        assert!(require_json_array(json!({"capabilities":null}), "capabilities").is_err());
     }
 }
 impl LocalNodesControlPlane for PgLocalNodesControlPlane {

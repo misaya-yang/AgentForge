@@ -8,12 +8,7 @@ use super::{
 use crate::migration_host::pdf_backend::{PopplerPdfBackend, PopplerPdfConfig};
 use crate::{migration_knowledge_ingest as ingest, migration_knowledge_query as query};
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc, time::Duration};
 
 pub struct ProcessSettings {
     pub configuration: KnowledgeConfiguration,
@@ -365,9 +360,21 @@ impl ProcessSettings {
             .map(|v| v.trim().to_owned())
             .collect();
         let mut qa = QaSettings::default();
-        qa.model = e.text("LLM_MODEL", "gemini-2.0-flash");
+        qa.provider = e.text("LLM_PROVIDER", &qa.provider).trim().to_lowercase();
+        qa.allowed_providers = e
+            .list("LLM_ALLOWED_PROVIDERS", vec![qa.provider.clone()])?
+            .into_iter()
+            .map(|provider| provider.trim().to_lowercase())
+            .filter(|provider| !provider.is_empty())
+            .collect();
+        qa.model = e.text("LLM_MODEL", &qa.model).trim().to_owned();
         qa.base_url = e.text("LLM_BASE_URL", "");
-        qa.allowed_models = BTreeSet::from([qa.model.clone()]);
+        qa.allowed_models = e
+            .list("LLM_ALLOWED_MODELS", vec![qa.model.clone()])?
+            .into_iter()
+            .map(|model| model.trim().to_owned())
+            .filter(|model| !model.is_empty())
+            .collect();
         let scratch = working_directory
             .join(e.text("KNOWLEDGE_NATIVE__SCRATCH_ROOT", "data/knowledge-scratch"));
         let mut parser = ingest::parser::ParserConfig::new(scratch.clone());

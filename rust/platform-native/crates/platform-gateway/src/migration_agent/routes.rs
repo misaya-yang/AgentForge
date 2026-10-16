@@ -23,7 +23,7 @@ use axum::{
 use futures_core::Stream;
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -551,7 +551,7 @@ async fn v2(
     let headers = request.headers().clone();
     let result=async{let actor=Actor::resolve(&state.auth,&headers,&path).await?;let parts:Vec<_>=path.trim_start_matches("/api/v2/agent/threads").trim_matches('/').split('/').filter(|s|!s.is_empty()).collect();let payload=body(request).await?;if parts.is_empty(){if method!="POST"{return Err(AgentError::code(405,"METHOD_NOT_ALLOWED"));}validate_thread_create_body(&payload)?;if let Some(expected)=payload["expected_tenant_id"].as_str(){if expected!=actor.tenant_id{return Err(AgentError::code(409,"AGENT_RUNTIME_TENANT_PRECONDITION_FAILED"));}}
     let target=if let(Some(id),Some(version))=(payload["agent_id"].as_str(),payload["agent_version_id"].as_str()){let resolution=state.repository.resolve_version(&actor,id,version).await?;Some(state.build_snapshot(&actor,&resolution,"preview").await?)}else{None};let session=payload["session_id"].as_str().map(str::to_owned).unwrap_or_else(||uuid::Uuid::new_v4().to_string());let scope=actor.scope(&session);if let Some(target)=&target{state.bind_pin(&scope,target,None).await?;}else{ensure_builtin_session(&state,&actor,&session).await?;}
-    let model=target.as_ref().and_then(|s|s["model"]["id"].as_str()).or_else(||payload["model_id"].as_str()).unwrap_or(&state.default_model);if model.is_empty(){return Err(AgentError::code(503,"AGENT_RUNTIME_MODEL_UNAVAILABLE"));}let thread=if let Some(t)=state.control.threads.get_for_session(&scope).await?{state.control.verify_thread(&scope,&t.runtime_thread_id,model).await?;t}else{let allow=target.as_ref().map(super::runtime_contract::snapshot_allowlist).transpose()?.flatten();let runtime=state.control.ensure_thread(&scope,model,target.as_ref().and_then(|s|s["model"]["provider"].as_str()).or_else(||payload["provider_id"].as_str()),None,allow,false,target.as_ref().and_then(|s|s["agent_spec"]["developerInstructions"].as_str())).await?;let stored=state.control.threads.owned_session(&scope).await?;if stored["history"].as_array().is_some_and(|a|!a.is_empty()){state.control.threads.import_legacy(&scope,&runtime.runtime_thread_id).await?}else{state.control.threads.ensure_native(&scope,&runtime.runtime_thread_id).await?}};let mut value=thread.payload();if let Some(target)=&target{value["agent_version_target"]=json!({"agent_id":target["agent_id"],"agent_version_id":target["agent_version_id"],"agent_spec_hash":text(&target["fingerprints"],"spec").trim_start_matches("sha256:"),"runtime_snapshot_hash":format!("sha256:{}",spec::hash(target))});}return Ok(json_response(201,json!({"thread":value})));}
+    let model=target.as_ref().and_then(|s|s["model"]["id"].as_str()).or_else(||payload["model_id"].as_str()).unwrap_or(&state.default_model);if model.is_empty(){return Err(AgentError::code(503,"AGENT_RUNTIME_MODEL_UNAVAILABLE"));}let thread=if let Some(t)=state.control.threads.get_for_session(&scope).await?{state.control.verify_thread(&scope,&t.runtime_thread_id,model).await?;t}else{let allow=target.as_ref().map(super::runtime_contract::snapshot_allowlist).transpose()?.flatten();let runtime=state.control.ensure_thread(&scope,model,target.as_ref().and_then(|s|s["model"]["provider"].as_str()).or_else(||payload["provider_id"].as_str()),None,allow,false,target.as_ref().and_then(|s|s["agent_spec"]["developerInstructions"].as_str())).await?;let stored=state.control.threads.owned_session(&scope).await?;if stored["history"].as_array().is_some_and(|a|!a.is_empty()){state.control.threads.import_legacy(&scope,&runtime.runtime_thread_id).await?}else{runtime}};let mut value=thread.payload();if let Some(target)=&target{value["agent_version_target"]=json!({"agent_id":target["agent_id"],"agent_version_id":target["agent_version_id"],"agent_spec_hash":text(&target["fingerprints"],"spec").trim_start_matches("sha256:"),"runtime_snapshot_hash":format!("sha256:{}",spec::hash(target))});}return Ok(json_response(201,json!({"thread":value})));}
     let thread=state.control.threads.get(&actor,parts[0]).await?.ok_or_else(||AgentError::code(404,"THREAD_NOT_FOUND"))?;let scope=thread.scope();state.control.threads.require_assignment(&scope).await?;let suffix=&parts[1..];match(method.as_str(),suffix){
     ("GET",[])=>{let pin=state.pinned_session(&scope,true).await?;let sources=state.sources.conversation_sources(&scope).await?;let mut restricted=Vec::new();for(run,refs)in &sources.by_run{if !state.sources.allowed(&scope,refs).await?{restricted.push(run.clone());}}let mut value=thread.payload();value["restricted_source_run_ids"]=json!(restricted);if let Some(pin)=pin.filter(|p|p["agent_version_id"].is_string()&&p["publication_id"].is_null()){value["agent_version_target"]=json!({"agent_id":pin["agent_id"],"agent_version_id":pin["agent_version_id"],"agent_spec_hash":text(&pin,"agent_spec_hash").trim_start_matches("sha256:"),"runtime_snapshot_hash":pin["runtime_fingerprint"]});}Ok(json_response(200,json!({"thread":value})))},
     ("POST",["turns"])=>{validate_turn_body(&payload)?;let pin=state.pinned_session(&scope,false).await?;state.sources.require_conversation(&scope,true).await?;let turn=if let Some(pin)=pin{if payload.as_object().expect("object").keys().any(|k|k!="message"){return Err(AgentError::code(422,"AGENT_RUNTIME_VERSION_OVERRIDES_FORBIDDEN"));}let snapshot=state.pinned_snapshot(&actor,&pin).await?;state.start_snapshot_turn(actor.clone(),scope.session_id.clone(),text(&payload,"message").into(),snapshot).await?}else{start_builtin(&state,actor.clone(),scope.session_id.clone(),payload).await?};Ok(json_response(202,turn_payload(&turn)))},
@@ -621,12 +621,25 @@ pub(super) async fn ensure_builtin_session(
     Ok(())
 }
 fn validate_thread_create_body(v: &Value) -> Result<(), AgentError> {
-    closed(v, &["session_id", "model_id", "provider_id", "agent_id", "agent_version_id", "expected_tenant_id"])?;
+    closed(
+        v,
+        &[
+            "session_id",
+            "model_id",
+            "provider_id",
+            "agent_id",
+            "agent_version_id",
+            "expected_tenant_id",
+        ],
+    )?;
     bounded(v, "provider_id", 1, 255, false)?;
     if v["agent_id"].is_null() != v["agent_version_id"].is_null()
         || (!v["agent_id"].is_null() && (!v["model_id"].is_null() || !v["provider_id"].is_null()))
     {
-        return Err(AgentError::code(422, "AGENT_RUNTIME_VERSION_TARGET_INVALID"));
+        return Err(AgentError::code(
+            422,
+            "AGENT_RUNTIME_VERSION_TARGET_INVALID",
+        ));
     }
     Ok(())
 }
@@ -744,6 +757,8 @@ async fn start_builtin_profile(
         return Err(AgentError::code(503, "AGENT_RUNTIME_MODEL_UNAVAILABLE"));
     }
     let scope = actor.scope(&session);
+    let local_node_capability =
+        resolve_local_node_capability(state, &actor, &session, &payload).await?;
     let refs: Vec<String> = payload["file_paths"]
         .as_array()
         .into_iter()
@@ -756,7 +771,13 @@ async fn start_builtin_profile(
     } else {
         state
             .attachments
-            .bind(&actor, &scope, &model, payload["provider_id"].as_str(), &refs)
+            .bind(
+                &actor,
+                &scope,
+                &model,
+                payload["provider_id"].as_str(),
+                &refs,
+            )
             .await?
     };
     let memory = super::entry::memory_mode(
@@ -788,9 +809,126 @@ async fn start_builtin_profile(
             memory_profile: Some(memory_profile),
             enable_dynamic_tools: true,
             image_inputs: images,
+            local_node_capability,
             ..Default::default()
         })
         .await
+}
+
+async fn resolve_local_node_capability(
+    state: &AgentState,
+    actor: &Actor,
+    session: &str,
+    payload: &Value,
+) -> Result<Option<Value>, AgentError> {
+    let device_id = payload["local_node_device_id"].as_str().unwrap_or("");
+    let grant_ids = payload["local_node_grant_ids"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if device_id.is_empty() && grant_ids.is_empty() {
+        return Ok(None);
+    }
+    let invalid = || AgentError::code(422, "INVALID_ASSISTANT_REQUEST");
+    let unavailable = || AgentError::code(409, "LOCAL_NODE_BINDING_UNAVAILABLE");
+    let Some(device_suffix) = device_id.strip_prefix("dev_") else {
+        return Err(invalid());
+    };
+    if device_suffix.len() != 24
+        || !device_suffix
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || grant_ids.len() != 1
+    {
+        return Err(invalid());
+    }
+    let grant_id = grant_ids[0].as_str().ok_or_else(invalid)?;
+    uuid::Uuid::parse_str(grant_id).map_err(|_| invalid())?;
+    let row = sqlx::query_scalar::<_, Value>(
+        "SELECT jsonb_build_object( \
+             'device_id',d.device_id, \
+             'device_capability_revision',d.capability_revision, \
+             'device_capabilities',d.capabilities, \
+             'permission_snapshot_digest',d.permission_snapshot_digest, \
+             'grant_id',g.grant_id::text, \
+             'grant_capabilities',g.capabilities \
+         ) FROM gateway.local_node_devices d \
+         JOIN gateway.local_node_grants g ON g.device_id=d.device_id \
+          AND g.tenant_id=d.tenant_id AND g.user_id=d.user_id \
+         WHERE d.device_id=$1 AND d.tenant_id=$2 AND d.user_id=$3 \
+           AND d.status='online' AND d.revoked_at IS NULL \
+           AND d.last_seen_at>now()-interval '2 minutes' \
+           AND g.grant_id=$4::uuid AND g.kind='workspace' AND g.status='active' \
+           AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>now()) \
+           AND (g.session_id IS NULL OR g.session_id=$5) AND g.updated_at<=d.last_seen_at \
+           AND EXISTS (SELECT 1 FROM gateway.local_node_device_credentials c \
+             JOIN gateway.local_node_channels ch ON ch.channel_id=c.channel_id \
+              AND ch.device_id=c.device_id AND ch.tenant_id=c.tenant_id AND ch.user_id=c.user_id \
+             WHERE c.device_id=d.device_id AND c.tenant_id=d.tenant_id AND c.user_id=d.user_id \
+               AND c.revoked_at IS NULL AND c.expires_at>now() AND ch.status='online') \
+         FOR SHARE OF d,g",
+    )
+    .bind(device_id)
+    .bind(&actor.tenant_id)
+    .bind(&actor.user_id)
+    .bind(grant_id)
+    .bind(session)
+    .fetch_optional(&state.repository.pool)
+    .await
+    .map_err(|_| AgentError::code(503, "LOCAL_NODE_BINDING_UNAVAILABLE"))?
+    .ok_or_else(unavailable)?;
+    let digest = row["permission_snapshot_digest"]
+        .as_str()
+        .filter(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or_else(unavailable)?;
+    let capability_revision = row["device_capability_revision"]
+        .as_i64()
+        .filter(|revision| *revision >= 1)
+        .ok_or_else(unavailable)?;
+    let device_claims = row["device_capabilities"]
+        .as_array()
+        .ok_or_else(unavailable)?
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let grant_capabilities = row["grant_capabilities"]
+        .as_array()
+        .ok_or_else(unavailable)?
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let usable = (device_claims.contains("file.read")
+        && (grant_capabilities.contains("list") || grant_capabilities.contains("read")))
+        || (device_claims.contains("file.search")
+            && ["search", "read", "list"]
+                .iter()
+                .all(|permission| grant_capabilities.contains(permission)))
+        || (device_claims.contains("file.watch") && grant_capabilities.contains("watch"))
+        || (device_claims.contains("file.write") && grant_capabilities.contains("write"));
+    if !usable {
+        return Err(unavailable());
+    }
+    Ok(Some(json!({
+        "type":"connector",
+        "id":"local_node_action",
+        "name":"local_node_action",
+        "version":null,
+        "schema_hash":null,
+        "config":{
+            "provider":"local_node",
+            "tool_name":"local_node_action",
+            "principal_type":"user_delegated",
+            "grant_id":row["grant_id"],
+            "connection_id":row["device_id"],
+            "permission_snapshot_digest":digest,
+            "device_capability_revision":capability_revision
+        }
+    })))
 }
 struct ApiEvents {
     events: EventReceiver,
@@ -1145,8 +1283,15 @@ mod provider_selection_tests {
 
     #[test]
     fn thread_and_turn_accept_the_same_optional_provider() {
-        assert!(validate_thread_create_body(&json!({"model_id":"same","provider_id":"second"})).is_ok());
-        assert!(validate_turn_body(&json!({"message":"hello","model_id":"same","provider_id":"second"})).is_ok());
+        assert!(
+            validate_thread_create_body(&json!({"model_id":"same","provider_id":"second"})).is_ok()
+        );
+        assert!(
+            validate_turn_body(
+                &json!({"message":"hello","model_id":"same","provider_id":"second"})
+            )
+            .is_ok()
+        );
         assert!(validate_thread_create_body(&json!({"model_id":"unique"})).is_ok());
     }
 

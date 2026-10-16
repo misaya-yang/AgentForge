@@ -869,6 +869,7 @@ fn is_worker_path(path: &str) -> bool {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::Notify;
 
     fn context(capability_id: &str) -> LocalNodeExecutionContext {
         LocalNodeExecutionContext {
@@ -914,6 +915,8 @@ mod tests {
         cancel_calls: AtomicUsize,
         dispatch_error: Option<LocalNodeBrokerError>,
         status_error_after_cancel: bool,
+        wait_until_cancel: bool,
+        cancel_signal: Notify,
     }
 
     impl Fake {
@@ -924,6 +927,8 @@ mod tests {
                 cancel_calls: AtomicUsize::new(0),
                 dispatch_error: None,
                 status_error_after_cancel: false,
+                wait_until_cancel: false,
+                cancel_signal: Notify::new(),
             }
         }
     }
@@ -957,6 +962,9 @@ mod tests {
             after_sequence: u64,
         ) -> Result<Vec<LocalNodeReceiptEvent>, LocalNodeBrokerError> {
             self.status_calls.fetch_add(1, Ordering::SeqCst);
+            if self.wait_until_cancel && self.cancel_calls.load(Ordering::SeqCst) == 0 {
+                self.cancel_signal.notified().await;
+            }
             if self.dispatch_error.is_some() {
                 return Err(LocalNodeBrokerError::TransportUnavailable);
             }
@@ -980,6 +988,7 @@ mod tests {
 
         async fn cancel(&self, _: &LocalNodeActionRequest) -> Result<(), LocalNodeBrokerError> {
             self.cancel_calls.fetch_add(1, Ordering::SeqCst);
+            self.cancel_signal.notify_waiters();
             Ok(())
         }
     }
@@ -1012,8 +1021,11 @@ mod tests {
 
     #[tokio::test]
     async fn timeout_requests_cancel_once_then_returns_unknown_if_unreconciled() {
+        // Hold the pre-cancel status request open so a valid immediate terminal
+        // receipt cannot race ahead of the deliberately short request deadline.
         let fake = Arc::new(Fake {
             status_error_after_cancel: true,
+            wait_until_cancel: true,
             ..Fake::ready()
         });
         let broker = LocalNodeBroker::new(fake.clone());

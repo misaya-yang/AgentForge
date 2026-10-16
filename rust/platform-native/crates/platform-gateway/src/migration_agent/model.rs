@@ -298,7 +298,7 @@ impl AgentModelPlane {
             .await
         } else {
             sqlx::query(
-                "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)",
+                "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6,$7::uuid,$8)",
             )
             .bind(&call)
             .bind(&id)
@@ -403,6 +403,11 @@ impl AgentModelPlane {
         dispatched: bool,
     ) -> Result<(), AgentError> {
         sqlx::query("UPDATE assistant_runtime_model_calls SET status=$2,error_code=$3,completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).bind(if dispatched{"unknown"}else{"failed"}).bind(code).execute(&self.pool).await?;
+        ai_platform_gateway_foundation::distributed_tracing::record_genai_failure(if dispatched {
+            "post_dispatch"
+        } else {
+            "pre_dispatch"
+        });
         Ok(())
     }
     pub async fn stream(
@@ -440,14 +445,23 @@ impl AgentModelPlane {
             "chat_completions"
         };
         timing.dispatch();
-        let mut response = match self
-            .client
-            .post(prepared.url)
-            .headers(prepared.headers)
-            .json(&prepared.body)
-            .send()
-            .await
-        {
+        let provider_response = ai_platform_gateway_foundation::distributed_tracing::client_span(
+            "gen_ai.provider.request",
+            async {
+                let mut provider_headers = prepared.headers.clone();
+                ai_platform_gateway_foundation::distributed_tracing::inject_current_trace_context(
+                    &mut provider_headers,
+                );
+                self.client
+                    .post(prepared.url.clone())
+                    .headers(provider_headers)
+                    .json(&prepared.body)
+                    .send()
+                    .await
+            },
+        )
+        .await;
+        let mut response = match provider_response {
             Ok(response) => response,
             Err(_) => {
                 self.fail_call(&call.call_id, "provider_connection_interrupted", true)
@@ -573,6 +587,10 @@ impl AgentModelPlane {
                                 .or(provider_request.as_deref()),
                         )
                         .await?;
+                    ai_platform_gateway_foundation::distributed_tracing::record_genai_token_usage(
+                        terminal.input,
+                        terminal.output,
+                    );
                     cleanup.armed = false;
                     let _ = tx.send(Ok(terminal.frame)).await;
                     let _ = tx.send(Ok(Bytes::from_static(b"data: [DONE]\n\n"))).await;
@@ -584,6 +602,9 @@ impl AgentModelPlane {
                     plane
                         .complete_call(&call, input, output, provider_request.as_deref())
                         .await?;
+                    ai_platform_gateway_foundation::distributed_tracing::record_genai_token_usage(
+                        input, output,
+                    );
                     cleanup.armed = false;
                     for frame in frames {
                         if tx.send(Ok(frame)).await.is_err() {

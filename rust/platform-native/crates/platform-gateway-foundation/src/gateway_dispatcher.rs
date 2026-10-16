@@ -90,10 +90,52 @@ impl GatewayDispatcher {
         }
     }
 
-    pub async fn sdk_read_lease(&self, request:&UnifiedRequest, principal:&ai_platform_auth::service::Principal, headers:&axum::http::HeaderMap)
-        ->Result<Option<crate::sdk_read_grants::SdkReadLease>,GatewayDispatchError>{
-        let Some(service)=self.preflight.registry().get(&request.service_id).await.map_err(GatewayDispatchError::Registry)? else {return Ok(None)};
-        self.preflight.registry().sdk_read_grants().issue(request,&service.snapshot(),principal,headers)
+    /// Existing operator-facing registry lookup. Dispatcher-only managed model
+    /// handles are resolved only inside preflight and are never returned here.
+    pub async fn service(&self, service_id: &str) -> Result<Option<ServiceHandle>, RegistryError> {
+        self.preflight.registry().get(service_id).await
+    }
+
+    /// Auth-filtered service catalogue for OpenAI-compatible `/v1/models`.
+    /// Execution, quotas, and usage still flow through `invoke`/`stream`.
+    pub(crate) async fn authorized_services(
+        &self,
+        authority: &PreflightAuthority<'_>,
+    ) -> Result<Vec<ServiceHandle>, RegistryError> {
+        self.preflight.authorized_services(authority).await
+    }
+
+    /// Replace dispatcher-only model projections for one tenant. They remain
+    /// subject to the same preflight/auth/admission/usage path as stored services.
+    pub(crate) fn replace_openai_model_services(
+        &self,
+        tenant_id: &str,
+        services: Vec<ServiceHandle>,
+    ) {
+        self.preflight
+            .registry()
+            .replace_dispatcher_model_services(tenant_id, services);
+    }
+
+    pub async fn sdk_read_lease(
+        &self,
+        request: &UnifiedRequest,
+        principal: &ai_platform_auth::service::Principal,
+        headers: &axum::http::HeaderMap,
+    ) -> Result<Option<crate::sdk_read_grants::SdkReadLease>, GatewayDispatchError> {
+        let Some(service) = self
+            .preflight
+            .registry()
+            .get(&request.service_id)
+            .await
+            .map_err(GatewayDispatchError::Registry)?
+        else {
+            return Ok(None);
+        };
+        self.preflight
+            .registry()
+            .sdk_read_grants()
+            .issue(request, &service.snapshot(), principal, headers)
             .map_err(GatewayDispatchError::Configuration)
     }
     async fn prepare_session(
@@ -314,7 +356,11 @@ impl GatewayDispatcher {
         Ok(GatewayStream {
             state: Some(GatewayStreamState {
                 inner,
-                stats: if sdk_framework(&service.snapshot()).is_some() { StreamStatistics::sdk() } else { StreamStatistics::default() },
+                stats: if sdk_framework(&service.snapshot()).is_some() {
+                    StreamStatistics::sdk()
+                } else {
+                    StreamStatistics::default()
+                },
                 request,
                 service,
                 session_id,
@@ -386,7 +432,9 @@ impl GatewayDispatcher {
         client_ip: Option<&str>,
     ) -> Result<(String, Option<String>), GatewayDispatchError> {
         if self.tasks.requires_durable_actor() && authority.task_actor().is_none() {
-            return Err(GatewayDispatchError::Task(TaskError::DurableAuthorityRequired));
+            return Err(GatewayDispatchError::Task(
+                TaskError::DurableAuthorityRequired,
+            ));
         }
         let ready = self
             .preflight
@@ -476,7 +524,11 @@ impl Drop for InvokeCancellationGuard {
                 && let Ok(record) = usage_event(
                     &request,
                     &service.snapshot(),
-                    &if sdk_framework(&service.snapshot()).is_some() { json!({"usage": response.usage.unwrap_or_default()}) } else { json!({}) },
+                    &if sdk_framework(&service.snapshot()).is_some() {
+                        json!({"usage": response.usage.unwrap_or_default()})
+                    } else {
+                        json!({})
+                    },
                     elapsed_ms(start),
                     "invoke",
                     "error",
@@ -502,7 +554,10 @@ fn elapsed_ms(start: Instant) -> i64 {
     i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX)
 }
 fn sdk_framework(service: &ServiceDefinition) -> Option<&str> {
-    service.metadata.get("adapter_type").and_then(Value::as_str)
+    service
+        .metadata
+        .get("adapter_type")
+        .and_then(Value::as_str)
         .filter(|value| matches!(*value, "openai_agents" | "claude_agent_sdk"))
 }
 
@@ -524,7 +579,11 @@ pub fn usage_event(
         let output = usage["output_tokens"].as_i64().filter(|n| *n >= 0);
         if usage["sdk_usage"]["state"] != "reported"
             || usage["sdk_usage"]["platform_pricing_state"] != "two_rate_compatible"
-            || input.zip(output).and_then(|(a,b)| a.checked_add(b)).is_none() {
+            || input
+                .zip(output)
+                .and_then(|(a, b)| a.checked_add(b))
+                .is_none()
+        {
             return Err(UsageParseError::SdkUsageUnavailable);
         }
     }
@@ -545,13 +604,24 @@ pub fn usage_event(
     record.provider = usage_parser::resolve_provider_name(service, payload)?;
     if let Some(framework) = sdk {
         // Identity is pinned in server configuration, never request context or SDK output.
-        record.model = service.metadata["sdk_agent"]["model"].as_str()
-            .filter(|v| !v.is_empty()).ok_or(UsageParseError::InvalidIdentityMapping)?.into();
-        record.provider = match framework { "openai_agents" => "openai", _ => "anthropic" }.into();
-        let mut observation = payload["usage"]["sdk_usage"].as_object().cloned()
+        record.model = service.metadata["sdk_agent"]["model"]
+            .as_str()
+            .filter(|v| !v.is_empty())
+            .ok_or(UsageParseError::InvalidIdentityMapping)?
+            .into();
+        record.provider = match framework {
+            "openai_agents" => "openai",
+            _ => "anthropic",
+        }
+        .into();
+        let mut observation = payload["usage"]["sdk_usage"]
+            .as_object()
+            .cloned()
             .ok_or(UsageParseError::SdkUsageUnavailable)?;
         observation.insert("execution_status".into(), json!(status));
-        record.metadata.insert("sdk_usage".into(), Value::Object(observation));
+        record
+            .metadata
+            .insert("sdk_usage".into(), Value::Object(observation));
         // Provider-reported cost is audit evidence only. Existing pricing receipt,
         // deduplication, aggregate and quota accounting remain the sole charge path.
     }
@@ -734,49 +804,89 @@ async fn finish_stream(mut state: GatewayStreamState) -> Result<(), GatewayDispa
 mod sdk_usage_accounting_tests {
     use super::*;
     fn fixture() -> (UnifiedRequest, ServiceDefinition) {
-        let mut request = UnifiedRequest::new("request", "service", vec![crate::protocol::ContentItem::text("long input must not become estimated usage")]);
-        request.tenant_id = "tenant".into(); request.user_id = "user".into();
+        let mut request = UnifiedRequest::new(
+            "request",
+            "service",
+            vec![crate::protocol::ContentItem::text(
+                "long input must not become estimated usage",
+            )],
+        );
+        request.tenant_id = "tenant".into();
+        request.user_id = "user".into();
         let mut service = ServiceDefinition::new("service", "SDK");
-        service.metadata = json!({"adapter_type":"openai_agents", "sdk_agent":{"model":"configured-model"}});
+        service.metadata =
+            json!({"adapter_type":"openai_agents", "sdk_agent":{"model":"configured-model"}});
         (request, service)
     }
     #[test]
     fn sdk_missing_usage_is_not_estimated_or_zero_charged() {
         let (request, service) = fixture();
-        for payload in [json!({}), json!({"usage":{"sdk_usage":{"state":"unavailable"},"output_tokens":2}})] {
-            assert_eq!(usage_event(&request,&service,&payload,1,"stream","unknown","text"), Err(UsageParseError::SdkUsageUnavailable));
+        for payload in [
+            json!({}),
+            json!({"usage":{"sdk_usage":{"state":"unavailable"},"output_tokens":2}}),
+        ] {
+            assert_eq!(
+                usage_event(&request, &service, &payload, 1, "stream", "unknown", "text"),
+                Err(UsageParseError::SdkUsageUnavailable)
+            );
         }
     }
     #[test]
     fn sdk_reported_observation_preserves_run_cost_and_identity() {
         let (request, service) = fixture();
-        let payload=json!({"usage":{"input_tokens":14,"output_tokens":6,"total_tokens":20,"sdk_usage":{"state":"reported","platform_pricing_state":"two_rate_compatible","assistant_run_id":"genuine-adapter-run","provider_cost_usd":0.25}}});
-        let record=usage_event(&request,&service,&payload,1,"stream","success","text").unwrap();
-        assert_eq!((record.input_tokens,record.output_tokens),(14,6));
-        assert_eq!(record.provider,"openai");assert_eq!(record.model,"configured-model");
-        assert_eq!(record.metadata["sdk_usage"]["assistant_run_id"],"genuine-adapter-run");
-        assert_eq!(record.metadata["sdk_usage"]["provider_cost_usd"],0.25);
-        assert_eq!(record.input_cost_cents,0); // Pricing is exclusively the existing sink's job.
-        assert_eq!(record.request_id,"request");
+        let payload = json!({"usage":{"input_tokens":14,"output_tokens":6,"total_tokens":20,"sdk_usage":{"state":"reported","platform_pricing_state":"two_rate_compatible","assistant_run_id":"genuine-adapter-run","provider_cost_usd":0.25}}});
+        let record =
+            usage_event(&request, &service, &payload, 1, "stream", "success", "text").unwrap();
+        assert_eq!((record.input_tokens, record.output_tokens), (14, 6));
+        assert_eq!(record.provider, "openai");
+        assert_eq!(record.model, "configured-model");
+        assert_eq!(
+            record.metadata["sdk_usage"]["assistant_run_id"],
+            "genuine-adapter-run"
+        );
+        assert_eq!(record.metadata["sdk_usage"]["provider_cost_usd"], 0.25);
+        assert_eq!(record.input_cost_cents, 0); // Pricing is exclusively the existing sink's job.
+        assert_eq!(record.request_id, "request");
     }
     #[test]
     fn sdk_cached_usage_requires_reconciliation_not_full_rate_charge() {
         let (request, service) = fixture();
-        let payload=json!({"usage":{"input_tokens":9,"output_tokens":1,"sdk_usage":{"state":"reported","platform_pricing_state":"reconciliation_required"}}});
-        assert_eq!(usage_event(&request,&service,&payload,1,"stream","success","text"),Err(UsageParseError::SdkUsageUnavailable));
+        let payload = json!({"usage":{"input_tokens":9,"output_tokens":1,"sdk_usage":{"state":"reported","platform_pricing_state":"reconciliation_required"}}});
+        assert_eq!(
+            usage_event(&request, &service, &payload, 1, "stream", "success", "text"),
+            Err(UsageParseError::SdkUsageUnavailable)
+        );
     }
     #[test]
     fn sdk_explicit_zero_is_upstream_usage() {
         let (request, service) = fixture();
         let record=usage_event(&request,&service,&json!({"usage":{"input_tokens":0,"output_tokens":0,"sdk_usage":{"state":"reported","platform_pricing_state":"two_rate_compatible"}}}),1,"stream","success","text").unwrap();
-        assert_eq!(record.input_tokens,0);assert_eq!(record.output_tokens,0);
-        assert_eq!(record.metadata["token_source"],"upstream");
+        assert_eq!(record.input_tokens, 0);
+        assert_eq!(record.output_tokens, 0);
+        assert_eq!(record.metadata["token_source"], "upstream");
     }
     #[test]
     fn sdk_invalid_reported_counts_are_unavailable() {
         let (request, service) = fixture();
-        for input in [json!(-1),json!(true),json!(1.5),json!("3"),json!(i64::MAX)] {
-            assert_eq!(usage_event(&request,&service,&json!({"usage":{"input_tokens":input,"output_tokens":1,"sdk_usage":{"state":"reported","platform_pricing_state":"two_rate_compatible"}}}),1,"stream","error","text"),Err(UsageParseError::SdkUsageUnavailable));
+        for input in [
+            json!(-1),
+            json!(true),
+            json!(1.5),
+            json!("3"),
+            json!(i64::MAX),
+        ] {
+            assert_eq!(
+                usage_event(
+                    &request,
+                    &service,
+                    &json!({"usage":{"input_tokens":input,"output_tokens":1,"sdk_usage":{"state":"reported","platform_pricing_state":"two_rate_compatible"}}}),
+                    1,
+                    "stream",
+                    "error",
+                    "text"
+                ),
+                Err(UsageParseError::SdkUsageUnavailable)
+            );
         }
     }
 }

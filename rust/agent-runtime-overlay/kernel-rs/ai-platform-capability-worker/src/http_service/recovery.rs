@@ -69,10 +69,28 @@ async fn terminalize_rejected_recovery(state: &WorkerState, record: &ExecutionRe
         Ok(value) if value.claimed => value,
         _ => return,
     };
-    let fence = dispatch.record.dispatch_fence.as_deref().unwrap_or(&requested);
-    let payload = BTreeMap::from([("error_code".to_string(), Value::String("plugin_recovery_descriptor_invalid".into()))]);
-    if let Err(error) = state.store.append_event(&scope, id, &event_id_unchecked(id, 4),
-        "terminal", CapabilityExecutionStatus::Failed, payload, Some(fence)).await {
+    let fence = dispatch
+        .record
+        .dispatch_fence
+        .as_deref()
+        .unwrap_or(&requested);
+    let payload = BTreeMap::from([(
+        "error_code".to_string(),
+        Value::String("plugin_recovery_descriptor_invalid".into()),
+    )]);
+    if let Err(error) = state
+        .store
+        .append_event(
+            &scope,
+            id,
+            &event_id_unchecked(id, 4),
+            "terminal",
+            CapabilityExecutionStatus::Failed,
+            payload,
+            Some(fence),
+        )
+        .await
+    {
         tracing::error!(execution_id = %id, %error, "failed to persist invalid recovery descriptor");
     }
 }
@@ -96,18 +114,32 @@ pub(super) async fn recover_executions_loop(state: WorkerState) {
             }
             // Durable descriptor wins. In particular, a pack may never replace
             // old work merely by reusing its capability ID in today's registry.
-            let saved = record.resource_binding.get("descriptor").cloned()
+            let saved = record
+                .resource_binding
+                .get("descriptor")
+                .cloned()
                 .and_then(|value| serde_json::from_value::<CapabilityDescriptorV2>(value).ok());
-            let pack_bound = state.plugin_activation.as_ref().is_some_and(|active|
-                active.managed.contains(&record.execution.capability_id))
+            let pack_bound = state
+                .plugin_activation
+                .as_ref()
+                .is_some_and(|active| active.managed.contains(&record.execution.capability_id))
                 || !record.resource_binding["plugin_activation"].is_null()
-                || record.resource_binding["descriptor"]["tags"].as_array().is_some_and(|tags|
-                    tags.iter().any(|tag| tag.as_str().is_some_and(|tag| tag.starts_with("plugin-"))));
+                || record.resource_binding["descriptor"]["tags"]
+                    .as_array()
+                    .is_some_and(|tags| {
+                        tags.iter()
+                            .any(|tag| tag.as_str().is_some_and(|tag| tag.starts_with("plugin-")))
+                    });
             if pack_bound && saved.is_none() {
                 terminalize_rejected_recovery(&state, &record).await;
                 continue;
             }
-            let descriptor = saved.or_else(|| state.capability_registry.get(&record.execution.capability_id).cloned());
+            let descriptor = saved.or_else(|| {
+                state
+                    .capability_registry
+                    .get(&record.execution.capability_id)
+                    .cloned()
+            });
             let Some(descriptor) = descriptor else {
                 terminalize_rejected_recovery(&state, &record).await;
                 continue;

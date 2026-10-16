@@ -12,6 +12,10 @@ import type { CitationSource } from "../../assistant/components/citationSource.t
 
 type Tree = { type: unknown; props: Record<string, unknown> };
 type Component = (props: Record<string, unknown>) => unknown;
+class FixtureSSEHttpError extends Error {
+  readonly status: number;
+  constructor(status: number) { super("private server response detail"); this.name = "SSEHttpError"; this.status = status; }
+}
 const hash = (body: string) => createHash("sha256").update(body).digest("hex");
 const hit = (body = "saved paragraph", overrides: Partial<RetrieveHit> = {}): RetrieveHit => ({
   document_id: "document-A", segment_id: "segment-A", text: body, score: 0.75,
@@ -41,7 +45,10 @@ function host(file: string, name: string, initialProps: Record<string, unknown> 
   let cursor = 0;
   let dirty = true;
   let effects: (() => void)[] = [];
-  let props = initialProps;
+  const withQATestDefaults = (value: Record<string, unknown>) => value.hitTest && typeof value.hitTest === "object"
+    ? { ...value, hitTest: { rerankModelOptions: [], rerankModelConfigStatus: "ready", ...(value.hitTest as Record<string, unknown>) } }
+    : value;
+  let props = withQATestDefaults(initialProps);
   let tree: unknown;
   const timers = new Set<() => void>();
   type Digest = typeof webcrypto.subtle.digest;
@@ -53,7 +60,7 @@ function host(file: string, name: string, initialProps: Record<string, unknown> 
   function user() { return { user_id: "user-B", permissions: ["read"], roles: ["member"], tier: "normal" }; }
   let get: (url: string, options: typeof reads[number]["options"]) => Promise<unknown> = async () => { throw new Error("No fixture"); };
   let activeRead: () => Promise<unknown> = async () => ({ title: "Current title" });
-  const qa = { calls: 0, fallbackCalls: 0, signals: [] as AbortSignal[], response: { retrieval_metadata: {}, answer: "saved answer", model: "fixture", query: "question", context_segments: [hit()], timing: { retrieval_ms: 1, llm_ms: 2, total_ms: 3 } } };
+  const qa = { calls: 0, fallbackCalls: 0, signals: [] as AbortSignal[], requests: [] as unknown[], failWith: undefined as unknown, response: { retrieval_metadata: {}, answer: "saved answer", model: "fixture", query: "question", context_segments: [hit()], timing: { retrieval_ms: 1, llm_ms: 2, total_ms: 3 } } };
   let stream: () => AsyncGenerator<unknown> = async function* () { yield { event: "done", data: { result: qa.response } }; };
   const react = {
     useState(initial: unknown) {
@@ -87,14 +94,24 @@ function host(file: string, name: string, initialProps: Record<string, unknown> 
   const jsx = (type: unknown, p: Record<string, unknown>) => ({ type, props: p });
   const modules: Record<string, unknown> = {
     react, "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
-    "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: unknown) => typeof fallback === "string" ? fallback : key }) },
+    "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: unknown) => {
+      if (key === "knowledge.detail.qaRequestRejected" && fallback && typeof fallback === "object") {
+        return `${key}:${String((fallback as Record<string, unknown>).status)}`;
+      }
+      return typeof fallback === "string" ? fallback : key;
+    } }) },
     "lucide-react": named,
     "@/store/useAuthStore": { useAuthStore: (selector: (a: typeof auth) => unknown) => selector(auth) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
+    "@/lib/sse": { SSEHttpError: FixtureSSEHttpError },
     "@/lib/api": { api: { get: (url: string, options: typeof reads[number]["options"]) => { reads.push({ url, options }); return get(url, options); } } },
     "@/api/knowledge": {
       getActiveDocumentSource: async (...args: string[]) => { legacyReads.push(args); return activeRead(); },
-      qaQueryStream: (_dataset: string, _request: unknown, signal: AbortSignal) => { qa.calls += 1; qa.signals.push(signal); return stream(); },
+      qaQueryStream: (_dataset: string, request: unknown, signal: AbortSignal) => {
+        qa.calls += 1; qa.requests.push(request); qa.signals.push(signal);
+        if (qa.failWith) throw qa.failWith;
+        return stream();
+      },
       qaQuery: async () => { qa.fallbackCalls += 1; return qa.response; },
     },
     "./knowledgeCitation": { knowledgeCitation },
@@ -118,7 +135,7 @@ function host(file: string, name: string, initialProps: Record<string, unknown> 
     },
   });
   function render(next = props, runEffects = true): unknown {
-    props = next;
+    props = withQATestDefaults(next);
     cursor = 0; dirty = false; tree = exports[name](props);
     if (runEffects) { const queued = effects; effects = []; queued.forEach((effect) => effect()); }
     return tree;
@@ -320,6 +337,48 @@ async function qaReady(app: ReturnType<typeof host>) {
   const run = all(ready, "Button").find(button => (button.props.onClick as { name?: string })?.name === "runQA");
   assert.ok(run); return run.props.onClick as () => Promise<void>;
 }
+
+test("QA server-default request omits blank provider and model so Gateway config applies", async () => {
+  const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: {} });
+  await (await qaReady(app))();
+  const payload = app.qa.requests[0] as { llm_config: Record<string, unknown> };
+  assert.equal(Object.hasOwn(payload.llm_config, "provider"), false);
+  assert.equal(Object.hasOwn(payload.llm_config, "model"), false);
+  assert.equal(payload.llm_config.temperature, 0.1);
+  assert.equal(payload.llm_config.max_tokens, 2048);
+  const tree = await app.flush();
+  const modelSelect = all(tree, "Select")[0];
+  assert.equal(modelSelect.props.value, "");
+  assert.match(textOf(tree), /common\.serverDefault/);
+  assert.match(textOf(tree), /fixture/);
+});
+
+test("QA HTTP rejection reports safe auth, permission, and request status while preserving the question", async () => {
+  for (const [status, expected] of [
+    [401, "knowledge.detail.qaAuthRequired"],
+    [403, "knowledge.detail.qaPermissionDenied"],
+    [400, "knowledge.detail.qaRequestRejected:400"],
+    [422, "knowledge.detail.qaRequestRejected:422"],
+    [503, "knowledge.detail.qaInterrupted"],
+  ] as const) {
+    const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: {} });
+    app.qa.failWith = new FixtureSSEHttpError(status);
+    await (await qaReady(app))();
+    const tree = await app.flush();
+    const text = textOf(tree);
+    assert.equal(app.qa.calls, 1);
+    assert.equal(app.qa.fallbackCalls, 0);
+    assert.ok(text.includes(expected), `missing safe status message ${expected}`);
+    assert.ok(text.includes("question"), "the submitted question stays in the transcript");
+    assert.doesNotMatch(text, /private server response detail/);
+    const reuse = all(tree, "Button").find(button => textOf(button).includes("qaReuseQuestion"));
+    assert.ok(reuse);
+    (reuse.props.onClick as () => void)();
+    await app.flush();
+    assert.equal(all(app.current(), "Textarea")[0].props.value, "question");
+    app.dispose();
+  }
+});
 
 test("QA empty/error streams dispatch once, expose interruption and reuse without submitting", async () => {
   for (const stream of [async function* () {}, async function* () { throw new Error("lost response"); yield; }, async function* () { yield { event: "error", data: { message: "untrusted raw message" } }; }]) {

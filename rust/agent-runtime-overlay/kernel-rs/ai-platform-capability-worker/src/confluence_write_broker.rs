@@ -232,6 +232,8 @@ mod tests {
                 connection_id: None,
                 schema_hash: None,
                 risk_level: None,
+                permission_snapshot_digest: None,
+                device_capability_revision: None,
                 channel: "api".into(),
             }),
         };

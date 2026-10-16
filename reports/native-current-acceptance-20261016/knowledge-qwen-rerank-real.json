@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-16T09:53:39.427Z",
+  "transport": "public Gateway HTTP API",
+  "schema_epoch": 23,
+  "gateway_pid": 63482,
+  "knowledge_api_pid": 63617,
+  "provider": "dashscope",
+  "model": "qwen3-rerank",
+  "native_hybrid": true,
+  "rerank_enabled": true,
+  "rerank_degraded": null,
+  "result_count": 1,
+  "all_results_have_rerank_scores": true,
+  "source_checks": [
+    {
+      "document_id": "e7e4f006-b614-4022-832c-55d3d639f45a",
+      "source_version": 1,
+      "source_hash": "25153861937caff97b3a3a05044e5187498ab5fa8a7831a00c88c9581494b9b5",
+      "http_status": 200,
+      "exact_content_hash": true
+    }
+  ],
+  "response_sha256": "95f39fdc2eaaafbfdbaa316933824f362d805a1d840e8f41d765d6900e31d0b8",
+  "limits": [
+    "Native Qdrant fusion does not expose individual dense/BM25 recall counts.",
+    "This API proof is separate from browser acceptance."
+  ]
+}

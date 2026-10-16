@@ -67,8 +67,59 @@ fn default_model_round_trip() {
     );
 }
 #[test]
+fn asymmetric_jwt_mode_does_not_require_the_legacy_secret() {
+    let mut s = set(
+        &valid("DASHSCOPE_API_KEY=test-chat-key"),
+        "GATEWAY_JWT_MODE",
+        "asymmetric_keyring",
+    );
+    s = set(
+        &s,
+        "GATEWAY_JWT_ACTIVE_PRIVATE_PEM",
+        "synthetic-private-key",
+    );
+    s = set(&s, "GATEWAY_AUTHENTICATION__JWT__ACTIVE_KID", "current");
+    s = set(
+        &s,
+        "GATEWAY_AUTHENTICATION__JWT__ALGORITHMS",
+        r#"["EdDSA"]"#,
+    );
+    s = set(
+        &s,
+        "GATEWAY_AUTHENTICATION__JWT__KEYRING",
+        r#"[{"kid":"current","algorithm":"EdDSA","private_key_env":"GATEWAY_JWT_ACTIVE_PRIVATE_PEM","public_jwk":{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"current","x":"fixture"}}]"#,
+    );
+    for key in ["JWT_SECRET", "GATEWAY_AUTHENTICATION__JWT__SECRET"] {
+        s = regex::Regex::new(&format!(r"(?m)^{key}=.*\n?"))
+            .unwrap()
+            .replace_all(&s, "")
+            .into_owned();
+    }
+    validate(
+        &s,
+        &["--config-only"],
+        "",
+        0,
+        &["Configuration validation passed"],
+        &["JWT_SECRET must be set"],
+    );
+}
+#[test]
 fn release_image_required() {
-    validate(&set(&valid("DASHSCOPE_API_KEY=test-chat-key"),"GATEWAY_IMAGE","ghcr.io/misaya-yang/ai-gateway:nightly"),&["--config-only"],"",1,&["GATEWAY_IMAGE must use a full semantic release tag (for example 2.0.0) or sha256 digest."],&[]);
+    validate(
+        &set(
+            &valid("DASHSCOPE_API_KEY=test-chat-key"),
+            "GATEWAY_IMAGE",
+            "ghcr.io/misaya-yang/ai-gateway:nightly",
+        ),
+        &["--config-only"],
+        "",
+        1,
+        &[
+            "GATEWAY_IMAGE must use a full semantic release tag (for example 2.0.0) or sha256 digest.",
+        ],
+        &[],
+    );
 }
 #[test]
 fn example_shape() {
@@ -125,7 +176,16 @@ fn runtime_provider_alignment() {
 #[test]
 fn vertex_provider_aliases() {
     for p in ["dashscope|1\ngoogle-vertex|1", "dashscope|1\ngoogle|1"] {
-        validate(&valid("DASHSCOPE_API_KEY=test-dashscope-key\nGOOGLE_CHAT_BACKEND=vertex\nVERTEX_CHAT_API_KEY=test-vertex-chat-key"),&["--runtime"],p,0,&["Chat model/provider alignment is valid (2 available model(s))."],&[]);
+        validate(
+            &valid(
+                "DASHSCOPE_API_KEY=test-dashscope-key\nGOOGLE_CHAT_BACKEND=vertex\nVERTEX_CHAT_API_KEY=test-vertex-chat-key",
+            ),
+            &["--runtime"],
+            p,
+            0,
+            &["Chat model/provider alignment is valid (2 available model(s))."],
+            &[],
+        );
     }
 }
 #[test]

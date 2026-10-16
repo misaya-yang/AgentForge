@@ -65,6 +65,25 @@ another builder or bind-mount generated Cargo targets into the source checkout.
 Builds are serialized and resource guarded. Do not automatically prune caches.
 Compilation evidence does not establish image, release or end-to-end acceptance.
 
+This host's shared Runtime/Worker builder is
+`agentforge-rust-c4b4565e14f050b5` with a 4 GiB memory limit and CPU quota
+200000. Select it explicitly for controlled builds with
+`BUILDX_BUILDER=agentforge-rust-c4b4565e14f050b5`, or pass `--builder NAME` to
+`platform-tools buildx-resource-builder`. Explicit selection verifies the
+current Docker context, a single `docker-container` node, and the BuildKit
+container's actual memory/CPU limits. A missing or mismatched explicit builder
+fails without creating another builder. With no explicit selection, the legacy
+checkout/context/resource-derived name remains in effect.
+
+For example, the helper used by the Runtime/Worker build scripts can be checked
+without changing the active builder:
+
+```sh
+BUILDX_BUILDER=agentforge-rust-c4b4565e14f050b5 \
+  platform-tools buildx-resource-builder \
+  --repo-root "$PWD" --memory 4g --cpu-quota 200000
+```
+
 The current local project is `agentforge-dev-7801d4a9a4`, selected through
 `COMPOSE_PROJECT_NAME` in ignored `.env.dev`. Its definitions are
 `deploy/local/compose.yml` and `deploy/local/compose.runtime.yml`. Repository

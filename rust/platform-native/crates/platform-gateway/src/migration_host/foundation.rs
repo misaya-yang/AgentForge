@@ -19,6 +19,7 @@ pub struct FoundationCancellation {
     pub metrics: Arc<dyn metrics_admin_api::MetricsAdminCancellation>,
 }
 pub struct FoundationApis {
+    pub openai_model_catalog: Arc<dyn openai_model_catalog::OpenAiModelCatalog>,
     pub introspection: Arc<dyn ai_platform_auth::http::CredentialIntrospectionResolver>,
     pub auth_config: Arc<auth_config_api::AuthConfigApi>,
     pub config_api_keys: Arc<config_api_keys_api::ConfigApiKeysApi>,
@@ -206,10 +207,11 @@ impl FoundationApis {
                 .reset_fallback(),
             )
             .merge(
-                invocation_http::router_with_identity(
+                invocation_http::router_with_identity_and_model_catalog(
                     auth,
                     self.dispatcher,
                     Some(self.invocation_identity),
+                    Some(self.openai_model_catalog),
                 )
                 .reset_fallback(),
             );

@@ -459,12 +459,20 @@ pub fn snapshot_allowlist(snapshot: &Value) -> Result<Option<Vec<Value>>, AgentE
             entry["connector_binding"] = json!({"binding_type":"grant","provider":"mcp","tool_name":name,"principal_type":principal,"grant_id":null,"connection_id":connection,"schema_hash":hash,"risk_level":risk,"channel":channel});
         } else if kind == "connector" {
             let o = config.as_object().ok_or_else(invalid)?;
+            let provider = text(config, "provider");
+            let local_node = provider == "local_node";
             if o.keys().any(|k| {
                 !["provider", "tool_name", "principal_type", "grant_id"].contains(&k.as_str())
+                    && !(local_node
+                        && [
+                            "connection_id",
+                            "permission_snapshot_digest",
+                            "device_capability_revision",
+                        ]
+                        .contains(&k.as_str()))
             }) {
                 return Err(invalid());
             }
-            let provider = text(config, "provider");
             let grant = &config["grant_id"];
             let principal = &config["principal_type"];
             if provider.is_empty()
@@ -493,7 +501,45 @@ pub fn snapshot_allowlist(snapshot: &Value) -> Result<Option<Vec<Value>>, AgentE
                     return Err(invalid());
                 }
             }
-            entry["connector_binding"] = json!({"binding_type":if grant.is_null(){"catalog"}else{"grant"},"provider":provider,"tool_name":name,"principal_type":principal,"grant_id":grant,"channel":channel});
+            if local_node {
+                let connection = text(config, "connection_id");
+                let digest = text(config, "permission_snapshot_digest");
+                let device_revision = config["device_capability_revision"]
+                    .as_u64()
+                    .filter(|revision| *revision > 0);
+                if id != "local_node_action"
+                    || name != "local_node_action"
+                    || channel != "builtin"
+                    || principal.as_str() != Some("user_delegated")
+                    || grant.is_null()
+                    || connection.strip_prefix("dev_").is_none_or(|suffix| {
+                        suffix.len() != 24
+                            || !suffix
+                                .bytes()
+                                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                    })
+                    || digest.len() != 64
+                    || !digest
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                    || device_revision.is_none()
+                {
+                    return Err(invalid());
+                }
+                entry["connector_binding"] = json!({
+                    "binding_type":"grant",
+                    "provider":provider,
+                    "tool_name":name,
+                    "principal_type":principal,
+                    "grant_id":grant,
+                    "connection_id":connection,
+                    "permission_snapshot_digest":digest,
+                    "device_capability_revision":device_revision,
+                    "channel":channel
+                });
+            } else {
+                entry["connector_binding"] = json!({"binding_type":if grant.is_null(){"catalog"}else{"grant"},"provider":provider,"tool_name":name,"principal_type":principal,"grant_id":grant,"channel":channel});
+            }
         }
         result.push(entry);
     }
@@ -508,4 +554,60 @@ pub fn snapshot_allowlist(snapshot: &Value) -> Result<Option<Vec<Value>>, AgentE
         result.push(json!({"type":"platform","id":"search_knowledge_base","name":"search_knowledge_base","version":null,"schema_hash":null}));
     }
     Ok(Some(result))
+}
+
+#[cfg(test)]
+mod local_node_binding_tests {
+    use super::*;
+
+    fn snapshot() -> Value {
+        json!({
+            "agent_spec":{"channel":"builtin"},
+            "capabilities":[{
+                "type":"connector",
+                "id":"local_node_action",
+                "name":"local_node_action",
+                "version":null,
+                "schema_hash":null,
+                "config":{
+                    "provider":"local_node",
+                    "tool_name":"local_node_action",
+                    "principal_type":"user_delegated",
+                    "grant_id":"cfbfa9d4-18b3-4470-b3f2-f13660a993dc",
+                    "connection_id":"dev_aaaaaaaaaaaaaaaaaaaaaaaa",
+                    "permission_snapshot_digest":"a".repeat(64),
+                    "device_capability_revision":2
+                }
+            }]
+        })
+    }
+
+    #[test]
+    fn local_node_allowlist_preserves_the_server_resolved_device_snapshot() {
+        let allowlist = snapshot_allowlist(&snapshot()).unwrap().unwrap();
+        assert_eq!(allowlist.len(), 1);
+        assert_eq!(allowlist[0]["type"], "connector");
+        assert_eq!(
+            allowlist[0]["connector_binding"]["permission_snapshot_digest"],
+            "a".repeat(64)
+        );
+        assert_eq!(
+            allowlist[0]["connector_binding"]["device_capability_revision"],
+            2
+        );
+    }
+
+    #[test]
+    fn local_node_allowlist_rejects_incomplete_or_non_builtin_bindings() {
+        let mut stale = snapshot();
+        stale["capabilities"][0]["config"]
+            .as_object_mut()
+            .unwrap()
+            .remove("permission_snapshot_digest");
+        assert!(snapshot_allowlist(&stale).is_err());
+
+        let mut non_builtin = snapshot();
+        non_builtin["agent_spec"]["channel"] = json!("preview");
+        assert!(snapshot_allowlist(&non_builtin).is_err());
+    }
 }

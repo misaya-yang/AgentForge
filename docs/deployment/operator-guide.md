@@ -63,6 +63,13 @@ printing their values. The same DashScope key is used for Qwen chat,
 `text-embedding-v4`, and document generation unless you explicitly configure a
 dedicated provider key. Never commit `.env`; only `.env.example` is public.
 
+The local `.env.example` explicitly selects `GATEWAY_JWT_MODE=legacy_single_hs256`
+to match its generated `JWT_SECRET`. Production should use the default
+`asymmetric_keyring` configuration with an active signing key, retained public
+keys and a private-key environment reference, with `JWT_SECRET` unset. See the
+platform-auth JWT rotation section for the keyring format and bounded HTTP
+verification script.
+
 Maintainers who need to test the current checkout instead of published images
 use the explicit source-build path. Builds are serialized by default to reduce
 peak memory:

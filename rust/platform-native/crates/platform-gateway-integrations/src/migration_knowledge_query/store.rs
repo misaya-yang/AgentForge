@@ -224,7 +224,8 @@ impl QueryStore {
             return Ok(BTreeMap::new());
         }
         require_scope(d)?;
-        let rows:Vec<(String,i32,String)>=sqlx::query_as("SELECT d.document_id,d.current_version,lower(v.content_hash) AS source_hash FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id JOIN document_versions v ON v.document_id=d.document_id AND v.version_number=d.current_version WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex') AND v.change_type NOT IN ('pending_restore','pending_before_restore') AND v.content=d.content AND encode(sha256(convert_to(v.content,'UTF8')),'hex')=lower(v.content_hash)").bind(&d.dataset_id).bind(&d.tenant_id).bind(ids).fetch_all(&self.pool).await?;
+        let query = format!("SELECT d.document_id,d.current_version,lower(v.content_hash) AS source_hash FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id JOIN document_versions v ON v.document_id=d.document_id AND v.version_number=d.current_version WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{{}}'::jsonb) ? '_document_lifecycle_reindex') AND v.change_type NOT IN ({}) AND v.content=d.content AND encode(sha256(convert_to(v.content,'UTF8')),'hex')=lower(v.content_hash)", crate::migration_knowledge_ingest::HIDDEN_VERSION_CHANGE_TYPES_SQL);
+        let rows:Vec<(String,i32,String)>=sqlx::query_as(&query).bind(&d.dataset_id).bind(&d.tenant_id).bind(ids).fetch_all(&self.pool).await?;
         Ok(rows
             .into_iter()
             .map(|(id, n, h)| (id, (n as i64, h)))

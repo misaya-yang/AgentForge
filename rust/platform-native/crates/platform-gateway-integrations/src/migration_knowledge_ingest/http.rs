@@ -10,7 +10,7 @@ use axum::{
     extract::{DefaultBodyLimit, Multipart, Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -60,6 +60,7 @@ fn write_routes(state: WriteApiState) -> Router {
         .route("/api/v1/knowledge/{dataset_id}/preview-chunks",post(preview_configured))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reindex",post(reindex))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reprocess",post(reprocess))
+        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/content",put(replace_text_source))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/retry",post(retry))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/recover",post(recover))
         .route("/api/v1/knowledge/{dataset_id}/documents/batch-reindex",post(batch_reindex))
@@ -427,6 +428,31 @@ async fn restore_version(
     Ok(Json(
         s.service
             .restore_version(&a, &d, &id, n, value["reason"].as_str())
+            .await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct TextSourceReplacement {
+    content: String,
+    expected_current_version: i32,
+}
+
+async fn replace_text_source(
+    State(s): State<WriteApiState>,
+    Extension(actor): Extension<Actor>,
+    Path((dataset, document)): Path<(String, String)>,
+    TypedJson(input): TypedJson<TextSourceReplacement, { validation::TEXT_SOURCE_REPLACE }>,
+) -> Result<Json<Value>, IngestError> {
+    Ok(Json(
+        s.service
+            .replace_text_source(
+                &actor,
+                &dataset,
+                &document,
+                input.expected_current_version,
+                &input.content,
+            )
             .await?,
     ))
 }

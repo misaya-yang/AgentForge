@@ -1336,7 +1336,8 @@
       "requires_confirmation": true,
       "required_permissions": [],
       "timeout_ms": 30000,
-      "implementation_owner": "worker"
+      "implementation_owner": "worker",
+      "connector_provider": "local_node"
     }
   ]
 }

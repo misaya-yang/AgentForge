@@ -46,19 +46,30 @@ use std::{
     task::{Context, Poll},
 };
 
+#[path = "invocation_http/openai_compat.rs"]
+mod openai_compat;
+
 #[derive(Clone)]
 struct InvocationState {
     auth: Arc<AuthService>,
     dispatcher: Arc<GatewayDispatcher>,
     identity: Option<Arc<dyn InvocationIdentityResolver>>,
+    model_catalog: Option<Arc<dyn crate::openai_model_catalog::OpenAiModelCatalog>>,
 }
 
 /// Trusted canonical user context, never decoded from public request fields.
 pub struct InvocationIdentity {
     pub user_id: String,
     pub tenant_id: String,
+    /// True only when the canonical request resolver selected a verified
+    /// session, API-key, or explicitly authenticated service identity.
+    pub is_authenticated: bool,
+    pub tier: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    /// Bound API-key model allowlist from the canonical identity resolver.
+    /// Empty lists retain the existing unrestricted API-key meaning.
+    pub allowed_models: Option<Vec<String>>,
     pub session_principal: Option<Principal>,
     pub session_jwt_selected: bool,
 }
@@ -67,14 +78,23 @@ pub type InvocationIdentityFuture<'a> =
 pub trait InvocationIdentityResolver: Send + Sync {
     fn resolve<'a>(&'a self, headers: &'a HeaderMap, path: &'a str)
     -> InvocationIdentityFuture<'a>;
+
+    /// Header used by the configured canonical API-key resolver. OpenAI's
+    /// standard Bearer form is translated to this header before resolution.
+    fn api_key_header(&self) -> Option<HeaderName> {
+        None
+    }
 }
 impl InvocationIdentity {
     fn from_session(principal: Principal) -> Self {
         Self {
             user_id: principal.account.user_id.clone(),
             tenant_id: principal.account.tenant_id.clone(),
+            is_authenticated: true,
+            tier: principal.authority.tier.clone(),
             roles: principal.authority.roles.clone(),
             permissions: principal.authority.permissions.clone(),
+            allowed_models: None,
             session_principal: Some(principal),
             session_jwt_selected: true,
         }
@@ -85,22 +105,33 @@ impl InvocationIdentity {
 /// are intentionally ignored, matching these routes' `request.client.host`.
 /// Merging this factory does not start a listener or a task consumer.
 pub fn router(auth: Arc<AuthService>, dispatcher: Arc<GatewayDispatcher>) -> Router {
-    router_with_identity(auth, dispatcher, None)
+    router_with_identity_and_model_catalog(auth, dispatcher, None, None)
 }
 pub fn router_with_identity(
     auth: Arc<AuthService>,
     dispatcher: Arc<GatewayDispatcher>,
     identity: Option<Arc<dyn InvocationIdentityResolver>>,
 ) -> Router {
+    router_with_identity_and_model_catalog(auth, dispatcher, identity, None)
+}
+pub fn router_with_identity_and_model_catalog(
+    auth: Arc<AuthService>,
+    dispatcher: Arc<GatewayDispatcher>,
+    identity: Option<Arc<dyn InvocationIdentityResolver>>,
+    model_catalog: Option<Arc<dyn crate::openai_model_catalog::OpenAiModelCatalog>>,
+) -> Router {
+    let state = InvocationState {
+        auth,
+        dispatcher,
+        identity,
+        model_catalog,
+    };
     Router::new()
         .route(contract::INVOKE, post(invoke))
         .route(contract::SUBMIT, post(submit))
         .route(contract::STREAM, post(stream))
-        .with_state(InvocationState {
-            auth,
-            dispatcher,
-            identity,
-        })
+        .with_state(state.clone())
+        .merge(openai_compat::router(state))
 }
 
 /// Public JSON inputs deliberately reject structured `data`. The internal
@@ -770,10 +801,12 @@ fn resolved_subjects(roles: &[String], permissions: &[String]) -> Vec<String> {
 fn authority(identity: &InvocationIdentity) -> PreflightAuthority<'_> {
     match &identity.session_principal {
         Some(principal) => PreflightAuthority::from_session_principal(principal),
-        None => PreflightAuthority::from_resolved_context(
+        None => PreflightAuthority::from_resolved_context_with_tier_and_model_scope(
             &identity.user_id,
             &identity.tenant_id,
+            &identity.tier,
             &identity.roles,
+            identity.allowed_models.as_deref(),
         ),
     }
 }
@@ -814,6 +847,39 @@ async fn sdk_read_lease(
         // SDK adapters independently require activation of an issued grant;
         // absent genuine session authority never mints a substitute token.
         None => Ok(None),
+    }
+}
+
+/// Keep generic `/api/v1/invoke` and `/api/v1/stream` from using a stale
+/// model projection after an administrator changes providers or model access.
+/// Ordinary stored services do not touch the model catalog.
+async fn refresh_managed_model_service(
+    state: &InvocationState,
+    tenant_id: &str,
+    service_id: &str,
+) -> Result<(), Response> {
+    if !service_id.starts_with(crate::service_registry::MANAGED_OPENAI_SERVICE_ID_PREFIX) {
+        return Ok(());
+    }
+    let Some(catalog) = &state.model_catalog else {
+        return Err(detail_error(StatusCode::NOT_FOUND, "Service not found"));
+    };
+    match catalog.services_for_tenant(tenant_id).await {
+        Ok(services) => {
+            state
+                .dispatcher
+                .replace_openai_model_services(tenant_id, services);
+            Ok(())
+        }
+        Err(_) => {
+            state
+                .dispatcher
+                .replace_openai_model_services(tenant_id, Vec::new());
+            Err(detail_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Model catalogue is temporarily unavailable",
+            ))
+        }
     }
 }
 
@@ -959,6 +1025,11 @@ async fn invoke(State(state): State<InvocationState>, request: Request) -> Respo
         Ok(context) => context,
         Err(response) => return *response,
     };
+    if let Err(response) =
+        refresh_managed_model_service(&state, &principal.tenant_id, &request.service_id).await
+    {
+        return response;
+    }
     let sdk_read_lease = match sdk_read_lease(&state, &request, &principal, &headers).await {
         Ok(lease) => lease,
         Err(error) => return gateway_error_response(&error, &headers),
@@ -1010,6 +1081,11 @@ async fn stream(State(state): State<InvocationState>, request: Request) -> Respo
         Ok(context) => context,
         Err(response) => return *response,
     };
+    if let Err(response) =
+        refresh_managed_model_service(&state, &principal.tenant_id, &request.service_id).await
+    {
+        return response;
+    }
     let session_id = match state
         .dispatcher
         .prepare_stream_session(&mut request, &authority(&principal))

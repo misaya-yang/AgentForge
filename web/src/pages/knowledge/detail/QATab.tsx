@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import { qaQueryStream } from "@/api/knowledge";
+import { SSEHttpError } from "@/lib/sse";
 import { SaveKnowledgeFailureDialog } from "@/pages/knowledge/detail/SaveKnowledgeFailureDialog";
 import { QA_EVAL_SOURCE } from "@/pages/knowledge/detail/evalCaseStore";
 import type { LLMConfig, QAResponse } from "@/types/knowledge";
@@ -60,11 +61,13 @@ type QAChatMessage = {
   query?: string;
   datasetId?: string;
   response?: QAResponse;
+  failure?: "authentication_required" | "permission_denied" | "request_rejected";
+  failureStatus?: number;
 };
 
 // Empty value → the server applies its deployment default.
-const QA_MODEL_OPTIONS: { value: string; labelKey: string; provider: LLMConfig["provider"] }[] = [
-  { value: "", labelKey: "common.serverDefault", provider: "dashscope" },
+const QA_MODEL_OPTIONS: { value: string; labelKey: string; provider?: LLMConfig["provider"] }[] = [
+  { value: "", labelKey: "common.serverDefault" },
 ];
 
 const QA_SYSTEM_PROMPT_KEYS = {
@@ -143,6 +146,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
     const queryText = qaQueryInput.trim();
     const userMessageId = `user-${sequence}`;
     const assistantMessageId = `assistant-${sequence}`;
+    const selectedQaModel = QA_MODEL_OPTIONS.find((option) => option.value === qaModel);
     const requestPayload = {
       query: queryText,
       top_k: topK,
@@ -153,8 +157,9 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
       rerank,
       mmr,
       llm_config: {
-        provider: QA_MODEL_OPTIONS.find((o) => o.value === qaModel)?.provider ?? "dashscope",
-        model: qaModel,
+        ...(selectedQaModel?.value
+          ? { model: selectedQaModel.value, ...(selectedQaModel.provider ? { provider: selectedQaModel.provider } : {}) }
+          : {}),
         temperature: qaTemperature,
         max_tokens: qaMaxTokens,
         system_prompt: qaSystemPrompt,
@@ -177,17 +182,27 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
     };
 
     let outcome: QAStreamOutcome = { phase: "receiving", text: "" };
+    let streamAccepted = false;
+    let requestFailure: Pick<QAChatMessage, "failure" | "failureStatus"> = {};
     try {
       try {
         for await (const event of qaQueryStream(datasetId, requestPayload, controller.signal)) {
           if (!current()) return;
+          streamAccepted = true;
           outcome = qaStreamEvent(outcome, event, queryText);
           updateAssistant({ content: outcome.text });
           if (outcome.phase !== "receiving") break;
         }
-      } catch {
+      } catch (error) {
         // A dispatched request may have executed. Never silently replay via /qa.
         outcome = finishQAStream(outcome);
+        if (!streamAccepted && error instanceof SSEHttpError) {
+          if (error.status === 401) requestFailure = { failure: "authentication_required" };
+          else if (error.status === 403) requestFailure = { failure: "permission_denied" };
+          else if (error.status >= 400 && error.status <= 422) {
+            requestFailure = { failure: "request_rejected", failureStatus: error.status };
+          }
+        }
       }
       outcome = finishQAStream(outcome);
       if (!current()) return;
@@ -196,7 +211,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
         updateAssistant({ content: response.answer, response, status: "done" });
         setQaHistory(previous => [...previous, { query: queryText, response }]);
       } else {
-        updateAssistant({ content: outcome.text, status: "error" });
+        updateAssistant({ content: outcome.text, status: "error", ...requestFailure });
       }
     } finally {
       if (current()) setQaLoading(false);
@@ -251,7 +266,11 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-foreground/80">{t("knowledge.detail.qaModel")}</Label>
-                <Badge variant="outline" className="text-xs">{(QA_MODEL_OPTIONS.find((o) => o.value === qaModel)?.provider ?? "dashscope").toUpperCase()}</Badge>
+                {QA_MODEL_OPTIONS.find((option) => option.value === qaModel)?.provider && (
+                  <Badge variant="outline" className="text-xs">
+                    {QA_MODEL_OPTIONS.find((option) => option.value === qaModel)?.provider?.toUpperCase()}
+                  </Badge>
+                )}
               </div>
               <Select value={qaModel} onValueChange={setQaModel}>
                 <SelectTrigger className="border-border">
@@ -541,7 +560,9 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className="font-mono">{qaModel}</Badge>
+              <Badge variant="outline" className={qaModel ? "font-mono" : ""}>
+                {lastQaResponse?.model || qaModel || t("common.serverDefault")}
+              </Badge>
               {qaLoading && (
                 <Badge className="bg-primary/5 text-primary border-primary/20">{t("knowledge.detail.qaGenerating")}</Badge>
               )}
@@ -609,7 +630,13 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                           </div>
 
                           {msg.role === "assistant" && msg.status === "error" && <div role="status" className="space-y-2 text-sm">
-                            <p>{t("knowledge.detail.qaInterrupted")}</p>
+                            <p>{msg.failure === "authentication_required"
+                              ? t("knowledge.detail.qaAuthRequired")
+                              : msg.failure === "permission_denied"
+                                ? t("knowledge.detail.qaPermissionDenied")
+                                : msg.failure === "request_rejected"
+                                  ? t("knowledge.detail.qaRequestRejected", { status: msg.failureStatus })
+                                  : t("knowledge.detail.qaInterrupted")}</p>
                             <Button variant="outline" size="sm" disabled={qaLoading} onClick={() => {
                               if (currentView && activeScope.current.datasetId === datasetId
                                 && activeScope.current.identityScope === identityScope

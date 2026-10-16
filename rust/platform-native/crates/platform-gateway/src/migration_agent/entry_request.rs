@@ -73,7 +73,7 @@ pub fn normalize_v1(raw: &Value) -> Result<Value, AgentError> {
     for (k, max, bound) in [
         ("file_paths", 20, 1024),
         ("kb_dataset_ids", 8, 128),
-        ("local_node_grant_ids", 16, 128),
+        ("local_node_grant_ids", 1, 128),
     ] {
         if let Some(v) = raw.get(k) {
             let a = v.as_array().ok_or_else(invalid)?;
@@ -102,6 +102,19 @@ pub fn normalize_v1(raw: &Value) -> Result<Value, AgentError> {
         .cloned()
         .unwrap_or_default();
     if !text(raw, "local_node_device_id").is_empty() != !grants.is_empty() {
+        return Err(invalid());
+    }
+    if raw
+        .get("local_node_device_id")
+        .is_some_and(|value| !value.is_null() && value.as_str().is_none())
+    {
+        return Err(invalid());
+    }
+    if grants.iter().any(|grant| {
+        grant
+            .as_str()
+            .is_none_or(|value| uuid::Uuid::parse_str(value).is_err())
+    }) {
         return Err(invalid());
     }
     for s in std::iter::once(text(raw, "local_node_device_id"))
@@ -159,4 +172,44 @@ pub fn normalize_v1(raw: &Value) -> Result<Value, AgentError> {
         }
     }
     Ok(value)
+}
+
+#[cfg(test)]
+mod local_node_selector_tests {
+    use super::*;
+
+    #[test]
+    fn local_node_selector_keeps_one_owner_grant_and_rejects_ambiguous_bindings() {
+        let valid = json!({
+            "message":"List the files on my paired Local Node.",
+            "local_node_device_id":"dev_aaaaaaaaaaaaaaaaaaaaaaaa",
+            "local_node_grant_ids":["cfbfa9d4-18b3-4470-b3f2-f13660a993dc"]
+        });
+        let normalized = normalize_v1(&valid).expect("one explicit owner grant is valid");
+        assert_eq!(
+            normalized["local_node_device_id"],
+            valid["local_node_device_id"]
+        );
+        assert_eq!(
+            normalized["local_node_grant_ids"],
+            valid["local_node_grant_ids"]
+        );
+
+        let multiple = json!({
+            "message":"List files.",
+            "local_node_device_id":"dev_aaaaaaaaaaaaaaaaaaaaaaaa",
+            "local_node_grant_ids":[
+                "cfbfa9d4-18b3-4470-b3f2-f13660a993dc",
+                "d7bcf05f-45c8-4bd8-960e-81cd6972ec3f"
+            ]
+        });
+        assert!(normalize_v1(&multiple).is_err());
+
+        let malformed = json!({
+            "message":"List files.",
+            "local_node_device_id":"dev_aaaaaaaaaaaaaaaaaaaaaaaa",
+            "local_node_grant_ids":["not-a-uuid"]
+        });
+        assert!(normalize_v1(&malformed).is_err());
+    }
 }

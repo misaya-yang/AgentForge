@@ -678,7 +678,32 @@ validate_config() {
         return
     fi
 
-    require_secret JWT_SECRET 32
+    local jwt_mode legacy_jwt_secret configured_jwt_secret
+    jwt_mode="$(env_value GATEWAY_AUTHENTICATION__JWT__MODE)"
+    if [ -z "$jwt_mode" ]; then
+        jwt_mode="$(env_value GATEWAY_JWT_MODE)"
+    fi
+    if [ -z "$jwt_mode" ]; then
+        jwt_mode="asymmetric_keyring"
+    fi
+    legacy_jwt_secret="$(env_value JWT_SECRET)"
+    configured_jwt_secret="$(env_value GATEWAY_AUTHENTICATION__JWT__SECRET)"
+    case "$jwt_mode" in
+        legacy_single_hs256)
+            require_secret JWT_SECRET 32
+            ;;
+        asymmetric_keyring)
+            if [ -n "$legacy_jwt_secret" ] || [ -n "$configured_jwt_secret" ]; then
+                fail "JWT_SECRET must be unset/empty in asymmetric_keyring mode."
+            fi
+            if [ -z "$(env_value GATEWAY_JWT_ACTIVE_PRIVATE_PEM)" ]; then
+                fail "GATEWAY_JWT_ACTIVE_PRIVATE_PEM is required in asymmetric_keyring mode."
+            fi
+            ;;
+        *)
+            fail "GATEWAY_JWT_MODE must be asymmetric_keyring or legacy_single_hs256."
+            ;;
+    esac
     require_secret GATEWAY_ENCRYPTION_KEY 32
     require_secret AI_PLATFORM_INTERNAL_TOKEN 32
     require_secret AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET 32
@@ -763,7 +788,7 @@ validate_example_config() {
     local required_values=(
         POSTGRES_PASSWORD
         REDIS_PASSWORD
-        JWT_SECRET
+        GATEWAY_JWT_MODE
         GATEWAY_ENCRYPTION_KEY
         AI_PLATFORM_INTERNAL_TOKEN
         AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET
@@ -800,6 +825,29 @@ validate_example_config() {
     for key in "${required_values[@]}"; do
         require_example_value "$key"
     done
+    local jwt_mode legacy_jwt_secret configured_jwt_secret
+    jwt_mode="$(env_value GATEWAY_AUTHENTICATION__JWT__MODE)"
+    if [ -z "$jwt_mode" ]; then
+        jwt_mode="$(env_value GATEWAY_JWT_MODE)"
+    fi
+    legacy_jwt_secret="$(env_value JWT_SECRET)"
+    configured_jwt_secret="$(env_value GATEWAY_AUTHENTICATION__JWT__SECRET)"
+    case "$jwt_mode" in
+        legacy_single_hs256)
+            require_example_value JWT_SECRET
+            ;;
+        asymmetric_keyring)
+            if [ -n "$legacy_jwt_secret" ] || [ -n "$configured_jwt_secret" ]; then
+                fail "JWT_SECRET must be unset/empty in asymmetric_keyring mode."
+            fi
+            if [ -z "$(env_value GATEWAY_JWT_ACTIVE_PRIVATE_PEM)" ]; then
+                fail "GATEWAY_JWT_ACTIVE_PRIVATE_PEM is required in asymmetric_keyring mode."
+            fi
+            ;;
+        *)
+            fail "GATEWAY_JWT_MODE must be asymmetric_keyring or legacy_single_hs256."
+            ;;
+    esac
     for key in "${provider_keys[@]}"; do
         require_example_key "$key"
     done
