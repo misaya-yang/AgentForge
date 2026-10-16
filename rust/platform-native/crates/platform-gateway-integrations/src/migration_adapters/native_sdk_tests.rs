@@ -351,3 +351,125 @@ async fn unfinished_oversized_sdk_line_fails_the_lease_without_a_success_or_eof(
         Box::new(stream).close().await.unwrap();
     }
 }
+
+const WORKER_FACTORY_TEST_KEY: &str = "sdk-worker-factory-test-encryption-key";
+const WORKER_FACTORY_TEST_TOKEN: &str = "config-stdin-worker-token-0123456789";
+
+fn configured_sdk_service() -> ServiceHandle {
+    let mut service = crate::protocol::ServiceDefinition::new(
+        "sdk-worker-config-test",
+        "SDK worker config test",
+    );
+    service.session_enabled = true;
+    service.max_retries = 0;
+    service.metadata = json!({
+        "adapter_type": "openai_agents",
+        "sdk_agent_worker_url": "http://127.0.0.1:1",
+        "sdk_agent_worker_token": "service-metadata-must-not-select-worker",
+        "sdk_agent": {
+            "model": "fixture-model",
+            "instructions": "",
+            "max_turns": 4
+        }
+    });
+    service.connector_config = json!({"sdk_provider_api_key": "synthetic-provider-key-012345"});
+    ai_platform_gateway_foundation::sdk_agent_config::validate_and_seal(
+        &mut service,
+        WORKER_FACTORY_TEST_KEY,
+    )
+    .unwrap();
+    ServiceHandle::new(service)
+}
+
+fn sdk_worker_test_registry(
+    environment: &std::collections::BTreeMap<String, String>,
+) -> crate::service_registry::ServiceRegistry {
+    let registry = crate::service_registry::ServiceRegistry::new(Arc::new(
+        crate::service_registry::MemoryRegistryStorage::new(),
+    ));
+    registry
+        .configure_sdk_agent_key(WORKER_FACTORY_TEST_KEY.into())
+        .unwrap();
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://sdk:sdk@127.0.0.1/sdk")
+        .unwrap();
+    let worker_config = sdk_session_cleanup::SdkAgentWorkerConfig::from_operator_environment(
+        environment,
+    );
+    crate::migration_adapters::register_sdk_session_adapters(&registry, &pool, worker_config);
+    registry
+}
+
+async fn capture_sdk_worker_health(
+    axum::extract::State(observed_authorization): axum::extract::State<
+        Arc<std::sync::Mutex<Option<String>>>,
+    >,
+    headers: axum::http::HeaderMap,
+) -> axum::Json<Value> {
+    *observed_authorization.lock().unwrap() = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    axum::Json(json!({"ready": true, "protocol": "ai-platform/sdk-agent/v1"}))
+}
+
+#[tokio::test]
+async fn sdk_factory_uses_explicit_config_document_worker_origin_and_token() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let observed_authorization = Arc::new(std::sync::Mutex::new(None));
+    let app = axum::Router::new()
+        .route(
+            "/health/ready",
+            axum::routing::get(capture_sdk_worker_health),
+        )
+        .with_state(observed_authorization.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .await
+            .expect("test SDK worker server");
+    });
+
+    // This map is the explicit GatewayDocument.environment passed to bootstrap.
+    // The adapter must not consult absent or different process environment values.
+    let document_environment = std::collections::BTreeMap::from([
+        ("SDK_AGENT_WORKER_URL".into(), origin),
+        (
+            "SDK_AGENT_WORKER_TOKEN".into(),
+            WORKER_FACTORY_TEST_TOKEN.into(),
+        ),
+    ]);
+    let registry = sdk_worker_test_registry(&document_environment);
+    let adapter = registry.get_adapter(configured_sdk_service()).unwrap();
+
+    assert!(adapter.health_check().await.unwrap());
+    let expected_authorization = format!("Bearer {WORKER_FACTORY_TEST_TOKEN}");
+    assert_eq!(
+        observed_authorization.lock().unwrap().as_deref(),
+        Some(expected_authorization.as_str())
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn sdk_factory_fails_closed_for_missing_or_invalid_operator_worker_config() {
+    let valid_token = WORKER_FACTORY_TEST_TOKEN.to_owned();
+    for environment in [
+        std::collections::BTreeMap::new(),
+        std::collections::BTreeMap::from([
+            ("SDK_AGENT_WORKER_URL".into(), "http://worker.internal".into()),
+            ("SDK_AGENT_WORKER_TOKEN".into(), valid_token.clone()),
+        ]),
+        std::collections::BTreeMap::from([
+            ("SDK_AGENT_WORKER_URL".into(), "http://127.0.0.1:8096/path".into()),
+            ("SDK_AGENT_WORKER_TOKEN".into(), valid_token.clone()),
+        ]),
+        std::collections::BTreeMap::from([
+            ("SDK_AGENT_WORKER_URL".into(), "https://worker.example".into()),
+            ("SDK_AGENT_WORKER_TOKEN".into(), "short-token".into()),
+        ]),
+    ] {
+        let registry = sdk_worker_test_registry(&environment);
+        assert!(registry.get_adapter(configured_sdk_service()).is_err());
+    }
+}

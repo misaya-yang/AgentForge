@@ -96,18 +96,26 @@ impl ContentGraph {
         let guests = Arc::new(GuestSessionManager::new(config.guests, guest_storage));
         let database = ContentDatabase::new(pools.data.clone(), pools.control.clone())
             .map_err(|_| BootstrapError::Construction("content_database"))?;
-        super::endpoint(&config.sandbox_url, "sandbox_url")?;
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(120))
-            .build()
-            .map_err(|_| BootstrapError::Construction("sandbox_client"))?;
-        let sandbox = Arc::new(
-            HttpSandboxTransport::new(client, &config.sandbox_url, config.sandbox_token)
-                .map_err(|_| BootstrapError::Configuration("sandbox"))?,
-        );
+        let sandbox = if config.sandbox_url.is_empty() && config.sandbox_token.is_empty() {
+            None
+        } else {
+            super::endpoint(&config.sandbox_url, "sandbox_url")?;
+            let client = reqwest::Client::builder()
+                .retry(reqwest::retry::never())
+                .no_proxy()
+                .redirect(reqwest::redirect::Policy::none())
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(120))
+                .build()
+                .map_err(|_| BootstrapError::Construction("sandbox_client"))?;
+            Some(Arc::new(
+                HttpSandboxTransport::new(client, &config.sandbox_url, config.sandbox_token)
+                    .map_err(|_| BootstrapError::Configuration("sandbox"))?,
+            )
+                as Arc<
+                    dyn crate::migration_content::capabilities::SandboxTransport,
+                >)
+        };
         let search = Arc::new(
             TavilySearch::new(config.tavily_api_key)
                 .map_err(|_| BootstrapError::Construction("search"))?,

@@ -6,15 +6,7 @@ repo_root="$(git -C "$harness_dir" rev-parse --show-toplevel)"
 cd "$repo_root"
 
 git status --short --branch
-python3 - <<'PY'
-import json
-from pathlib import Path
-
-root = Path("deploy/runbooks/codex-harness-refresh-2026-09-22")
-state = json.loads((root / "loop-state.json").read_text())
-lock = json.loads(Path("deploy/agent-runtime-source/lock.json").read_text())
-print("Program:", state["lifecycle"])
-print("Current upstream pin:", lock["source"]["upstream_sha"])
-print("Planned target:", state["target_upstream_sha"])
-print("Read-only preflight; no implementation or runtime action was started.")
-PY
+printf 'Program: '; platform-tools json-get deploy/runbooks/codex-harness-refresh-2026-09-22/loop-state.json lifecycle
+printf 'Current upstream pin: '; platform-tools json-get deploy/agent-runtime-source/lock.json source.upstream_sha
+printf 'Planned target: '; platform-tools json-get deploy/runbooks/codex-harness-refresh-2026-09-22/loop-state.json target_upstream_sha
+printf '%s\n' 'Read-only preflight; no implementation or runtime action was started.'

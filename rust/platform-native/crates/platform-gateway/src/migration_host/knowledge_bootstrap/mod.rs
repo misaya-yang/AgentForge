@@ -182,6 +182,7 @@ impl KnowledgeGraph {
             connections.idempotency_redis = None;
         }
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
@@ -195,7 +196,13 @@ impl KnowledgeGraph {
         )
         .map_err(|_| KnowledgeError::Construction("qdrant"))?;
         vectors.timeout = settings::seconds(config.qdrant.timeout_seconds, "qdrant_timeout")?;
-        vectors.interactive_deadline = settings::seconds(config.qdrant.interactive_deadline_seconds, "interactive_deadline")?;
+        vectors
+            .set_prefer_grpc(config.qdrant.prefer_grpc)
+            .map_err(|_| KnowledgeError::Configuration("qdrant_grpc"))?;
+        vectors.interactive_deadline = settings::seconds(
+            config.qdrant.interactive_deadline_seconds,
+            "interactive_deadline",
+        )?;
         vectors.bm25_v2_enabled = config.qdrant.bm25_v2_enabled;
         vectors.bm25_v2_capability_ttl = settings::seconds(
             config.qdrant.bm25_v2_capability_ttl_seconds,

@@ -28,9 +28,7 @@ spec:
         - name: migrate
           image: "{{ .Values.global.imageRegistry }}/{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
           command:
-            - python
-            - -m
-            - database.authority
+            - /usr/local/bin/database-authority
             - migrate
           env:
             - name: POSTGRES_USER

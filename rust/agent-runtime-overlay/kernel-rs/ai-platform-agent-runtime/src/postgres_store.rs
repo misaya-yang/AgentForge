@@ -77,6 +77,51 @@ pub struct PostgresThreadStore {
         Arc<tokio::sync::Mutex<HashMap<ThreadId, crate::tool_policy::PlatformStartupData>>>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RuntimeStoreReadinessStage {
+    Healthy,
+    DatabaseUnavailable,
+    SchemaUsageMissing,
+    ThreadSchemaMissing,
+    ThreadRootSelectMissing,
+    ThreadRootInsertMissing,
+    ThreadRootUpdateMissing,
+    ThreadMemberSelectMissing,
+    ThreadMemberInsertMissing,
+    ThreadProjectionSelectMissing,
+    ThreadProjectionInsertMissing,
+    ThreadProjectionUpdateMissing,
+    RuntimeItemsSelectMissing,
+    RuntimeItemAppendFunctionMissing,
+    RuntimeItemAppendExecuteMissing,
+}
+
+impl RuntimeStoreReadinessStage {
+    pub(crate) fn code(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::DatabaseUnavailable => "database_unavailable",
+            Self::SchemaUsageMissing => "runtime_schema_usage_missing",
+            Self::ThreadSchemaMissing => "runtime_thread_schema_missing",
+            Self::ThreadRootSelectMissing => "runtime_thread_root_select_missing",
+            Self::ThreadRootInsertMissing => "runtime_thread_root_insert_missing",
+            Self::ThreadRootUpdateMissing => "runtime_thread_root_update_missing",
+            Self::ThreadMemberSelectMissing => "runtime_thread_member_select_missing",
+            Self::ThreadMemberInsertMissing => "runtime_thread_member_insert_missing",
+            Self::ThreadProjectionSelectMissing => "runtime_thread_projection_select_missing",
+            Self::ThreadProjectionInsertMissing => "runtime_thread_projection_insert_missing",
+            Self::ThreadProjectionUpdateMissing => "runtime_thread_projection_update_missing",
+            Self::RuntimeItemsSelectMissing => "runtime_items_select_missing",
+            Self::RuntimeItemAppendFunctionMissing => "runtime_item_append_function_missing",
+            Self::RuntimeItemAppendExecuteMissing => "runtime_item_append_execute_missing",
+        }
+    }
+
+    pub(crate) fn is_healthy(self) -> bool {
+        self == Self::Healthy
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct MemberScope {
     pub(crate) root_thread_id: Uuid,

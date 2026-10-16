@@ -290,6 +290,34 @@ impl MemoryWindows {
 
 /// Reuses one local fallback across calls. Sharing an Arc shares that fallback;
 /// constructing independent instances intentionally does not share local counts.
+/// Process-local logical Redis script count, matching GatewayHotPathMetrics.
+/// SCRIPT LOAD/NOSCRIPT retries are deliberately not separate source increments.
+pub struct GatewayHotPathMetrics {
+    redis_round_trips: AtomicU64,
+}
+impl GatewayHotPathMetrics {
+    pub const fn new() -> Self {
+        Self {
+            redis_round_trips: AtomicU64::new(0),
+        }
+    }
+    pub fn redis_round_trips(&self) -> u64 {
+        self.redis_round_trips.load(Ordering::Relaxed)
+    }
+    pub fn reset(&self) {
+        self.redis_round_trips.store(0, Ordering::Relaxed);
+    }
+    fn record_success(&self) {
+        self.redis_round_trips.fetch_add(1, Ordering::Relaxed);
+    }
+}
+impl Default for GatewayHotPathMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+pub static GATEWAY_HOT_PATH_METRICS: GatewayHotPathMetrics = GatewayHotPathMetrics::new();
+
 pub struct SlidingWindowRateLimiter {
     store: Option<Arc<dyn SlidingWindowStore>>,
     memory: Mutex<MemoryWindows>,
@@ -338,6 +366,7 @@ impl SlidingWindowRateLimiter {
             .ok_or(RateLimitError::RedisUnavailable)?
             .check(&batch)
             .await?;
+        GATEWAY_HOT_PATH_METRICS.record_success();
         self.successful_redis_batches
             .fetch_add(1, Ordering::Relaxed);
         decode_reply(&wire, policies, now)
@@ -872,4 +901,3 @@ pub async fn update_quota_usage(
         Err(_) => QuotaUsageUpdate::Unavailable,
     }
 }
-

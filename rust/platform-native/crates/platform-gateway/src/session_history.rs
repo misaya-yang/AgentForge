@@ -5,14 +5,13 @@
 //! This module never starts a turn, appends Runtime items, or rewrites history.
 use ai_platform_gateway_foundation::sessions_api::{SessionsApiError, SessionsRuntimeCleanup};
 use ai_platform_auth::{
-    api_keys::{SelectedCredential, select_credential},
-    service::{AuthService, Principal},
+    service::AuthService,
 };
 use axum::{
     Json, Router,
     body::Bytes,
     extract::{Path, Query, State},
-    http::{HeaderMap, HeaderName, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -61,7 +60,7 @@ pub struct VisibleSources {
 pub trait HistorySourceAccess: Send + Sync {
     fn visible_sources<'a>(
         &'a self,
-        principal: &'a Principal,
+        principal: &'a crate::migration_content::ContentIdentity,
         references: &'a SourceReferences,
     ) -> Pin<Box<dyn Future<Output = VisibleSources> + Send + 'a>>;
 }
@@ -88,18 +87,19 @@ struct Sessions {
     auth: Arc<AuthService>,
     pool: PgPool,
     config: SessionConfig,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>,
 }
 /// Merge with the Gateway's existing GET /sessions route. DELETE fails closed
 /// unless the host injects the durable session cleanup collaborator.
-pub(super) fn router(auth: Arc<AuthService>, pool: PgPool, config: SessionConfig) -> Router {
+pub(super) fn router(auth: Arc<AuthService>, pool: PgPool, config: SessionConfig, identity: Option<Arc<dyn crate::migration_content::ContentAccess>>) -> Router {
     Router::new()
         .route(contract::COLLECTION, post(create))
-        .route(contract::ITEM, get(detail).delete(delete))
+        .route(contract::ITEM, get(detail).delete(delete).head(super::read_method_not_allowed))
         .route(
             contract::HISTORY,
-            get(history),
+            get(history).head(super::read_method_not_allowed),
         )
-        .with_state(Sessions { auth, pool, config })
+        .with_state(Sessions { auth, pool, config, identity })
 }
 fn error(status: StatusCode, detail: &'static str) -> Response {
     super::error(status, detail)
@@ -108,18 +108,9 @@ fn error(status: StatusCode, detail: &'static str) -> Response {
     clippy::result_large_err,
     reason = "Axum response is returned directly on the cold authentication error path"
 )]
-async fn identity(state: &Sessions, headers: &HeaderMap) -> Result<Principal, Response> {
-    let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
-        Ok(SelectedCredential::Jwt(token)) => token,
-        _ => return Err(error(StatusCode::UNAUTHORIZED, "Authentication required")),
-    };
-    let principal = state.auth.authenticate(token).await.map_err(|e| {
-        error(
-            StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-            "Authentication failed",
-        )
-    })?;
-    if principal.account.user_id.is_empty() || principal.account.tenant_id.is_empty() {
+async fn identity(state: &Sessions, headers: &HeaderMap) -> Result<crate::migration_content::ContentIdentity, Response> {
+    let principal = super::resolve_read_identity(&state.auth, state.identity.as_deref(), headers).await?;
+    if principal.user_id.is_empty() || principal.tenant_id.is_empty() {
         return Err(error(StatusCode::UNAUTHORIZED, "Authentication required"));
     }
     Ok(principal)
@@ -191,7 +182,7 @@ async fn detail(
         Ok(v) => v,
         Err(e) => return e,
     };
-    let (tenant, user) = (&principal.account.tenant_id, &principal.account.user_id);
+    let (tenant, user) = (&principal.tenant_id, &principal.user_id);
     match session(&state, &session_id, tenant, user).await {
         Ok(Some(row)) => Json(session_response(row)).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Session not found"),
@@ -209,8 +200,8 @@ async fn delete(
     };
     delete_owned_response(
         state.config.cleanup.as_deref(),
-        &principal.account.tenant_id,
-        &principal.account.user_id,
+        &principal.tenant_id,
+        &principal.user_id,
         &session_id,
     )
     .await
@@ -252,12 +243,16 @@ async fn delete_owned_response(
 #[path = "session_history_delete_tests.rs"]
 mod delete_tests;
 
+#[cfg(test)]
+#[path = "session_history_schema_tests.rs"]
+mod schema_tests;
+
 async fn create(State(state): State<Sessions>, headers: HeaderMap, body: Bytes) -> Response {
     let principal = match identity(&state, &headers).await {
         Ok(v) => v,
         Err(e) => return e,
     };
-    let (tenant, user) = (&principal.account.tenant_id, &principal.account.user_id);
+    let (tenant, user) = (&principal.tenant_id, &principal.user_id);
     let metadata = match create_metadata(&body) {
         Ok(v) => v,
         Err(_) => return error(StatusCode::UNPROCESSABLE_ENTITY, "Invalid request body"),
@@ -609,6 +604,10 @@ fn source_map(
     Ok(result)
 }
 
+const RUNTIME_SNAPSHOT_HISTORY_SQL: &str = "SELECT run_id::text AS run_id,snapshot,created_at FROM assistant.assistant_runtime_snapshots WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 ORDER BY created_at,snapshot_id";
+const RUNTIME_CONTEXT_HISTORY_SQL: &str = "SELECT turn_id::text AS run_id,payload #> '{data,chunks}' AS chunks,created_at FROM assistant.assistant_runtime_items WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND event_type='compat/v1/context_retrieved' ORDER BY sequence";
+const RUNTIME_THREAD_SESSION_SQL: &str = "SELECT runtime_thread_id::text FROM assistant.assistant_runtime_threads WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND deleted_at IS NULL";
+
 const RUNTIME_HISTORY_SQL: &str = r#"
             SELECT role, content, sequence, run_id, created_at, thinking_content,
                    tool_calls, tool_results, runtime_events,
@@ -626,8 +625,8 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                            NULL::jsonb AS tool_calls,
                            NULL::jsonb AS tool_results,
                            NULL::jsonb AS runtime_events
-                      FROM gateway.assistant_runs AS run
-                      JOIN gateway.assistant_runtime_snapshots AS snapshot
+                      FROM assistant.assistant_runs AS run
+                      JOIN assistant.assistant_runtime_snapshots AS snapshot
                         ON snapshot.run_id = run.run_id
                        AND snapshot.runtime_thread_id = run.harness_thread_id
                        AND snapshot.tenant_id = run.tenant_id
@@ -647,7 +646,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                    reasoning.payload #>> '{data,content}',
                                    '' ORDER BY reasoning.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS reasoning
+                                 FROM assistant.assistant_runtime_items AS reasoning
                                 WHERE reasoning.runtime_thread_id = item.runtime_thread_id
                                   AND reasoning.tenant_id = item.tenant_id
                                   AND reasoning.user_id = item.user_id
@@ -666,7 +665,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                        'status', tool.payload #>> '{data,status}'
                                    ) ORDER BY tool.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS tool
+                                 FROM assistant.assistant_runtime_items AS tool
                                 WHERE tool.runtime_thread_id = item.runtime_thread_id
                                   AND tool.tenant_id = item.tenant_id
                                   AND tool.user_id = item.user_id
@@ -692,7 +691,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                        'duration_ms', result.payload #> '{data,duration_ms}'
                                    ) ORDER BY result.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS result
+                                 FROM assistant.assistant_runtime_items AS result
                                 WHERE result.runtime_thread_id = item.runtime_thread_id
                                   AND result.tenant_id = item.tenant_id
                                   AND result.user_id = item.user_id
@@ -709,7 +708,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                        'timestamp', EXTRACT(EPOCH FROM runtime.created_at)
                                    ) ORDER BY runtime.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS runtime
+                                 FROM assistant.assistant_runtime_items AS runtime
                                 WHERE runtime.runtime_thread_id = item.runtime_thread_id
                                   AND runtime.tenant_id = item.tenant_id
                                   AND runtime.user_id = item.user_id
@@ -730,10 +729,10 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                         AND runtime.item_type = 'tool_result'
                                         AND runtime.status = 'side_effect_unknown'))
                            ) AS runtime_events
-                      FROM gateway.assistant_runtime_items AS item
+                      FROM assistant.assistant_runtime_items AS item
                       JOIN LATERAL (
                            SELECT started.turn_id
-                             FROM gateway.assistant_runtime_items AS started
+                             FROM assistant.assistant_runtime_items AS started
                             WHERE started.runtime_thread_id = item.runtime_thread_id
                               AND started.tenant_id = item.tenant_id
                               AND started.user_id = item.user_id
@@ -759,7 +758,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                            MAX(delta.sequence) AS sequence,
                            delta.turn_id AS run_id,
                            COALESCE((
-                               SELECT stopped.finished_at FROM gateway.assistant_runs AS stopped
+                               SELECT stopped.finished_at FROM assistant.assistant_runs AS stopped
                                 WHERE stopped.run_id::text = delta.turn_id
                                   AND stopped.harness_thread_id = delta.runtime_thread_id
                                   AND stopped.tenant_id = delta.tenant_id AND stopped.user_id = delta.user_id
@@ -770,7 +769,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                    reasoning.payload #>> '{data,content}',
                                    '' ORDER BY reasoning.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS reasoning
+                                 FROM assistant.assistant_runtime_items AS reasoning
                                 WHERE reasoning.runtime_thread_id = delta.runtime_thread_id
                                   AND reasoning.tenant_id = delta.tenant_id
                                   AND reasoning.user_id = delta.user_id
@@ -789,7 +788,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                        'timestamp', EXTRACT(EPOCH FROM runtime.created_at)
                                    ) ORDER BY runtime.sequence
                                )
-                                 FROM gateway.assistant_runtime_items AS runtime
+                                 FROM assistant.assistant_runtime_items AS runtime
                                 WHERE runtime.runtime_thread_id = delta.runtime_thread_id
                                   AND runtime.tenant_id = delta.tenant_id
                                   AND runtime.user_id = delta.user_id
@@ -810,10 +809,10 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                                         AND runtime.item_type = 'tool_result'
                                         AND runtime.status = 'side_effect_unknown'))
                            ) AS runtime_events
-                      FROM gateway.assistant_runtime_items AS delta
+                                 FROM assistant.assistant_runtime_items AS delta
                       LEFT JOIN LATERAL (
                            SELECT start.sequence
-                             FROM gateway.assistant_runtime_items AS start
+                             FROM assistant.assistant_runtime_items AS start
                             WHERE start.runtime_thread_id = delta.runtime_thread_id
                               AND start.tenant_id = delta.tenant_id
                               AND start.user_id = delta.user_id
@@ -832,8 +831,8 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                        )
                        AND (started.sequence IS NOT NULL OR (
                            delta.event_type = 'compat/v1/cancelled' AND EXISTS (
-                               SELECT 1 FROM gateway.assistant_runs AS stopped
-                                JOIN gateway.assistant_runtime_snapshots AS snapshot ON snapshot.run_id = stopped.run_id
+                               SELECT 1 FROM assistant.assistant_runs AS stopped
+                                JOIN assistant.assistant_runtime_snapshots AS snapshot ON snapshot.run_id = stopped.run_id
                                  AND snapshot.runtime_thread_id = stopped.harness_thread_id
                                  AND snapshot.tenant_id = stopped.tenant_id AND snapshot.user_id = stopped.user_id
                                  AND snapshot.session_id = stopped.session_id
@@ -845,7 +844,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                        ))
                        AND NOT EXISTS (
                            SELECT 1
-                             FROM gateway.assistant_runtime_items AS completed
+                             FROM assistant.assistant_runtime_items AS completed
                             WHERE completed.runtime_thread_id = delta.runtime_thread_id
                               AND completed.tenant_id = delta.tenant_id
                               AND completed.user_id = delta.user_id
@@ -855,7 +854,7 @@ const RUNTIME_HISTORY_SQL: &str = r#"
                               AND completed.sequence > started.sequence
                               AND NOT EXISTS (
                                   SELECT 1
-                                    FROM gateway.assistant_runtime_items AS next_started
+                                    FROM assistant.assistant_runtime_items AS next_started
                                    WHERE next_started.runtime_thread_id = delta.runtime_thread_id
                                      AND next_started.tenant_id = delta.tenant_id
                                      AND next_started.user_id = delta.user_id
@@ -887,8 +886,8 @@ const RUNTIME_HISTORY_SQL: &str = r#"
 const UPLOADS_SQL: &str = r#"
             SELECT s.run_id::text AS run_id, a.artifact_id, a.filename, a.mime_type,
                    a.metadata ->> 'original_filename' AS original_filename
-              FROM gateway.assistant_runtime_snapshots AS s
-              JOIN gateway.assistant_runs AS r
+              FROM assistant.assistant_runtime_snapshots AS s
+              JOIN assistant.assistant_runs AS r
                 ON r.run_id = s.run_id AND r.harness_thread_id = s.runtime_thread_id
                AND r.tenant_id = s.tenant_id AND r.user_id = s.user_id AND r.session_id = s.session_id
              CROSS JOIN LATERAL jsonb_array_elements(
@@ -912,8 +911,8 @@ const PARAMETERS_SQL: &str = r#"
                    s.snapshot #> '{reasoning}' AS reasoning,
                    s.snapshot #>> '{model,id}' AS model_id,
                    s.snapshot #> '{parameters,temperature}' AS temperature
-              FROM gateway.assistant_runtime_snapshots AS s
-              JOIN gateway.assistant_runs AS r
+              FROM assistant.assistant_runtime_snapshots AS s
+              JOIN assistant.assistant_runs AS r
                 ON r.run_id = s.run_id AND r.harness_thread_id = s.runtime_thread_id
                AND r.tenant_id = s.tenant_id AND r.user_id = s.user_id AND r.session_id = s.session_id
              WHERE s.runtime_thread_id = $1::uuid AND s.tenant_id = $2 AND s.user_id = $3
@@ -923,7 +922,7 @@ const PARAMETERS_SQL: &str = r#"
 const QUIZ_SQL: &str = r#"
                 SELECT run_id::text AS run_id,
                        result_summary ->> 'quiz_id' AS quiz_id
-                  FROM gateway.assistant_capability_executions
+                  FROM assistant.assistant_capability_executions
                  WHERE tenant_id = $1 AND user_id = $2
                    AND capability_id = 'generate_quiz'
                    AND status = 'succeeded'
@@ -1689,7 +1688,7 @@ async fn history(
         Ok(v) => v,
         Err(e) => return e,
     };
-    let (tenant, user) = (&principal.account.tenant_id, &principal.account.user_id);
+    let (tenant, user) = (&principal.tenant_id, &principal.user_id);
     let row = match session(&state, &session_id, tenant, user).await {
         Ok(Some(row)) => row,
         Ok(None) => return error(StatusCode::NOT_FOUND, "Session not found"),
@@ -1725,18 +1724,18 @@ impl From<sqlx::Error> for HistoryError {
 }
 async fn read_history(
     state: &Sessions,
-    principal: &Principal,
+    principal: &crate::migration_content::ContentIdentity,
     row: SessionRow,
     limit: i64,
 ) -> Result<Value, HistoryError> {
     let (tenant, user, session_id) = (
-        &principal.account.tenant_id,
-        &principal.account.user_id,
+        &principal.tenant_id,
+        &principal.user_id,
         &row.session_id,
     );
-    let snapshots: Vec<Snapshot> = sqlx::query_as("SELECT run_id::text AS run_id,snapshot,created_at FROM gateway.assistant_runtime_snapshots WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 ORDER BY created_at,snapshot_id")
+    let snapshots: Vec<Snapshot> = sqlx::query_as(RUNTIME_SNAPSHOT_HISTORY_SQL)
         .bind(session_id).bind(tenant).bind(user).fetch_all(&state.pool).await?;
-    let contexts: Vec<ContextEvent> = sqlx::query_as("SELECT turn_id::text AS run_id,payload #> '{data,chunks}' AS chunks,created_at FROM gateway.assistant_runtime_items WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND event_type='compat/v1/context_retrieved' ORDER BY sequence")
+    let contexts: Vec<ContextEvent> = sqlx::query_as(RUNTIME_CONTEXT_HISTORY_SQL)
         .bind(session_id).bind(tenant).bind(user).fetch_all(&state.pool).await?;
     let sources = source_map(&row.history, &snapshots, &contexts)
         .map_err(|_| HistoryError::SourceUnavailable)?;
@@ -1753,7 +1752,7 @@ async fn read_history(
     }
     let mut messages =
         project_legacy(&row.history, &sources, &visible).map_err(|_| HistoryError::Projection)?;
-    let thread: Option<String> = sqlx::query_scalar("SELECT runtime_thread_id::text FROM gateway.assistant_runtime_threads WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND deleted_at IS NULL")
+    let thread: Option<String> = sqlx::query_scalar(RUNTIME_THREAD_SESSION_SQL)
         .bind(tenant).bind(user).bind(session_id).fetch_optional(&state.pool).await?;
     let mut runtime_total = 0;
     let mut projected_count = 0;
@@ -1794,12 +1793,12 @@ async fn read_history(
 impl HistorySourceAccess for super::knowledge::KnowledgeService {
     fn visible_sources<'a>(
         &'a self,
-        principal: &'a Principal,
+        principal: &'a crate::migration_content::ContentIdentity,
         references: &'a SourceReferences,
     ) -> Pin<Box<dyn Future<Output = VisibleSources> + Send + 'a>> {
         Box::pin(async move {
             use super::knowledge::{DocumentSourceReference, KnowledgeActor};
-            let Ok(actor) = KnowledgeActor::from_principal(principal) else {
+            let Ok(actor) = KnowledgeActor::from_identity(principal) else {
                 return VisibleSources::default();
             };
             let mut visible = VisibleSources::default();
@@ -1886,13 +1885,13 @@ pub async fn agent_runtime_history(
         .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id)
         .fetch_optional(pool).await?;
     let Some(session) = session else { return Ok(None) };
-    let thread: Option<String> = sqlx::query_scalar("SELECT runtime_thread_id::text FROM gateway.assistant_runtime_threads WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND deleted_at IS NULL")
+    let thread: Option<String> = sqlx::query_scalar(RUNTIME_THREAD_SESSION_SQL)
         .bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id)
         .fetch_optional(pool).await?;
     let Some(thread) = thread else { return Ok(None) };
-    let snapshots: Vec<Snapshot> = sqlx::query_as("SELECT run_id::text AS run_id,snapshot,created_at FROM gateway.assistant_runtime_snapshots WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 ORDER BY created_at,snapshot_id")
+    let snapshots: Vec<Snapshot> = sqlx::query_as(RUNTIME_SNAPSHOT_HISTORY_SQL)
         .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(pool).await?;
-    let contexts: Vec<ContextEvent> = sqlx::query_as("SELECT turn_id::text AS run_id,payload #> '{data,chunks}' AS chunks,created_at FROM gateway.assistant_runtime_items WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND event_type='compat/v1/context_retrieved' ORDER BY sequence")
+    let contexts: Vec<ContextEvent> = sqlx::query_as(RUNTIME_CONTEXT_HISTORY_SQL)
         .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(pool).await?;
     let sources = source_map(&session.history, &snapshots, &contexts)
         .map_err(|_| AgentError::code(503,"ASSISTANT_SOURCE_CHECK_UNAVAILABLE"))?;

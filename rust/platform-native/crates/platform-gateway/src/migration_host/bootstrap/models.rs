@@ -83,7 +83,11 @@ impl ModelServices {
             UtcProviderClock,
             encryption_key,
         ));
-        Ok(Self { models, providers, pricing })
+        Ok(Self {
+            models,
+            providers,
+            pricing,
+        })
     }
 }
 

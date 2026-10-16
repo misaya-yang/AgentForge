@@ -11,7 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UV_VERSION: "0.13.0"
+  CARGO_BUILD_JOBS: "1"
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   script-contracts:
@@ -20,12 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Verify Knowledge Service image lock
         run: make kb-image-lock-gate
@@ -37,21 +36,11 @@ jobs:
           bash -n scripts/new/validate-env.sh
           bash -n scripts/new/seed-demo-data.sh
 
-      - name: Run focused Python lint
-        run: |
-          uv run --extra dev ruff check \
-            tests/scripts/test_runtime_script_topology_contract.py \
-            tests/scripts/test_validate_env_quickstart.py \
-            tests/scripts/test_web_runtime_config_entrypoint.py \
-            tests/scripts/test_seed_demo_data.py
+      - name: Run focused Rust formatting
+        run: cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools -p ai-platform-release -- --check
 
       - name: Run focused script tests
-        run: |
-          uv run --extra dev --extra test pytest -q --no-cov \
-            tests/scripts/test_runtime_script_topology_contract.py \
-            tests/scripts/test_validate_env_quickstart.py \
-            tests/scripts/test_web_runtime_config_entrypoint.py \
-            tests/scripts/test_seed_demo_data.py
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts
 
   compose-and-harness:
     name: Compose and Harness
@@ -59,9 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
       - name: Verify harness contract
         run: make harness-check
@@ -146,16 +133,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
       - uses: actions/setup-node@v4
         with:
           node-version: "26.11.1"
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Install frontend dependencies for the eval branch gate
         run: |
@@ -194,10 +177,7 @@ jobs:
         run: make gateway-kb-boundary-gate 2>&1 | tee tmp/gate-evidence/gateway-kb-boundary-gate.log
 
       - name: Run eval supporting unit tests
-        run: |
-          uv run --all-packages --extra test pytest -q --no-cov \
-            tests/services/eval/test_online_sampling.py \
-            tests/services/eval/test_outbox_worker.py
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test eval_online_outbox_contract
 
       - name: Run Runtime dependency gate
         run: make runtime-dependency-gate 2>&1 | tee tmp/gate-evidence/runtime-dependency-gate.log
@@ -233,30 +213,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Install PostgreSQL dump/restore client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      # tests/database helpers read POSTGRES_* from the repo-root .env via
-      # dotenv_values and connect to 127.0.0.1 — point that file at the
-      # throwaway service container (port-mapped to the runner host).
-      - name: Point local test config at the CI Postgres service
-        run: |
-          cat > .env <<'EOF'
-          POSTGRES_HOST=127.0.0.1
-          POSTGRES_PORT=5432
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=ci-postgres
-          POSTGRES_DB=kb_migration_test
-          EOF
-
+      # Explicit permission is confined to the disposable hosted PostgreSQL service.
       - name: Run KB migration gate
+        env:
+          KB_MIGRATION_TEST_ALLOW_CREATE_DATABASE: "1"
+          KB_MIGRATION_TEST_ADMIN_DSN: "postgresql://postgres:ci-postgres@127.0.0.1:5432/postgres"
         run: |
           mkdir -p tmp/gate-evidence
           make kb-migration-gate 2>&1 | tee tmp/gate-evidence/kb-migration-gate.log
@@ -290,12 +257,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       # The single-kernel contract includes the real ThreadStore migration
       # suite. Point its repo-local dotenv loader at this throwaway service so
@@ -367,16 +330,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
       - uses: actions/setup-node@v4
         with:
           node-version: "26.11.1"
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Install CLI SDK dependencies
         run: npm --prefix sdk/cli ci
@@ -432,12 +391,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Run static import boundary gate
         id: architecture_boundary
@@ -508,24 +463,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Run offline Gateway units
-        run: >-
-          make gateway-unit-gate
-          PYTEST_EXTRA="--junitxml=tmp/gate-evidence/gateway-unit-gate.xml"
+        run: |
+          mkdir -p tmp/gate-evidence
+          make gateway-unit-gate 2>&1 | tee tmp/gate-evidence/gateway-unit-gate.log
 
       - name: Upload Gateway unit evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gateway-unit-gate-evidence
-          path: tmp/gate-evidence/gateway-unit-gate.xml
+          path: tmp/gate-evidence/gateway-unit-gate.log
           if-no-files-found: warn
 
   rust-changed-crate:
@@ -542,18 +493,11 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.95.0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: ./.github/actions/setup-native
 
-      - name: Install uv
-        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Run Rust gate fail-closed contract tests
-        run: >-
-          uv run --all-packages --extra test pytest -q --no-cov
-          tests/harness/test_rust_changed_crate_gate.py
-          tests/scripts/test_rust_build_tooling.py
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools rust_gate::tests
 
       - name: Resolve diff base
         id: diff_base

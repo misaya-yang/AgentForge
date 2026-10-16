@@ -26,7 +26,7 @@ impl EventTransport {
         header_timeout: Duration,
         idle: Duration,
     ) -> Result<Self, AgentError> {
-        let client = Client::builder()
+        let client = Client::builder().retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(connect)

@@ -21,6 +21,8 @@ use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
 type Cached = (String, Instant, Vec<RetrieveResult>, Value);
+#[path = "result_cache.rs"]
+mod result_cache;
 #[derive(Clone)]
 pub struct RetrievalService {
     pub store: QueryStore,
@@ -56,9 +58,30 @@ impl RetrievalService {
         dataset_id: &str,
         request: RetrieveRequest,
     ) -> Result<(Vec<RetrieveResult>, Value)> {
-        self.vectors
-            .with_interactive_budget(self.retrieve_within_budget(user, dataset_id, request))
-            .await
+        let started = Instant::now();
+        let mode = request.mode.clone();
+        let hierarchical = request.hierarchical;
+        let result = self
+            .vectors
+            // Keep the full standard/hierarchical pipeline out of every caller's
+            // inline future. Debug builds otherwise reserve >300 KiB even when
+            // an outer tool rejects its input before polling retrieval.
+            // Boxing does not spawn: the same task-local budget, deadline and
+            // drop/cancellation behavior continue to govern this future.
+            .with_interactive_budget(Box::pin(
+                self.retrieve_within_budget(user, dataset_id, request),
+            ))
+            .await;
+        if !hierarchical {
+            if let Ok((_, meta)) = &result {
+                super::pipeline_metrics::retrieval(
+                    &mode,
+                    meta["retrieval_cache_hit"] == true,
+                    started.elapsed().as_secs_f64(),
+                );
+            }
+        }
+        result
     }
     async fn retrieve_within_budget(
         &self,
@@ -122,18 +145,7 @@ impl RetrievalService {
         if !self.cache_ttl.is_zero() && !user.user_id.is_empty() {
             let cached = {
                 let mut cache = self.cache.lock().await;
-                if let Some(index) = cache.iter().position(|(key, time, _, _)| {
-                    key == &fingerprint && time.elapsed() < self.cache_ttl
-                }) {
-                    let entry = cache
-                        .remove(index)
-                        .ok_or(QueryError::InvalidProviderResponse)?;
-                    let value = (entry.2.clone(), entry.3.clone());
-                    cache.push_back(entry);
-                    Some(value)
-                } else {
-                    None
-                }
+                result_cache::get(&mut cache, &fingerprint, self.cache_ttl, Instant::now())
             };
             if let Some((results, mut meta)) = cached {
                 let ids: Vec<_> = results.iter().map(|r| r.segment_id.clone()).collect();
@@ -165,10 +177,15 @@ impl RetrievalService {
         meta["timings_ms"]["total_ms"] = json!(started.elapsed().as_secs_f64() * 1000.0);
         if !self.cache_ttl.is_zero() && meta["rerank_degraded"].is_null() {
             let mut cache = self.cache.lock().await;
-            cache.push_back((fingerprint, Instant::now(), results.clone(), meta.clone()));
-            while cache.len() > 2000 {
-                cache.pop_front();
-            }
+            result_cache::set(
+                &mut cache,
+                fingerprint,
+                results.clone(),
+                meta.clone(),
+                self.cache_ttl,
+                2000,
+                Instant::now(),
+            );
         }
         stamp_observation(&mut meta, &r.query);
         self.telemetry(
@@ -668,6 +685,9 @@ impl RetrievalService {
             }
             meta["timings_ms"]["rerank_ms"] =
                 json!(rerank_started.elapsed().as_secs_f64() * 1000.0);
+        }
+        if let Some(reason) = meta["rerank_degraded"].as_str() {
+            super::pipeline_metrics::rerank_degraded(reason);
         }
         if cfg.mmr && !ranked.is_empty() {
             if ranked.len() <= primary.top_k {

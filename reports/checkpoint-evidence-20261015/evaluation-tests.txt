@@ -1,0 +1,66 @@
+   Compiling ai-platform-eval v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-eval)
+    Finished `test` profile [unoptimized] target(s) in 0.80s
+     Running tests/eval_migration_parity_cra.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/eval_migration_parity_cra-7d5713d72dfbcd1d)
+
+running 13 tests
+test provenance_manifest_digest_is_independent_of_fixture ... ok
+test candidate_packet_excludes_hidden_acceptance ... ok
+test rehashed_snapshot_tampering_is_rejected_before_candidate_scoring ... ok
+test nonofficial_remote_host_is_rejected_before_network ... ok
+test required_actions_are_hard_requirements ... ok
+test reference_is_judge_eligible_but_deterministic_score_never_claims_task_pass ... ok
+test stale_proposal_and_wrong_dates_fail_closed ... ok
+test fixed_snapshots_preserve_conflicting_source_status_and_independent_integrity ... ok
+test canary_missing_evidence_and_extra_fields_fail_closed ... ok
+test scenario_requires_parallel_specialists_and_pinned_artifacts ... ok
+test unknown_contradictions_and_missing_reasoning_are_rejected ... ok
+test semantically_contradictory_reasoning_fails_even_with_exact_shape ... ok
+test hidden_gold_accepts_only_current_evidence_backed_answer ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/eval_migration_parity_finance.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/eval_migration_parity_finance-a436e5a553f627e8)
+
+running 7 tests
+test duplicate_json_keys_fail_closed ... ok
+test fixture_hashes_and_all_twenty_five_formulas_validate_offline ... ok
+test misleading_and_non_gaap_conclusions_enforce_score_caps ... ok
+test source_unit_and_final_hash_failures_enforce_caps ... ok
+test sequential_or_unbound_children_cannot_claim_parallel_delegation ... ok
+test three_run_gate_uses_minimum_repeat_and_unique_identity ... ok
+test scenario_keeps_three_parallel_trials_and_hidden_goldens ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/eval_migration_parity_producer.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/eval_migration_parity_producer-d548d07c93842198)
+
+running 13 tests
+test monotonic_budget_projects_exact_exhaustion ... ok
+test bootstrap_only_regressed_and_nonexhausted_budget_receipts_are_unknown ... ok
+test checkpoint_identity_is_required_on_each_turn ... ok
+test cross_run_join_fails_even_with_paired_tools ... ok
+test paired_failures_are_verified_evidence_but_fail_business_gate ... ok
+test canonical_tools_and_durable_hitl_pass_real_golden_gate ... ok
+test unrecorded_plan_and_trace_only_claims_do_not_pass ... ok
+test tool_lifecycle_cannot_cross_turn_boundary ... ok
+test recorded_candidate_cli_preserves_offline_tiers_and_rejects_bad_receipts ... ok
+test durable_predispatch_checkpoint_and_approval_order_are_required ... ok
+test tool_alias_identity_and_success_must_agree ... ok
+test terminal_receipts_must_be_present_versioned_and_consistent ... ok
+test budget_arithmetic_and_bounds_are_verified ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/runtime_contract_source.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/runtime_contract_source-eaba6686e61b1148)
+
+running 7 tests
+test compaction_requires_retention_receipt ... ok
+test native_context_compaction_matches_projection ... ok
+test child_receipts_pair_exactly ... ok
+test simple_and_complex_turns_have_terminal_contract ... ok
+test rejects_foreign_owner_and_orphan_result ... ok
+test rejects_duplicate_and_reordered_sequences ... ok
+test stop_and_continuation_close_tool_receipts ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

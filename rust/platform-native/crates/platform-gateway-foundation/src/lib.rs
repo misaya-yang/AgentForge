@@ -138,3 +138,16 @@ pub mod sdk_read_grants;
 pub mod sdk_capabilities;
 
 pub mod model_catalog_review;
+
+/// Shared, optional distributed HTTP span recording and W3C propagation.
+pub mod distributed_tracing;
+
+pub mod message_queue_transport;
+
+mod generic_rest_multibyte;
+
+pub mod request_governance;
+
+pub mod websocket_transport;
+
+pub mod event_envelope;

@@ -1,0 +1,256 @@
+{
+  "schema": "native-sdk-current-acceptance/v1",
+  "generated_at_utc": "2026-10-16T04:40:57Z",
+  "source_sha256_snapshot_utc": "2026-10-16T04:40:09Z",
+  "git_commit": "ed6ea2e3917bb30ace43f3b2f19846670d36c169",
+  "service": {
+    "service_id": "native-sdk-qwen-acceptance-20261016",
+    "adapter": "openai_agents",
+    "model": "qwen3.8-flash",
+    "registration": {
+      "route": "POST /api/v1/service-registrations",
+      "http_status": 200,
+      "trace_id": "1ecb35d843b04fdc92b071d927d4e8a4"
+    },
+    "detail": {
+      "route": "GET /api/v1/services/native-sdk-qwen-acceptance-20261016",
+      "http_status": 200,
+      "trace_id": "dace9331b6aa4e189a5313b8bb4ee973",
+      "provider_key_configured_projection": true,
+      "plaintext_key_field_absent": true,
+      "encrypted_key_field_absent": true,
+      "submitted_key_value_absent": true
+    }
+  },
+  "runtime": {
+    "gateway_pid": 32538,
+    "gateway_origin": "http://127.0.0.1:8080",
+    "worker_pid": 27768,
+    "worker_origin": "http://127.0.0.1:8096"
+  },
+  "workflow": {
+    "mode": "synchronous",
+    "invocations": [
+      {
+        "turn": 1,
+        "route": "POST /api/v1/invoke",
+        "http_status": 200,
+        "terminal_status": "success",
+        "request_id": "req_cdc9c00811414474a5902c1e3151aa1b",
+        "trace_id": "c628b42b94f94dad9fdb2430f574d0ba",
+        "marker_returned": true
+      },
+      {
+        "turn": 2,
+        "route": "POST /api/v1/invoke",
+        "http_status": 200,
+        "terminal_status": "success",
+        "request_id": "req_b7d077c074d34a3f8686db33170fa370",
+        "trace_id": "b4e4558156724bdb97f85b4f376443ef",
+        "same_session_as_turn_1": true,
+        "marker_recalled": true
+      }
+    ],
+    "session_id": "443a63d6-e7b6-41bd-a320-cc2a97535346",
+    "history": {
+      "route": "GET /api/v1/sessions/{session_id}/history",
+      "http_status": 200,
+      "trace_id": "f2eac40b2a454cf39fdb2430f574d0ba",
+      "rows": 4,
+      "user_rows": 2,
+      "assistant_rows": 2,
+      "marker_present": true,
+      "public_receipt_projection": {
+        "assistant_rows_with_receipt": 2,
+        "sdk_usage_state": "reported",
+        "audit_persistence": "durable",
+        "audit_resource_id_present": true
+      }
+    }
+  },
+  "pre_restart_diagnostic": {
+    "http_status": 500,
+    "trace_id": "d00753cbff8b4de88aea491b71277d53",
+    "request_header_id": "363d2658-e5d0-4305-bcc2-8eabc0484d6c",
+    "session_id": "5b513c7a-cf18-4494-a792-784391485fcb",
+    "history_rows": 1,
+    "history_roles": [
+      "user"
+    ],
+    "diagnosis": "The Gateway process lacked SDK_AGENT_WORKER_URL and SDK_AGENT_WORKER_TOKEN. NativeSdkFactory reads these required operator settings when constructing the adapter after the user message was saved, before worker/provider transport. The Gateway was restarted with the configured loopback URL and matching token before the successful workflow."
+  },
+  "scope_limits": {
+    "streaming_tested": false,
+    "knowledge_or_capability_tools_tested": false,
+    "restart_recovery_tested": false,
+    "cancellation_tested": false,
+    "raw_provider_output_in_report": false,
+    "credentials_in_report": false
+  },
+  "source_sha256": {
+    "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": "7f5296ac6edd388f23a0f56d1062af3dd4138da7639f172b6f75eca49fbab6a0",
+    "rust/platform-native/crates/platform-gateway-foundation/src/sdk_agent_config.rs": "313a28cb63cfeeebe68923990418cbcfebdffea8cc97547571ff18ecd1c838d0",
+    "rust/platform-native/crates/platform-gateway-foundation/src/services_api.rs": "eda642ed5aa280e758e12625e9a6b2c0c934a6187ccad2f8f258961f47aa994c",
+    "rust/platform-native/crates/platform-gateway-foundation/src/invocation_http.rs": "2ef26d29211000ca405b44b6c594dc69e14b069336de82128be7cc6f5b6857f3",
+    "rust/platform-native/crates/platform-gateway-foundation/src/gateway_dispatcher.rs": "fedd445def62497fb8f35c25ac7578dd99ef909a216ce070659fbfe8cf4a839f",
+    "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs": "bcfb4d6951771a35800ae83d3bc135265660feef83785156040d0fe28651925f",
+    "rust/platform-native/crates/platform-gateway-foundation/src/sessions_api.rs": "de9bf343ab6dd0b8ccdd1055c7007860e48ccdab2dde343bf329bc0ce414e23c",
+    "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/native_sdk.rs": "688a16b5088791be9b0df029240fa117ab53f756cf73c7ad4b2604efe3cced50",
+    "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/transport.rs": "67c0d924c0f1d154ca13545c5eea73c1c20027699f2a1da80e43cab9679a944f",
+    "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/sdk_session_cleanup.rs": "668496f7073d17c08c92a8cb4dd1ff712c5b954b5cf84bd7ecabbafbadcaedb5",
+    "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/sdk_usage_audit.rs": "d27f6577bc53dbed90556f04f25ae638e7f23aafa475538ade178509bb0d4094",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/main.rs": "58c22ba1ab007945fc01f2901d5a62d584ac6e5f85673f50a3189f18b9f25e5b",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/contract.rs": "16cd8a590af0bc9899919478c38507baa0443382c01dfae064b8b028c213a350",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/lifecycle.rs": "dcd19c72053ffe484633e9d56cce55f11bf4752033596b3189d414e453b34a36",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/supervisor.rs": "3b515717f2671989e22113b1064d69da7cd8a3d074d1bed0e9d1b6efbb794ea8",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/bridge.rs": "5eea372387148c45eb4ba5c9b6071ce02e758e1d59a2cfac8cae70ad252d5517",
+    "rust/platform-native/crates/platform-sdk-agent-worker/src/provider_config.rs": "72d9a9c09ec7752c7d53be944bbef5d94ceae51cb50a5cfc07aa921fe0c28e8b",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/main.rs": "4be3560d21a6c1a60ab1c8409b3f4dd5b03c94cb3b19b23693b06a90ee37f01f",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/engine.rs": "aa0f63de23dbd6db9fc3032849256d9bdc2c0ca4ac20f1c284b2628a72712c53",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/contract.rs": "27252fd073f594cdff4e4efd6b28e69beb517cb4041094fdc64804ba32b157e0",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/tools.rs": "fae2e701e9eb3b942beff98e41b3d32f196c52f012a89171826feade9ba9a6dc",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/usage.rs": "f29e122fb5c2b72f4d2785ad2132c2986336de93f7a65cee11ed8a93c331c0f0"
+  },
+  "cancellation_followthrough": {
+    "observed_at_utc": "2026-10-16T06:02:57.852Z",
+    "service_id": "native-sdk-qwen-acceptance-20261016",
+    "session_id": "76bf98b9-162c-4d4a-844a-c57d212efd7c",
+    "cancelled_run": {
+      "route": "GET /api/v1/assistant/runs/{run_id}",
+      "run_id": "b14ed3d3-6de1-471e-a3a4-1e071ac094ea",
+      "http_status": 200,
+      "trace_id": "bbcc5144a0a14a5eaab8a5c13ee8d450",
+      "engine": "openai_agents",
+      "status": "cancelled",
+      "finished_at_present": true,
+      "sdk_usage": {
+        "state": "unavailable",
+        "provider_outcome": "unknown",
+        "cost_state": "unavailable",
+        "platform_pricing_state": "reconciliation_required",
+        "accounting_status": "not_asserted",
+        "audit_persistence": "durable",
+        "token_counts_present": false,
+        "provider_cost_present": false
+      }
+    },
+    "continuation_run": {
+      "route": "GET /api/v1/assistant/runs/{run_id}",
+      "run_id": "2447804d-14dd-4d3b-aae3-e90bd83ac283",
+      "http_status": 200,
+      "trace_id": "1936b4c6fa8d45e6a2509776ef5de792",
+      "engine": "openai_agents",
+      "status": "completed",
+      "finished_at_present": true,
+      "sdk_usage": {
+        "state": "reported",
+        "provider_outcome": "completed",
+        "cost_state": "unavailable",
+        "platform_pricing_state": "reconciliation_required",
+        "accounting_status": "not_asserted",
+        "audit_persistence": "durable",
+        "token_counts_present": true,
+        "provider_cost_present": false
+      }
+    },
+    "public_history": {
+      "route": "GET /api/v1/assistant/sessions/{session_id}/history?limit=100",
+      "http_status": 200,
+      "trace_id": "f4977576fe8c45ef9cc381db633b9528",
+      "total": 9,
+      "rows": 9,
+      "roles": {
+        "user": 5,
+        "assistant": 4
+      },
+      "continuation_marker_present": true,
+      "usage_receipt_projection": "Verified through the public run-detail projections; history rows did not expose sdk_usage fields."
+    },
+    "worker_local_state": {
+      "pending_present": false,
+      "cleanup_in_progress_present": false,
+      "cleanup_proof_schema": "sdk-cleanup-complete/v2",
+      "cleanup_proof_matches_latest_receipt": true,
+      "latest_receipt_event": "completed",
+      "receipt_count": 4,
+      "cancellation_reconciliation_count": 1,
+      "cancellation_reconciliation": {
+        "schema": "sdk-cancelled-run-reconciliation/v1",
+        "cancelled_result": true,
+        "provider_outcome": "unknown",
+        "usage_state": "unavailable",
+        "cost_state": "unavailable",
+        "tool_effects": "none"
+      },
+      "continuation_receipt_present": true,
+      "continuation_receipt_event": "completed",
+      "continuation_marker_present": true,
+      "native_history": {
+        "schema": "sdk-native-history/v1",
+        "rows": 9,
+        "roles": {
+          "user": 3,
+          "reasoning": 3,
+          "assistant": 3
+        },
+        "marker_present": true
+      }
+    },
+    "browser_screenshot": {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/local-application/screenshots/sdk-qwen-browser-cancel-recovery-20261016.png",
+      "sha256": "936d53695fecd3a1a9aff73ac5e1ce3bba1a683c7b4dbc3c6d432f25e4a4f1a6",
+      "visually_inspected_by_root": true
+    },
+    "runtime": {
+      "gateway_pid": 50938,
+      "gateway_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/gateway",
+      "worker_pid": 53360,
+      "worker_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
+      "engine_path_source": "SDK_AGENT_ENGINE_PATH operator setting",
+      "engine_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine"
+    },
+    "verification": {
+      "read_only_get_requests": 3,
+      "provider_calls": 0,
+      "worker_restarted_during_verification": false
+    },
+    "integrity": {
+      "source_sha256_snapshot_utc": "2026-10-16T06:02:57.853Z",
+      "source_sha256": {
+        "rust/platform-native/crates/platform-gateway/src/migration_host/knowledge_proxy/sdk_capabilities.rs": "17ea8c670b39dce4a99ccf9ae644a7ec0f8160c35bfd69fbd76bb4bb2ee15f14",
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/native_sdk.rs": "2abea1070031df145e168e18a15dd7062dcbd935f18f511f1d546a7a93d666bf",
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/sdk_usage_audit.rs": "d27f6577bc53dbed90556f04f25ae638e7f23aafa475538ade178509bb0d4094",
+        "rust/platform-native/crates/platform-gateway-foundation/src/sdk_agent_config.rs": "313a28cb63cfeeebe68923990418cbcfebdffea8cc97547571ff18ecd1c838d0",
+        "rust/platform-native/crates/platform-sdk-agent-worker/src/main.rs": "5a83caf4479c5b71ac2413c4f8a7d80ddb3ebef1b4c0029742bc1647ef8e94f9",
+        "rust/platform-native/crates/platform-sdk-agent-worker/src/lifecycle.rs": "f0569c594c3ea761b38fae00ed5708b8d7f8d0374931006ffe4186d4362b5816",
+        "rust/platform-native/crates/platform-sdk-agent-worker/src/supervisor.rs": "9e8ff061e6ead4a8ad83e2af8e24e31f62240005ae0f3f7fcdbcd5f7e42b55bb",
+        "rust/platform-native/crates/platform-sdk-agent-worker/src/bridge.rs": "2cfe9092b304079700adb8edb73ca8c3d05d3c060cdb3c683dd15f0d89cd947a",
+        "rust/platform-native/crates/platform-sdk-agent-worker/src/contract.rs": "16cd8a590af0bc9899919478c38507baa0443382c01dfae064b8b028c213a350",
+        "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/main.rs": "4be3560d21a6c1a60ab1c8409b3f4dd5b03c94cb3b19b23693b06a90ee37f01f",
+        "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/engine.rs": "aa0f63de23dbd6db9fc3032849256d9bdc2c0ca4ac20f1c284b2628a72712c53"
+      },
+      "binary_sha256": {
+        "gateway": {
+          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/gateway",
+          "sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d"
+        },
+        "worker": {
+          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
+          "sha256": "0e8a6976b4b90496a8dca88ebee5d1706ed36590a51fbeb48e96d397551fe918"
+        },
+        "engine": {
+          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine",
+          "sha256": "d22afd7c7ac4b0fc58d3d2f8ccfa4700abffb58e7709d64d4f70c463d1032260"
+        }
+      }
+    }
+  },
+  "followup_scope_limits": {
+    "cancellation_followthrough_tested": true,
+    "run_detail_receipts_verified": true,
+    "public_session_history_verified": true,
+    "provider_calls_during_followup": 0,
+    "cancelled_usage_and_cost_remain_unknown": true,
+    "real_provider_calls_not_repeated": true
+  }
+}

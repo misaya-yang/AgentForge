@@ -3,7 +3,7 @@
 Everything an agent or a new engineer needs is reachable from this page. If knowledge is not in
 this repository, it does not exist — see [`harness/README.md`](harness/README.md) §1.
 
-**Updated:** 2026-08-30
+**Updated:** 2026-10-16
 
 ---
 
@@ -13,6 +13,9 @@ this repository, it does not exist — see [`harness/README.md`](harness/README.
 | --- | --- |
 | An AI agent about to change code | [`AGENTS.md`](../AGENTS.md), then [`harness/`](harness/README.md) |
 | Using Claude Code specifically | [`CLAUDE.md`](../CLAUDE.md) |
+| Finding current Rust source | [Native workspace](../rust/platform-native/Cargo.toml), [Runtime overlay](../rust/agent-runtime-overlay/), [root layout](../README.md) |
+| Deployment and provider operations | [Operator guide](deployment/operator-guide.md) |
+| Current cleanup and acceptance continuation | [Repository checkpoint](../reports/repository-layout-20261016.md) |
 | Running the project for the first time | [`README.md`](../README.md) → `make doctor` → `make quickstart` |
 | Deploying to a server | [`DEPLOY.md`](../DEPLOY.md) |
 | Contributing a change | [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`harness/workflow.md`](harness/workflow.md) |

@@ -10,4 +10,4 @@ make doctor
 make status
 
 # Fact baselines must match the tree before any architecture work resumes.
-python3 scripts/inventory/generate_baselines.py --verify
+platform-tools inventory-generate --kind all --verify

@@ -3,8 +3,8 @@
 mod contract;
 mod forwarding;
 mod management;
-mod sdk_reads;
 pub mod sdk_capabilities;
+mod sdk_reads;
 use crate::migration_content::{
     ContentAccess, ContentDatabase, ContentError, ContentIdentity, access::NativeContentAccess,
 };
@@ -25,6 +25,7 @@ use tokio::sync::Semaphore;
 pub type Result<T> = std::result::Result<T, ContentError>;
 #[derive(Clone)]
 pub struct ProxyConfig {
+    pub retrieval_rpc: Option<(String, ai_platform_rpc::RpcConfig)>,
     pub origin: reqwest::Url,
     pub allow_private_http: bool,
     pub json_body_mb: usize,
@@ -36,6 +37,7 @@ impl ProxyConfig {
         Self {
             origin,
             allow_private_http: false,
+            retrieval_rpc: None,
             json_body_mb: 4,
             file_body_mb: 16,
             batch_body_mb: 32,
@@ -59,6 +61,7 @@ impl ProxyConfig {
     }
 }
 pub struct KnowledgeProxy {
+    retrieval_rpc: Option<ai_platform_rpc::RetrievalClient>,
     pub sdk_reads: Option<sdk_reads::SdkReads>,
     pub sdk_control: Option<Arc<crate::migration_agent::control::RuntimeControlPlane>>,
     config: ProxyConfig,
@@ -74,9 +77,48 @@ pub struct KnowledgeProxy {
     pub trace_capture: Option<crate::migration_knowledge_query::rag_trace::RagTraceCapture>,
 }
 impl KnowledgeProxy {
+    /// Explicit operator-selected internal transport. Connection failure fails startup;
+    /// a configured RPC never silently falls back to a differently governed HTTP hop.
+    pub async fn configure_retrieval_rpc(
+        &mut self,
+        origin: String,
+        config: ai_platform_rpc::RpcConfig,
+    ) -> Result<()> {
+        let parsed = reqwest::Url::parse(&origin).map_err(|_| unavailable())?;
+        let loopback = parsed
+            .host_str()
+            .and_then(|h| h.trim_matches(['[', ']']).parse::<std::net::IpAddr>().ok())
+            .is_some_and(|ip| ip.is_loopback());
+        if parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || parsed.path() != "/"
+            || !(parsed.scheme() == "https"
+                || parsed.scheme() == "http" && (loopback || self.config.allow_private_http))
+        {
+            return Err(unavailable());
+        }
+        self.retrieval_rpc = Some(
+            ai_platform_rpc::RetrievalClient::connect(origin, config)
+                .await
+                .map_err(|_| unavailable())?,
+        );
+        Ok(())
+    }
+
     /// Inert construction: no network, secrets discovery, worker, or KS SQL.
-    pub fn configure_sdk_reads(&mut self,registry:Arc<ai_platform_gateway_foundation::service_registry::ServiceRegistry>,sessions:Arc<dyn ai_platform_gateway_foundation::session_manager::SessionStorage>){
-        self.sdk_reads=Some(sdk_reads::SdkReads{grants:registry.sdk_read_grants(),registry,sessions});
+    pub fn configure_sdk_reads(
+        &mut self,
+        registry: Arc<ai_platform_gateway_foundation::service_registry::ServiceRegistry>,
+        sessions: Arc<dyn ai_platform_gateway_foundation::session_manager::SessionStorage>,
+    ) {
+        self.sdk_reads = Some(sdk_reads::SdkReads {
+            grants: registry.sdk_read_grants(),
+            registry,
+            sessions,
+        });
     }
     pub fn new(
         config: ProxyConfig,
@@ -108,6 +150,7 @@ impl KnowledgeProxy {
             ));
         }
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))
@@ -116,6 +159,7 @@ impl KnowledgeProxy {
             .build()
             .map_err(|_| unavailable())?;
         Ok(Self {
+            retrieval_rpc: None,
             sdk_reads: None,
             sdk_control: None,
             config,
@@ -133,24 +177,42 @@ impl KnowledgeProxy {
     }
 }
 pub fn router(state: Arc<KnowledgeProxy>) -> Router {
-    let methods = contract::METHODS.iter().fold(MethodFilter::GET, |filter, method| {
-        filter.or(match *method {
-            "GET" => MethodFilter::GET, "POST" => MethodFilter::POST,
-            "PUT" => MethodFilter::PUT, "PATCH" => MethodFilter::PATCH,
-            "DELETE" => MethodFilter::DELETE, _ => unreachable!("declared proxy method"),
-        })
-    });
+    let methods = contract::METHODS
+        .iter()
+        .fold(MethodFilter::GET, |filter, method| {
+            filter.or(match *method {
+                "GET" => MethodFilter::GET,
+                "POST" => MethodFilter::POST,
+                "PUT" => MethodFilter::PUT,
+                "PATCH" => MethodFilter::PATCH,
+                "DELETE" => MethodFilter::DELETE,
+                _ => unreachable!("declared proxy method"),
+            })
+        });
     let mut router = Router::new()
-        .route("/internal/v1/sdk-tools/capabilities/admit",axum::routing::post(sdk_capabilities::admit))
-        .route("/internal/v1/sdk-tools/capabilities/execute",axum::routing::post(sdk_capabilities::execute))
-        .route("/internal/v1/sdk-tools/knowledge/retrieve",axum::routing::post(sdk_reads::retrieve))
-        .route("/internal/v1/sdk-tools/knowledge/admit",axum::routing::post(sdk_reads::admit))
-        ;
+        .route(
+            "/internal/v1/sdk-tools/capabilities/admit",
+            axum::routing::post(sdk_capabilities::admit),
+        )
+        .route(
+            "/internal/v1/sdk-tools/capabilities/execute",
+            axum::routing::post(sdk_capabilities::execute),
+        )
+        .route(
+            "/internal/v1/sdk-tools/knowledge/retrieve",
+            axum::routing::post(sdk_reads::retrieve),
+        )
+        .route(
+            "/internal/v1/sdk-tools/knowledge/admit",
+            axum::routing::post(sdk_reads::admit),
+        );
     for prefix in contract::PUBLIC_PREFIXES {
-        router = router.route(&format!("{prefix}/"), on(methods, root_dispatch))
+        router = router
+            .route(&format!("{prefix}/"), on(methods, root_dispatch))
             .route(&format!("{prefix}/{{*path}}"), on(methods, dispatch));
     }
-    router.with_state(state.clone())
+    router
+        .with_state(state.clone())
         .layer(axum::middleware::from_fn_with_state(
             state.access.clone(),
             crate::migration_content::access::request_context,
@@ -279,8 +341,9 @@ async fn handle(state: Arc<KnowledgeProxy>, path: String, request: Request) -> R
             }
         }
     }
+    let management_route = !parts.uri.path().starts_with("/api/v1/kb-tools/");
     let segments: Vec<_> = path.trim_matches('/').split('/').collect();
-    if contract::dataset_impact(parts.method.as_str(), &path) {
+    if management_route && contract::dataset_impact(parts.method.as_str(), &path) {
         return management::impact(&state, &user, segments[1]).await;
     }
     let has_body =

@@ -59,6 +59,8 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
     setRerank,
     hitRerankModel,
     setHitRerankModel,
+    rerankModelOptions,
+    rerankModelConfigStatus,
     mmr,
     setMmr,
     hitLoading,
@@ -82,6 +84,11 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
     runRagasScore,
   } = hitTest;
   const hitFailed = typeof hitMeta.error === "string";
+  const hitErrorMessage = hitMeta.error === "rerank_preset_unavailable"
+    ? t("knowledge.detail.rerankPresetUnavailable")
+    : hitMeta.error === "rerank_model_unconfigured"
+      ? t("knowledge.detail.rerankModelUnconfigured")
+      : typeof hitMeta.error === "string" ? hitMeta.error : "";
   const isHitCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
   const hitCount = (value: unknown) => isHitCount(value) ? value : t("knowledge.detail.hitCountUnknown");
 
@@ -159,20 +166,37 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
               </Label>
               <Select
                 value={hitRerankModel}
+                disabled={rerankModelOptions.length === 0}
                 onValueChange={(value) => {
                   markRetrievalConfigCustom();
                   setHitRerankModel(value);
                 }}
               >
-                <SelectTrigger className="mt-2 bg-card">
-                  <SelectValue placeholder={t("knowledge.detail.officialRerank")} />
+                <SelectTrigger className="mt-2 bg-card" aria-label={t("knowledge.detail.selectRerankModel")}>
+                  <SelectValue placeholder={
+                    rerankModelConfigStatus === "loading"
+                      ? t("knowledge.detail.rerankModelsLoading")
+                      : t("knowledge.detail.rerankModelNoOptions")
+                  } />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gte-rerank">GTE Rerank</SelectItem>
-                  <SelectItem value="gte-rerank-v2">GTE Rerank v2</SelectItem>
-                  <SelectItem value="bge-reranker">BGE Reranker</SelectItem>
+                  {rerankModelOptions.map((model) => (
+                    <SelectItem key={model} value={model}>{model}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {rerankModelOptions.length === 0 && (
+                <p
+                  className="mt-1.5 text-xs text-muted-foreground"
+                  role={rerankModelConfigStatus === "error" ? "alert" : "status"}
+                >
+                  {rerankModelConfigStatus === "loading"
+                    ? t("knowledge.detail.rerankModelsLoading")
+                    : rerankModelConfigStatus === "error"
+                      ? t("knowledge.detail.rerankModelLoadFailed")
+                      : t("knowledge.detail.rerankModelUnconfigured")}
+                </p>
+              )}
             </div>
 
             {/* 相似度阈值 - 阿里云风格 */}
@@ -284,6 +308,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch
                     checked={rerank}
+                    disabled={rerankModelOptions.length === 0}
                     onCheckedChange={(checked) => {
                       markRetrievalConfigCustom();
                       setRerank(checked);
@@ -453,7 +478,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                 )}
                 {typeof hitMeta.error === 'string' && hitMeta.error && (
                   <div className="mt-2 p-2 bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 rounded text-xs">
-                    {t("knowledge.detail.error", { msg: hitMeta.error })}
+                    {t("knowledge.detail.error", { msg: hitErrorMessage })}
                   </div>
                 )}
                 {typeof hitMeta.ragas_error === 'string' && hitMeta.ragas_error && (
@@ -536,7 +561,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                 )}
                 {typeof hitMeta.error === 'string' && hitMeta.error && (
                   <div role="alert" className="mt-4 p-3 bg-red-500/10 dark:bg-red-500/15 border border-red-500/20 rounded-lg text-sm text-red-600 dark:text-red-400 max-w-md mx-auto">
-                    {hitMeta.error}
+                    {hitErrorMessage}
                   </div>
                 )}
               </div>

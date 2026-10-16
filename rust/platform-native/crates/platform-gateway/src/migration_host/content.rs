@@ -47,7 +47,7 @@ pub struct ContentDependencies {
     pub langgraph: Arc<LangGraphClient>,
     pub guests: Arc<GuestSessionManager>,
     pub authorization: CapabilityAuthorization,
-    pub sandbox: Arc<dyn SandboxTransport>,
+    pub sandbox: Option<Arc<dyn SandboxTransport>>,
     pub pdf: Arc<dyn PdfAttachmentParser>,
     pub raster: Arc<dyn ImageRasterBackend>,
     pub search: Arc<TavilySearch>,
@@ -138,12 +138,14 @@ pub fn assemble(
         artifacts: artifacts.clone(),
         authorization: d.authorization.clone(),
         image_provider: provider,
-        python: Arc::new(PythonCodeCapability {
-            transport: d.sandbox,
-            artifacts: Arc::new(StorageCodeArtifactSink {
-                database: d.database,
-                artifacts: artifacts.clone(),
-            }),
+        python: d.sandbox.map(|transport| {
+            Arc::new(PythonCodeCapability {
+                transport,
+                artifacts: Arc::new(StorageCodeArtifactSink {
+                    database: d.database,
+                    artifacts: artifacts.clone(),
+                }),
+            })
         }),
         pdf: d.pdf,
     });

@@ -1,0 +1,193 @@
+{
+  "schema": "ai-platform/scoped-test-retirement-evidence/v1",
+  "owner": "gateway-core",
+  "scope": "Gateway proxy/setup/feedback/OpenAPI and plugin agent-extension suites; Agent Studio mappings delegated to original native test authors",
+  "shared_manifest_modified": false,
+  "full_equivalence_claimed": false,
+  "mappings": [
+    {
+      "source": "tests/api/test_setup_state.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test setup_source_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/setup_source_matrix.rs"
+      ],
+      "verified_assertion_scope": "Actual setup router: configured/unconfigured credentials, custom database provider IDs, missing metadata, deployment/default model, direct permission denial and configured-role permission. Explicit fake identity and provider metadata.",
+      "remaining_assertion_obligations": "Authorized JWT and API-key credential selection and anonymous guest auth branches are not established by this fixture.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/api/test_proxy_authorization_matrix.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test proxy_source_policy_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/proxy_source_policy_matrix.rs"
+      ],
+      "verified_assertion_scope": "Actual RBAC and service-access policy: role capability, guest denial detail, allowlist match/mismatch, denylist precedence, API-key intersection.",
+      "remaining_assertion_obligations": "Original actual proxy HTTP admission plus verified JWT/API-key authority and downstream invocation are not exercised by these pure policy assertions.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/api/test_proxy_rate_limit_behavior.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test proxy_source_policy_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/proxy_source_policy_matrix.rs"
+      ],
+      "verified_assertion_scope": "RatePolicyResolver service override vs global policy and real memory limiter rejection/retry headers.",
+      "remaining_assertion_obligations": "No-limiter exemption, HTTP429 translation, noncontiguous policy-window batching and original-priority rejection require separate rate-limit owner evidence; not proven by these selected tests.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/api/test_proxy_domain_policy_injection.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test proxy_payload_source_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/proxy_payload_source_matrix.rs"
+      ],
+      "verified_assertion_scope": "Actual prepare_run_payload/is_run_path: LangGraph run domain insertion, non-run bypass, none policy, preserve prior gateway domain, root runs without slash.",
+      "remaining_assertion_obligations": "HTTP composition and authoritative service repository not used; pure payload coverage only.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/api/test_proxy_model_override_injection.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test proxy_payload_source_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/proxy_payload_source_matrix.rs"
+      ],
+      "verified_assertion_scope": "Browser identity and supplied gateway_model removed/replaced from trusted context; model allowlist and structured Retry-After error.",
+      "remaining_assertion_obligations": "Authoritative resolved primary/fallback model injection, absent config handling and safe debug redaction assertions not covered by this selected fixture; do not retire these obligations on this mapping alone.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/services/eval/test_trace_feedback.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--test trace_feedback_source_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/tests/trace_feedback_source_matrix.rs",
+        "rust/platform-native/crates/platform-gateway/tests/fixtures/trace_feedback_source.json"
+      ],
+      "verified_assertion_scope": "Source fixture cases: assistant tool failure, succeeded trace with tool-error event exclusion, RAG miss, LangGraph low score, redacted case, review-gated clustered proposal, bad-metric candidate gate.",
+      "remaining_assertion_obligations": "Seven source cases represented with original fixture data; no HTTP/database integration is asserted by source or native suite. Whole assertion equivalence is not certified.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/proxy/test_streaming.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--lib migration_compat::transparent_proxy::source_matrix",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy_source_matrix.rs"
+      ],
+      "verified_assertion_scope": "test_streaming_timeout_handling and test_connection_error_handling call actual proxy over loopback transport, assert504/502, sanitized unavailable detail, exactly restored one-slot limiter and zero connection ownership.",
+      "remaining_assertion_obligations": "Only two source transport-failure cases mapped here; remaining SSE parsing/accounting/defaults/usage cases require billing/SSE owner coverage. Source raw error detail intentionally sanitized in native.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/proxy/test_transparent_proxy_stream_ownership.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--lib migration_compat::transparent_proxy::lease_tests",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy_lease_tests.rs"
+      ],
+      "verified_assertion_scope": "Actual admission/renewal and stream-pump tests cover lost before bind, ready-loss precedence, pending send/read/drop, blocked delivery and error delivery, bytes preserved with release once, accounting loss, unstarted handoff and abort cleanup.",
+      "remaining_assertion_obligations": "Not a literal ASGI lifecycle port; repeated cancellation during transport close and every original server-start/disconnect timing permutation need independent mapping before claiming full coverage.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/proxy/test_transparent_proxy_response_lifecycle.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-gateway",
+      "target": "--lib migration_compat::transparent_proxy::lease_tests",
+      "native_files": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy_lease_tests.rs"
+      ],
+      "verified_assertion_scope": "Concrete reqwest body-read loss and pump abort/resource release coverage; successful stream bytes/release-once.",
+      "remaining_assertion_obligations": "Original redirect/error/decode timeout close variants and SSE finalizer close-error/cancellation permutations are not individually established by this counterpart.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/services/assistant/test_agent_plugin_agents.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-agent-plugins",
+      "target": "--test agent_extensions",
+      "native_files": [
+        "rust/platform-native/crates/platform-agent-plugins/tests/agent_extensions.rs"
+      ],
+      "verified_assertion_scope": "Actual loader: bundled inert agent IDs/categories/limits/hashes; requested tools/provenance; Copilot defaults; invalid path sibling isolation; duplicate-ID quarantine; duplicate YAML/conflicting legacy limits/empty instructions; oversize isolation; in-tree file symlink rejection; invalid capabilities/limits matrix.",
+      "remaining_assertion_obligations": "Original directory symlink escape, successful new preferred limit alias values and FrozenInstanceError immutability assertion lack direct equivalent assertions. Rust ownership is not by itself proof of source frozen-field API semantics.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/contract/test_openapi_response_alternatives.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-openapi",
+      "target": "--test response_alternatives",
+      "native_files": [
+        "rust/platform-native/crates/platform-openapi/tests/response_alternatives.rs"
+      ],
+      "verified_assertion_scope": "Real compare_specs: anyOf/oneOf field preservation/type expansion, optional declarations, unknown/external/cyclic refs, sibling ref reuse/allOf, type projection, dialect nullable/ref-sibling behavior and enclosing constraint intersections.",
+      "remaining_assertion_obligations": "Synthetic contract suite; does not prove actual native endpoint schemas fully match source published schemas.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/contract/test_openapi_profiles.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-openapi",
+      "target": "--test profile_contracts",
+      "native_files": [
+        "rust/platform-native/crates/platform-openapi/tests/profile_contracts.rs"
+      ],
+      "verified_assertion_scope": "Native profile projection retains operations; invalid ownership fails closed; identical artifact does not prove native verification; missing candidate/self comparison rejected; unsafe source-tree output and unknown paths rejected; declaration additions detected.",
+      "remaining_assertion_obligations": "Source framework/export monkeypatch/process details are not one-to-one ported; native exporter path and fingerprint tests are separate.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/contract/test_native_openapi_export.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-openapi",
+      "target": "--lib / --test profile_contracts",
+      "native_files": [
+        "rust/platform-native/crates/platform-openapi/src/snapshot.rs",
+        "rust/platform-native/crates/platform-openapi/tests/profile_contracts.rs",
+        "rust/platform-native/crates/platform-gateway/tests/native_openapi_serving.rs"
+      ],
+      "verified_assertion_scope": "Native source fingerprints/safe output and actual served builder equals offline extension; marks incomplete/opaque declarations honestly.",
+      "remaining_assertion_obligations": "Full historical Python-produced schema equivalence not proven; native producer explicitly marks incompleteness.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/integration/test_gateway_openapi_contract.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-tools",
+      "target": "--bin platform-tools -- live-openapi-contract",
+      "native_files": [
+        "rust/platform-native/crates/platform-tools/src/live_openapi.rs",
+        "rust/platform-native/crates/platform-gateway/tests/native_openapi_serving.rs"
+      ],
+      "verified_assertion_scope": "Actual CLI compares live spec against baseline for removed paths and lost required request fields, matching original integration gate; shared-handler test adds producer identity.",
+      "remaining_assertion_obligations": "Live service acceptance not run here; do not confuse existing gate implementation with a successful baseline parity result.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    },
+    {
+      "source": "tests/contract/test_openapi_schema_compat.py",
+      "status": "mapped_native_counterpart_partial",
+      "package": "ai-platform-openapi",
+      "target": "--test contract_drift",
+      "native_files": [
+        "rust/platform-native/crates/platform-openapi/tests/contract_drift.rs"
+      ],
+      "verified_assertion_scope": "Synthetic compare_specs fixture tests removed path/method, required property changes, parameter/response/security drift, compatible growth and operation-ID drift.",
+      "remaining_assertion_obligations": "Original actual snapshot paths/parameters and exact published v2 runtime routes require real artifact checks; synthetic algorithm tests alone do not discharge those assertions.",
+      "evidence": "Source and native assertions inspected; no execution performed in this review. Names/counts are not equivalence evidence."
+    }
+  ]
+}

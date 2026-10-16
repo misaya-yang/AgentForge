@@ -2,10 +2,10 @@
 # AI Gateway - Production Docker Compose
 # =============================================================================
 # Default usage pulls published, versioned multi-architecture images. Source
-# builds are opt-in through docker-compose.build.yml (or `make quickstart-build`).
+# builds are opt-in through deploy/compose/docker-compose.build.yml (or `make quickstart-build`).
 # Usage:
 #   Start all services:  docker compose --env-file .env up -d
-#   Build from source:   docker compose -f docker-compose.yml -f docker-compose.build.yml --env-file .env up -d --build
+#   Build from source:   docker compose -f docker-compose.yml -f deploy/compose/docker-compose.build.yml --env-file .env up -d --build
 #   Infrastructure only: docker compose --env-file .env up -d postgres redis qdrant
 #   View logs:           docker compose --env-file .env logs -f gateway
 #   Stop services:       docker compose --env-file .env stop
@@ -112,7 +112,11 @@ services:
   # explicit so a stale image that lacks database.authority fails instead of
   # silently falling back to a historical per-service writer.
   migrate:
-    image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
+    image: "${MIGRATE_IMAGE:-ai-platform/migrate:rust-local}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: migrate
     container_name: ai-gateway-migrate
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}"
@@ -120,7 +124,7 @@ services:
       # credential during the pending-baseline compatibility epoch; managed
       # deployments override this with the dedicated migrator DSN.
       AI_GATEWAY_DATABASE_MIGRATOR_DSN: "${AI_GATEWAY_DATABASE_MIGRATOR_DSN:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}}"
-    entrypoint: ["python", "-m", "database.authority"]
+    entrypoint: ["/usr/local/bin/database-authority"]
     command: ["migrate"]
     depends_on:
       postgres:
@@ -179,9 +183,14 @@ services:
 
   # AI Gateway Backend
   gateway:
-    image: "${GATEWAY_IMAGE:-ghcr.io/misaya-yang/ai-gateway:2.0.0}"
+    image: "${GATEWAY_IMAGE:-ai-platform/gateway:rust-local}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: runtime
     container_name: ai-gateway-backend
     environment:
+      GATEWAY_NATIVE_CONFIG: "${GATEWAY_NATIVE_CONFIG:-/app/config/native-gateway.json}"
       <<: *container-proxy-env
       # Server
       GATEWAY_HOST: "0.0.0.0"
@@ -346,6 +355,12 @@ services:
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     volumes:
+      - type: bind
+        source: "${GATEWAY_NATIVE_CONFIG_FILE:-./deploy/platform-native/native-options.example.json}"
+        target: "${GATEWAY_NATIVE_CONFIG:-/app/config/native-gateway.json}"
+        read_only: true
+        bind:
+          create_host_path: false
       - gateway-logs:/app/logs
       - gateway-data:/app/data
       - assistant-memory-data:/app/agent-memory
@@ -381,7 +396,11 @@ services:
 
   # AI Gateway Frontend (Web Console)
   frontend:
-    image: "${FRONTEND_IMAGE:-ghcr.io/misaya-yang/ai-gateway-web:2.0.0}"
+    image: "${KNOWLEDGE_IMAGE:-ai-platform/knowledge:rust-local}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
     container_name: ai-gateway-frontend
     environment:
       VITE_API_URL: "${VITE_API_URL:-}"
@@ -511,7 +530,8 @@ services:
       SERVICE_STREAMING_MAX_CONNECTIONS: "${SERVICE_STREAMING_MAX_CONNECTIONS:-16}"
       INTERNAL_IDEMPOTENCY_BACKEND: "redis"
       INTERNAL_IDEMPOTENCY_TTL_SECONDS: "${INTERNAL_IDEMPOTENCY_TTL_SECONDS:-86400}"
-    command: ["python", "-m", "uvicorn", "knowledge_service.main:app", "--host", "0.0.0.0", "--port", "8092", "--workers", "1"]
+    entrypoint: ["/usr/local/bin/platform-knowledge-service"]
+    command: []
     volumes:
       - kb-data:/app/data
       - "${AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH:-./deploy/release/compatibility-manifest.json}:/app/deploy/release/compatibility-manifest.json:ro"
@@ -541,11 +561,16 @@ services:
   # Knowledge durable ingestion worker. It shares the API image and database,
   # exposes health only, and discovers queued generations from PostgreSQL.
   knowledge-worker:
-    image: "${KNOWLEDGE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0}"
+    image: "${KNOWLEDGE_IMAGE:-ai-platform/knowledge:rust-local}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
     environment:
       <<: *knowledge-service-environment
       KNOWLEDGE_RUNTIME_ROLE: "worker"
-    command: ["python", "-m", "uvicorn", "knowledge_service.main:app", "--host", "0.0.0.0", "--port", "8092", "--workers", "1"]
+    entrypoint: ["/usr/local/bin/platform-knowledge-service"]
+    command: []
     volumes:
       - kb-data:/app/data
       - "${AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH:-./deploy/release/compatibility-manifest.json}:/app/deploy/release/compatibility-manifest.json:ro"

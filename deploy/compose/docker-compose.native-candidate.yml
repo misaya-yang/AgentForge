@@ -1,0 +1,26 @@
+# Explicit source-built native gateway and Knowledge roles.
+services:
+  gateway:
+    image: "${NATIVE_GATEWAY_IMAGE:?Select a native image tag}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: runtime
+    entrypoint: ["/bin/sh", "-ec", "exec /usr/local/bin/gateway --config-stdin < /run/secrets/native-gateway.json"]
+    command: []
+    secrets:
+      - source: native-gateway-document
+        target: native-gateway.json
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
+  knowledge-worker:
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
+secrets:
+  native-gateway-document:
+    file: "${NATIVE_GATEWAY_CONFIG_FILE:?Provide resolved GatewayDocument outside source tree}"

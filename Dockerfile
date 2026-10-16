@@ -1,144 +1,69 @@
 # syntax=docker/dockerfile:1.7
-# =============================================================================
-# AI Gateway Backend - Multi-stage Dockerfile
-# =============================================================================
-# Build: docker build -t ai-gateway:2.0.0 .
-# Run:   docker run -p 8080:8080 --env-file .env ai-gateway:2.0.0
-#
-# 国内构建（使用镜像源）:
-#   docker build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple -t ai-gateway:2.0.0 .
-# =============================================================================
+# Native service build. All application processes below are Rust executables.
+FROM rust:1.99.0-bookworm AS builder
+WORKDIR /source
+COPY rust/platform-native/ rust/platform-native/
+COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY database/ database/
+WORKDIR /source/rust/platform-native
+ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
+    cargo build --locked --release -p ai-platform-gateway --bin gateway \
+      -p ai-platform-knowledge-service --bin platform-knowledge-service \
+      -p ai-platform-migration-authority --bin database-authority \
+      -p ai-platform-sdk-agent-worker --bin sdk-agent-worker \
+      -p ai-platform-local-node --bin local-node \
+      -p ai-platform-tools --bin platform-tools \
+      -p ai-platform-release --bin platform-release \
+    && install -d /output \
+    && install target/release/gateway target/release/platform-knowledge-service \
+      target/release/database-authority target/release/sdk-agent-worker target/release/local-node target/release/platform-tools target/release/platform-release /output/
 
-# -----------------------------------------------------------------------------
-# Stage 1: Builder - Install dependencies
-# -----------------------------------------------------------------------------
-ARG PYTHON_BASE_IMAGE=python:3.12-slim-bookworm
+FROM rust:1.99.0-bookworm AS engine-builder
+WORKDIR /engine
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ ./
+ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=platform-native-engine-target,target=/engine/target,sharing=locked \
+    cargo build --locked --release \
+    && install -D target/release/ai-platform-sdk-agent-engine /output/ai-platform-sdk-agent-engine
 
-FROM ${PYTHON_BASE_IMAGE} AS builder
-
-ARG DEBIAN_MIRROR=https://deb.debian.org
-
-# Install build dependencies
-RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
-    apt-get -o Acquire::Retries=5 update && \
-    apt-get -o Acquire::Retries=5 install -y --no-install-recommends build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Mirror arguments are deliberately declared after the shared OS/venv layers,
-# so changing package indexes does not invalidate those expensive layers.
-ARG PIP_INDEX_URL=https://pypi.org/simple
-ARG PIP_TRUSTED_HOST=""
-
-WORKDIR /app
-
-# Copy project metadata files needed for installation
-# Note: README.md is required by pyproject.toml for hatchling build
-COPY pyproject.toml README.md ./
-
-# Install dependencies first (better layer caching)
-# Use mirror if specified via build args
-RUN --mount=type=cache,id=ai-gateway-pip,target=/root/.cache/pip,sharing=locked \
-    pip install --upgrade pip \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}} && \
-    pip install hatchling \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}}
-
-# Copy source code
-COPY src/ ./src/
-# The installed ai-gateway-db entrypoint delegates to database.authority; keep
-# the full immutable migration carrier in the wheel as well as the runtime.
-COPY database/ ./database/
-# The wheel force-includes the single catalog owned by the Rust worker. Keep
-# the canonical source available to Hatch without checking in a Python copy.
-COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json \
-    ./rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json
-
-# Copy workspace member packages. ``pyproject.toml`` lists both packages with
-# ``{ workspace = true }`` — pip doesn't understand uv workspaces, so install
-# the local contracts and core packages together before the outer Gateway.
-COPY packages/ai-gateway-contracts/ ./packages/ai-gateway-contracts/
-COPY packages/ai-gateway-core/ ./packages/ai-gateway-core/
-RUN --mount=type=cache,id=ai-gateway-pip,target=/root/.cache/pip,sharing=locked \
-    pip install ./packages/ai-gateway-contracts ./packages/ai-gateway-core \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}}
-
-# The Gateway image contains control-plane and shared-domain code only. The
-# model/tool loop and capability execution ship in their pinned Rust images.
-
-RUN --mount=type=cache,id=ai-gateway-pip,target=/root/.cache/pip,sharing=locked \
-    pip install ".[all]" \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}}
-
-# Note: PaddleOCR is handled by the Knowledge Service container, not here.
-
-# -----------------------------------------------------------------------------
-# Stage 2: Runtime - Minimal production image
-# -----------------------------------------------------------------------------
-FROM ${PYTHON_BASE_IMAGE} AS runtime
-
-ARG APP_VERSION=2.0.0
-ARG VCS_REF=unknown
-ARG DEBIAN_MIRROR=https://deb.debian.org
-LABEL org.opencontainers.image.title="AI Gateway" \
-      org.opencontainers.image.source="https://github.com/misaya-yang/AI--Platfform" \
-      org.opencontainers.image.version="$APP_VERSION" \
-      org.opencontainers.image.revision="$VCS_REF"
-
-WORKDIR /app
-
-# Install only native libraries used by document and image processing.
-RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
-    apt-get -o Acquire::Retries=5 update && \
-    apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
-    curl \
-    libgl1 \
-    libglib2.0-0 \
-    libgomp1 \
+FROM debian:bookworm-slim AS native-base
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl poppler-utils \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --uid 1000 --create-home --shell /bin/bash appuser
+    && useradd --uid 1000 --create-home gateway \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sdk-worker \
+    && install -d -o 1000 -g 1000 /app/data /app/logs /app/agent-memory /app/uploads /app/data/pdf-scratch \
+    && install -d -m 0700 -o 10001 -g 10001 /var/lib/sdk-agent
+COPY --from=builder /output/ /usr/local/bin/
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.revision="$VCS_REF" com.misaya.ai-platform.artifact="native-services"
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database
+ENV AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
+WORKDIR /app
+USER 1000:1000
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+FROM native-base AS knowledge
+ENTRYPOINT ["/usr/local/bin/platform-knowledge-service"]
 
+FROM native-base AS migrate
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database
+ENTRYPOINT ["/usr/local/bin/database-authority"]
+CMD ["migrate"]
 
-# Copy application code
-COPY src/ ./src/
-COPY database/ ./database/
-COPY config/ ./config/
-# Gateway projects the same checked-in capability catalog consumed by the
-# Rust worker into its Python package data directory at image-build time.
-COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json \
-    ./src/core/data/platform_catalog_v1.json
+FROM native-base AS sdk-worker
+COPY --from=engine-builder /output/ai-platform-sdk-agent-engine /usr/local/bin/
+ENV HOME=/tmp SDK_AGENT_STATE_ROOT=/var/lib/sdk-agent
+USER 10001:10001
+WORKDIR /var/lib/sdk-agent
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD ["/usr/local/bin/sdk-agent-worker", "health"]
+ENTRYPOINT ["/usr/local/bin/sdk-agent-worker"]
+CMD ["serve"]
 
-# Create necessary directories and fix permissions
-RUN mkdir -p /app/logs && \
-    chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
-    GATEWAY_HOST=0.0.0.0 \
-    GATEWAY_PORT=8080
-
-# Expose port
-EXPOSE 8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -fsS http://localhost:8080/health || exit 1
-
-# Run the application
-CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+FROM native-base AS runtime
+ENTRYPOINT ["/usr/local/bin/gateway"]
+CMD ["--config-env"]

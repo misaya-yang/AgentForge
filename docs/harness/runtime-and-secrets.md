@@ -39,13 +39,12 @@ by name, not by directory.
 - **Never** prune, remove, or reset Docker images, containers, volumes, or build caches without
   explicit user confirmation. If cleanup is needed, show the exact commands and their impact first.
 
-## 3. Prefer hot update over rebuild
+## 3. Source updates
 
-For source-only Python changes, copy the changed source into `ai-gateway-backend` /
-`ai-gateway-knowledge-service` and restart those services — `make hot-update` does this.
-
-Rebuild images only for dependency, Dockerfile, frontend bundle, or base-image changes.
-Do not run pip-heavy builds just to refresh Python source.
+Native services execute compiled binaries. Use the existing native build/hot-update
+workflow for changed services; copying source into a container does not apply a change.
+Runtime/Worker images must match their source lock before acceptance. Reuse unchanged
+images and build cache when their identities remain valid.
 
 ## 4. Low-memory machines
 
@@ -55,62 +54,29 @@ memory ceiling. The complete low-memory profile needs roughly 4 GiB available to
 
 ### 4.1 Rust compilation boundary
 
-#### Cloud native-migration exception (2026-10-11)
+The owner-authorized native migration uses host Rust 1.99.0 for
+`rust/platform-native` with one Cargo job, no debug/incremental output, and an
+external `CARGO_TARGET_DIR`. Use `make native-check` and affected package tests.
+Generated targets and scratch evidence must remain outside the repository.
 
-For the user-directed SaaS migration in `rust/platform-native` on the cloud
-workspace, direct Rust formatting, checking, testing and compilation are allowed.
-Use one Cargo job, no debug information, and nonincremental builds. Keep Cargo
-targets, verification harnesses, fixtures, logs and other generated artifacts
-outside the repository. This exception does not authorize deployment, use of
-production credentials, changes to the user's computer, or changes to the
-`rust/agent-runtime-overlay` Runtime/Worker build boundary below.
+Runtime/Worker composition remains pinned to Rust 1.95.0 and the controlled Docker
+source/build workflow. Reuse this project's existing Buildx builder; do not create
+another builder or bind-mount generated Cargo targets into the source checkout.
+Builds are serialized and resource guarded. Do not automatically prune caches.
+Compilation evidence does not establish image, release or end-to-end acceptance.
 
-#### Cloud Runtime/Worker completion exception (2026-10-12)
-
-The user has approved choosing the direct cloud build path to complete the
-current AI Gateway upgrade when Docker is unavailable. In this cloud task only,
-Runtime/Worker candidate formatting, dependency resolution, checks, tests and
-compilation may run in an isolated external workspace. Use one Cargo job, no
-debug information and nonincremental builds; keep generated targets, tools,
-logs and candidate lockfiles outside the repository. Check available disk before
-heavy work and stop before exhausting it. Do not delete caches to make room
-without authorization. This exception does not authorize changes to sandbox or
-system security, user-computer execution, publication, deployment or credentials.
-A host-built candidate is compilation evidence, not proof of Docker image,
-release identity, cross-platform or end-to-end acceptance.
-
-#### User-directed local development baseline (2026-10-15)
-
-For this restored checkout, the user explicitly requested local Rust minimal
-toolchains, components, caches and compilation checks. Native 1.99.0 host
-fmt/check/test/build is therefore authorized for this baseline, with one job,
-no debug/incremental and targets outside the repository. Runtime 1.95.0 is
-installed separately; its existing composed-source Docker builders remain the
-Runtime/Worker product build entry points. See [local development](local-development.md).
-
-Outside the cloud exceptions and user-directed local baseline above, do not run `cargo`, `rustc`, `rustfmt`, `clippy`, Rust `check/test/build`, or
-`rust-changed-crate-gate` directly on the host. Host Rust builds create large repository/toolchain
-artifacts and are not an accepted verification path on this machine.
-
-Rust work is split deliberately:
-
-- hosted CI runs fmt/check/changed-crate tests and publishes their evidence;
-- local candidate binaries are compiled only inside the existing Docker multi-stage BuildKit
-  builders (`agent-runtime-*-build-local` / `scripts/rust/build-update.sh`);
-- `CARGO_BUILD_JOBS=1` is a container-builder/CI resource limit, not permission to invoke host Cargo;
-- builder `target` directories stay in Docker cache mounts and must never be bind-mounted into the
-  repository;
-- local product acceptance runs the resulting Runtime/Worker images through API, UI, provider and
-  rollback journeys.
-
-Docker Rust builds remain serialized and resource-guarded. Do not automatically prune Docker or
-Cargo caches after a build. If disk cleanup is later requested, remove only identified obsolete
-Runtime/Worker builder cache or candidate images; never use broad prune commands implicitly.
+The current local project is `agentforge-dev-7801d4a9a4`, selected through
+`COMPOSE_PROJECT_NAME` in ignored `.env.dev`. Its definitions are
+`deploy/local/compose.yml` and `deploy/local/compose.runtime.yml`. Repository
+relocation preserves this project and its volumes; recreate only its owned
+containers when their working-directory labels need updating. Leave unrelated
+projects alone. The owner has authorized local provider, database and browser
+acceptance and test-admin management; historical live-test pauses are superseded.
 
 ## 5. Image and Compose distribution rules
 
 - The default open-source quickstart uses the **versioned multi-architecture images** declared in
-  `docker-compose.yml`. Source builds are opt-in through `docker-compose.build.yml`.
+  `docker-compose.yml`. Source builds are opt-in through `deploy/compose/docker-compose.build.yml`.
 - Do not reintroduce `build:` blocks into the base Compose file, and do not make normal users
   rebuild the project locally.
 - Dockerfiles and Compose files must contain **no developer-machine absolute paths**.
@@ -136,13 +102,11 @@ Runtime/Worker builder cache or candidate images; never use broad prune commands
   Do not force Compose with ad-hoc inline environment variables.
 - Keep secret values redacted in logs, reports, and final answers.
 - Do not hardcode DSN passwords or bootstrap admin passwords in source. The
-  authority fails closed when no DSN is configured. The legacy single-file entrypoint
-  `database/run_migration.py` is retired and fails closed unconditionally,
-  before reading a DSN or executing SQL; use `make migrate` or
-  `python -m database.authority migrate`. Application `AUTO_INIT` is disabled;
-  Compose and Helm run the same one-shot authority before service startup.
-  `DEFAULT_USER_PASSWORD` is a runtime env value only; the local documented bootstrap
-  default is accepted by `validate-env.sh` with a warning, never as a Python fallback.
+  authority fails closed when no DSN is configured. Use `make migrate` or the native
+  `database-authority` executable. Application `AUTO_INIT` is disabled; Compose and
+  Helm run the same one-shot authority before service startup.
+  `DEFAULT_USER_PASSWORD` is a runtime env value only. The validator accepts the
+  documented local bootstrap default with a warning.
 - Local Compose and `setup-dev.sh` publish host ports on `127.0.0.1`. The optional
   monitoring stack interpolates the same env secrets and must not embed `gateway123`
   or Grafana `admin/admin`.

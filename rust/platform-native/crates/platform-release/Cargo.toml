@@ -1,0 +1,18 @@
+[package]
+name = "ai-platform-release"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "platform-release"
+path = "src/main.rs"
+[dependencies]
+serde_json.workspace = true
+sha2 = "0.10"
+regex = "1"
+reqwest.workspace = true
+tokio.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres"] }
+uuid = { version = "1", features = ["v4"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+libc = "0.2"

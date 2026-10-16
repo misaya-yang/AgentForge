@@ -119,7 +119,7 @@ pub(super) async fn list_plugins(State(state): State<CatalogState>, headers: Hea
         Ok(value) => value,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant policy is unavailable"),
     };
-    let bindings = match lifecycle::load_bindings(&state.pool, &principal.account.tenant_id).await {
+    let bindings = match lifecycle::load_bindings(&state.pool, &principal.tenant_id).await {
         Ok(bindings) => bindings,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin policy is unavailable"),
     };
@@ -127,10 +127,10 @@ pub(super) async fn list_plugins(State(state): State<CatalogState>, headers: Hea
         Ok(denied) => denied,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin policy is unavailable"),
     };
-    match project_registry(catalog, true, &principal.authority.tier, &principal.authority.roles, &policy) {
+    match project_registry(catalog, true, &principal.tier, &principal.roles, &policy) {
         Ok(mut registry) => {
-            registry.tenant_id = principal.account.tenant_id;
-            registry.can_manage = lifecycle::can_manage(&principal.authority.tier, &principal.authority.roles);
+            registry.tenant_id = principal.tenant_id;
+            registry.can_manage = lifecycle::can_manage(&principal.tier, &principal.roles);
             for plugin in &mut registry.plugins {
                 if let Some(binding) = bindings.get(&plugin.id) {
                     plugin.lifecycle = match lifecycle::project_binding(catalog, binding) {

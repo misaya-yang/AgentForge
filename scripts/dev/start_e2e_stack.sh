@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEB_DIR="$ROOT_DIR/web"
-VERIFY_SCRIPT="$ROOT_DIR/scripts/dev/verify_local_stack.py"
 
 ensure_e2e_env() {
   export E2E_API_URL="${E2E_API_URL:-http://127.0.0.1:8080}"
@@ -14,7 +13,7 @@ ensure_e2e_env() {
 run_verify() {
   ensure_e2e_env
   cd "$ROOT_DIR"
-  exec python3 "$VERIFY_SCRIPT" --api-url "$E2E_API_URL"
+  exec verify-local-stack --api-url "$E2E_API_URL"
 }
 
 run_tests() {

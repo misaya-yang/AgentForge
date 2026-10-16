@@ -78,6 +78,10 @@ pub struct LangGraphGovernance {
     pub services: HashMap<String, Value>,
     pub allowed_models: Vec<String>,
     pub quota_fail_closed: bool,
+    pub quota_alert_dedupe_ttl_seconds: f64,
+    pub security: Option<
+        Arc<crate::migration_host::bootstrap::foundation_backends::PgFoundationSecurityEvents>,
+    >,
 }
 impl LangGraphGovernance {
     async fn service_config(&self, assistant_id: &str) -> Result<Value, CompatError> {
@@ -139,7 +143,34 @@ impl LangGraphGovernance {
         if !assistant_id.is_empty() {
             config["assistant_id"] = json!(assistant_id);
         }
-        langgraph_body::prepare_run_payload(payload, path, user, &config, assistant);
+        self.prepare_proxy_payload(
+            payload,
+            path,
+            user,
+            &config,
+            assistant,
+            allowed_models,
+            true,
+            true,
+        )
+        .await
+    }
+
+    /// Shared governance for the transparent proxy's explicitly resolved service.
+    pub(crate) async fn prepare_proxy_payload(
+        &self,
+        payload: &mut Value,
+        path: &str,
+        user: &CompatUser,
+        config: &Value,
+        assistant: Option<&Value>,
+        allowed_models: &[String],
+        prepare_run: bool,
+        apply_quota: bool,
+    ) -> Result<(), CompatError> {
+        if prepare_run {
+            langgraph_body::prepare_run_payload(payload, path, user, config, assistant);
+        }
         let requested = crate::usage_parser::extract_model(payload)
             .unwrap_or_else(|| text(&config, "default_model").to_owned());
         for restriction in [self.allowed_models.as_slice(), allowed_models] {
@@ -191,13 +222,18 @@ impl LangGraphGovernance {
             None
         };
         let mut downgraded = None;
-        if let Some(quota) = &self.quota {
+        if let Some(quota) = &self.quota
+            && apply_quota
+        {
             let stored = quota
                 .try_get_or_create_quota_at(&user.tenant_id, &user.user_id, chrono::Utc::now())
                 .await;
             match stored {
                 Ok(stored) => {
-                    let estimated = ((payload.to_string().chars().count() + 3) / 4) as i64;
+                    let estimated =
+                        crate::migration_host::bootstrap::langgraph_preparation::payload_tokens(
+                            payload,
+                        );
                     let check = check_quota(
                         stored.as_ref().map(|s| &s.quota),
                         estimated,
@@ -205,23 +241,91 @@ impl LangGraphGovernance {
                         |limit| self.rpm.check(&user.tenant_id, &user.user_id, Some(limit)),
                     )
                     .map_err(|_| CompatError::new(503, "QUOTA_CHECK_UNAVAILABLE"))?;
+                    if matches!(
+                        check.status,
+                        crate::billing::QuotaStatus::Exceeded
+                            | crate::billing::QuotaStatus::Blocked
+                    ) {
+                        if let Some(security) = &self.security {
+                            security
+                                .record_decision(
+                                    &user.tenant_id,
+                                    &user.user_id,
+                                    text(config, "service_name"),
+                                    "quota_exceeded",
+                                )
+                                .await;
+                        }
+                    }
                     if !check.can_proceed() {
-                        return Err(CompatError::value(
-                            if check.overage_strategy == OverageStrategy::RateLimit {
+                        let mut error = CompatError::value(
+                            if check.status != crate::billing::QuotaStatus::Blocked
+                                && check.overage_strategy == OverageStrategy::RateLimit
+                            {
                                 429
                             } else {
                                 403
                             },
                             json!({"message":check.message,"status":check.to_dict()["status"],"policy":check.to_dict()["overage_strategy"]}),
-                        ));
+                        );
+                        if error.status == 429 {
+                            error.headers.insert(
+                                "Retry-After".into(),
+                                (if check.retry_after_seconds > 0 {
+                                    check.retry_after_seconds
+                                } else {
+                                    60
+                                })
+                                .to_string(),
+                            );
+                        }
+                        return Err(error);
+                    }
+                    if check.status == crate::billing::QuotaStatus::Exceeded
+                        && check.overage_strategy == OverageStrategy::AllowButAlert
+                        && quota_alert_due(user, &check, self.quota_alert_dedupe_ttl_seconds)
+                    {
+                        let _ = quota
+                            .try_create_alert(&crate::quota_store::NewQuotaAlert {
+                                tenant_id: user.tenant_id.clone(),
+                                user_id: user.user_id.clone(),
+                                alert_type: "quota_allow_but_alert".into(),
+                                threshold_value: check.warning_threshold,
+                                current_value: check.daily_tokens_used,
+                                limit_value: check.daily_tokens_limit.unwrap_or(0),
+                                message: check.message.clone(),
+                            })
+                            .await;
                     }
                     downgraded = check.downgraded_model;
                     if let Some(model) = &downgraded {
                         payload["model"] = json!(model);
+                        if payload["input"].is_object() {
+                            payload["input"]["model"] = json!(model);
+                        }
+                        if payload
+                            .pointer("/config/configurable")
+                            .is_some_and(Value::is_object)
+                        {
+                            payload["config"]["configurable"]["model"] = json!(model);
+                        }
                     }
                 }
                 Err(_) if self.quota_fail_closed => {
-                    return Err(CompatError::new(503, "QUOTA_CHECK_UNAVAILABLE"));
+                    if let Some(security) = &self.security {
+                        security
+                            .record_decision(
+                                &user.tenant_id,
+                                &user.user_id,
+                                text(config, "service_name"),
+                                "quota_check_failed",
+                            )
+                            .await;
+                    }
+                    return Err(CompatError::value(
+                        503,
+                        json!({"code":"QUOTA_CHECK_UNAVAILABLE","message":"Quota check failed and fail-closed mode is enabled","policy":"fail_closed"}),
+                    ));
                 }
                 Err(_) => {}
             }
@@ -732,10 +836,10 @@ impl LangGraphClient {
                 let response=tokio::select!{_ = tx.closed()=>return Ok(()),result=client.raw(&user,Method::POST,&path,&[],Some(&payload),Some(&instance))=>result?};
                 if !response.status().is_success(){return Err(CompatError::new(500,"LangGraph upstream request failed"));}
                 let mut response=response;let mut decoder=SseDecoder::default();
-                let mut heartbeat=tokio::time::interval(Duration::from_secs(15));heartbeat.tick().await;
+
                 loop{tokio::select!{
                     _=tx.closed()=>break,
-                    _=heartbeat.tick()=>{if tx.send(Ok(Bytes::from_static(b": heartbeat\n\n"))).await.is_err(){break;}},
+
                     chunk=response.chunk()=>{let Some(chunk)=chunk?else{break;};for(event,data)in decoder.push(&chunk){if data=="[DONE]"{continue;}if let Ok(value)=serde_json::from_str::<Value>(&data){let usage=extract_usage(&value);tokens.0+=usage.0;tokens.1+=usage.1;if tx.send(Ok(sse(&event,&value))).await.is_err(){return Ok(());}}}}
                 }}Ok(())
             }.await;
@@ -756,7 +860,10 @@ impl LangGraphClient {
                 ("cache-control", "no-cache"),
                 ("x-accel-buffering", "no"),
             ],
-            Body::from_stream(ByteReceiver(rx)),
+            Body::from_stream(super::sse_heartbeat::with_sse_heartbeat(
+                ByteReceiver(rx),
+                super::sse_heartbeat::DEFAULT_HEARTBEAT_INTERVAL,
+            )),
         )
             .into_response())
     }
@@ -1033,7 +1140,7 @@ impl LangGraphClient {
             let (tx, rx) = tokio::sync::mpsc::channel(8);
             tokio::spawn(async move {
                 let mut upstream = None;
-                let result:Result<(),CompatError>=async{let mut response=request.send().await?;upstream=Some(response.status().as_u16());if response.status().as_u16()>=400{let status=response.status().as_u16();let body=response.bytes().await?;return Err(CompatError::new(status,String::from_utf8_lossy(&body).chars().take(500).collect::<String>()));}let mut heartbeat=tokio::time::interval(Duration::from_secs(15));heartbeat.tick().await;loop{tokio::select!{_=tx.closed()=>break,_=heartbeat.tick()=>{if tx.send(Ok(Bytes::from_static(b": heartbeat\n\n"))).await.is_err(){break;}},chunk=response.chunk()=>{let Some(chunk)=chunk?else{break;};if tx.send(Ok(chunk)).await.is_err(){break;}}}}Ok(())}.await;
+                let result:Result<(),CompatError>=async{let mut response=request.send().await?;upstream=Some(response.status().as_u16());if response.status().as_u16()>=400{let status=response.status().as_u16();let body=response.bytes().await?;return Err(CompatError::new(status,String::from_utf8_lossy(&body).chars().take(500).collect::<String>()));}loop{tokio::select!{_=tx.closed()=>break,chunk=response.chunk()=>{let Some(chunk)=chunk?else{break;};if tx.send(Ok(chunk)).await.is_err(){break;}}}}Ok(())}.await;
                 match result {
                     Ok(()) => capture("succeeded", upstream, None),
                     Err(error) => {
@@ -1048,7 +1155,10 @@ impl LangGraphClient {
                     ("cache-control", "no-cache"),
                     ("x-accel-buffering", "no"),
                 ],
-                Body::from_stream(ByteReceiver(rx)),
+                Body::from_stream(super::sse_heartbeat::with_sse_heartbeat(
+                    ByteReceiver(rx),
+                    super::sse_heartbeat::DEFAULT_HEARTBEAT_INTERVAL,
+                )),
             )
                 .into_response());
         }
@@ -1103,26 +1213,50 @@ fn thread_search_payload(
     let body = match body {
         Value::Null => serde_json::Map::new(),
         Value::Object(body) => body.clone(),
-        _ => return Err(CompatError::new(422, "Thread search body must be an object")),
+        _ => {
+            return Err(CompatError::new(
+                422,
+                "Thread search body must be an object",
+            ));
+        }
     };
     let envelope = [
-        "ids", "metadata", "values", "status", "limit", "offset", "sort_by",
-        "sort_order", "select", "extract",
+        "ids",
+        "metadata",
+        "values",
+        "status",
+        "limit",
+        "offset",
+        "sort_by",
+        "sort_order",
+        "select",
+        "extract",
     ]
     .iter()
     .any(|key| body.contains_key(*key));
-    let mut payload = if envelope { body } else { object(&json!({"metadata":body})) };
+    let mut payload = if envelope {
+        body
+    } else {
+        object(&json!({"metadata":body}))
+    };
     let mut metadata = match payload.get("metadata") {
         None | Some(Value::Null) => serde_json::Map::new(),
         Some(Value::Object(metadata)) => metadata.clone(),
-        _ => return Err(CompatError::new(422, "Thread search metadata must be an object")),
+        _ => {
+            return Err(CompatError::new(
+                422,
+                "Thread search metadata must be an object",
+            ));
+        }
     };
     let pagination = |key: &str, default: u64| -> Result<u64, CompatError> {
         let invalid = || CompatError::new(422, format!("Invalid {key}"));
         if let Some((_, value)) = query.iter().find(|(name, _)| name == key) {
             value.parse::<u64>().map_err(|_| invalid())
         } else {
-            payload.get(key).map_or(Ok(default), |value| value.as_u64().ok_or_else(invalid))
+            payload
+                .get(key)
+                .map_or(Ok(default), |value| value.as_u64().ok_or_else(invalid))
         }
     };
     let limit = pagination("limit", 10)?;
@@ -1456,8 +1590,10 @@ mod thread_search_tests {
 
     #[test]
     fn sdk_default_search_does_not_turn_pagination_into_metadata() {
-        assert_eq!(thread_search_payload(&json!({"limit":10,"offset":0}), &user(), &[]).unwrap(),
-            json!({"metadata":{"owner_id":"sdk-user"},"limit":10,"offset":0}));
+        assert_eq!(
+            thread_search_payload(&json!({"limit":10,"offset":0}), &user(), &[]).unwrap(),
+            json!({"metadata":{"owner_id":"sdk-user"},"limit":10,"offset":0})
+        );
     }
 
     #[test]
@@ -1468,16 +1604,24 @@ mod thread_search_tests {
             "select":["thread_id","metadata"],"extract":{"last":"values.messages[-1]"}});
         let mut expected = body.clone();
         expected["metadata"]["owner_id"] = json!("sdk-user");
-        assert_eq!(thread_search_payload(&body, &user(), &[]).unwrap(), expected);
+        assert_eq!(
+            thread_search_payload(&body, &user(), &[]).unwrap(),
+            expected
+        );
         assert_eq!(body["metadata"], json!({"project":"alpha"}));
     }
 
     #[test]
     fn non_admin_owner_is_authoritative_for_both_body_shapes() {
-        for body in [json!({"owner_id":"other","project":"alpha"}),
-            json!({"metadata":{"owner_id":"other","project":"alpha"},"limit":3})] {
+        for body in [
+            json!({"owner_id":"other","project":"alpha"}),
+            json!({"metadata":{"owner_id":"other","project":"alpha"},"limit":3}),
+        ] {
             let payload = thread_search_payload(&body, &user(), &[]).unwrap();
-            assert_eq!(payload["metadata"], json!({"owner_id":"sdk-user","project":"alpha"}));
+            assert_eq!(
+                payload["metadata"],
+                json!({"owner_id":"sdk-user","project":"alpha"})
+            );
         }
     }
 
@@ -1488,22 +1632,37 @@ mod thread_search_tests {
         users[1].user_id = "admin".into();
         users[2].roles = vec!["admin".into()];
         for user in users {
-            let payload = thread_search_payload(&json!({"metadata":{"owner_id":"other"}}), &user, &[]).unwrap();
+            let payload =
+                thread_search_payload(&json!({"metadata":{"owner_id":"other"}}), &user, &[])
+                    .unwrap();
             assert_eq!(payload["metadata"], json!({"owner_id":"other"}));
         }
     }
 
     #[test]
     fn legacy_flat_metadata_and_query_pagination_are_retained() {
-        let query = vec![("limit".into(),"7".into()),("offset".into(),"12".into())];
-        let payload = thread_search_payload(&json!({"project":"alpha","custom":{"nested":true}}), &user(), &query).unwrap();
-        assert_eq!(payload, json!({"metadata":{"project":"alpha","custom":{"nested":true},"owner_id":"sdk-user"},"limit":7,"offset":12}));
+        let query = vec![("limit".into(), "7".into()), ("offset".into(), "12".into())];
+        let payload = thread_search_payload(
+            &json!({"project":"alpha","custom":{"nested":true}}),
+            &user(),
+            &query,
+        )
+        .unwrap();
+        assert_eq!(
+            payload,
+            json!({"metadata":{"project":"alpha","custom":{"nested":true},"owner_id":"sdk-user"},"limit":7,"offset":12})
+        );
     }
 
     #[test]
     fn explicit_query_pagination_overrides_sdk_body_pagination() {
-        let query = vec![("limit".into(),"7".into()),("offset".into(),"12".into())];
-        let payload = thread_search_payload(&json!({"metadata":{},"limit":3,"offset":2}), &user(), &query).unwrap();
+        let query = vec![("limit".into(), "7".into()), ("offset".into(), "12".into())];
+        let payload = thread_search_payload(
+            &json!({"metadata":{},"limit":3,"offset":2}),
+            &user(),
+            &query,
+        )
+        .unwrap();
         assert_eq!(payload["limit"], json!(7));
         assert_eq!(payload["offset"], json!(12));
     }
@@ -1511,7 +1670,8 @@ mod thread_search_tests {
     #[test]
     fn metadata_can_still_contain_reserved_sdk_control_names() {
         let metadata = json!({"limit":7,"offset":9,"status":"custom","metadata":{"x":true}});
-        let payload = thread_search_payload(&json!({"metadata":metadata,"limit":1}), &user(), &[]).unwrap();
+        let payload =
+            thread_search_payload(&json!({"metadata":metadata,"limit":1}), &user(), &[]).unwrap();
         let mut expected = metadata;
         expected["owner_id"] = json!("sdk-user");
         assert_eq!(payload["metadata"], expected);
@@ -1520,7 +1680,12 @@ mod thread_search_tests {
 
     #[test]
     fn omitted_and_null_metadata_keep_authenticated_owner_filter() {
-        for body in [Value::Null, json!({}), json!({"metadata":null}), json!({"status":"idle"})] {
+        for body in [
+            Value::Null,
+            json!({}),
+            json!({"metadata":null}),
+            json!({"status":"idle"}),
+        ] {
             let payload = thread_search_payload(&body, &user(), &[]).unwrap();
             assert_eq!(payload["metadata"], json!({"owner_id":"sdk-user"}));
             assert_eq!(payload["limit"], json!(10));
@@ -1530,38 +1695,112 @@ mod thread_search_tests {
 
     #[test]
     fn invalid_body_or_nested_metadata_fails_before_upstream() {
-        for body in [json!([]),json!(true),json!(1),json!("bad"),
-            json!({"metadata":[]}),json!({"metadata":"bad"}),json!({"metadata":1})] {
-            assert_eq!(thread_search_payload(&body, &user(), &[]).unwrap_err().status,422);
+        for body in [
+            json!([]),
+            json!(true),
+            json!(1),
+            json!("bad"),
+            json!({"metadata":[]}),
+            json!({"metadata":"bad"}),
+            json!({"metadata":1}),
+        ] {
+            assert_eq!(
+                thread_search_payload(&body, &user(), &[])
+                    .unwrap_err()
+                    .status,
+                422
+            );
         }
     }
 
     #[test]
     fn invalid_body_pagination_fails_before_upstream() {
-        for body in [json!({"limit":0}),json!({"limit":101}),json!({"limit":-1}),
-            json!({"limit":true}),json!({"limit":1.5}),json!({"limit":"2"}),json!({"limit":null}),
-            json!({"offset":-1}),json!({"offset":false}),json!({"offset":1.5}),json!({"offset":"2"})] {
-            assert_eq!(thread_search_payload(&body, &user(), &[]).unwrap_err().status,422);
+        for body in [
+            json!({"limit":0}),
+            json!({"limit":101}),
+            json!({"limit":-1}),
+            json!({"limit":true}),
+            json!({"limit":1.5}),
+            json!({"limit":"2"}),
+            json!({"limit":null}),
+            json!({"offset":-1}),
+            json!({"offset":false}),
+            json!({"offset":1.5}),
+            json!({"offset":"2"}),
+        ] {
+            assert_eq!(
+                thread_search_payload(&body, &user(), &[])
+                    .unwrap_err()
+                    .status,
+                422
+            );
         }
     }
 
     #[test]
     fn invalid_query_pagination_fails_before_upstream() {
-        for (key,value) in [("limit","0"),("limit","101"),("limit","no"),("limit","1.5"),
-            ("offset","-1"),("offset","18446744073709551616")] {
-            let query = vec![(key.into(),value.into())];
-            assert_eq!(thread_search_payload(&json!({}), &user(), &query).unwrap_err().status,422);
+        for (key, value) in [
+            ("limit", "0"),
+            ("limit", "101"),
+            ("limit", "no"),
+            ("limit", "1.5"),
+            ("offset", "-1"),
+            ("offset", "18446744073709551616"),
+        ] {
+            let query = vec![(key.into(), value.into())];
+            assert_eq!(
+                thread_search_payload(&json!({}), &user(), &query)
+                    .unwrap_err()
+                    .status,
+                422
+            );
         }
     }
 
     #[test]
     fn page_boundaries_and_first_duplicate_query_value_are_retained() {
-        for limit in [1,100] {
-            let body=json!({"limit":limit,"offset":0});
-            let payload=thread_search_payload(&body,&user(),&[]).unwrap();
-            assert_eq!(payload["limit"],json!(limit));
+        for limit in [1, 100] {
+            let body = json!({"limit":limit,"offset":0});
+            let payload = thread_search_payload(&body, &user(), &[]).unwrap();
+            assert_eq!(payload["limit"], json!(limit));
         }
-        let query=vec![("limit".into(),"7".into()),("limit".into(),"0".into())];
-        assert_eq!(thread_search_payload(&json!({}),&user(),&query).unwrap()["limit"],json!(7));
+        let query = vec![("limit".into(), "7".into()), ("limit".into(), "0".into())];
+        assert_eq!(
+            thread_search_payload(&json!({}), &user(), &query).unwrap()["limit"],
+            json!(7)
+        );
+    }
+}
+
+fn quota_alert_due(user: &CompatUser, check: &crate::billing::QuotaCheckResult, ttl: f64) -> bool {
+    static CACHE: std::sync::OnceLock<Mutex<HashMap<String, Instant>>> = std::sync::OnceLock::new();
+    if ttl <= 0.0 {
+        return true;
+    }
+    let ttl = if ttl.is_finite() {
+        Duration::from_secs_f64(ttl.max(0.0))
+    } else {
+        Duration::from_secs(60)
+    };
+    let key = format!(
+        "{}|{}|{:?}|{}|{:?}|{:?}",
+        user.tenant_id,
+        user.user_id,
+        check.overage_strategy,
+        check.message,
+        check.daily_tokens_limit,
+        check.monthly_cost_limit
+    );
+    let mut cache = CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let now = Instant::now();
+    cache.retain(|_, expires| *expires > now);
+    if cache.contains_key(&key) {
+        false
+    } else {
+        cache.insert(key, now + ttl);
+        true
     }
 }

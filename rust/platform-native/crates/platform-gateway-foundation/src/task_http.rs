@@ -17,14 +17,11 @@ use crate::{
     protocol::{ProtocolTimestamp, UnifiedResponse},
     task_manager::{Task, TaskError, TaskListFilter, TaskManager, TaskResult, TaskStatus},
 };
-use ai_platform_auth::{
-    api_keys::{SelectedCredential, select_credential},
-    service::{AuthService, Principal},
-};
+use ai_platform_auth::service::{AuthService, Principal};
 use axum::{
     Json, Router,
     extract::{Path, Query, State, rejection::QueryRejection},
-    http::{HeaderMap, HeaderName, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -36,14 +33,26 @@ use std::{collections::HashMap, sync::Arc};
 struct TaskState {
     auth: Arc<AuthService>,
     manager: Arc<TaskManager>,
+    identity: Option<Arc<dyn crate::invocation_http::InvocationIdentityResolver>>,
 }
 
 pub fn router(auth: Arc<AuthService>, manager: Arc<TaskManager>) -> Router {
+    router_with_identity(auth, manager, None)
+}
+pub fn router_with_identity(
+    auth: Arc<AuthService>,
+    manager: Arc<TaskManager>,
+    identity: Option<Arc<dyn crate::invocation_http::InvocationIdentityResolver>>,
+) -> Router {
     Router::new()
         .route(contract::TASKS, get(list_tasks))
         .route(contract::TASK, get(get_task).delete(cancel_task))
         .route(contract::RESULT, get(get_task_result))
-        .with_state(TaskState { auth, manager })
+        .with_state(TaskState {
+            auth,
+            manager,
+            identity,
+        })
 }
 
 /// Explicit public projection; internal request bodies, callback bookkeeping,
@@ -129,35 +138,50 @@ fn response_value(response: &UnifiedResponse) -> Value {
 fn error(status: StatusCode, detail: impl Into<String>) -> Response {
     (status, Json(json!({"detail": detail.into()}))).into_response()
 }
-async fn authenticate(state: &TaskState, headers: &HeaderMap) -> Result<Principal, Box<Response>> {
-    let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
-        Ok(SelectedCredential::Jwt(token)) => token,
-        _ => {
-            return Err(Box::new(error(
-                StatusCode::UNAUTHORIZED,
-                "Authentication required",
-            )));
-        }
-    };
-    let principal = state.auth.authenticate(token).await.map_err(|err| {
-        Box::new(error(
-            StatusCode::from_u16(err.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-            "Authentication failed",
-        ))
-    })?;
-    if principal.account.user_id.is_empty() || principal.account.tenant_id.is_empty() {
-        return Err(Box::new(error(
-            StatusCode::UNAUTHORIZED,
-            "Authentication required",
-        )));
-    }
-    Ok(principal)
+async fn authenticate(
+    state: &TaskState,
+    headers: &HeaderMap,
+) -> Result<crate::invocation_http::InvocationIdentity, Box<Response>> {
+    crate::invocation_http::resolve_identity(
+        &state.auth,
+        state.identity.as_deref(),
+        headers,
+        "/api/v1/tasks",
+    )
+    .await
 }
-fn visible(task: &Task, principal: &Principal) -> bool {
+trait TaskIdentity: Sync {
+    fn user_id(&self) -> &str;
+    fn tenant_id(&self) -> &str;
+    fn roles(&self) -> &[String];
+}
+impl TaskIdentity for Principal {
+    fn user_id(&self) -> &str {
+        &self.account.user_id
+    }
+    fn tenant_id(&self) -> &str {
+        &self.account.tenant_id
+    }
+    fn roles(&self) -> &[String] {
+        &self.authority.roles
+    }
+}
+impl TaskIdentity for crate::invocation_http::InvocationIdentity {
+    fn user_id(&self) -> &str {
+        &self.user_id
+    }
+    fn tenant_id(&self) -> &str {
+        &self.tenant_id
+    }
+    fn roles(&self) -> &[String] {
+        &self.roles
+    }
+}
+fn visible(task: &Task, principal: &impl TaskIdentity) -> bool {
     !task.tenant_id.is_empty()
-        && task.tenant_id == principal.account.tenant_id
-        && (task.user_id == principal.account.user_id
-            || principal.authority.roles.iter().any(|role| role == "admin"))
+        && task.tenant_id == principal.tenant_id()
+        && (task.user_id == principal.user_id()
+            || principal.roles().iter().any(|role| role == "admin"))
 }
 fn internal_error(headers: &HeaderMap) -> Response {
     let mut value = json!({"error": {"code": 2000, "message": "Internal server error"}});
@@ -180,7 +204,7 @@ fn manager_error(err: TaskError, headers: &HeaderMap) -> Response {
 }
 async fn owned_task(
     manager: &TaskManager,
-    principal: &Principal,
+    principal: &impl TaskIdentity,
     task_id: &str,
     headers: &HeaderMap,
 ) -> Result<Task, Box<Response>> {
@@ -330,8 +354,8 @@ async fn list_tasks(
         },
         Err(_) => return error(StatusCode::UNPROCESSABLE_ENTITY, "Invalid query parameters"),
     };
-    filter.user_id = Some(principal.account.user_id);
-    filter.tenant_id = Some(principal.account.tenant_id);
+    filter.user_id = Some(principal.user_id().to_owned());
+    filter.tenant_id = Some(principal.tenant_id().to_owned());
     match state.manager.list_tasks(&filter).await {
         Ok(tasks) => match tasks
             .iter()
@@ -357,7 +381,7 @@ async fn get_task(
 }
 async fn get_task_for_principal(
     manager: &TaskManager,
-    principal: &Principal,
+    principal: &impl TaskIdentity,
     task_id: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -382,14 +406,15 @@ async fn cancel_task(
 }
 async fn cancel_task_for_principal(
     manager: &TaskManager,
-    principal: &Principal,
+    principal: &impl TaskIdentity,
     task_id: &str,
     headers: &HeaderMap,
 ) -> Response {
-    if let Err(response) = owned_task(manager, principal, task_id, headers).await {
-        return *response;
-    }
-    match manager.cancel(task_id).await {
+    let authorized = match owned_task(manager, principal, task_id, headers).await {
+        Ok(task) => task,
+        Err(response) => return *response,
+    };
+    match manager.cancel_expected(task_id, &authorized).await {
         Ok(()) => Json(json!({"task_id": task_id, "status": "cancelled"})).into_response(),
         Err(err) => manager_error(err, headers),
     }
@@ -407,7 +432,7 @@ async fn get_task_result(
 }
 async fn get_task_result_for_principal(
     manager: &TaskManager,
-    principal: &Principal,
+    principal: &impl TaskIdentity,
     task_id: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -428,32 +453,84 @@ mod task_schema_tests {
     use crate::protocol::{ContentData, ContentItem, UnifiedRequest};
     #[test]
     fn non_utf8_binary_task_projection_matches_result_endpoint() {
-        let timestamp=ProtocolTimestamp::parse_isoformat("2026-10-12T09:00:00.123456Z").unwrap();
-        let request=UnifiedRequest::new("request","service",vec![]);
-        let mut task=Task::new("task".into(),&request,timestamp.naive_utc());
-        let mut binary=ContentItem::text("binary");
-        binary.data=Some(ContentData::Bytes(vec![255,0,1]));
-        let mut response=UnifiedResponse::new("request","completed",vec![binary,ContentItem::text("text")]);
-        response.timestamp=timestamp;
-        task.status=TaskStatus::Completed;
-        task.result=Some(response.clone().into());
-        let schema=TaskSchema::from_domain(&task).unwrap();
-        let result=schema.result.unwrap();
-        assert_eq!(result,response_value(&response));
-        assert_eq!(result["outputs"][0]["data"],"/wAB");
-        assert_eq!(result["outputs"][1]["data"],"text");
-        assert_eq!(result["timestamp"],"2026-10-12T09:00:00.123456Z");
+        let timestamp = ProtocolTimestamp::parse_isoformat("2026-10-12T09:00:00.123456Z").unwrap();
+        let request = UnifiedRequest::new("request", "service", vec![]);
+        let mut task = Task::new("task".into(), &request, timestamp.naive_utc());
+        let mut binary = ContentItem::text("binary");
+        binary.data = Some(ContentData::Bytes(vec![255, 0, 1]));
+        let mut response = UnifiedResponse::new(
+            "request",
+            "completed",
+            vec![binary, ContentItem::text("text")],
+        );
+        response.timestamp = timestamp;
+        task.status = TaskStatus::Completed;
+        task.result = Some(response.clone().into());
+        let schema = TaskSchema::from_domain(&task).unwrap();
+        let result = schema.result.unwrap();
+        assert_eq!(result, response_value(&response));
+        assert_eq!(result["outputs"][0]["data"], "/wAB");
+        assert_eq!(result["outputs"][1]["data"], "text");
+        assert_eq!(result["timestamp"], "2026-10-12T09:00:00.123456Z");
     }
     #[test]
     fn legacy_json_task_result_is_not_reencoded() {
-        let request=UnifiedRequest::new("request","service",vec![]);
-        let mut task=Task::new("task".into(),&request,ProtocolTimestamp::now().naive_utc());
-        let raw=json!({"request_id":"legacy","outputs":[{"type":"text","data":[255,0,1]}],"timestamp":"kept verbatim"});
-        task.result=Some(raw.clone().into());
-        assert_eq!(TaskSchema::from_domain(&task).unwrap().result,Some(raw));
+        let request = UnifiedRequest::new("request", "service", vec![]);
+        let mut task = Task::new(
+            "task".into(),
+            &request,
+            ProtocolTimestamp::now().naive_utc(),
+        );
+        let raw = json!({"request_id":"legacy","outputs":[{"type":"text","data":[255,0,1]}],"timestamp":"kept verbatim"});
+        task.result = Some(raw.clone().into());
+        assert_eq!(TaskSchema::from_domain(&task).unwrap().result, Some(raw));
     }
 }
 
 #[cfg(test)]
 #[path = "task_http_authorization_tests.rs"]
 mod task_authorization_tests;
+
+#[cfg(test)]
+mod canonical_context_tests {
+    use super::*;
+    fn identity(
+        user: &str,
+        tenant: &str,
+        roles: &[&str],
+    ) -> crate::invocation_http::InvocationIdentity {
+        crate::invocation_http::InvocationIdentity {
+            user_id: user.into(),
+            tenant_id: tenant.into(),
+            roles: roles.iter().map(|r| r.to_string()).collect(),
+            permissions: vec![],
+            session_principal: None,
+            session_jwt_selected: false,
+        }
+    }
+    #[test]
+    fn api_key_and_guest_contexts_keep_exact_task_owner_scope() {
+        let mut request = crate::protocol::UnifiedRequest::new("request", "service", vec![]);
+        request.user_id = "key-owner".into();
+        request.tenant_id = "tenant".into();
+        let task = Task::new(
+            "task".into(),
+            &request,
+            crate::protocol::ProtocolTimestamp::now().naive_utc(),
+        );
+        assert!(visible(&task, &identity("key-owner", "tenant", &["user"])));
+        assert!(!visible(&task, &identity("other", "tenant", &["user"])));
+        assert!(visible(&task, &identity("other", "tenant", &["admin"])));
+        assert!(!visible(
+            &task,
+            &identity("key-owner", "foreign", &["admin"])
+        ));
+        assert!(!visible(&task, &identity("key-owner", "", &["admin"])));
+    }
+    #[test]
+    fn non_session_identity_does_not_create_session_authority() {
+        let user = identity("anon:cookie", "public", &["guest"]);
+        assert!(user.session_principal.is_none());
+        assert!(!user.session_jwt_selected);
+    }
+}

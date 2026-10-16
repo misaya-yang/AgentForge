@@ -177,6 +177,8 @@ pub fn project_with_inputs(
                 rate_limits_enabled,
             },
             balancer_strategy: strategy.clone(),
+            model_setup_mode: settings.model_setup_mode.clone(),
+            default_model: settings.default_model.clone(),
             connector_environment: ConnectorEnvironment {
                 // main.py does not inject an alternate connector key.
                 injected_encryption_key: None,

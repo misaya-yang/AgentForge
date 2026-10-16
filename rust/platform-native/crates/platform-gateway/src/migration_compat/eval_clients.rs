@@ -118,7 +118,7 @@ impl EvalGatewayLlmClient {
     ) -> Result<Self, CompatError> {
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder()
+            http: reqwest::Client::builder().retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
@@ -208,7 +208,7 @@ impl KbRagasClient {
         }
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder()
+            http: reqwest::Client::builder().retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))

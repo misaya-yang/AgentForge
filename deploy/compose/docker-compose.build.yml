@@ -1,0 +1,52 @@
+# Native Rust source-build overrides. Runtime/Capability images retain their pinned source assembly.
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: migrate
+      args:
+        VCS_REF: "${VCS_REF:-unknown}"
+  gateway:
+    environment:
+      GATEWAY_KNOWLEDGE_RPC_URL: "${GATEWAY_KNOWLEDGE_RPC_URL-http://knowledge-service:8093}"
+      GATEWAY_KNOWLEDGE_RPC_TIMEOUT_MS: "${GATEWAY_KNOWLEDGE_RPC_TIMEOUT_MS:-30000}"
+      GATEWAY_KNOWLEDGE_RPC_MAX_IN_FLIGHT: "${GATEWAY_KNOWLEDGE_RPC_MAX_IN_FLIGHT:-32}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: runtime
+      args:
+        VCS_REF: "${VCS_REF:-unknown}"
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NODE_BASE_IMAGE: "${NODE_BASE_IMAGE:-node:26.11.1-alpine3.24}"
+        NGINX_BASE_IMAGE: "${NGINX_BASE_IMAGE:-nginx:1.27-alpine}"
+        VCS_REF: "${VCS_REF:-unknown}"
+        NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org}"
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_AUTH_EMAIL_DOMAIN: "${VITE_AUTH_EMAIL_DOMAIN:-${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}"
+        VITE_SUPPORT_EMAIL: "${VITE_SUPPORT_EMAIL:-admin@${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}"
+
+  knowledge-service:
+    environment:
+      KNOWLEDGE_GRPC__BIND_ADDRESS: "0.0.0.0:8093"
+      KNOWLEDGE_GRPC__MAX_CONCURRENT_REQUESTS: "${KNOWLEDGE_GRPC_MAX_CONCURRENT_REQUESTS:-32}"
+      KNOWLEDGE_GRPC__DEADLINE_MS: "${KNOWLEDGE_GRPC_DEADLINE_MS:-30000}"
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
+      args:
+        VCS_REF: "${VCS_REF:-unknown}"
+  knowledge-worker:
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: knowledge
+      args:
+        VCS_REF: "${VCS_REF:-unknown}"

@@ -175,37 +175,64 @@ pub fn list_response_schema() -> Value {
 pub fn schedule_page(mut rows: Vec<Value>, limit: usize, field: &str, id: &str) -> Value {
     let has_more = rows.len() > limit;
     rows.truncate(limit);
-    let next = if has_more { rows.last().map(|row| json!({"before_at":row["created_at"],"before_id":row[id]})) } else { None };
+    let next = if has_more {
+        rows.last()
+            .map(|row| json!({"before_at":row["created_at"],"before_id":row[id]}))
+    } else {
+        None
+    };
     json!({field:rows,"next_cursor":next})
 }
 pub fn schedule_page_schema(mut schema: Value) -> Value {
-    schema["properties"]["next_cursor"] = list_response_schema()["properties"]["next_cursor"].clone();
-    schema["required"].as_array_mut().unwrap().push(json!("next_cursor"));
+    schema["properties"]["next_cursor"] =
+        list_response_schema()["properties"]["next_cursor"].clone();
+    schema["required"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("next_cursor"));
     schema
 }
 pub fn catalog_review_schema(preview: bool, read: bool) -> Value {
-    let mut properties=serde_json::Map::from_iter([
-        ("review_id".into(),json!({"type":"string"})),("provider_id".into(),json!({"type":"string"})),("state".into(),json!({"type":"string"})),
+    let mut properties = serde_json::Map::from_iter([
+        ("review_id".into(), json!({"type":"string"})),
+        ("provider_id".into(), json!({"type":"string"})),
+        ("state".into(), json!({"type":"string"})),
     ]);
     if preview {
-        for key in ["changes","retained_models","affected_references","skipped_models"] { properties.insert(key.into(),array(open_row())); }
-        properties.insert("discovery_warnings".into(),array(json!({"type":"string"})));
-        for key in ["reference_coverage","notice"] {properties.insert(key.into(),json!({"type":"string"}));}
-        properties.insert("expires_in_seconds".into(),json!({"type":"integer"}));
-        properties.insert("provider_revision".into(),open_row());
-        properties.insert("automatic_removals".into(),json!({"type":"boolean","const":false}));
+        for key in [
+            "changes",
+            "retained_models",
+            "affected_references",
+            "skipped_models",
+        ] {
+            properties.insert(key.into(), array(open_row()));
+        }
+        properties.insert("discovery_warnings".into(), array(json!({"type":"string"})));
+        for key in ["reference_coverage", "notice"] {
+            properties.insert(key.into(), json!({"type":"string"}));
+        }
+        properties.insert("expires_in_seconds".into(), json!({"type":"integer"}));
+        properties.insert("provider_revision".into(), open_row());
+        properties.insert(
+            "automatic_removals".into(),
+            json!({"type":"boolean","const":false}),
+        );
     } else {
         properties.insert("result".into(),json!({"type":["object","null"],"additionalProperties":true,"x-native-dynamic-row":true}));
-        if read {properties.insert("current".into(),open_row());}
+        if read {
+            properties.insert("current".into(), open_row());
+        }
     }
     object(properties)
 }
 pub fn success_schema(id: &str) -> Value {
     match id {
-        "create_service_registration" => json!({"type":"object","additionalProperties":false,"required":["service_id","status"],"properties":{"service_id":{"type":"string"},"status":{"const":"registered"}}}),
-        "preview_provider_model_catalog" => catalog_review_schema(true,false),
-        "apply_provider_model_catalog" => catalog_review_schema(false,false),
-        "read_provider_model_catalog_review" => catalog_review_schema(false,true),
+        "create_service_registration" => {
+            json!({"type":"object","additionalProperties":false,"required":["service_id","status"],"properties":{"service_id":{"type":"string"},"status":{"const":"registered"}}})
+        }
+        "preview_provider_model_catalog" => catalog_review_schema(true, false),
+        "apply_provider_model_catalog" => catalog_review_schema(false, false),
+        "read_provider_model_catalog_review" => catalog_review_schema(false, true),
         "query_config_audit_log" => audit::schema(),
         "list_scheduled_tasks" => schedule_page_schema(tasks::schema()),
         "create_scheduled_task" | "get_scheduled_task" => task::schema(),
@@ -229,15 +256,13 @@ pub fn success_schema(id: &str) -> Value {
 // Keep default explicit for extractors/middleware/custom identity/storage adapters.
 pub fn responses(id: &str) -> Value {
     let codes: &[u16] = match id {
-        "create_service_registration" => &[400,401,403,409,422,501],
+        "create_service_registration" => &[400, 401, 403, 409, 422, 501],
         "list_assistant_plugins" => &[401, 503],
         "update_assistant_plugin_lifecycle" => &[401, 403, 409, 422, 503],
         "query_config_audit_log" => &[401, 403, 422, 500, 503],
         "create_scheduled_task" => &[400, 401, 403, 409, 422, 429, 503],
         "list_scheduled_tasks" => &[400, 401, 403, 409, 422, 503],
-        "summarize_scheduled_task_notifications" => {
-            &[400, 401, 403, 409, 503]
-        }
+        "summarize_scheduled_task_notifications" => &[400, 401, 403, 409, 503],
         "list_scheduled_task_notifications" => &[400, 401, 403, 409, 422, 503],
         _ => &[400, 401, 403, 404, 409, 422, 503],
     };

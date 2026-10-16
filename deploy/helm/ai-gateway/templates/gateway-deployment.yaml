@@ -27,7 +27,7 @@ spec:
         - name: wait-for-schema-authority
           image: "{{ .Values.global.imageRegistry }}/{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          command: ["python", "-m", "database.authority", "startup-check"]
+          command: ["/usr/local/bin/database-authority", "startup-check"]
           env:
             - name: POSTGRES_USER
               valueFrom:

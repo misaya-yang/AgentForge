@@ -37,6 +37,7 @@ pub use ai_platform_client::ApiRequest;
 impl From<ai_platform_client::Error> for ApiError {
     fn from(error: ai_platform_client::Error) -> Self {
         match error {
+            ai_platform_client::Error::UnknownOutcome => Self::Contract("Submission outcome unknown; do not automatically resubmit"),
             ai_platform_client::Error::Origin => Self::Origin,
             ai_platform_client::Error::Request => Self::Request,
             ai_platform_client::Error::Authentication => Self::Authentication,

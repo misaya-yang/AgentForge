@@ -314,6 +314,80 @@ impl AgentRepository {
         tx.commit().await?;
         Ok(row)
     }
+    /// Copy the mutable authoring spec only. Published bindings, credentials and
+    /// delivery state are deliberately not inherited from the source Agent.
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        source_id: &str,
+        name: Option<&str>,
+        requested_slug: Option<&str>,
+    ) -> Result<Value, AgentError> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let draft = uuid::Uuid::new_v4().to_string();
+        let mut tx = self.pool.begin().await?;
+        let source = authorized(&mut tx, actor, source_id, "owner", false).await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('agent-count:'||$1,0))")
+            .bind(&actor.tenant_id)
+            .execute(&mut *tx)
+            .await?;
+        let has_policy: bool =
+            sqlx::query_scalar("SELECT TO_REGCLASS('agent_governance_policies') IS NOT NULL")
+                .fetch_one(&mut *tx)
+                .await?;
+        let limit: i32 = if has_policy {
+            sqlx::query_scalar("SELECT COALESCE(MIN(max_agents_per_tenant),100)::int FROM agent_governance_policies WHERE tenant_id=$1")
+                .bind(&actor.tenant_id).fetch_one(&mut *tx).await?
+        } else {
+            100
+        };
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM agents WHERE tenant_id=$1 AND deleted_at IS NULL",
+        )
+        .bind(&actor.tenant_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if count >= i64::from(limit) {
+            return Err(AgentError::code(409, "AGENT_TENANT_AGENT_QUOTA_EXCEEDED"));
+        }
+        let original: Value = sqlx::query_scalar(
+            "SELECT spec FROM agent_drafts WHERE tenant_id=$1 AND agent_id=$2::uuid",
+        )
+        .bind(&actor.tenant_id)
+        .bind(source_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        let copied = spec::copy_spec(&original);
+        let name = name
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("{} Copy", text(&source, "name")));
+        let copied_slug = slug(
+            &requested_slug
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("{}-copy-{}", text(&source, "slug"), &id[..8])),
+        );
+        sqlx::query("INSERT INTO agents(tenant_id,agent_id,slug,name,description,owner_id,created_by,updated_by) VALUES($1,$2::uuid,$3,$4,$5,$6,$6,$6)")
+            .bind(&actor.tenant_id).bind(&id).bind(copied_slug).bind(name).bind(text(&source,"description")).bind(&actor.user_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO agent_drafts(tenant_id,draft_id,agent_id,revision,schema_version,spec,spec_hash,updated_by) VALUES($1,$2::uuid,$3::uuid,1,$4,$5::jsonb,$6,$7)")
+            .bind(&actor.tenant_id).bind(&draft).bind(&id).bind(spec::SCHEMA).bind(&copied).bind(spec::hash(&copied)).bind(&actor.user_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO agent_members(tenant_id,agent_id,principal_type,principal_id,role,created_by) VALUES($1,$2::uuid,'user',$3,'owner',$3)")
+            .bind(&actor.tenant_id).bind(&id).bind(&actor.user_id).execute(&mut *tx).await?;
+        let mut row: Value = sqlx::query_scalar("UPDATE agents a SET current_draft_id=$3::uuid,updated_by=$4 WHERE tenant_id=$1 AND agent_id=$2::uuid RETURNING to_jsonb(a)||jsonb_build_object('caller_role','owner')")
+            .bind(&actor.tenant_id).bind(&id).bind(&draft).bind(&actor.user_id).fetch_one(&mut *tx).await?;
+        audit(
+            &mut tx,
+            actor,
+            &id,
+            "copy",
+            json!({"source_agent_id":source_id}),
+        )
+        .await?;
+        tx.commit().await?;
+        row["draft_revision"] = 1.into();
+        Ok(row)
+    }
     pub async fn list(&self, actor: &Actor, query: ListAgents) -> Result<Value, AgentError> {
         let limit = query.limit.clamp(1, 100);
         let (time, id) = match query.cursor {

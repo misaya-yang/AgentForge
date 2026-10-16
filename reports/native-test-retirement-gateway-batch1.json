@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "note": "Exact source suites inspected. Native targets call production seams; Redis fixtures implement only emitted commands. No Cargo or live service execution performed by this lane. Cases with no residual become eligible only after root verification; no files retired.",
+  "entries": [
+    {
+      "source": "tests/proxy/test_gateway_header_spoofing.py",
+      "original_cases": [
+        "test_client_user_id_header_is_overwritten_by_auth_context",
+        "test_client_tenant_header_is_overwritten_by_auth_context",
+        "test_client_authenticated_header_cannot_upgrade_anonymous_context",
+        "test_transparent_forwarding_strips_gateway_prefixed_identity_headers",
+        "test_langgraph_and_gateway_identity_headers_are_both_authoritative",
+        "test_service_auth_token_rejects_arbitrary_header_injection",
+        "test_service_auth_token_rejects_crlf_header_injection",
+        "test_client_forwarded_ip_headers_are_rebuilt_from_context"
+      ],
+      "native_target": "gateway_migration_parity_authority",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/proxy/test_client_ip.py",
+      "original_cases": [
+        "test_untrusted_direct_client_ignores_forwarded_for",
+        "test_untrusted_direct_client_ignores_real_ip",
+        "test_trusted_proxy_honors_rightmost_untrusted_forwarded",
+        "test_trusted_proxy_honors_real_ip",
+        "test_fallback_to_direct_client",
+        "test_missing_direct_host_falls_back_to_unknown"
+      ],
+      "native_target": "gateway_migration_parity_authority",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/proxy/test_langgraph_run_body.py",
+      "original_cases": [
+        "test_should_prepare_skips_run_control_endpoints",
+        "test_prepare_langgraph_run_body_applies_all_sync_mutations_once",
+        "test_prepare_overwrites_spoofed_assistant_id",
+        "test_prepare_unchanged_gateway_identity_skips_encode",
+        "test_billing_request_snapshot_strips_gateway_model_secrets",
+        "test_runtime_model_override_cache_avoids_repeat_control_plane_reads",
+        "test_runtime_override_singleflight_dedupes_concurrent_resolves",
+        "test_resolve_then_inject_after_quota_style_mutation_preserves_override"
+      ],
+      "native_target": "gateway_migration_parity_authority",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Runtime override cache reuse and concurrent singleflight require native resolver fixture; not covered here.",
+        "JSON identity is asserted but Python byte encode-call avoidance is not claimed as covered."
+      ]
+    },
+    {
+      "source": "tests/contract/test_gateway_secret.py",
+      "original_cases": [
+        "test_roundtrip",
+        "test_request_id_preserved",
+        "test_mismatched_secret_rejected",
+        "test_tampered_signature_rejected",
+        "test_stale_timestamp_rejected",
+        "test_future_timestamp_rejected",
+        "test_missing_header_rejected",
+        "test_malformed_header_rejected",
+        "test_replay_rejected",
+        "test_replay_store_isolation_across_ids",
+        "test_secret_length_guard",
+        "test_forged_header_does_not_poison_replay_store",
+        "test_v2_signature_binds_method_path_query_and_body",
+        "test_v2_signature_binds_forwarded_identity_headers",
+        "test_v1_header_is_rejected_by_v2_verifier",
+        "test_v2_signature_uses_key_id_for_rotation",
+        "test_v2_key_scope_binds_caller_audience_and_path",
+        "test_redis_replay_store_uses_atomic_set_nx_with_ttl"
+      ],
+      "native_target": "gateway_migration_parity_gateway_secret",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Redis SET NX TTL atomic replay test requires Redis command-boundary fixture; memory replay tested.",
+        "Native signer generates request IDs; roundtrip ID preservation tested, caller-supplied custom ID signing API not covered."
+      ]
+    },
+    {
+      "source": "tests/api/test_architecture_status.py",
+      "original_cases": [
+        "test_architecture_status_is_platform_admin_only",
+        "test_architecture_status_is_grouped_sanitized_and_marks_jobs",
+        "test_architecture_status_falls_back_safely_for_invalid_mode"
+      ],
+      "native_target": "gateway_migration_parity_architecture",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/contract/test_web_stream_auth_contract.py",
+      "original_cases": [
+        "test_shared_sse_transports_attach_the_current_bearer_token",
+        "test_playground_stream_direct_fetch_attaches_the_current_bearer_token"
+      ],
+      "native_target": "gateway_migration_parity_web_stream_auth",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/proxy/test_route_pattern.py",
+      "original_cases": [
+        "test_uuid_collapses_in_known_template",
+        "test_uuid_collapses_in_unknown_path_via_fallback",
+        "test_multiple_uuids_in_one_path_all_collapse",
+        "test_uppercase_uuid_still_collapses",
+        "test_integer_id_collapses",
+        "test_multiple_integer_ids_collapse",
+        "test_integer_at_end_collapses",
+        "test_word_with_digits_not_collapsed",
+        "test_query_string_stripped",
+        "test_query_string_stripped_for_uuid_path",
+        "test_fragment_stripped",
+        "test_known_templates_match_exactly",
+        "test_session_id_template_match",
+        "test_session_messages_template_match",
+        "test_dataset_documents_template_match",
+        "test_unmatched_no_ids_returns_unchanged",
+        "test_root_returns_unchanged",
+        "test_empty_string_returns_empty",
+        "test_idempotent_on_template_output"
+      ],
+      "native_target": "gateway_migration_parity_route_pattern",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/metrics/test_realtime_metrics_tenant_scope.py",
+      "original_cases": [
+        "test_realtime_user_metrics_are_tenant_scoped",
+        "test_realtime_request_threads_are_recorded_under_tenant_key"
+      ],
+      "native_target": "gateway_migration_parity_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/metrics/test_gateway_metrics_freshness.py",
+      "original_cases": [
+        "test_empty_metrics_summary_reports_empty_data_status",
+        "test_redis_metrics_report_fresh_ingestion_timestamp",
+        "test_token_metrics_use_tenant_scoped_user_keys",
+        "test_metrics_endpoint_requires_metrics_read"
+      ],
+      "native_target": "gateway_migration_parity_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Original empty-summary test expects empty but original production line378 returns unavailable for redis=None. Native regression preserves production unavailable; original assertion is a source conflict, not equivalent."
+      ]
+    },
+    {
+      "source": "tests/monitoring/test_alert_rules.py",
+      "original_cases": [
+        "test_dlq_and_consumer_lag_alerts_are_configured"
+      ],
+      "native_target": "gateway_migration_parity_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    }
+  ],
+  "source_conflicts": [
+    {
+      "original_case": "tests/services/metrics/test_gateway_metrics_freshness.py::test_empty_metrics_summary_reports_empty_data_status",
+      "production_source": "src/services/metrics/metrics_recorder.py",
+      "file_sha256": "f035e7bfe0415c271bc702a72ecf46be40d38811a5e3509b6cad96043db231dd",
+      "line": 378,
+      "line_text": "            return self._empty_summary(data_status=\"unavailable\")",
+      "line_sha256": "beee4bc5b9e6c632e44528ac980df57e5a052cd43da66941af8ba6b2f0045710",
+      "native_case": "gateway_migration_parity_metrics::absent_redis_preserves_source_production_unavailable_status",
+      "disposition": "superseded_source_conflict_pending_native_execution"
+    }
+  ]
+}

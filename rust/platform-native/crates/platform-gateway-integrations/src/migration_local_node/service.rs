@@ -4,12 +4,31 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     net::IpAddr,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
+
+fn disconnect_cleanup(
+    computer_stop: impl FnOnce() -> Result<bool>,
+    cancel_processes: impl FnOnce() -> Result<Vec<String>>,
+    interrupt_ledger: impl FnOnce(&HashSet<String>) -> Result<Vec<String>>,
+) -> Result<Vec<String>> {
+    let computer_result = computer_stop();
+    let process_result = cancel_processes();
+    let excluded = process_result
+        .as_ref()
+        .map(|ids| ids.iter().cloned().collect())
+        .unwrap_or_default();
+    let ledger_result = interrupt_ledger(&excluded);
+
+    computer_result?;
+    process_result?;
+    ledger_result
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LocalServiceBinding {
     pub host: String,
@@ -107,9 +126,46 @@ impl LocalNodeRuntime {
     }
     pub fn disconnect(&self) -> Result<Vec<String>> {
         self.online.store(false, Ordering::Release);
-        self.computer.emergency_stop()?;
-        let cancelling = self.process_runner.cancel_all()?;
-        self.ledger
-            .interrupt_running(&cancelling.into_iter().collect())
+        disconnect_cleanup(
+            || self.computer.emergency_stop(),
+            || self.process_runner.cancel_all(),
+            |exclude| self.ledger.interrupt_running(exclude),
+        )
+    }
+}
+
+#[cfg(test)]
+mod disconnect_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    #[test]
+    fn computer_stop_failure_does_not_skip_process_or_ledger_cleanup() {
+        let computer_calls = Cell::new(0);
+        let process_calls = Cell::new(0);
+        let ledger_calls = Cell::new(0);
+        let mut observed_excluded = HashSet::new();
+
+        let result = disconnect_cleanup(
+            || {
+                computer_calls.set(computer_calls.get() + 1);
+                Err(Error::new("computer_stop_failed", "synthetic failure"))
+            },
+            || {
+                process_calls.set(process_calls.get() + 1);
+                Ok(vec!["action-1".to_owned()])
+            },
+            |exclude| {
+                ledger_calls.set(ledger_calls.get() + 1);
+                observed_excluded = exclude.clone();
+                Ok(Vec::new())
+            },
+        );
+
+        assert_eq!(result.unwrap_err().code, "computer_stop_failed");
+        assert_eq!(computer_calls.get(), 1);
+        assert_eq!(process_calls.get(), 1);
+        assert_eq!(ledger_calls.get(), 1);
+        assert_eq!(observed_excluded, HashSet::from(["action-1".to_owned()]));
     }
 }

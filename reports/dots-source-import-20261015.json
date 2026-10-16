@@ -1,0 +1,26 @@
+{
+  "schema": "ai-platform/dots-source-import/v1",
+  "source_archive": "/Users/misaya.yanghejazfs.com.au/Downloads/AI-Platform-Rust-Rebuild (2).zip",
+  "archive_sha256": "73e5f00d5c4c64a2f4a6e44eccbaa4838e415af22fdc0785dd252c64b7368587",
+  "manifest_sha256": "a543a87834f4827d1cb848eb775591586688f75480e1e984112c6a0b8df66cab",
+  "target": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+  "source_files": 4599,
+  "rust_files": 2082,
+  "verified_source_files": 4599,
+  "all_source_files_match_archive": true,
+  "python_source_files_in_archive": 0,
+  "previous_checkout": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild-preserved/pre-dots-rust-20261015-CTwtHq/AI--Platfform",
+  "previous_git_head": "ed6ea2e3917bb30ace43f3b2f19846670d36c169",
+  "git_head_preserved": true,
+  "previous_dirty_tree_preserved": true,
+  "retained_local_inputs": [
+    ".env",
+    ".env.dev",
+    "data",
+    "logs",
+    "uploads"
+  ],
+  "additional_in_progress_work": "/Users/misaya.yanghejazfs.com.au/Downloads/AI-Platform-Rust-Rebuild (2)/AI--Platfform",
+  "additional_in_progress_work_integrated": false,
+  "compile_or_runtime_acceptance_claimed": false
+}

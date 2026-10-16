@@ -44,7 +44,7 @@ impl ApiRequest {
 impl Client {
     /// One attempt, with no redirects or automatic retry of a mutation.
     pub async fn execute(&self, request: ApiRequest) -> Result<Value, Error> {
-        self.execute_with_timeout(request, Duration::from_secs(30))
+        self.execute_with_timeout(request, self.default_timeout)
             .await
     }
     pub async fn execute_with_timeout(
@@ -72,21 +72,14 @@ impl Client {
         {
             return Err(Error::Request);
         }
-        let token = self
-            .token
-            .as_ref()
-            .filter(|token| !token.is_empty() && !token.contains(['\r', '\n']))
-            .ok_or(Error::Authentication)?;
         let mut url = self.origin.clone();
         // Segments are encoded individually; resource names can contain a slash.
         url.path_segments_mut()
             .map_err(|_| Error::Origin)?
             .clear()
             .extend(&request.segments);
-        let mut pending = self
-            .http
-            .request(request.method, url)
-            .bearer_auth(token.as_ref())
+        let read_only = request.method == Method::GET || request.method == Method::HEAD;
+        let mut pending = self.authorize(self.http.request(request.method, url))?
             .query(&request.query)
             .timeout(timeout);
         for (name, value) in request.headers {
@@ -100,7 +93,7 @@ impl Client {
         if let Some(body) = request.body {
             pending = pending.json(&body);
         }
-        let mut response = pending.send().await.map_err(|_| Error::Transport)?;
+        let mut response = self.send_request(pending, read_only).await?;
         if !response.status().is_success() {
             return Err(Error::Status(response.status().as_u16()));
         }

@@ -37,7 +37,7 @@ pub struct ContentRequestContext {
     identity: Arc<tokio::sync::OnceCell<Result<ContentIdentity, ContentError>>>,
 }
 tokio::task_local! {static REQUEST:ContentRequestContext;}
-fn context() -> ContentRequestContext {
+pub(crate) fn context() -> ContentRequestContext {
     REQUEST.try_with(Clone::clone).unwrap_or_default()
 }
 /// Mount once around the merged public content routers. Auth resolution is

@@ -38,6 +38,7 @@ impl ReadinessState {
         drain: Arc<DrainState>,
     ) -> Result<Self, super::lifecycle::HostError> {
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(1))
@@ -59,37 +60,7 @@ impl ReadinessState {
         expected: Option<&str>,
         require_core: bool,
     ) -> String {
-        let Some(base) = base.filter(|v| !v.is_empty()) else {
-            return "not_configured".into();
-        };
-        let url = format!(
-            "{}/{}",
-            base.trim_end_matches('/'),
-            path.trim_start_matches('/')
-        );
-        let response = match self.client.get(url).send().await {
-            Ok(r) => r,
-            Err(e) => {
-                return if e.is_timeout() {
-                    "error: TimeoutException".into()
-                } else {
-                    "error: RequestError".into()
-                };
-            }
-        };
-        if !response.status().is_success() {
-            return format!("status_{}", response.status().as_u16());
-        }
-        if let Some(expected) = expected {
-            match response.json::<Value>().await {
-                Ok(v)
-                    if v.is_object()
-                        && v["status"] == expected
-                        && (!require_core || v["core_ready"] == true) => {}
-                _ => return "schema_mismatch".into(),
-            }
-        }
-        "healthy".into()
+        probe_http_service(&self.client, base, path, expected, require_core).await
     }
     pub async fn snapshot(&self) -> Value {
         let config = self
@@ -247,4 +218,50 @@ pub fn router(state: Arc<ReadinessState>) -> Router {
         )
         .route("/health/ready", get(ready))
         .with_state(state)
+}
+
+/// Probe the same explicit health contract used by live Gateway readiness.
+pub async fn probe_http_service(
+    client: &reqwest::Client,
+    base: Option<&str>,
+    path: &str,
+    expected: Option<&str>,
+    require_core: bool,
+) -> String {
+    let Some(base) = base.filter(|v| !v.is_empty()) else {
+        return "not_configured".into();
+    };
+    let url = format!(
+        "{}/{}",
+        base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    );
+    let response = match client
+        .get(url)
+        .header("x-request-id", format!("svc-{}", uuid::Uuid::new_v4()))
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return if e.is_timeout() {
+                "error: TimeoutException".into()
+            } else {
+                "error: RequestError".into()
+            };
+        }
+    };
+    if !response.status().is_success() {
+        return format!("status_{}", response.status().as_u16());
+    }
+    if let Some(expected) = expected {
+        match response.json::<Value>().await {
+            Ok(v)
+                if v.is_object()
+                    && v["status"] == expected
+                    && (!require_core || v["core_ready"] == true) => {}
+            _ => return "schema_mismatch".into(),
+        }
+    }
+    "healthy".into()
 }

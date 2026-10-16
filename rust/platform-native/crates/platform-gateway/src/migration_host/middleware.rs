@@ -33,6 +33,8 @@ pub struct MiddlewareConfig {
     pub anonymous_same_site: String,
     pub trace_excluded: BTreeSet<String>,
     pub body_limit: usize,
+    pub request_governance:
+        ai_platform_gateway_foundation::request_governance::RequestGovernanceConfig,
 }
 impl Default for MiddlewareConfig {
     fn default() -> Self {
@@ -47,6 +49,7 @@ impl Default for MiddlewareConfig {
                 .map(str::to_owned)
                 .collect(),
             body_limit: 8 * 1024 * 1024,
+            request_governance: Default::default(),
         }
     }
 }
@@ -372,4 +375,18 @@ pub async fn tracing_context(
         append(response.headers_mut(), "traceparent", &traceparent);
     }
     response
+}
+
+/// Separate source OTel middleware; streaming response IDs remain the existing
+/// transport contract while this SDK carrier supplies actual parented spans.
+pub async fn distributed_tracing(mut request: Request, next: Next) -> Response {
+    use ai_platform_gateway_foundation::distributed_tracing as telemetry;
+    if let Some(id) = request
+        .extensions()
+        .get::<RequestContext>()
+        .map(|c| c.request_id.clone())
+    {
+        request.extensions_mut().insert(telemetry::RequestId(id));
+    }
+    telemetry::inbound(request, next).await
 }

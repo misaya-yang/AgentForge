@@ -9,9 +9,9 @@
     {"id": "infrastructure", "display_name": "Infrastructure"}
   ],
   "compose_modes": {
-    "compact": {"files": ["docker-compose.yml", "docker-compose.compact.yml"]},
-    "full": {"files": ["docker-compose.yml", "docker-compose.full.yml"]},
-    "scale": {"files": ["docker-compose.yml", "docker-compose.scale.yml"]}
+    "compact": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.compact.yml"]},
+    "full": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.full.yml"]},
+    "scale": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.scale.yml"]}
   },
   "services": [
     {

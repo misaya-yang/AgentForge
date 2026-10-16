@@ -93,7 +93,7 @@ RUN useradd --create-home --home-dir /var/lib/ai-platform-agent-runtime --uid 10
 
 COPY LICENSE NOTICE /opt/ai-platform-agent-runtime/
 COPY --from=builder /tmp/ai-platform-agent-runtime /usr/local/bin/ai-platform-agent-runtime
-COPY codex-rs/ai-platform-agent-runtime/container-entrypoint.sh /usr/local/bin/ai-platform-agent-runtime-entrypoint
+COPY --chmod=0555 codex-rs/ai-platform-agent-runtime/container-entrypoint.sh /usr/local/bin/ai-platform-agent-runtime-entrypoint
 
 ENV AI_PLATFORM_RUNTIME_BIND=0.0.0.0:8094 \
     AI_PLATFORM_RUNTIME_WORKDIR=/workspace \

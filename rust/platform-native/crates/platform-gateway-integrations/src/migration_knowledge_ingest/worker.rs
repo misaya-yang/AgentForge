@@ -217,6 +217,7 @@ pub async fn recover_stuck(service: &IngestionService, threshold_minutes: i32) -
     let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d JOIN knowledge.datasets ds USING(dataset_id) WHERE d.status IN ('parsing','splitting','indexing') AND d.updated_at<NOW()-($1::integer*INTERVAL '1 minute') AND ds.is_deleted=FALSE AND ds.is_archived=FALSE ORDER BY d.updated_at LIMIT 100")
         .bind(threshold_minutes.max(1)).fetch_all(&service.store.pool).await?;
     let mut recovered = 0;
+    let mut requeued = 0;
     for row in rows {
         let dataset = string(&row, "dataset_id");
         let document = string(&row, "document_id");
@@ -262,9 +263,11 @@ pub async fn recover_stuck(service: &IngestionService, threshold_minutes: i32) -
             sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object('_document_ingest_action','recover','_document_recover_stage',$3::text) WHERE dataset_id=$1 AND document_id=$2").bind(dataset).bind(document).bind(if ["parsing","splitting","indexing"].contains(&stage){stage}else{"parsing"}).execute(lease.connection()).await?;
         }
         if KnowledgeWriteStore::requeue_cancelled(lease.connection(), dataset, document).await? {
-            recovered += 1
+            recovered += 1;
+            requeued += 1;
         }
         lease.release().await?;
     }
+    crate::migration_knowledge_query::pipeline_metrics::recovered(recovered as u64, requeued);
     Ok(recovered)
 }

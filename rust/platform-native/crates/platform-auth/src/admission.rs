@@ -86,15 +86,9 @@ pub struct RequestPrincipal {
 impl RequestPrincipal {
     fn jwt(principal: Principal) -> Self {
         let mut roles = principal.authority.roles.clone();
-        let tier = if roles.iter().any(|role| role == "admin") {
-            "admin".into()
-        } else if roles.iter().any(|role| role == "enterprise") {
-            "enterprise".into()
-        } else if roles.iter().any(|role| role == "premium" || role == "vip") {
-            "premium".into()
-        } else {
-            principal.authority.tier.clone()
-        };
+        // Local-account tier is current database authority. Role names grant
+        // permissions through RBAC but do not promote the account's tier.
+        let tier = principal.authority.tier.clone();
         for permission in &principal.authority.permissions {
             if !roles.contains(permission) {
                 roles.push(permission.clone());
@@ -345,3 +339,41 @@ impl Backend for AdmissionService {
     }
 }
 
+#[cfg(test)]
+mod principal_tests {
+    use super::{Principal, RequestPrincipal};
+    use crate::accounts::{Account, Authority};
+
+    #[test]
+    fn jwt_role_does_not_promote_the_current_account_tier() {
+        let principal = Principal {
+            account: Account {
+                user_id: "user-a".into(),
+                tenant_id: "tenant-a".into(),
+                email: None,
+                display_name: None,
+                department: None,
+                tier: "normal".into(),
+                roles: vec!["admin".into()],
+                permissions: vec![],
+                status: "active".into(),
+                password_hash: None,
+                force_password_change: false,
+                login_attempts: 0,
+                locked_until: None,
+                password_changed_at: None,
+            },
+            authority: Authority {
+                roles: vec!["admin".into()],
+                tier: "normal".into(),
+                permissions: vec![],
+            },
+            jti: "session-a".into(),
+            expires_at: 1,
+        };
+
+        let identity = RequestPrincipal::jwt(principal);
+        assert_eq!(identity.roles(), &["admin"]);
+        assert_eq!(identity.tier(), "normal");
+    }
+}

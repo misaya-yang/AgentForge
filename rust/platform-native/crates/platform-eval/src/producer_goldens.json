@@ -1,0 +1,4972 @@
+[
+  {
+    "name": "_tool_pair_artifact",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "succeeded",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "verified",
+          "reason": "all observed canonical receipts are internally consistent"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "verified",
+            "reason": "canonical start/result/end lifecycle",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "_hitl_artifact",
+    "input": {
+      "case_id": "assistant.stateful.hitl_pause_resume",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "The approved operation resumed safely from its checkpoint.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "approval_required",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "checkpoint_id": "checkpoint-hitl-1",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "blocked",
+                    "exit_reason": "approval_pending",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "blocked",
+              "exit_reason": "approval_pending",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-hitl-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "approval_pending",
+              "status": "blocked",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "arguments": {
+                    "document_id": "doc-7",
+                    "mode": "append"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "approval_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "approved": true,
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-resume-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "tool_call_pending",
+              "status": "running",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "succeeded",
+      "output_preview": "The approved operation resumed safely from its checkpoint.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-write-1",
+              "name": "approved_write",
+              "arguments": {
+                "document_id": "doc-7",
+                "mode": "append"
+              },
+              "arguments_hash": "2d0227b55c8f6768aae3a69aa37bae10d8d37dd5d79bdb189274ed9dfa423bed",
+              "dispatch_state": "pending_approval",
+              "approval_required": true,
+              "checkpoint_id": "checkpoint-hitl-1"
+            }
+          ],
+          "hitl": {
+            "state": "paused",
+            "checkpoint_id": "checkpoint-hitl-1",
+            "dispatch_count": 0
+          }
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-write-1",
+              "name": "approved_write",
+              "arguments": {
+                "document_id": "doc-7",
+                "mode": "append"
+              },
+              "dispatch_state": "dispatched",
+              "arguments_hash": "2d0227b55c8f6768aae3a69aa37bae10d8d37dd5d79bdb189274ed9dfa423bed",
+              "approval_required": true,
+              "checkpoint_id": "checkpoint-hitl-1"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-write-1",
+              "status": "completed"
+            }
+          ],
+          "hitl": {
+            "state": "resumed",
+            "checkpoint_id": "checkpoint-hitl-1",
+            "approval_granted": true,
+            "approved_call_ids": [
+              "call-write-1"
+            ],
+            "approved_arguments_hashes": {
+              "call-write-1": "2d0227b55c8f6768aae3a69aa37bae10d8d37dd5d79bdb189274ed9dfa423bed"
+            },
+            "dispatch_count": 1
+          }
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "verified",
+          "reason": "all observed canonical receipts are internally consistent"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "verified",
+            "reason": "canonical start/result/end lifecycle",
+            "call_count": 1
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "verified",
+            "reason": "durable checkpoint, approval receipt, and canonical dispatch are hash-bound",
+            "checkpoint_id": "checkpoint-hitl-1",
+            "approval_id": "approval-1"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "_budget_artifact",
+    "input": {
+      "case_id": "case-under-test",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "failed",
+          "output_preview": "budget exhausted",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "run_budget_exceeded",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "schema_version": "assistant-run-budget/v1",
+                  "status": "exhausted",
+                  "reason": "model_turns_exhausted",
+                  "dimension": "model_turns",
+                  "limit": 3,
+                  "used": 3,
+                  "requested": 4,
+                  "budget": {
+                    "schema_version": "assistant-run-budget/v1",
+                    "limits": {
+                      "max_model_turns": 3,
+                      "max_tool_calls": 4,
+                      "max_parallel_tool_calls": 2,
+                      "max_wall_time_seconds": 300.0,
+                      "max_tool_result_bytes": 1000
+                    },
+                    "usage": {
+                      "model_turns": 3,
+                      "tool_calls": 1,
+                      "tool_result_bytes": 10,
+                      "elapsed_ms": 30
+                    },
+                    "remaining": {
+                      "model_turns": 0,
+                      "tool_calls": 3,
+                      "tool_result_bytes": 990,
+                      "wall_time_ms": 299970
+                    },
+                    "exhausted": true,
+                    "reason": "model_turns_exhausted"
+                  }
+                }
+              },
+              {
+                "event_type": "run_error",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "failed",
+                    "exit_reason": "run_budget_exceeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {
+                        "run_budget": {
+                          "schema_version": "assistant-run-budget/v1",
+                          "limits": {
+                            "max_model_turns": 3,
+                            "max_tool_calls": 4,
+                            "max_parallel_tool_calls": 2,
+                            "max_wall_time_seconds": 300.0,
+                            "max_tool_result_bytes": 1000
+                          },
+                          "usage": {
+                            "model_turns": 2,
+                            "tool_calls": 1,
+                            "tool_result_bytes": 10,
+                            "elapsed_ms": 20
+                          },
+                          "remaining": {
+                            "model_turns": 1,
+                            "tool_calls": 3,
+                            "tool_result_bytes": 990,
+                            "wall_time_ms": 299980
+                          },
+                          "exhausted": false,
+                          "reason": null
+                        }
+                      }
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {
+                      "run_budget": {
+                        "schema_version": "assistant-run-budget/v1",
+                        "limits": {
+                          "max_model_turns": 3,
+                          "max_tool_calls": 4,
+                          "max_parallel_tool_calls": 2,
+                          "max_wall_time_seconds": 300.0,
+                          "max_tool_result_bytes": 1000
+                        },
+                        "usage": {
+                          "model_turns": 2,
+                          "tool_calls": 1,
+                          "tool_result_bytes": 10,
+                          "elapsed_ms": 20
+                        },
+                        "remaining": {
+                          "model_turns": 1,
+                          "tool_calls": 3,
+                          "tool_result_bytes": 990,
+                          "wall_time_ms": 299980
+                        },
+                        "exhausted": false,
+                        "reason": null
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "failed",
+              "exit_reason": "run_budget_exceeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {
+                  "run_budget": {
+                    "schema_version": "assistant-run-budget/v1",
+                    "limits": {
+                      "max_model_turns": 3,
+                      "max_tool_calls": 4,
+                      "max_parallel_tool_calls": 2,
+                      "max_wall_time_seconds": 300.0,
+                      "max_tool_result_bytes": 1000
+                    },
+                    "usage": {
+                      "model_turns": 2,
+                      "tool_calls": 1,
+                      "tool_result_bytes": 10,
+                      "elapsed_ms": 20
+                    },
+                    "remaining": {
+                      "model_turns": 1,
+                      "tool_calls": 3,
+                      "tool_result_bytes": 990,
+                      "wall_time_ms": 299980
+                    },
+                    "exhausted": false,
+                    "reason": null
+                  }
+                }
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {
+                "run_budget": {
+                  "schema_version": "assistant-run-budget/v1",
+                  "limits": {
+                    "max_model_turns": 3,
+                    "max_tool_calls": 4,
+                    "max_parallel_tool_calls": 2,
+                    "max_wall_time_seconds": 300.0,
+                    "max_tool_result_bytes": 1000
+                  },
+                  "usage": {
+                    "model_turns": 2,
+                    "tool_calls": 1,
+                    "tool_result_bytes": 10,
+                    "elapsed_ms": 20
+                  },
+                  "remaining": {
+                    "model_turns": 1,
+                    "tool_calls": 3,
+                    "tool_result_bytes": 990,
+                    "wall_time_ms": 299980
+                  },
+                  "exhausted": false,
+                  "reason": null
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "failed",
+      "output_preview": "budget exhausted",
+      "span_kinds": [
+        "lifecycle"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "budget": {
+            "iteration": 3,
+            "max_iterations": 3,
+            "remaining": 0
+          }
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "verified",
+          "reason": "all observed canonical receipts are internally consistent"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "no canonical tool lifecycle was recorded",
+            "call_count": 0
+          },
+          "budget": {
+            "status": "verified",
+            "reason": "canonical run_budget snapshots"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "run_budget_exceeded"
+    }
+  },
+  {
+    "name": "cross_run",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "other",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "turn 1 event 1 crosses run_id; observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "turn 1 event 1 crosses run_id"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "producer identity binding is not verified",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "missing_name",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "tool lifecycle call-search-1 terminal receipt lacks tool name",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "bad_success",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": false
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "tool lifecycle call-search-1 terminal status conflicts with success; tool lifecycle call-search-1 has conflicting success receipts",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "control_argument",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1",
+                    "_approval_id": "forged"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1",
+                "_approval_id": "forged"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "tool lifecycle call-search-1 exposes control arguments: _approval_id",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "duplicate_start",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "duplicate tool_call_start for call-search-1",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "trace_conflict",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "failed",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "trace status conflicts with the final terminal envelope; observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "trace status conflicts with the final terminal envelope"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "producer identity binding is not verified",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "missing_identity",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "turn 1 event 2 must bind run_id and session_id; observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "turn 1 event 2 must bind run_id and session_id"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "producer identity binding is not verified",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "missing_terminal",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "turn 1 requires exactly one terminal event; observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "turn 1 requires exactly one terminal event"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "producer identity binding is not verified",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "noncontiguous",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "arguments": {
+                    "query": "call-search-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-search-1",
+                  "tool_name": "search_kb",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          },
+          {
+            "turn_index": 3,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "arguments": {
+                    "query": "call-read-1"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-read-1",
+                  "tool_name": "read_record",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-search-1",
+              "name": "search_kb",
+              "arguments": {
+                "query": "call-search-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-search-1",
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "turn_index": 3,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-read-1",
+              "name": "read_record",
+              "arguments": {
+                "query": "call-read-1"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-read-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "turn_index values must be contiguous and one-based; observed tool_pairing evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "turn_index values must be contiguous and one-based"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "producer identity binding is not verified",
+            "call_count": 2
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 3 budget requires start and terminal/exceeded receipts; turn 3 has no run budget snapshot; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "invalid_turns",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": {}
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "producer turns must be a list"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "producer turns must be a list"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "no canonical tool lifecycle was recorded; producer identity binding is not verified",
+            "call_count": 0
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "no turns were recorded; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "no_turns",
+    "input": {
+      "case_id": "assistant.stateful.tool_pairing",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "Both tools completed with canonical lifecycle receipts.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": []
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "Both tools completed with canonical lifecycle receipts.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "producer requires at least one canonical turn"
+        },
+        "components": {
+          "binding": {
+            "status": "unknown",
+            "reason": "producer requires at least one canonical turn"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "unknown",
+            "reason": "no canonical tool lifecycle was recorded; producer identity binding is not verified",
+            "call_count": 0
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "no turns were recorded; producer identity binding is not verified"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "HITL requires one pause, one approval result, one pause checkpoint, and one resume checkpoint"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "process_checkpoint",
+    "input": {
+      "case_id": "assistant.stateful.hitl_pause_resume",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "The approved operation resumed safely from its checkpoint.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "approval_required",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "checkpoint_id": "checkpoint-hitl-1",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "blocked",
+                    "exit_reason": "approval_pending",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "blocked",
+              "exit_reason": "approval_pending",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-hitl-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "approval_pending",
+              "status": "blocked",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "process"
+              }
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "arguments": {
+                    "document_id": "doc-7",
+                    "mode": "append"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "approval_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "approved": true,
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-resume-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "tool_call_pending",
+              "status": "running",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "The approved operation resumed safely from its checkpoint.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a"
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-write-1",
+              "name": "approved_write",
+              "arguments": {
+                "document_id": "doc-7",
+                "mode": "append"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-write-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed hitl evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "verified",
+            "reason": "canonical start/result/end lifecycle",
+            "call_count": 1
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "approval checkpoint is not a committed database-durable blocked receipt"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "bad_approval_hash",
+    "input": {
+      "case_id": "assistant.stateful.hitl_pause_resume",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "The approved operation resumed safely from its checkpoint.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "approval_required",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "checkpoint_id": "checkpoint-hitl-1",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "blocked",
+                    "exit_reason": "approval_pending",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "blocked",
+              "exit_reason": "approval_pending",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-hitl-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "approval_pending",
+              "status": "blocked",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "arguments": {
+                    "document_id": "doc-7",
+                    "mode": "append"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "approval_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "approved": true,
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-resume-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "tool_call_pending",
+              "status": "running",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "The approved operation resumed safely from its checkpoint.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a"
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-write-1",
+              "name": "approved_write",
+              "arguments": {
+                "document_id": "doc-7",
+                "mode": "append"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-write-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed hitl evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "verified",
+            "reason": "canonical start/result/end lifecycle",
+            "call_count": 1
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "approved dispatch arguments do not match the checkpoint hash; resume checkpoint is not database-durable and bound to the approval"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  },
+  {
+    "name": "uncommitted_resume",
+    "input": {
+      "case_id": "assistant.stateful.hitl_pause_resume",
+      "producer": {
+        "schema_version": "assistant-producer-evidence/v1",
+        "trace": {
+          "run_id": "11111111-1111-4111-8111-111111111111",
+          "tenant_id": "tenant-a",
+          "session_id": "session-a",
+          "status": "succeeded",
+          "output_preview": "The approved operation resumed safely from its checkpoint.",
+          "spans": [
+            {
+              "span_kind": "lifecycle"
+            },
+            {
+              "span_kind": "tool_execution"
+            }
+          ]
+        },
+        "turns": [
+          {
+            "turn_index": 1,
+            "events": [
+              {
+                "event_type": "approval_required",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "checkpoint_id": "checkpoint-hitl-1",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "blocked",
+                    "exit_reason": "approval_pending",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "blocked",
+              "exit_reason": "approval_pending",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-hitl-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "approval_pending",
+              "status": "blocked",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": true,
+                "durability": "database"
+              }
+            }
+          },
+          {
+            "turn_index": 2,
+            "events": [
+              {
+                "event_type": "tool_call_start",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "arguments": {
+                    "document_id": "doc-7",
+                    "mode": "append"
+                  }
+                }
+              },
+              {
+                "event_type": "tool_call_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "tool_call_end",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_call_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "status": "completed",
+                  "success": true
+                }
+              },
+              {
+                "event_type": "approval_result",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "tool_id": "call-write-1",
+                  "tool_name": "approved_write",
+                  "approval_id": "approval-1",
+                  "approved": true,
+                  "success": true
+                }
+              },
+              {
+                "event_type": "run_finished",
+                "data": {
+                  "run_id": "11111111-1111-4111-8111-111111111111",
+                  "session_id": "session-a",
+                  "terminal_envelope": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "status": "succeeded",
+                    "exit_reason": "succeeded",
+                    "context_snapshot": {
+                      "schema_version": "assistant-turn-contract/v1",
+                      "run_id": "11111111-1111-4111-8111-111111111111",
+                      "tenant_id": "tenant-a",
+                      "session_id": "session-a",
+                      "thread_id": "session-a",
+                      "snapshot_id": "ctx-test",
+                      "bootstrap": {}
+                    }
+                  },
+                  "context_snapshot": {
+                    "schema_version": "assistant-turn-contract/v1",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "tenant_id": "tenant-a",
+                    "session_id": "session-a",
+                    "thread_id": "session-a",
+                    "snapshot_id": "ctx-test",
+                    "bootstrap": {}
+                  }
+                }
+              }
+            ],
+            "terminal_envelope": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "status": "succeeded",
+              "exit_reason": "succeeded",
+              "context_snapshot": {
+                "schema_version": "assistant-turn-contract/v1",
+                "run_id": "11111111-1111-4111-8111-111111111111",
+                "tenant_id": "tenant-a",
+                "session_id": "session-a",
+                "thread_id": "session-a",
+                "snapshot_id": "ctx-test",
+                "bootstrap": {}
+              }
+            },
+            "context_snapshot": {
+              "schema_version": "assistant-turn-contract/v1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "thread_id": "session-a",
+              "snapshot_id": "ctx-test",
+              "bootstrap": {}
+            },
+            "checkpoint": {
+              "checkpoint_id": "checkpoint-resume-1",
+              "run_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_id": "tenant-a",
+              "session_id": "session-a",
+              "phase": "tool_call_pending",
+              "status": "running",
+              "approval_id": "approval-1",
+              "pending_tool": {
+                "tool_id": "call-write-1",
+                "tool_name": "approved_write",
+                "arguments_hash": "a10bdf80c05fba49b41e8fd05fa334034c2f7b1d30e77b0ed05ceea984289b94"
+              },
+              "checkpoint_receipt": {
+                "committed": false,
+                "durability": "database"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "status": "unknown",
+      "output_preview": "The approved operation resumed safely from its checkpoint.",
+      "span_kinds": [
+        "lifecycle",
+        "tool_execution"
+      ],
+      "turns": [
+        {
+          "turn_index": 1,
+          "tenant_id": "tenant-a"
+        },
+        {
+          "turn_index": 2,
+          "tenant_id": "tenant-a",
+          "tool_calls": [
+            {
+              "call_id": "call-write-1",
+              "name": "approved_write",
+              "arguments": {
+                "document_id": "doc-7",
+                "mode": "append"
+              },
+              "dispatch_state": "dispatched"
+            }
+          ],
+          "tool_results": [
+            {
+              "tool_call_id": "call-write-1",
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "source_adapter": {
+        "name": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1"
+      },
+      "adapter_evidence": {
+        "source": "canonical_assistant_producer",
+        "schema_version": "assistant-producer-observation/v1",
+        "evidence_tier": "recorded_runtime_artifact",
+        "integrity": {
+          "status": "not_verified",
+          "reason": "observed hitl evidence is unknown"
+        },
+        "components": {
+          "binding": {
+            "status": "verified",
+            "reason": "run/tenant/session receipts agree"
+          },
+          "plan": {
+            "status": "unknown",
+            "reason": "producer has no stable plan identity plus per-turn completion receipt"
+          },
+          "tool_pairing": {
+            "status": "verified",
+            "reason": "canonical start/result/end lifecycle",
+            "call_count": 1
+          },
+          "budget": {
+            "status": "unknown",
+            "reason": "turn 1 budget requires start and terminal/exceeded receipts; turn 1 has no run budget snapshot; turn 2 budget requires start and terminal/exceeded receipts; turn 2 has no run budget snapshot"
+          },
+          "hitl": {
+            "status": "unknown",
+            "reason": "resume checkpoint is not database-durable and bound to the approval"
+          },
+          "compaction": {
+            "status": "unknown",
+            "reason": "lineage does not prove literal retained/dropped required facts"
+          },
+          "security": {
+            "status": "unknown",
+            "reason": "producer has no prompt-policy or cross-tenant access decision receipt"
+          }
+        }
+      },
+      "exit_reason": "succeeded"
+    }
+  }
+]

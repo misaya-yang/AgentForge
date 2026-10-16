@@ -87,3 +87,29 @@ compiler/linker and protected historical artifacts were bound before/after the n
 checks; the 8 GiB disk admission floor was preserved. No old binary supplied the
 new export. Whole Gateway/integrations production assembly, auth library test execution
 and live PostgreSQL/Redis session behavior remain separate acceptance boundaries.
+
+## Gateway credential introspection compatibility (2026-10-15)
+
+Gateway now mounts `router_with_introspection` for GET `/api/v1/auth/me` only.
+The injected `CredentialIntrospectionResolver` returns profile/credential metadata,
+not a `Principal`, and does not populate the request authorization cache. Its
+Gateway implementation accepts cryptographically verified external JWT metadata
+without a local profile, or a valid enabled/unexpired database API key. Existing
+local accounts still must be active and match the credential's user and tenant;
+lookup failures return 503. Session-bearing JWTs consult the configured Redis
+allowlist. Configured static-key fallback retains the existing context behavior.
+Caller-provided user/tenant headers never establish this identity.
+
+This restores the retained source `auth.py::get_current_user` and
+`deps.py::_current_account_authority` contract: an absent local profile is distinct
+from an unavailable or disabled account. Profile fields, roles and permissions in
+this endpoint are descriptive metadata, including current account profile fields
+for a key; they do not expand that key's protected-route grants.
+
+The plain `router` factory remains session/account-only for callers that do not
+provide this seam. Validate-token, password change, `AdmissionService`, and
+`EndpointIdentityResolver` retain their existing strict session/current-account
+policy. In particular this introspection change does not grant external
+sessionless JWTs or missing-profile keys access to protected endpoints. The
+retained source's broader external-identity federation on those endpoints remains
+a separately documented policy difference pending its owning decision.

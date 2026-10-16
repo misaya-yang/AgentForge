@@ -25,6 +25,8 @@ pub mod resources;
 pub mod routes;
 pub mod scheduled;
 pub mod runtime_contract;
+pub mod runtime_envelope;
+pub mod readonly_capabilities;
 pub mod spec;
 pub mod studio;
 pub mod threads;
@@ -171,3 +173,5 @@ pub(crate) fn object(v: &Value) -> Value {
 }
 
 pub mod scheduled_notifications;
+
+pub mod model_timing;

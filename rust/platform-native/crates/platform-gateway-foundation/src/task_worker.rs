@@ -20,7 +20,9 @@ use crate::{
     dispatcher::DispatchError,
     gateway_dispatcher::{GatewayDispatchError, GatewayDispatcher},
     protocol::UnifiedResponse,
-    task_manager::{TaskEnvelope, TaskError, TaskManager, TaskQueue, TaskStatus, TaskStorage},
+    task_manager::{
+        Task, TaskEnvelope, TaskError, TaskManager, TaskQueue, TaskStatus, TaskStorage,
+    },
 };
 use std::{
     fmt,
@@ -107,13 +109,27 @@ struct Collaborators {
 }
 impl Collaborators {
     async fn process_next(&self) -> Result<(), TaskWorkerError> {
-        if let Some(durable) = &self.durable { return durable.process_next().await; }
-        let envelope = self.queue.as_ref().ok_or(TaskError::QueueUnavailable)?.dequeue().await?;
+        if let Some(durable) = &self.durable {
+            return durable.process_next().await;
+        }
+        let envelope = self
+            .queue
+            .as_ref()
+            .ok_or(TaskError::QueueUnavailable)?
+            .dequeue()
+            .await?;
         let task_id = envelope.task_id.clone();
-        if !self
-            .task_manager
-            .claim_task(&envelope)
-            .await?
+        if !self.task_manager.claim_task(&envelope).await? {
+            return Ok(());
+        }
+
+        let claimed = self.task_manager.get_task(&task_id).await?;
+        if claimed.status != TaskStatus::Processing
+            || claimed.task_id != envelope.task_id
+            || claimed.request_id != envelope.request.request_id
+            || claimed.service_id != envelope.request.service_id
+            || claimed.user_id != envelope.request.user_id
+            || claimed.tenant_id != envelope.request.tenant_id
         {
             return Ok(());
         }
@@ -124,7 +140,7 @@ impl Collaborators {
         tokio::pin!(invoke);
         let result = tokio::select! {
             result = &mut invoke => result,
-            cancelled = self.wait_for_cancellation(&task_id) => {
+            cancelled = self.wait_for_cancellation(&claimed) => {
                 cancelled?;
                 // Dropping invoke and the guard signals local cleanup. It never
                 // means that the remote request/effect did not happen.
@@ -141,7 +157,7 @@ impl Collaborators {
         };
         match self
             .task_manager
-            .transition_status(&task_id, status, result, error)
+            .transition_task(claimed.clone(), status, result, error)
             .await
         {
             Ok(_) => {}
@@ -151,7 +167,12 @@ impl Collaborators {
                 // actually completed, or a winning cancel, cannot be overwritten.
                 // This never retries dispatch or requeues the envelope.
                 self.task_manager
-                    .transition_status(&task_id, TaskStatus::Failed, None, Some(error.to_string()))
+                    .transition_task(
+                        claimed.clone(),
+                        TaskStatus::Failed,
+                        None,
+                        Some(error.to_string()),
+                    )
                     .await?;
             }
             Err(error) => return Err(error.into()),
@@ -159,15 +180,22 @@ impl Collaborators {
         Ok(())
     }
 
-    async fn wait_for_cancellation(&self, task_id: &str) -> Result<(), TaskWorkerError> {
+    async fn wait_for_cancellation(&self, claimed: &Task) -> Result<(), TaskWorkerError> {
         loop {
-            // Observe once before the first delay, closing a cancel-after-claim
-            // race quickly. Remote cancellation is best effort, not atomic with
-            // effect dispatch. Read failures drop invoke and cancel its signal.
-            if self.storage.get(task_id).await?.status == TaskStatus::Cancelled {
+            // Initial ownership was checked before dispatch. This legacy adapter
+            // reads the full row/result, so bound subsequent reads to one per
+            // second instead of amplifying payload reads fourfold at 250 ms.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            let current = self.task_manager.get_task(&claimed.task_id).await?;
+            if current.status != TaskStatus::Processing
+                || current.task_id != claimed.task_id
+                || current.request_id != claimed.request_id
+                || current.service_id != claimed.service_id
+                || current.user_id != claimed.user_id
+                || current.tenant_id != claimed.tenant_id
+            {
                 return Ok(());
             }
-            tokio::time::sleep(Duration::from_millis(250)).await;
         }
     }
 }
@@ -210,21 +238,38 @@ impl TaskWorker {
     }
 
     pub fn durable(
-        storage: Arc<dyn TaskStorage>, dispatcher: Arc<dyn TaskDispatcher>,
-        manager: Arc<TaskManager>, actors: Arc<dyn crate::task_actor::TaskActorValidator>,
+        storage: Arc<dyn TaskStorage>,
+        dispatcher: Arc<dyn TaskDispatcher>,
+        manager: Arc<TaskManager>,
+        actors: Arc<dyn crate::task_actor::TaskActorValidator>,
     ) -> Result<Self, TaskError> {
         let delivery = manager.delivery().ok_or(TaskError::QueueUnavailable)?;
         let durable = Arc::new(crate::task_durable_worker::DurableCollaborators {
-            delivery, actors, dispatcher: dispatcher.clone(), manager: manager.clone(),
+            delivery,
+            actors,
+            dispatcher: dispatcher.clone(),
+            manager: manager.clone(),
         });
         Ok(Self {
-            collaborators: Arc::new(Collaborators { queue: None, durable: Some(durable), storage,
-                dispatcher, task_manager: manager }), running: Arc::new(AtomicBool::new(false)), failed_iterations: Arc::new(AtomicUsize::new(0)), workers: Vec::new(),
+            collaborators: Arc::new(Collaborators {
+                queue: None,
+                durable: Some(durable),
+                storage,
+                dispatcher,
+                task_manager: manager,
+            }),
+            running: Arc::new(AtomicBool::new(false)),
+            failed_iterations: Arc::new(AtomicUsize::new(0)),
+            workers: Vec::new(),
         })
     }
     pub async fn verify_ready(&self) -> Result<(), TaskError> {
         if let Some(durable) = &self.collaborators.durable {
-            durable.delivery.verify_ready().await.map_err(|_|TaskError::StorageUnavailable)?;
+            durable
+                .delivery
+                .verify_ready()
+                .await
+                .map_err(|_| TaskError::StorageUnavailable)?;
         }
         Ok(())
     }
@@ -260,13 +305,19 @@ impl TaskWorker {
     pub async fn stop(&mut self) {
         self.running.store(false, Ordering::Release);
         let workers = std::mem::take(&mut self.workers);
-        for worker in &workers { worker.abort(); }
+        for worker in &workers {
+            worker.abort();
+        }
         // Establish cancellation before the host drains supervised DB operations.
-        for worker in workers { let _ = worker.await; }
+        for worker in workers {
+            let _ = worker.await;
+        }
     }
 
     /// Cumulative failed durable iterations; liveness is not a health verdict.
-    pub fn failed_iteration_count(&self) -> usize { self.failed_iterations.load(Ordering::Acquire) }
+    pub fn failed_iteration_count(&self) -> usize {
+        self.failed_iterations.load(Ordering::Acquire)
+    }
 
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Acquire)

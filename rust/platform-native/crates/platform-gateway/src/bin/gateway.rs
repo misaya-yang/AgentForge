@@ -1,18 +1,36 @@
-//! Gateway executable. Input is a bounded explicit JSON document on stdin.
-//! No dotenv, ambient environment credentials or credential files are discovered.
+//! Gateway executable. Explicit JSON stdin and opt-in source-compatible env modes.
+//! Configuration remains in memory; resolved secrets are never printed.
 use ai_platform_gateway::migration_host::bootstrap::{
     BootstrapError, configuration::GatewayDocument,
 };
 use std::{io::Read, process::ExitCode, time::Duration};
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let check_only = args == ["--check-config-stdin"];
-    if args != ["--config-stdin"] && !check_only {
-        eprintln!("Usage: gateway --config-stdin | --check-config-stdin (explicit JSON input)");
+    let check_only = args == ["--check-config-stdin"] || args == ["--check-config-env"];
+    let environment_mode = args == ["--config-env"] || args == ["--check-config-env"];
+    if args != ["--config-stdin"] && args != ["--check-config-stdin"] && !environment_mode {
+        eprintln!(
+            "Usage: gateway --config-stdin | --check-config-stdin | --config-env | --check-config-env"
+        );
         return ExitCode::FAILURE;
     }
     let mut bytes = Vec::new();
-    if std::io::stdin()
+    if environment_mode {
+        let resolved = match ai_platform_config_loader::load_gateway_document_from_process() {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        bytes = match serde_json::to_vec(&resolved) {
+            Ok(value) => value,
+            Err(_) => {
+                eprintln!("Invalid gateway configuration");
+                return ExitCode::FAILURE;
+            }
+        };
+    } else if std::io::stdin()
         .take(4 * 1024 * 1024 + 1)
         .read_to_end(&mut bytes)
         .is_err()
@@ -55,7 +73,13 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let result = runtime.block_on(run(document));
+    let result = runtime.block_on(async {
+        // Before constructing pools, matching the shared source startup order.
+        let tracing = ai_platform_gateway_foundation::distributed_tracing::initialize("gateway");
+        let result = run(document).await;
+        let _ = tokio::task::spawn_blocking(move || tracing.shutdown()).await;
+        result
+    });
     // Process boundary: remaining async connection tasks are dropped with this
     // owned runtime. A timed-out library host must not be reused as if drained.
     runtime.shutdown_timeout(Duration::from_secs(5));

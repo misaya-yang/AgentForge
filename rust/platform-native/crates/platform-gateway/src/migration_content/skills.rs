@@ -276,10 +276,23 @@ pub fn activation_requirements(m: &Value) -> Value {
         .map(py_string)
         .unwrap_or_default()
         .to_lowercase();
-    let independent_critic = ["critic_artifact", "critic_report", "artifact"].iter().any(|k| truth(&review[*k]))
-        && (verdict.is_empty() || ["approved", "approve", "pass", "passed"].contains(&verdict.as_str()));
-    let eval_evidence = ["evidence", "eval_artifact", "test_command"].iter().any(|k| truth(&m["evaluation"][*k])) || m["evaluation"]["passed"] == true;
-    let rollback_metadata = ["previous_version", "strategy", "rollback_artifact", "restore_from"].iter().any(|k| truth(&m["rollback"][*k]));
+    let independent_critic = ["critic_artifact", "critic_report", "artifact"]
+        .iter()
+        .any(|k| truth(&review[*k]))
+        && (verdict.is_empty()
+            || ["approved", "approve", "pass", "passed"].contains(&verdict.as_str()));
+    let eval_evidence = ["evidence", "eval_artifact", "test_command"]
+        .iter()
+        .any(|k| truth(&m["evaluation"][*k]))
+        || m["evaluation"]["passed"] == true;
+    let rollback_metadata = [
+        "previous_version",
+        "strategy",
+        "rollback_artifact",
+        "restore_from",
+    ]
+    .iter()
+    .any(|k| truth(&m["rollback"][*k]));
     json!({"independent_critic": independent_critic, "eval_evidence": eval_evidence, "rollback_metadata": rollback_metadata})
 }
 pub fn review_required(m: &Value) -> bool {
@@ -903,9 +916,15 @@ fn catalog(mut item: Value, content: bool) -> Value {
 }
 pub fn router(api: Arc<SkillsApi>) -> Router {
     Router::new()
-        .route("/skills", get(list))
+        .route("/skills", get(list).head(crate::read_method_not_allowed))
         .route("/skills/upload", post(upload))
-        .route("/skills/{name}", get(get_one).patch(update).delete(delete))
+        .route(
+            "/skills/{name}",
+            get(get_one)
+                .patch(update)
+                .delete(delete)
+                .head(crate::read_method_not_allowed),
+        )
         .route("/skills/{name}/test", post(test))
         .route("/skills/{name}/enable", post(enable))
         .route("/skills/{name}/disable", post(disable))
@@ -973,41 +992,12 @@ async fn update(
     headers: HeaderMap,
     Json(mut body): Json<Value>,
 ) -> Result<Json<Value>, ContentError> {
-    let u = actor(&api, &headers, true).await?;
+    let u = api.access.resolve(&headers).await?;
+    body = skill_update_payload(&body)?;
+    api.access
+        .require_capability(&u, "GatewaySkillWrite")
+        .await?;
     api.reject_platform(&name)?;
-    for key in ["title", "description"] {
-        if body
-            .get(key)
-            .is_some_and(|v| !v.is_null() && !v.is_string())
-        {
-            return Err(policy(
-                "SKILL_MANIFEST_INVALID",
-                "Skill metadata field must be a string",
-                key,
-            ));
-        }
-    }
-    for key in ["tags", "permissions"] {
-        if body.get(key).is_some_and(|v| {
-            !v.is_null()
-                && !v
-                    .as_array()
-                    .is_some_and(|items| items.iter().all(Value::is_string))
-        }) {
-            return Err(policy(
-                "SKILL_MANIFEST_INVALID",
-                "Skill metadata field must be a list of strings",
-                key,
-            ));
-        }
-    }
-    if let Some(enabled) = body.get("enabled").filter(|v| !v.is_null()) {
-        body["enabled"] = json!(crate::rate_config_api::boolean(enabled).map_err(|_| policy(
-            "SKILL_MANIFEST_INVALID",
-            "enabled must be a boolean",
-            "enabled"
-        ))?);
-    }
     let mut changes = Map::new();
     for k in ["title", "description", "tags", "permissions"] {
         if let Some(v) = body.get(k) {
@@ -1015,6 +1005,15 @@ async fn update(
         }
     }
     let enabled = body.get("enabled").filter(|v| !v.is_null());
+    for (key, value) in &changes {
+        if value.is_null() {
+            return Err(policy(
+                "SKILL_MANIFEST_INVALID",
+                "Skill metadata fields cannot be null",
+                key,
+            ));
+        }
+    }
     let row = if changes.is_empty() {
         if let Some(enabled) = enabled {
             api.repository
@@ -1047,14 +1046,111 @@ async fn delete(
         .await?;
     Ok(Json(json!({"deleted":true,"name":name})))
 }
+/// Pydantic SkillUpdateRequest semantics; ignored extras and nullable optionals.
+pub fn skill_update_payload(body: &Value) -> Result<Value, ContentError> {
+    let Some(input) = body.as_object() else {
+        return Err(ContentError::new(
+            422,
+            json!([{"type":"model_attributes_type","loc":["body"],"msg":"Input should be a valid dictionary or object to extract fields from","input":body}]),
+        ));
+    };
+    let mut output = Map::new();
+    let mut errors = Vec::new();
+    for key in ["title", "description", "tags", "permissions", "enabled"] {
+        let Some(value) = input.get(key) else {
+            continue;
+        };
+        if value.is_null() {
+            output.insert(key.into(), Value::Null);
+            continue;
+        }
+        let issue = |kind: &str, message: &str, input: &Value, loc: Value| json!({"type":kind,"loc":loc,"msg":message,"input":input});
+        match key {
+            "title" | "description" if !value.is_string() => errors.push(issue(
+                "string_type",
+                "Input should be a valid string",
+                value,
+                json!(["body", key]),
+            )),
+            "tags" | "permissions" => {
+                if let Some(items) = value.as_array() {
+                    for (index, item) in items.iter().enumerate() {
+                        if !item.is_string() {
+                            errors.push(issue(
+                                "string_type",
+                                "Input should be a valid string",
+                                item,
+                                json!(["body", key, index]),
+                            ));
+                        }
+                    }
+                    output.insert(key.into(), value.clone());
+                } else {
+                    errors.push(issue(
+                        "list_type",
+                        "Input should be a valid list",
+                        value,
+                        json!(["body", key]),
+                    ));
+                }
+            }
+            "enabled" => match crate::rate_config_api::boolean(value) {
+                Ok(enabled) => {
+                    output.insert(key.into(), json!(enabled));
+                }
+                Err(_) => errors.push(issue(
+                    if value.is_number() || value.is_string() {
+                        "bool_parsing"
+                    } else {
+                        "bool_type"
+                    },
+                    if value.is_number() || value.is_string() {
+                        "Input should be a valid boolean, unable to interpret input"
+                    } else {
+                        "Input should be a valid boolean"
+                    },
+                    value,
+                    json!(["body", key]),
+                )),
+            },
+            _ => {
+                output.insert(key.into(), value.clone());
+            }
+        }
+    }
+    if errors.is_empty() {
+        Ok(Value::Object(output))
+    } else {
+        Err(ContentError::new(422, json!(errors)))
+    }
+}
+/// Pydantic SkillTestRequest requires a string but permits the empty string.
+pub fn skill_test_input(body: &Value) -> Result<&str, ContentError> {
+    if !body.is_object() {
+        return Err(ContentError::new(
+            422,
+            json!([{"type":"model_attributes_type","loc":["body"],"msg":"Input should be a valid dictionary or object to extract fields from","input":body}]),
+        ));
+    }
+    let Some(value) = body.get("input") else {
+        return Err(ContentError::new(
+            422,
+            json!([{"type":"missing","loc":["body","input"],"msg":"Field required","input":body}]),
+        ));
+    };
+    value.as_str().ok_or_else(||ContentError::new(422,json!([{"type":"string_type","loc":["body","input"],"msg":"Input should be a valid string","input":value}])))
+}
 async fn test(
     State(api): State<Arc<SkillsApi>>,
     Path(name): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, ContentError> {
-    let u = actor(&api, &headers, true).await?;
-    let input = super::required(&body, "input")?;
+    let u = api.access.resolve(&headers).await?;
+    let input = skill_test_input(&body)?;
+    api.access
+        .require_capability(&u, "GatewaySkillWrite")
+        .await?;
     if api.reserved().contains(&name) {
         return Ok(Json(
             json!({"success":true,"type":"skill_instructions","result":format!("The user wants to create a skill: {input}\n\nFollow the Skill Creator propose-review-test-enable workflow:\n1. Ask clarifying questions about the skill's purpose and triggers\n2. Determine required permissions\n3. Generate a complete proposed SKILL.md file with generated: true, enabled: false, and lifecycle_status: proposed\n4. Present it to the user for review\n5. Do not register or enable it until independent critic evidence, eval evidence, and rollback metadata are recorded\n\nOutput the proposed SKILL.md in a code block when ready.")}),

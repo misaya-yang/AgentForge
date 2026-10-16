@@ -16,7 +16,7 @@ use ai_platform_capability_worker::{
     confluence_write_broker::{ConfluenceWriteBrokerConfig, ReqwestConfluenceWriteBroker},
     external_write_capabilities::{ExternalWriteExecutor, GatewayWriteBrokerRouter},
     image_write_broker::{ImageWriteBrokerConfig, ReqwestImageWriteBroker},
-    local_node_broker::{LocalNodeBroker, UnavailableLocalNodeTransport},
+    local_node_broker::{LocalNodeBroker, LocalNodeGatewayConfig, ReqwestLocalNodeTransport},
     office_artifact_broker::{OfficeArtifactBrokerConfig, ReqwestOfficeArtifactStore},
     office_capabilities::OfficeCapabilityExecutor,
     python_artifact_broker::{PythonArtifactBrokerConfig, ReqwestPythonArtifactStore},
@@ -258,9 +258,16 @@ async fn main() -> anyhow::Result<()> {
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?,
     );
-    let local_node_broker = Arc::new(LocalNodeBroker::new(Arc::new(
-        UnavailableLocalNodeTransport,
-    )));
+    let local_node_transport = ReqwestLocalNodeTransport::new(
+        read_http_client.clone(),
+        LocalNodeGatewayConfig {
+            gateway_url: args.gateway_url.clone(),
+            internal_token: args.internal_token.clone(),
+            proof_secret: args.proof_secret.clone(),
+        },
+    )
+    .context("configure Local Node Gateway broker")?;
+    let local_node_broker = Arc::new(LocalNodeBroker::new(Arc::new(local_node_transport)));
     let write_executor = if args.writes_enabled {
         Some(Arc::new(WriteCapabilityExecutor::new(Arc::new(
             PostgresMemoryWriteAdapter::new(store.pool()),

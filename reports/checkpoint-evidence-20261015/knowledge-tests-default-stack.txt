@@ -1,0 +1,548 @@
+   Compiling ai-platform-auth v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-auth)
+   Compiling ai-platform-gateway-foundation v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-gateway-foundation)
+warning: field `storage` is never read
+   --> crates/platform-gateway-foundation/src/task_worker.rs:106:5
+    |
+103 | struct Collaborators {
+    |        ------------- field in this struct
+...
+106 |     storage: Arc<dyn TaskStorage>,
+    |     ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `total_duration` is never used
+   --> crates/platform-gateway-foundation/src/usage_recorder.rs:194:8
+    |
+135 | impl UsageRecord {
+    | ---------------- method in this implementation
+...
+194 |     fn total_duration(&self) -> i64 {
+    |        ^^^^^^^^^^^^^^
+
+warning: `ai-platform-gateway-foundation` (lib) generated 2 warnings
+   Compiling ai-platform-gateway-integrations v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-gateway-integrations)
+warning: unused import: `lexical_v2::LexicalProfile`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_query/index.rs:4:5
+  |
+4 |     lexical_v2::LexicalProfile,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_query/hierarchy.rs:11:19
+   |
+11 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^
+
+warning: unused imports: `BTreeMap`, `BTreeSet`, and `sync::Arc`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_query/migration.rs:15:19
+   |
+15 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^  ^^^^^^^^
+16 |     sync::Arc,
+   |     ^^^^^^^^^
+
+warning: unused imports: `object` and `string`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/catalog_http.rs:6:5
+  |
+6 |     object, require_index_writable, string,
+  |     ^^^^^^                          ^^^^^^
+
+warning: unused imports: `sha256` and `string`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/chunk_manager.rs:5:13
+  |
+5 |     object, sha256, string,
+  |             ^^^^^^  ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/http.rs:5:72
+  |
+5 |     Actor, IngestError, IngestionService, batches::DocumentBatchStore, object,
+  |                                                                        ^^^^^^
+
+warning: unused imports: `KnowledgeWriteStore` and `integer`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/images.rs:4:52
+  |
+4 |     Chunk, Dataset, IngestError, IngestionService, KnowledgeWriteStore, Result,
+  |                                                    ^^^^^^^^^^^^^^^^^^^
+5 |     assets::AssetStorage, integer, object, sha256, string,
+  |                           ^^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/inspection_http.rs:6:5
+  |
+6 |     object, string,
+  |     ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/metadata.rs:2:80
+  |
+2 | use super::{Actor, IngestError, IngestionService, KnowledgeWriteStore, Result, object, string};
+  |                                                                                ^^^^^^
+
+warning: unused import: `Chunk`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/service.rs:3:12
+  |
+3 |     Actor, Chunk, Dataset, IngestError, ProcessingMode, Result, canonical_json,
+  |            ^^^^^
+
+warning: unused import: `BTreeSet`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/service.rs:16:29
+   |
+16 |     collections::{BTreeMap, BTreeSet},
+   |                             ^^^^^^^^
+
+warning: unused imports: `Dataset` and `canonical_json`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/store.rs:3:19
+  |
+3 |     Actor, Chunk, Dataset, IngestError, Result, canonical_json, dataset_ingestion_identity,
+  |                   ^^^^^^^                       ^^^^^^^^^^^^^^
+
+warning: unused import: `BTreeSet`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/store.rs:8:34
+  |
+8 | use std::collections::{BTreeMap, BTreeSet};
+  |                                  ^^^^^^^^
+
+warning: unused imports: `canonical_json` and `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/structured.rs:4:34
+  |
+4 | use super::{IngestError, Result, canonical_json, integer, object, sha256, string};
+  |                                  ^^^^^^^^^^^^^^           ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/version_reads.rs:2:59
+  |
+2 | use super::{Actor, IngestError, IngestionService, Result, object, sha256, string};
+  |                                                           ^^^^^^
+
+warning: unused import: `canonical_json`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/versions.rs:3:60
+  |
+3 |     Actor, Dataset, IngestError, IngestionService, Result, canonical_json,
+  |                                                            ^^^^^^^^^^^^^^
+
+warning: unused import: `Value`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/vision.rs:12:18
+   |
+12 | use serde_json::{Value, json};
+   |                  ^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::KeywordIndexParams::on_disk`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_config.rs:124:266
+    |
+124 | ...>json!({"type":"keyword","is_tenant":p.is_tenant,"on_disk":p.on_disk}),_=>Value::Null};(k,json!({"data_type":q::PayloadSchemaTyp...
+    |                                                               ^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `qdrant_client::qdrant::CollectionParams::on_disk_payload`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_config.rs:126:402
+    |
+126 | ...sparse,"shard_number":p.shard_number,"on_disk_payload":p.on_disk_payload},"strict_mode_config":strict}})
+    |                                                           ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::indices`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:125:36
+    |
+125 |             if let Some(indices) = v.indices {
+    |                                    ^^^^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::data`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:126:56
+    |
+126 |                 json!({"indices":indices.data,"values":v.data})
+    |                                                        ^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::data`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:128:23
+    |
+128 |                 json!(v.data)
+    |                       ^^^^^^
+
+warning: use of deprecated method `quick_xml::events::attributes::Attribute::<'a>::decode_and_unescape_value`: use `Self::decoded_and_normalized_value()`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/docx.rs:115:38
+    |
+115 | ...                   .decode_and_unescape_value(reader.decoder())
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `quick_xml::events::attributes::Attribute::<'a>::decode_and_unescape_value`: use `Self::decoded_and_normalized_value()`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/images.rs:453:31
+    |
+453 | ...                   a.decode_and_unescape_value(reader.decoder())
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_local_event` is never used
+    --> crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs:1023:8
+     |
+1023 | pub fn extract_local_event(event: &Value, seen: &mut HashSet<String>) -> Option<StreamEvent> {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-gateway-integrations` (lib) generated 25 warnings (run `cargo fix --lib -p ai-platform-gateway-integrations` to apply 17 suggestions)
+   Compiling ai-platform-migration-authority v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-migration-authority)
+warning: unused import: `serde_json::json`
+  --> crates/platform-migration-authority/src/legacy.rs:11:5
+   |
+11 | use serde_json::json;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-migration-authority` (lib) generated 1 warning (run `cargo fix --lib -p ai-platform-migration-authority` to apply 1 suggestion)
+   Compiling ai-platform-gateway v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-gateway)
+warning: unused import: `self as content`
+ --> crates/platform-gateway/src/migration_host/content.rs:9:9
+  |
+9 |         self as content, ContentDatabase, ContentError, ContentServices,
+  |         ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `sync::Arc`
+  --> crates/platform-gateway/src/migration_agent/memory_cleanup.rs:11:5
+   |
+11 |     sync::Arc,
+   |     ^^^^^^^^^
+
+warning: unused import: `Scope`
+ --> crates/platform-gateway/src/migration_agent/public.rs:4:37
+  |
+4 |     Actor, AgentError, AgentFuture, Scope,
+  |                                     ^^^^^
+
+warning: unused import: `json`
+ --> crates/platform-gateway/src/migration_agent/resources.rs:8:25
+  |
+8 | use serde_json::{Value, json};
+  |                         ^^^^
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway/src/migration_agent/resources.rs:11:19
+   |
+11 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^
+
+warning: unused import: `DateTime`
+ --> crates/platform-gateway/src/migration_agent/scheduled.rs:5:14
+  |
+5 | use chrono::{DateTime, Utc};
+  |              ^^^^^^^^
+
+warning: unused imports: `SelectedCredential` and `select_credential`
+ --> crates/platform-gateway/src/migration_knowledge_query/http.rs:9:16
+  |
+9 |     api_keys::{SelectedCredential, select_credential},
+  |                ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `HeaderName`
+  --> crates/platform-gateway/src/migration_knowledge_query/http.rs:15:23
+   |
+15 |     http::{HeaderMap, HeaderName, StatusCode},
+   |                       ^^^^^^^^^^
+
+warning: unused import: `IntoResponse`
+  --> crates/platform-gateway/src/migration_content/artifacts.rs:11:16
+   |
+11 |     response::{IntoResponse, Response},
+   |                ^^^^^^^^^^^^
+
+warning: unnecessary parentheses around `if` condition
+   --> crates/platform-gateway/src/migration_content/attachments.rs:213:15
+    |
+213 |     } else if (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) {
+    |               ^                                                            ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+213 -     } else if (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) {
+213 +     } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+    |
+
+warning: unused import: `collections::BTreeMap`
+  --> crates/platform-gateway/src/migration_content/capabilities.rs:13:11
+   |
+13 | use std::{collections::BTreeMap, sync::Arc};
+   |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `string`
+ --> crates/platform-gateway/src/migration_content/conversations.rs:2:59
+  |
+2 | use super::{ContentAccess, ContentError, ContentIdentity, string};
+  |                                                           ^^^^^^
+
+warning: unused import: `ContentFuture`
+ --> crates/platform-gateway/src/migration_content/read_broker.rs:3:19
+  |
+3 |     ContentError, ContentFuture,
+  |                   ^^^^^^^^^^^^^
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway/src/migration_content/shares.rs:28:19
+   |
+28 |     collections::{BTreeMap, HashMap, HashSet},
+   |                   ^^^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway/src/migration_compat/confluence.rs:4:27
+  |
+4 |     common::{CompatError, object, text},
+  |                           ^^^^^^
+
+warning: unused import: `Bytes`
+  --> crates/platform-gateway/src/migration_compat/langgraph.rs:20:18
+   |
+20 |     body::{Body, Bytes, to_bytes},
+   |                  ^^^^^
+
+warning: unused import: `header`
+ --> crates/platform-gateway/src/migration_compat/mcp_invocation.rs:4:27
+  |
+4 |     common::{CompatError, header, text},
+  |                           ^^^^^^
+
+warning: unused import: `SessionError`
+   --> crates/platform-gateway/src/migration_compat/responses.rs:660:38
+    |
+660 |     session_manager::{CreateSession, SessionError},
+    |                                      ^^^^^^^^^^^^
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/platform-gateway/src/migration_host/logging.rs:86:14
+   |
+86 |             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+   |              ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+86 -             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+86 +             .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/platform-gateway/src/migration_host/pdf_backend.rs:852:14
+    |
+852 |             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+    |              ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+852 -             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+852 +             .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+    |
+
+warning: unused import: `Row`
+  --> crates/platform-gateway/src/migration_agent/release.rs:11:26
+   |
+11 | use sqlx::{PgConnection, Row};
+   |                          ^^^
+
+warning: unused import: `Row`
+ --> crates/platform-gateway/src/migration_agent/studio.rs:7:34
+  |
+7 | use sqlx::{PgConnection, PgPool, Row};
+  |                                  ^^^
+
+warning: value assigned to `cleanup` is never read
+   --> crates/platform-gateway/src/migration_agent/model.rs:605:17
+    |
+605 |                 cleanup.armed = false;
+    |                 ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `operation_id` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:43:4
+   |
+43 | fn operation_id(prefix: &str) -> String {
+   |    ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `extend_document` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:53:8
+   |
+53 | pub fn extend_document(document: &mut Value) {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `source_sha256` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:98:4
+   |
+98 | fn source_sha256() -> Value {
+   |    ^^^^^^^^^^^^^
+
+warning: `ai-platform-gateway` (lib) generated 26 warnings (run `cargo fix --lib -p ai-platform-gateway` to apply 20 suggestions)
+   Compiling ai-platform-knowledge-service v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-knowledge-service)
+    Finished `test` profile [unoptimized] target(s) in 3m 00s
+     Running tests/knowledge_migration_parity_assets.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_assets-8c603ab653f812e3)
+
+running 5 tests
+test local_image_signing_fails_closed_without_key ... ok
+test cleanup_uses_only_exact_owned_prefixes_and_counts ... ok
+test ambiguous_cleanup_scope_never_calls_backend ... ok
+test scoped_image_download_calls_backend_for_exact_owned_key_only ... ok
+test local_image_signing_matches_exported_knowledge_verifier ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_config.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_config-d5e0f09f0440cea3)
+
+running 5 tests
+test chunking_runtime_rejects_unsafe_source_fields ... ok
+test chunking_config_chain_uses_real_parser_and_preserves_explicit_budgets ... ok
+test metadata_patch_is_typed_bounded_and_timezone_normalized ... ok
+test metadata_registry_rejects_reserved_duplicate_and_type_changes ... ok
+test reranker_provider_inference_aliases_and_regional_endpoints ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_display.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_display-bb4d93ba604e9a1e)
+
+running 6 tests
+test archived_precedence_and_completed_enabled_default ... ok
+test internal_and_legacy_states_map_to_public_vocabulary ... ok
+test projection_preserves_identity_internal_status_and_nondictionaries ... ok
+test every_state_and_flag_combination_is_in_closed_vocabulary ... ok
+test public_error_projection_redacts_secrets_and_keeps_safe_rebuild_action ... ok
+test unknown_nondictionary_and_normalized_statuses_fail_closed ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_embedding.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_embedding-aa1a8863358319fe)
+
+running 5 tests
+test query_and_document_text_types_do_not_share_cached_vectors ... ok
+test query_cache_is_dimension_scoped_and_returns_owned_copies ... ok
+test text_and_image_dimensions_are_forwarded_and_mismatches_refused ... ok
+test endpoint_and_credential_instances_keep_each_request_identity ... ok
+test both_multimodal_image_batches_fail_instead_of_returning_partial_vectors ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/knowledge_migration_parity_eval.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_eval-d14e81efdcebbb1d)
+
+running 6 tests
+test levenshtein_known_values ... ok
+test normalized_latex_and_similarity ... ok
+test identical_document_is_perfect ... ok
+test bad_parse_is_penalized ... ok
+test table_similarity_identical_and_degraded ... ok
+test matched_reading_order ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_metrics.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_metrics-8e5e755816377a70)
+
+running 1 test
+test pipeline_metrics_preserve_counters_histograms_bounded_labels_and_bad_duration_contracts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_mmr.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_mmr-b74f2526e1a3a905)
+
+running 7 tests
+test empty_zero_k_and_empty_ids_do_not_select ... ok
+test extreme_lambda_selects_relevance_or_diversity ... ok
+test missing_vectors_and_zero_norms_keep_reference_order ... ok
+test resolved_policy_defaults_shorthand_precedence_and_invalid_values ... ok
+test no_threshold_has_same_selection_for_both_policies ... ok
+test strict_rejects_duplicates_and_fill_restores_only_unannotated_tail ... ok
+test incremental_selection_matches_independent_brute_force_and_pick_metrics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/knowledge_migration_parity_multilingual.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_multilingual-5bc2a563a27cb0aa)
+
+running 6 tests
+test language_specific_fusion_weights_preserve_source_values ... ok
+test bm25_normalization_preserves_keys_extrema_and_percentiles ... ok
+test arabic_normalization_removes_diacritics_and_stopwords ... ok
+test multilingual_tokenization_keeps_original_and_detects_language ... ok
+test multilingual_token_counts_are_positive_and_repeatable ... ok
+test token_chunks_preserve_english_and_arabic_at_three_limits ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/knowledge_migration_parity_parsing.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_parsing-15ae801edb861f94)
+
+running 11 tests
+test ir_heading_clamp_and_html_only_summary ... ok
+test cascade_default_config_roundtrip_and_confidence_semantics ... ok
+test ir_render_order_markers_formula_figure_and_citations ... ok
+test cascade_first_acceptable_cache_copy_and_version_invalidation ... ok
+test cascade_escalates_exceptions_low_confidence_and_skips_unavailable ... ok
+test native_payload_adapters_preserve_types_bbox_and_dual_store ... ok
+test ir_defaults_unknown_kind_reading_order_stats_and_bbox_source_contract ... ok
+test table_classification_header_parser_and_pure_document_rewrite ... ok
+test ir_roundtrip_is_exact_deterministic_and_preserves_version ... ok
+test table_segments_repeat_headers_overlap_cover_rows_and_keep_provenance ... ok
+test table_tier_boundaries_small_and_html_only_are_preserved ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_process.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_process-b3a6a7f2b642a8fe)
+
+running 4 tests
+test domain_endpoints_use_shared_resolver_and_keep_explicit_embedding_override ... ok
+test provider_specific_fallbacks_do_not_cross_provider_boundaries ... ok
+test parsing_each_supplied_environment_snapshot_observes_new_values ... ok
+test qa_original_environment_names_and_empty_alias_fallthrough ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_query_settings.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_query_settings-e6b6fe74af13c85a)
+
+running 7 tests
+test preset_shorthands_echo_inert_defaults_and_normalized_names ... ok
+test nested_rrf_aliases_and_canonical_weighted_alpha_are_preserved ... ok
+test absent_disabled_presets_are_unconfigured ... ok
+test rrf_weighting_requires_explicit_configuration ... ok
+test preset_unknown_names_and_malformed_shapes_fail_before_recall ... ok
+test persisted_invalid_fusion_parameters_fail_closed ... ok
+test preset_flags_and_scalar_shorthand_change_cache_fingerprint ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/knowledge_migration_parity_rerank.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_rerank-4df8c58571bab04e)
+
+running 3 tests
+test legacy_unsorted_provider_output_is_resorted ... ok
+test flat_unsorted_provider_output_is_resorted ... ok
+test cache_preserves_resorted_order_top_n_and_document_boundaries ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/knowledge_migration_parity_retrieval.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_retrieval-35dd79fdeb791408)
+
+running 10 tests
+test dataset_fingerprint_tracks_authority_and_effective_config_not_secrets ... ok
+test unresolved_summary_passthrough_and_prefix_optout ... ok
+test parent_fanout_widens_each_leg_without_shrinking ... ok
+test structural_settings_validate_exact_source_cases ... ok
+test lexical_profile_defaults_fingerprints_roundtrip_and_fail_closed ... ok
+test public_and_persisted_retrieval_bounds_refuse_amplification ... ok
+test dataset_fingerprint_includes_nested_rrf_weights_and_lexical_profile ... ok
+test parent_and_summary_settings_preserve_disabled_defaults_and_invalid_shapes ... ok
+test summary_merge_preserves_max_score_source_union_and_original_body ... ok
+test structural_boost_affinity_clamping_and_empty_query ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/knowledge_migration_parity_tools.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_tools-1d183a70a1b07bc0)
+
+running 2 tests
+
+thread 'every_tool_entrypoint_rejects_invalid_inputs_before_retrieval' (848) has overflowed its stack
+fatal runtime error: stack overflow, aborting
+error: test failed, to rerun pass `-p ai-platform-knowledge-service --test knowledge_migration_parity_tools`
+
+Caused by:
+  process didn't exit successfully: `/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/knowledge_migration_parity_tools-1d183a70a1b07bc0` (signal: 6, SIGABRT: process abort signal)
+error: 1 target failed:
+    `-p ai-platform-knowledge-service --test knowledge_migration_parity_tools`

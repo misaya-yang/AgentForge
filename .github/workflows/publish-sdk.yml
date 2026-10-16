@@ -11,11 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install uv
-        run: python -m pip install "uv==0.13.0"
+      - uses: ./.github/actions/setup-native
       - uses: actions/setup-node@v4
         with:
           node-version: '26.11.1'
@@ -36,25 +32,26 @@ jobs:
           SDK_SSE_CONTRACT_REQUIRE_ALL: '1'
         run: make sdk-sse-contract
 
-  publish-pypi:
-    name: Publish Python SDK to PyPI
+  package-rust-sdk:
+    name: Package Rust SDK source
     needs: verify-sse-contract
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Build
+      - uses: ./.github/actions/setup-native
+      - name: Verify and package Rust client
         run: |
-          cd sdk/python
-          pip install build twine
-          python -m build
-      - name: Upload to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: cd sdk/python && twine upload dist/*
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client
+          cargo package --locked --manifest-path rust/platform-native/crates/platform-client/Cargo.toml --no-verify
+      - name: Upload Rust SDK candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-client-source
+          path: ${{ runner.temp }}/platform-native-target/package/*.crate
+          if-no-files-found: error
+      # Publishing to a new registry requires an explicitly configured release workflow.
 
   publish-cli:
     name: Publish ai-gateway-cli Linux x64 package to npm
@@ -62,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-native
       - uses: actions/setup-node@v4
         with:
           node-version: '26.11.1'
@@ -74,8 +72,8 @@ jobs:
       - name: Prepare pinned Codex source
         shell: bash
         run: |
-          source_url="$(python3 -c 'import json; print(json.load(open("deploy/agent-runtime-source/source-receipt.json"))["source"]["upstream_url"])')"
-          source_sha="$(python3 -c 'import json; print(json.load(open("deploy/agent-runtime-source/source-receipt.json"))["source"]["upstream_sha"])')"
+          source_url="$(platform-tools json-get deploy/agent-runtime-source/source-receipt.json source.upstream_url)"
+          source_sha="$(platform-tools json-get deploy/agent-runtime-source/source-receipt.json source.upstream_sha)"
           source_dir="$RUNNER_TEMP/codex-harness"
           git init "$source_dir"
           git -C "$source_dir" remote add origin "$source_url"
@@ -109,12 +107,10 @@ jobs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - uses: ./.github/actions/setup-client-packaging
       - id: targets
         name: Read the canonical platformctl target manifest
-        run: echo "matrix=$(python scripts/harness/package_platformctl.py --matrix)" >> "$GITHUB_OUTPUT"
+        run: echo "matrix=$(platform-client-packaging package-platformctl --matrix)" >> "$GITHUB_OUTPUT"
 
   build-platformctl:
     name: Package platformctl (${{ matrix.name }})
@@ -132,10 +128,8 @@ jobs:
       CARGO_TARGET_DIR: ${{ runner.temp }}/platformctl-target
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup-client-packaging
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.rust_target }}
       - name: Build only the shared management client binary
@@ -144,7 +138,7 @@ jobs:
       - name: Verify native binary and create checksummed candidate archive
         shell: bash
         run: >-
-          python scripts/harness/package_platformctl.py
+          platform-client-packaging package-platformctl
           --target '${{ matrix.name }}'
           --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
           --output '${{ runner.temp }}/platformctl-package'

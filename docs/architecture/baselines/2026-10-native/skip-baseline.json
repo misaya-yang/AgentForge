@@ -1,0 +1,612 @@
+{
+  "schema": "ai-gateway/baseline/skip-baseline/v2",
+  "baseline_id": "2026-10-native-reviewed",
+  "reviewed_at": "2026-10-15T16:19:49.509Z",
+  "historical_baseline": "docs/architecture/baselines/2026-08-post-rag/skip-baseline.json",
+  "historical_baseline_sha256": "1a9bb4ff9800bc9c49e1f0fbaa75e90f4d27842ab258c888c9070f41fa9897ba",
+  "policy": "Named external-prerequisite omissions in ordinary offline runs only; these are not successful acceptance and required release gates must explicitly execute their contracts.",
+  "review": "reports/native-ignore-baseline-review.md",
+  "additional_review": "Eight newly ported assertions in three files require explicit isolated PostgreSQL fixtures; no live execution authorized or claimed. Conditional TypeScript receipt reader requires existing R3_ACCEPTANCE_FIXTURE_FILE and authenticated browser state. Post-checkpoint126: one named billing conflict regression requires the same isolated loopback fixtures; compiled-only, live execution still paused.",
+  "rust": {
+    "file_count": 22,
+    "marker_count": 79,
+    "markers": [
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store_contract_tests.rs",
+        "line": 37,
+        "kind": "rust.ignore",
+        "target": "agent_thread_start_round_trips_through_postgres_store",
+        "reason": "requires local PostgreSQL and AI_PLATFORM_RUNTIME_MIGRATION_PATH"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/quiz_capabilities.rs",
+        "line": 613,
+        "kind": "rust.ignore",
+        "target": "postgres_connection_smoke_is_opt_in",
+        "reason": "PostgreSQL connection smoke only; requires explicitly supplied disposable DATABASE_URL; does not validate quiz persistence"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_agents_api.rs",
+        "line": 88,
+        "kind": "rust.ignore",
+        "target": "create_list_get_and_cursor_pagination",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_agents_api.rs",
+        "line": 130,
+        "kind": "rust.ignore",
+        "target": "draft_conflict_preserves_newer_edit_and_atomic_metadata",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_agents_api.rs",
+        "line": 203,
+        "kind": "rust.ignore",
+        "target": "version_remains_immutable_after_later_draft_edit",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_agents_api.rs",
+        "line": 208,
+        "kind": "rust.ignore",
+        "target": "archive_makes_draft_readonly_and_delete_is_soft",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_boot.rs",
+        "line": 34,
+        "kind": "rust.ignore",
+        "target": "gateway_boot_constructs_all_production_routes_in_native_subprocess",
+        "reason": "Requires GATEWAY_BOOT_DISPOSABLE=1 and GATEWAY_BOOT_CONFIG_PATH for isolated provisioned PostgreSQL/Redis; never run by ordinary CI"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_channel.rs",
+        "line": 79,
+        "kind": "rust.ignore",
+        "target": "embed_token_is_signed_short_lived_and_bound_to_publication_origin_and_cookie",
+        "reason": "explicit isolated PostgreSQL and Redis browser contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_channel.rs",
+        "line": 135,
+        "kind": "rust.ignore",
+        "target": "embed_document_enforces_exact_parent_origin_and_contains_no_internal_snapshot",
+        "reason": "explicit isolated PostgreSQL and Redis browser contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 26,
+        "kind": "rust.ignore",
+        "target": "migration_is_reentrant_and_all_tables_are_tenant_scoped",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 45,
+        "kind": "rust.ignore",
+        "target": "composite_foreign_keys_reject_every_cross_tenant_child",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 60,
+        "kind": "rust.ignore",
+        "target": "version_bindings_immutable_and_publish_events_append_only",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 65,
+        "kind": "rust.ignore",
+        "target": "last_owner_cannot_be_removed_or_demoted",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 70,
+        "kind": "rust.ignore",
+        "target": "tenant_principals_and_owner_consistency",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_database.rs",
+        "line": 75,
+        "kind": "rust.ignore",
+        "target": "repository_draft_revision_metadata_validation_and_storage_are_atomic",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_observability.rs",
+        "line": 48,
+        "kind": "rust.ignore",
+        "target": "audit_dimensions_redaction_and_policy_bounds",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_observability.rs",
+        "line": 53,
+        "kind": "rust.ignore",
+        "target": "runtime_usage_caps_emit_threshold_and_exceeded_alerts",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_observability.rs",
+        "line": 58,
+        "kind": "rust.ignore",
+        "target": "legal_hold_blocks_cleanup_and_receipt_is_terminal",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_observability.rs",
+        "line": 63,
+        "kind": "rust.ignore",
+        "target": "channel_limiter_is_atomic_shared_and_ip_bound_across_rotated_principals",
+        "reason": "explicit isolated PostgreSQL and Redis atomic channel limiter contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 98,
+        "kind": "rust.ignore",
+        "target": "release_migration_is_idempotent_and_lifecycle_tenant_constraints_are_exact",
+        "reason": "explicit isolated PostgreSQL publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 205,
+        "kind": "rust.ignore",
+        "target": "release_evaluation_lifecycle_is_durable_cancellable_and_terminal",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 270,
+        "kind": "rust.ignore",
+        "target": "release_evidence_rows_reject_update_and_delete",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 285,
+        "kind": "rust.ignore",
+        "target": "publish_is_idempotent_and_event_failure_rolls_back_every_row",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 304,
+        "kind": "rust.ignore",
+        "target": "stale_evaluation_cannot_create_version_or_pointer",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 332,
+        "kind": "rust.ignore",
+        "target": "publish_rechecks_model_and_provider_before_any_release_write",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 378,
+        "kind": "rust.ignore",
+        "target": "publish_rechecks_provider_readiness_and_preserves_all_release_rows",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 407,
+        "kind": "rust.ignore",
+        "target": "eval_dataset_manifest_is_tenant_bound_and_content_stale",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 427,
+        "kind": "rust.ignore",
+        "target": "same_tenant_key_serializes_across_different_agents",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 474,
+        "kind": "rust.ignore",
+        "target": "rollback_rechecks_revocation_and_preserves_pointer_on_failure",
+        "reason": "explicit isolated PostgreSQL and Redis publication contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 512,
+        "kind": "rust.ignore",
+        "target": "management_token_create_list_rotate_revoke_and_past_expiry",
+        "reason": "explicit isolated PostgreSQL and Redis authenticated HTTP contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 561,
+        "kind": "rust.ignore",
+        "target": "release_http_server_owned_gate_lifecycle_publish_replay_and_viewer_denial",
+        "reason": "explicit isolated PostgreSQL and Redis authenticated release API contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 588,
+        "kind": "rust.ignore",
+        "target": "rollback_rejects_version_never_in_channel_history",
+        "reason": "explicit isolated PostgreSQL and Redis rollback contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 598,
+        "kind": "rust.ignore",
+        "target": "rollback_rechecks_provider_readiness_and_preserves_every_release_row",
+        "reason": "explicit isolated PostgreSQL and Redis rollback readiness contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_publication.rs",
+        "line": 608,
+        "kind": "rust.ignore",
+        "target": "selected_live_run_promotes_existing_version_and_preserves_limited_quality_evidence",
+        "reason": "explicit isolated PostgreSQL and Redis selected live-run contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_rbac.rs",
+        "line": 21,
+        "kind": "rust.ignore",
+        "target": "viewer_readonly_editor_mutations_and_owner_boundaries",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_rbac.rs",
+        "line": 109,
+        "kind": "rust.ignore",
+        "target": "owner_acl_and_last_owner_protection",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_rbac.rs",
+        "line": 144,
+        "kind": "rust.ignore",
+        "target": "cross_tenant_paths_lists_and_admins_do_not_leak",
+        "reason": "explicit isolated PostgreSQL contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_runtime.rs",
+        "line": 68,
+        "kind": "rust.ignore",
+        "target": "runtime_api_token_is_scoped_publication_bound_revocable_and_expiring",
+        "reason": "explicit isolated PostgreSQL and Redis runtime contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/agent_studio_runtime.rs",
+        "line": 92,
+        "kind": "rust.ignore",
+        "target": "hosted_private_requires_authentication_and_tenant_mode_isolated",
+        "reason": "explicit isolated PostgreSQL and Redis browser runtime contract"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 81,
+        "kind": "rust.ignore",
+        "target": "login_does_not_jit_create_missing_user_with_default_password",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; no live acceptance claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 146,
+        "kind": "rust.ignore",
+        "target": "response_cache_miss_then_hit_preserves_exact_response_bytes",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; no live acceptance claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 218,
+        "kind": "rust.ignore",
+        "target": "auth_me_returns_tenant_from_verified_credentials_with_and_without_profile",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; no live acceptance claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 240,
+        "kind": "rust.ignore",
+        "target": "auth_me_rejects_existing_inactive_or_moved_account",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; no live acceptance claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 267,
+        "kind": "rust.ignore",
+        "target": "image_claim_retries_only_pre_dispatch_work_and_fences_dispatch",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; no live acceptance claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 306,
+        "kind": "rust.ignore",
+        "target": "accounting_receipt_and_mutation_commit_once_and_authoritative_replay_skips_duplicate",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; atomic receipt acceptance unrun"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 332,
+        "kind": "rust.ignore",
+        "target": "aborted_accounting_mutation_rolls_back_receipt_and_unknown_commit_remains_quarantined",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; atomic rollback/replay acceptance unrun"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_auth_database.rs",
+        "line": 359,
+        "kind": "rust.ignore",
+        "target": "accounting_failure_conflict_monotonically_quarantines_uncertain_commit",
+        "reason": "requires explicit disposable loopback PostgreSQL and Redis; quarantine conflict acceptance unrun"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_task_authorization.rs",
+        "line": 144,
+        "kind": "rust.ignore",
+        "target": "all_denied_task_routes_conceal_resources_before_results_or_cancel",
+        "reason": "requires explicit disposable loopback Redis; no infrastructure execution claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_task_authorization.rs",
+        "line": 189,
+        "kind": "rust.ignore",
+        "target": "task_owner_and_exact_same_tenant_admin_can_read_and_cancel",
+        "reason": "requires explicit disposable loopback Redis; no infrastructure execution claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_task_authorization.rs",
+        "line": 236,
+        "kind": "rust.ignore",
+        "target": "task_list_is_owner_tenant_scoped_and_missing_resources_have_no_side_effects",
+        "reason": "requires explicit disposable loopback Redis; no infrastructure execution claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/gateway_migration_parity_task_authorization.rs",
+        "line": 277,
+        "kind": "rust.ignore",
+        "target": "cancellation_fences_the_exact_authorized_snapshot",
+        "reason": "requires explicit disposable loopback Redis; no infrastructure execution claimed"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/runtime_migration_parity_assignment.rs",
+        "line": 35,
+        "kind": "rust.ignore",
+        "target": "source_runtime_assignment_is_idempotent_and_scope_bound",
+        "reason": "requires explicit isolated local PostgreSQL fixture; run with --ignored"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/runtime_migration_parity_assignment.rs",
+        "line": 62,
+        "kind": "rust.ignore",
+        "target": "source_new_session_single_kernel_is_stable_and_existing_assignment_wins",
+        "reason": "requires explicit isolated local PostgreSQL fixture; run with --ignored"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/runtime_migration_parity_assignment.rs",
+        "line": 86,
+        "kind": "rust.ignore",
+        "target": "concurrent_same_scope_binding_is_one_immutable_assignment",
+        "reason": "requires explicit isolated local PostgreSQL fixture; run with --ignored"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/runtime_migration_parity_events.rs",
+        "line": 89,
+        "kind": "rust.ignore",
+        "target": "publish_envelope_duplicate_poison_retry_and_dlq_lifecycle",
+        "reason": "requires dedicated empty loopback Redis DB via AI_PLATFORM_RUNTIME_EVENT_TEST_REDIS_URL"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/tests/runtime_migration_parity_session_tombstone.rs",
+        "line": 8,
+        "kind": "rust.ignore",
+        "target": "unreferenced_delete_and_restricted_tombstone_preserve_runtime_audit_chain",
+        "reason": "requires empty loopback database runtime_parity_* via AI_PLATFORM_RUNTIME_PERSISTENCE_TEST_DATABASE_URL"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/knowledge_migration_parity.rs",
+        "line": 141,
+        "kind": "rust.ignore",
+        "target": "connection_control_exact_cas_preserves_credentials_and_readback",
+        "reason": "requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/knowledge_migration_parity.rs",
+        "line": 200,
+        "kind": "rust.ignore",
+        "target": "pause_fast_resume_and_replacement_invalidate_admitted_task",
+        "reason": "requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/knowledge_migration_parity.rs",
+        "line": 242,
+        "kind": "rust.ignore",
+        "target": "controls_and_publication_guards_recheck_revocation_and_monotonic_clock",
+        "reason": "requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/knowledge_migration_parity.rs",
+        "line": 293,
+        "kind": "rust.ignore",
+        "target": "guards_reject_binding_task_and_editor_grant_revocation",
+        "reason": "requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/sql.rs",
+        "line": 126,
+        "kind": "rust.ignore",
+        "target": "source_generation_claim_publish_abort_fences_postgres",
+        "reason": "requires isolated KNOWLEDGE_TEST_DATABASE_URL fixture with canonical schema"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/native_rerank.rs",
+        "line": 364,
+        "kind": "rust.ignore",
+        "target": "official_model_real_inference",
+        "reason": "requires pre-provisioned official BGE artifacts; never downloads weights"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/tests/qdrant_integration_smoke.rs",
+        "line": 67,
+        "kind": "rust.ignore",
+        "target": "qdrant_integration_smoke",
+        "reason": "requires an explicitly supplied live Qdrant; creates and deletes a disposable collection"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/tests/qdrant_integration_smoke.rs",
+        "line": 95,
+        "kind": "rust.ignore",
+        "target": "special_cleanup_deletes_legacy_tenantless_point_and_skips_missing_collection",
+        "reason": "requires an explicitly supplied live Qdrant; creates and deletes a disposable collection"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/authority_migration_parity.rs",
+        "line": 293,
+        "kind": "rust.ignore",
+        "target": "actual_role_connections_verify_all_effective_users_and_reject_wrong_database",
+        "reason": "Requires explicitly provisioned isolated seven-role PostgreSQL fixture; no production or ambient .env"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+        "line": 159,
+        "kind": "rust.ignore",
+        "target": "full_chain_100_to_112_keeps_single_idempotent_ledger_and_schema_ownership",
+        "reason": "Requires explicit disposable PostgreSQL database-create opt-in; no ordinary CI database access"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+        "line": 176,
+        "kind": "rust.ignore",
+        "target": "fresh_upgrade_from_97_and_progress_retention_are_observable",
+        "reason": "Requires explicit disposable PostgreSQL database-create opt-in"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+        "line": 276,
+        "kind": "rust.ignore",
+        "target": "cli_and_library_serialize_one_legacy_change",
+        "reason": "Requires explicit disposable PostgreSQL database-create opt-in and native authority subprocess"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+        "line": 314,
+        "kind": "rust.ignore",
+        "target": "authority_crash_releases_lock_without_ghost_change",
+        "reason": "Requires explicit disposable PostgreSQL database-create opt-in; sends TERM/KILL only to spawned authority child"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+        "line": 353,
+        "kind": "rust.ignore",
+        "target": "migration_101_requires_dump_restore_for_old_writer_contract",
+        "reason": "Requires disposable PostgreSQL opt-in plus pg_dump and pg_restore; creates only unique test databases"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 271,
+        "kind": "rust.ignore",
+        "target": "session_runtime_assignment_is_scope_bound_and_immutable",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 283,
+        "kind": "rust.ignore",
+        "target": "legacy_import_is_idempotent_and_cross_tenant_scoped",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 295,
+        "kind": "rust.ignore",
+        "target": "legacy_import_refuses_in_flight_run_and_unconsumed_approval",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 303,
+        "kind": "rust.ignore",
+        "target": "legacy_import_preserves_paired_tool_history_and_hashed_approval_receipt",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 318,
+        "kind": "rust.ignore",
+        "target": "ready_legacy_import_rejects_source_history_drift",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 326,
+        "kind": "rust.ignore",
+        "target": "legacy_import_rejects_unpaired_tool_history_atomically",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 332,
+        "kind": "rust.ignore",
+        "target": "atomic_append_is_idempotent_gap_free_and_scope_bound",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 341,
+        "kind": "rust.ignore",
+        "target": "snapshots_items_and_run_identity_fail_closed",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+        "line": 353,
+        "kind": "rust.ignore",
+        "target": "runtime_model_lease_is_atomic_bounded_and_replay_safe",
+        "reason": "isolated PostgreSQL contract; run explicitly"
+      }
+    ]
+  },
+  "typescript": {
+    "file_count": 6,
+    "marker_count": 7,
+    "markers": [
+      {
+        "file": "web/e2e/agent-publish-live.spec.ts",
+        "kind": "skip",
+        "line": 255
+      },
+      {
+        "file": "web/e2e/agent-studio-live.spec.ts",
+        "kind": "skip",
+        "line": 28
+      },
+      {
+        "file": "web/e2e/agent-studio-live.spec.ts",
+        "kind": "skip",
+        "line": 111
+      },
+      {
+        "file": "web/e2e/chat-experience.spec.ts",
+        "kind": "skip",
+        "line": 770
+      },
+      {
+        "file": "web/e2e/playground-history.spec.ts",
+        "kind": "skip",
+        "line": 15
+      },
+      {
+        "file": "web/e2e/quiz-history.spec.ts",
+        "kind": "skip",
+        "line": 164
+      },
+      {
+        "file": "web/e2e/agent-eval-receipts-live.spec.ts",
+        "line": 8,
+        "kind": "skip"
+      }
+    ],
+    "note": "scan of *.spec.ts/*.test.ts(x) under web/ and sdk/ for test/describe .skip/.fixme/.only"
+  },
+  "checkpoint_review": "2026-10-15: 13 additional explicitly unrun isolated PostgreSQL/Redis assertions reviewed in reports/native-ignore-baseline-review.md. Offline omission only; no acceptance waiver or successful live execution."
+}

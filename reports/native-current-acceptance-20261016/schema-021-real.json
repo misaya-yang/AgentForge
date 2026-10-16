@@ -1,0 +1,104 @@
+{
+  "captured_at": "2026-10-16T06:20:55.673Z",
+  "status": "passed_bounded_database_and_role_acceptance",
+  "project": "agentforge-dev-7801d4a9a4",
+  "active_source_epoch": 21,
+  "source_lock": {
+    "path": "database/authority/package-authority-lock.json",
+    "sha256": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23",
+    "locked_inputs": 182
+  },
+  "source_sql": {
+    "path": "database/migrations/2026_08_post_kb_v1/021_knowledge_worker_ingestion_writes.sql",
+    "sha256": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1"
+  },
+  "measurement": {
+    "database": "schema_successor_verify_fresh_codex_20261016",
+    "exact_predecessor_epoch": 20,
+    "only_candidate_epoch": 21,
+    "post_migration_noop": true,
+    "expected_fingerprints": {
+      "acl": "3af79fc0fc9371ff0d4d4819e973f9052f84e31d56b70501128095cd72d29a96",
+      "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+      "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318",
+      "structural": "cbdc935e0e1e31d56f0faa0eda9cde4537af0e8afd0a61041a4cdd4392191fe6"
+    },
+    "receipt_path": "database/migrations/2026_08_post_kb_v1/SUCCESSOR_021_MEASUREMENT.json",
+    "receipt_sha256": "1f20bb8a45bff423332d28601f3a8934e97043ae50c8b37e1522e3848ca08aff"
+  },
+  "scope": {
+    "acl_additions": [
+      "knowledge.dataset_process_rules:knowledge_worker:INSERT",
+      "knowledge.document_pipeline_executions:knowledge_worker:UPDATE"
+    ],
+    "structural_changed": false,
+    "extensions_changed": false,
+    "reference_data_changed": false,
+    "frozen_baseline_and_001_020_unchanged": true
+  },
+  "fresh_install": {
+    "database": "schema_successor_verify_fresh021_codex_20261016",
+    "postgres_instance": "existing repository-owned PostgreSQL",
+    "steps": [
+      "provision-roles",
+      "provision-extensions",
+      "init-fresh baseline+001-021",
+      "verify",
+      "migrate no-op",
+      "verify"
+    ],
+    "status": "passed"
+  },
+  "main_database": {
+    "database": "agentforge_dev",
+    "steps": [
+      "migrate020-to021",
+      "verify"
+    ],
+    "status": "passed"
+  },
+  "own_role_probe": {
+    "principal": "ai_gateway_knowledge_worker",
+    "same_failed_application_fixture": true,
+    "process_rule_insert": true,
+    "pipeline_terminal_update": true,
+    "transaction": "ROLLBACK",
+    "status": "passed"
+  },
+  "evidence": [
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/native-authority-021-tests.log",
+      "sha256": "645a61622e5fedfbd813e3931ab010de1113d0fdb1357833d8181794019e7e7d"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-database-authority-init-fresh-schema_successor_verify_fresh021_codex_20261016.log",
+      "sha256": "b3b003a8b59d922d365fc161dca7d44a914037f1c995dec32527b5cd5a3108d2"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-database-authority-verify-schema_successor_verify_fresh021_codex_20261016.log",
+      "sha256": "5b1c87dabc7bc70c934c6aa132e325fdba33d3c1a317f3cd35f21092c5b2fb5e"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-database-authority-migrate-schema_successor_verify_fresh021_codex_20261016.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-database-authority-migrate-agentforge_dev.log",
+      "sha256": "0e6afbbc0484a5efa644dc7d7911cae3905e85583d2b0a155ca6f041fd799c1e"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-database-authority-verify-agentforge_dev.log",
+      "sha256": "5b1c87dabc7bc70c934c6aa132e325fdba33d3c1a317f3cd35f21092c5b2fb5e"
+    },
+    {
+      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/single-project-psql-021-knowledge-worker-generation-probe.sql-knowledge_worker-agentforge_dev.log",
+      "sha256": "2bd0948571bd66430e32e9ff2bcb2b31f6beee43239c5bff74f61fd346f0b36d"
+    }
+  ],
+  "not_claimed": [
+    "Main Assistant acceptance: separate Runtime projection INSERT gap requires successor022",
+    "Full Knowledge acceptance: dense retrieval and versioned citation follow-through remain open",
+    "Enterprise J01-J30 completion"
+  ],
+  "credential_values_recorded": false
+}

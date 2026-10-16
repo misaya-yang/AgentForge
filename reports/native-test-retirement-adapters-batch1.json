@@ -1,0 +1,42 @@
+{
+  "schema": "ai-platform/adapter-test-migration-batch/v1",
+  "batch": 1,
+  "entries": [
+    {
+      "source": "tests/adapters/test_adapter_bulkhead.py",
+      "sha256": "82be2d8fa98c90ef090e5a8e92f3bdd26b97f2fadc7d977cf6c32317e54d3430",
+      "package": "ai-platform-gateway-foundation",
+      "target": "--test tools_migration_parity_adapter_bulkhead",
+      "native_file": "rust/platform-native/crates/platform-gateway-foundation/tests/tools_migration_parity_adapter_bulkhead.rs",
+      "source_case_mapping": {
+        "test_service_registry_wraps_adapter_with_configured_bulkhead": "service_registry_wraps_adapter_with_configured_bulkhead"
+      },
+      "remaining_assertion_obligations": [],
+      "translation_complete": true,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "whole_file_retirement_eligible_after_offline_pass": true,
+      "mechanics_retirement_rationale": "Actual native registered factory and metadata-configured wrapper replace Python adapter class registration. Semaphore signals deterministically establish active invocation instead of source fixed sleep; same timeout/release behavior plus permit reuse is asserted.",
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/foundation-adapter-parity81.log"
+    },
+    {
+      "source": "tests/adapters/test_langgraph_callback_ssrf.py",
+      "sha256": "7da86345dc94561c04758cc5d4c0c6bf458b519934c9279eeaef7ff1b2bc65df",
+      "package": "ai-platform-gateway-integrations",
+      "target": "--test tools_migration_parity_adapter_security",
+      "native_file": "rust/platform-native/crates/platform-gateway-integrations/tests/tools_migration_parity_adapter_security.rs",
+      "source_case_mapping": {
+        "test_remote_wait_rejects_private_callback_url": "remote_wait_rejects_private_callback_before_any_provider_request"
+      },
+      "remaining_assertion_obligations": [],
+      "translation_complete": true,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "whole_file_retirement_eligible_after_offline_pass": true,
+      "mechanics_retirement_rationale": "Real native factory and invoke path replace __new__ plus private method monkeypatches. A valid text input passes ordinary input admission, then private callback is rejected before any provider connection.",
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/integration-sdk-parity83.log"
+    }
+  ]
+}

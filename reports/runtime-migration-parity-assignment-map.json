@@ -1,0 +1,54 @@
+{
+  "schema_version": "runtime-migration-parity-map/v1",
+  "scope": "durable session runtime assignment",
+  "native_package": "ai-platform-gateway",
+  "native_target": "runtime_migration_parity_assignment",
+  "verification": "authored; not compiled or executed in this lane; all three tests require explicit --ignored",
+  "source_file": "tests/services/assistant/test_runtime_assignment.py",
+  "source_cases": [
+    {
+      "source_test": "test_single_kernel_policy_is_stable_and_prompt_agnostic",
+      "native_test": "source_new_session_single_kernel_is_stable_and_existing_assignment_wins",
+      "assertions": ["tenant-a/session-a selection yields agent_runtime and single_kernel", "another tenant/session yields the same owner and reason"],
+      "translation": "production AgentThreadStore binds two independent scopes; native API has no prompt-dependent or alternative-owner selector",
+      "status": "equivalent assertions authored; pending opt-in PostgreSQL execution"
+    },
+    {
+      "source_test": "test_runtime_assignment_is_idempotent_and_scope_bound",
+      "native_test": "source_runtime_assignment_is_idempotent_and_scope_bound",
+      "assertions": ["first binding equals replay", "other tenant cannot resolve same user/session"],
+      "additional_assertions": ["user and session dimensions are isolated", "require_assignment returns404 before binding and for every foreign scope", "exactly one row remains"],
+      "status": "equivalent assertions authored; pending opt-in PostgreSQL execution"
+    },
+    {
+      "source_test": "test_bind_new_session_is_single_kernel_and_existing_assignment_wins",
+      "native_test": "source_new_session_single_kernel_is_stable_and_existing_assignment_wins",
+      "assertions": ["first owner is agent_runtime", "binding with newer policy revision returns original assignment"],
+      "additional_assertions": ["stored revision remains kernel-1", "explicit conflicting bind returns409 and does not rewrite assignment"],
+      "status": "equivalent assertions authored; pending opt-in PostgreSQL execution"
+    },
+    {
+      "source_test": "test_rollout_environment_cannot_select_a_second_owner",
+      "native_test": null,
+      "assertions": ["ASSISTANT_RUNTIME_DEFAULT_OWNER=python_control cannot change selected owner", "canary25 cannot select a second owner", "new kernel revision environment key is consumed"],
+      "status": "residual: production fixed-owner API prevents alternate owner but environment projection assertions are not exercised in this target"
+    },
+    {
+      "source_test": "test_runtime_assignment_policy_uses_new_revision_name",
+      "native_test": null,
+      "assertions": ["AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION produces agent_runtime/kernel-1"],
+      "status": "residual: config-loader has projection code but this batch does not test that path"
+    }
+  ],
+  "additional_native_cases": [
+    {
+      "native_test": "concurrent_same_scope_binding_is_one_immutable_assignment",
+      "assertions": ["two production store calls race to the same identical result", "one durable row exists", "SQL update rejected with55000", "original revision retained"]
+    }
+  ],
+  "source_files_eligible_for_retirement_now": [],
+  "source_assertion_groups_with_native_replacements_authored": 3,
+  "source_assertion_groups_residual": 2,
+  "production_changes": false,
+  "live_calls_performed": false
+}

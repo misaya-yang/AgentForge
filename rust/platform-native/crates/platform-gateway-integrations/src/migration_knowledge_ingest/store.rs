@@ -4,8 +4,14 @@ use super::{
     integer, object, require_index_writable, sha256, sql, string,
 };
 use serde_json::{Value, json};
-use sqlx::{PgConnection, PgPool, Postgres, Row, pool::PoolConnection};
+use sqlx::{PgConnection, PgPool, Postgres, pool::PoolConnection};
 use std::collections::{BTreeMap, BTreeSet};
+
+fn source_version_matches(row: &Value, content: &str) -> bool {
+    !string(row, "change_type").starts_with("pending_")
+        && string(row, "content") == content
+        && string(row, "content_hash") == sha256(content.as_bytes())
+}
 
 pub(crate) fn dataset_permission_short_circuit(actor: &Actor, dataset: &Value) -> Option<i32> {
     if dataset["is_archived"].as_bool() == Some(true) {
@@ -802,6 +808,62 @@ impl KnowledgeWriteStore {
                 if sqlx::query("UPDATE knowledge.document_versions SET change_type=$4 WHERE document_id=$1 AND version_number=$2 AND change_type=$3 AND content=$5 RETURNING version_id").bind(document).bind(number as i32).bind(status).bind(next).bind(text).fetch_optional(&mut *tx).await?.is_none(){return Err(IngestError::GenerationChanged)}
             }
             sqlx::query("UPDATE knowledge.documents SET current_version=$2,version_count=COALESCE(version_count,0)+2,metadata=(COALESCE(metadata,'{}'::jsonb)-'_document_pending_restore_version')||jsonb_build_object('_document_restored_source_version',$2::integer) WHERE document_id=$1").bind(document).bind(candidate as i32).execute(&mut *tx).await?;
+        } else if !content.trim().is_empty() {
+            let current_version = integer(&current, "current_version");
+            let active: Option<Value> = if current_version > 0 {
+                sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ('pending_restore','pending_before_restore') FOR UPDATE")
+                    .bind(document)
+                    .bind(current_version as i32)
+                    .fetch_optional(&mut *tx)
+                    .await?
+            } else {
+                None
+            };
+            if !active
+                .as_ref()
+                .is_some_and(|version| source_version_matches(version, content))
+            {
+                let has_published_version: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore'))")
+                    .bind(document)
+                    .fetch_one(&mut *tx)
+                    .await?;
+                let mut version_metadata = object(&current["metadata"]);
+                if let (Some(target), Some(patch)) =
+                    (version_metadata.as_object_mut(), metadata_patch.as_object())
+                {
+                    target.extend(
+                        patch
+                            .iter()
+                            .map(|(key, value)| (key.clone(), value.clone())),
+                    );
+                }
+                if let Some(metadata) = version_metadata.as_object_mut() {
+                    for key in [
+                        "_document_ingest_action",
+                        "_document_recover_stage",
+                        "_document_pipeline_execution_id",
+                        "_document_lifecycle_reindex",
+                    ] {
+                        metadata.remove(key);
+                    }
+                }
+                Self::create_version(
+                    &mut tx,
+                    document,
+                    content,
+                    if has_published_version {
+                        "updated"
+                    } else {
+                        "created"
+                    },
+                    Some(string(&current, "title")),
+                    &version_metadata,
+                    None,
+                    None,
+                    true,
+                )
+                .await?;
+            }
         }
         Self::insert_segments(&mut tx, chunks).await?;
         sqlx::query(sql::DELETE_SEGMENTS_BY_DOCUMENT_1)
@@ -981,6 +1043,44 @@ impl KnowledgeWriteStore {
         let marker =
             json!({"operation":operation,"target_id":target,"status":"pending","version":1});
         Ok(sqlx::query("UPDATE knowledge.datasets SET index_config=jsonb_set(COALESCE(index_config,'{}'::jsonb),'{retrieval}',(CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)-'_index_deletion_fence',TRUE),content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE AND jsonb_typeof(COALESCE(index_config,'{}'::jsonb))='object' AND (CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)->'_index_deletion_fence'=$2::jsonb RETURNING dataset_id").bind(dataset).bind(marker).fetch_optional(conn).await?.is_some())
+    }
+}
+
+#[cfg(test)]
+mod source_version_tests {
+    use super::*;
+
+    #[test]
+    fn source_snapshot_matches_only_when_content_hash_and_publication_state_match() {
+        let content = "published source";
+        let hash = sha256(content.as_bytes());
+        let matching = json!({
+            "change_type": "created",
+            "content": content,
+            "content_hash": hash,
+        });
+        assert!(source_version_matches(&matching, content));
+
+        let wrong_hash = json!({
+            "change_type": "created",
+            "content": content,
+            "content_hash": "0".repeat(64),
+        });
+        assert!(!source_version_matches(&wrong_hash, content));
+
+        let wrong_content = json!({
+            "change_type": "created",
+            "content": "older source",
+            "content_hash": sha256(b"older source"),
+        });
+        assert!(!source_version_matches(&wrong_content, content));
+
+        let pending = json!({
+            "change_type": "pending_restore",
+            "content": content,
+            "content_hash": hash,
+        });
+        assert!(!source_version_matches(&pending, content));
     }
 }
 

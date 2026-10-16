@@ -1,0 +1,42 @@
+{
+  "file_count": 6,
+  "marker_count": 7,
+  "markers": [
+    {
+      "file": "web/e2e/agent-publish-live.spec.ts",
+      "kind": "skip",
+      "line": 255
+    },
+    {
+      "file": "web/e2e/agent-studio-live.spec.ts",
+      "kind": "skip",
+      "line": 28
+    },
+    {
+      "file": "web/e2e/agent-studio-live.spec.ts",
+      "kind": "skip",
+      "line": 111
+    },
+    {
+      "file": "web/e2e/chat-experience.spec.ts",
+      "kind": "skip",
+      "line": 770
+    },
+    {
+      "file": "web/e2e/playground-history.spec.ts",
+      "kind": "skip",
+      "line": 15
+    },
+    {
+      "file": "web/e2e/quiz-history.spec.ts",
+      "kind": "skip",
+      "line": 164
+    },
+    {
+      "file": "web/e2e/agent-eval-receipts-live.spec.ts",
+      "line": 8,
+      "kind": "skip"
+    }
+  ],
+  "note": "scan of *.spec.ts/*.test.ts(x) under web/ and sdk/ for test/describe .skip/.fixme/.only"
+}

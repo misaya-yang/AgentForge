@@ -39,6 +39,9 @@ use std::{
 };
 use tokio::sync::{Mutex, oneshot};
 
+#[path = "usage_stage_receipts.rs"]
+pub mod stage_receipts;
+
 pub type UsageIdentity = (String, String, String, String);
 pub type UsageFuture<'a, T> =
     Pin<Box<dyn Future<Output = Result<T, UsageRecorderError>> + Send + 'a>>;
@@ -101,7 +104,7 @@ impl UsageRecorderError {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct UsageRecord {
     pub tenant_id: String,
     pub user_id: String,
@@ -340,6 +343,7 @@ pub fn accounting_adjustment(
         return Ok(None);
     }
     let mut delta = record.clone();
+    stage_receipts::bind_observation(&mut delta, record);
     delta.input_tokens = input;
     delta.output_tokens = output;
     delta.input_cost_cents = input_cost;
@@ -583,32 +587,18 @@ impl UsagePersistence for PgUsagePersistence {
     ) -> UsageFuture<'a, StageStatus> {
         Box::pin(async move {
             match stage {
-                AccountingStage::QuotaCounters => {
-                    let mut tx = self.pool.begin().await?;
-                    for ((tenant, user), totals) in quota_adjustments(records)? {
-                        sqlx::query("UPDATE user_quotas SET current_daily_tokens=current_daily_tokens+$3,current_monthly_tokens=current_monthly_tokens+$3,current_monthly_cost_cents=current_monthly_cost_cents+$4,current_daily_requests=current_daily_requests+$5,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=$1 AND user_id=$2").bind(tenant).bind(user).bind(totals.tokens).bind(totals.cost_cents).bind(totals.requests).execute(&mut *tx).await?;
-                    }
-                    tx.commit().await?;
-                }
                 AccountingStage::RequestTraces => {
                     let Some(traces) = &self.traces else {
                         return Ok(StageStatus::Skipped);
                     };
                     traces.write(&self.pool, records).await?;
                 }
-                AccountingStage::DailyAggregates | AccountingStage::HourlyAggregates => {
-                    let records: Vec<_> = records
-                        .iter()
-                        .map(UsageRecord::accounting_record)
-                        .collect::<Result<_, _>>()?;
+                _ => {
                     let mut tx = self.pool.begin().await?;
-                    let granularity = if stage == AccountingStage::DailyAggregates {
-                        Granularity::Day
-                    } else {
-                        Granularity::Hour
-                    };
-                    apply_usage_aggregates_for_granularity(&mut tx, &records, granularity).await?;
-                    tx.commit().await?;
+                    stage_receipts::apply_in_transaction(&mut tx, stage, records).await?;
+                    tx.commit()
+                        .await
+                        .map_err(UsageRecorderError::CommitUncertain)?;
                 }
             }
             Ok(StageStatus::Applied)
@@ -621,12 +611,28 @@ impl UsagePersistence for PgUsagePersistence {
         error: &'a UsageRecorderError,
     ) -> UsageFuture<'a, ()> {
         Box::pin(async move {
-            let Some(first) = records.first() else {
-                return Ok(());
-            };
-            let metadata = json!({"event":"usage_accounting_reconciliation_required","stage":stage.name(),"error_type":error.kind(),"error":error.to_string().chars().take(512).collect::<String>(),"record_count":records.len()});
-            sqlx::query("INSERT INTO billing_events (event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,duration_ms,status,cost_amount,cost_currency,metadata,event_time) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reconciliation_required',NULL,'USD',$12,$13) ON CONFLICT(event_id) DO NOTHING")
-            .bind(format!("usage-reconcile:{}:{}:{}",stage.name(),first.request_id,uuid::Uuid::new_v4())).bind(&first.request_id).bind(if first.service_id.is_empty() {"unattributed_service"}else{&first.service_id}).bind(if first.user_id.is_empty() {"anonymous"}else{&first.user_id}).bind(if first.tenant_id.is_empty() {"default"}else{&first.tenant_id}).bind(first.input_tokens.max(0)).bind(first.output_tokens.max(0)).bind(add(first.input_tokens,first.output_tokens)?.max(0)).bind(if first.model.is_empty() {"unattributed_model"}else{&first.model}).bind(&first.assistant_id).bind(first.total_duration()).bind(metadata).bind(Utc::now()).execute(&self.pool).await?;
+            for record in records {
+                let metadata = stage_receipts::failure_payload(stage, record, error)?;
+                let event_id = stage_receipts::failure_id(stage, record);
+                let mut tx = self.pool.begin().await?;
+                sqlx::query("INSERT INTO billing_events(event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,status,cost_amount,cost_currency,metadata,event_time) VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7,'reconciliation_required',NULL,'USD',$8,$9) ON CONFLICT(event_id) DO NOTHING")
+                    .bind(&event_id).bind(&record.request_id).bind(if record.service_id.is_empty(){"unattributed_service"}else{&record.service_id}).bind(&record.user_id).bind(&record.tenant_id).bind(&record.model).bind(&record.assistant_id).bind(&metadata).bind(Utc::now()).execute(&mut *tx).await?;
+                // Lock the stored receipt after insert/conflict. Concurrent writers
+                // cannot overwrite a stricter quarantine decision with stale flags.
+                let stored: Value = sqlx::query_scalar("SELECT metadata FROM billing_events WHERE event_id=$1 AND tenant_id=$2 AND request_id=$3 AND user_id=$4 FOR UPDATE")
+                    .bind(&event_id).bind(&record.tenant_id).bind(&record.request_id).bind(&record.user_id).fetch_one(&mut *tx).await?;
+                let merged = stage_receipts::merge_failure_quarantine(&stored, &metadata)?;
+                if merged != stored {
+                    sqlx::query("UPDATE billing_events SET metadata=$2 WHERE event_id=$1")
+                        .bind(&event_id)
+                        .bind(merged)
+                        .execute(&mut *tx)
+                        .await?;
+                }
+                tx.commit()
+                    .await
+                    .map_err(UsageRecorderError::CommitUncertain)?;
+            }
             Ok(())
         })
     }
@@ -1018,7 +1024,9 @@ impl UsageRecorder {
                 .as_ref()
                 .is_none_or(|identity| inserted.contains(identity))
             {
-                accepted.push(pair.accounting);
+                let mut accounting = pair.accounting;
+                stage_receipts::bind_observation(&mut accounting, &pair.database);
+                accepted.push(accounting);
             } else if let Some(previous) = previous {
                 match accounting_adjustment(&pair.database, &previous) {
                     Ok(Some(delta)) => accepted.push(delta),
@@ -1101,4 +1109,3 @@ impl UsageRecorder {
         self.flush_owned().await
     }
 }
-

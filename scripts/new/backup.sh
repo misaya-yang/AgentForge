@@ -69,13 +69,7 @@ fi
 # Database dumps can contain tenant content and authentication material. Keep
 # every generated backup outside the source checkout, even when an operator
 # supplies an override containing '..' components or symlinks.
-BACKUP_DIR="$(python3 - "$BACKUP_DIR" <<'PY'
-from pathlib import Path
-import sys
-
-print(Path(sys.argv[1]).expanduser().resolve(strict=False))
-PY
-)"
+BACKUP_DIR="$(platform-tools resolve-path "$BACKUP_DIR")"
 case "${BACKUP_DIR}/" in
     "${PROJECT_ROOT}/"*)
         log_error "Backup directory must be outside the source checkout: $PROJECT_ROOT"

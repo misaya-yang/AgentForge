@@ -66,15 +66,15 @@ impl Client {
             Some((_, v)) => v.parse::<u64>().map_err(|_| Error::Response)?,
             None => 0,
         };
-        let token = self.token.as_ref().ok_or(Error::Authentication)?;
         let http = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))
             .build()
             .map_err(|_| Error::Transport)?;
         loop {
-            if *cancel.borrow() {
+            if *cancel.borrow() || sender.is_closed() {
                 return Ok(());
             }
             {
@@ -89,7 +89,8 @@ impl Client {
             }
             let response = tokio::select! {
                 _=cancel.changed()=>return Ok(()),
-                r=tokio::time::timeout(Duration::from_secs(30),http.get(url.clone()).bearer_auth(token.as_ref()).header("accept","text/event-stream").send())=>r,
+                _=sender.closed()=>return Ok(()),
+                r=tokio::time::timeout(self.stream_limits.header_timeout(),self.authorize(http.get(url.clone()))?.header("accept","text/event-stream").send())=>r,
             };
             let mut retry = Duration::from_secs(2);
             if let Ok(Ok(mut response)) = response {
@@ -111,7 +112,8 @@ impl Client {
                     loop {
                         let chunk = tokio::select! {
                             _=cancel.changed()=>return Ok(()),
-                            chunk=tokio::time::timeout(Duration::from_secs(90),response.chunk())=>chunk,
+                            _=sender.closed()=>return Ok(()),
+                            chunk=tokio::time::timeout(self.stream_limits.idle_timeout(),response.chunk())=>chunk,
                         };
                         let (frames, eof) = match chunk {
                             Ok(Ok(Some(bytes))) => (decoder.push(&bytes)?, false),
@@ -132,6 +134,7 @@ impl Client {
                                 cursor = event.sequence;
                                 let terminal = event.terminal;
                                 tokio::select! {_=cancel.changed()=>return Ok(()),
+                                _=sender.closed()=>return Ok(()),
                                 r=sender.send(Ok(event))=>if r.is_err(){return Ok(())}}
                                 if terminal {
                                     return Ok(());
@@ -153,7 +156,7 @@ impl Client {
                     retry = Duration::from_secs(seconds.min(3600));
                 }
             }
-            tokio::select! {_=cancel.changed()=>return Ok(()),_=tokio::time::sleep(retry)=>{}}
+            tokio::select! {_=cancel.changed()=>return Ok(()),_=sender.closed()=>return Ok(()),_=tokio::time::sleep(retry)=>{}}
         }
     }
 }

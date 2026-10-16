@@ -13,6 +13,9 @@ pub mod images;
 pub mod images_state;
 pub mod read_broker;
 pub mod shares;
+pub mod skill_builder;
+pub mod skill_executor;
+pub mod skill_registry;
 pub mod skills;
 pub use ai_platform_gateway_integrations::migration_content::storage;
 
@@ -196,3 +199,5 @@ pub fn router(services: ContentServices) -> axum::Router {
             access::request_context,
         ))
 }
+
+pub mod image_history;

@@ -1,9 +1,8 @@
 use super::{Gateway, error};
-use ai_platform_auth::api_keys::{SelectedCredential, select_credential};
 use axum::{
     Json,
     extract::State,
-    http::{HeaderMap, HeaderName, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
@@ -107,18 +106,9 @@ fn project(rows: Vec<ModelRow>, tier: &str, roles: &[String]) -> Vec<Model> {
     models
 }
 pub(super) async fn list(State(state): State<Gateway>, headers: HeaderMap) -> Response {
-    let token = match select_credential(&headers, &HeaderName::from_static("x-api-key")) {
-        Ok(SelectedCredential::Jwt(token)) => token,
-        _ => return error(StatusCode::UNAUTHORIZED, "Authentication required"),
-    };
-    let principal = match state.auth.authenticate(token).await {
-        Ok(p) => p,
-        Err(e) => {
-            return error(
-                StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-                "Authentication failed",
-            );
-        }
+    let principal = match super::resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
+        Ok(user) => user,
+        Err(response) => return response,
     };
     match visible(&state.pool, &principal).await {
         Ok(models) => Json(json!({"models":models})).into_response(),
@@ -130,9 +120,9 @@ pub(super) async fn list(State(state): State<Gateway>, headers: HeaderMap) -> Re
 }
 pub(crate) async fn visible(
     pool: &sqlx::PgPool,
-    principal: &ai_platform_auth::service::Principal,
+    principal: &crate::migration_content::ContentIdentity,
 ) -> Result<Vec<Model>, sqlx::Error> {
-    let roles = &principal.authority.roles;
+    let roles = &principal.roles;
     let tier = if roles.iter().any(|r| r == "admin") {
         "admin"
     } else if roles.iter().any(|r| r == "enterprise") {
@@ -140,10 +130,10 @@ pub(crate) async fn visible(
     } else if roles.iter().any(|r| r == "premium" || r == "vip") {
         "premium"
     } else {
-        &principal.authority.tier
+        &principal.tier
     };
     let rows=sqlx::query_as::<_,ModelRow>("SELECT model_id,provider_id,display_name,COALESCE(context_window,0)::bigint AS context_window,COALESCE(max_output_tokens,0)::bigint AS max_output_tokens,COALESCE(supports_vision,FALSE) AS supports_vision,COALESCE(supports_tools,FALSE) AS supports_tools,COALESCE(catalog_capabilities,'{}'::jsonb) AS catalog_capabilities,COALESCE(capability_overrides,'{}'::jsonb) AS capability_overrides,COALESCE(capability_revision,0)::bigint AS capability_revision,COALESCE(input_price_per_1k,0)::double precision AS input_price_per_1k,COALESCE(output_price_per_1k,0)::double precision AS output_price_per_1k,COALESCE(access_level,'') AS access_level,COALESCE(sort_order,0)::bigint AS sort_order FROM gateway.llm_models WHERE tenant_id=$1 AND is_enabled=TRUE")
-        .bind(&principal.account.tenant_id).fetch_all(pool).await?;
+        .bind(&principal.tenant_id).fetch_all(pool).await?;
     Ok(project(rows, tier, roles))
 }
 

@@ -35,6 +35,29 @@ pub struct GatewayApplication {
 impl GatewayApplication {
     pub fn into_router(self) -> Result<Router, super::lifecycle::HostError> {
         let access = self.content.access.clone();
+        let context_metrics =
+            super::context_metrics::router(super::context_metrics::ContextMetricsState {
+                access: access.clone(),
+                sessions: self.agent.sessions.clone(),
+                collector: super::context_metrics::ContextMetricsCollector::global(),
+            })
+            .layer(axum::middleware::from_fn_with_state(
+                access.clone(),
+                content::access::request_context,
+            ));
+        let session_tools = super::catalog::session_tools::router(
+            super::catalog::session_tools::SessionToolsState {
+                catalog: self.catalog.service.clone(),
+                access: access.clone(),
+                sessions: self.agent.sessions.clone(),
+                control: self.agent.control.clone(),
+                default_model: self.agent.default_model.clone(),
+            },
+        )
+        .layer(axum::middleware::from_fn_with_state(
+            access.clone(),
+            content::access::request_context,
+        ));
         let langgraph_admission = self.responses.auth.clone();
         let actors = query::actor::gateway_actor_router(self.knowledge_actor)
             .map_err(|_| super::lifecycle::HostError::Configuration)?;
@@ -50,15 +73,21 @@ impl GatewayApplication {
                     content::access::request_context,
                 )),
             )
+            .route("/openapi.json", axum::routing::get(openapi_document))
             .merge(agent::model::router(self.model_plane))
             .nest("/api/v1", content::router(self.content))
             .merge(content::capabilities::router(self.content_capabilities))
             .merge(content::read_broker::router(self.content_reads))
             .merge(super::catalog::http::router(self.catalog))
+            .merge(session_tools)
+            .merge(context_metrics)
             .merge(actors)
             .merge(super::knowledge_proxy::router(self.knowledge_proxy))
             .merge(compat::responses::router(self.responses))
-            .merge(compat::langgraph::router(langgraph_admission, self.langgraph))
+            .merge(compat::langgraph::router(
+                langgraph_admission,
+                self.langgraph,
+            ))
             .merge(compat::eval::router_with_options(
                 self.auth,
                 self.evaluations,
@@ -116,4 +145,11 @@ impl KnowledgeApplication {
             )?)
             .merge(query::actor::capability_router(self.capabilities)))
     }
+}
+
+/// The same native declaration producer used by the offline contract gate.
+pub async fn openapi_document() -> axum::Json<serde_json::Value> {
+    axum::Json(super::openapi_document::extend_document(
+        ai_platform_gateway_foundation::native_contract::document(),
+    ))
 }

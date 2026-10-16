@@ -1,0 +1,32 @@
+--- a/src/allocation.rs
++++ b/src/allocation.rs
+@@ -12,7 +12,14 @@
+         return Err("beneficiary IDs must be unique".into());
+     }
+     let total_weight: i128 = beneficiaries.iter().map(|(_, weight)| i128::from(*weight)).sum();
+-    Ok(beneficiaries.iter().map(|(id, weight)| {
+-        ((*id).into(), (i128::from(total_cents) * i128::from(*weight) / total_weight) as i64)
+-    }).collect())
++    let mut allocations: BTreeMap<String, i64> = beneficiaries.iter().map(|(id, weight)| {
++        ((*id).into(), (i128::from(total_cents) * i128::from(*weight) / total_weight) as i64)
++    }).collect();
++    let mut remainders: Vec<_> = beneficiaries.iter().map(|(id, weight)| {
++        (*id, i128::from(total_cents) * i128::from(*weight) % total_weight)
++    }).collect();
++    remainders.sort_by(|(left_id, left), (right_id, right)| right.cmp(left).then_with(|| left_id.cmp(right_id)));
++    let leftover = total_cents - allocations.values().sum::<i64>();
++    for (id, _) in remainders.into_iter().take(leftover as usize) { *allocations.get_mut(id).unwrap() += 1; }
++    Ok(allocations)
+ }
+--- a/src/idempotency.rs
++++ b/src/idempotency.rs
+@@ -7,6 +7,8 @@
+     identity.insert("tenant_id".into(), request.get("tenant_id").ok_or("missing tenant_id")?.clone());
+     identity.insert("external_id".into(), request.get("external_id").ok_or("missing external_id")?.clone());
+     identity.insert("metadata".into(), request.get("metadata").cloned().unwrap_or(Value::Object(Map::new())));
+-    let encoded = serde_json::to_vec(&Value::Object(identity)).map_err(|e| e.to_string())?;
++    let mut canonical = Value::Object(identity);
++    canonical.sort_all_objects();
++    let encoded = serde_json::to_vec(&canonical).map_err(|e| e.to_string())?;
+     Ok(format!("{:x}", Sha256::digest(encoded)))
+ }

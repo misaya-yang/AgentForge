@@ -20,17 +20,17 @@ generate_image() {
     TASK=$(curl -sS -c "$COOKIE" -b "$COOKIE" -X POST "$BASE_URL/generate-image-async" \
         -H "Content-Type: application/json" \
         -d "{\"prompt\":\"一只橘猫\",\"model_id\":\"gemini-3-flash-preview\",\"style\":\"$style\",\"add_watermark\":true,\"n\":1}" \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('task_id',''))")
+        | platform-tools json-get - task_id)
 
     echo "Task: $TASK"
 
     for i in $(seq 1 40); do
         R=$(curl -sS -c "$COOKIE" -b "$COOKIE" "$BASE_URL/image-task/$TASK")
-        S=$(echo "$R" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))")
+        S=$(echo "$R" | platform-tools json-get - status)
         echo "  Poll $i: $S"
         if [ "$S" = "completed" ] || [ "$S" = "failed" ]; then
             echo "$R" > "$OUT_DIR/${style}_task.json"
-            echo "$R" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d, indent=2, ensure_ascii=False))"
+            echo "$R" | platform-tools json-pretty -
             break
         fi
         sleep 3

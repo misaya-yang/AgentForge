@@ -15,14 +15,14 @@ pub(super) async fn update_plugin(
         Ok(principal) => principal,
         Err(response) => return response,
     };
-    if !lifecycle::can_manage(&principal.authority.tier, &principal.authority.roles) {
+    if !lifecycle::can_manage(&principal.tier, &principal.roles) {
         return error(StatusCode::FORBIDDEN, "Administrator access is required");
     }
     let Json(body) = match body {
         Ok(body) => body,
         Err(_) => return error(StatusCode::UNPROCESSABLE_ENTITY, "Invalid plugin lifecycle request"),
     };
-    if body.expected_tenant_id != principal.account.tenant_id {
+    if body.expected_tenant_id != principal.tenant_id {
         return error(StatusCode::CONFLICT, "The authenticated tenant changed; refresh before saving");
     }
     let revision = match body.expected_revision.parse::<i64>() {
@@ -59,12 +59,12 @@ pub(super) async fn update_plugin(
     for record in records.iter().filter(|record| record["plugin_version"] == body.selected_version) {
         let required: Vec<_> = record["required_permissions"].as_array().into_iter().flatten()
             .filter_map(Value::as_str).map(str::to_owned).collect();
-        if !user_has_required_permissions(&principal.authority.tier, &principal.authority.roles, &required) {
+        if !user_has_required_permissions(&principal.tier, &principal.roles, &required) {
             return error(StatusCode::FORBIDDEN, "The selected version requires additional authority");
         }
     }
-    let tenant = &principal.account.tenant_id;
-    let user = &principal.account.user_id;
+    let tenant = &principal.tenant_id;
+    let user = &principal.user_id;
     // All errors below are redacted. A dropped transaction rolls back both state
     // and audit, while uncertain commit responses must be resolved by re-reading.
     let outcome: Result<Option<lifecycle::PluginBinding>, sqlx::Error> = async {

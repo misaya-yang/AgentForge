@@ -104,6 +104,7 @@ pub const SHUTDOWN_ORDER: &[&str] = &[
     "langgraph_proxy",
     "transparent_proxy",
     "container_billing_interceptor",
+    "service_adapters",
     "database",
     "redis",
 ];

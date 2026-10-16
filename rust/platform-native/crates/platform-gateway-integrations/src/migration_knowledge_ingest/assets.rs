@@ -179,19 +179,49 @@ impl AssetStorage {
         }
         Ok(())
     }
-    pub async fn delete_document_assets(&self, tenant: &str, document: &str) -> Result<()> {
+    pub async fn download_document_image(
+        &self,
+        tenant: &str,
+        document: &str,
+        key: &str,
+    ) -> Result<Vec<u8>> {
+        let tenant = tenant.trim();
+        let document = document.trim();
         scope(tenant)?;
         scope(document)?;
+        let prefix = format!("knowledge/confluence/{tenant}/{document}/images/");
+        if key.trim() != key
+            || key.strip_prefix(&prefix).is_none_or(str::is_empty)
+            || key.contains("..")
+            || key.contains('\\')
+            || key.contains('\0')
+        {
+            return Err(IngestError::Validation(
+                "image storage key is outside the document asset scope".into(),
+            ));
+        }
+        self.backend
+            .download(key)
+            .await
+            .map_err(|_| IngestError::Storage)
+    }
+    pub async fn delete_document_assets(&self, tenant: &str, document: &str) -> Result<u64> {
+        let tenant = tenant.trim();
+        let document = document.trim();
+        scope(tenant)?;
+        scope(document)?;
+        let mut deleted = 0;
         for prefix in [
-            format!("knowledge/documents/{tenant}/{document}/"),
             format!("knowledge/confluence/{tenant}/{document}/images/"),
+            format!("knowledge/documents/{tenant}/{document}/original/"),
         ] {
-            self.backend
+            deleted += self
+                .backend
                 .delete_prefix(&prefix)
                 .await
                 .map_err(|_| IngestError::Storage)?;
         }
-        Ok(())
+        Ok(deleted)
     }
     pub async fn image_url(&self, key: &str) -> Result<String> {
         valid_key(key)?;
@@ -252,6 +282,7 @@ impl S3Assets {
             ));
         }
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .build()
@@ -288,6 +319,7 @@ impl OssAssets {
         secret_key: String,
     ) -> Result<AssetStorage> {
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .build()
@@ -314,5 +346,163 @@ impl OssAssets {
             public_base,
             s3: false,
         })))
+    }
+}
+
+/// Archived Knowledge URL verifier. This compatibility utility has no mounted
+/// route callers; an absent key preserves the source's unsigned-URL behavior.
+/// It must not be used as a substitute for authenticated asset authorization.
+pub fn verify_signed_url(url: &str, secret_key: &str) -> (bool, String) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+    verify_signed_url_at(url, secret_key, now)
+}
+fn verify_signed_url_at(url: &str, secret_key: &str, now: f64) -> (bool, String) {
+    let fail = |message: &str| (false, message.to_owned());
+    if url.is_empty() {
+        return fail("Empty URL");
+    }
+    if secret_key.is_empty() {
+        tracing::warn!("URL signature verification skipped: no secret key configured");
+        return (true, String::new());
+    }
+    // Preserve the encoded path, rather than URL-normalizing dot segments or
+    // decoding percent escapes: Python urlparse signs the literal path.
+    let fragmentless = url.split_once('#').map_or(url, |(head, _)| head);
+    let (head, query) = fragmentless.split_once('?').unwrap_or((fragmentless, ""));
+    let mut path = head;
+    let mut scheme = "";
+    if let Some((candidate, rest)) = head.split_once(':') {
+        if candidate.starts_with(|c: char| c.is_ascii_alphabetic())
+            && candidate
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+        {
+            scheme = candidate;
+            path = rest;
+        }
+    }
+    if let Some(authority) = path.strip_prefix("//") {
+        path = authority.find('/').map_or("", |index| &authority[index..]);
+    }
+    if [
+        "", "ftp", "http", "gopher", "nntp", "rtsp", "rtsps", "rtspu", "sip", "sips", "mms",
+        "sftp", "tel", "imap", "wais", "https", "shttp",
+    ]
+    .contains(&scheme.to_ascii_lowercase().as_str())
+    {
+        let last_component = path.rfind('/').map_or(0, |index| index + 1);
+        if let Some(params) = path[last_component..].find(';') {
+            path = &path[..last_component + params];
+        }
+    }
+    // parse_qs keeps the first nonempty value and ignores empty values.
+    let pairs: Vec<_> = reqwest::Url::parse(&format!("http://localhost/?{query}"))
+        .map(|u| {
+            u.query_pairs()
+                .filter(|(_, v)| !v.is_empty())
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let signature = pairs.iter().find(|(k, _)| k == "sig").map(|(_, v)| v);
+    let expires = pairs.iter().find(|(k, _)| k == "expires").map(|(_, v)| v);
+    let (Some(signature), Some(expires)) = (signature, expires) else {
+        return fail("Missing signature or expiry");
+    };
+    let Ok(expires) = expires.trim().parse::<i64>() else {
+        return fail("Invalid expiry format");
+    };
+    if now > expires as f64 {
+        return fail("URL has expired");
+    };
+    // Source compares lowercase hex strings, so uppercase encodings must not
+    // acquire acceptance merely because a hex decoder would accept them.
+    if signature.len() != 32
+        || !signature
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return fail("Invalid signature");
+    }
+    let mut supplied = [0u8; 16];
+    for (index, pair) in signature.as_bytes().chunks_exact(2).enumerate() {
+        let digit = |c: u8| {
+            if c.is_ascii_digit() {
+                c - b'0'
+            } else {
+                c - b'a' + 10
+            }
+        };
+        supplied[index] = digit(pair[0]) * 16 + digit(pair[1]);
+    }
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret_key.as_bytes())
+        .expect("HMAC accepts every key length");
+    mac.update(format!("{path}:{expires}").as_bytes());
+    if mac.verify_truncated_left(&supplied).is_err() {
+        return fail("Invalid signature");
+    };
+    (true, String::new())
+}
+
+#[cfg(test)]
+mod signed_url_contract {
+    use super::*;
+    fn signed(path: &str, expires: i64) -> String {
+        let mut mac = Hmac::<Sha256>::new_from_slice(b"test-key").unwrap();
+        mac.update(format!("{path}:{expires}").as_bytes());
+        let signature = mac
+            .finalize()
+            .into_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        format!("{path}?expires={expires}&sig={}", &signature[..32])
+    }
+    #[test]
+    fn expiry_boundary_and_literal_relative_paths_match_source() {
+        let url = signed("/owned/../image%20one.png", 100);
+        assert_eq!(
+            verify_signed_url_at(&url, "test-key", 100.0),
+            (true, String::new())
+        );
+        assert_eq!(
+            verify_signed_url_at(&url, "test-key", 100.001),
+            (false, "URL has expired".into())
+        );
+        assert_eq!(
+            verify_signed_url_at(
+                &url.replace("expires=100", "expires=+100"),
+                "test-key",
+                99.0
+            ),
+            (true, String::new())
+        );
+        assert_eq!(
+            verify_signed_url_at(
+                &url.replace("expires=100", "expires=&expires=100"),
+                "test-key",
+                99.0
+            ),
+            (true, String::new())
+        );
+        let mut parsed = reqwest::Url::parse(&format!("http://localhost{url}")).unwrap();
+        let sig = parsed
+            .query_pairs()
+            .find(|(k, _)| k == "sig")
+            .unwrap()
+            .1
+            .to_uppercase();
+        parsed
+            .query_pairs_mut()
+            .clear()
+            .append_pair("expires", "100")
+            .append_pair("sig", &sig);
+        assert_eq!(
+            verify_signed_url_at(parsed.as_str(), "test-key", 99.0),
+            (false, "Invalid signature".into())
+        );
     }
 }

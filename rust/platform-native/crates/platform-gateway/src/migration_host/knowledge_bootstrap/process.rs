@@ -315,20 +315,15 @@ impl ProcessSettings {
         provider_keys.google_embedding_backend = e.text("GOOGLE_EMBEDDING_BACKEND", "");
         // Existing native endpoint normalization consumes the explicitly resolved
         // task URLs; preserve regional configured roots instead of guessing keys.
-        provider_keys.dashscope_embedding_api_key = e
-            .optional("DASHSCOPE_EMBEDDING_API_KEY")
-            .unwrap_or_else(|| provider_keys.dashscope_api_key.clone());
-        provider_keys.dashscope_ocr_api_key = e
-            .optional("DASHSCOPE_OCR_API_KEY")
-            .unwrap_or_else(|| provider_keys.dashscope_api_key.clone());
-        provider_keys.dashscope_embedding_base_url = e.text(
-            "DASHSCOPE_EMBEDDING_BASE_URL",
-            &e.text("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com"),
-        );
-        provider_keys.dashscope_ocr_base_url = e.text(
-            "DASHSCOPE_OCR_BASE_URL",
-            &e.text("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com"),
-        );
+        let endpoint_resolver = crate::provider_startup_seeder::ChatEndpointResolver::new(&e.0);
+        let embedding_endpoint = endpoint_resolver
+            .resolve_dashscope(crate::provider_startup_seeder::EndpointDomain::Embedding);
+        let ocr_endpoint = endpoint_resolver
+            .resolve_dashscope(crate::provider_startup_seeder::EndpointDomain::Ocr);
+        provider_keys.dashscope_embedding_api_key = embedding_endpoint.api_key;
+        provider_keys.dashscope_embedding_base_url = embedding_endpoint.base_url;
+        provider_keys.dashscope_ocr_api_key = ocr_endpoint.api_key;
+        provider_keys.dashscope_ocr_base_url = ocr_endpoint.base_url;
         storage.local_base_path = e
             .text("KNOWLEDGE_STORAGE__LOCAL_BASE_PATH", "./data/files")
             .into();

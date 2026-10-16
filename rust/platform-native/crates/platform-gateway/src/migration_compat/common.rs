@@ -20,16 +20,18 @@ use std::{
 pub struct CompatError {
     pub status: u16,
     pub detail: Value,
+    pub headers: std::collections::BTreeMap<String, String>,
 }
 impl CompatError {
     pub fn new(status: u16, detail: impl Into<String>) -> Self {
         Self {
             status,
             detail: json!(detail.into()),
+            headers: Default::default(),
         }
     }
     pub fn value(status: u16, detail: Value) -> Self {
-        Self { status, detail }
+        Self { status, detail, headers: Default::default() }
     }
 }
 impl std::fmt::Display for CompatError {
@@ -40,11 +42,14 @@ impl std::fmt::Display for CompatError {
 impl std::error::Error for CompatError {}
 impl IntoResponse for CompatError {
     fn into_response(self) -> Response {
-        (
+        let mut response = (
             StatusCode::from_u16(self.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
             Json(json!({"detail":self.detail})),
-        )
-            .into_response()
+        ).into_response();
+        for (name, value) in self.headers {
+            if let (Ok(name), Ok(value)) = (axum::http::HeaderName::try_from(name), axum::http::HeaderValue::try_from(value)) { response.headers_mut().insert(name, value); }
+        }
+        response
     }
 }
 impl From<sqlx::Error> for CompatError {

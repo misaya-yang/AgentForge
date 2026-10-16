@@ -100,7 +100,7 @@ impl PgAccounts {
             .map_err(|_| StoreError::Unavailable)?;
         let row = sqlx::query_as::<_, KeyRow>("SELECT k.id,COALESCE(k.key_id,'ak_legacy_'||k.id::text) AS key_id,k.user_id,k.tenant_id,k.roles,k.permissions,k.tier,k.rate_limit,k.allowed_services,k.allowed_models,to_jsonb(k)->'scopes' AS legacy_scopes FROM gateway.api_keys k JOIN gateway.users u ON u.user_id=k.user_id AND u.tenant_id=k.tenant_id JOIN gateway.tenants t ON t.tenant_id=k.tenant_id WHERE k.key_hash=$1 AND k.enabled AND (k.expires_at IS NULL OR k.expires_at>NOW()) AND u.status='active' AND t.status='active' AND k.user_id<>'' AND k.tenant_id<>''")
             .bind(&hash).fetch_optional(&mut *tx).await.map_err(|_| StoreError::Unavailable)?.ok_or(StoreError::Changed)?;
-        let owner = Self::authority_in(&mut tx, &row.user_id, &row.tenant_id).await?;
+        let owner = Self::current_authority_in(&mut tx, &row.user_id, &row.tenant_id).await?;
         let key_permissions = normalized(row.permissions);
         let mut declared_scopes: BTreeSet<String> = key_permissions.iter().cloned().collect();
         if let Some(scopes) = row.legacy_scopes.filter(|v| !v.is_null()) {

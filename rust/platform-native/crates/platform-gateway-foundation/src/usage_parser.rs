@@ -302,6 +302,42 @@ pub fn estimate_tokens(text: &str) -> i64 {
     i64::try_from((cjk / 2 + other / 4).max(1)).expect("addressable token estimate")
 }
 
+/// Source core/utils.py codepoint-prefix binary search, including zero/negative
+/// budgets and the source's left-minus-one result at the upper boundary.
+pub fn truncate_text(text: &str, max_tokens: i64) -> &str {
+    if text.is_empty() || estimate_tokens(text) <= max_tokens {
+        return text;
+    }
+    let mut boundaries: Vec<usize> = text.char_indices().map(|(offset, _)| offset).collect();
+    boundaries.push(text.len());
+    let (mut left, mut right) = (0, boundaries.len() - 1);
+    while left < right {
+        let mid = (left + right) / 2;
+        if estimate_tokens(&text[..boundaries[mid]]) <= max_tokens {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+    if left > 0 {
+        &text[..boundaries[left - 1]]
+    } else {
+        ""
+    }
+}
+
+#[cfg(test)]
+mod source_truncate_text_boundary {
+    #[test]
+    fn codepoint_binary_search_preserves_source_boundaries() {
+        assert_eq!(super::truncate_text("abc你好z", 1), "abc你好");
+        assert_eq!(super::truncate_text("abc你好z", 2), "abc你好z");
+        assert_eq!(super::truncate_text("a", 0), "");
+        assert_eq!(super::truncate_text("你好", -1), "");
+        assert_eq!(super::truncate_text("", -1), "");
+    }
+}
+
 pub fn resolve_usage_tokens(
     payload: &Value,
     input_text: &str,
@@ -391,14 +427,22 @@ pub fn sync_response_stats(
     }
     let original_total = stats.contains_key("total_tokens");
     let mut observed_usage = stats.clone();
-    for (target, alias) in [("input_tokens", "prompt_tokens"), ("output_tokens", "completion_tokens")] {
-        if !observed_usage.contains_key(target) && let Some(value) = observed_usage.get(alias).cloned() {
+    for (target, alias) in [
+        ("input_tokens", "prompt_tokens"),
+        ("output_tokens", "completion_tokens"),
+    ] {
+        if !observed_usage.contains_key(target)
+            && let Some(value) = observed_usage.get(alias).cloned()
+        {
             observed_usage.insert(target.into(), value);
         }
     }
     let observed = observe_token_provenance(&observed_usage);
-    let estimated: Vec<_> = PROVENANCE_TOKEN_FIELDS[..2].iter().copied()
-        .filter(|key| !observed_usage.contains_key(*key)).collect();
+    let estimated: Vec<_> = PROVENANCE_TOKEN_FIELDS[..2]
+        .iter()
+        .copied()
+        .filter(|key| !observed_usage.contains_key(*key))
+        .collect();
     if !stats.is_empty() {
         for (target, alias) in [
             ("input_tokens", "prompt_tokens"),
@@ -441,25 +485,41 @@ pub fn sync_response_stats(
     Ok(stats)
 }
 
-
 const PROVENANCE_TOKEN_FIELDS: [&str; 3] = ["input_tokens", "output_tokens", "total_tokens"];
 
 /// The adapter observation boundary is not proof of provider measurement or billing.
 /// Invalid counts/labels stay unknown; explicit integer zero is a real observation.
 pub(crate) fn observe_token_provenance(usage: &Map<String, Value>) -> Map<String, Value> {
-    PROVENANCE_TOKEN_FIELDS.into_iter().filter_map(|key| {
-        let value = usage.get(key)?;
-        let source = match usage.get("token_provenance") {
-            None => "upstream",
-            Some(Value::Object(labels)) => match labels.get(key) {
+    PROVENANCE_TOKEN_FIELDS
+        .into_iter()
+        .filter_map(|key| {
+            let value = usage.get(key)?;
+            let source = match usage.get("token_provenance") {
                 None => "upstream",
-                Some(Value::String(label)) if matches!(label.as_str(), "upstream" | "estimated" | "derived" | "unknown") => label,
+                Some(Value::Object(labels)) => match labels.get(key) {
+                    None => "upstream",
+                    Some(Value::String(label))
+                        if matches!(
+                            label.as_str(),
+                            "upstream" | "estimated" | "derived" | "unknown"
+                        ) =>
+                    {
+                        label
+                    }
+                    _ => "unknown",
+                },
                 _ => "unknown",
-            },
-            _ => "unknown",
-        };
-        Some((key.into(), Value::from(if value.as_u64().is_some() { source } else { "unknown" })))
-    }).collect()
+            };
+            Some((
+                key.into(),
+                Value::from(if value.as_u64().is_some() {
+                    source
+                } else {
+                    "unknown"
+                }),
+            ))
+        })
+        .collect()
 }
 
 /// Presentation-only annotation. Never normalizes, fills or charges token amounts.
@@ -469,20 +529,36 @@ pub(crate) fn annotate_token_provenance(
     estimated: &[&str],
     derived_total: bool,
 ) {
-    if stats.contains_key("sdk_usage") { return; }
-    let derived_total = derived_total && stats.get("input_tokens").and_then(Value::as_u64)
-        .zip(stats.get("output_tokens").and_then(Value::as_u64))
-        .and_then(|(input, output)| input.checked_add(output))
-        .zip(stats.get("total_tokens").and_then(Value::as_u64))
-        .is_some_and(|(sum, total)| sum == total);
-    let labels: Map<String, Value> = PROVENANCE_TOKEN_FIELDS.into_iter().filter_map(|key| {
-        let value = stats.get(key)?;
-        let source = if value.as_u64().is_none() { "unknown" }
-            else if estimated.contains(&key) { "estimated" }
-            else if key == "total_tokens" && derived_total { "derived" }
-            else { observed.get(key).and_then(Value::as_str).unwrap_or("unknown") };
-        Some((key.into(), Value::from(source)))
-    }).collect();
+    if stats.contains_key("sdk_usage") {
+        return;
+    }
+    let derived_total = derived_total
+        && stats
+            .get("input_tokens")
+            .and_then(Value::as_u64)
+            .zip(stats.get("output_tokens").and_then(Value::as_u64))
+            .and_then(|(input, output)| input.checked_add(output))
+            .zip(stats.get("total_tokens").and_then(Value::as_u64))
+            .is_some_and(|(sum, total)| sum == total);
+    let labels: Map<String, Value> = PROVENANCE_TOKEN_FIELDS
+        .into_iter()
+        .filter_map(|key| {
+            let value = stats.get(key)?;
+            let source = if value.as_u64().is_none() {
+                "unknown"
+            } else if estimated.contains(&key) {
+                "estimated"
+            } else if key == "total_tokens" && derived_total {
+                "derived"
+            } else {
+                observed
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
+            };
+            Some((key.into(), Value::from(source)))
+        })
+        .collect();
     stats.insert("token_provenance".into(), Value::Object(labels));
 }
 

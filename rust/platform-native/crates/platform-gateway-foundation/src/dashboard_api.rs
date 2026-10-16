@@ -1,4 +1,4 @@
-//! Opt-in HTTP port of `src/api/v1/dashboard.py`; WebSocket is intentionally absent.
+//! HTTP and WebSocket port of `src/api/v1/dashboard.py`.
 //!
 //! Constructors are inert. The host supplies resolved identity/RBAC, existing
 //! realtime and metrics services, optional usage recorder and its database flag,
@@ -124,7 +124,40 @@ impl DashboardQuery {
         !matches!(self, Self::Breakdown { .. } | Self::User(_))
     }
 }
+/// Separate from HTTP admission: the HTTP permit ends at the 101 upgrade.
+#[derive(Clone, Debug)]
+pub struct DashboardWebSocketConfig {
+    max_sessions: usize,
+    send_timeout: std::time::Duration,
+    idle_timeout: std::time::Duration,
+}
+impl DashboardWebSocketConfig {
+    pub fn new(
+        max_sessions: usize,
+        send_timeout_ms: u64,
+        idle_timeout_ms: u64,
+    ) -> Result<Self, &'static str> {
+        if !(1..=1_000_000).contains(&max_sessions)
+            || !(1..=86_400_000).contains(&send_timeout_ms)
+            || !(1..=86_400_000).contains(&idle_timeout_ms)
+        {
+            return Err("invalid dashboard WebSocket limits");
+        }
+        Ok(Self {
+            max_sessions,
+            send_timeout: std::time::Duration::from_millis(send_timeout_ms),
+            idle_timeout: std::time::Duration::from_millis(idle_timeout_ms),
+        })
+    }
+}
+impl Default for DashboardWebSocketConfig {
+    fn default() -> Self {
+        Self::new(256, 10_000, 60_000).expect("valid dashboard limits")
+    }
+}
 pub struct DashboardApi {
+    websocket_config: DashboardWebSocketConfig,
+    websocket_sessions: Arc<tokio::sync::Semaphore>,
     gate: MetricsAdminApi,
     realtime: Arc<dyn DashboardRealtimeSource>,
     metrics: Arc<dyn MetricsSummarySource>,
@@ -134,7 +167,12 @@ pub struct DashboardApi {
 }
 impl DashboardApi {
     pub fn new(d: DashboardDependencies) -> Self {
+        let websocket_config = DashboardWebSocketConfig::default();
         Self {
+            websocket_sessions: Arc::new(tokio::sync::Semaphore::new(
+                websocket_config.max_sessions,
+            )),
+            websocket_config,
             gate: MetricsAdminApi::new(
                 d.metrics.clone(),
                 None,
@@ -149,6 +187,15 @@ impl DashboardApi {
             redis: d.redis,
             clock: d.clock,
         }
+    }
+    /// Configure before sharing the API with a router; never resize active sessions.
+    pub fn with_websocket_config(mut self, config: DashboardWebSocketConfig) -> Self {
+        self.websocket_sessions = Arc::new(tokio::sync::Semaphore::new(config.max_sessions));
+        self.websocket_config = config;
+        self
+    }
+    pub fn available_websocket_sessions(&self) -> usize {
+        self.websocket_sessions.available_permits()
     }
     pub async fn execute(
         &self,
@@ -876,6 +923,10 @@ pub fn router(
 ) -> Router {
     Router::new()
         .route(
+            "/api/v1/dashboard/ws",
+            get(http_websocket).head(method_not_allowed),
+        )
+        .route(
             "/api/v1/dashboard/realtime",
             get(http_realtime)
                 .head(method_not_allowed)
@@ -1011,4 +1062,146 @@ async fn http_user(
     request: Request,
 ) -> Response {
     dispatch(state, DashboardOperation::User(user), request).await
+}
+
+/// Requested source close code and reason. Before upgrade, ASGI renders these
+/// denials as HTTP 403; do not accept an unauthorized connection to send a frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DashboardWebSocketRejection {
+    pub code: u16,
+    pub reason: &'static str,
+}
+impl DashboardApi {
+    pub fn authorize_websocket(
+        &self,
+        identity: Result<&MetricsAdminIdentity, &MetricsAdminError>,
+        context: &MetricsAdminRequestContext,
+    ) -> Result<(), DashboardWebSocketRejection> {
+        let identity = identity.map_err(|_| DashboardWebSocketRejection {
+            code: 4001,
+            reason: "Authentication required",
+        })?;
+        self.gate
+            .require(identity, true, context)
+            .map_err(|_| DashboardWebSocketRejection {
+                code: 4003,
+                reason: "Metrics permission required",
+            })
+    }
+    pub async fn websocket_snapshot(&self, tenant_id: &str) -> ApiResult<Value> {
+        let snapshot = self.realtime.snapshot().await?;
+        let mut data = snapshot.to_dict();
+        if snapshot.total_runs == 0 {
+            data["runs"]["success_rate"] = Value::Null;
+        }
+        data["type"] = json!("metrics");
+        if !tenant_id.is_empty() {
+            data["tenant_id"] = json!(tenant_id);
+        }
+        data["alerts"] = json!(check_alerts(&snapshot, self.clock.as_ref())?);
+        Ok(data)
+    }
+}
+async fn http_websocket(
+    State(state): State<HttpState>,
+    upgrade: axum::extract::ws::WebSocketUpgrade,
+    request: Request,
+) -> Response {
+    let (parts, _) = request.into_parts();
+    let context = parts
+        .extensions
+        .get::<MetricsAdminRequestContext>()
+        .cloned()
+        .unwrap_or_default();
+    let identity = state
+        .identity
+        .resolve(&parts.headers, parts.uri.path())
+        .await;
+    if state
+        .api
+        .authorize_websocket(identity.as_ref(), &context)
+        .is_err()
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let identity = identity.expect("authorized identity");
+    let Ok(permit) = state.api.websocket_sessions.clone().try_acquire_owned() else {
+        return (StatusCode::SERVICE_UNAVAILABLE, [("retry-after", "1")]).into_response();
+    };
+    let config = state.api.websocket_config.clone();
+    upgrade
+        .on_upgrade(move |mut socket| async move {
+            use axum::extract::ws::Message;
+            // Captured before upgrade: failed handshake/drop also releases admission.
+            let _permit = permit;
+            let mut last_received = tokio::time::Instant::now();
+            loop {
+                let Ok(Ok(data)) = tokio::time::timeout(
+                    config.send_timeout,
+                    state.api.websocket_snapshot(identity.tenant_id()),
+                )
+                .await
+                else {
+                    break;
+                };
+                if !matches!(
+                    tokio::time::timeout(
+                        config.send_timeout,
+                        socket.send(Message::Text(data.to_string().into()))
+                    )
+                    .await,
+                    Ok(Ok(()))
+                ) {
+                    break;
+                }
+                let remaining = config.idle_timeout.saturating_sub(last_received.elapsed());
+                if remaining.is_zero() {
+                    break;
+                }
+                match tokio::time::timeout(
+                    remaining.min(std::time::Duration::from_secs(5)),
+                    socket.recv(),
+                )
+                .await
+                {
+                    Err(_) => {
+                        if last_received.elapsed() >= config.idle_timeout {
+                            break;
+                        }
+                        // Browser peers answer protocol pings automatically; passive
+                        // dashboards stay open while unreachable peers release capacity.
+                        if !matches!(
+                            tokio::time::timeout(
+                                config.send_timeout,
+                                socket.send(Message::Ping(Vec::new().into()))
+                            )
+                            .await,
+                            Ok(Ok(()))
+                        ) {
+                            break;
+                        }
+                    }
+                    Ok(Some(Ok(Message::Text(message)))) => {
+                        last_received = tokio::time::Instant::now();
+                        if message == "ping"
+                            && !matches!(
+                                tokio::time::timeout(
+                                    config.send_timeout,
+                                    socket.send(Message::Text("{\"type\":\"pong\"}".into()))
+                                )
+                                .await,
+                                Ok(Ok(()))
+                            )
+                        {
+                            break;
+                        }
+                    }
+                    Ok(Some(Ok(Message::Ping(_)))) | Ok(Some(Ok(Message::Pong(_)))) => {
+                        last_received = tokio::time::Instant::now();
+                    }
+                    _ => break,
+                }
+            }
+        })
+        .into_response()
 }

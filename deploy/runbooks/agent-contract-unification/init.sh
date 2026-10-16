@@ -7,10 +7,6 @@ harness_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(git -C "$harness_dir" rev-parse --show-toplevel)"
 cd "$repo_root"
 
-uv run --all-packages --extra test pytest -q --no-cov --tb=line \
-  tests/api/test_agents_api.py \
-  tests/contract/test_agent_studio_regression_manifest.py \
-  tests/integration/test_assistant_isolation_contract.py \
-  tests/integration/test_assistant_openapi_contract.py \
-  tests/services/assistant/test_subagent_manager.py \
-  tests/services/assistant/test_tool_selector.py
+# Native contract counterparts. Live Studio database cases remain explicitly ignored here.
+make native-build-path-guard
+CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_control_plane --test runtime_v2_turn_contract --test agent_studio_agents_api --test native_openapi_serving

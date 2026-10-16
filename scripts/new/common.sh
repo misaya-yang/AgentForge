@@ -136,13 +136,13 @@ topology_service_present() {
 topology_service_replicas() {
     local service="$1"
     local mode="${AI_PLATFORM_TOPOLOGY_MODE:-full}"
-    python3 "$PROJECT_ROOT/scripts/deploy/topology_modes.py" \
+    platform-tools topology --repo-root "$PROJECT_ROOT" \
         --mode "$mode" --service-replicas "$service"
 }
 topology_service_ids() {
     local scope="$1"
     local mode="${AI_PLATFORM_TOPOLOGY_MODE:-full}"
-    python3 "$PROJECT_ROOT/scripts/deploy/topology_modes.py" \
+    platform-tools topology --repo-root "$PROJECT_ROOT" \
         --mode "$mode" --service-ids "$scope"
 }
 running_service_replica_count() {
@@ -176,39 +176,24 @@ agent_capability_worker_container() {
 }
 
 agent_runtime_kernel_revision() {
-    python3 - "$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" <<'PY'
-import json
-import sys
-
-receipt = json.load(open(sys.argv[1], encoding="utf-8"))
-source = receipt["source"]["upstream_sha"]
-overlay = receipt["overlay"]["sha256"]
-print(f"{source}+{overlay[:12]}")
-PY
+    local receipt="$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" upstream overlay
+    upstream="$(platform-tools json-get "$receipt" source.upstream_sha)" || return 1
+    overlay="$(platform-tools json-get "$receipt" overlay.sha256)" || return 1
+    printf '%s\n' "${upstream}+${overlay:0:12}"
 }
 
 agent_runtime_image_tag() {
-    python3 - "$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" <<'PY'
-import json
-import sys
-
-receipt = json.load(open(sys.argv[1], encoding="utf-8"))
-upstream = receipt["source"]["upstream_sha"]
-overlay = receipt["overlay"]["sha256"]
-print(f"ai-gateway-agent-runtime:local-{upstream[:12]}-{overlay[:12]}")
-PY
+    local receipt="$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" upstream overlay
+    upstream="$(platform-tools json-get "$receipt" source.upstream_sha)" || return 1
+    overlay="$(platform-tools json-get "$receipt" overlay.sha256)" || return 1
+    printf '%s\n' "ai-gateway-agent-runtime:local-${upstream:0:12}-${overlay:0:12}"
 }
 
 agent_capability_worker_image_tag() {
-    python3 - "$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" <<'PY'
-import json
-import sys
-
-receipt = json.load(open(sys.argv[1], encoding="utf-8"))
-upstream = receipt["source"]["upstream_sha"]
-overlay = receipt["overlay"]["sha256"]
-print(f"ai-gateway-agent-capability-worker:local-{upstream[:12]}-{overlay[:12]}")
-PY
+    local receipt="$PROJECT_ROOT/deploy/agent-runtime-source/source-receipt.json" upstream overlay
+    upstream="$(platform-tools json-get "$receipt" source.upstream_sha)" || return 1
+    overlay="$(platform-tools json-get "$receipt" overlay.sha256)" || return 1
+    printf '%s\n' "ai-gateway-agent-capability-worker:local-${upstream:0:12}-${overlay:0:12}"
 }
 
 assert_agent_runtime_image_locked() {
@@ -217,7 +202,7 @@ assert_agent_runtime_image_locked() {
         log_error "Configured Agent Runtime image is not available locally: $task_image"
         return 1
     fi
-    if ! python3 "$PROJECT_ROOT/scripts/harness/agent_runtime_supply_chain.py" validate \
+    if ! platform-tools source-lock validate \
         --repo-root "$PROJECT_ROOT" \
         --lock "$PROJECT_ROOT/deploy/agent-runtime-source/lock.json" \
         --require-artifact agent_runtime >/dev/null; then
@@ -227,14 +212,7 @@ assert_agent_runtime_image_locked() {
 
     local task_locked_digest
     local task_image_digest
-    task_locked_digest="$(python3 - "$PROJECT_ROOT/deploy/agent-runtime-source/lock.json" <<'PY'
-import json
-import sys
-
-lock = json.load(open(sys.argv[1], encoding="utf-8"))
-print(lock["oci"]["artifacts"]["agent_runtime"]["image_digest"] or "")
-PY
-)"
+    task_locked_digest="$(platform-tools json-get "$PROJECT_ROOT/deploy/agent-runtime-source/lock.json" oci.artifacts.agent_runtime.image_digest)"
     task_image_digest="$(docker image inspect "$task_image" --format '{{.Id}}')"
     if [ -z "$task_locked_digest" ] || [ "$task_image_digest" != "$task_locked_digest" ]; then
         log_error "Configured Agent Runtime image digest does not match the locked artifact"
@@ -246,7 +224,7 @@ PY
 assert_runtime_release_unit_locked() {
     local task_runtime_image="$1"
     local task_worker_image="$2"
-    if ! python3 "$PROJECT_ROOT/scripts/harness/agent_runtime_supply_chain.py" verify-local-images \
+    if ! platform-tools source-lock verify-local-images \
         --repo-root "$PROJECT_ROOT" \
         --lock "$PROJECT_ROOT/deploy/agent-runtime-source/lock.json" \
         --runtime-image "$task_runtime_image" \
@@ -552,33 +530,13 @@ check_agent_capability_worker_health() {
     done <<< "$containers"
 }
 
-# -- Python workspace packages -----------------------------------------------
+# -- Native workspace dependencies -------------------------------------------
 sync_workspace_packages() {
-    log_step "Syncing workspace Python packages"
-
-    if command -v uv >/dev/null 2>&1; then
-        (
-            cd "$PROJECT_ROOT"
-            uv sync --quiet
-        ) && log_success "Workspace packages synced via uv" && return 0
-    fi
-
-    local pip_cmd=""
-    if command -v pip >/dev/null 2>&1; then
-        pip_cmd="pip"
-    elif command -v pip3 >/dev/null 2>&1; then
-        pip_cmd="pip3"
-    fi
-
-    if [ -n "$pip_cmd" ]; then
-        (
-            cd "$PROJECT_ROOT"
-            "$pip_cmd" install -e packages/ai-gateway-core -q
-        ) && log_success "Workspace packages synced via editable pip installs" && return 0
-    fi
-
-    log_warn "uv/pip not found; skipped workspace package sync"
-    return 0
+    log_step "Fetching locked Rust workspace dependencies"
+    command -v cargo >/dev/null 2>&1 || { log_error "Rust Cargo is required for source development"; return 1; }
+    cargo fetch --locked --manifest-path "$PROJECT_ROOT/rust/platform-native/Cargo.toml"
+    cargo fetch --locked --manifest-path "$PROJECT_ROOT/rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml"
+    log_success "Locked native dependencies are ready"
 }
 
 # -- Confirmation prompt -----------------------------------------------------

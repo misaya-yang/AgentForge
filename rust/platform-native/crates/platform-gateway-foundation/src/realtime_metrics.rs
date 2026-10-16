@@ -1050,7 +1050,7 @@ fn scored_members(values: Vec<redis::Value>) -> Result<Vec<redis::Value>, Metric
             }
             member => (member, values.next().ok_or(MetricsError)?),
         };
-        let _: f64 = redis::from_redis_value(&score).map_err(|_| MetricsError)?;
+        let _: f64 = redis::from_redis_value_ref(&score).map_err(|_| MetricsError)?;
         result.push(member);
     }
     Ok(result)
@@ -1076,4 +1076,3 @@ pub(crate) fn python_float_sum(values: &[f64]) -> f64 {
         hi
     }
 }
-

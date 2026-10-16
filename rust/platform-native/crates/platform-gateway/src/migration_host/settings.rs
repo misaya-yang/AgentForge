@@ -41,7 +41,8 @@ impl Default for ApiKeySettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into(),
+            header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT
+                .into(),
             keys: vec![],
         }
     }
@@ -128,6 +129,8 @@ pub struct HostSettings {
     pub authentication: AuthenticationSettings,
     pub anonymous: AnonymousSettings,
     pub cors: CorsSettings,
+    pub request_governance:
+        ai_platform_gateway_foundation::request_governance::RequestGovernanceConfig,
     #[serde(flatten)]
     pub service_sections: BTreeMap<String, Value>,
 }
@@ -147,6 +150,7 @@ impl Default for HostSettings {
             authentication: AuthenticationSettings::default(),
             anonymous: AnonymousSettings::default(),
             cors: CorsSettings::default(),
+            request_governance: Default::default(),
             service_sections: BTreeMap::new(),
         }
     }
@@ -198,6 +202,7 @@ impl HostSettings {
     }
     pub fn middleware(&self) -> MiddlewareConfig {
         MiddlewareConfig {
+            request_governance: self.request_governance.clone(),
             anonymous_enabled: self.anonymous.enabled,
             anonymous_header: self.anonymous.header_name.clone(),
             anonymous_cookie: self.anonymous.cookie_name.clone(),
@@ -324,7 +329,7 @@ impl HostSettings {
                         "services_path",
                         "health_check_interval",
                         "task_worker_concurrency",
-                    "task_delivery_mode",
+                        "task_delivery_mode",
                     ]
                     .contains(&first)
                 {
@@ -425,17 +430,30 @@ mod task_delivery_mode_tests {
     use super::*;
     #[test]
     fn task_delivery_mode_defaults_to_memory_and_requires_explicit_durable() {
-        assert_eq!(HostSettings::from_environment(&BTreeMap::new()).unwrap().task_delivery_mode,"memory");
-        let env=BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(),"durable".into())]);
-        assert_eq!(HostSettings::from_environment(&env).unwrap().task_delivery_mode,"durable");
+        assert_eq!(
+            HostSettings::from_environment(&BTreeMap::new())
+                .unwrap()
+                .task_delivery_mode,
+            "memory"
+        );
+        let env = BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(), "durable".into())]);
+        assert_eq!(
+            HostSettings::from_environment(&env)
+                .unwrap()
+                .task_delivery_mode,
+            "durable"
+        );
     }
     #[test]
     fn task_delivery_mode_rejects_unknown_and_zero_durable_concurrency() {
-        for mode in ["typo","auto",""] {
-            let env=BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(),mode.into())]);
+        for mode in ["typo", "auto", ""] {
+            let env = BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(), mode.into())]);
             assert!(HostSettings::from_environment(&env).is_err());
         }
-        let env=BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(),"durable".into()),("GATEWAY_TASK_WORKER_CONCURRENCY".into(),"0".into())]);
+        let env = BTreeMap::from([
+            ("GATEWAY_TASK_DELIVERY_MODE".into(), "durable".into()),
+            ("GATEWAY_TASK_WORKER_CONCURRENCY".into(), "0".into()),
+        ]);
         assert!(HostSettings::from_environment(&env).is_err());
     }
 }

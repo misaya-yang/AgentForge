@@ -1,0 +1,257 @@
+{
+  "schema": "ai-platform/sdk-test-migration-batch/v1",
+  "batch": 1,
+  "entries": [
+    {
+      "source": "tests/unit/test_sdk_worker_usage.py",
+      "sha256": "05fa46286af1121622c8df5618e23c32d1635a322eca92a0a029c4c148927bc1",
+      "package": "ai-platform-sdk-agent-engine",
+      "manifest": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml",
+      "native_file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/sdk_migration_parity_usage.rs",
+      "target": "--bin ai-platform-sdk-agent-engine sdk_migration_parity",
+      "source_case_mapping": {
+        "test_missing_not_zero": "missing_not_zero",
+        "test_explicit_zero": "explicit_zero_is_reported_without_invented_cost",
+        "test_cache_total": "cache_total_and_reconciliation",
+        "test_invalid_counts": "invalid_counts_and_overflow",
+        "test_overflow": "invalid_counts_and_overflow",
+        "test_partial_is_preserved": "partial_evidence_is_preserved",
+        "test_openai_initialized_zero": "openai_initialized_zero_is_not_evidence_and_all_responses_required",
+        "test_openai_reported": "openai_reported_totals",
+        "test_openai_missing_one_response_usage": "openai_initialized_zero_is_not_evidence_and_all_responses_required",
+        "test_no_arbitrary_provider_metadata": "no_arbitrary_provider_metadata"
+      },
+      "unmapped_original_cases": [
+        "test_invalid_cost",
+        "test_cost_independent",
+        "test_cached_tokens_not_normal_rate_priced"
+      ],
+      "remaining_assertion_obligations": [
+        "Native direct-provider protocol exposes no official SDK cost_usd observation; no invented cost values. Source explicit-cost assertions remain a boundary requiring owner disposition.",
+        "Native raw usage details use bounded numeric per-turn arrays instead of official Claude single-object shape."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "verification": "Root sdk-parity76.log: engine42 unit + child integration1 passed. Additional service encoder target remains unrun.",
+      "whole_file_retirement_eligible": false,
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-parity76.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_run_lineage.py",
+      "sha256": "f9d95fc6101584f2cb4708c6078efea461429c5f7c2a7eba2718cc6f30fb844d",
+      "package": "ai-platform-sdk-agent-engine",
+      "manifest": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml",
+      "native_file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/sdk_migration_parity_lineage.rs",
+      "target": "--bin ai-platform-sdk-agent-engine sdk_migration_parity",
+      "source_case_mapping": {
+        "test_pure_sync_and_stream_have_identity_without_tools": "pure_sync_and_stream_have_identity_without_tools",
+        "test_empty_tools_cannot_dispatch": "empty_tools_cannot_dispatch",
+        "test_empty_bridge_still_checks_durable_admission": "empty_bridge_still_checks_durable_admission",
+        "test_terminal_authority_check_does_not_spend_exhausted_kb_quota": "terminal_authority_check_does_not_spend_exhausted_kb_quota",
+        "test_malformed_empty_bridge_rejected": "malformed_empty_bridge_rejected",
+        "test_pure_profile_remains_compatible": "pure_profile_remains_compatible_on_disk",
+        "test_kb_profile_remains_independently_scoped": "kb_profile_remains_independently_scoped_on_disk"
+      },
+      "unmapped_original_cases": [],
+      "remaining_assertion_obligations": [
+        "Source terminal cancellation/commit-order AST assertion is not established by the native quota test. Requires actual parent-service commit cancellation behavioral test before full-suite retirement."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "verification": "Root sdk-parity76.log: engine42 unit + child integration1 passed. Additional service encoder target remains unrun.",
+      "whole_file_retirement_eligible": false,
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-parity76.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_launch_frame.py",
+      "sha256": "d7fce7e43d39539243ce737a2b17a599d2bb82ddd72136d58967ba0963b69b74",
+      "package": "ai-platform-sdk-agent-engine",
+      "manifest": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml",
+      "native_file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/sdk_migration_parity_frame.rs",
+      "target": "--bin ai-platform-sdk-agent-engine sdk_migration_parity",
+      "source_case_mapping": {
+        "test_chinese_and_emoji_preserve_admitted_input": "chinese_and_emoji_preserve_admitted_input",
+        "test_exact_whole_envelope_boundary_and_max_plus_one": "exact_whole_envelope_boundary_and_max_plus_one",
+        "test_key_and_metadata_count_toward_budget": "key_and_metadata_count_toward_budget",
+        "test_missing_delimiter_truncation_extra_frames_and_invalid_utf8": "malformed_frames_fail_closed_without_contents",
+        "test_nonfinite_and_malformed_unicode_fail_without_contents": "nonfinite_and_malformed_unicode_are_rejected",
+        "test_reader_uses_bounded_eof_read": "reader_never_consumes_past_bounded_eof_probe",
+        "test_invalid_frame_fails_before_state_access_or_engine_and_redacts": "tests/sdk_migration_parity_entrypoint.rs::invalid_frame_fails_before_state_access_or_engine_and_redacts"
+      },
+      "unmapped_original_cases": [
+        "test_actual_entrypoint_receives_unicode_launch"
+      ],
+      "remaining_assertion_obligations": [
+        "Valid child Unicode execution not yet covered at actual provider entrypoint.",
+        "Rust Read may perform multiple bounded reads; total consumption remains MAX+1. Python one-read implementation assertion is obsolete mechanics. Rust Value cannot represent arbitrary object or lone Unicode surrogate."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "verification": "Root sdk-parity76.log: engine42 unit + child integration1 passed. Additional service encoder target remains unrun.",
+      "whole_file_retirement_eligible": false,
+      "additional_native_targets": [
+        {
+          "package": "ai-platform-sdk-agent-worker",
+          "target": "--bin sdk-agent-worker sdk_migration_parity_frame",
+          "native_file": "rust/platform-native/crates/platform-sdk-agent-worker/src/sdk_migration_parity_frame.rs",
+          "functions": [
+            "exact_whole_envelope_limit_includes_provider_key_and_newline",
+            "unicode_is_encoded_as_complete_compact_utf8"
+          ],
+          "compiled": true,
+          "offline_pass": true,
+          "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-worker-parity84.log"
+        }
+      ],
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-parity76.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_argument_admission.py",
+      "sha256": "312eaa46c30e83b4dfdd69fd8a4dc536f7013acedc672c3f0d20eb919af926ac",
+      "package": "ai-platform-sdk-agent-engine",
+      "manifest": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml",
+      "native_file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/sdk_migration_parity_arguments.rs",
+      "target": "--bin ai-platform-sdk-agent-engine sdk_migration_parity",
+      "source_case_mapping": {
+        "test_multilingual_action_reaches_approval_and_completion": "multilingual_action_reaches_approval_and_completion",
+        "test_multilingual_action_rejection_preserves_receipt": "multilingual_action_rejection_preserves_receipt",
+        "test_compact_array_avoids_optional_whitespace_overcount": "compact_array_avoids_optional_whitespace_overcount",
+        "test_ascii_exact_65536_byte_limit": "ascii_exact_65536_byte_limit",
+        "test_utf8_exact_65536_byte_limit": "utf8_exact_65536_byte_limit",
+        "test_ascii_oversize_stays_fenced_before_dispatch": "oversized_arguments_are_fenced_before_dispatch",
+        "test_utf8_oversize_stays_fenced_before_dispatch": "oversized_arguments_are_fenced_before_dispatch",
+        "test_lone_surrogate_stays_fenced_before_dispatch": "malformed_provider_arguments_cannot_enter_json_value_boundary",
+        "test_nonfinite_json_stays_fenced_before_dispatch": "malformed_provider_arguments_cannot_enter_json_value_boundary"
+      },
+      "unmapped_original_cases": [
+        "test_nonserializable_value_stays_fenced_before_dispatch"
+      ],
+      "remaining_assertion_obligations": [
+        "Actual bridge requests/approval polling and argument identity asserted; emitted event sequence not captured by these unit tests.",
+        "Reusable bridge poison-state assertions remain unrepresented; production engine executes calls serially and propagates errors, but this is not evidence for all cancellation/uncertain-outcome cases.",
+        "Arbitrary Python object cannot inhabit Rust serde_json::Value; source TypeError mechanics require explicit retirement rationale."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "verification": "Root sdk-parity76.log: engine42 unit + child integration1 passed. Additional service encoder target remains unrun.",
+      "whole_file_retirement_eligible": false,
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-parity76.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_worker_shutdown.py",
+      "sha256": "309bdd67348811f8e59819b9facc263f5ec74a31267dfc3c4d8718057e4e7e02",
+      "package": "ai-platform-sdk-agent-worker",
+      "target": "--bin sdk-agent-worker sdk_migration_parity",
+      "native_file": "rust/platform-native/crates/platform-sdk-agent-worker/src/sdk_migration_parity_lifecycle.rs",
+      "source_case_mapping": {
+        "test_restart_marker_precedes_receipt_replay_and_blocks_deletion_sweep": "restart_marker_precedes_receipt_and_blocks_deletion_sweep",
+        "test_legacy_unknown_deletion_refused_but_observed_cleanup_allows_it": "legacy_unknown_deletion_requires_observed_cleanup",
+        "test_crash_window_completed_proof_does_not_override_active_marker": "completed_proof_never_overrides_active_cleanup_marker"
+      },
+      "unmapped_original_cases": [
+        "test_repeated_raw_cancel_retains_owner_until_observed_cleanup",
+        "test_signal_error_fails_closed_without_unlock_or_automatic_retry",
+        "test_uvicorn_cancellation_during_grace_never_commits_or_unlocks",
+        "test_cleanup_budget_returns_one_error_and_never_late_success",
+        "test_hostile_watcher_cannot_delay_signals_or_response_budget",
+        "test_actual_lifespan_drains_normal_owner_and_reports_uncertain_expiry",
+        "test_authority_admission_cannot_register_after_shutdown",
+        "test_late_spawn_handle_and_definitive_missing_interpreter_cleanup",
+        "test_actual_retention_thread_is_observed_with_same_shutdown_budget",
+        "test_commit_fsync_failure_retains_refusal_even_after_pending_unlink",
+        "test_postcommit_release_fsync_failure_preserves_known_result",
+        "test_begin_fence_failure_never_spawns_and_releases_unstarted_owner",
+        "test_internal_stop_bounds_resistant_execution_and_detaches_late_events",
+        "test_shutdown_observes_cleanup_after_owner_task_is_cancelled",
+        "test_hard_execution_observation_bounds_cancellation_resistance",
+        "test_owner_cancel_at_committed_execution_preserves_known_result",
+        "test_begin_marker_actual_fsync_failures_never_open_replay_or_deletion",
+        "test_complete_marker_fsync_and_unlink_failure_state_matrix",
+        "test_actual_terminal_fsync_failures_keep_commit_uncertainty_fenced",
+        "test_pending_unlink_failure_keeps_receipt_and_unknown_fenced"
+      ],
+      "remaining_assertion_obligations": [
+        "These cases assert actual filesystem/lock/sweeper transitions; source HTTP status and supervisor readiness assertions not included.",
+        "Other shutdown/cancel/fsync fault matrices remain unrepresented by this batch."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "whole_file_retirement_eligible": false,
+      "verification": "Root sdk-worker-parity84.log: all6 frame/lifecycle parity tests passed.",
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-worker-parity84.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_worker_lifecycle.py",
+      "sha256": "af946780df2cce150d600aed3a551a6c56b75118fc58891ffa7452b68155f414",
+      "package": "ai-platform-sdk-agent-worker",
+      "target": "--bin sdk-agent-worker sdk_migration_parity",
+      "native_file": "rust/platform-native/crates/platform-sdk-agent-worker/src/sdk_migration_parity_lifecycle.rs",
+      "source_case_mapping": {
+        "test_active_session_blocks_same_scope_but_not_other_tenant": "active_scope_blocks_reentry_and_delete_without_blocking_another_scope"
+      },
+      "unmapped_original_cases": [
+        "test_deadline_covers_launch_payload_backpressure",
+        "test_deadline_covers_spawn_handshake",
+        "test_deadline_covers_child_output_and_exit",
+        "test_stream_cancellation_reaps_before_unlock_and_blocks_retry",
+        "test_asgi_disconnect_cancels_stream_and_reaps_under_shield",
+        "test_nonstream_disconnect_reaps_without_success",
+        "test_stream_header_send_failure_releases_unstarted_iterator",
+        "test_failed_child_does_not_commit_completed_event",
+        "test_receipt_replay_is_bound_to_request_and_tenant",
+        "test_completed_event_is_not_committed_after_authority_revocation",
+        "test_denied_admission_never_spawns_or_creates_state",
+        "test_body_staging_never_copies_over_limit_chunk",
+        "test_unicode_request_reaches_child_as_complete_utf8_frame",
+        "test_expanded_metadata_budget_rejected_before_session_or_spawn"
+      ],
+      "remaining_assertion_obligations": [
+        "Actual flock isolation/deletion/tombstone tested; tenant-to-scope derivation and HTTP status assertions remain separate.",
+        "Remaining process/deadline/commit-admission and stream lifecycle assertions require actual worker integration counterparts."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "whole_file_retirement_eligible": false,
+      "verification": "Root sdk-worker-parity84.log: all6 frame/lifecycle parity tests passed.",
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-worker-parity84.log"
+    },
+    {
+      "source": "tests/unit/test_sdk_bridge_response_ownership.py",
+      "sha256": "27e55e7d9301df24d7d2c84991a8e1b0a2326c7eb3c573fb29b7258a79c1aab2",
+      "package": "ai-platform-sdk-agent-engine",
+      "target": "--bin ai-platform-sdk-agent-engine sdk_migration_parity_response",
+      "native_file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/src/sdk_migration_parity_response.rs",
+      "source_case_mapping": {
+        "test_http_errors_close_before_caller_retains_exception": "http_error_body_is_released_before_retained_error",
+        "test_redirects_close_without_read_or_second_dispatch": "redirects_do_not_follow_or_retain_response_body",
+        "test_success_keeps_existing_bounded_read_and_timeout": "success_and_malformed_bodies_use_actual_bounded_parser",
+        "test_malformed_and_oversized_success_bodies_close": "success_and_malformed_bodies_use_actual_bounded_parser"
+      },
+      "remaining_assertion_obligations": [
+        "Original private HTTPError status/reason inspection differs from sanitized native errors.",
+        "Malformed Location callback assertion and uncertain-outcome bridge-reuse poisoning not represented.",
+        "Actual TCP error-body closure is checked while retaining the error; Python exact close counters and unrelated in-memory body identity are obsolete transport mechanics requiring owner disposition.",
+        "Success tests verify parser/size limit; original fixed50-second timeout is not asserted by this bounded3-second fixture."
+      ],
+      "translation_complete": false,
+      "compiled": true,
+      "offline_pass": true,
+      "live_unverified": false,
+      "whole_file_retirement_eligible": false,
+      "verification": "Root sdk-response92.log: all3 response ownership tests passed after fixture-only asynchronous thread joining. No production transport change.",
+      "verification_evidence": "/workspace/shared/platform-verification/full-rust-20261015/sdk-response92.log"
+    }
+  ]
+}

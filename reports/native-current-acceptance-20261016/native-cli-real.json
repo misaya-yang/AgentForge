@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "live_public_gateway_probe",
+  "overall": "partial_live_acceptance_blocked_before_pairing",
+  "recorded_at_utc": "2026-10-16T04:54:51.252148+00:00",
+  "gateway_origin": "http://127.0.0.1:8080",
+  "credential_source": "private ~/.cache/agentforge/secrets/native-current-login.json body.access_token; token not recorded",
+  "fixture_root": "~/.cache/agentforge/local-application/cli-acceptance-20261016",
+  "fixture_created": [
+    "read_source.txt",
+    "write_expected.txt"
+  ],
+  "fixture_sha256": {
+    "read_source.txt": "a9285b5a971b1de32200155400da30e0ae8feb8a398738884adf7f66b5cc1b0d",
+    "write_expected.txt": "3a8dbf548d6a2808c20fb13726843423e3c0d43f391665625fa73ca07eb452be"
+  },
+  "native_executable": {
+    "local_node_on_path": false,
+    "platformctl_on_path": false,
+    "repository_target_binary_found": false,
+    "built_or_executed": false
+  },
+  "public_api_observations": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/local-nodes",
+      "status": 200,
+      "owned_device_count": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/local-nodes/pairing/challenges",
+      "status": 201,
+      "challenge_id": "d54bbc27-337c-4a98-803c-5bb60d815060",
+      "user_code": "[REDACTED]",
+      "expires_at": "2026-10-16T04:55:51.234899+00:00"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/local-nodes/pairing/challenges/d54bbc27-337c-4a98-803c-5bb60d815060/complete",
+      "status": 503,
+      "attestation_supplied": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/local-nodes",
+      "status": 200,
+      "owned_device_count": 0
+    }
+  ],
+  "workflow_status": {
+    "owner_identity_and_gateway_auth": "verified_by_authenticated owner-scoped list response",
+    "owned_device_inventory": "empty at start; remained empty after attempted pairing completion",
+    "pairing_challenge_create": "live request attempted; challenge secret redacted; expires in 60 seconds",
+    "trusted_pairing_completion": "blocked_or_rejected; no native device proof supplied",
+    "native_cli_pairing": "unverified; available source CLI exposes diagnostics only and no executable is installed",
+    "file_read_write_approval_deny_no_replay_offline_revocation": "unverified; no paired device or native runner available"
+  },
+  "source_boundary_observation": "Source review only: local-node CLI implements doctor diagnostics; transport pairing/exchange require injected signer, secure credential store, verifier and controlled dispatcher. This source observation is not live acceptance.",
+  "secrets_redacted": true,
+  "no_real_user_files_or_existing_node_config_accessed": true
+}

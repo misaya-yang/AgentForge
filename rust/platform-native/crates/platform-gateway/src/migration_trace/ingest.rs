@@ -331,11 +331,12 @@ async fn enqueue_in(
     payload: Value,
     runtime: bool,
 ) -> Result<Option<Value>, sqlx::Error> {
+    let args = sql::enqueue_trace_arguments(tenant, payload, trace, runtime);
     sqlx::query_scalar(sql::ENQUEUE_TRACE)
-        .bind(tenant)
-        .bind(payload)
-        .bind(trace)
-        .bind(runtime)
+        .bind(args.0)
+        .bind(args.1)
+        .bind(args.2)
+        .bind(args.3)
         .fetch_optional(conn)
         .await
 }

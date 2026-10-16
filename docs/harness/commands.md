@@ -12,17 +12,16 @@
 
 | Tool | Required version / policy | Notes |
 | --- | --- | --- |
-| Python | ≥ 3.10 (CI uses 3.12) | Managed by `uv`; the workspace is defined in `pyproject.toml` |
-| uv | 0.13.0 | `uv run --all-packages` resolves the whole workspace |
+| Rust (native services/tools) | 1.99.0 | Root and native workspace toolchain pins; Cargo.lock is authoritative |
+| Rust (upstream Runtime overlay) | 1.95.0 | Independent pinned composed-source toolchain |
 | Node | 26.11.1 | Current stable release; build/CI toolchain |
 | pnpm | 12.11.2 | `npm install --global pnpm@12.11.2 --allow-scripts=pnpm` |
 | Docker | Compose v2 | `docker compose`, not `docker-compose`, wherever possible |
 
-Never mix application package managers: **pnpm for `web/`, uv for Python.**
+Use **Cargo for native services/tools and pnpm for `web/`**.
 Node 26 does not bundle Corepack. The global npm command above only bootstraps the
-pinned pnpm executable; never use npm to install web dependencies or bare pip for
-Python dependencies. `web/pnpm-workspace.yaml` preserves the existing security
-overrides and refuses a mismatched pnpm executable. Use
+pinned pnpm executable; use pnpm for web dependencies.
+`web/pnpm-workspace.yaml` preserves security overrides and rejects a mismatched pnpm executable. Use
 `pnpm -C web install --frozen-lockfile`. pnpm 12 adds a separate package-manager
 lock document; the existing application dependency document remains unchanged.
 New toolchain releases
@@ -34,8 +33,7 @@ frontend runtime remains Nginx. The SDK CLI keeps its existing Node 22-compatibl
 output/API baseline while CI runs on the current toolchain.
 
 Official releases: [Node.js](https://nodejs.org/dist/index.json),
-[pnpm 12.11.2](https://github.com/pnpm/pnpm/releases/tag/v12.11.2),
-[uv 0.13.0](https://github.com/astral-sh/uv/releases/tag/0.13.0).
+[pnpm 12.11.2](https://github.com/pnpm/pnpm/releases/tag/v12.11.2).
 
 ## 1. Machine and stack
 
@@ -63,7 +61,7 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 | Health table (nonzero exit on failure — usable as a release gate) | `make status` |
 | Live logs | `make logs` |
 | Stop / restart without deleting data | `make stop` / `make restart` |
-| Apply changed Python source without rebuilding | `make hot-update` |
+| Build native images and replace selected services | `make hot-update` |
 | Preview / load local demo data | `make seed-demo` / `make seed-demo-apply` |
 
 `*-build-local` means the Docker daemon is local; Cargo runs only in the multi-stage Docker builder.
@@ -71,8 +69,14 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 scoped Core original-turn recovery/suspension regressions inside that builder,
 using `AI_PLATFORM_AGENT_RUNTIME_SOURCE` for the clean pinned upstream. It is
 local Docker evidence, separate from the hosted CI gate.
-Do not run host Cargo/Rust commands. `make rust-changed-crate-gate` is a hosted-CI entrypoint on this
-machine, not a local acceptance command.
+For these local Runtime acceptance targets, retain the Docker-builder convention;
+do not substitute host Cargo runs for their Docker evidence. Separately, the
+owner-approved isolated cloud migration workspace may run pinned Cargo/Rust
+commands for native compilation and targeted tests. Those runs must be serialized
+(`CARGO_BUILD_JOBS=1`), use an external `CARGO_TARGET_DIR`, and disable debug and
+incremental build output. This exception does not authorize deployment or establish
+local Docker acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
+not a replacement local acceptance command.
 
 Every target above accepts `ENV_FILE=/path/to/.env` when the real env file lives outside the repo.
 
@@ -98,9 +102,9 @@ Every target above accepts `ENV_FILE=/path/to/.env` when the real env file lives
 | Show applied vs pending | `make migrate-status` |
 | Back up / restore / list backups | `make backup` / `make restore` / `make backup-list` (external `AI_PLATFORM_BACKUP_DIR`, otherwise the XDG/HOME state directory; repository paths are rejected) |
 
-`python -m database.authority migrate` is the only schema writer; `make migrate`,
-`scripts/new/migrate.sh`, `database/cli.py`, and
-`database/migrate_per_service.py` are compatibility delegates to that command.
+`database-authority migrate` is the only schema writer; `make migrate` and
+`scripts/new/migrate.sh` delegate to that native command. The former Python
+entrypoints are archived migration references, not runnable setup instructions.
 The authority recognizes historical filename, numeric, and per-service ledgers
 only as adoption input, then freezes them after the baseline marker. Ambiguous
 duplicate numeric revisions fail closed with a reconciliation receipt.
@@ -109,14 +113,13 @@ The authority acquires one PostgreSQL session advisory lock before bootstrap,
 discovery, or DDL. A concurrent runner waits, then reloads the authoritative
 ledger and exits as a no-op; connection loss releases the lock.
 
-Python Gateway startup runs the authority's read-only `startup-check` as the
-`gateway` principal against the configured application DSN before opening its
-shared-storage pool, usage flusher or password bootstrap. Its supported epoch
-window remains **2..10**; epoch 17 requires the native Gateway and is not made
-compatible by retaining Python Knowledge/SDK services. An incompatible schema,
-unavailable database or failed pool/bootstrap aborts startup; any partially
-opened pool is closed, so `SELECT 1` cannot make that failed startup ready.
-Gateway never migrates or retries under a different database identity.
+Native Gateway startup performs read-only database admission under the configured
+application principal before serving requests. Its supported epoch and role
+contracts come from the native authority; an incompatible schema or failed
+required bootstrap must not become ready on the strength of `SELECT 1`.
+Gateway never migrates or retries under a different database identity. The old
+Python epoch 2–10 startup contract is archived history, not a retained deployment
+option.
 
 `make migrate-init` maps to the authority's `init-fresh` command and therefore
 requires a truly empty database plus a complete frozen baseline. It never
@@ -126,38 +129,30 @@ Restoring over shared data requires a current backup and explicit approval.
 
 ## 4. Development
 
-For a restored checkout, `make local-bootstrap` installs the existing pinned
-toolchain and frozen dependencies in isolated local directories. Then generate
-local configuration with `bash scripts/new/init-env.sh --env .env --if-missing`
-and run `make local-baseline`. See [local development](local-development.md) for
-the project/recovery boundary, actual results and external prerequisites. These
-entry points do not start services. Prefix any existing command with
-`bash scripts/dev/with-local-toolchain.sh` to use the same tools and frozen locks.
-
 | Purpose | Command |
 | --- | --- |
 | One-shot local dev environment | `make dev-setup` |
 | Start / stop / reset / inspect dev containers | `make dev-start` / `make dev-stop` / `make dev-reset` / `make dev-status` |
-| Run backend services from mounted source with reload | `make dev-compose` |
-| Follow mounted-source logs | `make dev-compose-logs` |
+| Build and run native backend services from the current source | `make dev-compose` |
+| Follow native development-service logs | `make dev-compose-logs` |
 
-## 5. Python tests and lint
+## 5. Native tests and formatting
 
-Always scope to the paths you touched — the full suite is long.
+Install source-built services and operational commands with
+`CARGO_TARGET_DIR=/absolute/external/build-directory make native-install`
+in the approved build environment. Keep Cargo output outside the checkout.
+Scope tests to the package and target you changed:
 
 ```bash
-uv run --all-packages --extra test pytest -q --no-cov tests/<area>/test_<file>.py
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts
+cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools -- --check
 ```
 
-```bash
-uv run --all-packages --extra dev ruff check <paths>
-```
-
-Notes:
-
-- `--no-cov` is required for scoped runs; the project sets `--cov-fail-under=25` globally.
-- `asyncio_mode = auto` — do not add `@pytest.mark.asyncio`.
-- Tests marked `integration` need a live stack; state clearly when you skip them.
+Use the dedicated Make gate for an actual integration target. Ignored PostgreSQL,
+Qdrant, provider and platform acceptance tests require their explicit disposable
+fixture/authorization settings; an ordinary test run does not execute or certify
+them. Historical pytest/Ruff receipts remain archived evidence and are not
+commands for the native project.
 
 ## 6. Frontend
 
@@ -184,8 +179,17 @@ artifacts go. `make harness-check` fails when a spec, a config, or a screenshot 
 
 SDK SSE contract:
 
-- `make sdk-sse-contract` — runs the shared Python and CLI SSE fixture contract; also runs Java
+- `make sdk-sse-contract` — runs the shared Rust client and CLI SSE fixture contract; also runs Java
   and Dart native tests when Maven or Dart is installed, otherwise prints an explicit skip.
+
+### Native ignored-test ledger
+
+`make hygiene-check` selects the individually reviewed native ledger at
+`docs/architecture/baselines/2026-10-native/skip-baseline.json`. The historical
+Python-era ledger remains intact. Named PostgreSQL/Qdrant/model-artifact and
+conditional browser-receipt prerequisites are omissions from ordinary offline runs,
+not successful acceptance. Required live release gates must execute their contracts
+and reject skipped or zero-test runs.
 
 ## 7. Gates
 
@@ -213,21 +217,25 @@ changed paths and matching gates. Report exactly which checks ran and their tier
 | Agent core / subagents | `make agent-eval-core-gate` |
 | Agent Studio | `make verify-agent-studio` |
 | Service boundaries, Agent API surface | `make architecture-boundary-gate` and `make core-boundary-gate` for their declared import/allowlist scopes; `make test-isolation` and API/runtime contract gates remain separate |
-| Python/hybrid OpenAPI | `make verify-openapi-contract` (profile-scoped; native release requires the next gate) |
+| Native source-owned OpenAPI | `make verify-openapi-contract` (alias of the full native gate; missing independent candidate fails) |
 | Native full published OpenAPI | `make verify-native-openapi-contract NATIVE_OPENAPI_CANDIDATE=/path/to/independent-native-export.json` (missing candidate fails) |
-| RAG retrieval | `make rag-eval-regression-gate` is fixture-only evidence; implementation/live quality require separate ARC-00 gates |
-| Knowledge service (real KB suite, imports `knowledge_service`) | `make kb-unit-gate` |
-| KB migrations 100–112 + public/main-N-1/split full-chain ledger replay, 097 late-table handoff, 101 dump/restore boundary, and durable embedding-action jobs (needs Postgres with temporary-database privilege plus `pg_dump`/`pg_restore`) | `make kb-migration-gate` |
+| RAG retrieval | `make rag-eval-fixture-contract` is fixture-only evidence; implementation/live quality require separate ARC-00 gates |
+| Knowledge service (native production-module tests) | `make kb-unit-gate` |
+| Native full-chain/ledger/roles, 97/112, lock serialization, crash rollback and 101 dump/restore (disposable Postgres and pg_dump/pg_restore) | `KB_MIGRATION_TEST_ALLOW_CREATE_DATABASE=1 KB_MIGRATION_TEST_ADMIN_DSN=<disposable-admin-dsn> make kb-migration-gate` |
 | KB development fixture structure / manifest hashes / seed drift (`tests/fixtures/eval/rag/golden/**`; not a release claim) | `make kb-golden-gate` |
 | KB T0 release evidence (200–400 reviewed cases, source mix, manifest/pointer/reviewed real-corpus baseline binding) | `make kb-release-evidence-gate` |
-| Project a golden JSONL into the versioned Postgres store (PRD T0-#2; `--dry-run` first) | `uv run --all-packages python scripts/import_kb_eval_golden.py <jsonl> --dry-run` |
-| Qdrant integration smoke (needs `docker-compose.kbms.yml` up; skips when down) | `make kb-integration-smoke` |
+| Project a golden JSONL into the versioned Postgres store (PRD T0-#2; `--dry-run` first) | `platform-knowledge-ops import-kb-eval-golden <jsonl> --dry-run` |
+| Qdrant integration smoke (explicit live gate; fails when the required stack is down) | `make kb-integration-smoke` |
 | Real-corpus retrieval baseline candidate (live KS; records distribution only, does not approve it) | `make kb-baseline-record KB_BASELINE_DATASET_ID=<id>` |
-| RAG eval fixtures / `scripts/eval_rag.py` | `make rag-eval-regression-gate` |
+| RAG eval fixtures / native `eval_rag` | `make rag-eval-fixture-contract` |
 | Deploy scripts, `.env.example`, Compose | `make validate-example-config` |
 | Shared/Java/Dart SDK streaming change | `SDK_SSE_CONTRACT_REQUIRE_ALL=1 make sdk-sse-contract` (plain command is optional-tool sub-evidence) |
 | Independent CLI config, launcher, provider adapter, package | `make independent-cli-gate` |
 | Independent native CLI composed-source artifact | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-cli-build-local` |
+
+The consolidated KB migration target does not certify every historical embedding
+or artifact assertion. Those specialized tests remain unverified obligations;
+the native gate prints its exact coverage before execution.
 
 ## 8. What CI runs
 
@@ -268,56 +276,37 @@ Starting an old image against the post-101 database is not a rollback path.
 works before 101, fails after 101, and works again only after a real
 `pg_dump`/`pg_restore` round trip into a new temporary database. The supported
 central-chain entrypoints are `make migrate` and
-`python -m database.authority migrate`; `database/run_migration.py` is retired
-and always refuses single-file execution before reading credentials. The
-historical `database/cli.py` and `database/migrate_per_service.py` names are
-thin complete-plan delegates and cannot select a version or service.
+`database-authority migrate`. Historical Python migration wrappers and single-file
+runners are archived references. The native authority executes the complete
+validated migration plan; it does not select a single version or service.
 
-### OpenAPI profile ownership and export
+### OpenAPI ownership and export
 
-`sdk/openapi.json` remains the complete published SDK contract, byte-for-byte
-unchanged by a Python export. `sdk/openapi-profiles.json` records the exact
-all Python/common paths and native-only operations, operation IDs, native auth schemes and owning Rust
-route/dispatcher evidence. Ownership is explicit, not inferred from missing
-routes. Stale IDs, source evidence, duplicate ownership and Python/native
-security or route overlap fail closed. Every published path must belong to the
-explicit partition. Reclassifying a common path requires reviewing the existing
-Python ownership declaration too; adding a native exclusion alone is rejected. Common operations stay in the Python
-baseline; new unknown removals are never automatically excluded.
+`sdk/openapi.json` remains the published SDK contract. Current executable
+commands use the native producer and comparator; archived Python/FastAPI profile
+receipts describe the previous architecture and are not active export instructions.
 
-- Python/hybrid: `make verify-openapi-contract` exports the actual FastAPI app
-  and compares against the published baseline minus explicitly native-only
-  operations/schemes. Fresh hash-seeded processes verify operation IDs.
-- Candidate export: `make snapshot-gateway-openapi OPENAPI_OUTPUT=/tmp/python-openapi.json`.
-  The equivalent script requires `--profile python-hybrid --output PATH` and
-  refuses to overwrite the mixed publication, including symlink/hardlink aliases.
-  Publication updates require review against the full previous SDK contract.
-- Native: `make verify-native-openapi-contract NATIVE_OPENAPI_CANDIDATE=/tmp/native-openapi.json`
-  compares an independently produced full native Gateway document against the
-  entire published contract, including common operations and native auth.
-  The bounded native producer described below covers only explicitly declared
-  source-owned operations; current coverage and missing-operation counts belong
-  to its source-bound coverage report and the active program's receipts. It does
-  not yet fully declare the published contract or host/error responses. A complete independent export remains an open
-  release prerequisite. Even a matching supplied candidate
-  returns exit 2 for the required native gate until a supported independent
-  producer/export evidence path exists. `comparison_result` records diagnostic
-  compatibility separately from the failed required verification. Do not copy the publication as a
-  candidate. Missing candidates fail with exit 2 and error evidence. The baseline
-  file itself is rejected as a candidate. Artifact comparison cannot certify
-  native implementation fidelity, determinism, or live runtime behavior.
+- `make verify-openapi-contract` aliases `make verify-native-openapi-contract`.
+- Export a source-owned candidate with `make snapshot-native-openapi
+  NATIVE_OPENAPI_PRODUCER=/external/target/debug/ai-platform-openapi
+  OPENAPI_OUTPUT=/external/native-only.json
+  OPENAPI_COVERAGE_OUTPUT=/external/native-coverage.json`.
+- Check the full published contract with `make verify-native-openapi-contract
+  NATIVE_OPENAPI_CANDIDATE=/external/independent-native-export.json`.
+  Missing candidates and incomplete native coverage fail closed. The bounded
+  producer's coverage report is authoritative; its output is not a complete
+  release claim. Do not copy or merge the publication into a candidate.
+- `make compare-openapi-candidate OPENAPI_CANDIDATE=/external/candidate.json`
+  is only artifact compatibility analysis, not independent-source or live proof.
+- `make live-openapi-contract-gate` performs a real GET `/openapi.json` and the
+  original published-path/required-request-field checks. Unavailable stack or
+  snapshot yields explicit SKIPPED evidence, never PASS. Set `GATEWAY_BASE_URL`
+  to select the intended authorized stack.
 
-For a comparison-only diagnostic use
-`make compare-openapi-candidate OPENAPI_CANDIDATE=/tmp/candidate.json`; evidence
-labels `result_kind: artifact-comparison-only`. This is not a required native gate.
-
-Direct gate invocation accepts `--profile python-hybrid|native|published`;
-`published` (the default) is an artifact-comparison diagnostic requiring a full
-candidate; its pass is not independent native producer or release proof.
-Evidence names the profile, full-publication SHA-256, compared counts and actual
-hash-seed checks. A Python-profile pass is not a complete/native release pass.
-The historical mixed-baseline-vs-Python failure remains valid historical evidence.
-No downstream wildcard paths or native endpoints are hand-added to Python output.
+Native handler/DTO source evidence and publication/profile data remain distinct.
+Historical mixed-baseline-versus-Python failures remain archived evidence, not a
+reason to suppress current native mismatches. Offline producer/comparator tests:
+`cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi`.
 
 #### Response alternative diagnostics
 
@@ -340,8 +329,7 @@ constraints likewise supply no field-type proof. Nested object fields, array ite
 schema satisfiability are not a general compatibility proof. Existing required
 native-producer and runtime evidence requirements remain unchanged.
 
-Offline regressions: `uv run --all-packages --extra test pytest -q --no-cov tests/contract/test_openapi_response_alternatives.py` and the comparator's
-`--selftest`. These diagnostics do not alter the SDK publication or native bodies.
+Offline regressions: `cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi --test response_alternatives`. These diagnostics do not alter the SDK publication or native bodies.
 
 ### Bounded native source export (not the full native release gate)
 
@@ -351,7 +339,7 @@ Use the current producer coverage report and source-bound receipts in
 [native enterprise state](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)
 for measured counts; do not copy a dated count into this command contract.
 The separate `sdk/native-common-contracts.json` evidence manifest does
-not change Python-hybrid ownership or the publication. See
+not rewrite the archived Python ownership declaration or the publication. See
 [common native role contracts](../architecture/native-common-role-contract.md).
 It does not load the published SDK file, initialize Gateway, read runtime
 configuration, connect to storage, or start a listener. Existing native handlers
@@ -390,11 +378,11 @@ configurable in deployment; `x-api-key` describes the default, not every deploym
 Full/native `make verify-native-openapi-contract` stays required and fails with
 this partial document. Do not merge the published schema into this document,
 interpret unconstrained responses as support, or relabel this as CL-01–06/live
-acceptance. Python/hybrid export and the complete published file are retained.
+acceptance. The complete published file is retained; Python/hybrid exports are
+archived migration evidence, not a runnable backend.
 
-Offline regressions: `pytest -q --no-cov tests/contract/test_native_openapi_export.py`
-through the normal uv command; native serde/export unit tests are in the lightweight
-producer crate. Compile the consuming Gateway library when changing shared DTOs.
+Offline regressions: `cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi`. Native serde/export tests live in the lightweight
+producer crate; Python private-export tests are archived implementation references. Compile the consuming Gateway library when changing shared DTOs.
 
 
 #### Native-only response schema evidence
@@ -431,8 +419,9 @@ differences are not suppressed or copied from the old publication to obtain gree
 
 ### Common Services lifecycle source declarations
 
-The six existing common Services operations retain their Python ownership and
-published contract. The source-owned route/method inventory and production
+The six common Services operations retain their published contract. Their former
+Python ownership declaration is archived architecture history; current service
+execution and source declarations are Rust. The source-owned route/method inventory and production
 mutation/list/schema builders are shared with the bounded exporter. List success
 is an array with registered-service and virtual-assistant variants; only this
 operation has the verifier's array-envelope exception. Dynamic dictionary

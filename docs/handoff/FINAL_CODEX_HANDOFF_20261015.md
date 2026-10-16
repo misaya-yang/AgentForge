@@ -1,3 +1,5 @@
+> Historical handoff, superseded by the owner’s full Rust migration and Rust-native architecture upgrade on 2026-10-15. Follow AGENTS.md and docs/migration/full-rust-status.md for the current source and verification boundaries. This earlier handoff does not certify the current revision.
+
 # Final six-service review → Codex handoff
 
 **Snapshot: 2026-10-15, UTC. This is a development handoff, not enterprise release acceptance.**

@@ -1,0 +1,301 @@
+{
+  "host": "0.0.0.0",
+  "port": 8080,
+  "services_path": "services",
+  "default_model": "qwen3.8-flash",
+  "database": {
+    "enabled": false,
+    "dsn": "postgresql://localhost:5432/gateway",
+    "auto_init": false,
+    "permission_cache_ttl_seconds": 60,
+    "pool_min_size": 2,
+    "pool_max_size": 10,
+    "api_key_usage_flush_interval_seconds": 2,
+    "api_key_usage_flush_batch_size": 100
+  },
+  "redis": {
+    "enabled": false,
+    "url": "redis://localhost:6379/0"
+  },
+  "authentication": {
+    "jwt": {
+      "enabled": false,
+      "secret": "",
+      "algorithms": [
+        "HS256"
+      ],
+      "audience": null,
+      "issuer": null
+    },
+    "api_key": {
+      "enabled": false,
+      "header_name": "X-API-Key",
+      "keys": []
+    },
+    "guest_session_enabled": true
+  },
+  "rbac": {
+    "roles": {
+      "guest": [
+        "console:dashboard:view"
+      ],
+      "user": [
+        "console:dashboard:view",
+        "conversation:playground:access",
+        "conversation:thread:create"
+      ],
+      "manager": [
+        "console:dashboard:view",
+        "console:services:view",
+        "console:settings:view",
+        "conversation:playground:access",
+        "conversation:thread:create",
+        "conversation:thread:delete",
+        "knowledge:dataset:create",
+        "knowledge:dataset:edit",
+        "knowledge:dataset:view",
+        "user:list"
+      ],
+      "cs_staff": [
+        "console:dashboard:view",
+        "conversation:playground:access",
+        "conversation:thread:create",
+        "conversation:thread:delete",
+        "knowledge:dataset:view"
+      ],
+      "sales_staff": [
+        "console:dashboard:view",
+        "conversation:playground:access",
+        "conversation:thread:create",
+        "conversation:thread:delete",
+        "knowledge:dataset:view"
+      ],
+      "developer": [
+        "console:dashboard:view",
+        "console:services:view",
+        "console:services:edit",
+        "console:settings:view",
+        "conversation:playground:access",
+        "conversation:thread:create",
+        "conversation:thread:delete",
+        "knowledge:dataset:create",
+        "knowledge:dataset:edit",
+        "knowledge:dataset:view"
+      ],
+      "admin": [
+        "admin:*"
+      ]
+    }
+  },
+  "rate_limits": {
+    "enabled": false,
+    "global_limit": null,
+    "tenant_limits": {},
+    "user_limits": {},
+    "service_limits": {},
+    "ip_limits": null
+  },
+  "cors": {
+    "allow_origins": [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ],
+    "allow_credentials": true,
+    "allow_methods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "allow_headers": [
+      "*"
+    ],
+    "expose_headers": [],
+    "max_age": 600,
+    "allow_origin_regex": null
+  },
+  "anonymous": {
+    "enabled": true,
+    "cookie_name": "ag_anon_id",
+    "header_name": "X-AG-Anonymous-Id",
+    "ttl_days": 30,
+    "same_site": "lax"
+  },
+  "session": {
+    "anonymous_ttl_seconds": 86400,
+    "authenticated_ttl_seconds": 604800
+  },
+  "load_balancer": {
+    "strategy": "round_robin"
+  },
+  "langgraph": {
+    "enabled": false,
+    "load_balancer_strategy": "least_connections",
+    "health_check_interval": 10,
+    "instances": [],
+    "instance_urls": "",
+    "auth_token": "",
+    "tier_limits": {
+      "anonymous": {
+        "requests": 10,
+        "window": 60
+      },
+      "normal": {
+        "requests": 60,
+        "window": 60
+      },
+      "premium": {
+        "requests": 300,
+        "window": 60
+      },
+      "enterprise": {
+        "requests": 1000,
+        "window": 60
+      }
+    }
+  },
+  "knowledge": {
+    "enabled": true,
+    "worker_concurrency": 2,
+    "qdrant": {
+      "enabled": true,
+      "url": "http://localhost:6333",
+      "api_key": null,
+      "prefer_grpc": false,
+      "timeout_seconds": 120.0,
+      "max_retries": 5,
+      "retry_base_delay": 2.0,
+      "bm25_v2_enabled": false,
+      "bm25_v2_capability_ttl_seconds": 300.0,
+      "bm25_v2_readiness_ttl_seconds": 5.0,
+      "bm25_v2_cutover_test_tenants": ""
+    },
+    "dashscope": {
+      "api_key": "",
+      "base_url": null
+    },
+    "gemini": {
+      "api_key": "",
+      "model": "gemini-embedding-001",
+      "dimension": 1024,
+      "base_url": null,
+      "timeout_seconds": 30.0
+    },
+    "siliconflow": {
+      "api_key": "",
+      "base_url": "https://api.siliconflow.cn/v1",
+      "timeout_seconds": 30.0
+    },
+    "dataset_fanout_max_concurrency": 6,
+    "retrieval_query_max_concurrency": 8,
+    "retrieval_cache_ttl_seconds": 300,
+    "text_embedding_provider": "gemini",
+    "text_embedding_model": "gemini-embedding-001",
+    "text_embedding_dimension": 1024,
+    "text_embedding_batch_size": 50,
+    "text_embedding_max_concurrent": 5,
+    "multimodal_embedding_provider": "dashscope",
+    "multimodal_embedding_model": "tongyi-embedding-vision-plus",
+    "multimodal_embedding_dimension": 1024,
+    "multimodal_embedding_max_concurrent": 5,
+    "vlm_batch_size": 5,
+    "vlm_max_concurrent": 8,
+    "vlm_timeout_seconds": 90.0,
+    "vlm_quality_threshold": 0.5,
+    "document_worker_concurrency": 3,
+    "scanned_min_images_for_image_only": 5,
+    "ocr_enabled": true,
+    "ocr_languages": "eng+ara",
+    "ocr_render_dpi": 200,
+    "pdf_min_text_chars_for_ocr": 200,
+    "ocr_tesseract_timeout_seconds": 60,
+    "ocr_page_concurrency": 3,
+    "ocr_strategy": "hybrid",
+    "ocr_vlm_provider": "dashscope",
+    "ocr_vlm_model": "qwen-vl-ocr",
+    "ocr_vlm_task": "document_parsing",
+    "ocr_vlm_min_pixels": 3072,
+    "ocr_vlm_max_pixels": 8388608,
+    "ocr_vlm_max_tokens": 8192,
+    "ocr_vlm_enable_rotate": true,
+    "ocr_vlm_concurrency": 4,
+    "ocr_vlm_timeout_seconds": 30,
+    "pdf_split_enabled": true,
+    "pdf_split_max_size_bytes": 20971520,
+    "pdf_split_min_pages_per_part": 5,
+    "image_position_offset": 1000000,
+    "large_file_threshold": 52428800,
+    "max_memory_processing_size": 104857600,
+    "streaming_batch_size": 20,
+    "streaming_min_batch_size": 5,
+    "streaming_max_batch_size": 50,
+    "detection_sample_pages": 5,
+    "detection_native_pdf_threshold": 0.8,
+    "detection_scanned_pdf_threshold": 0.2,
+    "detection_min_chars_per_page": 50,
+    "hierarchical_l2_chunk_size": 8000,
+    "hierarchical_l2_chunk_overlap": 400,
+    "hierarchical_l3_chunk_size": 2000,
+    "hierarchical_l3_chunk_overlap": 200,
+    "hierarchical_l1_top_k": 5,
+    "hierarchical_l2_top_k": 10,
+    "hierarchical_l3_top_k": 5
+  },
+  "image_signing": {
+    "encryption_key": ""
+  },
+  "proxy": {
+    "enabled": true,
+    "timeout_connect": 5.0,
+    "timeout_read": 300.0,
+    "timeout_write": 60.0,
+    "timeout_pool": 60.0,
+    "health_check_timeout": 5.0,
+    "availability_cache_ttl_seconds": 15.0,
+    "default_concurrency_limit": 32,
+    "default_streaming_concurrency_limit": null,
+    "default_non_streaming_concurrency_limit": null,
+    "default_concurrency_queue_timeout": 10.0,
+    "client_max_connections": 100,
+    "client_max_keepalive_connections": 20,
+    "client_keepalive_expiry": 30.0,
+    "config_cache_ttl": 60.0,
+    "constraint_cache_ttl_seconds": 30.0,
+    "billing_enabled": true,
+    "billing_buffer_size": 100,
+    "billing_flush_interval": 5.0,
+    "quota_check_failure_mode": "fail_open",
+    "quota_alert_dedupe_ttl_seconds": 60.0,
+    "inject_user_info": true,
+    "inject_request_info": true,
+    "forward_auth": true,
+    "forward_all_headers": true,
+    "custom_headers": {}
+  },
+  "storage": {
+    "backend": "local",
+    "local_base_path": "./data/images",
+    "url_expiry_seconds": 3600,
+    "key_prefix": "dev",
+    "s3": {
+      "bucket": "",
+      "region": "us-east-1",
+      "access_key": "",
+      "secret_key": "",
+      "endpoint_url": null
+    },
+    "oss": {
+      "bucket": "",
+      "endpoint": "",
+      "access_key": "",
+      "secret_key": ""
+    }
+  },
+  "metrics": {
+    "latency_sample_cap": 10000
+  },
+  "model_setup_mode": "ui",
+  "health_check_interval": 30,
+  "task_worker_concurrency": 2
+}

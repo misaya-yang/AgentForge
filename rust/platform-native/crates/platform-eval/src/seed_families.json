@@ -1,0 +1,92 @@
+[
+  {
+    "family": "refund",
+    "relevance": {
+      "refund-primary": 3,
+      "refund-window": 1
+    },
+    "answer_relevance": {
+      "answer-refund-primary": 3,
+      "answer-refund-window": 1
+    },
+    "query_en": "how to get a refund for an annual subscription",
+    "query_zh": "年付订阅如何申请退款",
+    "answer_zh": "年付订阅的退款资格以公示的退款窗口期为准。",
+    "answer_en": "Annual refunds follow the published eligibility window."
+  },
+  {
+    "family": "password",
+    "relevance": {
+      "password-primary": 3,
+      "password-security": 1
+    },
+    "answer_relevance": {
+      "answer-password-primary": 3,
+      "answer-password-security": 1
+    },
+    "query_en": "where is the password reset link delivered",
+    "query_zh": "密码重置链接会发送到哪里",
+    "answer_zh": "重置链接会发送到已验证的账户渠道。",
+    "answer_en": "A reset link is sent to the verified account channel."
+  },
+  {
+    "family": "invoice",
+    "relevance": {
+      "invoice-primary": 3,
+      "invoice-history": 1
+    },
+    "answer_relevance": {
+      "answer-invoice-primary": 3,
+      "answer-invoice-history": 1
+    },
+    "query_en": "where can I download my most recent invoice",
+    "query_zh": "在哪里可以下载最近一期发票",
+    "answer_zh": "最新发票可在账单历史中查看。",
+    "answer_en": "The latest invoice is available in billing history."
+  },
+  {
+    "family": "approval",
+    "relevance": {
+      "approval-primary": 3,
+      "approval-audit": 1
+    },
+    "answer_relevance": {
+      "answer-approval-primary": 3,
+      "answer-approval-audit": 1
+    },
+    "query_en": "when is a high-risk tool allowed to execute",
+    "query_zh": "高风险工具需要什么审批才能执行",
+    "answer_zh": "仅在存在当前且匹配的有效审批后，工具才会执行。",
+    "answer_en": "It executes only after a current matching approval."
+  },
+  {
+    "family": "compaction",
+    "relevance": {
+      "compaction-primary": 3,
+      "compaction-checkpoint": 1
+    },
+    "answer_relevance": {
+      "answer-compaction-primary": 3,
+      "answer-compaction-checkpoint": 1
+    },
+    "query_en": "what must conversation compaction preserve",
+    "query_zh": "对话压缩必须保留哪些内容",
+    "answer_zh": "压缩须保留目标、约束、决策以及检查点的连续性。",
+    "answer_en": "Compaction retains goal, constraints, decisions, and checkpoint continuity."
+  },
+  {
+    "family": "tenant",
+    "relevance": {
+      "tenant-primary": 3,
+      "tenant-authz": 1
+    },
+    "answer_relevance": {
+      "answer-tenant-primary": 3,
+      "answer-tenant-authz": 1
+    },
+    "query_en": "can retrieval results cross tenant boundaries",
+    "query_zh": "检索结果会不会越权访问其他租户的数据",
+    "answer_zh": "检索严格限定在当前已认证租户范围内。",
+    "answer_en": "Retrieval is restricted to the authenticated tenant."
+  }
+]

@@ -135,7 +135,7 @@ impl RuntimeActorClient {
                 "runtime actor signer scope is invalid".into(),
             ));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(5))
@@ -197,10 +197,57 @@ impl RuntimeActorClient {
         })
     }
 }
+/// Injectable boundary mirrors the source capability service and actor resolver.
+/// The production adapter retains authoritative actor, ACL and retrieval calls.
+pub type CapabilityFuture<'a, T> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + 'a>>;
+pub trait CapabilityBackend: Send + Sync {
+    fn actor<'a>(&'a self, tenant: &'a str, user: &'a str) -> CapabilityFuture<'a, UserContext>;
+    fn require_dataset<'a>(
+        &'a self,
+        actor: &'a UserContext,
+        id: &'a str,
+    ) -> CapabilityFuture<'a, ()>;
+    fn retrieve<'a>(
+        &'a self,
+        actor: &'a UserContext,
+        id: &'a str,
+        request: RetrieveRequest,
+    ) -> CapabilityFuture<'a, (Vec<super::types::RetrieveResult>, Value)>;
+}
+struct NativeCapabilityBackend {
+    retrieval: Arc<RetrievalService>,
+    actors: RuntimeActorClient,
+}
+impl CapabilityBackend for NativeCapabilityBackend {
+    fn actor<'a>(&'a self, tenant: &'a str, user: &'a str) -> CapabilityFuture<'a, UserContext> {
+        Box::pin(self.actors.resolve(tenant, user))
+    }
+    fn require_dataset<'a>(
+        &'a self,
+        actor: &'a UserContext,
+        id: &'a str,
+    ) -> CapabilityFuture<'a, ()> {
+        Box::pin(async move {
+            self.retrieval
+                .store
+                .require_dataset_access(actor, id, "viewer")
+                .await
+                .map(|_| ())
+        })
+    }
+    fn retrieve<'a>(
+        &'a self,
+        actor: &'a UserContext,
+        id: &'a str,
+        request: RetrieveRequest,
+    ) -> CapabilityFuture<'a, (Vec<super::types::RetrieveResult>, Value)> {
+        Box::pin(self.retrieval.retrieve(actor, id, request))
+    }
+}
 #[derive(Clone)]
 pub struct CapabilityState {
-    pub retrieval: Arc<RetrievalService>,
-    pub actors: RuntimeActorClient,
+    backend: Arc<dyn CapabilityBackend>,
     internal_token: Arc<String>,
     proof_secret: Arc<Vec<u8>>,
 }
@@ -211,9 +258,19 @@ impl CapabilityState {
         internal_token: String,
         proof_secret: Vec<u8>,
     ) -> Self {
+        Self::with_backend(
+            Arc::new(NativeCapabilityBackend { retrieval, actors }),
+            internal_token,
+            proof_secret,
+        )
+    }
+    pub fn with_backend(
+        backend: Arc<dyn CapabilityBackend>,
+        internal_token: String,
+        proof_secret: Vec<u8>,
+    ) -> Self {
         Self {
-            retrieval,
-            actors,
+            backend,
             internal_token: Arc::new(internal_token),
             proof_secret: Arc::new(proof_secret),
         }
@@ -320,7 +377,7 @@ async fn retrieve_capability(
     {
         return detail(StatusCode::FORBIDDEN, "capability identity invalid");
     }
-    let actor = match state.actors.resolve(&scope.tenant_id, &scope.user_id).await {
+    let actor = match state.backend.actor(&scope.tenant_id, &scope.user_id).await {
         Ok(a) => a,
         Err(QueryError::Forbidden) => {
             return detail(StatusCode::FORBIDDEN, "capability actor denied");
@@ -332,17 +389,11 @@ async fn retrieve_capability(
             );
         }
     };
-    if state
-        .retrieval
-        .store
-        .require_dataset_access(&actor, &id, "viewer")
-        .await
-        .is_err()
-    {
+    if state.backend.require_dataset(&actor, &id).await.is_err() {
         return detail(StatusCode::NOT_FOUND, "Dataset not found");
     }
     match state
-        .retrieval
+        .backend
         .retrieve(
             &actor,
             &id,
@@ -398,7 +449,7 @@ impl HttpKnowledgeSourceAuthority {
                 "source authority requires gateway to knowledge-service HMAC v2".into(),
             ));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .timeout(Duration::from_secs(5))
@@ -485,7 +536,7 @@ impl HttpAgentRuntimeKnowledge {
                 "runtime knowledge requires gateway to knowledge-service HMAC v2".into(),
             ));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(Duration::from_secs(2))

@@ -1,0 +1,127 @@
+# Application overlay. Merge with deploy/local/compose.yml and the existing
+# -p agentforge-dev-7801d4a9a4 project. Do not run this file as a second project.
+# The existing postgres/redis/qdrant/object-store services and their volumes stay
+# owned by that base Compose project; this overlay adds only Runtime + Worker.
+# Neither process consumes Redis directly; the shared Redis service on 6379 stays
+# untouched for the host Gateway and other services in the same project.
+#
+# Runtime and Worker consume split POSTGRES_* variables, not database DSNs.
+# Use their dedicated process logins and LOCAL_DB_*_PASSWORD interpolation;
+# never pass the admin/migrator identity to an application container.
+#
+# The host Gateway is outside this Compose project. Containers call its fixed
+# internal routes through host.docker.internal; the host Gateway must call back
+# to the published loopback ports below. Its configured endpoint validator
+# allows these trusted HTTP(S) origins and the Runtime model-plane path remains
+# the exact /internal/v1/agent-model-plane route. Public web-fetch SSRF checks
+# still block local/private destinations and are not relaxed here.
+# The host Gateway (outside this file) must use
+# AI_PLATFORM_AGENT_RUNTIME_URL=http://127.0.0.1:8094 and
+# AI_PLATFORM_CAPABILITY_WORKER_URL=http://127.0.0.1:8095.
+
+x-container-proxy-env: &container-proxy-env
+  HTTP_PROXY: "${CONTAINER_HTTP_PROXY:-}"
+  HTTPS_PROXY: "${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
+  ALL_PROXY: "${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
+  NO_PROXY: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1,postgres,redis,agent-runtime,agent-capability-worker},host.docker.internal"
+  http_proxy: "${CONTAINER_HTTP_PROXY:-}"
+  https_proxy: "${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
+  all_proxy: "${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
+  no_proxy: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1,postgres,redis,agent-runtime,agent-capability-worker},host.docker.internal"
+
+services:
+  agent-capability-worker:
+    image: "${AGENT_CAPABILITY_WORKER_IMAGE:?Set the root-selected local capability-worker image}"
+    pull_policy: never
+    expose:
+      - "8095"
+    ports:
+      - "127.0.0.1:${AI_PLATFORM_CAPABILITY_WORKER_HOST_PORT:-8095}:8095"
+    environment:
+      <<: *container-proxy-env
+      AI_PLATFORM_INTERNAL_TOKEN: "${AI_PLATFORM_INTERNAL_TOKEN:?AI_PLATFORM_INTERNAL_TOKEN is required}"
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: "${AI_PLATFORM_CAPABILITY_PROOF_SECRET:?AI_PLATFORM_CAPABILITY_PROOF_SECRET is required}"
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: "${AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET:?AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET is required}"
+      AI_PLATFORM_CAPABILITY_WORKER_BIND: "0.0.0.0:8095"
+      AI_PLATFORM_CAPABILITY_WORKER_FIXTURES_ENABLED: "${AI_PLATFORM_CAPABILITY_WORKER_FIXTURES_ENABLED:-false}"
+      AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED: "${AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED:-true}"
+      AI_PLATFORM_OFFICE_FONT_PATHS: "${AI_PLATFORM_OFFICE_FONT_PATHS:-/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc}"
+      # Override if the host Knowledge service uses a different port/origin.
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: "${AI_PLATFORM_KNOWLEDGE_SERVICE_URL:-http://host.docker.internal:8092}"
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: "http://host.docker.internal:8080"
+      AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: "/workspace"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "ai_gateway_capability_worker"
+      POSTGRES_PASSWORD: "${LOCAL_DB_CAPABILITY_WORKER_PASSWORD:?LOCAL_DB_CAPABILITY_WORKER_PASSWORD is required}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: "${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}"
+    volumes:
+      - agent-capability-workspaces:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "ai-platform-capability-worker-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    mem_limit: "${AGENT_CAPABILITY_WORKER_MEMORY_LIMIT:-1g}"
+    cpus: "${AGENT_CAPABILITY_WORKER_CPUS:-1.0}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=unconfined
+    init: true
+
+  agent-runtime:
+    image: "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:?Build and select the local Runtime image}"
+    pull_policy: never
+    expose:
+      - "8094"
+    ports:
+      - "127.0.0.1:${AI_PLATFORM_AGENT_RUNTIME_HOST_PORT:-8094}:8094"
+    environment:
+      <<: *container-proxy-env
+      AI_PLATFORM_INTERNAL_TOKEN: "${AI_PLATFORM_INTERNAL_TOKEN:?AI_PLATFORM_INTERNAL_TOKEN is required}"
+      AI_PLATFORM_CAPABILITY_PLANE_URL: "http://host.docker.internal:8080/internal/v2/agent-capabilities"
+      AI_PLATFORM_CAPABILITY_WORKER_URL: "http://agent-capability-worker:8095"
+      AI_PLATFORM_CAPABILITY_WORKER_ENABLED: "${AI_PLATFORM_CAPABILITY_WORKER_ENABLED:-true}"
+      AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED: "${AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED:-true}"
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: "${AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET:?AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET is required}"
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: "${AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN:?AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN is required}"
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: "http://host.docker.internal:8080/internal/v1/agent-model-plane"
+      AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION: "${AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION:?AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION is required}"
+      AI_PLATFORM_RUNTIME_BIND: "0.0.0.0:8094"
+      AI_PLATFORM_RUNTIME_WORKDIR: "/workspace"
+      AI_PLATFORM_AGENT_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "ai_gateway_runtime"
+      POSTGRES_PASSWORD: "${LOCAL_DB_RUNTIME_PASSWORD:?LOCAL_DB_RUNTIME_PASSWORD is required}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      AI_PLATFORM_RUNTIME_DB_POOL_MAX_SIZE: "${AI_PLATFORM_AGENT_RUNTIME_DB_POOL_MAX_SIZE:-10}"
+      AI_PLATFORM_RUNTIME_CHANNEL_CAPACITY: "${AI_PLATFORM_AGENT_RUNTIME_CHANNEL_CAPACITY:-256}"
+    volumes:
+      - agent-runtime-home:/var/lib/ai-platform-agent-runtime/runtime-home
+    depends_on:
+      postgres:
+        condition: service_healthy
+      agent-capability-worker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8094/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    mem_limit: "${AI_PLATFORM_AGENT_RUNTIME_MEMORY_LIMIT:-512m}"
+    init: true
+
+volumes:
+  agent-runtime-home: {}
+  agent-capability-workspaces: {}

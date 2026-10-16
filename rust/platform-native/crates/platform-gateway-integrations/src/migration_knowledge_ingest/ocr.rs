@@ -161,7 +161,7 @@ impl VlmOcrService {
             config.concurrency.max(1)
         };
         config.max_retries = config.max_retries.max(1);
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(Duration::from_secs(10))

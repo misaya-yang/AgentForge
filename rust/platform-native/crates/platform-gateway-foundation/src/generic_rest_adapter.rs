@@ -6,16 +6,12 @@
 //! loop, provider selection, retry or detached request is added. The HTTP client
 //! retains ordinary proxy-environment behavior, as does the Python connector.
 //!
-//! JSONPath is an explicit subset of the pinned jsonpath-ng 1.8.0 grammar: root,
-//! child fields (quoted/unquoted, including unions), object wildcard, array index
-//! unions (including negatives), and slices (including wildcard and steps).
-//! Numeric unquoted field names, recursive descent, expression unions/intersections,
-//! where/wherenot, parent,
-//! this, grouping, filters and string indexing fail closed. Array slices preserve
-//! jsonpath-ng's scalar/dictionary coercion (including falsey scalars). This is NOT
-//! complete jsonpath-ng parity. Arbitrary Python objects, request datetime/bytes
-//! selections and annotation-violating output URL/metadata types also fail closed.
-//! In particular, datetime/bytes are never silently converted to strings/arrays.
+//! JSONPath follows the pinned base jsonpath-ng 1.8.0 grammar, including
+//! recursive descent, expression grouping/unions, existence predicates,
+//! named this/parent operators, numeric fields and Unicode string indices.
+//! Source intersection is deliberately an evaluation error (NotImplementedError).
+//! Arbitrary Python objects and request datetime/bytes selections fail closed;
+//! datetime/bytes are never silently converted to strings/arrays.
 //!
 //! The optional reqwest connector ports HTTP URL/header/status/JSON/health logic.
 //! It disables redirects and automatic retries. Its I/O runs on the caller task;
@@ -24,7 +20,9 @@
 //! Transport gaps: reqwest cannot reproduce httpx's independent write timeout or
 //! global idle-connection accounting (idle limit is per-host). The dispatcher's
 //! call timeout remains authoritative. Configured HTTP/2 uses ordinary TLS ALPN
-//! negotiation. Non-UTF-8 text encodings and scheme-relative endpoints are rejected.
+//! negotiation. JSON bytes support UTF-8/16/32 detection; text uses declared
+//! encodings with replacement, matching httpx for supported codecs. Python-only
+//! codecs remain outside the port. Scheme-relative endpoints are rejected.
 //! Connect timeouts use nonretryable Other, matching Python ConnectTimeout;
 //! other send timeouts remain ambiguous. Ambiguous send errors use WriteError,
 //! never a fabricated retryable RemoteProtocolError. Errors never include URLs,
@@ -110,6 +108,9 @@ pub type RestTransportFuture<'a, T> =
 pub trait RestTransport: Send + Sync {
     fn request(&self, request: RestRequest) -> RestTransportFuture<'_, RestResponse>;
     fn health_check(&self) -> RestTransportFuture<'_, bool>;
+    fn shutdown(&self) -> RestTransportFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
 }
 
 pub struct GenericRestAdapter {
@@ -290,12 +291,24 @@ impl ProtocolAdapter for GenericRestAdapter {
     fn health_check(&self) -> AdapterFuture<'_, bool> {
         Box::pin(async { Ok(self.transport.health_check().await.unwrap_or(false)) })
     }
+    fn shutdown(&self) -> AdapterFuture<'_, ()> {
+        Box::pin(async { self.transport.shutdown().await.map_err(Into::into) })
+    }
 }
 #[derive(Default)]
 pub struct GenericRestAdapterFactory;
 impl AdapterFactory for GenericRestAdapterFactory {
     fn create(&self, service: ServiceHandle) -> Result<Arc<dyn ProtocolAdapter>, RegistryError> {
-        GenericRestAdapter::new_http_handle(&service)
+        let adapter = if service.snapshot().connector_type == TransportType::MessageQueue {
+            crate::message_queue_transport::MessageQueueTransport::new_handle(&service).and_then(
+                |transport| {
+                    GenericRestAdapter::with_transport_handle(&service, Arc::new(transport))
+                },
+            )
+        } else {
+            GenericRestAdapter::new_http_handle(&service)
+        };
+        adapter
             .map(|a| Arc::new(a) as Arc<dyn ProtocolAdapter>)
             .map_err(|_| RegistryError::AdapterConstructionFailed)
     }
@@ -333,7 +346,25 @@ fn contains_opaque(value: &Value, opaque: &[&Value]) -> bool {
             _ => false,
         }
 }
+#[path = "generic_rest_jsonpath.rs"]
+mod extended_jsonpath;
 fn evaluate(expr: &Value, data: &Value, opaque: &[&Value]) -> Result<Value, RestMappingError> {
+    match evaluate_basic(expr, data, opaque) {
+        Err(RestMappingError::UnsupportedJsonPath | RestMappingError::JsonPathEvaluation) => {
+            if let Some(path) = expr.as_str().filter(|s| s.trim().starts_with('$')) {
+                extended_jsonpath::evaluate(path, data, opaque)
+            } else {
+                Ok(expr.clone())
+            }
+        }
+        result => result,
+    }
+}
+fn evaluate_basic(
+    expr: &Value,
+    data: &Value,
+    opaque: &[&Value],
+) -> Result<Value, RestMappingError> {
     let Some(path) = expr.as_str().filter(|expr| expr.trim().starts_with('$')) else {
         return Ok(expr.clone());
     };
@@ -345,7 +376,7 @@ fn evaluate(expr: &Value, data: &Value, opaque: &[&Value]) -> Result<Value, Rest
             if opaque.iter().any(|item| std::ptr::eq(value, *item)) {
                 return Err(RestMappingError::NonJsonRequestValue);
             }
-            selector.select(value, &mut selected)?;
+            selector.select(value, &mut selected, opaque)?;
         }
         values = selected;
     }
@@ -363,14 +394,40 @@ enum Selector {
     Fields(Vec<String>),
     Indices(Vec<i64>),
     Slice(Option<i64>, Option<i64>, i64),
+    Descendants(Vec<Selector>),
 }
 impl Selector {
     fn select<'a>(
         &self,
         value: &'a Value,
         output: &mut Vec<&'a Value>,
+        opaque: &[&Value],
     ) -> Result<(), RestMappingError> {
+        if opaque.iter().any(|item| std::ptr::eq(value, *item)) {
+            return Err(RestMappingError::NonJsonRequestValue);
+        }
         match self {
+            Self::Descendants(selectors) => {
+                // Match at this node before its children. Never use Slice for
+                // traversal: its scalar coercion would recurse indefinitely.
+                let mut pending = vec![value];
+                while let Some(node) = pending.pop() {
+                    let mut matches = vec![node];
+                    for selector in selectors {
+                        let mut selected = Vec::new();
+                        for matched in matches {
+                            selector.select(matched, &mut selected, opaque)?;
+                        }
+                        matches = selected;
+                    }
+                    output.extend(matches);
+                    match node {
+                        Value::Array(items) => pending.extend(items.iter().rev()),
+                        Value::Object(items) => pending.extend(items.values().rev()),
+                        _ => {}
+                    }
+                }
+            }
             Self::Fields(fields) => {
                 if let Value::Object(object) = value {
                     if fields.iter().any(|f| f == "*") {
@@ -386,7 +443,7 @@ impl Selector {
                 }
                 // jsonpath-ng checks truthiness and length before indexing.
                 // A large index on an object/string is a non-match, even though
-                // an in-range object index fails and string indexing is unported.
+                // an in-range object index fails; strings use the contextual fallback.
                 let length = match value {
                     Value::Array(items) => items.len(),
                     Value::Object(items) => items.len(),
@@ -418,6 +475,9 @@ impl Selector {
             Self::Slice(start, end, step) => {
                 if value.is_null() {
                     return Ok(());
+                }
+                if *step == 0 {
+                    return Err(RestMappingError::JsonPathEvaluation);
                 }
                 let values = if let Value::Array(values) = value {
                     values.as_slice()
@@ -497,18 +557,40 @@ impl<'a> Parser<'a> {
             return Err(RestMappingError::UnsupportedJsonPath);
         }
         let mut selectors = Vec::new();
+        let mut descendants: Option<Vec<Selector>> = None;
         loop {
             self.space();
             if self.text.is_empty() {
+                if let Some(group) = descendants.take() {
+                    selectors.push(Selector::Descendants(group));
+                }
                 return Ok(selectors);
             }
             let dot = self.take('.');
-            if self.take('[') {
-                selectors.push(self.bracket()?);
+            let recursive = dot && self.take('.');
+            if recursive {
+                if let Some(group) = descendants.take() {
+                    selectors.push(Selector::Descendants(group));
+                }
+                descendants = Some(Vec::new());
+            } else if !dot {
+                // An implicit bracket child reduces the preceding descent,
+                // unlike an explicit dot child (jsonpath-ng precedence).
+                if let Some(group) = descendants.take() {
+                    selectors.push(Selector::Descendants(group));
+                }
+            }
+            let selector = if self.take('[') {
+                self.bracket()?
             } else if dot {
-                selectors.push(Selector::Fields(self.fields()?));
+                Selector::Fields(self.fields()?)
             } else {
                 return Err(RestMappingError::UnsupportedJsonPath);
+            };
+            if let Some(group) = descendants.as_mut() {
+                group.push(selector);
+            } else {
+                selectors.push(selector);
             }
         }
     }
@@ -565,8 +647,14 @@ impl<'a> Parser<'a> {
         Ok(field)
     }
     fn fields(&mut self) -> Result<Vec<String>, RestMappingError> {
+        self.space();
+        let wildcard = self.text.starts_with('*');
         let mut fields = vec![self.field()?];
         while self.take(',') {
+            self.space();
+            if wildcard || self.text.starts_with('*') {
+                return Err(RestMappingError::UnsupportedJsonPath);
+            }
             fields.push(self.field()?);
         }
         Ok(fields)
@@ -582,9 +670,17 @@ impl<'a> Parser<'a> {
         if count == 0 {
             return Ok(None);
         }
-        let value = self.text[..count]
-            .parse()
-            .map_err(|_| RestMappingError::UnsupportedJsonPath)?;
+        let token = &self.text[..count];
+        if token == "-" {
+            return Err(RestMappingError::UnsupportedJsonPath);
+        }
+        // Python indices are arbitrary-size integers; bounds beyond any native
+        // collection are semantically saturated, never parse failures.
+        let value = token.parse().unwrap_or(if token.starts_with('-') {
+            i64::MIN
+        } else {
+            i64::MAX
+        });
         self.text = &self.text[count..];
         Ok(Some(value))
     }
@@ -600,9 +696,6 @@ impl<'a> Parser<'a> {
                 } else {
                     1
                 };
-                if step == 0 {
-                    return Err(RestMappingError::JsonPathEvaluation);
-                }
                 Selector::Slice(start, end, step)
             } else if let Some(start) = start {
                 let mut indices = vec![start];
@@ -670,7 +763,8 @@ pub fn classify_reqwest_error(error: &reqwest::Error, reading_body: bool) -> Ada
 }
 
 pub struct ReqwestRestTransport {
-    client: Client,
+    client: std::sync::RwLock<Option<Client>>,
+    warmed_up: tokio::sync::Mutex<bool>,
     base_url: String,
     service: ServiceHandle,
     semaphore: Option<Arc<Semaphore>>,
@@ -798,12 +892,53 @@ impl ReqwestRestTransport {
             })
             .transpose()?;
         Ok(Self {
-            client,
+            client: std::sync::RwLock::new(Some(client)),
+            warmed_up: tokio::sync::Mutex::new(false),
             base_url,
             service: captured_service,
             semaphore,
             pool_timeout: seconds(config, "pool_timeout", 10.0)?,
         })
+    }
+    fn client(&self) -> Result<Client, AdapterFailure> {
+        self.client
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+            .ok_or(AdapterFailure::Other)
+    }
+    /// Best-effort bounded HEAD warm-up on the same reusable production client.
+    pub async fn warm_up_connections(&self, count: usize) {
+        let mut warmed = self.warmed_up.lock().await;
+        if *warmed {
+            return;
+        }
+        if let (Ok(client), Ok(url)) = (self.client(), self.resolve_url("/")) {
+            futures_util::future::join_all((0..count.min(10)).map(|_| {
+                let client = client.clone();
+                let url = url.clone();
+                async move {
+                    let _ = client
+                        .head(url)
+                        .timeout(Duration::from_secs(2))
+                        .send()
+                        .await;
+                }
+            }))
+            .await;
+        }
+        *warmed = true;
+    }
+    /// Stop admitting requests and release the idle pool. Already-owned calls
+    /// retain their client until completion/cancellation, without a detached task.
+    pub fn close(&self) {
+        if let Some(semaphore) = &self.semaphore {
+            semaphore.close();
+        }
+        self.client
+            .write()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
     }
     /// httpx appends relative paths even when they begin with '/' and the base
     /// contains a path prefix. Standard URL join alone would silently erase it.
@@ -843,6 +978,12 @@ impl ReqwestRestTransport {
     }
 }
 impl RestTransport for ReqwestRestTransport {
+    fn shutdown(&self) -> RestTransportFuture<'_, ()> {
+        Box::pin(async {
+            self.close();
+            Ok(())
+        })
+    }
     fn request(&self, request: RestRequest) -> RestTransportFuture<'_, RestResponse> {
         Box::pin(async move {
             let url = self
@@ -851,15 +992,14 @@ impl RestTransport for ReqwestRestTransport {
             let method = Method::from_bytes(request.method.to_uppercase().as_bytes())
                 .map_err(|_| AdapterFailure::Other)?;
             // Build before acquiring/sending so invalid config cannot consume I/O.
-            let request = self
-                .client
+            let client = self.client()?;
+            let request = client
                 .request(method, url)
                 .json(&request.body)
                 .build()
                 .map_err(|e| classify_reqwest_error(&e, false))?;
             let _permit = self.acquire().await?;
-            let response = self
-                .client
+            let response = client
                 .execute(request)
                 .await
                 .map_err(|e| classify_reqwest_error(&e, false))?;
@@ -879,8 +1019,7 @@ impl RestTransport for ReqwestRestTransport {
             if !(200..300).contains(&status) {
                 return Err(AdapterFailure::HttpStatus(status));
             }
-            let text = String::from_utf8(bytes.to_vec()).map_err(|_| AdapterFailure::Other)?;
-            decode_http_response(status, &content_type, text)
+            decode_http_response_bytes(status, &content_type, &bytes)
         })
     }
     fn health_check(&self) -> RestTransportFuture<'_, bool> {
@@ -897,7 +1036,10 @@ impl RestTransport for ReqwestRestTransport {
             let Ok(_permit) = self.acquire().await else {
                 return Ok(false);
             };
-            let Ok(response) = self.client.get(url).send().await else {
+            let Ok(client) = self.client() else {
+                return Ok(false);
+            };
+            let Ok(response) = client.get(url).send().await else {
                 return Ok(false);
             };
             let healthy = response.status().as_u16() < 500;
@@ -906,3 +1048,6 @@ impl RestTransport for ReqwestRestTransport {
     }
 }
 
+#[path = "generic_rest_response.rs"]
+mod response_bytes;
+pub use response_bytes::decode_http_response_bytes;

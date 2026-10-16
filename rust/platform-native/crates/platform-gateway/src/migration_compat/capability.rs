@@ -54,15 +54,37 @@ impl CapabilityAuthority {
             return Err(CompatError::new(403, "capability scope invalid"));
         }
         let row=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM assistant_capability_executions e WHERE execution_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND run_id=$5::uuid").bind(&scope.execution_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(&scope.run_id).fetch_optional(&self.pool).await?.ok_or_else(||CompatError::new(403,"capability execution not active"))?;
-        if text(&row, "capability_id") != capability
-            || text(&row, "effect") != effect
-            || text(&row, "approval_status") != approval
-            || !matches!(text(&row, "status"), "dispatched" | "running")
-            || text(&row, "tool_call_id") != scope.tool_call_id
-            || text(&row, "arguments_sha256").trim() != arguments_hash.trim_start_matches("sha256:")
-        {
-            return Err(CompatError::new(403, "capability execution not active"));
-        }
+        validate_execution_row(
+            scope,
+            Some(&row),
+            capability,
+            effect,
+            approval,
+            arguments_hash,
+        )?;
         Ok(row)
     }
+}
+
+/// Validate a fetched, scope-bound execution before any capability transport.
+/// Row acquisition remains scoped by tenant/user/session/run in production SQL.
+pub fn validate_execution_row(
+    scope: &CapabilityScope,
+    row: Option<&Value>,
+    capability: &str,
+    effect: &str,
+    approval: &str,
+    arguments_hash: &str,
+) -> Result<(), CompatError> {
+    let row = row.ok_or_else(|| CompatError::new(403, "capability execution not active"))?;
+    if text(row, "capability_id") != capability
+        || text(row, "effect") != effect
+        || text(row, "approval_status") != approval
+        || !matches!(text(row, "status"), "dispatched" | "running")
+        || text(row, "tool_call_id") != scope.tool_call_id
+        || text(row, "arguments_sha256").trim() != arguments_hash.trim_start_matches("sha256:")
+    {
+        return Err(CompatError::new(403, "capability execution not active"));
+    }
+    Ok(())
 }

@@ -19,7 +19,7 @@ use super::execution::lease_for_record;
 use super::{WorkerState, event_id_unchecked, payload_within_limit};
 use crate::external_write_capabilities::ExternalWriteContext;
 use crate::fixture_result;
-use crate::local_node_broker::{LocalNodeActionRequest, LocalNodeScope};
+use crate::local_node_broker::{LocalNodeActionRequest, LocalNodeExecutionContext, LocalNodeScope};
 use crate::office_capabilities::OfficeExecutionContext;
 use crate::python_artifact_broker::{
     PythonArtifactBrokerError, PythonArtifactUploadContext, terminal_result,
@@ -208,30 +208,11 @@ pub(super) async fn run_execution(
                             "local_node_broker_unavailable".into(),
                         ));
                     };
-                    let device_id = dispatch
-                        .record
-                        .resource_binding
-                        .get("device_id")
-                        .and_then(Value::as_str)
-                        .or_else(|| {
-                            dispatch
-                                .record
-                                .resource_binding
-                                .get("connector_binding")
-                                .and_then(|value| value.get("device_id"))
-                                .and_then(Value::as_str)
-                        })
-                        .or_else(|| arguments.get("device_id").and_then(Value::as_str))
-                        .ok_or_else(|| {
-                            OperationError::Failed("local_node_device_required".into())
-                        })?;
+                    let local_scope = local_node_scope(&dispatch.record).ok_or_else(|| {
+                        OperationError::Failed("local_node_device_required".into())
+                    })?;
                     let descriptor = broker
-                        .describe(&LocalNodeScope {
-                            tenant_id: scope.tenant_id.clone(),
-                            user_id: scope.user_id.clone(),
-                            session_id: scope.session_id.clone(),
-                            device_id: device_id.into(),
-                        })
+                        .describe(&local_scope)
                         .await
                         .map_err(|error| OperationError::Failed(error.to_string()))?;
                     return Ok(serde_json::to_value(descriptor).unwrap_or(Value::Null));
@@ -402,23 +383,9 @@ pub(super) async fn run_execution(
                             "local_node_broker_unavailable".into(),
                         ));
                     };
-                    let device_id = dispatch
-                        .record
-                        .resource_binding
-                        .get("device_id")
-                        .and_then(Value::as_str)
-                        .or_else(|| {
-                            dispatch
-                                .record
-                                .resource_binding
-                                .get("connector_binding")
-                                .and_then(|value| value.get("device_id"))
-                                .and_then(Value::as_str)
-                        })
-                        .or_else(|| arguments.get("device_id").and_then(Value::as_str))
-                        .ok_or_else(|| {
-                            OperationError::Failed("local_node_device_required".into())
-                        })?;
+                    let local_scope = local_node_scope(&dispatch.record).ok_or_else(|| {
+                        OperationError::Failed("local_node_device_required".into())
+                    })?;
                     let operation_name = arguments
                         .get("operation")
                         .and_then(Value::as_str)
@@ -427,42 +394,53 @@ pub(super) async fn run_execution(
                         })?;
                     let nested = arguments.get("arguments").cloned().unwrap_or(Value::Null);
                     let request = LocalNodeActionRequest {
-                        scope: LocalNodeScope {
-                            tenant_id: scope.tenant_id.clone(),
-                            user_id: scope.user_id.clone(),
-                            session_id: scope.session_id.clone(),
-                            device_id: device_id.into(),
-                        },
-                        execution_id: execution_id.clone(),
-                        run_id: dispatch.record.execution.run_id.clone(),
-                        tool_call_id: dispatch.record.execution.tool_call_id.clone(),
-                        attempt_id: dispatch.record.execution.attempt_id.clone(),
-                        capability_revision: dispatch.record.execution.capability_revision,
-                        effect,
+                        scope: local_scope,
                         operation: operation_name.into(),
-                        arguments_hash: ai_platform_capability_contract::canonical_json_hash(
-                            &nested,
-                        )
-                        .map_err(|_| {
-                            OperationError::Failed("local_node_arguments_invalid".into())
-                        })?,
+                        arguments_hash: dispatch.record.execution.arguments_hash.clone(),
                         arguments: nested,
                         idempotency_key: dispatch.record.execution.idempotency_key.clone(),
                         approval_id: dispatch.record.approval_id.clone(),
                         timeout: std::time::Duration::from_millis(
                             descriptor.timeout_ms.min(120_000),
                         ),
+                        cancel_requested: python_cancelled.clone(),
                     };
                     return broker
-                        .execute(request, 0)
+                        .execute(request)
                         .await
-                        .map(|value| serde_json::to_value(value).unwrap_or(Value::Null))
                         .map_err(|error| match error {
                             crate::local_node_broker::LocalNodeBrokerError::SideEffectUnknown
                             | crate::local_node_broker::LocalNodeBrokerError::Timeout => {
                                 OperationError::SideEffectUnknown
                             }
+                            crate::local_node_broker::LocalNodeBrokerError::CancelledBeforeDispatch => {
+                                OperationError::Failed("cancelled".into())
+                            }
                             _ => OperationError::Failed(error.to_string()),
+                        })
+                        .and_then(|result| match result.status {
+                            CapabilityExecutionStatus::Succeeded => Ok(
+                                serde_json::to_value(result).unwrap_or(Value::Null),
+                            ),
+                            CapabilityExecutionStatus::Failed => Err(OperationError::Failed(
+                                result
+                                    .result
+                                    .as_ref()
+                                    .and_then(|value| value.get("error_code"))
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("local_node_action_failed")
+                                    .into(),
+                            )),
+                            CapabilityExecutionStatus::Cancelled => {
+                                Err(OperationError::Failed("cancelled".into()))
+                            }
+                            CapabilityExecutionStatus::Timeout => {
+                                Err(OperationError::Failed("capability_timeout".into()))
+                            }
+                            CapabilityExecutionStatus::SideEffectUnknown => {
+                                Err(OperationError::SideEffectUnknown)
+                            }
+                            _ => Err(OperationError::SideEffectUnknown),
                         });
                 }
                 if capability_id == "mcp_docgen__modify_document" {
@@ -679,8 +657,16 @@ pub(super) async fn run_execution(
     let result = tokio::select! {
         _ = cancellation.notified() => {
             python_cancelled.store(true, Ordering::Release);
-            if python_running.load(Ordering::Acquire) { let _ = (&mut operation).await; }
-            if matches!(effect, CapabilityEffect::Read) {
+            if capability_id == "local_node_action" {
+                (&mut operation).await
+            } else if python_running.load(Ordering::Acquire) {
+                let _ = (&mut operation).await;
+                if matches!(effect, CapabilityEffect::Read) {
+                    Err(OperationError::Failed("cancelled".to_string()))
+                } else {
+                    Err(OperationError::SideEffectUnknown)
+                }
+            } else if matches!(effect, CapabilityEffect::Read) {
                 Err(OperationError::Failed("cancelled".to_string()))
             } else {
                 Err(OperationError::SideEffectUnknown)
@@ -688,8 +674,16 @@ pub(super) async fn run_execution(
         },
         _ = lease_lost.notified() => {
             python_cancelled.store(true, Ordering::Release);
-            if python_running.load(Ordering::Acquire) { let _ = (&mut operation).await; }
-            if matches!(effect, CapabilityEffect::Read) {
+            if capability_id == "local_node_action" {
+                (&mut operation).await
+            } else if python_running.load(Ordering::Acquire) {
+                let _ = (&mut operation).await;
+                if matches!(effect, CapabilityEffect::Read) {
+                    Err(OperationError::Failed("capability_lease_lost".to_string()))
+                } else {
+                    Err(OperationError::SideEffectUnknown)
+                }
+            } else if matches!(effect, CapabilityEffect::Read) {
                 Err(OperationError::Failed("capability_lease_lost".to_string()))
             } else {
                 Err(OperationError::SideEffectUnknown)
@@ -697,8 +691,16 @@ pub(super) async fn run_execution(
         },
         _ = tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)) => {
             python_cancelled.store(true, Ordering::Release);
-            if python_running.load(Ordering::Acquire) { let _ = (&mut operation).await; }
-            if matches!(effect, CapabilityEffect::Read) {
+            if capability_id == "local_node_action" {
+                (&mut operation).await
+            } else if python_running.load(Ordering::Acquire) {
+                let _ = (&mut operation).await;
+                if matches!(effect, CapabilityEffect::Read) {
+                    Err(OperationError::Failed("capability_timeout".to_string()))
+                } else {
+                    Err(OperationError::SideEffectUnknown)
+                }
+            } else if matches!(effect, CapabilityEffect::Read) {
                 Err(OperationError::Failed("capability_timeout".to_string()))
             } else { Err(OperationError::SideEffectUnknown) }
         },
@@ -752,4 +754,41 @@ pub(super) async fn run_execution(
         tracing::error!(%execution_id, %error, "failed to persist capability terminal event");
     }
     state.forget_cancellation(&execution_id).await;
+}
+
+fn local_node_scope(record: &crate::ExecutionRecord) -> Option<LocalNodeScope> {
+    let binding = &record.resource_binding;
+    let connector_binding = binding.get("connector_binding");
+    let device_id = binding
+        .get("device_id")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            connector_binding
+                .and_then(|value| {
+                    value
+                        .get("device_id")
+                        .or_else(|| value.get("connection_id"))
+                })
+                .and_then(Value::as_str)
+        })?;
+    if device_id.trim().is_empty() {
+        return None;
+    }
+    let execution = &record.execution;
+    Some(LocalNodeScope {
+        context: LocalNodeExecutionContext {
+            tenant_id: execution.tenant_id.clone(),
+            user_id: execution.user_id.clone(),
+            session_id: execution.session_id.clone(),
+            execution_id: execution.execution_id.clone(),
+            run_id: execution.run_id.clone(),
+            tool_call_id: execution.tool_call_id.clone(),
+            lease_id: execution.lease_id.clone(),
+            attempt_id: execution.attempt_id.clone(),
+            capability_id: execution.capability_id.clone(),
+            capability_revision: execution.capability_revision,
+            effect: execution.effect,
+        },
+        device_id: device_id.into(),
+    })
 }

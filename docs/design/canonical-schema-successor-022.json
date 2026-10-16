@@ -1,0 +1,45 @@
+{
+  "schema_version": "ai-platform/canonical-next-successor-source-plan/v1",
+  "status": "inactive_source_candidate",
+  "baseline_id": "2026_08_post_kb_v1",
+  "predecessor_epoch": 21,
+  "predecessor_manifest_sha256": "bbc6927b258011d63b97150f4eafbce18d20907c3c3c3f59d23eaab947e04cdd",
+  "approved_predecessor_manifest_archive": "docs/design/canonical-schema-successor-022-approved21-manifest.yml",
+  "approved_predecessor_manifest_archive_sha256": "bbc6927b258011d63b97150f4eafbce18d20907c3c3c3f59d23eaab947e04cdd",
+  "approved_predecessor_package_lock": "docs/design/canonical-schema-successor-022-approved21-package-lock.json",
+  "approved_predecessor_package_lock_sha256": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23",
+  "approved_predecessor_baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "approved_predecessor_measurement_receipt_sha256": "1f20bb8a45bff423332d28601f3a8934e97043ae50c8b37e1522e3848ca08aff",
+  "approved_predecessor_activation_receipt_sha256": "676c46f8d0e8922248538e10390270fd4e25a697580dc7a0c49271f2ad0a6003",
+  "approved_predecessor_sql_sha256": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1",
+  "approved_predecessor_verification_sha256": "959d3bc1ec3c42c2c7376ea95fce6ad4155ccf46541cd1348d9db52485250e51",
+  "candidate_epoch": 22,
+  "sequence_allocation": "single_forward_extension_requires_root_review",
+  "database_actions_authorized": false,
+  "fingerprint_status": "not_measured",
+  "successor": {
+    "proposal": "docs/design/assistant-runtime-projection-insert-022.sql.proposal",
+    "change": {
+      "sequence": 22,
+      "name": "assistant_runtime_thread_projection_insert",
+      "file": "022_assistant_runtime_thread_projection_insert.sql",
+      "sha256": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.assistant_runtime_thread_projections') IS NOT NULL AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT')"
+      ],
+      "postconditions": [
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE')",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRIGGER')",
+        "SELECT count(*)=1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='assistant.assistant_runtime_thread_projections'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'runtime' AND a.grantor=c.relowner AND a.privilege_type='INSERT' AND NOT a.is_grantable"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate 022 grants only INSERT on assistant.assistant_runtime_thread_projections to the owner-prefix runtime role. The normal create_thread path already has required rights elsewhere; root review and isolated own-role rollback probe are required before activation."
+    }
+  }
+}

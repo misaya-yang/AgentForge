@@ -980,6 +980,67 @@ pub fn render_document_markdown(doc: &DocIR, page_markers: bool) -> String {
 pub fn citation_anchor(b: &Block, page: usize) -> Value {
     json!({"block_id":b.block_id,"page_number":page,"bbox":b.bbox,"parser":b.parser,"parser_version":b.parser_version})
 }
+pub fn iter_chunk_payloads(doc: &DocIR) -> Vec<Value> {
+    let mut pages: Vec<_> = doc.pages.iter().collect();
+    pages.sort_by_key(|p| p.page_number);
+    pages
+        .into_iter()
+        .flat_map(|p| {
+            p.sorted_blocks()
+                .into_iter()
+                .map(move |b| derive_chunk_payload(b, p.page_number))
+        })
+        .collect()
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TableTier {
+    Whole,
+    Segmented,
+    RowLevel,
+}
+pub fn classify_table(rows: usize, whole_max: usize, segment_max: usize) -> TableTier {
+    if rows <= whole_max {
+        TableTier::Whole
+    } else if rows <= segment_max {
+        TableTier::Segmented
+    } else {
+        TableTier::RowLevel
+    }
+}
+pub fn parse_markdown_rows(markdown: &str) -> (Vec<&str>, Vec<&str>) {
+    let rows: Vec<_> = markdown
+        .lines()
+        .map(str::trim)
+        .filter(|s| s.starts_with('|'))
+        .collect();
+    match rows.iter().position(|row| {
+        let compact = row.replace(' ', "");
+        compact.contains('-') && compact.chars().all(|c| "|-:".contains(c))
+    }) {
+        Some(index) => (rows[..=index].to_vec(), rows[index + 1..].to_vec()),
+        None => (vec![], rows),
+    }
+}
+/// Pure opt-in rewrite; the default parsing cascade does not activate it.
+pub fn apply_table_policy(
+    doc: &DocIR,
+    rows_per_segment: usize,
+    overlap_rows: usize,
+    whole_max: usize,
+    segment_max: usize,
+) -> DocIR {
+    let mut result = doc.clone();
+    for page in &mut result.pages {
+        page.blocks = page
+            .blocks
+            .iter()
+            .flat_map(|b| {
+                split_table_block(b, rows_per_segment, overlap_rows, whole_max, segment_max)
+            })
+            .collect();
+    }
+    result
+}
 pub fn derive_chunk_payload(b: &Block, page: usize) -> Value {
     let mut p = json!({"text":render_block_markdown(b),"block_type":b.kind,"page_number":page,"citation":citation_anchor(b,page)});
     if let Some(t) = &b.table {
@@ -1008,24 +1069,12 @@ pub fn split_table_block(
     if md.is_empty() {
         return vec![block.clone()];
     }
-    let rows: Vec<_> = md
-        .lines()
-        .map(str::trim)
-        .filter(|s| s.starts_with('|'))
-        .collect();
-    let separator = rows.iter().position(|r| {
-        let compact = r.replace(' ', "");
-        compact.contains('-') && compact.chars().all(|c| "|-:".contains(c))
-    });
-    let (header, data) = if let Some(index) = separator {
-        (&rows[..=index], &rows[index + 1..])
-    } else {
-        (&rows[..0], &rows[..])
-    };
-    if data.len() <= whole_max {
+    let (header, data) = parse_markdown_rows(md);
+    let tier = classify_table(data.len(), whole_max, segment_max);
+    if tier == TableTier::Whole {
         return vec![block.clone()];
     }
-    let size = if data.len() <= segment_max {
+    let size = if tier == TableTier::Segmented {
         rows_per_segment.max(1)
     } else {
         1

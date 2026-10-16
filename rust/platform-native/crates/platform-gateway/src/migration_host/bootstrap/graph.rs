@@ -82,7 +82,7 @@ pub struct GatewayGraph {
     pub knowledge_proxy: Arc<KnowledgeProxy>,
 }
 impl GatewayGraph {
-    pub fn new(
+    pub async fn new(
         pools: DatabasePools,
         redis: ConnectionManager,
         config: GatewayConfiguration,
@@ -96,10 +96,10 @@ impl GatewayGraph {
             config.pricing_cache_ttl_seconds,
             config.google_auth.clone(),
         )?;
-        Self::from_model_services(pools, redis, config, backends, knowledge, models)
+        Self::from_model_services(pools, redis, config, backends, knowledge, models).await
     }
     /// Reuse the exact live service instances initialized by explicit process startup.
-    pub fn from_model_services(
+    pub async fn from_model_services(
         pools: DatabasePools,
         redis: ConnectionManager,
         config: GatewayConfiguration,
@@ -152,9 +152,11 @@ impl GatewayGraph {
                 config.callback_allowlist,
             ),
             observability.usage.as_ref(),
+            &config.provider_environment,
         )?;
-        core.registry.configure_sdk_agent_key(config.provider_encryption_key.clone())
-            .map_err(|_|BootstrapError::Construction("sdk_agent_encryption"))?;
+        core.registry
+            .configure_sdk_agent_key(config.provider_encryption_key.clone())
+            .map_err(|_| BootstrapError::Construction("sdk_agent_encryption"))?;
         let auth = AuthServices::new(&pools, redis.clone(), config.auth)?;
         let limiter = Arc::new(SlidingWindowRateLimiter::new(Some(Arc::new(
             RedisSlidingWindowStore::new(redis.clone()),
@@ -183,6 +185,7 @@ impl GatewayGraph {
         content_config.langgraph.governance.live_resolution = Some(langgraph_preparation.clone());
         content_config.langgraph.governance.quota = Some(quota.store.clone());
         content_config.langgraph.governance.rpm = quota.rpm.clone();
+        content_config.langgraph.governance.security = Some(quota.security.clone());
         let content = ContentGraph::new(
             &pools,
             Some(redis.clone()),
@@ -273,6 +276,7 @@ impl GatewayGraph {
         )?;
         let evaluation =
             evaluation::EvaluationServices::new(config.evaluation, &core, &compat, &observability)?;
+        let retrieval_rpc = config.knowledge_proxy.retrieval_rpc.clone();
         let mut proxy = KnowledgeProxy::new(
             config.knowledge_proxy,
             knowledge.signer,
@@ -280,7 +284,13 @@ impl GatewayGraph {
             content.database.clone(),
         )
         .map_err(|_| BootstrapError::Configuration("knowledge_proxy"))?;
-        proxy.configure_sdk_reads(core.registry.clone(),core.session_storage.clone());
+        if let Some((origin, rpc_config)) = retrieval_rpc {
+            proxy
+                .configure_retrieval_rpc(origin, rpc_config)
+                .await
+                .map_err(|_| BootstrapError::Construction("knowledge_rpc"))?;
+        }
+        proxy.configure_sdk_reads(core.registry.clone(), core.session_storage.clone());
         proxy.sdk_control = Some(runtime.control.clone());
         proxy.trace_capture = Some(
             crate::migration_knowledge_query::rag_trace::RagTraceCapture::new(
@@ -293,9 +303,14 @@ impl GatewayGraph {
             },
             verifier: knowledge.actor_verifier,
         };
-        let proxy=Arc::new(proxy);
-        core.registry.configure_sdk_capabilities(Arc::new(crate::migration_host::knowledge_proxy::sdk_capabilities::Authority{proxy:Arc::downgrade(&proxy)}))
-            .map_err(|_|BootstrapError::Construction("sdk_capability_authority"))?;
+        let proxy = Arc::new(proxy);
+        core.registry
+            .configure_sdk_capabilities(Arc::new(
+                crate::migration_host::knowledge_proxy::sdk_capabilities::Authority {
+                    proxy: Arc::downgrade(&proxy),
+                },
+            ))
+            .map_err(|_| BootstrapError::Construction("sdk_capability_authority"))?;
         Ok(Self {
             pools,
             auth: auth.auth,
@@ -326,8 +341,37 @@ impl GatewayGraph {
         cancellation: FoundationCancellation,
         content_type: crate::balancer_config_api::BalancerConfigContentTypePolicy,
     ) -> Result<Router, BootstrapError> {
+        options.identity = Some(self.content.content.public.access.clone());
         // Both public session surfaces share the same durable deletion owner.
         options.sessions.cleanup = Some(self.native_foundation.runtime.clone());
+        let proxy_access = self.content.content.public.access.clone();
+        let proxy_store = Arc::new(
+            crate::service_access_resolver::PgServiceAccessConstraintStore::new(
+                self.pools.data.clone(),
+                self.pools.control.clone(),
+                self.native_foundation.warnings.clone(),
+            )
+            .map_err(|_| BootstrapError::Construction("proxy_service_access"))?,
+        );
+        let proxy = crate::migration_compat::proxy_http::router(Arc::new(
+            crate::migration_compat::proxy_http::ProxyHttp {
+                access: proxy_access.clone(),
+                admission: self.admission.clone(),
+                registry: self.core.registry.clone(),
+                loader: self.native_foundation.proxy_loader.clone(),
+                proxy: self.native_foundation.proxy.proxy.clone(),
+                capacity: self.core.capacity.clone(),
+                constraints: self.foundation_shared.access.clone(),
+                rates: self.foundation_shared.rate_resolver.clone(),
+                security: self.native_foundation.security_events.clone(),
+                constraint_store: proxy_store,
+                langgraph: self.content.langgraph.clone(),
+            },
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            proxy_access,
+            crate::migration_content::access::request_context,
+        ));
         let foundation = self.foundation.apis.into_router(
             self.auth.clone(),
             self.pools.data,
@@ -336,9 +380,15 @@ impl GatewayGraph {
             cancellation,
             content_type,
         );
-        let foundation = foundation.layer(axum::middleware::from_fn(
-            foundation_backends::request_effects_context,
-        ));
+        let foundation = foundation
+            .merge(proxy)
+            .layer(axum::middleware::from_fn_with_state(
+                self.content.content.public.access.clone(),
+                crate::migration_content::access::request_context,
+            ))
+            .layer(axum::middleware::from_fn(
+                foundation_backends::request_effects_context,
+            ));
         let application = GatewayApplication {
             foundation,
             auth: self.auth,

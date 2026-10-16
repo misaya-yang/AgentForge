@@ -60,7 +60,25 @@ impl JwtDecoder {
     }
     pub fn decode(&self, token: &str) -> Result<Value, String> {
         let value = jsonwebtoken::decode::<Value>(token, &self.key, &self.validation)
-            .map_err(|_| "Invalid token".to_owned())?
+            .map_err(|error| {
+                // Keep diagnostic classes observable without logging the token,
+                // claims, signing material, or provider-generated error text.
+                match error.kind() {
+                    jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                        tracing::warn!(event = "gateway.jwt.expired", "JWT token expired");
+                    }
+                    jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                        tracing::warn!(
+                            event = "gateway.jwt.invalid_signature",
+                            "JWT signature invalid"
+                        );
+                    }
+                    _ => {
+                        tracing::warn!(event = "gateway.jwt.invalid", "JWT token invalid");
+                    }
+                }
+                "Invalid token".to_owned()
+            })?
             .claims;
         let now = chrono::Utc::now().timestamp();
         if let Some(iat) = value.get("iat") {

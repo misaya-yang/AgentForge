@@ -19,6 +19,7 @@ pub struct FoundationCancellation {
     pub metrics: Arc<dyn metrics_admin_api::MetricsAdminCancellation>,
 }
 pub struct FoundationApis {
+    pub introspection: Arc<dyn ai_platform_auth::http::CredentialIntrospectionResolver>,
     pub auth_config: Arc<auth_config_api::AuthConfigApi>,
     pub config_api_keys: Arc<config_api_keys_api::ConfigApiKeysApi>,
     pub connector_admin: Arc<connector_admin_api::ConnectorAdminApi>,
@@ -52,7 +53,9 @@ pub struct FoundationApis {
     pub local_node_identity: Arc<dyn local_nodes_api::LocalNodesIdentityResolver>,
     pub sessions: sessions_api::SessionsApi,
     pub health: health_api::HealthHttpApi,
+    pub setup: Arc<setup_api::SetupApi>,
     pub architecture: Arc<architecture_status_api::ArchitectureStatusApi>,
+    pub invocation_identity: Arc<dyn invocation_http::InvocationIdentityResolver>,
     pub tasks: Arc<task_manager::TaskManager>,
     pub dispatcher: Arc<gateway_dispatcher::GatewayDispatcher>,
 }
@@ -70,7 +73,14 @@ impl FoundationApis {
         // fallback here; merging two custom Axum fallbacks otherwise panics.
         let mut router = crate::router_without_knowledge_proxy(auth.clone(), pool, options)
             .reset_fallback()
-            .merge(ai_platform_auth::http::router(auth.clone(), configured_roles).reset_fallback());
+            .merge(
+                ai_platform_auth::http::router_with_introspection(
+                    auth.clone(),
+                    configured_roles,
+                    self.introspection,
+                )
+                .reset_fallback(),
+            );
         router = router.merge(
             auth_config_api::router(self.auth_config, cancellation.service.clone())
                 .reset_fallback(),
@@ -181,12 +191,131 @@ impl FoundationApis {
             )
             .merge(self.sessions.router().reset_fallback())
             .merge(self.health.router().reset_fallback())
-            .merge(
-                architecture_status_api::architecture_status_router(self.architecture)
-                    .reset_fallback(),
+            .nest(
+                "/api/v1",
+                setup_api::setup_router(self.setup).merge(
+                    architecture_status_api::architecture_status_router(self.architecture),
+                ),
             )
-            .merge(task_http::router(auth.clone(), self.tasks).reset_fallback())
-            .merge(invocation_http::router(auth, self.dispatcher).reset_fallback());
+            .merge(
+                task_http::router_with_identity(
+                    auth.clone(),
+                    self.tasks,
+                    Some(self.invocation_identity.clone()),
+                )
+                .reset_fallback(),
+            )
+            .merge(
+                invocation_http::router_with_identity(
+                    auth,
+                    self.dispatcher,
+                    Some(self.invocation_identity),
+                )
+                .reset_fallback(),
+            );
         router.fallback(|| async { (StatusCode::NOT_FOUND, Json(json!({"detail":"Not Found"}))) })
+    }
+}
+
+#[cfg(test)]
+mod setup_tests {
+    use super::*;
+    use crate::health_api::{HealthApiFuture, HealthCancellationFuture, HealthModelMetadata};
+    use crate::setup_api::{SetupApi, SetupIdentity, SetupIdentityResolver};
+    use axum::{http::HeaderMap, response::IntoResponse};
+    use serde_json::Value;
+    use std::sync::Mutex;
+
+    struct Identity;
+    impl SetupIdentityResolver for Identity {
+        fn resolve<'a>(
+            &'a self,
+            _: &'a HeaderMap,
+            _: &'a str,
+        ) -> HealthApiFuture<'a, SetupIdentity> {
+            Box::pin(async { Ok(identity(true, true)) })
+        }
+    }
+    struct Metadata(Mutex<Vec<String>>);
+    impl HealthModelMetadata for Metadata {
+        fn configured<'a>(&'a self, tenant: &'a str) -> HealthApiFuture<'a, Vec<String>> {
+            Box::pin(async move {
+                self.0.lock().unwrap().push(tenant.into());
+                Ok(vec!["openai".into()])
+            })
+        }
+        fn model_counts<'a>(
+            &'a self,
+            _: &'a str,
+        ) -> HealthApiFuture<'a, serde_json::Map<String, Value>> {
+            Box::pin(async { Ok(Default::default()) })
+        }
+    }
+    struct Cancellation;
+    impl health_api::HealthHttpCancellation for Cancellation {
+        fn cancelled(&self) -> HealthCancellationFuture<'_> {
+            Box::pin(async { StatusCode::SERVICE_UNAVAILABLE.into_response() })
+        }
+    }
+    fn identity(authenticated: bool, permission: bool) -> SetupIdentity {
+        SetupIdentity {
+            user_id: "user".into(),
+            tenant_id: "tenant".into(),
+            roles: vec![],
+            permissions: if permission {
+                vec!["console:services:view".into()]
+            } else {
+                vec![]
+            },
+            is_authenticated: authenticated,
+        }
+    }
+    fn api(metadata: Arc<Metadata>) -> SetupApi {
+        SetupApi {
+            identity: Arc::new(Identity),
+            rbac: Default::default(),
+            metadata: Some(metadata),
+            mode: "environment".into(),
+            default_model: "configured-model".into(),
+            cancellation: Arc::new(Cancellation),
+        }
+    }
+    #[tokio::test]
+    async fn setup_projects_current_tenant_configuration() {
+        let metadata = Arc::new(Metadata(Mutex::new(vec![])));
+        let result = api(metadata.clone())
+            .state(&identity(true, true), "trace")
+            .await
+            .unwrap();
+        assert_eq!(result["configured"], true);
+        assert_eq!(result["mode"], "environment");
+        assert_eq!(result["default_model"], "configured-model");
+        assert!(
+            !result["missing"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("openai"))
+        );
+        assert_eq!(*metadata.0.lock().unwrap(), vec!["tenant"]);
+    }
+    #[tokio::test]
+    async fn setup_denies_before_reading_provider_state() {
+        let metadata = Arc::new(Metadata(Mutex::new(vec![])));
+        let api = api(metadata.clone());
+        assert_eq!(
+            api.state(&identity(false, true), "trace")
+                .await
+                .unwrap_err()
+                .status(),
+            Some(401)
+        );
+        assert_eq!(
+            api.state(&identity(true, false), "trace")
+                .await
+                .unwrap_err()
+                .status(),
+            Some(403)
+        );
+        assert!(metadata.0.lock().unwrap().is_empty());
     }
 }

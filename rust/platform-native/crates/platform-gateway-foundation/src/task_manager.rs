@@ -839,7 +839,7 @@ impl TaskManager {
         self.transition_task(task, TaskStatus::Processing, None, None).await
     }
 
-    async fn transition_task(
+    pub(crate) async fn transition_task(
         &self,
         mut task: Task,
         status: TaskStatus,
@@ -875,10 +875,29 @@ impl TaskManager {
         Ok(true)
     }
     pub async fn cancel(&self, task_id: &str) -> Result<(), TaskError> {
+        let original = self.storage.get(task_id).await?;
+        self.cancel_expected(task_id, &original).await
+    }
+    /// Carry the route-authorized identity through every cancellation read/CAS.
+    /// An ID-only reload must never adopt a replacement task after authorization.
+    pub async fn cancel_expected(&self, task_id: &str, original: &Task) -> Result<(), TaskError> {
+        if task_id != original.task_id {
+            return Err(TaskError::StateConflict);
+        }
+        let same_identity = |task: &Task| {
+            task.task_id == original.task_id
+                && task.request_id == original.request_id
+                && task.service_id == original.service_id
+                && task.user_id == original.user_id
+                && task.tenant_id == original.tenant_id
+        };
         if let Some(delivery) = &self.delivery {
             let task = self.storage.get(task_id).await?;
-            let identity = DeliveryIdentity { task_id:task.task_id, request_id:task.request_id,
-                service_id:task.service_id, user_id:task.user_id, tenant_id:task.tenant_id };
+            if !same_identity(&task) {
+                return Err(TaskError::StateConflict);
+            }
+            let identity = DeliveryIdentity { task_id:original.task_id.clone(), request_id:original.request_id.clone(),
+                service_id:original.service_id.clone(), user_id:original.user_id.clone(), tenant_id:original.tenant_id.clone() };
             match delivery.cancel(&identity).await.map_err(|_|TaskError::StorageUnavailable)? {
                 CancelResult::Applied | CancelResult::AlreadyCancelled => return Ok(()),
                 CancelResult::TerminalConflict | CancelResult::ProjectionConflict => return Err(TaskError::StateConflict),
@@ -887,8 +906,11 @@ impl TaskManager {
                 CancelResult::NotManaged => {},
             }
         }
-        loop {
+        for _ in 0..3 {
             let task = self.storage.get(task_id).await?;
+            if !same_identity(&task) {
+                return Err(TaskError::StateConflict);
+            }
             match task.status {
                 TaskStatus::Cancelled => return Ok(()),
                 TaskStatus::Completed | TaskStatus::Failed => return Err(TaskError::StateConflict),
@@ -903,6 +925,7 @@ impl TaskManager {
                 return Ok(());
             }
         }
+        Err(TaskError::StateConflict)
     }
     pub async fn get_result(&self, task_id: &str) -> Result<UnifiedResponse, TaskError> {
         match self.storage.get(task_id).await?.result {

@@ -248,8 +248,30 @@ pub trait StartupEndpointResolver: Send + Sync {
 }
 
 /// Inert resolver over an explicitly supplied environment; never `std::env`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EndpointDomain {
+    Chat,
+    Image,
+    Embedding,
+    Ocr,
+}
+impl EndpointDomain {
+    fn environment_name(self) -> &'static str {
+        match self {
+            Self::Chat => "CHAT",
+            Self::Image => "IMAGE",
+            Self::Embedding => "EMBEDDING",
+            Self::Ocr => "OCR",
+        }
+    }
+}
 pub struct ChatEndpointResolver<'a> {
     environment: &'a dyn ProviderEnvironment,
+}
+impl ProviderEnvironment for std::collections::BTreeMap<String, String> {
+    fn get(&self, name: &str) -> Option<String> {
+        self.get(name).cloned()
+    }
 }
 impl<'a> ChatEndpointResolver<'a> {
     pub fn new(environment: &'a dyn ProviderEnvironment) -> Self {
@@ -269,12 +291,18 @@ impl<'a> ChatEndpointResolver<'a> {
             .to_owned()
     }
 }
-impl StartupEndpointResolver for ChatEndpointResolver<'_> {
-    fn resolve_dashscope_chat(&self) -> DashscopeChatEndpoint {
-        let api_key = self.first(&["DASHSCOPE_CHAT_API_KEY", "DASHSCOPE_API_KEY"]);
-        let raw_url = self.first(&["DASHSCOPE_CHAT_BASE_URL", "DASHSCOPE_BASE_URL"]);
+impl ChatEndpointResolver<'_> {
+    pub fn resolve_dashscope(&self, domain: EndpointDomain) -> DashscopeChatEndpoint {
+        let up = domain.environment_name();
+        let api_key = self.first(&[&format!("DASHSCOPE_{up}_API_KEY"), "DASHSCOPE_API_KEY"]);
+        let raw_url = self.first(&[&format!("DASHSCOPE_{up}_BASE_URL"), "DASHSCOPE_BASE_URL"]);
+        let suffix = if domain == EndpointDomain::Chat {
+            "/compatible-mode"
+        } else {
+            "/api/v1"
+        };
         let base_url = if raw_url.is_empty() {
-            "https://dashscope.aliyuncs.com/compatible-mode".into()
+            format!("https://dashscope.aliyuncs.com{suffix}")
         } else {
             let mut cleaned = raw_url.trim_end_matches('/');
             for suffix in [
@@ -288,20 +316,21 @@ impl StartupEndpointResolver for ChatEndpointResolver<'_> {
                     break;
                 }
             }
-            format!("{cleaned}/compatible-mode")
+            format!("{cleaned}{suffix}")
         };
         DashscopeChatEndpoint { api_key, base_url }
     }
-    fn resolve_google_chat(&self) -> GoogleChatEndpoint {
+    pub fn resolve_google(&self, domain: EndpointDomain) -> GoogleChatEndpoint {
+        let up = domain.environment_name();
         let mut backend = self
-            .first(&["GOOGLE_CHAT_BACKEND", "GOOGLE_API_BACKEND"])
+            .first(&[&format!("GOOGLE_{up}_BACKEND"), "GOOGLE_API_BACKEND"])
             .to_lowercase();
         if backend != "vertex" && backend != "ai_studio" {
             backend = "ai_studio".into();
         }
         let studio_key = self.first(&["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
         let (api_key, base_url) = if backend == "vertex" {
-            let vertex_key = self.first(&["VERTEX_CHAT_API_KEY", "VERTEX_API_KEY"]);
+            let vertex_key = self.first(&[&format!("VERTEX_{up}_API_KEY"), "VERTEX_API_KEY"]);
             (
                 if vertex_key.is_empty() {
                     studio_key
@@ -318,6 +347,15 @@ impl StartupEndpointResolver for ChatEndpointResolver<'_> {
             base_url: base_url.into(),
             backend,
         }
+    }
+}
+
+impl StartupEndpointResolver for ChatEndpointResolver<'_> {
+    fn resolve_dashscope_chat(&self) -> DashscopeChatEndpoint {
+        self.resolve_dashscope(EndpointDomain::Chat)
+    }
+    fn resolve_google_chat(&self) -> GoogleChatEndpoint {
+        self.resolve_google(EndpointDomain::Chat)
     }
 }
 

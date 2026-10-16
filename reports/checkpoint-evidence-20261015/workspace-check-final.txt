@@ -1,0 +1,527 @@
+warning: unused import: `serde_json::json`
+  --> crates/platform-migration-authority/src/legacy.rs:11:5
+   |
+11 | use serde_json::json;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-migration-authority` (lib) generated 1 warning (run `cargo fix --lib -p ai-platform-migration-authority` to apply 1 suggestion)
+warning: field `storage` is never read
+   --> crates/platform-gateway-foundation/src/task_worker.rs:106:5
+    |
+103 | struct Collaborators {
+    |        ------------- field in this struct
+...
+106 |     storage: Arc<dyn TaskStorage>,
+    |     ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `total_duration` is never used
+   --> crates/platform-gateway-foundation/src/usage_recorder.rs:194:8
+    |
+135 | impl UsageRecord {
+    | ---------------- method in this implementation
+...
+194 |     fn total_duration(&self) -> i64 {
+    |        ^^^^^^^^^^^^^^
+
+warning: `ai-platform-gateway-foundation` (lib) generated 2 warnings
+warning: unused import: `lexical_v2::LexicalProfile`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_query/index.rs:4:5
+  |
+4 |     lexical_v2::LexicalProfile,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_query/hierarchy.rs:11:19
+   |
+11 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^
+
+warning: unused imports: `BTreeMap`, `BTreeSet`, and `sync::Arc`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_query/migration.rs:15:19
+   |
+15 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^  ^^^^^^^^
+16 |     sync::Arc,
+   |     ^^^^^^^^^
+
+warning: unused imports: `object` and `string`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/catalog_http.rs:6:5
+  |
+6 |     object, require_index_writable, string,
+  |     ^^^^^^                          ^^^^^^
+
+warning: unused imports: `sha256` and `string`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/chunk_manager.rs:5:13
+  |
+5 |     object, sha256, string,
+  |             ^^^^^^  ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/http.rs:5:72
+  |
+5 |     Actor, IngestError, IngestionService, batches::DocumentBatchStore, object,
+  |                                                                        ^^^^^^
+
+warning: unused imports: `KnowledgeWriteStore` and `integer`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/images.rs:4:52
+  |
+4 |     Chunk, Dataset, IngestError, IngestionService, KnowledgeWriteStore, Result,
+  |                                                    ^^^^^^^^^^^^^^^^^^^
+5 |     assets::AssetStorage, integer, object, sha256, string,
+  |                           ^^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/inspection_http.rs:6:5
+  |
+6 |     object, string,
+  |     ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/metadata.rs:2:80
+  |
+2 | use super::{Actor, IngestError, IngestionService, KnowledgeWriteStore, Result, object, string};
+  |                                                                                ^^^^^^
+
+warning: unused import: `Chunk`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/service.rs:3:12
+  |
+3 |     Actor, Chunk, Dataset, IngestError, ProcessingMode, Result, canonical_json,
+  |            ^^^^^
+
+warning: unused import: `BTreeSet`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/service.rs:16:29
+   |
+16 |     collections::{BTreeMap, BTreeSet},
+   |                             ^^^^^^^^
+
+warning: unused imports: `Dataset` and `canonical_json`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/store.rs:3:19
+  |
+3 |     Actor, Chunk, Dataset, IngestError, Result, canonical_json, dataset_ingestion_identity,
+  |                   ^^^^^^^                       ^^^^^^^^^^^^^^
+
+warning: unused import: `BTreeSet`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/store.rs:8:34
+  |
+8 | use std::collections::{BTreeMap, BTreeSet};
+  |                                  ^^^^^^^^
+
+warning: unused imports: `canonical_json` and `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/structured.rs:4:34
+  |
+4 | use super::{IngestError, Result, canonical_json, integer, object, sha256, string};
+  |                                  ^^^^^^^^^^^^^^           ^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/version_reads.rs:2:59
+  |
+2 | use super::{Actor, IngestError, IngestionService, Result, object, sha256, string};
+  |                                                           ^^^^^^
+
+warning: unused import: `canonical_json`
+ --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/versions.rs:3:60
+  |
+3 |     Actor, Dataset, IngestError, IngestionService, Result, canonical_json,
+  |                                                            ^^^^^^^^^^^^^^
+
+warning: unused import: `Value`
+  --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/vision.rs:12:18
+   |
+12 | use serde_json::{Value, json};
+   |                  ^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::KeywordIndexParams::on_disk`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_config.rs:124:266
+    |
+124 | ...>json!({"type":"keyword","is_tenant":p.is_tenant,"on_disk":p.on_disk}),_=>Value::Null};(k,json!({"data_type":q::PayloadSchemaTyp...
+    |                                                               ^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated field `qdrant_client::qdrant::CollectionParams::on_disk_payload`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_config.rs:126:402
+    |
+126 | ...sparse,"shard_number":p.shard_number,"on_disk_payload":p.on_disk_payload},"strict_mode_config":strict}})
+    |                                                           ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::indices`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:125:36
+    |
+125 |             if let Some(indices) = v.indices {
+    |                                    ^^^^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::data`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:126:56
+    |
+126 |                 json!({"indices":indices.data,"values":v.data})
+    |                                                        ^^^^^^
+
+warning: use of deprecated field `qdrant_client::qdrant::VectorOutput::data`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc_values.rs:128:23
+    |
+128 |                 json!(v.data)
+    |                       ^^^^^^
+
+warning: use of deprecated method `quick_xml::events::attributes::Attribute::<'a>::decode_and_unescape_value`: use `Self::decoded_and_normalized_value()`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/docx.rs:115:38
+    |
+115 | ...                   .decode_and_unescape_value(reader.decoder())
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `quick_xml::events::attributes::Attribute::<'a>::decode_and_unescape_value`: use `Self::decoded_and_normalized_value()`
+   --> crates/platform-gateway-integrations/src/migration_knowledge_ingest/images.rs:453:31
+    |
+453 | ...                   a.decode_and_unescape_value(reader.decoder())
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_local_event` is never used
+    --> crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs:1023:8
+     |
+1023 | pub fn extract_local_event(event: &Value, seen: &mut HashSet<String>) -> Option<StreamEvent> {
+     |        ^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-gateway-integrations` (lib) generated 25 warnings (run `cargo fix --lib -p ai-platform-gateway-integrations` to apply 17 suggestions)
+warning: unused import: `self as content`
+ --> crates/platform-gateway/src/migration_host/content.rs:9:9
+  |
+9 |         self as content, ContentDatabase, ContentError, ContentServices,
+  |         ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `sync::Arc`
+  --> crates/platform-gateway/src/migration_agent/memory_cleanup.rs:11:5
+   |
+11 |     sync::Arc,
+   |     ^^^^^^^^^
+
+warning: unused import: `Scope`
+ --> crates/platform-gateway/src/migration_agent/public.rs:4:37
+  |
+4 |     Actor, AgentError, AgentFuture, Scope,
+  |                                     ^^^^^
+
+warning: unused import: `json`
+ --> crates/platform-gateway/src/migration_agent/resources.rs:8:25
+  |
+8 | use serde_json::{Value, json};
+  |                         ^^^^
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway/src/migration_agent/resources.rs:11:19
+   |
+11 |     collections::{BTreeMap, BTreeSet},
+   |                   ^^^^^^^^
+
+warning: unused import: `DateTime`
+ --> crates/platform-gateway/src/migration_agent/scheduled.rs:5:14
+  |
+5 | use chrono::{DateTime, Utc};
+  |              ^^^^^^^^
+
+warning: unused imports: `SelectedCredential` and `select_credential`
+ --> crates/platform-gateway/src/migration_knowledge_query/http.rs:9:16
+  |
+9 |     api_keys::{SelectedCredential, select_credential},
+  |                ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `HeaderName`
+  --> crates/platform-gateway/src/migration_knowledge_query/http.rs:15:23
+   |
+15 |     http::{HeaderMap, HeaderName, StatusCode},
+   |                       ^^^^^^^^^^
+
+warning: unused import: `IntoResponse`
+  --> crates/platform-gateway/src/migration_content/artifacts.rs:11:16
+   |
+11 |     response::{IntoResponse, Response},
+   |                ^^^^^^^^^^^^
+
+warning: unnecessary parentheses around `if` condition
+   --> crates/platform-gateway/src/migration_content/attachments.rs:213:15
+    |
+213 |     } else if (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) {
+    |               ^                                                            ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+213 -     } else if (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) {
+213 +     } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+    |
+
+warning: unused import: `collections::BTreeMap`
+  --> crates/platform-gateway/src/migration_content/capabilities.rs:13:11
+   |
+13 | use std::{collections::BTreeMap, sync::Arc};
+   |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `string`
+ --> crates/platform-gateway/src/migration_content/conversations.rs:2:59
+  |
+2 | use super::{ContentAccess, ContentError, ContentIdentity, string};
+  |                                                           ^^^^^^
+
+warning: unused import: `ContentFuture`
+ --> crates/platform-gateway/src/migration_content/read_broker.rs:3:19
+  |
+3 |     ContentError, ContentFuture,
+  |                   ^^^^^^^^^^^^^
+
+warning: unused import: `BTreeMap`
+  --> crates/platform-gateway/src/migration_content/shares.rs:28:19
+   |
+28 |     collections::{BTreeMap, HashMap, HashSet},
+   |                   ^^^^^^^^
+
+warning: unused import: `object`
+ --> crates/platform-gateway/src/migration_compat/confluence.rs:4:27
+  |
+4 |     common::{CompatError, object, text},
+  |                           ^^^^^^
+
+warning: unused import: `Bytes`
+  --> crates/platform-gateway/src/migration_compat/langgraph.rs:20:18
+   |
+20 |     body::{Body, Bytes, to_bytes},
+   |                  ^^^^^
+
+warning: unused import: `header`
+ --> crates/platform-gateway/src/migration_compat/mcp_invocation.rs:4:27
+  |
+4 |     common::{CompatError, header, text},
+  |                           ^^^^^^
+
+warning: unused import: `SessionError`
+   --> crates/platform-gateway/src/migration_compat/responses.rs:660:38
+    |
+660 |     session_manager::{CreateSession, SessionError},
+    |                                      ^^^^^^^^^^^^
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/platform-gateway/src/migration_host/logging.rs:86:14
+   |
+86 |             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+   |              ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+86 -             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+86 +             .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/platform-gateway/src/migration_host/pdf_backend.rs:852:14
+    |
+852 |             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+    |              ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+852 -             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+852 +             .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+    |
+
+warning: unused import: `Row`
+  --> crates/platform-gateway/src/migration_agent/release.rs:11:26
+   |
+11 | use sqlx::{PgConnection, Row};
+   |                          ^^^
+
+warning: unused import: `Row`
+ --> crates/platform-gateway/src/migration_agent/studio.rs:7:34
+  |
+7 | use sqlx::{PgConnection, PgPool, Row};
+  |                                  ^^^
+
+warning: value assigned to `cleanup` is never read
+   --> crates/platform-gateway/src/migration_agent/model.rs:605:17
+    |
+605 |                 cleanup.armed = false;
+    |                 ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `operation_id` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:43:4
+   |
+43 | fn operation_id(prefix: &str) -> String {
+   |    ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `extend_document` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:53:8
+   |
+53 | pub fn extend_document(document: &mut Value) {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `source_sha256` is never used
+  --> crates/platform-gateway/src/migration_host/knowledge_proxy/contract.rs:98:4
+   |
+98 | fn source_sha256() -> Value {
+   |    ^^^^^^^^^^^^^
+
+warning: `ai-platform-gateway` (lib) generated 26 warnings (run `cargo fix --lib -p ai-platform-gateway` to apply 20 suggestions)
+warning: multiple methods are never used
+   --> crates/platform-desktop/src/migration_desktop/api.rs:116:18
+    |
+ 51 | impl DesktopApi {
+    | --------------- methods in this implementation
+...
+116 |     pub async fn local_nodes(&self) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^
+...
+120 |     pub async fn local_node(&self, id: &str, suffix: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^
+...
+132 |     pub async fn local_node_events_after(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+144 |     pub async fn create_pairing_challenge(&self) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+152 |     pub async fn revoke_local_grant(&self, device: &str, grant: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+160 |     pub async fn session_history(&self, id: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^
+...
+164 |     pub async fn update_session(&self, id: &str, body: Value) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^
+...
+172 |     pub async fn session_tools(&self, id: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^
+...
+183 |     pub async fn set_memory_enabled(&self, enabled: bool) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+191 |     pub async fn update_memory_item(&self, key: &str, value: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+199 |     pub async fn delete_memory_item(&self, key: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+210 |     pub async fn skill_enabled(&self, name: &str, enabled: bool) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^
+...
+224 |     pub async fn list_documents(
+    |                  ^^^^^^^^^^^^^^
+...
+237 |     pub async fn document_action(
+    |                  ^^^^^^^^^^^^^^^
+...
+261 |     pub async fn retrieve(&self, dataset: &str, body: Value) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^
+...
+273 |     pub async fn update_agent_draft(&self, agent: &str, body: Value) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+281 |     pub async fn task_result(&self, task: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^
+...
+285 |     pub async fn request_trace(&self, id: &str) -> Result<Value, ApiError> {
+    |                  ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `Operation` is never constructed
+   --> crates/platform-desktop/src/migration_desktop/catalog.rs:138:12
+    |
+138 | pub struct Operation {
+    |            ^^^^^^^^^
+
+warning: method `request` is never used
+   --> crates/platform-desktop/src/migration_desktop/catalog.rs:145:12
+    |
+144 | impl Operation {
+    | -------------- method in this implementation
+145 |     pub fn request(&self) -> ApiRequest {
+    |            ^^^^^^^
+
+warning: struct `EndpointDefinition` is never constructed
+ --> crates/platform-desktop/src/migration_desktop/endpoints.rs:9:12
+  |
+9 | pub struct EndpointDefinition {
+  |            ^^^^^^^^^^^^^^^^^^
+
+warning: methods `request` and `execute` are never used
+  --> crates/platform-desktop/src/migration_desktop/endpoints.rs:16:12
+   |
+15 | impl EndpointDefinition {
+   | ----------------------- methods in this implementation
+16 |     pub fn request(
+   |            ^^^^^^^
+...
+53 |     pub async fn execute(
+   |                  ^^^^^^^
+
+warning: constant `ENDPOINTS` is never used
+  --> crates/platform-desktop/src/migration_desktop/endpoints.rs:63:11
+   |
+63 | pub const ENDPOINTS: &[EndpointDefinition] = &[
+   |           ^^^^^^^^^
+
+warning: methods `set_api` and `prepare_operation` are never used
+   --> crates/platform-desktop/src/migration_desktop/state.rs:107:12
+    |
+100 | impl DesktopWorkspace {
+    | --------------------- methods in this implementation
+...
+107 |     pub fn set_api(&mut self, api: DesktopApi) {
+    |            ^^^^^^^
+...
+196 |     pub fn prepare_operation(&mut self, operation: Operation) {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: function `append_local_events` is never used
+   --> crates/platform-desktop/src/migration_desktop/state.rs:341:8
+    |
+341 | pub fn append_local_events(
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: field `score_confirm` is never read
+  --> crates/platform-desktop/src/migration_desktop/workflows/knowledge_sources.rs:48:5
+   |
+ 8 | pub struct KnowledgeSources {
+   |            ---------------- field in this struct
+...
+48 |     score_confirm: bool,
+   |     ^^^^^^^^^^^^^
+
+warning: `ai-platform-desktop` (bin "ai-platform-desktop" test) generated 9 warnings
+warning: `ai-platform-desktop` (bin "ai-platform-desktop") generated 9 warnings (9 duplicates)
+    Checking ai-platform-tools v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/platform-native/crates/platform-tools)
+warning: unused import: `Response`
+ --> crates/platform-gateway/tests/gateway_migration_parity_architecture.rs:8:30
+  |
+8 |     response::{IntoResponse, Response},
+  |                              ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-gateway` (test "gateway_migration_parity_architecture") generated 1 warning (run `cargo fix --test "gateway_migration_parity_architecture" -p ai-platform-gateway` to apply 1 suggestion)
+warning: unused import: `Response`
+ --> crates/platform-gateway/tests/setup_source_matrix.rs:5:96
+  |
+5 | use axum::{Router,body::{Body,to_bytes},http::{HeaderMap,Method,Request,StatusCode},response::{Response,IntoResponse}};
+  |                                                                                                ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-gateway` (test "setup_source_matrix") generated 1 warning (run `cargo fix --test "setup_source_matrix" -p ai-platform-gateway` to apply 1 suggestion)
+warning: `ai-platform-gateway` (lib test) generated 23 warnings (23 duplicates)
+warning: `ai-platform-gateway-integrations` (lib test) generated 24 warnings (24 duplicates)
+warning: `ai-platform-gateway-foundation` (lib test) generated 2 warnings (2 duplicates)
+warning: `ai-platform-migration-authority` (lib test) generated 1 warning (1 duplicate)
+    Finished `dev` profile [unoptimized] target(s) in 4.52s

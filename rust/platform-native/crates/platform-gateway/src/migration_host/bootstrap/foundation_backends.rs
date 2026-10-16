@@ -221,6 +221,7 @@ impl service_config_api::ServiceConfigDatabase for PgFoundationServiceDatabase {
 pub struct LoadedProxyConfiguration {
     pub proxy: ProxyServiceConfig,
     pub capacity_config: Value,
+    pub rate_config: Value,
     pub model_override: Value,
 }
 struct CachedProxy {
@@ -276,6 +277,13 @@ impl PgProxyConfigLoader {
                 },
             );
         Ok(Some(config))
+    }
+    pub async fn list(
+        &self,
+    ) -> Result<Vec<LoadedProxyConfiguration>, service_config_api::ServiceConfigError> {
+        let rows = sqlx::query_scalar::<_, Value>("SELECT jsonb_build_object('service_id',service_id,'name',name,'connector_config',connector_config,'service_config',service_config,'timeout',timeout,'status',status,'metadata',metadata) FROM gateway.services WHERE status='active'")
+            .fetch_all(&self.pool).await.map_err(|_| service_config_api::ServiceConfigError::Internal)?;
+        Ok(rows.iter().filter_map(parse_proxy_row).collect())
     }
     pub fn invalidate_config(
         &self,
@@ -455,6 +463,7 @@ pub fn parse_proxy_row(row: &Value) -> Option<LoadedProxyConfiguration> {
             cache_ttl: cache["ttl"].as_i64().unwrap_or(300),
         },
         capacity_config: capacity,
+        rate_config: s.get("rate_limit").cloned().unwrap_or(Value::Null),
         model_override: c
             .get("model_override")
             .filter(|v| v.is_object())
@@ -511,25 +520,62 @@ impl services_api::ServicesRuntime for NativeServicesRuntime {
     }
 }
 impl sessions_api::SessionsRuntimeCleanup for NativeServicesRuntime {
-    fn delete_owned_session<'a>(&'a self, tenant: &'a str, user: &'a str, session: &'a str) -> sessions_api::SessionsApiFuture<'a, bool> {
+    fn delete_owned_session<'a>(
+        &'a self,
+        tenant: &'a str,
+        user: &'a str,
+        session: &'a str,
+    ) -> sessions_api::SessionsApiFuture<'a, bool> {
         Box::pin(async move {
             use crate::migration_adapters::sdk_session_cleanup::{self, CleanupError};
-            sdk_session_cleanup::delete_owned(&self.sdk_session_pool, tenant, user, session, || async move {
-                self.control.cleanup_session(&Scope {tenant_id:tenant.into(),user_id:user.into(),session_id:session.into()})
-                    .await.map(|_|()).map_err(|e| CleanupError::Runtime(e.status))
-            }).await.map_err(|e| match e {
-                CleanupError::SessionUnavailable => sessions_api::SessionsApiError::http(404, "session not found"),
-                CleanupError::Runtime(status) => sessions_api::SessionsApiError::http(status, "runtime_session_cleanup_failed"),
+            sdk_session_cleanup::delete_owned(
+                &self.sdk_session_pool,
+                tenant,
+                user,
+                session,
+                || async move {
+                    self.control
+                        .cleanup_session(&Scope {
+                            tenant_id: tenant.into(),
+                            user_id: user.into(),
+                            session_id: session.into(),
+                        })
+                        .await
+                        .map(|_| ())
+                        .map_err(|e| CleanupError::Runtime(e.status))
+                },
+            )
+            .await
+            .map_err(|e| match e {
+                CleanupError::SessionUnavailable => {
+                    sessions_api::SessionsApiError::http(404, "session not found")
+                }
+                CleanupError::Runtime(status) => {
+                    sessions_api::SessionsApiError::http(status, "runtime_session_cleanup_failed")
+                }
                 _ => sessions_api::SessionsApiError::http(503, "sdk_session_cleanup_unavailable"),
             })?;
             self.sdk_sessions.invalidate(session).await;
             Ok(true)
         })
     }
-    fn session_deleted<'a>(&'a self, tenant: &'a str, user: &'a str, session: &'a str) -> sessions_api::SessionsApiFuture<'a, bool> {
+    fn session_deleted<'a>(
+        &'a self,
+        tenant: &'a str,
+        user: &'a str,
+        session: &'a str,
+    ) -> sessions_api::SessionsApiFuture<'a, bool> {
         Box::pin(async move {
-            crate::migration_adapters::sdk_session_cleanup::is_deleted(&self.sdk_session_pool, tenant, user, session)
-                .await.map_err(|_| sessions_api::SessionsApiError::http(503, "sdk_session_cleanup_unavailable"))
+            crate::migration_adapters::sdk_session_cleanup::is_deleted(
+                &self.sdk_session_pool,
+                tenant,
+                user,
+                session,
+            )
+            .await
+            .map_err(|_| {
+                sessions_api::SessionsApiError::http(503, "sdk_session_cleanup_unavailable")
+            })
         })
     }
     fn cleanup_session<'a>(
@@ -667,6 +713,27 @@ pub struct PgFoundationSecurityEvents {
     failures: Arc<AtomicU64>,
 }
 impl PgFoundationSecurityEvents {
+    pub async fn record_decision(&self, tenant: &str, user: &str, service: &str, kind: &str) {
+        if Self::record(
+            &self.pool,
+            SecurityEvent {
+                tenant: if tenant.is_empty() {
+                    "public".into()
+                } else {
+                    tenant.into()
+                },
+                user: Some(user.into()),
+                service: Some(service.into()),
+                kind: kind.into(),
+            },
+        )
+        .await
+        .is_err()
+        {
+            self.failures.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
@@ -755,7 +822,7 @@ struct TrustedRequest {
 tokio::task_local! { static FOUNDATION_REQUEST: TrustedRequest; }
 /// Mount inside host request_context, so IDs come from its validated extensions.
 /// Forwarded headers never become the socket peer and cannot establish trust.
-pub async fn request_effects_context(request: Request, next: Next) -> Response {
+pub async fn request_effects_context(mut request: Request, next: Next) -> Response {
     let context = request.extensions().get::<RequestContext>();
     let peer = request
         .extensions()
@@ -767,6 +834,10 @@ pub async fn request_effects_context(request: Request, next: Next) -> Response {
         headers: request.headers().clone(),
         client_host: peer,
     };
+    let trace = context.map(|c| c.trace_id.clone()).unwrap_or_default();
+    request
+        .extensions_mut()
+        .insert(crate::setup_api::SetupRequestTrace(trace));
     FOUNDATION_REQUEST
         .scope(TrustedRequest { audit }, next.run(request))
         .await

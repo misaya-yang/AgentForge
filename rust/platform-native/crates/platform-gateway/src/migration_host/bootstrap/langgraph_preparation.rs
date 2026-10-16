@@ -414,7 +414,10 @@ fn id_or(value: &Value, fallback: &str) -> String {
         fallback.into()
     }
 }
-fn payload_tokens(value: &Value) -> i64 {
+pub(crate) fn payload_tokens(value: &Value) -> i64 {
+    if value.is_null() {
+        return 0;
+    }
     fn walk(value: &Value, key: &str) -> i64 {
         let text = matches!(
             key,

@@ -8,33 +8,14 @@
 # copies (.env.copy) that prior ops sessions left behind — they contain
 # the same secrets as the live .env and must never be committed.
 .env
-.env.*
+.env.dev
 !.env.example
-!.env.*.example
-.envrc
-*.env
-*.pem
-*.key
-*.p12
-*.pfx
-credentials.json
-credentials.*.json
-secrets.json
-secrets.*.json
-!credentials.example.json
-!secrets.example.json
-.netrc
-.pypirc
-id_rsa
-id_ed25519
-.ssh/
-.aws/
-*.local.json
-*.local.toml
-*.local.yml
-*.local.yaml
-/config/local/
-/.tools/
+.env.local
+.env.*.local
+.env.bak
+.env.bak.*
+.env.copy
+.env.*.bak
 
 # ======================== Python ========================
 __pycache__/
@@ -48,7 +29,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-/lib/
+lib/
+!web/src/lib/
+!web/src/lib/**
 lib64/
 parts/
 sdist/
@@ -66,10 +49,6 @@ ENV/
 # ======================== Testing & Coverage ========================
 .pytest_cache/
 .coverage
-.coverage.*
-coverage/
-coverage.xml
-.nyc_output/
 htmlcov/
 .tox/
 .nox/
@@ -77,11 +56,6 @@ htmlcov/
 # ======================== Type Checking & Linting ========================
 .mypy_cache/
 .ruff_cache/
-.cache/
-.uv-cache/
-.pnpm-store/
-target/
-*.tsbuildinfo
 .dmypy.json
 dmypy.json
 
@@ -120,21 +94,6 @@ docs/scratch/
 # Downloaded ML models (OCR, embeddings, etc.)
 data/models/
 data/islamic_content/
-/data/
-/uploads/
-/backups/
-/storage/
-/state/
-*.sqlite
-*.sqlite3
-*.sqlite-wal
-*.sqlite-shm
-*.sqlite3-wal
-*.sqlite3-shm
-*.db
-*.db-wal
-*.db-shm
-*.dump
 *.pdmodel
 *.pdiparams
 *.pdiparams.info
@@ -144,8 +103,6 @@ data/islamic_content/
 
 # ======================== Logs & Temp Files ========================
 *.log
-*.log.*
-/logs/
 .err
 .out
 logs/*.log
@@ -188,13 +145,9 @@ NUL
 apps/islamic-content-service/data/
 
 # ======================== Screenshots & Playwright ========================
-# Product images, documentation images and fixture images are source assets.
-# Browser artifacts belong in the explicit ignored output directories below.
+*.png
+*.jpeg
 .playwright-mcp/
-playwright-report/
-.playwright/
-blob-report/
-*.har
 
 # ======================== Audit & Planning Scratch ========================
 # Ad-hoc artifacts dropped at the repository ROOT by tooling. These patterns are
@@ -240,3 +193,6 @@ test-results/
 # Scratch orchestration scripts written during live evaluation runs.
 # These embed machine-specific temp paths (e.g. /tmp/<run-id>/auth.env).
 .tmp-*
+
+# Versioned native codec lookup tables are source assets, not model/build binaries.
+!rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_multibyte/*.bin

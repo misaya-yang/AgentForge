@@ -4,8 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
+opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
+opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "grpc-tonic", "tls-roots"] }
 ai-platform-auth = { path = "../platform-auth" }
-axum = { version = "0.8", features = ["multipart"] }
+axum = { version = "0.8", features = ["multipart", "ws"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
@@ -16,11 +21,11 @@ sha2 = "0.10"
 hmac = "0.12"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
-redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
+redis.workspace = true
 jsonschema = { version = "=0.33.0", default-features = false }
 futures-core = "0.3"
 futures-util = { version = "0.3", features = ["sink"] }
-tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite.workspace = true
 fernet = { version = "=0.2.2", default-features = false, features = ["rustcrypto", "fernet_danger_timestamps"] }
 base64 = "0.22"
 # Canonical migration parsers, local SQLite ledger, and host middleware.

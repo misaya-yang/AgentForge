@@ -1,0 +1,53 @@
+{
+  "schema_version": "coding-agent-validator/v2",
+  "case_id": "coding.parallel.settlement-retry",
+  "allowed_changes": [
+    "src/allocation.rs",
+    "src/idempotency.rs"
+  ],
+  "required_investigation_areas": [
+    "allocation",
+    "idempotency"
+  ],
+  "required_diagnosis_evidence": {
+    "allocation": "community-doublecheck:doublecheck",
+    "idempotency": "community-engineering-reviewers:security-reviewer"
+  },
+  "required_rejected_hint_ids": [
+    "INCREASE_IDEMPOTENCY_TTL",
+    "ROUND_EACH_SHARE_INDEPENDENTLY"
+  ],
+  "max_changed_lines": 48,
+  "minimum_child_duration_ms": 25,
+  "minimum_parallel_overlap_ms": 25,
+  "sandbox_image_reference": "rust@sha256:ba81bc3eaa4422af576c0262515d96b0111a628a6ccc2c86557cf55c9a4bbee0",
+  "test_commands": [
+    [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "idempotency"
+    ],
+    [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "allocation"
+    ],
+    [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--test",
+      "service"
+    ]
+  ],
+  "execution_boundary": "Disposable Rust checkout with locked vendored dependencies, no provider credentials, network disabled. The official Rust 1.99.0 slim-bookworm linux/amd64 image is bound separately by platform manifest and image config digest. Image must already be preloaded; no implicit pull. Metadata verification does not establish sandbox execution success.",
+  "sandbox_image_config_digest": "sha256:80aa908ca5b1f3f0a2c177e855c86caf970f169618089348371122e0d1a56793",
+  "sandbox_platform": "linux/amd64"
+}

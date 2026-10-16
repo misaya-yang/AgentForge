@@ -1,12 +1,11 @@
 //! Existing GatewayModelMeta/config read contract, with explicit startup inputs.
 use ai_platform_auth::{
-    api_keys::{SelectedCredential, select_credential},
     service::AuthService,
 };
 use axum::{
     Json, Router,
     extract::State,
-    http::{HeaderMap, HeaderName, StatusCode},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -31,29 +30,26 @@ struct ConfigState {
     auth: Arc<AuthService>,
     pool: PgPool,
     options: RuntimeReadConfig,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>,
 }
 pub fn router(auth: Arc<AuthService>, pool: PgPool, options: RuntimeReadConfig) -> Router {
+    router_with_identity(auth, pool, options, None)
+}
+pub fn router_with_identity(auth: Arc<AuthService>, pool: PgPool, options: RuntimeReadConfig,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>) -> Router {
     Router::new()
-        .route("/api/v1/assistant/config", get(get_config))
+        .route("/api/v1/assistant/config", get(get_config).head(super::read_method_not_allowed))
         .with_state(ConfigState {
             auth,
             pool,
             options,
+            identity,
         })
 }
 async fn get_config(State(state): State<ConfigState>, headers: HeaderMap) -> Response {
-    let token = match select_credential(&headers, &HeaderName::from_static("x-api-key")) {
-        Ok(SelectedCredential::Jwt(token)) => token,
-        _ => return super::error(StatusCode::UNAUTHORIZED, "Authentication required"),
-    };
-    let principal = match state.auth.authenticate(token).await {
-        Ok(p) => p,
-        Err(e) => {
-            return super::error(
-                StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-                "Authentication failed",
-            );
-        }
+    let principal = match super::resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
+        Ok(user) => user,
+        Err(response) => return response,
     };
     let models = match super::models::visible(&state.pool, &principal).await {
         Ok(m) => m,
@@ -72,7 +68,7 @@ async fn get_config(State(state): State<ConfigState>, headers: HeaderMap) -> Res
     {
         // Return only a boolean from storage: encrypted or plaintext keys never enter this process.
         let stored=sqlx::query_as::<_,(bool,bool)>("SELECT COALESCE(is_enabled,FALSE),COALESCE(length(api_key_encrypted)>0,FALSE) FROM gateway.llm_providers WHERE tenant_id=$1 AND provider_id=$2")
-            .bind(&principal.account.tenant_id).bind(provider).fetch_optional(&state.pool).await;
+            .bind(&principal.tenant_id).bind(provider).fetch_optional(&state.pool).await;
         let available = matches!(stored,Ok(Some((true,has_key))) if has_key || state.options.runtime_configured_providers.contains(provider));
         configured.insert(provider.to_owned(), available);
     }

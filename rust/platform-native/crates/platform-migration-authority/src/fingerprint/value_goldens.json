@@ -1,0 +1,285 @@
+[
+  {
+    "envelope": {
+      "type": "text",
+      "text": "\u4e2d\ud83d\ude00\u007f",
+      "value": "\u4e2d\ud83d\ude00\u007f"
+    },
+    "expected": [
+      "str",
+      "\u4e2d\ud83d\ude00\u007f"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "boolean",
+      "text": "true",
+      "value": true
+    },
+    "expected": [
+      "bool",
+      true
+    ]
+  },
+  {
+    "envelope": {
+      "type": "bigint",
+      "text": "9223372036854775807",
+      "value": 9223372036854775807
+    },
+    "expected": [
+      "int",
+      "9223372036854775807"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "numeric",
+      "text": "1.2300",
+      "value": "1.2300"
+    },
+    "expected": [
+      "decimal",
+      "1.23"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "numeric",
+      "text": "12345678901234567890123456789",
+      "value": "12345678901234567890123456789"
+    },
+    "expected": [
+      "decimal",
+      "12345678901234567890123456790"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "double precision",
+      "text": "0.1",
+      "value": "0.1"
+    },
+    "expected": [
+      "float",
+      "0x1.999999999999ap-4"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "double precision",
+      "text": "-0",
+      "value": "-0.0"
+    },
+    "expected": [
+      "float",
+      "-0x0.0p+0"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "real",
+      "text": "0.1",
+      "value": "0.10000000149011612"
+    },
+    "expected": [
+      "float",
+      "0x1.99999a0000000p-4"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "bytea",
+      "text": "\\x0001ff",
+      "value": "b'\\x00\\x01\\xff'"
+    },
+    "expected": [
+      "bytes",
+      "AAH/"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "date",
+      "text": "2026-10-15",
+      "value": "2026-10-15"
+    },
+    "expected": [
+      "date",
+      "2026-10-15"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "timestamp without time zone",
+      "text": "2026-10-15 01:02:03.123",
+      "value": "2026-10-15 01:02:03.123000"
+    },
+    "expected": [
+      "datetime",
+      "2026-10-15T01:02:03.123000"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "timestamp with time zone",
+      "text": "2026-10-15 01:02:03.123+00",
+      "value": "2026-10-15 01:02:03.123000+00:00"
+    },
+    "expected": [
+      "datetime",
+      "2026-10-15T01:02:03.123000+00:00"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "time without time zone",
+      "text": "01:02:03.123",
+      "value": "01:02:03.123000"
+    },
+    "expected": [
+      "time",
+      "01:02:03.123000"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "uuid",
+      "text": "12345678-1234-5678-1234-567812345678",
+      "value": "12345678-1234-5678-1234-567812345678"
+    },
+    "expected": [
+      "uuid",
+      "12345678-1234-5678-1234-567812345678"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "character varying[]",
+      "text": "{a,NULL,\"\u4e2d\"}",
+      "value": [
+        "a",
+        null,
+        "\u4e2d"
+      ]
+    },
+    "expected": [
+      "list",
+      [
+        [
+          "str",
+          "a"
+        ],
+        [
+          "null"
+        ],
+        [
+          "str",
+          "\u4e2d"
+        ]
+      ]
+    ]
+  },
+  {
+    "envelope": {
+      "type": "integer[]",
+      "text": "{{1,2},{3,4}}",
+      "value": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    "expected": [
+      "list",
+      [
+        [
+          "list",
+          [
+            [
+              "int",
+              "1"
+            ],
+            [
+              "int",
+              "2"
+            ]
+          ]
+        ],
+        [
+          "list",
+          [
+            [
+              "int",
+              "3"
+            ],
+            [
+              "int",
+              "4"
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "envelope": {
+      "type": "numeric[]",
+      "text": "{1.2300,2.400}",
+      "value": [
+        "1.2300",
+        "2.400"
+      ]
+    },
+    "expected": [
+      "list",
+      [
+        [
+          "decimal",
+          "1.23"
+        ],
+        [
+          "decimal",
+          "2.4"
+        ]
+      ]
+    ]
+  },
+  {
+    "envelope": {
+      "type": "text",
+      "text": null,
+      "value": null
+    },
+    "expected": [
+      "null"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "jsonb",
+      "text": "{\"a\": 1}",
+      "value": "{\"a\": 1}"
+    },
+    "expected": [
+      "str",
+      "{\"a\": 1}"
+    ]
+  },
+  {
+    "envelope": {
+      "type": "jsonb",
+      "text": "null",
+      "value": null
+    },
+    "expected": [
+      "str",
+      "null"
+    ]
+  }
+]

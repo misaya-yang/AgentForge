@@ -58,6 +58,7 @@ pub struct AuthenticationSettings {
     pub gateway_origin: String,
 }
 pub struct QdrantSettings {
+    pub prefer_grpc: bool,
     pub url: String,
     pub api_key: Option<String>,
     pub timeout_seconds: f64,
@@ -69,6 +70,7 @@ pub struct QdrantSettings {
 impl Default for QdrantSettings {
     fn default() -> Self {
         Self {
+            prefer_grpc: false,
             url: "http://localhost:6333".into(),
             api_key: None,
             timeout_seconds: 120.,

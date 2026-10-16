@@ -29,7 +29,7 @@
       "tier": "L3",
       "category": "release",
       "required": true,
-      "commands": [["make", "agent-runtime-release-gate"], ["python3", "-m", "scripts.release.version_agreement_gate"]],
+      "commands": [["make", "agent-runtime-release-gate"], ["platform-release", "version-agreement"]],
       "status": "NOT_RUN",
       "evidence": [],
       "blocker": "Final Runtime and Worker OCI indexes, digests, and all live version projections are not yet bound to one release id."

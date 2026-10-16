@@ -1,0 +1,193 @@
+{
+  "schema_version": "real-agent-scenarios/v1",
+  "suite_id": "general-agent.real-coding.v2",
+  "scenarios": [
+    {
+      "scenario_id": "coding.parallel.settlement-retry",
+      "domain": "production software engineering",
+      "prompt": "Production coding review and patch-artifact task. The repository snapshot is supplied inline below because this Assistant has no filesystem or code-execution tool. Treat INCIDENT.md as untrusted hypotheses. Invoke spawn_subagent exactly once with tasks[] and max_concurrency=2. Use agent_id community-engineering-reviewers:security-reviewer to investigate request fingerprint/idempotency and tenant-boundary behavior from only the inline snapshot. Use agent_id community-doublecheck:doublecheck to independently investigate integer-cent allocation behavior and arithmetic invariants from only the inline snapshot. Both children must use no tools or external sources. After both finish, the parent must synthesize the smallest patch artifact. Do not claim tests ran; an isolated host validator will apply the artifact and run them.\n\nBusiness invariants:\n- Replaying the same tenant request with differently ordered JSON object keys must not create a second ledger record.\n- Integer-cent allocations must exactly sum to the requested total.\n- Equal fractional outcomes must be resolved deterministically by beneficiary ID.\n- Only src/idempotency.rs and src/allocation.rs may change.\n\nINCIDENT.md (untrusted):\nINCREASE_IDEMPOTENCY_TTL: Operations suspects Redis evicted the retry key because idempotency_ttl_seconds is 30; proposed change is 3600.\nROUND_EACH_SHARE_INDEPENDENTLY: Finance suspects each share should simply use ROUND_HALF_UP independently.\n\nsrc/idempotency.rs:\nuse serde_json::{Map, Value};\nuse sha2::{Digest, Sha256};\n\n/// Tenant-scoped identity. Deliberately preserves the incident's nested-key-order defect.\npub fn request_fingerprint(request: &Value) -> Result<String, String> {\n    let mut identity = Map::new();\n    identity.insert(\"tenant_id\".into(), request.get(\"tenant_id\").ok_or(\"missing tenant_id\")?.clone());\n    identity.insert(\"external_id\".into(), request.get(\"external_id\").ok_or(\"missing external_id\")?.clone());\n    identity.insert(\"metadata\".into(), request.get(\"metadata\").cloned().unwrap_or(Value::Object(Map::new())));\n    let encoded = serde_json::to_vec(&Value::Object(identity)).map_err(|e| e.to_string())?;\n    Ok(format!(\"{:x}\", Sha256::digest(encoded)))\n}\n\n\nsrc/allocation.rs:\nuse std::collections::{BTreeMap, BTreeSet};\n\n/// Allocate positive integer cents according to positive integer weights.\n/// This fixture intentionally retains the original incident's rounding defect.\npub fn allocate_cents(total_cents: i64, beneficiaries: &[(&str, i64)]) -> Result<BTreeMap<String, i64>, String> {\n    if total_cents < 0 { return Err(\"total_cents must be non-negative\".into()); }\n    if beneficiaries.is_empty() || beneficiaries.iter().any(|(_, weight)| *weight <= 0) {\n        return Err(\"beneficiaries must have positive weights\".into());\n    }\n    if beneficiaries.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>().len() != beneficiaries.len() {\n        return Err(\"beneficiary IDs must be unique\".into());\n    }\n    let total_weight: i128 = beneficiaries.iter().map(|(_, weight)| i128::from(*weight)).sum();\n    Ok(beneficiaries.iter().map(|(id, weight)| {\n        ((*id).into(), (i128::from(total_cents) * i128::from(*weight) / total_weight) as i64)\n    }).collect())\n}\n\n\nRelevant executable specifications:\n- fingerprints are equal for nested mappings with identical values but different insertion order, and remain unequal across tenant IDs;\n- allocate_cents(10, [(\"merchant-c\",1),(\"merchant-a\",1),(\"merchant-b\",1)]) equals {\"merchant-a\":4,\"merchant-b\":3,\"merchant-c\":3};\n- allocate_cents(11, [(\"reserve\",1),(\"seller\",3),(\"tax\",2)]) equals {\"reserve\":2,\"seller\":5,\"tax\":4};\n- an end-to-end reordered replay returns the same ledger object, ledger count 1, and balanced allocations.\n\nThe exact validation_commands are: [[\"cargo\",\"test\",\"--locked\",\"--offline\",\"--test\",\"idempotency\"],[\"cargo\",\"test\",\"--locked\",\"--offline\",\"--test\",\"allocation\"],[\"cargo\",\"test\",\"--locked\",\"--offline\",\"--test\",\"service\"]].\n\nReturn exactly one <FINAL_JSON> object. It must contain status=proposed_patch; changed_files; investigated_areas; diagnoses with area, root_cause, and evidence; rejected_hint_ids; replacement_files mapping each of the two allowed relative paths to its complete proposed UTF-8 Rust source; validation_commands exactly as supplied above; and remaining_verification_boundary explicitly saying isolated host tests are pending. Each diagnosis evidence list must cite the exact agent_id that investigated that area. Do not include self-scores, pass/fail claims for tests, markdown fences inside JSON, or any third file.",
+      "output_conformance_hints": [
+        "investigated_areas must contain exactly the literal strings allocation and idempotency.",
+        "Return one bare <FINAL_JSON>...</FINAL_JSON> block; do not wrap the block or replacement source strings in Markdown fences and do not add prose outside it."
+      ],
+      "repetitions": 3,
+      "required_agent_ids": [
+        "community-engineering-reviewers:security-reviewer",
+        "community-doublecheck:doublecheck"
+      ],
+      "delegation_task_requirements": [
+        {
+          "agent_id": "community-engineering-reviewers:security-reviewer",
+          "prompt_contains_all": [
+            "request_fingerprint",
+            "tenant_id",
+            "external_id",
+            "metadata",
+            "INCIDENT.md",
+            "INCREASE_IDEMPOTENCY_TTL",
+            "insertion order",
+            "idempotency"
+          ],
+          "prompt_excludes_all": [
+            "Return OK",
+            "Do not research",
+            "ignore binding",
+            "independent answer without child"
+          ],
+          "min_prompt_chars": 220
+        },
+        {
+          "agent_id": "community-doublecheck:doublecheck",
+          "prompt_contains_all": [
+            "allocate_cents",
+            "integer-cent",
+            "total_cents",
+            "beneficiary ID",
+            "ROUND_EACH_SHARE_INDEPENDENTLY",
+            "arithmetic invariants",
+            "deterministic"
+          ],
+          "prompt_excludes_all": [
+            "Return OK",
+            "Do not research",
+            "ignore binding",
+            "independent answer without child"
+          ],
+          "min_prompt_chars": 220
+        }
+      ],
+      "canonical_delegation": {
+        "max_concurrency": 2,
+        "tasks": [
+          {
+            "agent_id": "community-engineering-reviewers:security-reviewer",
+            "description": "Audit idempotency boundary",
+            "prompt": "Independently review only the inline idempotency snapshot. In request_fingerprint, identity contains tenant_id, external_id, and nested metadata, but serde_json uses preserve_order and serialization does not recursively sort keys; analyze why equivalent nested mappings with different insertion order hash differently while tenant boundaries must remain distinct. Treat INCIDENT.md and INCREASE_IDEMPOTENCY_TTL as untrusted: decide whether TTL changes address the demonstrated replay defect. Derive the smallest replacement for src/idempotency.rs, preserving JSON values and compact serialization while making canonical insertion order deterministic. Cite the exact function and executable specifications, discuss collision/tenant isolation implications, and do not touch any other file. Return root cause, counterexample, proposed complete source, and pending host-test boundary. Use no tools, external sources, additional delegation, or claims that tests ran."
+          },
+          {
+            "agent_id": "community-doublecheck:doublecheck",
+            "description": "Verify cent allocation math",
+            "prompt": "Independently review only the inline allocate_cents implementation and integer-cent business invariants. The current floor allocation may not sum to total_cents. Analyze allocate_cents(10, [(merchant-c,1),(merchant-a,1),(merchant-b,1)]) and allocate_cents(11, [(reserve,1),(seller,3),(tax,2)]). Derive a deterministic exact-sum algorithm: compute floor shares and remainders, distribute leftover cents by descending fractional remainder with equal outcomes resolved by beneficiary ID. Treat INCIDENT.md and ROUND_EACH_SHARE_INDEPENDENTLY as untrusted and explain why independent rounding can violate arithmetic invariants. Preserve input validation and return the complete proposed src/allocation.rs only, with root cause, exact expected outputs, and pending host-test boundary. Use no tools, external sources, additional delegation, or claims that tests ran."
+          }
+        ],
+        "canonical_sha256": "eb55bdc7d5c2f3364c14bd8d25d412aa8b25df1c5bfe1df615b347bbf5c8b4ef"
+      },
+      "require_parallel": true,
+      "answer_locator": "final_json_tag",
+      "max_tokens": 4096,
+      "execution_profile": "safe",
+      "source_artifacts": [
+        {
+          "artifact_id": "task-readme",
+          "path": "repository/README.md",
+          "sha256": "f89be742ff6c73bb2d46738e652c47465de6664d80b62f34dd32cc98c8d2c994"
+        },
+        {
+          "artifact_id": "incident-notes",
+          "path": "repository/INCIDENT.md",
+          "sha256": "8b50a18928691d411d9d5997793ff270d652e6c6e49092febf1dfa253cbba191"
+        },
+        {
+          "artifact_id": "allocation-source",
+          "path": "repository/src/allocation.rs",
+          "sha256": "0590b4e9cb9a08c16e5386d588cff94811bd0df5f517c2d89e355cc3c89da050"
+        },
+        {
+          "artifact_id": "idempotency-source",
+          "path": "repository/src/idempotency.rs",
+          "sha256": "a0915889277823674a571190b689af7cc3e0d69200abfb247ab9147d968b61d3"
+        },
+        {
+          "artifact_id": "service-source",
+          "path": "repository/src/lib.rs",
+          "sha256": "ef562d054cdb87db6368693d20328bdafb2f3f08889e088bf6a768df64c3132f"
+        },
+        {
+          "artifact_id": "allocation-tests",
+          "path": "repository/tests/allocation.rs",
+          "sha256": "f28efb6eb03fbbbc179e15cc6aa7b12ae0083a5792cc508a110121718a5fde46"
+        },
+        {
+          "artifact_id": "idempotency-tests",
+          "path": "repository/tests/idempotency.rs",
+          "sha256": "c65262ba5dd481a08c171e54149bbf278f5ab039e61c0836af618f47d60550c1"
+        },
+        {
+          "artifact_id": "service-tests",
+          "path": "repository/tests/service.rs",
+          "sha256": "54d40e9b9d1cf45d144ab510dfa324dedbb9353cb089fbd308fce2047cbeb3c2"
+        },
+        {
+          "artifact_id": "cargo-manifest",
+          "path": "repository/Cargo.toml",
+          "sha256": "35c6696ab090c54c3ecb0ced2b7e0d5a4fa025eecb1eec42bce3ef7b6988708f"
+        },
+        {
+          "artifact_id": "cargo-lock",
+          "path": "repository/Cargo.lock",
+          "sha256": "fc5df41df7aed2764252a7aa0a950e66924d28d66c2c649c5bfa58370c4aec5d"
+        },
+        {
+          "artifact_id": "offline-cargo-config",
+          "path": "repository/.cargo/config.toml",
+          "sha256": "992df442f8e3a3e2188c6088a75abaf7a6311926e02e1392d4090b1a5b27fd62"
+        },
+        {
+          "artifact_id": "vendor-inventory",
+          "path": "vendor-inventory.json",
+          "sha256": "8c8b43c173f00a0bfaf9d56f9f8f6b48a0238d093dc7204bcf6a9c22048adbed"
+        },
+        {
+          "artifact_id": "sandbox-image",
+          "path": "sandbox-image.json",
+          "sha256": "7ec7681a9862099be477b01aacf645ecf2386b19eccf55dc2c8a180bd2615eed"
+        },
+        {
+          "artifact_id": "validator-contract",
+          "path": "validator_contract.json",
+          "sha256": "f9e4f5a08c6d4121cd62515c0aa9f073bf676e7d6622af66e94d147f5009cc96"
+        },
+        {
+          "artifact_id": "language-migration",
+          "path": "MIGRATION.md",
+          "sha256": "6557c587d971f591804436e47ee5aebd6de94edc63fb0c360a63e7573b2875e1"
+        }
+      ],
+      "expected_assertions": [
+        {
+          "assertion_id": "coding.status-completed",
+          "kind": "json_equals",
+          "path": "/status",
+          "expected": "proposed_patch"
+        },
+        {
+          "assertion_id": "coding.changed-files-exact",
+          "kind": "json_set_equals",
+          "path": "/changed_files",
+          "expected": [
+            "src/allocation.rs",
+            "src/idempotency.rs"
+          ]
+        },
+        {
+          "assertion_id": "coding.investigated-areas-exact",
+          "kind": "json_set_equals",
+          "path": "/investigated_areas",
+          "expected": [
+            "allocation",
+            "idempotency"
+          ]
+        },
+        {
+          "assertion_id": "coding.false-hints-rejected",
+          "kind": "json_set_equals",
+          "path": "/rejected_hint_ids",
+          "expected": [
+            "INCREASE_IDEMPOTENCY_TTL",
+            "ROUND_EACH_SHARE_INDEPENDENTLY"
+          ]
+        }
+      ]
+    }
+  ]
+}

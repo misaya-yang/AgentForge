@@ -275,7 +275,9 @@ impl RegistryStorage for MemoryRegistryStorage {
     fn insert_if_absent(&self, service: ServiceHandle) -> RegistryFuture<'_, bool> {
         Box::pin(async move {
             let mut rows = self.services.lock().expect("registry memory poisoned");
-            if rows.rows.contains_key(&service.service_id()) { return Ok(false); }
+            if rows.rows.contains_key(&service.service_id()) {
+                return Ok(false);
+            }
             rows.insert(service);
             Ok(true)
         })
@@ -366,6 +368,10 @@ pub trait ProtocolAdapter: Send + Sync {
         Box::pin(async { Err(AdapterError::UnsupportedOperation) })
     }
     fn health_check(&self) -> AdapterFuture<'_, bool>;
+    /// Host shutdown after request/worker drain, before shared infrastructure closes.
+    fn shutdown(&self) -> AdapterFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
 }
 pub trait AdapterFactory: Send + Sync {
     /// Synchronous construction only. Factories must not call back into registry.
@@ -437,9 +443,12 @@ pub struct ServiceRegistry {
     cache: Mutex<OrderedServices>,
     factories: Mutex<HashMap<String, Arc<dyn AdapterFactory>>>,
     adapter_cache: Mutex<HashMap<String, Arc<dyn ProtocolAdapter>>>,
+    shutting_down: std::sync::atomic::AtomicBool,
+    shutdown_guard: tokio::sync::Mutex<()>,
     bulkhead_environment: String,
     sdk_read_grants: Arc<crate::sdk_read_grants::SdkReadGrants>,
-    sdk_capabilities: Arc<std::sync::OnceLock<Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>>>,
+    sdk_capabilities:
+        Arc<std::sync::OnceLock<Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>>>,
     sdk_agent_key: Arc<std::sync::OnceLock<Arc<str>>>,
 }
 impl ServiceRegistry {
@@ -455,6 +464,8 @@ impl ServiceRegistry {
             cache: Mutex::new(OrderedServices::default()),
             factories: Mutex::new(HashMap::new()),
             adapter_cache: Mutex::new(HashMap::new()),
+            shutting_down: std::sync::atomic::AtomicBool::new(false),
+            shutdown_guard: tokio::sync::Mutex::new(()),
             bulkhead_environment: limits.into(),
             sdk_read_grants: Arc::new(crate::sdk_read_grants::SdkReadGrants::default()),
             sdk_capabilities: Arc::new(std::sync::OnceLock::new()),
@@ -463,15 +474,32 @@ impl ServiceRegistry {
     }
     /// Called once by the host with its existing provider encryption configuration.
     pub fn configure_sdk_agent_key(&self, key: String) -> Result<(), RegistryError> {
-        if key.is_empty() { return Ok(()); }
-        self.sdk_agent_key.set(Arc::from(key)).map_err(|_|RegistryError::ValidationFailed("sdk_encryption_already_configured"))
+        if key.is_empty() {
+            return Ok(());
+        }
+        self.sdk_agent_key
+            .set(Arc::from(key))
+            .map_err(|_| RegistryError::ValidationFailed("sdk_encryption_already_configured"))
     }
-    pub fn sdk_read_grants(&self)->Arc<crate::sdk_read_grants::SdkReadGrants>{self.sdk_read_grants.clone()}
-    pub fn sdk_capabilities(&self)->Arc<std::sync::OnceLock<Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>>>{self.sdk_capabilities.clone()}
-    pub fn configure_sdk_capabilities(&self,authority:Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>)->Result<(), &'static str>{
-        self.sdk_capabilities.set(authority).map_err(|_|"sdk_capabilities_already_configured")
+    pub fn sdk_read_grants(&self) -> Arc<crate::sdk_read_grants::SdkReadGrants> {
+        self.sdk_read_grants.clone()
     }
-    pub fn sdk_agent_key_handle(&self) -> Arc<std::sync::OnceLock<Arc<str>>> { self.sdk_agent_key.clone() }
+    pub fn sdk_capabilities(
+        &self,
+    ) -> Arc<std::sync::OnceLock<Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>>> {
+        self.sdk_capabilities.clone()
+    }
+    pub fn configure_sdk_capabilities(
+        &self,
+        authority: Arc<dyn crate::sdk_capabilities::SdkCapabilityAuthority>,
+    ) -> Result<(), &'static str> {
+        self.sdk_capabilities
+            .set(authority)
+            .map_err(|_| "sdk_capabilities_already_configured")
+    }
+    pub fn sdk_agent_key_handle(&self) -> Arc<std::sync::OnceLock<Arc<str>>> {
+        self.sdk_agent_key.clone()
+    }
     pub async fn register(&self, service: ServiceDefinition) -> Result<(), RegistryError> {
         self.register_handle(ServiceHandle::new(service)).await
     }
@@ -481,14 +509,32 @@ impl ServiceRegistry {
     pub async fn create_handle(&self, service: ServiceHandle) -> Result<(), RegistryError> {
         self.persist_handle(service, true).await
     }
-    async fn persist_handle(&self, service: ServiceHandle, create_only: bool) -> Result<(), RegistryError> {
+    async fn persist_handle(
+        &self,
+        service: ServiceHandle,
+        create_only: bool,
+    ) -> Result<(), RegistryError> {
         let snapshot = service.snapshot();
-        let service = if crate::sdk_agent_config::is_sdk(&snapshot) || snapshot.connector_config.get("sdk_provider_api_key").is_some() || snapshot.connector_config.get("sdk_provider_api_key_encrypted").is_some() {
-            let mut snapshot=service.snapshot();
-            crate::sdk_agent_config::validate_and_seal(&mut snapshot,self.sdk_agent_key.get().map(|v|v.as_ref()).unwrap_or(""))
-                .map_err(RegistryError::ValidationFailed)?;
+        let service = if crate::sdk_agent_config::is_sdk(&snapshot)
+            || snapshot
+                .connector_config
+                .get("sdk_provider_api_key")
+                .is_some()
+            || snapshot
+                .connector_config
+                .get("sdk_provider_api_key_encrypted")
+                .is_some()
+        {
+            let mut snapshot = service.snapshot();
+            crate::sdk_agent_config::validate_and_seal(
+                &mut snapshot,
+                self.sdk_agent_key.get().map(|v| v.as_ref()).unwrap_or(""),
+            )
+            .map_err(RegistryError::ValidationFailed)?;
             ServiceHandle::new(snapshot)
-        } else { service };
+        } else {
+            service
+        };
         let id = service.service_id();
         if id.is_empty() {
             return Err(RegistryError::ValidationFailed("service_id is required"));
@@ -625,12 +671,41 @@ impl ServiceRegistry {
             .expect("adapter factories poisoned")
             .insert(adapter_type.into(), factory);
     }
+    /// Reject new adapter admission, settle every cached connector concurrently,
+    /// and retain failed/cancelled shutdown state for an explicit retry.
+    pub async fn shutdown(&self) -> Result<(), AdapterError> {
+        let _guard = self.shutdown_guard.lock().await;
+        let adapters: Vec<_> = {
+            let cached = self.adapter_cache.lock().expect("adapter cache poisoned");
+            self.shutting_down
+                .store(true, std::sync::atomic::Ordering::Release);
+            cached.values().cloned().collect()
+        };
+        let results =
+            futures_util::future::join_all(adapters.iter().map(|adapter| adapter.shutdown())).await;
+        if let Some(error) = results.into_iter().find_map(Result::err) {
+            return Err(error);
+        }
+        self.adapter_cache
+            .lock()
+            .expect("adapter cache poisoned")
+            .clear();
+        Ok(())
+    }
     pub fn get_adapter(
         &self,
         service: ServiceHandle,
     ) -> Result<Arc<dyn ProtocolAdapter>, RegistryError> {
         let snapshot = service.snapshot();
         let mut cached = self.adapter_cache.lock().expect("adapter cache poisoned");
+        if self
+            .shutting_down
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(RegistryError::InvalidConfig(
+                "service_registry_shutting_down",
+            ));
+        }
         if let Some(adapter) = cached.get(&snapshot.service_id) {
             return Ok(adapter.clone());
         }
@@ -724,6 +799,10 @@ impl ProtocolAdapter for BulkheadAdapter {
     }
     fn health_check(&self) -> AdapterFuture<'_, bool> {
         self.inner.health_check()
+    }
+    fn shutdown(&self) -> AdapterFuture<'_, ()> {
+        self.slots.close();
+        self.inner.shutdown()
     }
 }
 struct BulkheadStream {

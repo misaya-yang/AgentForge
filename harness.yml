@@ -3,7 +3,7 @@
 # =============================================================================
 # Machine-readable description of how work is done in this repository.
 # Human-readable counterpart: docs/harness/README.md
-# Verified by: make harness-check  (scripts/harness/check_harness.py)
+# Verified by: make harness-check  (rust/platform-native/crates/platform-tools/src/harness.rs)
 #
 # Keep this file aligned with AGENTS.md, the Makefile, and docs/harness/commands.md.
 # If a command is renamed here it must be renamed in all three.
@@ -17,12 +17,9 @@ description: >-
 
 # -- Toolchain ----------------------------------------------------------------
 toolchain:
-  python: ">=3.10"          # CI runs 3.12
-  python_dev: "3.12.12"     # .python-version; isolated local baseline
-  uv: "0.13.0"
-  rust_native: "1.99.0"
-  rust_runtime: "1.95.0"
-  package_manager: uv       # workspace defined in pyproject.toml [tool.uv.workspace]
+  rust: "1.99.0"
+  runtime_rust: "1.95.0"
+  package_manager: cargo
   node: "26.11.1"
   pnpm: "12.11.2"           # explicit bootstrap; pnpm installs web dependencies
   docker_compose: v2
@@ -65,15 +62,6 @@ budgets:
 # -- Canonical commands -------------------------------------------------------
 # Each entry must resolve to a real Make target.
 commands:
-  local_bootstrap:
-    make: local-bootstrap
-    purpose: Install the isolated pinned local toolchain and frozen dependencies without starting services.
-  local_baseline:
-    make: local-baseline
-    purpose: Run the existing supported offline gates and record every exit status.
-  local_runtime_source:
-    make: local-runtime-source
-    purpose: Restore the exact clean Runtime upstream Git checkout outside the repository.
   doctor:
     make: doctor
     purpose: Preflight the machine — tools, memory, ports, compose ownership.
@@ -97,7 +85,7 @@ commands:
     purpose: Health table; nonzero exit on failure, usable as a release gate.
   hot_update:
     make: hot-update
-    purpose: Apply changed Python source to running containers without rebuilding.
+    purpose: Compile native source updates and replace selected service containers.
   migrate:
     make: migrate
     purpose: Run pending database migrations.
@@ -190,7 +178,7 @@ commands:
     purpose: Live-tier RAG quality gate — golden replay against the running Knowledge Service.
   kb_unit_gate:
     make: kb-unit-gate
-    purpose: Real Knowledge unit gate — imports knowledge_service, runs offline.
+    purpose: Native Knowledge production-module unit gate, runs offline.
   web_quality_gate:
     make: web-quality-gate
     purpose: Web type-check, lint, node unit tests, and i18n check.
@@ -217,7 +205,7 @@ commands:
     purpose: Test only the Rust crates hit by the diff.
 
 # -- Gates: what to run for what you changed ----------------------------------
-# Gate schema (enforced by scripts/harness/check_harness.py):
+# Gate schema (enforced by rust/platform-native/crates/platform-tools/src/harness.rs):
 #   make | shell   : exactly one entrypoint
 #   triggers       : path globs; `make affected-gates BASE_SHA=<sha>` maps every
 #                    changed path to its gates and FAILS CLOSED on unmatched paths
@@ -235,7 +223,7 @@ commands:
 gates:
   harness:
     make: harness-check
-    triggers: [AGENTS.md, CLAUDE.md, harness.yml, Makefile, scripts/harness/check_harness.py, tests/harness/test_check_harness_gate_schema.py, "docs/**", "deploy/runbooks/**", "deploy/release/**", "reports/**", ".gitignore", ".python-version", ".node-version", ".editorconfig", ".gitattributes", ".pre-commit-config.yaml", ".claude/**", ".agents/**", README.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, DEPLOY.md, CODE_OF_CONDUCT.md, RELEASE.md, SUPPORT.md, LICENSE]
+    triggers: [AGENTS.md, CLAUDE.md, harness.yml, Makefile, rust/platform-native/crates/platform-tools/src/harness.rs, rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs, "docs/**", "deploy/runbooks/**", "deploy/release/**", "reports/**", ".gitignore", ".editorconfig", ".gitattributes", ".pre-commit-config.yaml", ".claude/**", ".agents/**", README.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, DEPLOY.md, CODE_OF_CONDUCT.md, RELEASE.md, SUPPORT.md, LICENSE]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -246,7 +234,7 @@ gates:
   affected_gates:
     make: affected-gates
     purpose: Map the diff onto required gates; unmatched paths fail closed.
-    triggers: [harness.yml, scripts/harness/affected_gates.py, scripts/harness/ci_gate_enforcement.py, tests/harness/test_ci_gate_enforcement.py, .github/workflows/**]
+    triggers: ["rust/platform-native/crates/platform-tools/src/selection.rs", "rust/platform-native/crates/platform-tools/src/ci.rs", "harness.yml", ".github/**"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -257,7 +245,7 @@ gates:
   architecture_boundary:
     make: architecture-boundary-gate
     purpose: Static import boundary between gateway/apps/core/contracts zones (negative self-test included).
-    triggers: ["src/**", "apps/**", "packages/**", scripts/harness/import_boundary_gate.py, scripts/harness/import_boundary_allowlist.json]
+    triggers: ["rust/platform-native/**", "rust/platform-native/crates/platform-tools/native-boundary-exceptions.json"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -268,7 +256,7 @@ gates:
   core_boundary:
     make: core-boundary-gate
     purpose: Rebuild the formal core/contracts inventory from its declared Git object, then enforce no-growth and compatibility boundaries.
-    triggers: ["src/**", "apps/**", "packages/**", "database/**", "rust/**", "sdk/python/**", "scripts/core_boundary/**", reports/inventory/core-import-inventory.json, tests/scripts/test_architecture_inventory_guards.py]
+    triggers: ["rust/platform-native/**", "database/**", "reports/inventory/**"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -279,7 +267,7 @@ gates:
   single_instance_guard:
     make: single-instance-guard
     purpose: Reject Gateway/Agent Runtime replica, HPA, or rollout overlap while allowing manifest-declared stateless/worker scale.
-    triggers: [deploy/helm/ai-gateway/**, docker-compose*, scripts/inventory/service_topology.py, scripts/harness/single_instance_guard.py, tests/harness/test_single_instance_guard.py]
+    triggers: ["deploy/helm/ai-gateway/**", "docker-compose*", "rust/platform-native/crates/platform-tools/src/guard.rs", "rust/platform-native/crates/platform-tools/src/topology.rs", "src/core/data/service_topology.json"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -289,8 +277,8 @@ gates:
     ci_job: architecture-gates
   openapi_offline:
     make: verify-openapi-contract
-    purpose: Python/hybrid profile contract against explicit projection; does not certify native release.
-    triggers: ["src/**", sdk/openapi.json, scripts/harness/openapi_contract_gate.py, scripts/harness/openapi_profiles.py, sdk/openapi-profiles.json, tests/contract/test_openapi_schema_compat.py, tests/contract/test_openapi_profiles.py]
+    purpose: Published projection contract against explicit projection; does not certify native release.
+    triggers: ["rust/platform-native/crates/platform-gateway/src/**", "rust/platform-native/crates/platform-openapi/**", "sdk/openapi.json", "sdk/openapi-profiles.json"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -312,28 +300,28 @@ gates:
   openapi_live:
     make: live-openapi-contract-gate
     purpose: Live OpenAPI contract check against the running stack; skip means SKIPPED, never PASS.
-    triggers: ["src/**", sdk/openapi.json, tests/integration/test_gateway_openapi_contract.py]
+    triggers: ["rust/platform-native/crates/platform-gateway/src/**", "rust/platform-native/crates/platform-tools/src/live_openapi.rs", "sdk/openapi.json"]
     tier: L3
     required_on: [release, manual]
     resource: live-stack
     skip: live-stack
     timeout: 10
-    evidence: tmp/gate-evidence/live-openapi-contract-gate.xml
+    evidence: tmp/gate-evidence/live-openapi-contract-gate.json
     ci_job: manual
   gateway_units:
     make: gateway-unit-gate
     purpose: Offline Gateway unit suites (integration-marked and KB/DB suites excluded).
-    triggers: ["src/**", "scripts/deploy/**", "scripts/harness/**", "scripts/release/**", "tests/unit/**", "tests/api/**", "tests/core/**", "tests/contract/**", "tests/harness/**", tests/scripts/test_topology_modes.py, "tests/services/eval/**", "tests/services/agent_runtime/**", "tests/services/assistant/**"]
+    triggers: ["rust/platform-native/crates/platform-gateway/**", "rust/platform-native/crates/platform-gateway-foundation/**", "rust/platform-native/crates/platform-gateway-integrations/**", "rust/platform-native/crates/platform-auth/**", "rust/platform-native/crates/platform-tools/**", "rust/platform-native/crates/platform-eval/**", "scripts/new/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
     skip: never
     timeout: 30
-    evidence: tmp/gate-evidence/gateway-unit-gate.xml
+    evidence: tmp/gate-evidence/gateway-unit-gate.log
     ci_job: gateway-units
   agent_runtime_source:
     make: agent-runtime-source-contract
-    triggers: [deploy/agent-runtime-source/**, docs/architecture/ADR-006*, docs/architecture/ADR-007*, scripts/harness/agent_runtime_supply_chain.py]
+    triggers: ["deploy/agent-runtime-source/**", "docs/architecture/ADR-006*", "docs/architecture/ADR-007*", "rust/platform-native/crates/platform-tools/src/source*.rs", "rust/agent-runtime-overlay/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -353,7 +341,7 @@ gates:
     ci_job: agent-runtime-contracts
   agent_runtime_readonly:
     make: agent-runtime-readonly-gate
-    triggers: [src/services/agent_runtime/readonly_capabilities.py, tests/services/agent_runtime/test_readonly_capabilities.py, scripts/harness/agent_runtime_readonly_gate.py, tests/harness/test_agent_runtime_readonly_gate.py]
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_agent/readonly*.rs", "rust/platform-native/crates/platform-gateway/tests/readonly_contributor_gate.rs", "rust/platform-native/crates/platform-tools/src/native_gates.rs"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -363,7 +351,7 @@ gates:
     ci_job: agent-runtime-contracts
   agent_thread_store:
     make: agent-thread-store-contract
-    triggers: [database/migrations/089*, database/migrations/090*, database/migrations/092*, database/migrations/093*, database/migrations/094*, database/migrations/095*, tests/database/test_agent_runtime_thread_store_migration.py, scripts/harness/agent_thread_store_contract.sh]
+    triggers: ["database/migrations/089*", "database/migrations/090*", "database/migrations/092*", "database/migrations/093*", "database/migrations/094*", "database/migrations/095*", "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs", "scripts/harness/agent_thread_store_contract.sh"]
     tier: L2
     required_on: [release, manual]
     resource: hosted-service
@@ -373,7 +361,7 @@ gates:
     ci_job: manual
   agent_runtime_single_kernel:
     make: agent-runtime-single-kernel-gate
-    triggers: [src/api/v1/assistant.py, src/api/v2/agent.py, src/services/assistant_runtime_assignment.py, database/migrations/095*, docker-compose.yml]
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_agent/**", "rust/platform-native/crates/platform-gateway/src/migration_compat/responses.rs", "rust/platform-native/crates/platform-tools/src/native_gates.rs", "database/migrations/095*", "docker-compose.yml"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -383,7 +371,7 @@ gates:
     ci_job: agent-runtime-contracts
   service_boundaries:
     make: test-isolation
-    triggers: ["src/**", "apps/**", "packages/ai-gateway-core/**"]
+    triggers: ["rust/platform-native/crates/**"]
     tier: L2
     required_on: [release, manual]
     resource: live-stack
@@ -393,7 +381,7 @@ gates:
     ci_job: manual
   assistant_runtime:
     make: runtime-dependency-gate
-    triggers: ["scripts/harness/runtime_dependency_gate.py", "scripts/eval_general_agent_failure_recovery.py", "tests/services/eval/**"]
+    triggers: ["rust/platform-native/crates/platform-eval/src/runtime_regression.rs", "rust/platform-native/crates/platform-eval/src/scenario_runner.rs", "rust/platform-native/crates/platform-gateway/tests/runtime*.rs"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -403,7 +391,7 @@ gates:
     ci_job: eval-regression-gate
   agent_core:
     make: runtime-dependency-gate
-    triggers: ["scripts/**", "tests/**", pyproject.toml, uv.lock, "agent-plugins/**", "skills/**", skills-lock.json]
+    triggers: ["rust/platform-native/Cargo.toml", "rust/platform-native/Cargo.lock", "rust/platform-native/crates/platform-agent-plugins/**", "agent-plugins/**", "skills/**", "skills-lock.json"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -413,7 +401,7 @@ gates:
     ci_job: eval-regression-gate
   eval_contract:
     make: eval-e1-gate
-    triggers: ["src/services/eval/**", "packages/ai-gateway-core/src/ai_gateway_core/eval/**", "tests/fixtures/eval/**"]
+    triggers: ["rust/platform-native/crates/platform-eval/**", "rust/platform-native/crates/platform-gateway/src/migration_compat/eval*.rs", "tests/fixtures/eval/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -423,7 +411,7 @@ gates:
     ci_job: eval-regression-gate
   eval_branch:
     make: verify-eval-dev
-    triggers: ["src/api/v1/eval.py", "src/api/eval_export.py"]
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_compat/eval*.rs", "rust/platform-native/crates/platform-gateway/tests/*eval*.rs", "rust/platform-native/crates/platform-eval/**"]
     tier: L1
     required_on: [change]
     resource: offline
@@ -434,7 +422,7 @@ gates:
   kb:
     make: kb-unit-gate
     purpose: Real Knowledge unit gate — imports knowledge_service, runs offline.
-    triggers: ["apps/knowledge-service/**", "tests/services/knowledge/**", "tests/knowledge/**"]
+    triggers: ["rust/platform-native/crates/platform-knowledge-service/**", "rust/platform-native/crates/platform-knowledge-ops/**", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge*/**", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge*.rs"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -445,7 +433,7 @@ gates:
   kb_integration_smoke:
     make: kb-integration-smoke
     purpose: Qdrant integration smoke; needs the kbms stack, self-skips when it is down.
-    triggers: ["apps/knowledge-service/src/knowledge_service/services/knowledge/vector_store.py", "tests/knowledge/test_qdrant_integration_smoke.py"]
+    triggers: ["rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/vector*.rs", "rust/platform-native/crates/platform-knowledge-service/tests/*qdrant*.rs"]
     tier: L2
     required_on: [manual]
     resource: live-stack
@@ -455,7 +443,7 @@ gates:
     ci_job: manual
   gateway_kb_boundary:
     make: gateway-kb-boundary-gate
-    triggers: ["packages/ai-gateway-core/src/ai_gateway_core/persistence/**", "src/api/schemas/**", "src/api/v1/knowledge.py", "src/api/v1/kb_tools.py", "src/api/v1/_proxy_utils.py", "src/api/v1/presign.py", "src/services/knowledge_authz.py", "scripts/harness/gateway_kb_boundary_gate.py", "tests/harness/test_gateway_kb_boundary_gate.py"]
+    triggers: ["rust/platform-native/crates/platform-gateway/**", "rust/platform-native/crates/platform-gateway-foundation/**", "rust/platform-native/crates/platform-openapi/src/kb_boundary.rs"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -466,7 +454,7 @@ gates:
   kb_migrations:
     make: kb-migration-gate
     purpose: DB migration gate against a real PostgreSQL service (CI-hosted).
-    triggers: ["database/**", "database/cli.py", "database/migrate_per_service.py", "database/run_migration.py", "database/migrations/*kb*.sql", "database/migrations/097_image_task_runtime_scope.sql", "database/migrations/per_service/assistant/004_image_task_runtime_scope.sql", "scripts/new/common.sh", "scripts/new/migrate.sh", "tests/database/test_run_migration.py", "tests/database/test_migration_runner_contract.py", "tests/database/test_migration_runner_concurrency.py", "tests/database/test_image_task_runtime_scope_migration.py", "tests/database/test_kb_migration_full_chain.py", "tests/database/test_kb_migration_101_restore.py", "tests/database/test_kb_*migration*.py", "tests/database/test_bm25_v2_lifecycle_tierb.py", "apps/knowledge-service/src/knowledge_service/persistence/kb_eval_golden_store.py"]
+    triggers: ["database/**", "rust/platform-native/crates/platform-migration-authority/**", "scripts/new/common.sh", "scripts/new/migrate.sh", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/**"]
     tier: L2
     required_on: [change, release]
     resource: hosted-service
@@ -476,7 +464,7 @@ gates:
     ci_job: kb-migration-gate
   kb_golden:
     make: kb-golden-gate
-    triggers: ["tests/fixtures/eval/rag/golden/**", "scripts/seed_kb_golden_set.py", "scripts/regen_rag_observations.py", "scripts/import_kb_eval_golden.py", "tests/scripts/test_kb_golden_set.py", "tests/scripts/test_regen_rag_observations.py", "tests/scripts/test_import_kb_eval_golden.py"]
+    triggers: ["tests/fixtures/eval/rag/golden/**", "rust/platform-native/crates/platform-eval/src/seed*.rs", "rust/platform-native/crates/platform-eval/src/record*.rs", "rust/platform-native/crates/platform-knowledge-ops/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -487,7 +475,7 @@ gates:
   kb_release_evidence:
     make: kb-release-evidence-gate
     purpose: Fail-closed T0 release evidence; distinct from the development golden fixture gate.
-    triggers: ["tests/fixtures/eval/rag/golden/**", "reports/kb-eval-baseline/**", "scripts/harness/kb_release_evidence_gate.py", "tests/harness/test_kb_release_evidence_gate.py"]
+    triggers: ["tests/fixtures/eval/rag/golden/**", "reports/kb-eval-baseline/**", "rust/platform-native/crates/platform-openapi/src/kb_release.rs", "rust/platform-native/crates/platform-openapi/tests/kb_release_source_matrix.rs"]
     tier: L1
     required_on: [release, manual]
     resource: offline
@@ -498,7 +486,7 @@ gates:
   rag_fixture:
     make: rag-eval-fixture-contract
     purpose: L1 offline fixture replay — no provider, no live stack.
-    triggers: ["scripts/eval_rag.py", "tests/fixtures/eval/rag/**"]
+    triggers: ["rust/platform-native/crates/platform-eval/src/rag*.rs", "rust/platform-native/crates/platform-eval/tests/rag.rs", "tests/fixtures/eval/rag/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -509,7 +497,7 @@ gates:
   rag_live_quality:
     make: rag-live-quality-gate
     purpose: L3 live quality gate — golden set replayed against the running Knowledge Service.
-    triggers: ["scripts/regen_rag_observations.py", "tests/fixtures/eval/rag/golden/**"]
+    triggers: ["rust/platform-native/crates/platform-eval/src/record*.rs", "tests/fixtures/eval/rag/golden/**"]
     tier: L3
     required_on: [release, manual]
     resource: live-stack
@@ -519,7 +507,7 @@ gates:
     ci_job: manual
   agent_studio:
     make: verify-agent-studio
-    triggers: ["web/src/pages/agents/**", "src/api/v1/agents.py", "src/api/v1/agent_runtime.py"]
+    triggers: ["web/src/pages/agents/**", "rust/platform-native/crates/platform-gateway/src/migration_agent/**", "rust/platform-native/crates/platform-gateway/tests/agent_studio*.rs"]
     tier: L2
     required_on: [release, manual]
     resource: live-stack
@@ -561,7 +549,7 @@ gates:
   rust_changed_crate:
     make: rust-changed-crate-gate
     purpose: In hosted CI, compose the lock-pinned upstream Git object with the current overlay, then test only changed Rust crates with the exact locked toolchain.
-    triggers: ["rust/**", deploy/agent-runtime-source/lock.json, scripts/harness/rust_changed_crate_gate.py, tests/harness/test_rust_changed_crate_gate.py, tests/scripts/test_rust_build_tooling.py]
+    triggers: ["rust/**", "deploy/agent-runtime-source/lock.json", "rust/platform-native/crates/platform-tools/src/rust_gate.rs"]
     tier: L1
     required_on: [change, release]
     resource: hosted-service
@@ -571,7 +559,7 @@ gates:
     ci_job: rust-changed-crate
   sdk_sse:
     make: sdk-sse-contract
-    triggers: ["sdk/**", "tests/contract/test_sdk_sse_fixture_contract.py"]
+    triggers: ["sdk/**", "rust/platform-native/crates/platform-client/**", "rust/platform-native/crates/platform-sse-contract/**"]
     tier: L1
     required_on: [change, release]
     resource: offline
@@ -592,7 +580,7 @@ gates:
   hygiene:
     make: hygiene-check
     purpose: Empty/self-proving tests, .only/.fixme scan (negative self-test included).
-    triggers: ["tests/**", "web/src/**", "web/e2e/**", "sdk/**", scripts/harness/hygiene_check.py, "scripts/evidence/**", "deploy/evidence/**", "deploy/repository-quality/**"]
+    triggers: ["rust/**", "tests/**", "web/src/**", "web/e2e/**", "sdk/**", "deploy/evidence/**", "deploy/repository-quality/**"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -603,7 +591,7 @@ gates:
   compatibility_manifest:
     make: compatibility-manifest-gate
     purpose: Bind Git/images/runtime overlay/DB/contracts/topology/toolchains/vector revisions and service version reports into one release unit.
-    triggers: ["deploy/release/**", "scripts/release/**", packages/ai-gateway-core/src/ai_gateway_core/release_manifest.py, src/api/version.py, apps/knowledge-service/src/knowledge_service/api/version.py]
+    triggers: ["deploy/release/**", "rust/platform-native/crates/platform-release/**", "rust/platform-native/crates/platform-gateway/src/migration_host/version.rs", "rust/platform-native/crates/platform-knowledge-service/src/version.rs"]
     tier: L0
     required_on: [release, manual]
     resource: offline
@@ -614,7 +602,7 @@ gates:
   platform_integration:
     make: platform-release-gate
     purpose: Execute actual DB, Agent Execution, Knowledge, fresh-install and rollback gates with zero unexpected skips.
-    triggers: [deploy/release/integration-gates.json, scripts/release/integration_gates.py]
+    triggers: ["deploy/release/integration-gates.json", "rust/platform-native/crates/platform-release/**"]
     tier: L3
     required_on: [release, manual]
     resource: live-stack
@@ -625,7 +613,7 @@ gates:
   loc_no_growth:
     make: loc-no-growth-gate
     purpose: Oversized files never grow; new files stay under threshold; bound to the checked-in ledger.
-    triggers: ["src/**", "apps/**", "packages/**", "web/src/**", "scripts/**", "tests/**", scripts/harness/loc_no_growth_gate.py]
+    triggers: ["rust/**", "web/src/**", "scripts/**", "tests/**"]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -678,7 +666,7 @@ programs:
     prd-phase-harness/loop-state/v3: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
     prd-phase-harness/loop-state/v2: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
     prd-phase-harness/loop-state/v1: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
-  structural_validator: "python3 scripts/harness/check_harness.py"
+  structural_validator: "platform-tools harness-check --repo-root ."
   semantic_validator_target: "make program-check PROGRAM=<program-dir>  # queued for ARC-00"
   convention: docs/harness/workflow.md#4-programs-and-large-changes
 

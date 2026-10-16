@@ -23,7 +23,9 @@
       "path": "tests/proxy/test_streaming.py",
       "symbol": "test_streaming_timeout_handling",
       "disposition": "repair_in_place",
-      "replacement_failure_mode": "httpx timeout returns 504 and releases the streaming slot"
+      "replacement_failure_mode": "httpx timeout returns 504 and releases the streaming slot",
+      "native_path": "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy_source_matrix.rs",
+      "native_symbol": "test_streaming_timeout_handling"
     },
     {
       "id": "streaming-connection-placeholder",
@@ -31,7 +33,9 @@
       "path": "tests/proxy/test_streaming.py",
       "symbol": "test_connection_error_handling",
       "disposition": "repair_in_place",
-      "replacement_failure_mode": "httpx request error returns 502 and releases the streaming slot"
+      "replacement_failure_mode": "httpx request error returns 502 and releases the streaming slot",
+      "native_path": "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy_source_matrix.rs",
+      "native_symbol": "test_connection_error_handling"
     }
   ]
 }

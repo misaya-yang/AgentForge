@@ -115,6 +115,8 @@ pub struct FoundationConfiguration {
     pub auth: auth_config_api::AuthConfigSettings,
     pub system: system_status_api::SystemStatusSettingsSnapshot,
     pub balancer_strategy: String,
+    pub model_setup_mode: String,
+    pub default_model: String,
     pub connector_environment: connector_user_types::ConnectorEnvironment,
     pub connector_encryption_key: String,
     pub console_public_base_url: String,
@@ -181,6 +183,54 @@ struct EndpointAdapters {
     database_identity: usize,
     database_module: String,
     cache_ttl: Value,
+}
+impl sessions_api::SessionsIdentityResolver for EndpointAdapters {
+    fn resolve<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+        _path: &'a str,
+    ) -> sessions_api::SessionsApiFuture<'a, sessions_api::SessionsIdentity> {
+        Box::pin(async move {
+            let user = self
+                .content
+                .resolve(headers)
+                .await
+                .map_err(|e| sessions_api::SessionsApiError::http(e.status, e.detail))?;
+            Ok(sessions_api::SessionsIdentity::from_resolved_identity(
+                user.user_id,
+                user.tenant_id,
+            ))
+        })
+    }
+}
+impl invocation_http::InvocationIdentityResolver for EndpointAdapters {
+    fn resolve<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+        _path: &'a str,
+    ) -> invocation_http::InvocationIdentityFuture<'a> {
+        Box::pin(async move {
+            use axum::response::IntoResponse;
+            let user = self
+                .content
+                .resolve(headers)
+                .await
+                .map_err(|error| Box::new(error.into_response()))?;
+            let session_jwt_selected = self.content.identities.jwt_enabled
+                && headers
+                    .get(axum::http::header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .is_some_and(|v| v.to_ascii_lowercase().starts_with("bearer "));
+            Ok(invocation_http::InvocationIdentity {
+                user_id: user.user_id,
+                tenant_id: user.tenant_id,
+                roles: user.roles,
+                permissions: user.permissions,
+                session_principal: None,
+                session_jwt_selected,
+            })
+        })
+    }
 }
 impl tool_inventory_api::ToolInventoryIdentityResolver for EndpointAdapters {
     fn resolve<'a>(
@@ -251,14 +301,17 @@ impl services_api::ServicesIdentityResolver for EndpointAdapters {
     ) -> services_api::ServicesFuture<'a, services_api::ServicesIdentity> {
         Box::pin(async move {
             let request = self.admission.request(headers, path);
-            let principal = request.resolve().await.map_err(|e| {
-                services_api::ServicesError::detail(e.status(), "Authentication required")
-            })?;
+            let user = self
+                .content
+                .resolve(headers)
+                .await
+                .map_err(|e| services_api::ServicesError::detail(e.status, e.detail))?;
+            let principal = request.resolve().await.ok();
             let mut identity = services_api::ServicesIdentity {
-                user_id: principal.user_id().into(),
-                tenant_id: principal.tenant_id().into(),
-                roles: principal.roles().to_vec(),
-                permissions: principal.permissions().to_vec(),
+                user_id: user.user_id.clone(),
+                tenant_id: user.tenant_id.clone(),
+                roles: user.roles.clone(),
+                permissions: user.permissions.clone(),
                 access: Default::default(),
             };
             if needs_user {
@@ -269,7 +322,7 @@ impl services_api::ServicesIdentityResolver for EndpointAdapters {
                     .map_err(|e| services_api::ServicesError::detail(e.status, e.detail))?;
                 identity.access = service_access_resolver::ServiceAccessResolverContext {
                     load: service_access_policy::ServiceAccessLoadContext {
-                        api_key_info: principal.api_key().map_or(
+                        api_key_info: principal.and_then(|p| p.api_key()).map_or(
                             Value::Null,
                             |key| serde_json::json!({"allowed_services":key.allowed_services}),
                         ),
@@ -281,7 +334,7 @@ impl services_api::ServicesIdentityResolver for EndpointAdapters {
                     database_type_module: self.database_module.clone(),
                     configured_ttl: self.cache_ttl.clone(),
                     api_key_hash: principal
-                        .api_key()
+                        .and_then(|p| p.api_key())
                         .map_or(Value::Null, |key| Value::String(key.key_hash.clone())),
                     roles: user.roles.into_iter().map(Value::String).collect(),
                 };
@@ -300,6 +353,46 @@ impl services_api::ServicesIdentityResolver for EndpointAdapters {
     ) {
         self.effects
             .permission_denied(identity, context, capability)
+    }
+}
+
+// Setup and architecture share Python's gateway capability denial auditing.
+impl setup_api::SetupIdentityResolver for EndpointAdapters {
+    fn resolve<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+        path: &'a str,
+    ) -> health_api::HealthApiFuture<'a, setup_api::SetupIdentity> {
+        let _ = path;
+        Box::pin(async move {
+            let user = self
+                .content
+                .resolve(headers)
+                .await
+                .map_err(|e| health_api::HealthApiError::http(e.status, e.detail))?;
+            Ok(setup_api::SetupIdentity {
+                user_id: user.user_id,
+                tenant_id: user.tenant_id,
+                roles: user.roles,
+                permissions: user.permissions,
+                is_authenticated: user.is_authenticated,
+            })
+        })
+    }
+
+    fn permission_denied(&self, identity: &setup_api::SetupIdentity, _: &str) {
+        let context = self.effects.audit_context(&HeaderMap::new());
+        self.effects.permission_denied(
+            &services_api::ServicesIdentity {
+                user_id: identity.user_id.clone(),
+                tenant_id: identity.tenant_id.clone(),
+                roles: identity.roles.clone(),
+                permissions: identity.permissions.clone(),
+                access: Default::default(),
+            },
+            &context,
+            ai_platform_auth::rbac::Capability::ServiceListRead,
+        );
     }
 }
 
@@ -532,6 +625,7 @@ pub fn assemble_foundation(
     let health_monitor = Arc::new(SharedHealth(core.health_monitor.clone()));
     let audit = shared.audit;
     let apis = FoundationApis {
+        introspection: auth.introspection.clone(),
         auth_config: Arc::new(auth_config_api::AuthConfigApi::new(
             auth_config_api::AuthConfigDependencies {
                 identity: auth.admission.clone(),
@@ -674,7 +768,7 @@ pub fn assemble_foundation(
             audit.clone(),
         )),
         model_admin: Arc::new(model_admin_api::ModelAdminApi::new(
-            adapters,
+            adapters.clone(),
             Some(models.models.clone()),
             Arc::new(audit.clone()),
             backends.model_publisher,
@@ -802,10 +896,18 @@ pub fn assemble_foundation(
         },
         local_node_identity: auth.admission.clone(),
         sessions: sessions_api::SessionsApi::new(
-            auth.admission.clone(),
+            adapters.clone(),
             core.sessions.clone(),
             Some(backends.sessions_cleanup),
         ),
+        setup: Arc::new(setup_api::SetupApi {
+            identity: adapters.clone(),
+            rbac: rbac.clone(),
+            metadata: Some(shared.metadata.clone()),
+            mode: config.model_setup_mode,
+            default_model: config.default_model,
+            cancellation: backends.health_cancellation.clone(),
+        }),
         health: health_api::HealthHttpApi::new(
             health_api::HealthApi::new(
                 core.registry.clone(),
@@ -818,7 +920,7 @@ pub fn assemble_foundation(
             backends.health_cancellation.clone(),
         ),
         architecture: Arc::new(architecture_status_api::ArchitectureStatusApi {
-            identity: auth.admission.clone(),
+            identity: adapters.clone(),
             rbac,
             runtime: backends.architecture_runtime,
             dependencies: backends.health_dependencies,
@@ -827,6 +929,7 @@ pub fn assemble_foundation(
             )),
             cancellation: backends.health_cancellation,
         }),
+        invocation_identity: adapters.clone(),
         tasks: core.tasks.clone(),
         dispatcher: core.dispatcher.clone(),
     };

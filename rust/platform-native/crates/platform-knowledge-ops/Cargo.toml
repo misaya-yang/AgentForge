@@ -1,0 +1,20 @@
+[package]
+name = "ai-platform-knowledge-ops"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "platform-knowledge-ops"
+path = "src/main.rs"
+[dependencies]
+ai-platform-knowledge-service = { path = "../platform-knowledge-service" }
+ai-platform-eval = { path = "../platform-eval" }
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json"] }
+dotenvy = "0.15"
+sha2 = "0.10"
+chrono = "0.4"
+jieba-rs = "0.8"

@@ -1,0 +1,68 @@
+{
+  "schema": "native-authority-producer-migration/v1",
+  "baseline_id": "2026_08_post_kb_v1",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98",
+  "retired": [
+    {
+      "path": "database/authority/fingerprint.py",
+      "historical_sha256": "906e46fd4301849da23d2d31e156b90ec7b908ff3e99080c91c9a14919a69186",
+      "historical_git_blob": "b1b559024b0586d0576f2920fe9928445b7449ae",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint.rs": "704ec8fa6fd0fc782ecf63e84690e02cadf199c3ef35d7306d17f4740ebfc0dc"
+      }
+    },
+    {
+      "path": "database/authority/fingerprint_catalog.py",
+      "historical_sha256": "5e1b680517aba64714222c98815fc0c6c1b469ab1b1ca29754306bacfaf7af68",
+      "historical_git_blob": "68ef398aa5067a2a5a724b30631b18105ad23c77",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint/catalog_queries.json": "01559b27f08110c0ada58ad7f47a8b12240714f86bc5121f155d5ca3f8a7d312"
+      }
+    },
+    {
+      "path": "database/authority/fingerprint_values.py",
+      "historical_sha256": "579c1146cad54e9978fcde32fd94d2e89882f77a55b974ed571dce4e2c866d52",
+      "historical_git_blob": "4a2cf50c2637d2a78daabe1b6f57ed00f8d5db03",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint/values.rs": "5e6cc94865ec37a609c29d2df0b1740b0e26e887d01b7c4634879e41fcf5daab"
+      }
+    },
+    {
+      "path": "scripts/inventory/database_policy.py",
+      "historical_sha256": "76cf5c806fac1b5207d6f823983beabeddc9bf4c8c11aafe4b94b4768927ffad",
+      "historical_git_blob": "8e5caf496c3902bd1e309fbd8e5f8ad90ee5a480",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/policy.rs": "ca608874dff349479ab679e68278ed29df6408b4c677f77bccf0b477c452e747",
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/policy_domains.json": "7e13e3fee0ee57c745995f2a0e61797a0f2da52cf36ac6ddcd07f810d6df5fa8"
+      }
+    },
+    {
+      "path": "scripts/inventory/generate_database_grants.py",
+      "historical_sha256": "763b851dcbafadfe643199958bbeb0123b0d2fd8d7d3ff8d647518b97a64cbed",
+      "historical_git_blob": "d420acf0a92a71466be65739ba7a2b5fb93db83e",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/grants.rs": "bd45b30cb9500f0916896e36e3314d8a5612d82974a3e60867cc31baed420a9e"
+      }
+    },
+    {
+      "path": "scripts/database/render_baseline_contract.py",
+      "historical_sha256": "438ec68df9c3894ed57b9e6a9703b86c47d16bd744e84573bf9667fc272d56d8",
+      "historical_git_blob": "8f42b8d84d2848edacc1ae06bed3122e5764f1b9",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/render_contract.rs": "38627b4973911d6bc2d256de49e134238a2be7b007f267a0a7e6ed9c1d27e333",
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/templates/grant_matrix_check.sql.template": "e4c5812c1d9ed62b62531d8a76f133b9fb5ace7c579a812b4a5a5c473890bc58",
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/templates/render_relocation.sql.template": "2256516b108b1bf4e8f5a5c711b5d69216f3b71b54adac31ee6b024e2bd9a33a",
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/templates/verify.sql.template": "79d2ecb512c1d933d94ed2254fdd65c2ab9e043bc500f5f7e284e2faf7d36296"
+      }
+    },
+    {
+      "path": "scripts/database/freeze_baseline.py",
+      "historical_sha256": "52e71b2fa15e2c32a10de55fd1fde989289fefb5b012783565744e4a7086ba79",
+      "historical_git_blob": "0b95a60be7162e528c5f1a11d08d06f6cb675eab",
+      "replacements": {
+        "rust/platform-native/crates/platform-migration-authority/src/source_tools/freeze.rs": "775079ebc0e15189fb9da6d8461edcfe6e2bede123ef9d9167639a029d2a0725"
+      }
+    }
+  ]
+}

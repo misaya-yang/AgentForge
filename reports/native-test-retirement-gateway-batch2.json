@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "note": "Production-used service seams, scripted SQL/provider collaborators and Redis command fixture. Existing catalog-policy test assertions inspected, not inferred from names. No Cargo/live services run by this lane.",
+  "entries": [
+    {
+      "source": "tests/services/llm/test_model_service_pricing.py",
+      "original_cases": [
+        "test_tenant_model_does_not_publish_global_price",
+        "test_ambiguous_model_requires_provider",
+        "test_snapshot_is_scoped_precise_and_versioned",
+        "test_row_capability_json_is_decoded"
+      ],
+      "native_target": "gateway_migration_parity_models",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/llm/test_model_service_capabilities.py",
+      "original_cases": [
+        "test_create_model_validates_overrides_against_builtin_catalog",
+        "test_create_model_rejects_overrides_conflicting_with_builtin_catalog",
+        "test_create_model_without_builtin_entry_keeps_safe_validation",
+        "test_update_model_revision_guard_is_atomic_in_where_clause",
+        "test_update_model_stale_revision_conflicts_before_write",
+        "test_update_model_reports_conflict_when_guarded_update_misses",
+        "test_update_model_guarded_miss_on_deleted_row_returns_none",
+        "test_update_model_identical_capability_write_does_not_bump_revision",
+        "test_update_model_supports_flag_change_bumps_revision",
+        "test_upsert_reports_capability_change_only_on_revision_delta",
+        "test_upsert_reports_capability_change_on_revision_bump",
+        "test_upsert_created_model_reports_capability_change"
+      ],
+      "native_target": "gateway_migration_parity_models",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/llm/test_model_catalog_policy.py",
+      "original_cases": [
+        "test_catalog_preserves_existing_policy_and_refreshes_metadata",
+        "test_catalog_initializes_new_model_policy",
+        "test_explicit_administrator_policy_update_still_applies",
+        "test_catalog_does_not_write_back_policy_read_before_an_admin_edit",
+        "test_catalog_preserves_persisted_null_and_zero_prices"
+      ],
+      "native_target": "ai-platform-gateway-foundation --lib model_service::catalog_policy_tests",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/llm/test_startup_seeder.py",
+      "original_cases": [
+        "test_seed_creates_all_default_rows_without_credentials",
+        "test_existing_rows_update_only_when_environment_key_is_present",
+        "test_restart_preserves_revision_only_for_unchanged_runtime_configuration",
+        "test_dashscope_legacy_key_seeds_db_but_not_runtime_provider_set",
+        "test_google_vertex_resolution_seeds_none_base_url",
+        "test_db_only_provider_is_configured_but_not_runtime_ready",
+        "test_provider_and_list_failures_are_isolated",
+        "test_catalog_sync_is_sorted_deduplicated_and_failure_isolated"
+      ],
+      "native_target": "gateway_migration_parity_model_seeding",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/metrics/test_metrics_recorder.py",
+      "original_cases": [
+        "test_no_collision_under_concurrent_identical_samples",
+        "test_percentile_parser_extracts_latency_from_new_format",
+        "test_latency_sample_cap_honours_setting"
+      ],
+      "native_target": "gateway_migration_parity_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/metrics/test_realtime_metrics.py",
+      "original_cases": [
+        "test_record_token_usage_does_not_touch_redis",
+        "test_record_token_usage_returns_none",
+        "test_record_token_usage_safe_without_redis"
+      ],
+      "native_target": "gateway_migration_parity_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/services/images/test_image_task_worker.py",
+      "original_cases": [
+        "test_claim_retries_only_pre_dispatch_work",
+        "test_execute_claimed_uses_atomic_dispatch_fence",
+        "test_execute_claimed_uses_task_row_identity_not_worker_user",
+        "test_worker_start_drain_shutdown_is_idempotent"
+      ],
+      "native_target": "gateway_migration_parity_auth_database::image_claim_retries_only_pre_dispatch_work_and_fences_dispatch",
+      "status": "partial_authored_pending_root_compile",
+      "retirement_eligible": false,
+      "residuals": [
+        "Actual isolated opt-in PostgreSQL claim retry/lost-running/dead-letter and atomic dispatch fence effects translated; no database execution.",
+        "Original execute_claimed provider generate arguments and reconstructed row identity plus worker lifecycle assertions remain untranslated. Atomic repository fence alone does not prove those callsites."
+      ]
+    },
+    {
+      "source": "tests/unit/test_gateway_startup_schema_gate.py",
+      "original_cases": [
+        "test_compatible_startup_checks_schema_before_pool_and_bootstrap",
+        "test_incompatible_schema_aborts_before_any_application_bootstrap",
+        "test_unverifiable_schema_closes_readonly_connection_without_bootstrap",
+        "test_unavailable_database_aborts_without_any_pool_or_bootstrap",
+        "test_pool_failure_aborts_after_successful_readonly_gate",
+        "test_failed_bootstrap_closes_partial_pool_and_cancels_usage_flusher",
+        "test_disabled_database_does_not_require_schema_connection",
+        "test_cancelled_schema_check_closes_readonly_connection_before_pool",
+        "test_retry_after_rejection_rechecks_schema_before_opening_pool",
+        "test_failed_readonly_connection_close_still_prevents_pool_bootstrap"
+      ],
+      "native_target": null,
+      "status": "residual_fixture_required",
+      "retirement_eligible": false,
+      "residuals": [
+        "Authority guard has source-equivalent window checks and production bootstrap call, but original full startup sequencing/cleanup/cancellation/retry matrix requires native startup collaborators or disposable database fixture; not ported in this batch."
+      ]
+    },
+    {
+      "source": "tests/unit/test_gateway_startup_model_seeding.py",
+      "original_cases": [
+        "test_agent_control_plane_seeds_models_and_preserves_order"
+      ],
+      "native_target": null,
+      "status": "residual_fixture_required",
+      "retirement_eligible": false,
+      "residuals": [
+        "Pure startup seeder cases covered separately, but actual application composition ordering/model-meta/reload behavior from this suite still needs orchestration fixture."
+      ]
+    }
+  ]
+}

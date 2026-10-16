@@ -7,11 +7,11 @@ use super::{
     runtime_contract as contract, spec, text,
     threads::{AgentThreadStore, RuntimeThread},
 };
+use crate::migration_host::context;
 use crate::{
     capacity::{CapacityRequest, CapacityResolver},
     capacity_admission::{AdmissionRequest, CapacityAdmissionController, CapacityLease},
 };
-use crate::migration_host::context;
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
 use futures_core::Stream;
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,10 @@ fn session_cleanup_result(session_id: &str, payload: &Value) -> Result<bool, Age
             _ => {}
         }
     }
-    Err(AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_SESSION_CLEANUP_INVALID"))
+    Err(AgentError::code(
+        503,
+        "AI_PLATFORM_AGENT_RUNTIME_SESSION_CLEANUP_INVALID",
+    ))
 }
 
 pub trait RuntimeModels: Send + Sync {
@@ -46,6 +49,16 @@ pub trait RuntimeModels: Send + Sync {
         model: &'a str,
         provider: Option<&'a str>,
     ) -> AgentFuture<'a, Value>;
+    /// Read-only diagnostics need to distinguish a missing model from a failed
+    /// lookup. Runtime admission continues to require `model` and fails closed.
+    fn model_optional<'a>(
+        &'a self,
+        tenant: &'a str,
+        model: &'a str,
+        provider: Option<&'a str>,
+    ) -> AgentFuture<'a, Option<Value>> {
+        Box::pin(async move { self.model(tenant, model, provider).await.map(Some) })
+    }
 }
 impl<D, P, C, O> RuntimeModels for crate::model_service::ModelService<D, P, C, O>
 where
@@ -61,25 +74,32 @@ where
         provider: Option<&'a str>,
     ) -> AgentFuture<'a, Value> {
         Box::pin(async move {
-            let row = self
-                .get_model(tenant, model, provider)
+            self.model_optional(tenant, model, provider)
+                .await?
+                .ok_or_else(|| AgentError::code(503, "AGENT_RUNTIME_MODEL_UNAVAILABLE"))
+        })
+    }
+    fn model_optional<'a>(
+        &'a self,
+        tenant: &'a str,
+        model: &'a str,
+        provider: Option<&'a str>,
+    ) -> AgentFuture<'a, Option<Value>> {
+        Box::pin(async move {
+            self.get_model(tenant, model, provider)
                 .await
+                .map(|row| row.map(Value::Object))
                 .map_err(|e| {
+                    let ambiguous = e == crate::model_service::ModelServiceError::ProviderAmbiguous;
                     AgentError::code(
-                        if e == crate::model_service::ModelServiceError::ProviderAmbiguous {
-                            409
-                        } else {
-                            503
-                        },
-                        if e == crate::model_service::ModelServiceError::ProviderAmbiguous {
+                        if ambiguous { 409 } else { 503 },
+                        if ambiguous {
                             "MODEL_PROVIDER_REQUIRED"
                         } else {
                             "AGENT_RUNTIME_MODEL_UNAVAILABLE"
                         },
                     )
-                })?
-                .ok_or_else(|| AgentError::code(503, "AGENT_RUNTIME_MODEL_UNAVAILABLE"))?;
-            Ok(Value::Object(row))
+                })
         })
     }
 }
@@ -193,6 +213,37 @@ pub struct AgentTurn {
     pub capability_revision: i64,
     pub fallback_reason: Option<String>,
 }
+
+fn failed_thread_create(
+    thread: Option<RuntimeThread>,
+    fingerprint: &str,
+) -> Result<RuntimeThread, AgentError> {
+    let Some(thread) = thread else {
+        return Err(AgentError::code(
+            503,
+            "AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED",
+        ));
+    };
+    match thread
+        .dynamic_tool_fingerprint
+        .as_deref()
+        .filter(|stored| !stored.is_empty())
+    {
+        Some(stored) if stored == fingerprint => Ok(thread),
+        Some(_) => Err(AgentError::code(
+            409,
+            "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_THREAD_RECREATE_REQUIRED",
+        )),
+        // Runtime reserves the root row before asking the kernel to start it.
+        // A failed start leaves that row unbound; it is not a prior conversation
+        // whose tool configuration changed.
+        None => Err(AgentError::code(
+            503,
+            "AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED",
+        )),
+    }
+}
+
 pub struct EventReceiver {
     receiver: mpsc::Receiver<Result<Value, AgentError>>,
     task: tokio::task::JoinHandle<()>,
@@ -230,7 +281,7 @@ impl RuntimeControlPlane {
         {
             return Err(AgentError::code(503, "AGENT_RUNTIME_UNAVAILABLE"));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
@@ -385,7 +436,9 @@ impl RuntimeControlPlane {
         let result=async{if let Some(t)=self.threads.get_for_session(scope).await?{return self.bind_fingerprint(scope,t,&fingerprint,true).await;}let mut start=json!({"model":model,"modelProvider":"ai-platform-gateway","cwd":"/workspace","approvalPolicy":"on-request","sandbox":"read-only","config":contract::runtime_model_config(&self.options.model_plane_base_url,model,native_search),"dynamicTools":contract::dynamic_tools(&thread_readonly)?});if let Some(instructions)=instructions{start["baseInstructions"]=CORE_ASSISTANT_PROMPT.into();start["developerInstructions"]=if instructions.trim().is_empty(){GENERIC_AGENT_INSTRUCTIONS}else{instructions}.into();}
     let body=json!({"tenantId":scope.tenant_id,"userId":scope.user_id,"sessionId":scope.session_id,"start":start,"toolPolicy":contract::tool_policy(if generic{&thread_readonly}else{&selected},native_search||generic,true,generic)?});
     let response=self.client.post(self.endpoint("/internal/v1/threads")).headers(self.headers(scope,None)?).json(&body).send().await.map_err(|_|AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED"))?;
-    if !response.status().is_success(){if let Some(t)=self.threads.get_for_session(scope).await?{return self.bind_fingerprint(scope,t,&fingerprint,false).await;}return Err(AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED"));}
+    if !response.status().is_success() {
+        return failed_thread_create(self.threads.get_for_session(scope).await?, &fingerprint);
+    }
     let payload:Value=response.json().await.map_err(|_|AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_INVALID"))?;let id=super::uuid(text(&payload["thread"],"id")).map_err(|_|AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_INVALID"))?;
     let t=self.threads.get_for_session(scope).await?.unwrap_or(RuntimeThread{runtime_thread_id:id,tenant_id:scope.tenant_id.clone(),user_id:scope.user_id.clone(),session_id:scope.session_id.clone(),kernel_owner:"agent_runtime".into(),source_kind:"native".into(),import_status:"ready".into(),last_sequence:0,dynamic_tool_fingerprint:None});self.bind_fingerprint(scope,t,&fingerprint,true).await}.await;
         drop(guard);
@@ -713,13 +766,21 @@ impl RuntimeControlPlane {
             usage["metadata"] = json!({"pricing_snapshot":p});
         }
         sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason=$2,updated_at=NOW() WHERE run_id=$1::uuid AND status='active'").bind(run).bind(format!("turn_{status}")).execute(&self.pool).await?;
-        sqlx::query(COMPLETE_RUN_SQL).bind(run).bind(status).bind(usage).execute(&self.pool).await?;
+        sqlx::query(COMPLETE_RUN_SQL)
+            .bind(run)
+            .bind(status)
+            .bind(usage)
+            .execute(&self.pool)
+            .await?;
         if let Some(lease) = self.run_leases.lock().await.remove(run) {
             lease.release().await;
         }
         // Persist recorded usage provenance independently of execution status.
         // This never promotes mixed provider/estimated records into settlement.
-        sqlx::query(TERMINAL_USAGE_PROJECTION_SQL).bind(run).execute(&self.pool).await?;
+        sqlx::query(TERMINAL_USAGE_PROJECTION_SQL)
+            .bind(run)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
     pub async fn fail_run(
@@ -1108,6 +1169,7 @@ impl RuntimeControlPlane {
         let mut instructions = request
             .developer_instructions
             .as_deref()
+            .filter(|value| !value.is_empty())
             .unwrap_or(GENERIC_AGENT_INSTRUCTIONS)
             .trim()
             .to_owned();
@@ -1139,7 +1201,19 @@ impl RuntimeControlPlane {
             }
             snapshot
         } else {
-            let model_ref = json!({"id":request.model_id,"provider":provider_id,"parameters":{"temperature":request.temperature,"max_tokens":request.max_tokens,"thinking_mode":request.legacy_thinking_level}});
+            // Source launch identity omits unset options rather than hashing
+            // null-valued keys into the immutable model/spec fingerprint.
+            let mut parameters = serde_json::Map::new();
+            if let Some(value) = request.temperature {
+                parameters.insert("temperature".into(), json!(value));
+            }
+            if let Some(value) = request.max_tokens {
+                parameters.insert("max_tokens".into(), json!(value));
+            }
+            if let Some(value) = request.legacy_thinking_level.as_ref() {
+                parameters.insert("thinking_mode".into(), json!(value));
+            }
+            let model_ref = json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
             let launch = entry::builtin_launch(
                 &scope,
                 &model_ref,
@@ -1405,9 +1479,7 @@ impl RuntimeControlPlane {
         turn: &AgentTurn,
     ) -> Result<bool, AgentError> {
         let status: Option<String> = sqlx::query_scalar("SELECT status FROM assistant_runs WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND engine='agent_runtime'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
-        Ok(status
-            .as_deref()
-            .is_some_and(terminal_run_status))
+        Ok(status.as_deref().is_some_and(terminal_run_status))
     }
     async fn stop_run(&self, scope: &Scope, turn: &AgentTurn) -> bool {
         let _=sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason='run_capacity_interrupted',updated_at=NOW() WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND status='active'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).execute(&self.pool).await;
@@ -1715,11 +1787,21 @@ mod terminal_status_tests {
 
     #[test]
     fn terminal_usage_projection_matches_the_shared_postgres_contract() {
-        assert_eq!(TERMINAL_USAGE_PROJECTION_SQL.trim(), include_str!(
-            "../../../../../../tests/fixtures/agent-runtime/terminal-usage-projection.sql"
-        ).trim());
-        let assignments = TERMINAL_USAGE_PROJECTION_SQL.split("UPDATE assistant_runs r SET")
-            .nth(1).unwrap().split("FROM projection").next().unwrap().trim();
+        assert_eq!(
+            TERMINAL_USAGE_PROJECTION_SQL.trim(),
+            include_str!(
+                "../../../../../../tests/fixtures/agent-runtime/terminal-usage-projection.sql"
+            )
+            .trim()
+        );
+        let assignments = TERMINAL_USAGE_PROJECTION_SQL
+            .split("UPDATE assistant_runs r SET")
+            .nth(1)
+            .unwrap()
+            .split("FROM projection")
+            .next()
+            .unwrap()
+            .trim();
         assert_eq!(assignments, "usage=p.next_usage,updated_at=NOW()");
         assert!(TERMINAL_USAGE_PROJECTION_SQL.contains("'provider_usage_verified',false"));
         assert!(TERMINAL_USAGE_PROJECTION_SQL.contains("'settlement','not_established'"));
@@ -1730,8 +1812,16 @@ mod terminal_status_tests {
     fn terminal_vocabulary_is_bounded_and_legacy_completion_is_not_success() {
         for case in cases()["statuses"].as_array().unwrap() {
             let input = case["input"].as_str().unwrap();
-            assert_eq!(completion_status(input), case["completion_status"].as_str().unwrap(), "{input}");
-            assert_eq!(terminal_run_status(input), case["terminal_in_ledger"].as_bool().unwrap(), "{input}");
+            assert_eq!(
+                completion_status(input),
+                case["completion_status"].as_str().unwrap(),
+                "{input}"
+            );
+            assert_eq!(
+                terminal_run_status(input),
+                case["terminal_in_ledger"].as_bool().unwrap(),
+                "{input}"
+            );
         }
     }
 
@@ -1742,7 +1832,10 @@ mod terminal_status_tests {
             ("cancelled", json!({"status":"failed"})),
             ("run_error", json!({"status":"cancelled"})),
         ] {
-            assert_eq!(completion_status(terminal_event_status(kind, &data)), "cancelled");
+            assert_eq!(
+                completion_status(terminal_event_status(kind, &data)),
+                "cancelled"
+            );
         }
     }
 
@@ -1770,15 +1863,21 @@ mod terminal_status_tests {
                 params![engine, prior],
             )
             .unwrap();
-            let changed = db.execute(&sql, params!["run-a", "succeeded", "{}"])
+            let changed = db
+                .execute(&sql, params!["run-a", "succeeded", "{}"])
                 .unwrap();
-            assert_eq!(changed == 1, case["may_complete"].as_bool().unwrap(), "{engine}/{prior}");
-            let (status, finished_at): (String, String) = db.query_row(
-                "SELECT status, finished_at FROM assistant_runs WHERE run_id='run-a'",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .unwrap();
+            assert_eq!(
+                changed == 1,
+                case["may_complete"].as_bool().unwrap(),
+                "{engine}/{prior}"
+            );
+            let (status, finished_at): (String, String) = db
+                .query_row(
+                    "SELECT status, finished_at FROM assistant_runs WHERE run_id='run-a'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .unwrap();
             let expected = if changed == 1 { "succeeded" } else { prior };
             assert_eq!(status, expected);
             if changed == 0 {
@@ -1794,24 +1893,100 @@ mod session_cleanup_status_tests {
 
     #[test]
     fn accepts_both_runtime_success_outcomes() {
-        assert!(session_cleanup_result("s", &json!({"session_id":"s","status":"deleted"})).unwrap());
-        assert!(!session_cleanup_result("s", &json!({"session_id":"s","status":"not_found"})).unwrap());
+        assert!(
+            session_cleanup_result("s", &json!({"session_id":"s","status":"deleted"})).unwrap()
+        );
+        assert!(
+            !session_cleanup_result("s", &json!({"session_id":"s","status":"not_found"})).unwrap()
+        );
     }
 
     #[test]
     fn rejects_unknown_missing_and_non_string_status() {
-        for status in [Value::Null, json!(true), json!(1), json!([]), json!({}), json!(""), json!("pending"), json!("failed"), json!("DELETED"), json!("not-found")] {
-            let error = session_cleanup_result("s", &json!({"session_id":"s","status":status})).unwrap_err();
+        for status in [
+            Value::Null,
+            json!(true),
+            json!(1),
+            json!([]),
+            json!({}),
+            json!(""),
+            json!("pending"),
+            json!("failed"),
+            json!("DELETED"),
+            json!("not-found"),
+        ] {
+            let error = session_cleanup_result("s", &json!({"session_id":"s","status":status}))
+                .unwrap_err();
             assert_eq!(error.status, 503);
-            assert_eq!(error.detail, json!({"code":"AI_PLATFORM_AGENT_RUNTIME_SESSION_CLEANUP_INVALID"}));
+            assert_eq!(
+                error.detail,
+                json!({"code":"AI_PLATFORM_AGENT_RUNTIME_SESSION_CLEANUP_INVALID"})
+            );
         }
         assert!(session_cleanup_result("s", &json!({"session_id":"s"})).is_err());
     }
 
     #[test]
     fn rejects_wrong_session_and_non_object_payload() {
-        for payload in [json!({"session_id":"other","status":"deleted"}), json!({"status":"not_found"}), json!({"session_id":1,"status":"deleted"}), Value::Null, json!([]), json!("deleted")] {
+        for payload in [
+            json!({"session_id":"other","status":"deleted"}),
+            json!({"status":"not_found"}),
+            json!({"session_id":1,"status":"deleted"}),
+            Value::Null,
+            json!([]),
+            json!("deleted"),
+        ] {
             assert!(session_cleanup_result("s", &payload).is_err());
         }
+    }
+}
+
+#[cfg(test)]
+mod failed_thread_create_tests {
+    use super::*;
+
+    fn thread(dynamic_tool_fingerprint: Option<&str>) -> RuntimeThread {
+        RuntimeThread {
+            runtime_thread_id: "thread-id".into(),
+            tenant_id: "tenant".into(),
+            user_id: "user".into(),
+            session_id: "session".into(),
+            kernel_owner: "agent_runtime".into(),
+            source_kind: "native".into(),
+            import_status: "pending".into(),
+            last_sequence: 0,
+            dynamic_tool_fingerprint: dynamic_tool_fingerprint.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn failed_start_reservation_is_reported_as_create_failure() {
+        for thread in [Some(thread(None)), Some(thread(Some(""))), None] {
+            let error = failed_thread_create(thread, &"a".repeat(64)).unwrap_err();
+            assert_eq!(error.status, 503);
+            assert_eq!(
+                error.detail,
+                json!({"code":"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED"})
+            );
+        }
+    }
+
+    #[test]
+    fn failed_duplicate_create_reuses_only_the_same_bound_configuration() {
+        let fingerprint = "a".repeat(64);
+        let bound_thread =
+            failed_thread_create(Some(thread(Some(&fingerprint))), &fingerprint).unwrap();
+        assert_eq!(
+            bound_thread.dynamic_tool_fingerprint.as_deref(),
+            Some(fingerprint.as_str())
+        );
+
+        let error = failed_thread_create(Some(thread(Some(&"b".repeat(64)))), &fingerprint)
+            .unwrap_err();
+        assert_eq!(error.status, 409);
+        assert_eq!(
+            error.detail,
+            json!({"code":"AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_THREAD_RECREATE_REQUIRED"})
+        );
     }
 }

@@ -1,0 +1,140 @@
+{
+  "captured_at": "2026-10-16T06:00:38.422Z",
+  "canonical_root": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+  "project": "agentforge-dev-7801d4a9a4",
+  "container_ownership_verified": true,
+  "containers": [
+    {
+      "name": "agentforge-dev-7801d4a9a4-agent-capability-worker-1",
+      "id": "aa973f2ea9113f26cc07a3b272e366990d41ebcc3ef11fbd1faf9b5b1bc731e8",
+      "image_id": "sha256:c9b889e236343ae331824e10bfa5b17ca76eb88242e87a8400f8077fb182661a",
+      "service": "agent-capability-worker",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "agentforge-dev-7801d4a9a4-agent-runtime-1",
+      "id": "2686c7644ec74079518cd4bb117f1c62e626133aa63636c4679efcbb6aaadff4",
+      "image_id": "sha256:6d66b1a04bc2678dc5c0be3b6a230e0ac19344bb96dbe1a8550f7192819af4a8",
+      "service": "agent-runtime",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "agentforge-dev-7801d4a9a4-object-store-1",
+      "id": "4af5c6fa5fe420c7820c659c8ed9844f9e15cbc346bff788a5ddeff4ae0fcfb3",
+      "image_id": "sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "service": "object-store",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "agentforge-dev-7801d4a9a4-postgres-1",
+      "id": "da1ee4d812a2305f5ff8e8f62f014889667600cf745b66f099ba37caabeb8f38",
+      "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "service": "postgres",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "agentforge-dev-7801d4a9a4-redis-1",
+      "id": "a42dfafff469954ccd8522c4388741efaa0389451f72443a7a608dc860231396",
+      "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "service": "redis",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "agentforge-dev-7801d4a9a4-qdrant-1",
+      "id": "f9c351c773c142cfd85c0e4400cfa732552be82862d9c231679b2a6bfee17a43",
+      "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c",
+      "service": "qdrant",
+      "project": "agentforge-dev-7801d4a9a4",
+      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "status": "running",
+      "health": null
+    }
+  ],
+  "health": [
+    {
+      "service": "gateway",
+      "port": 8080,
+      "status": 200
+    },
+    {
+      "service": "sdk-agent-worker",
+      "port": 8096,
+      "status": 200
+    },
+    {
+      "service": "knowledge-api",
+      "port": 8092,
+      "status": 200
+    },
+    {
+      "service": "knowledge-worker",
+      "port": 8097,
+      "status": 200
+    },
+    {
+      "service": "agent-runtime",
+      "port": 8094,
+      "status": 200
+    },
+    {
+      "service": "agent-capability-worker",
+      "port": 8095,
+      "status": 200
+    },
+    {
+      "service": "frontend",
+      "port": 4181,
+      "status": 200
+    }
+  ],
+  "host_processes": [
+    {
+      "service": "gateway",
+      "pid": 50938,
+      "binary_sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d",
+      "started_at": "2026-10-16T05:51:31.367Z"
+    },
+    {
+      "service": "sdk-worker",
+      "pid": 53360,
+      "binary_sha256": "0e8a6976b4b90496a8dca88ebee5d1706ed36590a51fbeb48e96d397551fe918",
+      "started_at": "2026-10-16T05:55:45.413Z"
+    },
+    {
+      "service": "knowledge-api",
+      "pid": 54734,
+      "binary_sha256": "62ec7fafb8627966743c8bed6cd10663636c5c3aa787b0474ce3c52cf320c0bd",
+      "started_at": "2026-10-16T05:57:39.834Z"
+    },
+    {
+      "service": "knowledge-worker",
+      "pid": 54750,
+      "binary_sha256": "62ec7fafb8627966743c8bed6cd10663636c5c3aa787b0474ce3c52cf320c0bd",
+      "started_at": "2026-10-16T05:57:41.487Z"
+    }
+  ],
+  "schema_epoch": 21,
+  "optional_python_user_code_sandbox": "retained; no Python platform service",
+  "not_yet_accepted": [
+    "Main Assistant first turn: Runtime projection INSERT missing; measured successor022 in preparation",
+    "Knowledge warmed rerank/current ACL and browser upload follow-through",
+    "Current LocalNode v2 pairing/control/approval workflow: staged source not active",
+    "All remaining J01-J30 final acceptance requirements"
+  ],
+  "credential_values_recorded": false
+}

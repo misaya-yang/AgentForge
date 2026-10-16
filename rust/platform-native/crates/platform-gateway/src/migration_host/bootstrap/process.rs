@@ -18,18 +18,37 @@ use crate::migration_host::{
     resources::ConnectionResources,
     version::VersionConfig,
 };
+use ai_platform_migration_authority::application_guard::ApplicationPrincipal;
 use std::{collections::BTreeMap, net::SocketAddr, sync::Arc};
 
 impl GatewayDocument {
-    pub async fn construct(self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
+    pub async fn construct(mut self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
+        let local_node_channel_config =
+            crate::migration_host::local_node_channel::LocalNodeChannelConfig::from_environment(
+                &self.environment,
+            )
+            .map_err(BootstrapError::Configuration)?;
+        let local_node_channel_signer = local_node_channel_config
+            .as_ref()
+            .map(crate::migration_host::local_node_channel::PlatformSigner::from_config)
+            .transpose()
+            .map_err(BootstrapError::Configuration)?;
+        self.environment
+            .retain(|name, _| !name.starts_with("AI_PLATFORM_LOCAL_NODE_"));
         let settings = self.settings()?;
         let mut config = self.project(&settings)?;
         let policies = self.policies()?;
+        let integration_environment = super::configuration::provider_environment(&self.environment);
         if !settings.database.enabled || !settings.redis.enabled {
             return Err(BootstrapError::Configuration(
                 "durable_profile_requires_database_and_redis",
             ));
         }
+        let admission_principal = match settings.task_delivery_mode.as_str() {
+            "memory" => ApplicationPrincipal::Gateway,
+            "durable" => ApplicationPrincipal::GatewayDurable,
+            _ => return Err(BootstrapError::Configuration("task_delivery_mode")),
+        };
         let address = SocketAddr::new(
             settings
                 .host
@@ -37,6 +56,12 @@ impl GatewayDocument {
                 .map_err(|_| BootstrapError::Configuration("listen_host_ip"))?,
             settings.port,
         );
+        if local_node_channel_config
+            .as_ref()
+            .is_some_and(|config| config.tls_listen_address.port() == address.port())
+        {
+            return Err(BootstrapError::Configuration("local_node_channel_tls_port"));
+        }
         let roles: BTreeMap<_, _> = config.core.roles.clone().into_iter().collect();
         let catalog = config.foundation.catalog.clone();
         let kernel_revision = config.runtime.options.kernel_revision.clone();
@@ -59,9 +84,43 @@ impl GatewayDocument {
                 .clone()
                 .ok_or(BootstrapError::Construction("control_database"))?,
         };
+        let local_node_channel_repository = local_node_channel_config.as_ref().map(|_| {
+            Arc::new(
+                crate::migration_host::local_node_channel_store::PostgresLocalNodeChannelRepository::new(
+                    pools.data.clone(),
+                ),
+            ) as Arc<dyn crate::migration_host::local_node_channel::LocalNodeChannelRepository>
+        });
+        // Admission precedes catalog writes, route construction and worker activation.
+        // The application's only schema read is the owner-installed EXECUTE-only
+        // metadata function; migrations remain operator-owned.
+        {
+            let mut connection = pools
+                .data
+                .acquire()
+                .await
+                .map_err(|_| BootstrapError::Construction("schema_admission_connection"))?;
+            ai_platform_migration_authority::application_guard::require_compatible_schema(
+                &mut connection,
+                admission_principal,
+            )
+            .await
+            .map_err(|_| BootstrapError::Construction("schema_admission"))?;
+        }
+        if let Some(repository) = &local_node_channel_repository {
+            let ready = repository
+                .schema_ready()
+                .await
+                .map_err(|_| BootstrapError::Construction("local_node_channel_schema"))?;
+            if !ready {
+                return Err(BootstrapError::Construction("local_node_channel_schema"));
+            }
+        }
         initialize_bootstrap_admin_password(
             &pools.data,
-            self.environment.get("DEFAULT_USER_PASSWORD").map(String::as_str),
+            self.environment
+                .get("DEFAULT_USER_PASSWORD")
+                .map(String::as_str),
             config.auth.password_concurrency,
         )
         .await?;
@@ -91,7 +150,9 @@ impl GatewayDocument {
                     .get("MCP_SECRET_REF_MAP")
                     .map(String::as_str)
                     .unwrap_or(""),
-                Arc::new(super::models::ExplicitEnvironment(self.environment.clone())),
+                Arc::new(super::models::ExplicitEnvironment(
+                    integration_environment.clone(),
+                )),
             ),
         );
         let mut foundation = policies.foundation_policies(readiness.clone(), secrets);
@@ -136,7 +197,8 @@ impl GatewayDocument {
             config.google_auth.clone(),
         )?;
         let startup = super::startup_models::StartupModelConfiguration::from_settings(&settings)?;
-        let seeded = super::startup_models::initialize(&models, &startup, &self.environment).await;
+        let seeded =
+            super::startup_models::initialize(&models, &startup, &integration_environment).await;
         config.runtime_configured_providers =
             seeded.runtime_configured_providers.into_iter().collect();
         let runtime_providers = config.runtime_configured_providers.clone();
@@ -147,7 +209,36 @@ impl GatewayDocument {
             backends,
             authorities,
             models,
-        )?;
+        )
+        .await?;
+        let local_node_channel = if let Some(configuration) = local_node_channel_config {
+            let signer = local_node_channel_signer
+                .ok_or(BootstrapError::Configuration("local_node_channel_signer"))?;
+            let repository = local_node_channel_repository
+                .ok_or(BootstrapError::Construction("local_node_channel_schema"))?;
+            let state = crate::migration_host::local_node_channel::LocalNodeChannelState::new(
+                repository,
+                signer,
+                graph.compat.local_node.authorization.clone(),
+            )
+            .await
+            .map_err(BootstrapError::Construction)?
+            .ok_or(BootstrapError::Construction("local_node_channel_schema"))?;
+            let state = Arc::new(state);
+            Some((
+                crate::migration_host::local_node_channel::local_node_worker_router(Some(
+                    state.clone(),
+                )),
+                crate::migration_host::local_node_channel::local_node_companion_router(Some(state)),
+                crate::migration_host::local_node_tls::GatewayHttpsConfiguration {
+                    address: configuration.tls_listen_address,
+                    certificate_path: configuration.tls_certificate_path,
+                    private_key_path: configuration.tls_private_key_path,
+                },
+            ))
+        } else {
+            None
+        };
         // A successfully constructed real model plane owns the validated lease
         // signer and HTTP/model authorities. External Runtime readiness is probed.
         readiness
@@ -185,6 +276,7 @@ impl GatewayDocument {
             limiter: graph.limiter.clone(),
         };
         let options = crate::GatewayOptions {
+            identity: None, // GatewayGraph injects the shared native user authority.
             runtime: crate::config::RuntimeReadConfig {
                 default_model: settings.default_model.clone(),
                 runtime_configured_providers: runtime_providers.into_iter().collect(),
@@ -217,6 +309,13 @@ impl GatewayDocument {
             .merge(crate::migration_host::release::router(Arc::new(
                 crate::migration_host::release::ReleaseIdentity::gateway(&self.environment),
             )));
+        let (router, local_node_https) = match local_node_channel {
+            Some((worker_router, companion_router, tls_configuration)) => (
+                router.merge(worker_router),
+                Some((companion_router, tls_configuration)),
+            ),
+            None => (router, None),
+        };
         let host = GatewayHost::assembled_with_drain(
             router,
             settings.middleware(),
@@ -230,6 +329,11 @@ impl GatewayDocument {
             lifecycle,
             drain,
         );
+        let host = if let Some((companion_router, tls_configuration)) = local_node_https {
+            host.with_local_node_https(companion_router, tls_configuration)
+        } else {
+            host
+        };
         Ok((host, address))
     }
 }

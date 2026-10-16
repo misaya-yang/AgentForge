@@ -21,7 +21,7 @@ if [[ "$image_artifact" != "agent_runtime" \
     exit 2
 fi
 
-suffix="$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')"
+suffix="$(platform-tools uuid --short12)"
 network_name="agent-runtime-smoke-${suffix}"
 postgres_name="agent-runtime-smoke-pg-${suffix}"
 runtime_name="agent-runtime-smoke-app-${suffix}"
@@ -30,9 +30,9 @@ internal_token="$(openssl rand -hex 32)"
 tenant_id="tenant-smoke-${suffix}"
 user_id="user-smoke-${suffix}"
 session_id="session-smoke-${suffix}"
-run_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-snapshot_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-lease_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+run_id="$(platform-tools uuid)"
+snapshot_id="$(platform-tools uuid)"
+lease_id="$(platform-tools uuid)"
 lease_signature="v1:$(openssl rand -hex 32)"
 nonce_sha256="$(openssl rand -hex 32)"
 runtime_payloads="$(
@@ -43,74 +43,7 @@ runtime_payloads="$(
     SMOKE_SNAPSHOT="$snapshot_id" \
     SMOKE_LEASE="$lease_id" \
     SMOKE_LEASE_SIGNATURE="$lease_signature" \
-    python3 - <<'PY'
-import hashlib
-import json
-import os
-
-
-def canonical(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-
-
-def digest(value):
-    return "sha256:" + hashlib.sha256(canonical(value).encode()).hexdigest()
-
-
-config = {
-    "schema_version": "agent-runtime-platform-config/v1",
-    "tenant_id": os.environ["SMOKE_TENANT"],
-    "user_id": os.environ["SMOKE_USER"],
-    "session_id": os.environ["SMOKE_SESSION"],
-    "agent_spec": {"developerInstructions": "runtime smoke"},
-    "instructions": {
-        "prompt_hash": digest("runtime smoke"),
-        "dynamic_data_after_instructions": True,
-    },
-    "tenant_grants": [],
-    "skills": [],
-    "plugins": [],
-    "attachments": [],
-}
-config["config_hash"] = digest(config)
-readonly = {
-    "schema_version": "agent-readonly-capability/v1",
-    "tenant_id": os.environ["SMOKE_TENANT"],
-    "capability_revision": 1,
-    "items": [],
-    "tools": [],
-    "mcp": [],
-    "deferred": [],
-    "attachment_tools": [],
-    "capability_allowlist": [],
-    "platform_config": config,
-}
-snapshot = {
-    "schema_version": "agent-runtime-snapshot/v1",
-    "model": {"id": "qwen3.7-plus", "provider_id": "dashscope"},
-    "capability_revision": 1,
-    "readonly_capabilities": readonly,
-    "platform_config": config,
-}
-turn = {
-    "runId": os.environ["SMOKE_RUN"],
-    "snapshotId": os.environ["SMOKE_SNAPSHOT"],
-    "leaseId": os.environ["SMOKE_LEASE"],
-    "leaseSignature": os.environ["SMOKE_LEASE_SIGNATURE"],
-    "message": "hello",
-    "model": "qwen3.7-plus",
-    "effort": "minimal",
-    "capabilityRevision": 1,
-    "readonly": readonly,
-    "platformConfig": config,
-}
-snapshot_json = canonical(snapshot)
-print(canonical(config))
-print(canonical(readonly))
-print(snapshot_json)
-print(hashlib.sha256(snapshot_json.encode()).hexdigest())
-print(canonical(turn))
-PY
+    platform-tools runtime-smoke-payloads
 )"
 snapshot_json="$(printf '%s\n' "$runtime_payloads" | sed -n '3p')"
 snapshot_sha256="$(printf '%s\n' "$runtime_payloads" | sed -n '4p')"
@@ -202,7 +135,7 @@ create_response="$(docker exec "$runtime_name" curl -fsS \
     -H 'content-type: application/json' \
     -d "{\"tenantId\":\"$tenant_id\",\"userId\":\"$user_id\",\"sessionId\":\"$session_id\",\"start\":{}}" \
     http://127.0.0.1:8094/internal/v1/threads)"
-thread_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["thread"]["id"])' <<<"$create_response")"
+thread_id="$(platform-tools json-get - thread.id <<<"$create_response")"
 if [[ ! "$thread_id" =~ ^[0-9a-f-]{36}$ ]]; then
     echo "ERROR: Runtime returned an invalid Thread ID" >&2
     exit 1
@@ -228,7 +161,7 @@ if [[ "$resume_status" != "200" ]]; then
     echo "ERROR: Runtime resume returned HTTP $resume_status: ${resume_response:0:512}" >&2
     exit 1
 fi
-resumed_thread_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["thread"]["id"])' <<<"$resume_response")"
+resumed_thread_id="$(platform-tools json-get - thread.id <<<"$resume_response")"
 if [[ "$resumed_thread_id" != "$thread_id" ]]; then
     echo "ERROR: second Runtime process resumed a different Thread" >&2
     exit 1
@@ -249,7 +182,7 @@ if [[ "$turn_status" != "200" ]]; then
     echo "ERROR: Runtime turn returned HTTP $turn_status: ${turn_response:0:512}" >&2
     exit 1
 fi
-returned_turn_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["turn"]["id"])' <<<"$turn_response")"
+returned_turn_id="$(platform-tools json-get - turn.id <<<"$turn_response")"
 if [[ "$returned_turn_id" != "$run_id" ]]; then
     echo "ERROR: Runtime did not preserve the pre-authorized Turn ID" >&2
     exit 1

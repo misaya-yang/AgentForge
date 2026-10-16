@@ -98,7 +98,8 @@ request!(SchedulePageQuery {
 impl SchedulePageQuery {
     pub fn validate(self, maximum: usize) -> Result<Self, &'static str> {
         if !(1..=maximum).contains(&self.limit.unwrap_or(maximum))
-            || self.before_at.is_some() != self.before_id.is_some() {
+            || self.before_at.is_some() != self.before_id.is_some()
+        {
             return Err("invalid page size or incomplete cursor");
         }
         Ok(self)
@@ -134,7 +135,13 @@ pub struct Operation {
     pub request: Option<&'static str>,
 }
 pub const OPERATIONS: &[Operation] = &[
-    Operation { method: "post", path: SERVICE_REGISTRATIONS, id: "create_service_registration", jwt_only: false, request: Some("CreateServiceRegistration") },
+    Operation {
+        method: "post",
+        path: SERVICE_REGISTRATIONS,
+        id: "create_service_registration",
+        jwt_only: false,
+        request: Some("CreateServiceRegistration"),
+    },
     Operation {
         method: "get",
         path: CONFIG_AUDIT,
@@ -254,9 +261,27 @@ pub const OPERATIONS: &[Operation] = &[
         jwt_only: false,
         request: Some("ReadBatch"),
     },
-    Operation { method:"post", path:CATALOG_PREVIEW, id:"preview_provider_model_catalog", jwt_only:false, request:None },
-    Operation { method:"post", path:CATALOG_APPLY, id:"apply_provider_model_catalog", jwt_only:false, request:Some("CatalogApply") },
-    Operation { method:"get", path:CATALOG_READ, id:"read_provider_model_catalog_review", jwt_only:false, request:None },
+    Operation {
+        method: "post",
+        path: CATALOG_PREVIEW,
+        id: "preview_provider_model_catalog",
+        jwt_only: false,
+        request: None,
+    },
+    Operation {
+        method: "post",
+        path: CATALOG_APPLY,
+        id: "apply_provider_model_catalog",
+        jwt_only: false,
+        request: Some("CatalogApply"),
+    },
+    Operation {
+        method: "get",
+        path: CATALOG_READ,
+        id: "read_provider_model_catalog_review",
+        jwt_only: false,
+        request: None,
+    },
 ];
 fn parameter(name: &str, location: &str, required: bool, schema: Value) -> Value {
     json!({"name":name,"in":location,"required":required,"schema":schema})
@@ -270,9 +295,18 @@ pub fn document() -> Value {
     let mut paths = serde_json::Map::new();
     for op in OPERATIONS {
         let mut parameters = Vec::new();
-        for name in ["task_id", "execution_id", "notification_id", "plugin_id", "provider_id", "review_id"] {
+        for name in [
+            "task_id",
+            "execution_id",
+            "notification_id",
+            "plugin_id",
+            "provider_id",
+            "review_id",
+        ] {
             if op.path.contains(&format!("{{{name}}}")) {
-                let schema = if matches!(name,"provider_id"|"review_id") { json!({"type":"string"}) } else if name == "plugin_id" {
+                let schema = if matches!(name, "provider_id" | "review_id") {
+                    json!({"type":"string"})
+                } else if name == "plugin_id" {
                     name_schema()
                 } else {
                     json!({"type":"string","x-native-rule":"accepted by uuid::Uuid::parse_str"})
@@ -307,11 +341,21 @@ pub fn document() -> Value {
                 parameters.push(parameter(name, "query", false, schema.clone()));
             }
         }
-        if matches!(op.id, "list_scheduled_tasks" | "list_scheduled_task_executions") {
-            for (name, schema) in SchedulePageQuery::schema()["properties"].as_object().unwrap() {
+        if matches!(
+            op.id,
+            "list_scheduled_tasks" | "list_scheduled_task_executions"
+        ) {
+            for (name, schema) in SchedulePageQuery::schema()["properties"]
+                .as_object()
+                .unwrap()
+            {
                 let mut schema = schema.clone();
                 if name == "limit" {
-                    let maximum = if op.id == "list_scheduled_tasks" { 200 } else { 100 };
+                    let maximum = if op.id == "list_scheduled_tasks" {
+                        200
+                    } else {
+                        100
+                    };
                     schema["maximum"] = json!(maximum);
                     schema["default"] = json!(maximum);
                 }
@@ -433,21 +477,72 @@ mod tests {
     #[test]
     fn bounded_document_never_claims_full_response_coverage() {
         let doc = document();
-        let declared_paths = OPERATIONS.iter().map(|op| op.path.to_owned())
-            .chain(api_keys::SELF_SERVICE_API_KEY_ROUTES.iter().map(|(_, path, _)| format!("/api/v1{path}")))
-            .chain(connectors::PERSONAL_ROUTES.iter().map(|(_, path, _)| format!("/api/v1{path}")))
-            .chain(invocation_tasks::ROUTES.iter().map(|(_, path, _)| (*path).to_owned()))
+        let declared_paths = OPERATIONS
+            .iter()
+            .map(|op| op.path.to_owned())
+            .chain(
+                api_keys::SELF_SERVICE_API_KEY_ROUTES
+                    .iter()
+                    .map(|(_, path, _)| format!("/api/v1{path}")),
+            )
+            .chain(
+                connectors::PERSONAL_ROUTES
+                    .iter()
+                    .map(|(_, path, _)| format!("/api/v1{path}")),
+            )
+            .chain(
+                invocation_tasks::ROUTES
+                    .iter()
+                    .map(|(_, path, _)| (*path).to_owned()),
+            )
             .chain(auth::ROUTES.iter().map(|(_, path, _)| (*path).to_owned()))
-            .chain(roles::ROLES_ROUTES.iter().map(|(_, path, _)| format!("/api/v1{path}")))
-            .chain(services::SERVICES_ROUTES.iter().map(|(_, path, _)| format!("/api/v1{path}")))
-            .chain(users::USERS_ROUTES.iter().map(|(_, path, _)| format!("/api/v1{path}")))
-            .chain(sessions::ROUTES.iter().map(|(_, path, _)| (*path).to_owned()))
+            .chain(
+                roles::ROLES_ROUTES
+                    .iter()
+                    .map(|(_, path, _)| format!("/api/v1{path}")),
+            )
+            .chain(
+                services::SERVICES_ROUTES
+                    .iter()
+                    .map(|(_, path, _)| format!("/api/v1{path}")),
+            )
+            .chain(
+                users::USERS_ROUTES
+                    .iter()
+                    .map(|(_, path, _)| format!("/api/v1{path}")),
+            )
+            .chain(
+                sessions::ROUTES
+                    .iter()
+                    .map(|(_, path, _)| (*path).to_owned()),
+            )
             .collect::<std::collections::HashSet<_>>();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), declared_paths.len());
-        let declared_operations: usize = doc["paths"].as_object().unwrap().values()
-            .map(|item| item.as_object().unwrap().len()).sum();
-        assert_eq!(declared_operations, OPERATIONS.len() + api_keys::SELF_SERVICE_API_KEY_ROUTES.len() + connectors::PERSONAL_ROUTES.len() + invocation_tasks::ROUTES.len() + auth::ROUTES.len() + roles::ROLES_ROUTES.len() + services::SERVICES_ROUTES.len() + users::USERS_ROUTES.len() + sessions::ROUTES.len());
-        assert_eq!(doc["paths"][SERVICE_REGISTRATIONS]["post"]["operationId"], "create_service_registration");
+        assert_eq!(
+            doc["paths"].as_object().unwrap().len(),
+            declared_paths.len()
+        );
+        let declared_operations: usize = doc["paths"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|item| item.as_object().unwrap().len())
+            .sum();
+        assert_eq!(
+            declared_operations,
+            OPERATIONS.len()
+                + api_keys::SELF_SERVICE_API_KEY_ROUTES.len()
+                + connectors::PERSONAL_ROUTES.len()
+                + invocation_tasks::ROUTES.len()
+                + auth::ROUTES.len()
+                + roles::ROLES_ROUTES.len()
+                + services::SERVICES_ROUTES.len()
+                + users::USERS_ROUTES.len()
+                + sessions::ROUTES.len()
+        );
+        assert_eq!(
+            doc["paths"][SERVICE_REGISTRATIONS]["post"]["operationId"],
+            "create_service_registration"
+        );
         assert_eq!(doc["x-native-contract"]["complete"], false);
         for op in OPERATIONS {
             assert_eq!(doc["paths"][op.path][op.method]["operationId"], op.id);
@@ -465,39 +560,92 @@ mod schedule_history_tests {
     use super::*;
     #[test]
     fn schedule_page_defaults_bounds_and_paired_cursor() {
-        for maximum in [100,200] {
-            assert!(serde_json::from_value::<SchedulePageQuery>(json!({})).unwrap().validate(maximum).is_ok());
-            for n in [0, maximum+1] {
-                assert!(serde_json::from_value::<SchedulePageQuery>(json!({"limit":n})).unwrap().validate(maximum).is_err());
+        for maximum in [100, 200] {
+            assert!(
+                serde_json::from_value::<SchedulePageQuery>(json!({}))
+                    .unwrap()
+                    .validate(maximum)
+                    .is_ok()
+            );
+            for n in [0, maximum + 1] {
+                assert!(
+                    serde_json::from_value::<SchedulePageQuery>(json!({"limit":n}))
+                        .unwrap()
+                        .validate(maximum)
+                        .is_err()
+                );
             }
-            assert!(serde_json::from_value::<SchedulePageQuery>(json!({"limit":maximum})).unwrap().validate(maximum).is_ok());
+            assert!(
+                serde_json::from_value::<SchedulePageQuery>(json!({"limit":maximum}))
+                    .unwrap()
+                    .validate(maximum)
+                    .is_ok()
+            );
         }
-        for v in [json!({"before_at":"2026-10-13T00:00:00Z"}),json!({"before_id":"a"})] {
-            assert!(serde_json::from_value::<SchedulePageQuery>(v).unwrap().validate(100).is_err());
+        for v in [
+            json!({"before_at":"2026-10-13T00:00:00Z"}),
+            json!({"before_id":"a"}),
+        ] {
+            assert!(
+                serde_json::from_value::<SchedulePageQuery>(v)
+                    .unwrap()
+                    .validate(100)
+                    .is_err()
+            );
         }
-        for v in [json!({"limit":-1}),json!({"limit":1.5}),json!({"before_at":"bad"}),json!({"unknown":true})] {
+        for v in [
+            json!({"limit":-1}),
+            json!({"limit":1.5}),
+            json!({"before_at":"bad"}),
+            json!({"unknown":true}),
+        ] {
             assert!(serde_json::from_value::<SchedulePageQuery>(v).is_err());
         }
     }
     #[test]
     fn schedule_page_preserves_rows_and_uses_last_visible_cursor() {
-        let rows = vec![json!({"created_at":"same","task_id":"c","message":"old"}),json!({"created_at":"same","task_id":"b"}),json!({"created_at":"same","task_id":"a"})];
-        let page = responses::schedule_page(rows.clone(),2,"tasks","task_id");
-        assert_eq!(page["tasks"],json!(rows[..2]));
-        assert_eq!(page["next_cursor"],json!({"before_at":"same","before_id":"b"}));
-        assert_eq!(responses::schedule_page(rows,3,"tasks","task_id")["next_cursor"],Value::Null);
-        assert_eq!(responses::schedule_page(vec![],20,"executions","execution_id"),json!({"executions":[],"next_cursor":null}));
+        let rows = vec![
+            json!({"created_at":"same","task_id":"c","message":"old"}),
+            json!({"created_at":"same","task_id":"b"}),
+            json!({"created_at":"same","task_id":"a"}),
+        ];
+        let page = responses::schedule_page(rows.clone(), 2, "tasks", "task_id");
+        assert_eq!(page["tasks"], json!(rows[..2]));
+        assert_eq!(
+            page["next_cursor"],
+            json!({"before_at":"same","before_id":"b"})
+        );
+        assert_eq!(
+            responses::schedule_page(rows, 3, "tasks", "task_id")["next_cursor"],
+            Value::Null
+        );
+        assert_eq!(
+            responses::schedule_page(vec![], 20, "executions", "execution_id"),
+            json!({"executions":[],"next_cursor":null})
+        );
     }
     #[test]
     fn exact_receipts_and_page_parameters_are_source_owned() {
-        let doc=document();
-        for (path,id) in [("/api/v1/scheduled-tasks/{task_id}","get_scheduled_task"),("/api/v1/scheduled-tasks/{task_id}/executions/{execution_id}","get_scheduled_task_execution")] {
-            assert_eq!(doc["paths"][path]["get"]["operationId"],id);
+        let doc = document();
+        for (path, id) in [
+            ("/api/v1/scheduled-tasks/{task_id}", "get_scheduled_task"),
+            (
+                "/api/v1/scheduled-tasks/{task_id}/executions/{execution_id}",
+                "get_scheduled_task_execution",
+            ),
+        ] {
+            assert_eq!(doc["paths"][path]["get"]["operationId"], id);
             assert!(doc["paths"][path]["get"]["responses"]["200"].is_object());
         }
-        for (path,maximum) in [(TASK_BASE,200),("/api/v1/scheduled-tasks/{task_id}/executions",100)] {
-            let params=doc["paths"][path]["get"]["parameters"].as_array().unwrap();
-            assert_eq!(params.iter().find(|p|p["name"]=="limit").unwrap()["schema"]["maximum"],maximum);
+        for (path, maximum) in [
+            (TASK_BASE, 200),
+            ("/api/v1/scheduled-tasks/{task_id}/executions", 100),
+        ] {
+            let params = doc["paths"][path]["get"]["parameters"].as_array().unwrap();
+            assert_eq!(
+                params.iter().find(|p| p["name"] == "limit").unwrap()["schema"]["maximum"],
+                maximum
+            );
         }
     }
 }
@@ -505,145 +653,145 @@ mod schedule_history_tests {
 /// This declaration is used by runtime validation and the source-owned exporter.
 pub fn service_registration_schema() -> Value {
     json!({
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "service_id": {
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
-    },
-    "name": {
-      "type": "string",
-      "minLength": 1
-    },
-    "service_type": {
-      "const": "custom"
-    },
-    "connector_type": {
-      "const": "http"
-    },
-    "status": {
-      "const": "active"
-    },
-    "supported_modes": {
-      "enum": [
-        [
-          "sync",
-          "stream"
-        ],
-        [
-          "stream"
-        ]
-      ]
-    },
-    "accepted_content_types": {
-      "const": [
-        "text"
-      ]
-    },
-    "output_content_types": {
-      "const": [
-        "text"
-      ]
-    },
-    "session_enabled": {
-      "const": true
-    },
-    "max_retries": {
-      "const": 0
-    },
-    "connector_config": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "sdk_provider_api_key": {
+        "service_id": {
           "type": "string",
-          "writeOnly": true,
-          "minLength": 16,
-          "maxLength": 4096,
-          "x-native-rule": "16..4096 UTF-8 bytes; no bytes <= 32; must not begin enc:"
-        }
-      },
-      "required": [
-        "sdk_provider_api_key"
-      ]
-    },
-    "metadata": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "adapter_type": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_type": {
+          "const": "custom"
+        },
+        "connector_type": {
+          "const": "http"
+        },
+        "status": {
+          "const": "active"
+        },
+        "supported_modes": {
           "enum": [
-            "openai_agents",
-            "claude_agent_sdk"
+            [
+              "sync",
+              "stream"
+            ],
+            [
+              "stream"
+            ]
           ]
         },
-        "sdk_agent": {
+        "accepted_content_types": {
+          "const": [
+            "text"
+          ]
+        },
+        "output_content_types": {
+          "const": [
+            "text"
+          ]
+        },
+        "session_enabled": {
+          "const": true
+        },
+        "max_retries": {
+          "const": 0
+        },
+        "connector_config": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "model": {
+            "sdk_provider_api_key": {
               "type": "string",
-              "minLength": 1,
-              "x-native-rule": "trimmed nonempty; at most 160 UTF-8 bytes"
-            },
-            "instructions": {
-              "type": "string",
-              "x-native-rule": "at most 32768 UTF-8 bytes; whitespace normalized to default"
-            },
-            "max_turns": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 32
+              "writeOnly": true,
+              "minLength": 16,
+              "maxLength": 4096,
+              "x-native-rule": "16..4096 UTF-8 bytes; no bytes <= 32; must not begin enc:"
             }
           },
           "required": [
-            "model",
-            "instructions",
-            "max_turns"
+            "sdk_provider_api_key"
           ]
         },
-        "sdk_tools": {
+        "metadata": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "knowledge_dataset_ids": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 16
+            "adapter_type": {
+              "enum": [
+                "openai_agents",
+                "claude_agent_sdk"
+              ]
             },
-            "capability_ids": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+            "sdk_agent": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "x-native-rule": "trimmed nonempty; at most 160 UTF-8 bytes"
+                },
+                "instructions": {
+                  "type": "string",
+                  "x-native-rule": "at most 32768 UTF-8 bytes; whitespace normalized to default"
+                },
+                "max_turns": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32
+                }
+              },
+              "required": [
+                "model",
+                "instructions",
+                "max_turns"
+              ]
+            },
+            "sdk_tools": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "knowledge_dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 16
+                },
+                "capability_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": []
             }
           },
-          "required": []
+          "required": [
+            "adapter_type",
+            "sdk_agent"
+          ]
         }
       },
       "required": [
-        "adapter_type",
-        "sdk_agent"
-      ]
-    }
-  },
-  "required": [
-    "service_id",
-    "name",
-    "service_type",
-    "connector_type",
-    "status",
-    "supported_modes",
-    "accepted_content_types",
-    "output_content_types",
-    "session_enabled",
-    "max_retries",
-    "connector_config",
-    "metadata"
-  ],
-  "description": "Native-only atomic create-only official SDK service registration. Existing IDs return 409 without replacement. No fallback to legacy POST /services. Existing SDK credential, Knowledge and capability admission remains authoritative."
-})
+        "service_id",
+        "name",
+        "service_type",
+        "connector_type",
+        "status",
+        "supported_modes",
+        "accepted_content_types",
+        "output_content_types",
+        "session_enabled",
+        "max_retries",
+        "connector_config",
+        "metadata"
+      ],
+      "description": "Native-only atomic create-only official SDK service registration. Existing IDs return 409 without replacement. No fallback to legacy POST /services. Existing SDK credential, Knowledge and capability admission remains authoritative."
+    })
 }

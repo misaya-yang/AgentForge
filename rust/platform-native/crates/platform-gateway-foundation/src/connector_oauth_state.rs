@@ -178,11 +178,11 @@ mod tests {
                 Ok(redis::Value::BulkString(br#"{"nonce":"fixture"}"#.to_vec())),
                 Ok(redis::Value::Nil),
                 Err(redis::RedisError::from((
-                    redis::ErrorKind::ResponseError,
+                    redis::ErrorKind::Server(redis::ServerErrorKind::ResponseError),
                     "unknown command GETDEL",
                 ))),
                 Err(redis::RedisError::from((
-                    redis::ErrorKind::IoError,
+                    redis::ErrorKind::Io,
                     "connection lost",
                 ))),
             ] {

@@ -1,0 +1,61 @@
+{
+  "schema": "native-test-retirement-evidence/v1",
+  "status": "written_formatted_not_executed",
+  "entries": [
+    {
+      "source": "tests/config/test_endpoints_resolver.py",
+      "source_sha256": "e3198e3ea482b98a34cd972925b1876d5069477305d818469b0d1c4eadae309a",
+      "package": "ai-platform-gateway-foundation",
+      "target": "foundation_migration_parity_endpoints",
+      "native_functions": [
+        "dashscope_chat_defaults_precedence_and_endpoint_shapes",
+        "google_chat_defaults_key_precedence_backend_and_shared_fallback",
+        "dashscope_all_domains_are_independent_and_normalize_every_supported_url_shape",
+        "google_all_domains_global_switch_overrides_unknown_backend_and_shared_key_fallback"
+      ],
+      "fully_mapped_source_cases": [
+        "test_dashscope_chat_defaults_to_cn_paid_when_no_env",
+        "test_dashscope_general_key_flows_through_to_all_domains",
+        "test_dashscope_ocr_has_an_independent_native_endpoint",
+        "test_dashscope_chat_override_does_not_leak_to_image",
+        "test_dashscope_image_override_is_independent_of_chat",
+        "test_dashscope_chat_base_url_normalised_with_compat_suffix",
+        "test_dashscope_url_swapped_between_domains",
+        "test_dashscope_general_url_normalises_common_endpoint_shapes",
+        "test_dashscope_embedding_override_is_independent",
+        "test_dashscope_image_and_embedding_default_to_native_host",
+        "test_google_defaults_to_ai_studio_with_no_env",
+        "test_google_ai_studio_reads_gemini_key_first",
+        "test_google_ai_studio_falls_back_to_google_api_key",
+        "test_google_backend_global_flip_affects_all_domains",
+        "test_google_chat_backend_override_does_not_leak_to_image",
+        "test_google_vertex_shared_key_fallback",
+        "test_google_unknown_backend_falls_back_to_ai_studio",
+        "test_google_domain_specific_vertex_key_wins_over_general"
+      ],
+      "residual": "None for this shared endpoint resolver suite. Current batch adds domain methods used by existing chat and Gateway image production paths; Knowledge owner coordinates embedding/OCR reuse. Latest added two tests pending coordinator execution.",
+      "retirement_eligibility": "Whole suite after latest four-function target verification; prior two chat tests passed foundation81."
+    },
+    {
+      "source": "tests/tracing/test_init.py",
+      "source_sha256": "bec161f63cdb55e8776c39a97538078fd6ab2e0cc5b782103c756045261e19c0",
+      "package": "ai-platform-gateway-foundation",
+      "target": "foundation_migration_parity_tracing_init",
+      "native_functions": [
+        "tracing_init_is_idempotent_and_unset_or_empty_endpoint_retains_sdk_provider",
+        "tracing_initializer_child_probe",
+        "tracing_explicit_empty_overrides_env_and_malformed_exporter_is_nonfatal",
+        "tracing_custom_resource_attributes_reach_actual_provider_resource_builder"
+      ],
+      "fully_mapped_source_cases": [
+        "test_init_tracing_idempotent",
+        "test_init_tracing_no_endpoint_skips_exporter",
+        "test_init_tracing_empty_endpoint_skips_exporter",
+        "test_init_tracing_explicit_arg_overrides_env",
+        "test_init_tracing_resource_attrs_propagate"
+      ],
+      "retirement_eligibility": "Five named source cases after latest four-function native target verification. Previous two functions passed foundation81; helper options and new tests await coordinator.",
+      "residual": "Malformed exporter URI nonfatal startup is exercised offline. Original syntactically valid but unreachable collector example is not executed, so no exporter connection/delivery claim and no whole-suite retirement assertion for that sixth case."
+    }
+  ]
+}

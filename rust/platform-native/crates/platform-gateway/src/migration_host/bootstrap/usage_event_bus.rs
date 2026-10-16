@@ -26,7 +26,7 @@ use tokio::{
     sync::{Mutex, watch},
     task::JoinHandle,
 };
-const STREAM: &str = "events:usage:recorded:v1";
+const STREAM: &str = ai_platform_gateway_foundation::event_envelope::STREAM_NAMES[0].1;
 const GROUP: &str = "gateway-usage-logger";
 const COUNTERS: &str = "events:deliveries:events:usage:recorded:v1:gateway-usage-logger";
 #[derive(Clone, Copy, Debug)]
@@ -70,6 +70,7 @@ impl UsageBusPublisher {
             "tenant_id":record.tenant_id,"request_id":record.request_id,"traceparent":Value::Null,
             "payload":{"tenant_id":record.tenant_id,"user_id":record.user_id,"model":record.model,"provider":record.provider,"service_id":record.service_id,"assistant_id":record.assistant_id,"input_tokens":record.input_tokens,"output_tokens":record.output_tokens,"latency_ms":record.latency_ms,"first_token_ms":record.first_token_ms,"request_total_duration_ms":record.request_total_duration_ms,"error_type":record.error_type,"status":if record.status.is_empty(){"success"}else{&record.status},"request_type":if record.request_type.is_empty(){"chat"}else{&record.request_type},"timestamp":record.timestamp.timestamp_micros() as f64/1_000_000.0,"metadata":record.metadata}
         });
+        let envelope = decode_envelope(envelope.to_string().as_bytes())?;
         let result = async {
             let mut guard = self.connection.lock().await;
             if guard.is_none() {
@@ -274,7 +275,10 @@ impl UsageEventBus {
                 .await;
             let entries = match entries {
                 Ok(v) => v,
-                Err(e) if e.kind() == redis::ErrorKind::ResponseError => {
+                Err(e)
+                    if e.kind()
+                        == redis::ErrorKind::Server(redis::ServerErrorKind::ResponseError) =>
+                {
                     Self::ensure_group(&mut connection).await?;
                     StreamReadReply::default()
                 }
@@ -312,7 +316,12 @@ impl UsageEventBus {
                 .await;
             let result = match result {
                 Ok(v) => v,
-                Err(e) if e.kind() == redis::ErrorKind::ResponseError => return Ok(out),
+                Err(e)
+                    if e.kind()
+                        == redis::ErrorKind::Server(redis::ServerErrorKind::ResponseError) =>
+                {
+                    return Ok(out);
+                }
                 Err(_) => return Err(EventError::Redis),
             };
             let mut added = 0;
@@ -383,7 +392,7 @@ impl UsageEventBus {
         let raw = message
             .map
             .get("payload")
-            .and_then(|v| redis::from_redis_value::<Vec<u8>>(v).ok());
+            .and_then(|v| redis::from_redis_value_ref::<Vec<u8>>(v).ok());
         let Some(raw) = raw else {
             self.dlq(connection, &message.id, "missing payload field", 1)
                 .await?;
@@ -447,157 +456,15 @@ impl UsageEventBus {
         Self::finish(connection, &message.id).await
     }
 }
-fn integer(value: &Value) -> Option<i64> {
-    match value {
-        Value::Bool(v) => Some(i64::from(*v)),
-        Value::String(v) => v.trim().parse().ok(),
-        Value::Number(v) => v.as_i64().or_else(|| {
-            v.as_f64()
-                .filter(|v| v.fract() == 0.0 && *v >= i64::MIN as f64 && *v < i64::MAX as f64)
-                .map(|v| v as i64)
-        }),
-        _ => None,
-    }
-}
 /// Preserve source's two phases: malformed outer envelopes go to DLQ;
-/// a typed payload validation error escapes parse_envelope and stops its loop.
-/// Diagnostic bodies are intentionally redacted rather than persisted verbatim.
+/// typed payload validation errors stop the loop without acknowledging the record.
 fn decode_envelope(raw: &[u8]) -> EventResult<Value> {
-    let mut value: Value = serde_json::from_slice(raw).map_err(|_| EventError::Envelope)?;
-    let v = value.as_object_mut().ok_or(EventError::Envelope)?;
-    for key in ["event_type", "producer", "tenant_id", "request_id"] {
-        if !v.get(key).is_some_and(Value::is_string) {
-            return Err(EventError::Envelope);
-        }
-    }
-    let id = match v.get("event_id") {
-        None => uuid::Uuid::new_v4(),
-        Some(Value::String(s)) => uuid::Uuid::parse_str(s).map_err(|_| EventError::Envelope)?,
-        _ => return Err(EventError::Envelope),
+    use ai_platform_gateway_foundation::event_envelope::{
+        EventDeserializationError, parse_envelope,
     };
-    v.insert("event_id".into(), json!(id.to_string()));
-    match v.get("occurred_at") {
-        None => {
-            v.insert("occurred_at".into(), json!(chrono::Utc::now().to_rfc3339()));
-        }
-        Some(Value::String(s)) if chrono::DateTime::parse_from_rfc3339(s).is_ok() => {}
-        Some(Value::Number(_)) => {}
-        _ => return Err(EventError::Envelope),
-    }
-    let schema = v
-        .get("schema_version")
-        .map(integer)
-        .unwrap_or(Some(1))
-        .ok_or(EventError::Envelope)?;
-    v.insert("schema_version".into(), json!(schema));
-    if v.get("traceparent")
-        .is_some_and(|v| !v.is_string() && !v.is_null())
-    {
-        return Err(EventError::Envelope);
-    }
-    if v["event_type"] != "usage.recorded.v1" {
-        return Err(EventError::Envelope);
-    }
-    let p = v
-        .get_mut("payload")
-        .and_then(Value::as_object_mut)
-        .ok_or(EventError::Envelope)?;
-    for key in ["tenant_id", "user_id", "model"] {
-        if !p.get(key).is_some_and(Value::is_string) {
-            return Err(EventError::Payload);
-        }
-    }
-    for key in [
-        "provider",
-        "service_id",
-        "assistant_id",
-        "status",
-        "request_type",
-    ] {
-        if !p.contains_key(key) {
-            p.insert(
-                key.into(),
-                json!(match key {
-                    "status" => "success",
-                    "request_type" => "chat",
-                    _ => "",
-                }),
-            );
-        }
-        if !p[key].is_string() {
-            return Err(EventError::Payload);
-        }
-    }
-    for key in [
-        "input_tokens",
-        "output_tokens",
-        "latency_ms",
-        "first_token_ms",
-        "request_total_duration_ms",
-    ] {
-        let n = p
-            .get(key)
-            .map(integer)
-            .unwrap_or(Some(0))
-            .ok_or(EventError::Payload)?;
-        p.insert(key.into(), json!(n));
-    }
-    let timestamp = match p.get("timestamp") {
-        Some(Value::Number(v)) => v.as_f64(),
-        Some(Value::String(v)) => v.parse().ok(),
-        Some(Value::Bool(v)) => Some(if *v { 1.0 } else { 0.0 }),
-        _ => None,
-    }
-    .filter(|v| v.is_finite())
-    .ok_or(EventError::Payload)?;
-    p.insert("timestamp".into(), json!(timestamp));
-    if p.get("error_type")
-        .is_some_and(|v| !v.is_string() && !v.is_null())
-    {
-        return Err(EventError::Payload);
-    }
-    if !p.contains_key("metadata") {
-        p.insert("metadata".into(), json!({}));
-    }
-    if !p["metadata"].is_object() {
-        return Err(EventError::Payload);
-    }
-    p.entry("error_type").or_insert(Value::Null);
-    p.retain(|key, _| {
-        matches!(
-            key.as_str(),
-            "tenant_id"
-                | "user_id"
-                | "model"
-                | "provider"
-                | "service_id"
-                | "assistant_id"
-                | "input_tokens"
-                | "output_tokens"
-                | "latency_ms"
-                | "first_token_ms"
-                | "request_total_duration_ms"
-                | "error_type"
-                | "status"
-                | "request_type"
-                | "timestamp"
-                | "metadata"
-        )
-    });
-    v.entry("traceparent").or_insert(Value::Null);
-    v.retain(|key, _| {
-        matches!(
-            key.as_str(),
-            "event_id"
-                | "event_type"
-                | "schema_version"
-                | "occurred_at"
-                | "producer"
-                | "tenant_id"
-                | "request_id"
-                | "traceparent"
-                | "payload"
-        )
-    });
-    Ok(value)
+    let envelope = parse_envelope(raw).map_err(|error| match error {
+        EventDeserializationError::PayloadValidation => EventError::Payload,
+        _ => EventError::Envelope,
+    })?;
+    serde_json::to_value(envelope).map_err(|_| EventError::Envelope)
 }

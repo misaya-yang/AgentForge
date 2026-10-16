@@ -44,10 +44,10 @@
   "risk": {"tags": ["ui", "frontend", "browser", "accessibility", "agent"], "data_mutation": true, "migration_required": false, "browser_required": true, "ai_eval_required": true, "external_service_required": false, "release_blocking": true},
   "validation": {
     "commands": [
-      {"id": "frontend-static", "cwd": ".", "command": "corepack pnpm@10.33.0 -C web lint && corepack pnpm@10.33.0 -C web type-check && corepack pnpm@10.33.0 -C web i18n:check && corepack pnpm@10.33.0 -C web build", "expected": "Lint, TypeScript, i18n key check and production build all exit zero.", "required": true},
-      {"id": "agent-studio-e2e", "cwd": ".", "command": "corepack pnpm@10.33.0 -C web exec playwright test e2e/agent-studio.spec.ts --config playwright.opensource.config.ts", "expected": "List/create/Studio/save/conflict/permission/degraded/Preview/responsive/accessibility scenarios pass against deterministic fixtures.", "required": true},
-      {"id": "existing-route-e2e", "cwd": ".", "command": "corepack pnpm@10.33.0 -C web e2e:opensource", "expected": "Existing dynamic route and eval trace open-source E2E tests pass.", "required": true},
-      {"id": "preview-contract", "cwd": ".", "command": "uv run pytest -q --no-cov tests/api/test_agents_api.py tests/services/agent_runtime/test_control_plane.py", "expected": "The frontend-consumed Agent/Preview API and current Gateway-owned resolver contracts remain valid.", "required": true}
+      {"id": "frontend-static", "cwd": ".", "command": "pnpm -C web lint && pnpm -C web type-check && pnpm -C web i18n:check && pnpm -C web build", "expected": "Lint, TypeScript, i18n key check and production build all exit zero.", "required": true},
+      {"id": "agent-studio-e2e", "cwd": ".", "command": "pnpm -C web exec playwright test e2e/agent-studio.spec.ts --config playwright.opensource.config.ts", "expected": "List/create/Studio/save/conflict/permission/degraded/Preview/responsive/accessibility scenarios pass against deterministic fixtures.", "required": true},
+      {"id": "existing-route-e2e", "cwd": ".", "command": "pnpm -C web e2e:opensource", "expected": "Existing dynamic route and eval trace open-source E2E tests pass.", "required": true},
+      {"id": "preview-contract", "cwd": ".", "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_agents_api --test runtime_control_plane -- --include-ignored", "expected": "The frontend-consumed Agent/Preview API and current Gateway-owned resolver contracts remain valid.", "required": true}
     ],
     "browser_checks": [
       "At /agents on 1440x900 and 390x844 capture loading, empty, populated, filtered-empty, API error and permission-denied states; verify keyboard order and no horizontal overflow.",

@@ -30,6 +30,7 @@ pub struct AuthServices {
     pub auth: Arc<AuthService>,
     pub admission: Arc<AdmissionService>,
     pub identities: Arc<EndpointIdentityResolver>,
+    pub introspection: Arc<super::super::credential_introspection::CredentialIntrospection>,
 }
 impl AuthServices {
     pub fn new(
@@ -43,6 +44,30 @@ impl AuthServices {
         }
         let header = HeaderName::from_bytes(config.api_key_header.as_bytes())
             .map_err(|_| BootstrapError::Configuration("api_key_header"))?;
+        let introspection = Arc::new(
+            super::super::credential_introspection::CredentialIntrospection {
+                pool: pools.data.clone(),
+                decoder: Arc::new(
+                    super::super::jwt::JwtDecoder::new(
+                        &config.jwt_secret,
+                        &config.jwt_algorithms,
+                        config.jwt_audience.as_deref(),
+                        config.jwt_issuer.as_deref(),
+                    )
+                    .map_err(|_| BootstrapError::Configuration("jwt"))?,
+                ),
+                sessions: Some(RedisSessions::new(redis.clone())),
+                jwt_enabled: config.jwt_enabled,
+                api_key_enabled: config.api_key_enabled,
+                api_key_header: header.clone(),
+                static_key_hashes: config
+                    .static_api_keys
+                    .iter()
+                    .map(|v| format!("{:x}", Sha256::digest(v.as_bytes())))
+                    .collect(),
+                static_key_role: config.static_key_role.clone(),
+            },
+        );
         let codec = TokenCodec::new(
             config.jwt_secret.as_bytes(),
             config.jwt_audience,
@@ -89,6 +114,7 @@ impl AuthServices {
             auth,
             admission,
             identities,
+            introspection,
         })
     }
 }

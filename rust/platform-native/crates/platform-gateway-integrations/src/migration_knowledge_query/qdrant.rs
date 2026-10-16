@@ -4,6 +4,12 @@ use super::{
     types::{Dataset, QueryError, Result},
 };
 use reqwest::{Client, Method, Url};
+#[path = "qdrant_grpc.rs"]
+mod grpc;
+#[path = "qdrant_grpc_config.rs"]
+mod grpc_config;
+#[path = "qdrant_grpc_values.rs"]
+mod grpc_values;
 #[path = "qdrant_resilience.rs"]
 mod resilience;
 use resilience::{Failure, Policy, Resilience};
@@ -20,6 +26,7 @@ use std::{
 #[derive(Clone)]
 pub struct QdrantStore {
     client: Client,
+    grpc: Option<Arc<grpc::GrpcTransport>>,
     origin: Url,
     api_key: Option<String>,
     pub timeout: Duration,
@@ -43,6 +50,83 @@ pub struct VectorHit {
     pub vector: Option<Vec<f64>>,
 }
 impl QdrantStore {
+    /// Select the source client transport explicitly. No HTTP fallback on gRPC failure.
+    pub fn set_prefer_grpc(&mut self, enabled: bool) -> Result<()> {
+        self.grpc = if enabled {
+            Some(Arc::new(grpc::GrpcTransport::new(
+                &self.origin,
+                self.api_key.clone(),
+                self.timeout,
+            )?))
+        } else {
+            None
+        };
+        Ok(())
+    }
+
+    /// Exact special-generation cleanup. Caller must hold the dataset publication lease.
+    pub async fn delete_document_points_by_ids(
+        &self,
+        collection: &str,
+        ids: &[String],
+        dataset: &Dataset,
+        document_id: &str,
+        lifecycle_lease_held: bool,
+    ) -> Result<()> {
+        let ids = ids
+            .iter()
+            .map(|id| id.trim())
+            .filter(|id| !id.is_empty())
+            .collect::<BTreeSet<_>>();
+        if ids.is_empty() {
+            return Ok(());
+        }
+        if !lifecycle_lease_held
+            || dataset.tenant_id.trim().is_empty()
+            || dataset.dataset_id.trim().is_empty()
+            || document_id.trim().is_empty()
+        {
+            return Err(QueryError::Validation(
+                "special point cleanup requires its dataset lease and owner".into(),
+            ));
+        }
+        if !self.collection_exists(collection).await? {
+            return Ok(());
+        }
+        let info = self.collection_info(collection).await?;
+        let metadata = &info["config"]["metadata"];
+        if let Some(scope) = metadata.get("knowledge_scope") {
+            if scope["schema_version"] != 1
+                || scope["tenant_id"] != dataset.tenant_id
+                || scope["dataset_id"] != dataset.dataset_id
+            {
+                return Err(QueryError::CollectionAuthority(
+                    "special point collection owner differs or is malformed".into(),
+                ));
+            }
+        }
+        if let Some(profile) = metadata.get("knowledge_lexical") {
+            super::lexical_v2::validate_collection_profile(profile)?;
+            self.invalidate_receipt(collection, metadata, "special_generation_cleanup")
+                .await?;
+        }
+        let filter =
+            json!({"must":[Self::deletion_filter(dataset, Some(document_id))?,{"has_id":ids}]});
+        let result = self
+            .call(
+                Method::POST,
+                collection,
+                &["points", "delete"],
+                Some(&json!({"filter":filter})),
+                true,
+            )
+            .await?;
+        Self::completed(&result)?;
+        if self.count_points(collection, Some(&filter)).await? != 0 {
+            return Err(QueryError::VectorStore);
+        }
+        Ok(())
+    }
     pub fn new(client: Client, origin: Url, api_key: Option<String>) -> Result<Self> {
         if !["http", "https"].contains(&origin.scheme())
             || origin.host_str().is_none()
@@ -53,6 +137,7 @@ impl QdrantStore {
         }
         Ok(Self {
             client,
+            grpc: None,
             origin,
             api_key,
             timeout: Duration::from_secs(30),
@@ -117,6 +202,109 @@ impl QdrantStore {
             Failure::Permanent(QueryError::VectorStore)
         }
     }
+    fn transport_error_class(error: &reqwest::Error) -> &'static str {
+        if error.is_timeout() {
+            "timeout"
+        } else if error.is_connect() {
+            "connect"
+        } else if error.is_body() {
+            "response_body"
+        } else if error.is_builder() {
+            "request_builder"
+        } else {
+            "request"
+        }
+    }
+    fn resilience_failure_class<E>(failure: &Failure<E>) -> &'static str {
+        match failure {
+            Failure::Transient(_) => "transient_exhausted",
+            Failure::Permanent(_) => "permanent",
+            Failure::Timeout => "timeout",
+            Failure::Deadline => "interactive_deadline",
+            Failure::CircuitOpen => "circuit_open",
+        }
+    }
+    fn qdrant_error_class(value: &Value) -> &'static str {
+        let message = value
+            .pointer("/status/error")
+            .and_then(Value::as_str)
+            .or_else(|| value.get("error").and_then(Value::as_str))
+            .or_else(|| {
+                value
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .filter(|status| !status.eq_ignore_ascii_case("ok"))
+            })
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if message.contains("dimension") {
+            "vector_dimension_mismatch"
+        } else if message.contains("collection")
+            && (message.contains("not found") || message.contains("does not exist"))
+        {
+            "collection_not_found"
+        } else if (message.contains("vector") || message.contains("field"))
+            && (message.contains("not found") || message.contains("missing"))
+        {
+            "vector_field_missing"
+        } else if message.contains("unauthorized")
+            || message.contains("forbidden")
+            || message.contains("api key")
+        {
+            "authorization"
+        } else if message.contains("timeout") || message.contains("timed out") {
+            "timeout"
+        } else if message.contains("wrong input")
+            || message.contains("invalid")
+            || message.contains("parse")
+        {
+            "invalid_request"
+        } else if message.is_empty() {
+            "http_error"
+        } else {
+            "upstream_response_error"
+        }
+    }
+    fn operation_name(method: &Method, suffix: &[&str]) -> &'static str {
+        match (method.as_str(), suffix) {
+            ("GET", ["collections"]) => "collections_list",
+            ("GET", []) => "collection_info",
+            ("PUT", []) => "collection_create",
+            ("PATCH", []) => "collection_update",
+            ("DELETE", []) => "collection_delete",
+            ("POST", ["points", "query"]) => "points_query",
+            ("POST", ["points", "query", "batch"]) => "points_query_batch",
+            ("POST", ["points", "scroll"]) => "points_scroll",
+            ("POST", ["points"]) => "points_get",
+            _ => "other",
+        }
+    }
+    fn dense_query_dimension(body: &Value) -> Option<usize> {
+        body.get("query")
+            .and_then(Value::as_array)
+            .or_else(|| {
+                body.get("prefetch")
+                    .and_then(Value::as_array)
+                    .and_then(|rows| rows.first())
+                    .and_then(|row| row.get("query"))
+                    .and_then(Value::as_array)
+            })
+            .map(Vec::len)
+    }
+    fn collection_vector_dimension(info: &Value) -> Option<usize> {
+        let vectors = info.pointer("/config/params/vectors")?;
+        vectors
+            .get("size")
+            .and_then(Value::as_u64)
+            .map(|size| size as usize)
+            .or_else(|| {
+                vectors
+                    .as_object()?
+                    .values()
+                    .find_map(|vector| vector.get("size").and_then(Value::as_u64))
+                    .map(|size| size as usize)
+            })
+    }
     fn status_failure(status: reqwest::StatusCode) -> Failure<QueryError> {
         if status.as_u16() == 429 || status.is_server_error() {
             Failure::Transient(QueryError::VectorStore)
@@ -129,9 +317,10 @@ impl QdrantStore {
         method: Method,
         url: Url,
         body: Option<&Value>,
+        operation: &'static str,
         interactive: bool,
     ) -> Result<Value> {
-        self.resilience
+        match self.resilience
             .execute(&self.policy(), self.timeout, interactive, |timeout| {
                 let mut request = self
                     .client
@@ -144,19 +333,62 @@ impl QdrantStore {
                     request = request.json(body);
                 }
                 async move {
-                    let response = request.send().await.map_err(Self::transport_failure)?;
+                    let response = request.send().await.map_err(|error| {
+                        tracing::warn!(
+                            target: "ai_platform_knowledge::qdrant",
+                            operation,
+                            error_class = Self::transport_error_class(&error),
+                            "Qdrant request transport failed"
+                        );
+                        Self::transport_failure(error)
+                    })?;
                     if !response.status().is_success() {
-                        return Err(Self::status_failure(response.status()));
+                        let status = response.status();
+                        let error_body = response.json::<Value>().await.unwrap_or(Value::Null);
+                        tracing::warn!(
+                            target: "ai_platform_knowledge::qdrant",
+                            operation,
+                            http_status = status.as_u16(),
+                            error_class = Self::qdrant_error_class(&error_body),
+                            "Qdrant request returned an error status"
+                        );
+                        return Err(Self::status_failure(status));
                     }
-                    let body: Value = response.json().await.map_err(Self::transport_failure)?;
+                    let body: Value = response.json().await.map_err(|error| {
+                        tracing::warn!(
+                            target: "ai_platform_knowledge::qdrant",
+                            operation,
+                            error_class = "invalid_response_json",
+                            "Qdrant response body was not valid JSON"
+                        );
+                        Self::transport_failure(error)
+                    })?;
                     if body["status"].as_str().is_some_and(|status| status != "ok") {
+                        tracing::warn!(
+                            target: "ai_platform_knowledge::qdrant",
+                            operation,
+                            http_status = 200,
+                            error_class = Self::qdrant_error_class(&body),
+                            "Qdrant response reported an error"
+                        );
                         return Err(Failure::Permanent(QueryError::VectorStore));
                     }
                     Ok(body["result"].clone())
                 }
             })
             .await
-            .map_err(|_| QueryError::VectorStore)
+        {
+            Ok(value) => Ok(value),
+            Err(failure) => {
+                tracing::warn!(
+                    target: "ai_platform_knowledge::qdrant",
+                    operation,
+                    failure_class = Self::resilience_failure_class(&failure),
+                    "Qdrant request was not completed"
+                );
+                Err(QueryError::VectorStore)
+            }
+        }
     }
     async fn call(
         &self,
@@ -196,11 +428,46 @@ impl QdrantStore {
         write: bool,
         interactive: bool,
     ) -> Result<Value> {
+        if let Some(grpc) = &self.grpc {
+            let method = &method;
+            let result = self
+                .resilience
+                .execute(
+                    &self.policy(),
+                    self.timeout,
+                    interactive,
+                    |timeout| async move {
+                        tokio::time::timeout(timeout, grpc.call(method, collection, suffix, body))
+                            .await
+                            .unwrap_or(Err(Failure::Timeout))
+                    },
+                )
+                .await;
+            return match result {
+                Ok(value) => Ok(value),
+                Err(failure) => {
+                    tracing::warn!(
+                        target: "ai_platform_knowledge::qdrant",
+                        operation = Self::operation_name(method, suffix),
+                        failure_class = Self::resilience_failure_class(&failure),
+                        "Qdrant gRPC request was not completed"
+                    );
+                    Err(QueryError::VectorStore)
+                }
+            };
+        }
         let mut url = self.url(collection, suffix)?;
         if write {
             url.query_pairs_mut().append_pair("wait", "true");
         }
-        self.request_json(method, url, body, interactive).await
+        self.request_json(
+            method.clone(),
+            url,
+            body,
+            Self::operation_name(&method, suffix),
+            interactive,
+        )
+        .await
     }
     pub(super) async fn delete_collection_scoped(&self, dataset: &Dataset) -> Result<()> {
         let deleted = self
@@ -218,6 +485,17 @@ impl QdrantStore {
     pub async fn collection_exists(&self, name: &str) -> Result<bool> {
         if name.is_empty() {
             return Ok(false);
+        }
+        if let Some(grpc) = &self.grpc {
+            return self
+                .resilience
+                .execute(&self.policy(), self.timeout, false, |timeout| async move {
+                    tokio::time::timeout(timeout, grpc.exists(name))
+                        .await
+                        .unwrap_or(Err(Failure::Timeout))
+                })
+                .await
+                .map_err(|_| QueryError::VectorStore);
         }
         let url = self.url(name, &[])?;
         self.resilience
@@ -505,11 +783,18 @@ impl QdrantStore {
         top_k: usize,
         request: &RetrieveRequest,
     ) -> Result<Vec<VectorHit>> {
-        self.require_collection_readable(dataset).await?;
+        let info = self.require_collection_readable(dataset).await?;
+        let collection_dimension = Self::collection_vector_dimension(&info);
         let body = json!({"query":vector,"limit":top_k,"filter":Self::filter(dataset,Some(request),true),"with_payload":true,"with_vector":false});
-        self.query(dataset, &body).await
+        self.query(dataset, &body, collection_dimension).await
     }
-    async fn query(&self, dataset: &Dataset, body: &Value) -> Result<Vec<VectorHit>> {
+    async fn query(
+        &self,
+        dataset: &Dataset,
+        body: &Value,
+        collection_dimension: Option<usize>,
+    ) -> Result<Vec<VectorHit>> {
+        let query_dimension = Self::dense_query_dimension(body);
         let result = self
             .call_interactive(
                 Method::POST,
@@ -518,8 +803,31 @@ impl QdrantStore {
                 Some(body),
                 false,
             )
-            .await?;
-        Self::hits(&result["points"])
+            .await
+            .map_err(|error| {
+                tracing::warn!(
+                    target: "ai_platform_knowledge::qdrant",
+                    operation = "points_query",
+                    query_vector_dimension = ?query_dimension,
+                    dataset_embedding_dimension = ?dataset.embedding_dimension,
+                    collection_vector_dimension = ?collection_dimension,
+                    failure_class = "request_failed",
+                    "Qdrant vector query failed"
+                );
+                error
+            })?;
+        Self::hits(&result["points"]).map_err(|error| {
+            tracing::warn!(
+                target: "ai_platform_knowledge::qdrant",
+                operation = "points_query",
+                query_vector_dimension = ?query_dimension,
+                dataset_embedding_dimension = ?dataset.embedding_dimension,
+                collection_vector_dimension = ?collection_dimension,
+                failure_class = "invalid_points_result",
+                "Qdrant vector query response was not a valid points result"
+            );
+            error
+        })
     }
     fn hits(v: &Value) -> Result<Vec<VectorHit>> {
         v.as_array()
@@ -545,7 +853,8 @@ impl QdrantStore {
         top_k: usize,
         request: &RetrieveRequest,
     ) -> Result<Vec<VectorHit>> {
-        self.require_collection_readable(dataset).await?;
+        let info = self.require_collection_readable(dataset).await?;
+        let collection_dimension = Self::collection_vector_dimension(&info);
         let profile = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
         let (query, using) = if profile.active {
             self.verify_bm25_v2_readiness(dataset, &profile).await?;
@@ -557,7 +866,12 @@ impl QdrantStore {
             }
             (json!({"indices":i,"values":v}), "bm25")
         };
-        self.query(dataset,&json!({"query":query,"using":using,"limit":top_k,"filter":Self::filter(dataset,Some(request),true),"with_payload":true})).await
+        self.query(
+            dataset,
+            &json!({"query":query,"using":using,"limit":top_k,"filter":Self::filter(dataset,Some(request),true),"with_payload":true}),
+            collection_dimension,
+        )
+        .await
     }
     pub async fn hybrid_search_native(
         &self,
@@ -571,7 +885,8 @@ impl QdrantStore {
         weights: Option<(f64, f64)>,
         request: &RetrieveRequest,
     ) -> Result<Vec<VectorHit>> {
-        self.require_collection_readable(dataset).await?;
+        let info = self.require_collection_readable(dataset).await?;
+        let collection_dimension = Self::collection_vector_dimension(&info);
         let profile = super::lexical_v2::LexicalProfile::from_dataset(dataset)?;
         let (sparse, using) = if profile.active {
             self.verify_bm25_v2_readiness(dataset, &profile).await?;
@@ -585,7 +900,12 @@ impl QdrantStore {
         if let Some((d, b)) = weights {
             rrf["weights"] = json!([d, b]);
         }
-        self.query(dataset,&json!({"prefetch":[{"query":vector,"limit":dense_k,"filter":filter},{"query":sparse,"using":using,"limit":sparse_k,"filter":filter}],"query":{"rrf":rrf},"limit":top_k,"with_payload":true})).await
+        self.query(
+            dataset,
+            &json!({"prefetch":[{"query":vector,"limit":dense_k,"filter":filter},{"query":sparse,"using":using,"limit":sparse_k,"filter":filter}],"query":{"rrf":rrf},"limit":top_k,"with_payload":true}),
+            collection_dimension,
+        )
+        .await
     }
     pub async fn snapshot_points(&self, dataset: &Dataset, ids: &[String]) -> Result<Vec<Value>> {
         if ids.is_empty() {
@@ -921,14 +1241,16 @@ impl QdrantStore {
         dataset: &Dataset,
         profile: &super::lexical_v2::LexicalProfile,
     ) -> Result<Value> {
-        resilience::with_interactive_calls(async {
+        let result = resilience::with_interactive_calls(async {
             if !self.bm25_v2_enabled {
                 return Err(QueryError::Validation("bm25_v2 is disabled".into()));
             }
             let info = self.require_collection_readable(dataset).await?;
             super::lexical_v2::verify_active(self, dataset, profile, &info).await
         })
-        .await
+        .await;
+        super::pipeline_metrics::bm25_readiness(if result.is_ok() { "miss" } else { "failure" });
+        result
     }
 }
 pub fn id_string(v: &Value) -> Option<String> {
@@ -948,7 +1270,25 @@ impl QdrantStore {
             .map_err(|_| QueryError::VectorStore)?
             .pop_if_empty()
             .push("collections");
-        let data = self.request_json(Method::GET, url, None, false).await?;
+        let data = if let Some(grpc) = &self.grpc {
+            self.resilience
+                .execute(&self.policy(), self.timeout, false, |timeout| async move {
+                    tokio::time::timeout(timeout, grpc.list())
+                        .await
+                        .unwrap_or(Err(Failure::Timeout))
+                })
+                .await
+                .map_err(|_| QueryError::VectorStore)?
+        } else {
+            self.request_json(
+                Method::GET,
+                url,
+                None,
+                Self::operation_name(&Method::GET, &["collections"]),
+                false,
+            )
+            .await?
+        };
         data["collections"]
             .as_array()
             .ok_or(QueryError::VectorStore)?
@@ -1114,6 +1454,61 @@ impl QdrantStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod qdrant_error_class_tests {
+    use super::{QdrantStore, resilience::Failure};
+    use reqwest::Method;
+    use serde_json::json;
+
+    #[test]
+    fn qdrant_failure_diagnostics_are_bounded_and_never_echo_response_text() {
+        let dimension = json!({"status":{"error":"Wrong input: Vector dimension error: expected dim: 1024, got 1536"}});
+        assert_eq!(
+            QdrantStore::qdrant_error_class(&dimension),
+            "vector_dimension_mismatch"
+        );
+        let missing = json!({"status":{"error":"Collection `kb-private` not found"}});
+        assert_eq!(
+            QdrantStore::qdrant_error_class(&missing),
+            "collection_not_found"
+        );
+        let unknown = json!({"status":{"error":"detail containing an opaque token value"}});
+        assert_eq!(QdrantStore::qdrant_error_class(&unknown), "upstream_response_error");
+        assert_eq!(
+            QdrantStore::operation_name(&Method::POST, &["points", "query"]),
+            "points_query"
+        );
+        assert_eq!(
+            QdrantStore::operation_name(&Method::GET, &["collections"]),
+            "collections_list"
+        );
+        assert_eq!(
+            QdrantStore::dense_query_dimension(&json!({"query":[0.1,0.2,0.3]})),
+            Some(3)
+        );
+        assert_eq!(
+            QdrantStore::dense_query_dimension(
+                &json!({"prefetch":[{"query":[0.1,0.2]}],"query":{"rrf":{"k":60}}})
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            QdrantStore::dense_query_dimension(&json!({"query":{"indices":[1],"values":[0.5]}})),
+            None
+        );
+        let info = json!({"config":{"params":{"vectors":{"size":1024,"distance":"Cosine"}}}});
+        assert_eq!(QdrantStore::collection_vector_dimension(&info), Some(1024));
+        assert_eq!(
+            QdrantStore::resilience_failure_class(&Failure::<()>::Deadline),
+            "interactive_deadline"
+        );
+        assert_eq!(
+            QdrantStore::resilience_failure_class(&Failure::<()>::CircuitOpen),
+            "circuit_open"
+        );
+    }
+}
 impl QdrantStore {
     pub async fn document_point_ids_by_collection(
         &self,
@@ -1207,7 +1602,8 @@ impl QdrantStore {
         documents: &[String],
         threshold: Option<f64>,
     ) -> Result<Vec<VectorHit>> {
-        self.require_collection_readable(dataset).await?;
+        let info = self.require_collection_readable(dataset).await?;
+        let collection_dimension = Self::collection_vector_dimension(&info);
         let mut filter = Self::filter(dataset, None, true);
         if !documents.is_empty() {
             filter["must"]
@@ -1219,7 +1615,7 @@ impl QdrantStore {
         if let Some(t) = threshold {
             body["score_threshold"] = json!(t)
         }
-        self.query(dataset, &body).await
+        self.query(dataset, &body, collection_dimension).await
     }
 }
 impl QdrantStore {

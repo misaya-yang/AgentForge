@@ -1,10 +1,19 @@
-# Canonical successors: one inactive018–020 source chain
+# Canonical successors: measured native018–020 chain
 
-Status: **source preparation only**. The main canonical authority remains017;
-current startup ceilings and default memory queue are unchanged. No database,
-permission, service, migration discovery, fingerprint or durable-mode activation
-is authorized by this document. Proposed numbering requires root's allocation
-review before admission. The machine carrier is `canonical-schema-successors.json`.
+Status: **activated source chain, local application acceptance in progress**.
+The owner authorized local database/provider/browser testing. The sole project
+PostgreSQL16 environment supplied actual per-epoch measurements, a fresh full020
+installation, no-op replay and five actual-login role matrices, including23
+Knowledge requeue/FK cases. The original baseline and001–017 bytes are unchanged.
+The measured references and `SUCCESSOR_ACTIVATION.json` now accompany manifest020.
+The main local database upgrade and current-source application startup follow
+through the normal native authority. Production deployment is not claimed.
+
+`canonical-schema-successors.json` remains the immutable historical source plan;
+its `inactive_source_candidate` fields describe the reviewed proposal, not current
+activation. The package-pinned activation/measurement receipts record the later
+admission. The steps below preserve the original review sequence. Memory remains
+the default queue; durable task-mode acceptance is separate.
 
 ## Minimal integration order
 
@@ -25,8 +34,8 @@ review before admission. The machine carrier is `canonical-schema-successors.jso
    lines, copy017's changed fingerprints or execute proposal SQL ad hoc.
 4. Run the prepared actual-login probe and the additional acceptance gates below.
    Only then integrate the separately reviewed authority/application activation
-   patch and measured references as one matching candidate. Generate the Python
-   identity from that exact manifest; native admission embeds the same carrier.
+   patch and measured references as one matching candidate. Native application
+   admission embeds that exact manifest and baseline carrier.
    Build/typecheck and execute actual startup failures before rollout.
 5. Keep memory as default. Durable activation is a separate, explicitly approved
    coordinated cutover after its own real Redis/claim/cancel/crash/HTTP gates.
@@ -46,7 +55,9 @@ temporary schema cannot implicitly precede catalog type lookup. Relation names
 remain qualified. The script's source-body MD5 comparison is derived from known
 SQL bytes; it is not a measured database fingerprint. Descriptors and full SQL
 SHA256 values bind the candidate; PostgreSQL parsing and postconditions remain
-unverified until actually run. All new references are intentionally absent.
+verified by the retained PostgreSQL measurement and actual-role evidence. The
+three new verification references are now present; their raw measurements and
+exact ACLv1 delta derivation remain available for review.
 
 The confirmed blocker019 addresses is the exact production Knowledge requeue
 UPDATE failing SQLSTATE42501 in `kb_document_progress_events` under the worker's
@@ -133,3 +144,51 @@ injection, exact native ledger transaction execution, multi-connection claim and
 cancellation races, Redis logout/reset/expiry, process-kill/unknown-outcome behavior,
 current authenticated HTTP and Runtime/Worker/provider acceptance. Current socket
 and ptrace restrictions remain respected; no alternate listener route is attempted.
+
+## Next source extension: 020 -> 021 (inactive)
+
+The active manifest and package lock remain the measured, pinned epoch-20 chain.
+The single proposed 021 SQL file and plan live under `docs/design/`; the SQL SHA256
+is `b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1`; the reviewed
+plan SHA256 is `6cae292ce4ebc08e975018a5d33a5ce6814f70a4ab266fa97084d396aa12896d`. The
+plan binds the exact approved-20 package lock, epoch manifest, and historic 020 receipts.
+Its measurement path verifies the current database's complete 1-20 ledger prefix,
+applies only 021, records one four-fingerprint reference with the exact existing
+ACL-v1 delta proof, then verifies and replays 1-21 as a no-op. A successful
+measurement stays in an external preview until the owner reviews it.
+
+Preparation, measurement, and independent re-verification use the same native
+authority binaries and explicit isolated-database approval flag. Set
+`CARGO_TARGET_DIR` to an external build directory and `CARGO_BUILD_JOBS=1` as
+required by the harness. Example paths and database name:
+
+```
+REPO=/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform
+PREVIEW=/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/021-candidate-preview-20261016
+ACTIVATION_BUNDLE=/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/021-activation-bundle-20261016
+DATABASE=schema_successor_verify_knowledge20261016
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin check-successor-proposals -- --root "$REPO" --next-successor-021 --preview-output "$PREVIEW"
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin measure-schema-successors --next-successor-021 --source-root "$REPO" --preview-root "$PREVIEW" --expected-database "$DATABASE" --run-approved-isolated-measurements
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin check-successor-proposals -- --root "$REPO" --next-successor-021 --preview-root "$PREVIEW" --measured
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin check-successor-proposals -- --root "$REPO" --next-successor-021 --preview-root "$PREVIEW" --measured --activation-bundle-output "$ACTIVATION_BUNDLE"
+```
+
+Focused offline filters:
+
+```
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --lib next_successor::tests::current_source_is_exact_020_or_fully_verified_021
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --lib next_successor::tests::measurement_adds_only_the_021_reference_and_receipt
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --lib measure_next_successor::tests::exact_prefix_requires_every_checksum_in_sequence
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --lib application_guard::tests::compiled_021_requires_knowledge_worker_at_exactly_021
+```
+
+The activation bundle contains a proposed 021 activation receipt and the
+corresponding updated package lock plus its SHA pin. It is external review
+material and does not alter the canonical source. After review, activation is a
+separate source change: install the measured 021 SQL, reference, measurement
+receipt, activation receipt, and package lock; update its compiled SHA pin;
+verify the full chain; then use the normal authority runner to upgrade the
+existing main database. The 018-020 SQL,
+verification references, measurement receipt, and activation receipt remain
+byte-for-byte historical evidence. Epoch-21 admission requires the Knowledge
+worker at exactly 21 and rejects every epoch beyond its compiled manifest.

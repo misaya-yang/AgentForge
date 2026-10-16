@@ -14,27 +14,7 @@ if [[ ! -f "$env_file" || ! -f "$bundle_path" || ! -f "$credential_file" ]]; the
 fi
 
 env_value() {
-    python3 - "$env_file" "$1" <<'PY'
-import ast
-import sys
-
-path, key = sys.argv[1:]
-for raw_line in open(path, encoding="utf-8"):
-    line = raw_line.strip()
-    if not line or line.startswith("#") or "=" not in line:
-        continue
-    candidate, value = line.split("=", 1)
-    if candidate.strip() != key:
-        continue
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        try:
-            value = ast.literal_eval(value)
-        except (SyntaxError, ValueError):
-            value = value[1:-1]
-    print(value)
-    break
-PY
+    platform-tools rollback-helper env-value "$env_file" "$1"
 }
 
 current_runtime_image="$(env_value AI_PLATFORM_AGENT_RUNTIME_IMAGE)"
@@ -47,21 +27,12 @@ current_worker_image="${current_worker_image:?AGENT_CAPABILITY_WORKER_IMAGE is r
 current_kernel_revision="${current_kernel_revision:?AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION is required}"
 postgres_user="${postgres_user:-postgres}"
 postgres_db="${postgres_db:-gateway}"
-rollback_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["git_commit"])' "$bundle_path")"
-rollback_compose_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["compose_file_sha256"])' "$bundle_path")"
-rollback_resolved_compose_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["resolved_compose_sha256"])' "$bundle_path")"
+rollback_commit="$(platform-tools json-get "$bundle_path" source.git_commit)"
+rollback_compose_sha="$(platform-tools json-get "$bundle_path" source.compose_file_sha256)"
+rollback_resolved_compose_sha="$(platform-tools json-get "$bundle_path" source.resolved_compose_sha256)"
 
 bundle_image_field() {
-    python3 - "$bundle_path" "$1" "$2" <<'PY'
-import json
-import sys
-
-path, service, field = sys.argv[1:]
-matches = [item for item in json.load(open(path, encoding="utf-8"))["images"] if item["service"] == service]
-if len(matches) != 1:
-    raise SystemExit(f"rollback bundle must contain exactly one image for {service}")
-print(matches[0][field])
-PY
+    platform-tools rollback-helper image-field "$bundle_path" "$1" "$2"
 }
 
 rollback_runtime_image="${ROLLBACK_RUNTIME_IMAGE:-$(bundle_image_field agent-runtime reference)}"
@@ -219,61 +190,7 @@ db_fingerprint() {
 }
 
 api_fingerprint() {
-    python3 - "$credential_file" <<'PY'
-import hashlib
-import json
-import sys
-import urllib.request
-
-opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-credentials = json.loads(open(sys.argv[1], encoding="utf-8").read())
-request = urllib.request.Request(
-    "http://127.0.0.1:8080/api/v1/auth/login",
-    data=json.dumps(credentials).encode(),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-with opener.open(request, timeout=30) as response:
-    login = json.load(response)
-token = login["access_token"]
-headers = {"Authorization": f"Bearer {token}"}
-request = urllib.request.Request(
-    "http://127.0.0.1:8080/api/v1/assistant/sessions?limit=50", headers=headers
-)
-with opener.open(request, timeout=30) as response:
-    payload = json.load(response)
-sessions = payload if isinstance(payload, list) else payload.get("sessions", [])
-session_ids = sorted((item.get("session_id") or item.get("id")) for item in sessions)
-history_digests = []
-history_count = 0
-for session_id in session_ids:
-    request = urllib.request.Request(
-        f"http://127.0.0.1:8080/api/v1/assistant/sessions/{session_id}/history?limit=500",
-        headers=headers,
-    )
-    with opener.open(request, timeout=30) as response:
-        history_payload = json.load(response)
-    history = (
-        history_payload
-        if isinstance(history_payload, list)
-        else history_payload.get("history", history_payload.get("messages", []))
-    )
-    canonical_history = json.dumps(history, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    history_count += len(history)
-    history_digests.append(f"{session_id}:{hashlib.sha256(canonical_history.encode()).hexdigest()}")
-
-result = {
-    "session_count": len(sessions),
-    "session_set_sha256": hashlib.sha256("\n".join(session_ids).encode()).hexdigest(),
-    "sample_session_sha256": None,
-    "history_count": history_count,
-    "history_sha256": hashlib.sha256("\n".join(history_digests).encode()).hexdigest(),
-}
-if sessions:
-    session_id = sessions[0].get("session_id") or sessions[0].get("id")
-    result["sample_session_sha256"] = hashlib.sha256(session_id.encode()).hexdigest()
-print(json.dumps(result, sort_keys=True, separators=(",", ":")))
-PY
+    platform-tools rollback-helper api-fingerprint "$credential_file"
 }
 
 restore_current() {
@@ -311,21 +228,15 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 git archive "$rollback_commit" docker-compose.yml | tar -x -C "$temp_root"
-python3 - "$compat_override" <<'PY'
-import pathlib
-import sys
-
-pathlib.Path(sys.argv[1]).write_text(
-    'services:\n'
-    '  knowledge-service:\n'
-    '    environment:\n'
-    '      GATEWAY_ASSISTANT_SHARED_SECRET: "${GATEWAY_ASSISTANT_SHARED_SECRET}"\n'
-    '  knowledge-worker:\n'
-    '    environment:\n'
-    '      GATEWAY_ASSISTANT_SHARED_SECRET: "${GATEWAY_ASSISTANT_SHARED_SECRET}"\n',
-    encoding='utf-8',
-)
-PY
+cat > "$compat_override" <<'YAML'
+services:
+  knowledge-service:
+    environment:
+      GATEWAY_ASSISTANT_SHARED_SECRET: "${GATEWAY_ASSISTANT_SHARED_SECRET}"
+  knowledge-worker:
+    environment:
+      GATEWAY_ASSISTANT_SHARED_SECRET: "${GATEWAY_ASSISTANT_SHARED_SECRET}"
+YAML
 actual_compose_sha="$(shasum -a 256 "$old_compose" | awk '{print $1}')"
 if [[ "$actual_compose_sha" != "$rollback_compose_sha" ]]; then
     echo "ERROR: rollback Compose does not match the frozen bundle" >&2
@@ -384,62 +295,9 @@ if docker container inspect ai-gateway-assistant-service >/dev/null 2>&1; then
 fi
 
 mkdir -p "$(dirname "$report_path")"
-python3 - "$report_path" "$rollback_commit" "$rollback_runtime_image" \
+platform-tools rollback-helper report "$report_path" "$rollback_commit" "$rollback_runtime_image" \
     "$rollback_assistant_image" "$current_runtime_image" "$current_worker_image" \
-    "$before_db" "$old_db" "$after_db" "$before_api" "$old_api" "$after_api" <<'PY'
-import datetime
-import json
-import pathlib
-import sys
-
-(
-    report_path,
-    rollback_commit,
-    rollback_runtime,
-    rollback_assistant,
-    current_runtime,
-    current_worker,
-    before_db,
-    old_db,
-    after_db,
-    before_api,
-    old_api,
-    after_api,
-) = sys.argv[1:]
-payload = {
-    "schema_version": "agent-runtime-rollback-rehearsal/v1",
-    "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    "sequence": ["current_new", "frozen_old", "current_new"],
-    "rollback_commit": rollback_commit,
-    "images": {
-        "rollback_runtime": rollback_runtime,
-        "rollback_assistant": rollback_assistant,
-        "current_runtime": current_runtime,
-        "current_worker": current_worker,
-    },
-    "database": {
-        "before": json.loads(before_db),
-        "rollback": json.loads(old_db),
-        "restored": json.loads(after_db),
-        "preserved": before_db == old_db == after_db,
-    },
-    "api": {
-        "before": json.loads(before_api),
-        "rollback": json.loads(old_api),
-        "restored": json.loads(after_api),
-        "preserved": before_api == old_api == after_api,
-    },
-    "schema_downgrade": not (
-        json.loads(before_db)["migrations_digest"]
-        == json.loads(old_db)["migrations_digest"]
-        == json.loads(after_db)["migrations_digest"]
-    ),
-    "volumes_deleted": False,
-    "status": "pass",
-}
-path = pathlib.Path(report_path)
-path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-PY
+    "$before_db" "$old_db" "$after_db" "$before_api" "$old_api" "$after_api"
 
 echo "agent-runtime-rollback-rehearsal: PASS"
 echo "report=$report_path"

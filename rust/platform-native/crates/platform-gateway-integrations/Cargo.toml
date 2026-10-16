@@ -15,9 +15,9 @@ tokio.workspace = true
 sha2 = "0.10"
 hmac = "0.12"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
-redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
+redis.workspace = true
 futures-util = { version = "0.3", features = ["sink"] }
-tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite.workspace = true
 base64 = "0.22"
 regex = "1"
 jsonwebtoken = "9.3"
@@ -35,3 +35,7 @@ sha1 = "0.10"
 md-5 = "0.10"
 unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+
+qdrant-client = { version = "=1.19.0", default-features = false, features = ["serde"] }
+
+tracing = "0.1"

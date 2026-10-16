@@ -560,14 +560,7 @@ impl EvalScorer {
                         .zip(confidence)
                         .filter(|(n, c)| (0.0..=1.0).contains(n) && (0.0..=1.0).contains(c))
                     {
-                        let label = text(&parsed, "label").trim().to_lowercase();
-                        let label = if matches!(label.as_str(), "pass" | "fail" | "review") {
-                            label
-                        } else if numeric >= 0.7 {
-                            "pass".into()
-                        } else {
-                            "review".into()
-                        };
+                        let label = canonical_judge_label(&parsed, numeric);
                         let mut payload = base(evaluator, target, "quality", "llm");
                         payload["numeric_value"] = json!(numeric);
                         payload["label"] = json!(label);
@@ -922,29 +915,7 @@ impl EvalScorer {
                     } else {
                         for item in results {
                             let metric = text(item, "metric");
-                            let number = item["score"].as_f64().unwrap_or(0.0);
-                            let label = if item["label"] == "review" {
-                                "review"
-                            } else if number >= config["pass_threshold"].as_f64().unwrap_or(0.7) {
-                                "pass"
-                            } else {
-                                "fail"
-                            };
-                            let mut payload = base(evaluator, target, metric, "llm");
-                            payload["score_name"] = json!(metric);
-                            payload["score_source"] = json!("kb_ragas");
-                            payload["numeric_value"] = json!(rounded(number));
-                            payload["label"] = json!(label);
-                            payload["explanation"] =
-                                json!(truncate(text(item, "explanation"), 2000));
-                            payload["confidence"] =
-                                json!(if label == "review" { 0.0 } else { 0.7 });
-                            payload["metadata"] = json!({"metric":metric,"component":"kb_ragas","judge_model":item["judge_model"],"dataset_id":sample.dataset_id,"answer_source":sample.answer_source,"failure_kind":item["failure_kind"]});
-                            for k in ["target_id", "target_type"] {
-                                if target.get(k).is_some() {
-                                    payload[k] = target[k].clone();
-                                }
-                            }
+                            let payload = kb_metric_score(evaluator, target, item, &sample);
                             by_metric.insert(metric.into(), payload);
                         }
                     }
@@ -1040,4 +1011,53 @@ pub fn kb_ragas_sample(target: &Value, ground_truth: Option<&str>) -> Option<KbR
             .map(str::to_owned),
         dataset_id: metadata["dataset_id"].as_str().map(str::to_owned),
     })
+}
+
+/// Maps a validated KB metric result without discarding its failure classification.
+pub fn kb_metric_score(
+    evaluator: &Value,
+    target: &Value,
+    item: &Value,
+    sample: &KbRagasSample,
+) -> Value {
+    let metric = text(item, "metric");
+    let number = item["score"].as_f64().unwrap_or(0.0);
+    let label = if item["label"] == "review" {
+        "review"
+    } else if number
+        >= evaluator["filter_config"]["pass_threshold"]
+            .as_f64()
+            .unwrap_or(0.7)
+    {
+        "pass"
+    } else {
+        "fail"
+    };
+    let mut payload = base(evaluator, target, metric, "llm");
+    payload["score_name"] = json!(metric);
+    payload["score_source"] = json!("kb_ragas");
+    payload["numeric_value"] = json!(rounded(number));
+    payload["label"] = json!(label);
+    payload["explanation"] = json!(truncate(text(item, "explanation"), 2000));
+    payload["confidence"] = json!(if label == "review" { 0.0 } else { 0.7 });
+    payload["metadata"] = json!({"metric":metric,"component":"kb_ragas","judge_model":item["judge_model"],"dataset_id":sample.dataset_id,"answer_source":sample.answer_source,"failure_kind":item["failure_kind"]});
+    for k in ["target_id", "target_type"] {
+        if target.get(k).is_some() {
+            payload[k] = target[k].clone();
+        }
+    }
+
+    payload
+}
+
+/// Current source canonicalization; the historical excellent-label repro is fixed.
+pub fn canonical_judge_label(parsed: &Value, numeric: f64) -> String {
+    let label = text(parsed, "label").trim().to_lowercase();
+    if matches!(label.as_str(), "pass" | "fail" | "review") {
+        label
+    } else if numeric >= 0.7 {
+        "pass".into()
+    } else {
+        "review".into()
+    }
 }

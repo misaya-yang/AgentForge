@@ -1,0 +1,48 @@
+{
+  "action": {
+    "action_id": "action_id",
+    "idempotency_key": "idempotency_key",
+    "tenant_id": "tenant_id",
+    "user_id": "user_id",
+    "session_id": "session_id",
+    "run_id": "run_id",
+    "agent_id": "agent_id",
+    "agent_version": "agent_version",
+    "call_id": "call_id",
+    "device_id": "device_id",
+    "capability": "capability",
+    "tool_name": "tool_name",
+    "operation": "operation",
+    "capability_lease_id": "capability_lease_id",
+    "target_snapshot_digest": "target_snapshot_digest",
+    "policy_snapshot_digest": "policy_snapshot_digest",
+    "nonce": "nonce",
+    "platform_key_id": "platform_key_id",
+    "envelope_version": 1,
+    "resource_refs": [
+      "grant-α",
+      "文档.txt"
+    ],
+    "arguments_digest": "578c8d51db82c923fe2a00b69b6973f56dfd078a9ed57e279dbdcf3586bcb11a",
+    "issued_at": 2000000000.0,
+    "expires_at": 2000000060.0,
+    "platform_signature": "test-only",
+    "approval": null,
+    "trace_context": {
+      "traceparent": "test"
+    }
+  },
+  "arguments": {
+    "grant_id": "grant-α",
+    "path": "文档.txt",
+    "sample": [
+      1e-07,
+      1e+20,
+      -0.0,
+      0.0001
+    ]
+  },
+  "canonical_signed_payload": "{\"action_id\":\"action_id\",\"agent_id\":\"agent_id\",\"agent_version\":\"agent_version\",\"approval\":null,\"arguments_digest\":\"578c8d51db82c923fe2a00b69b6973f56dfd078a9ed57e279dbdcf3586bcb11a\",\"call_id\":\"call_id\",\"capability\":\"capability\",\"capability_lease_id\":\"capability_lease_id\",\"device_id\":\"device_id\",\"envelope_version\":1,\"expires_at\":2000000060.0,\"idempotency_key\":\"idempotency_key\",\"issued_at\":2000000000.0,\"nonce\":\"nonce\",\"operation\":\"operation\",\"platform_key_id\":\"platform_key_id\",\"policy_snapshot_digest\":\"policy_snapshot_digest\",\"resource_refs\":[\"grant-α\",\"文档.txt\"],\"resource_refs_digest\":\"6b4fe6a2ccb16df2062d5cf172b444a3413205adf349c2ceae5f4540423cea91\",\"run_id\":\"run_id\",\"session_id\":\"session_id\",\"target_snapshot_digest\":\"target_snapshot_digest\",\"tenant_id\":\"tenant_id\",\"tool_name\":\"tool_name\",\"user_id\":\"user_id\"}",
+  "envelope_digest": "8cbf9f111c6d7cd16695ac43ac377265caca934feabb5f3e614151cfa528baa6",
+  "arguments_digest": "578c8d51db82c923fe2a00b69b6973f56dfd078a9ed57e279dbdcf3586bcb11a"
+}

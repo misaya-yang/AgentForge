@@ -5,8 +5,8 @@
       "tier": "L2",
       "required_env": ["DATABASE_URL"],
       "steps": [
-        {"id": "authority-verify", "command": ["python3", "-m", "database.authority", "verify"]},
-        {"id": "authority-fingerprint", "command": ["python3", "-m", "database.authority", "fingerprint"]},
+        {"id": "authority-verify", "command": ["database-authority", "verify"]},
+        {"id": "authority-fingerprint", "command": ["database-authority", "fingerprint"]},
         {"id": "migration-matrix", "command": ["make", "kb-migration-gate"]}
       ]
     },
@@ -43,13 +43,13 @@
           ["make", "quickstart"],
           ["make", "validate"],
           ["make", "status"],
-          ["python3", "-m", "scripts.release.version_agreement_gate"]
+          ["platform-release", "version-agreement"]
         ]
       },
       "steps": [
-        {"id": "authority-init-fresh", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "init-fresh"]},
-        {"id": "authority-verify", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "verify"]},
-        {"id": "authority-fingerprint", "command": ["uv", "run", "--extra", "database", "python", "-m", "database.authority", "fingerprint"]}
+        {"id": "authority-init-fresh", "command": ["database-authority", "init-fresh"]},
+        {"id": "authority-verify", "command": ["database-authority", "verify"]},
+        {"id": "authority-fingerprint", "command": ["database-authority", "fingerprint"]}
       ]
     },
     "rollback": {
@@ -69,7 +69,7 @@
         "AI_PLATFORM_VERSION_CONTAINERS"
       ],
       "steps": [
-        {"id": "live-service-versions", "command": ["python3", "-m", "scripts.release.version_agreement_gate"]}
+        {"id": "live-service-versions", "command": ["platform-release", "version-agreement"]}
       ]
     },
     "all": {

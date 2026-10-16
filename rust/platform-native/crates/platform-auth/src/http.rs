@@ -21,10 +21,36 @@ use std::{
 struct HttpState {
     service: Arc<AuthService>,
     configured_roles: Arc<BTreeMap<String, Vec<String>>>,
+    introspection: Option<Arc<dyn CredentialIntrospectionResolver>>,
 }
 pub fn router(
     service: Arc<AuthService>,
     configured_roles: BTreeMap<String, Vec<String>>,
+) -> Router {
+    build_router(service, configured_roles, None)
+}
+/// Read-only credential metadata. This must never produce a request Principal.
+pub trait CredentialIntrospectionResolver: Send + Sync {
+    fn resolve<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<CurrentUserResponse, ServiceError>> + Send + 'a,
+        >,
+    >;
+}
+pub fn router_with_introspection(
+    service: Arc<AuthService>,
+    configured_roles: BTreeMap<String, Vec<String>>,
+    resolver: Arc<dyn CredentialIntrospectionResolver>,
+) -> Router {
+    build_router(service, configured_roles, Some(resolver))
+}
+fn build_router(
+    service: Arc<AuthService>,
+    configured_roles: BTreeMap<String, Vec<String>>,
+    introspection: Option<Arc<dyn CredentialIntrospectionResolver>>,
 ) -> Router {
     Router::new()
         .route(contract::LOGIN, post(login))
@@ -35,6 +61,7 @@ pub fn router(
         .layer(DefaultBodyLimit::max(contract::BODY_LIMIT))
         .with_state(HttpState {
             service,
+            introspection,
             configured_roles: Arc::new(configured_roles),
         })
 }
@@ -148,6 +175,12 @@ fn effective_permissions(
     result
 }
 async fn me(State(s): State<HttpState>, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
+    if let Some(resolver) = &s.introspection {
+        let mut response = resolver.resolve(&headers).await?;
+        response.effective_permissions =
+            effective_permissions(&response.permissions, &response.roles, &s.configured_roles);
+        return Ok(Json(json!(response)));
+    }
     let p = s.service.authenticate(bearer(&headers)?).await?;
     let effective = effective_permissions(
         &p.authority.permissions,
@@ -169,21 +202,12 @@ async fn me(State(s): State<HttpState>, headers: HeaderMap) -> Result<Json<Value
 }
 fn validated_projection(authority: crate::accounts::Authority) -> (Vec<String>, String) {
     let mut roles = authority.roles;
-    let tier = if roles.iter().any(|r| r == "admin") {
-        "admin".into()
-    } else if roles.iter().any(|r| r == "enterprise") {
-        "enterprise".into()
-    } else if roles.iter().any(|r| r == "premium" || r == "vip") {
-        "premium".into()
-    } else {
-        authority.tier
-    };
     for permission in authority.permissions {
         if !roles.contains(&permission) {
             roles.push(permission);
         }
     }
-    (roles, tier)
+    (roles, authority.tier)
 }
 async fn validate(State(s): State<HttpState>, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
     let p = s.service.authenticate(bearer(&headers)?).await?;
@@ -251,5 +275,17 @@ mod contract_tests {
             ),
             vec!["read", "tools:use", "write"]
         );
+    }
+
+    #[test]
+    fn current_role_does_not_promote_the_account_tier_in_validation() {
+        let (roles, tier) = validated_projection(crate::accounts::Authority {
+            roles: vec!["admin".into()],
+            tier: "normal".into(),
+            permissions: vec!["console:users:view".into()],
+        });
+
+        assert_eq!(roles, vec!["admin", "console:users:view"]);
+        assert_eq!(tier, "normal");
     }
 }

@@ -27,6 +27,7 @@ struct ProviderHealth {
 }
 #[derive(Clone)]
 pub struct Reranker {
+    pub dashscope_base_url: Option<String>,
     local_backend: Option<Arc<dyn LocalRerankBackend>>,
     client: Client,
     providers: Arc<BTreeMap<String, RerankProviderConfig>>,
@@ -38,6 +39,7 @@ pub struct Reranker {
 impl Reranker {
     pub fn new(client: Client, providers: BTreeMap<String, RerankProviderConfig>) -> Self {
         Self {
+            dashscope_base_url: None,
             local_backend: None,
             client,
             providers: Arc::new(providers),
@@ -68,13 +70,22 @@ impl Reranker {
                 "server-owned {p} rerank credentials are unavailable"
             ))
         })?;
-        if config.api_key.is_empty() || config.endpoint.is_empty() {
+        let endpoint = if p == "dashscope" {
+            resolve_dashscope_endpoint(
+                &model,
+                &config.endpoint,
+                self.dashscope_base_url.as_deref().unwrap_or(""),
+            )?
+        } else {
+            config.endpoint.clone()
+        };
+        if config.api_key.is_empty() || endpoint.is_empty() {
             return Err(QueryError::Validation(
                 "server-owned rerank endpoint and credentials are required".into(),
             ));
         }
         let schema = if config.request_schema == "auto" {
-            if config.endpoint.trim_end_matches('/').ends_with("/reranks") {
+            if endpoint.trim_end_matches('/').ends_with("/reranks") {
                 "flat"
             } else {
                 "legacy"
@@ -96,7 +107,7 @@ impl Reranker {
         }
         let profile = format!(
             "{}:{}:{}:{:x}",
-            config.endpoint.trim_end_matches('/').to_lowercase(),
+            endpoint.trim_end_matches('/').to_lowercase(),
             schema,
             config.instruct.as_deref().unwrap_or(""),
             Sha256::digest(config.api_key.as_bytes())
@@ -163,7 +174,7 @@ impl Reranker {
         }
         let response = match self
             .client
-            .post(&config.endpoint)
+            .post(&endpoint)
             .timeout(self.timeout)
             .bearer_auth(&config.api_key)
             .json(&payload)
@@ -461,5 +472,90 @@ impl Reranker {
             cache.pop_front();
         }
         Ok(result)
+    }
+}
+
+/// Source model-compatible regional DashScope endpoint resolution.
+pub fn resolve_dashscope_endpoint(model: &str, explicit: &str, general: &str) -> Result<String> {
+    let explicit = explicit.trim();
+    if !explicit.is_empty() {
+        return Ok(explicit.trim_end_matches('/').into());
+    }
+    let qwen3 = model.trim().eq_ignore_ascii_case("qwen3-rerank");
+    let mut host = general.trim().trim_end_matches('/').to_owned();
+    if host.is_empty() {
+        if qwen3 {
+            return Err(QueryError::Validation("qwen3-rerank requires DASHSCOPE_RERANK_BASE_URL or a regional DASHSCOPE_BASE_URL for its configured region".into()));
+        }
+        return Ok(
+            "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank".into(),
+        );
+    }
+    for suffix in [
+        "/compatible-mode/v1/chat/completions",
+        "/compatible-api/v1/reranks",
+        "/compatible-mode/v1/reranks",
+        "/compatible-mode/v1",
+        "/compatible-api/v1",
+        "/compatible-mode",
+        "/api/v1",
+    ] {
+        if host.ends_with(suffix) {
+            host.truncate(host.len() - suffix.len());
+            break;
+        }
+    }
+    if qwen3 {
+        if host.to_lowercase().contains(".maas.aliyuncs.com") {
+            return Ok(format!("{host}/compatible-api/v1/reranks"));
+        }
+        if !host.eq_ignore_ascii_case("https://dashscope-intl.aliyuncs.com") {
+            return Err(QueryError::Validation("qwen3-rerank requires the shared Singapore or a regional Model Studio workspace endpoint; set DASHSCOPE_RERANK_BASE_URL explicitly".into()));
+        }
+    }
+    Ok(format!(
+        "{host}/api/v1/services/rerank/text-rerank/text-rerank"
+    ))
+}
+#[cfg(test)]
+mod region_tests {
+    use super::*;
+    #[test]
+    fn qwen3_never_falls_back_to_china() {
+        assert!(resolve_dashscope_endpoint("qwen3-rerank", "", "").is_err());
+        assert!(
+            resolve_dashscope_endpoint(
+                "qwen3-rerank",
+                "",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            )
+            .is_err()
+        );
+        assert_eq!(
+            resolve_dashscope_endpoint(
+                "qwen3-rerank",
+                "",
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+            )
+            .unwrap(),
+            "https://dashscope-intl.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
+        );
+    }
+    #[test]
+    fn workspace_and_explicit_endpoints_remain_exact() {
+        assert_eq!(
+            resolve_dashscope_endpoint(
+                "qwen3-rerank",
+                "",
+                "https://workspace.maas.aliyuncs.com/compatible-mode/v1"
+            )
+            .unwrap(),
+            "https://workspace.maas.aliyuncs.com/compatible-api/v1/reranks"
+        );
+        assert_eq!(
+            resolve_dashscope_endpoint("qwen3-rerank", "https://chosen.invalid/rerank/", "")
+                .unwrap(),
+            "https://chosen.invalid/rerank"
+        );
     }
 }

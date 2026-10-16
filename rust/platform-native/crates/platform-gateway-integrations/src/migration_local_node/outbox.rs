@@ -151,6 +151,14 @@ impl ReceiptOutbox {
             .query_map([limit as i64], row)?
             .collect::<std::result::Result<Vec<_>, _>>()?)
     }
+    pub fn contains_event(&self, event_id: &str) -> Result<bool> {
+        let db = database::lock(&self.db)?;
+        Ok(db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM receipt_events WHERE event_id=?1)",
+            [event_id],
+            |row| row.get(0),
+        )?)
+    }
     pub fn acknowledge(&self, through: i64) -> Result<()> {
         let mut db = database::lock(&self.db)?;
         let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;

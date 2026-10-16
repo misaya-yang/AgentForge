@@ -266,22 +266,7 @@ impl EvaluatorExecutor {
         let reviews = labels.iter().filter(|v| v.as_str() == "review").count();
         let summary = json!({"average_score":average,"scored_count":scores.len(),"review_count":reviews,"target_count":targets.len(),"expected_count":expected,"resolved_count":targets.len(),"executed_count":targets.len(),"skipped_count":skipped,"evaluator_type":kind,"evaluator_name":evaluator["name"]});
         let metrics = json!({"targets":targets.len(),"scores_written":written,"pass_count":labels.iter().filter(|v|v.as_str()=="pass").count(),"review_count":reviews,"expected_count":expected,"resolved_count":targets.len(),"executed_count":targets.len(),"scored_count":scores.len(),"skipped_count":skipped});
-        let error = if infrastructure {
-            Some(
-                if kind == "ragas" {
-                    "KB RAGAS infrastructure failure requires retry"
-                } else {
-                    "Evaluator infrastructure failure requires retry"
-                }
-                .into(),
-            )
-        } else if skipped > 0 {
-            Some(format!(
-                "{skipped} evaluation target(s) had incomplete score persistence"
-            ))
-        } else {
-            None
-        };
+        let error = persisted_run_error(kind, infrastructure, skipped);
         let status = if error.is_some() {
             "failed"
         } else {
@@ -384,89 +369,16 @@ impl EvaluatorExecutor {
         Ok((targets, expected, unresolved))
     }
     pub async fn schedule_online(&self, job: &Value) -> Result<Value, CompatError> {
-        let tenant = text(job, "tenant_id");
-        let payload = &job["payload"];
-        let trace_id = text(payload, "trace_id").trim();
-        if trace_id.is_empty() {
-            return Ok(json!({"scheduled":0,"reason":"missing_trace_id"}));
-        }
-        let family = family(payload);
-        let detail = self
-            .traces
-            .with_outbox_claim(job)
-            .map_err(trace_error)?
-            .get_trace_detail(tenant, trace_id, None, family)
-            .await
-            .map_err(trace_error)?
-            .unwrap_or(json!({}));
-        let origin = [
-            text(payload, "eval_origin"),
-            text(&detail["trace"]["metadata"], "eval_origin"),
-            text(&detail["trace"], "user_id"),
-        ]
-        .into_iter()
-        .find(|v| !v.is_empty())
-        .unwrap_or("");
-        if matches!(
-            origin,
-            "candidate" | "judge" | "eval-candidate" | "eval-worker"
-        ) {
-            return Ok(
-                json!({"scheduled":0,"matched":0,"trace_id":trace_id,"reason":"internal_eval_trace"}),
-            );
-        }
-        let pending=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM eval_experiment_runs WHERE tenant_id=$1 AND status IN ('queued','running') AND target_snapshot->>'source'='online_sampling'").bind(tenant).fetch_one(&self.service.pool).await?;
-        if pending >= 200 {
-            return Ok(
-                json!({"scheduled":0,"matched":0,"trace_id":trace_id,"reason":"online_eval_queue_full","pending_online_runs":pending}),
-            );
-        }
-        let evaluators = sqlx::query_scalar::<_, Value>(
-            "SELECT to_jsonb(e) FROM eval_evaluators e WHERE tenant_id=$1 ORDER BY created_at DESC",
+        super::eval_online::schedule(
+            &ClaimedOnline {
+                executor: self,
+                job,
+            },
+            text(job, "tenant_id"),
+            &job["payload"],
+            Default::default(),
         )
-        .bind(tenant)
-        .fetch_all(&self.service.pool)
-        .await?;
-        let status = if text(payload, "status").is_empty() {
-            "succeeded".into()
-        } else {
-            text(payload, "status").trim().to_lowercase()
-        };
-        let (mut scheduled, mut matched) = (0, 0);
-        for evaluator in evaluators {
-            if !matches_online(&evaluator, family, &status) {
-                continue;
-            }
-            matched += 1;
-            let config = &evaluator["sampling_config"]["online"];
-            let rate = config
-                .get("rate")
-                .map(|v| {
-                    v.as_f64()
-                        .or_else(|| v.as_str().and_then(|v| v.parse().ok()))
-                        .unwrap_or(0.05)
-                })
-                .unwrap_or(0.05);
-            if !should_sample_trace_id(trace_id, rate) {
-                continue;
-            }
-            let id = text(&evaluator, "evaluator_id");
-            if id.is_empty() {
-                continue;
-            }
-            let active=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM eval_experiment_runs WHERE tenant_id=$1 AND evaluator_id=$2::text::uuid AND status IN ('queued','running') AND target_snapshot->>'trace_id'=$3)").bind(tenant).bind(id).bind(trace_id).fetch_one(&self.service.pool).await?;
-            let cap = config["max_pending_runs"]
-                .as_i64()
-                .filter(|n| *n != 0)
-                .unwrap_or(200)
-                .max(1);
-            if active || pending + scheduled >= cap {
-                continue;
-            }
-            self.service.enqueue_evaluator_run_claimed(&CompatUser{tenant_id:tenant.into(),user_id:"eval-online-sampler".into(),..Default::default()},&json!({"evaluator_id":id,"trace_id":trace_id,"target_snapshot":{"trace_id":trace_id,"trace_family":family,"source":"online_sampling","status":status,"source_adapter":payload["source_adapter"]},"metadata":{"online_sampling":true}}),Some(job)).await?;
-            scheduled += 1;
-        }
-        Ok(json!({"scheduled":scheduled,"matched":matched,"trace_id":trace_id}))
+        .await
     }
 }
 pub fn should_sample_trace_id(id: &str, rate: f64) -> bool {
@@ -484,21 +396,69 @@ pub fn should_sample_trace_id(id: &str, rate: f64) -> bool {
     };
     bucket < (rate.clamp(0.0, 1.0) * 10000.0) as u128
 }
-pub fn matches_online(evaluator: &Value, family: &str, status: &str) -> bool {
-    let config = &evaluator["sampling_config"]["online"];
-    if config["enabled"] != true || matches!(text(evaluator, "evaluator_type"), "" | "human") {
-        return false;
+pub use super::eval_online::matches_online;
+struct ClaimedOnline<'a> {
+    executor: &'a EvaluatorExecutor,
+    job: &'a Value,
+}
+impl super::eval_online::OnlineRepository for ClaimedOnline<'_> {
+    async fn detail(&self, tenant: &str, trace: &str, family: &str) -> Result<Value, CompatError> {
+        Ok(self
+            .executor
+            .traces
+            .with_outbox_claim(self.job)
+            .map_err(trace_error)?
+            .get_trace_detail(tenant, trace, None, family)
+            .await
+            .map_err(trace_error)?
+            .unwrap_or(json!({})))
     }
-    let families = array(&config["trace_families"]);
-    if !families.is_empty() && !families.iter().any(|v| v.as_str() == Some(family)) {
-        return false;
+    async fn pending(&self, tenant: &str) -> Result<i64, CompatError> {
+        Ok(sqlx::query_scalar("SELECT COUNT(*) FROM eval_experiment_runs WHERE tenant_id=$1 AND status IN ('queued','running') AND target_snapshot->>'source'='online_sampling'").bind(tenant).fetch_one(&self.executor.service.pool).await?)
     }
-    if config["only_failed"] == true
-        && !matches!(status, "failed" | "cancelled" | "timeout" | "error")
-    {
-        return false;
+    async fn evaluators(
+        &self,
+        tenant: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Value>, i64), CompatError> {
+        let total = sqlx::query_scalar("SELECT COUNT(*) FROM eval_evaluators WHERE tenant_id=$1")
+            .bind(tenant)
+            .fetch_one(&self.executor.service.pool)
+            .await?;
+        let page=sqlx::query_scalar("SELECT to_jsonb(e) FROM eval_evaluators e WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3").bind(tenant).bind(limit).bind(offset).fetch_all(&self.executor.service.pool).await?;
+        Ok((page, total))
     }
-    config["only_succeeded"] != true || status == "succeeded"
+    async fn active(
+        &self,
+        tenant: &str,
+        evaluator: &str,
+        trace: &str,
+    ) -> Result<bool, CompatError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM eval_experiment_runs WHERE tenant_id=$1 AND evaluator_id=$2::text::uuid AND status IN ('queued','running') AND target_snapshot->>'trace_id'=$3)").bind(tenant).bind(evaluator).bind(trace).fetch_one(&self.executor.service.pool).await?)
+    }
+    async fn enqueue(
+        &self,
+        tenant: &str,
+        evaluator: &str,
+        creator: &str,
+        mut payload: Value,
+    ) -> Result<(), CompatError> {
+        payload["evaluator_id"] = json!(evaluator);
+        self.executor
+            .service
+            .enqueue_evaluator_run_claimed(
+                &CompatUser {
+                    tenant_id: tenant.into(),
+                    user_id: creator.into(),
+                    ..Default::default()
+                },
+                &payload,
+                Some(self.job),
+            )
+            .await?;
+        Ok(())
+    }
 }
 
 pub struct EvalOutboxWorker {
@@ -648,54 +608,7 @@ impl EvalOutboxWorker {
         result
     }
     async fn execute(&self, job: &Value) -> Result<(), CompatError> {
-        let result = async {
-            match text(job, "job_type") {
-                "eval.evaluator.run" => {
-                    let result = self.executor.run_job(job).await?;
-                    if result.status == "failed" {
-                        return Err(CompatError::new(
-                            503,
-                            result
-                                .error_message
-                                .unwrap_or_else(|| "evaluator run failed".into()),
-                        ));
-                    }
-                }
-                "trace.ingested" => {
-                    self.executor.schedule_online(job).await?;
-                }
-                _ => {}
-            }
-            self.outbox.succeeded(job).await
-        }
-        .await;
-        if let Err(error) = result {
-            if is_lost(&error) {
-                return Err(error);
-            }
-            let attempts = job["attempts"].as_i64().unwrap_or(1) as i32;
-            let terminal = attempts >= self.max_attempts;
-            let run = text(&job["payload"], "run_id");
-            let code = "eval_job_failed:RuntimeError";
-            if text(job, "job_type") == "eval.evaluator.run" && !run.is_empty() {
-                self.executor
-                    .update_run(
-                        job,
-                        run,
-                        if terminal { "failed" } else { "queued" },
-                        None,
-                        None,
-                        Some(code),
-                        false,
-                        terminal,
-                    )
-                    .await?;
-            }
-            self.outbox
-                .failed(job, code, Some((5 * attempts).min(300)), self.max_attempts)
-                .await?;
-        }
-        Ok(())
+        super::eval_outbox_dispatch::execute(self, job, self.max_attempts).await
     }
 }
 fn is_lost(error: &CompatError) -> bool {
@@ -704,4 +617,58 @@ fn is_lost(error: &CompatError) -> bool {
             .detail
             .as_str()
             .is_some_and(|v| matches!(v, "eval_outbox_claim_lost" | "eval_outbox_lease_lost"))
+}
+
+impl super::eval_outbox_dispatch::Dispatch for EvalOutboxWorker {
+    async fn run(&self, job: &Value) -> Result<EvaluatorRunResult, CompatError> {
+        self.executor.run_job(job).await
+    }
+    async fn sample(&self, job: &Value) -> Result<(), CompatError> {
+        self.executor.schedule_online(job).await?;
+        Ok(())
+    }
+    async fn succeeded(&self, job: &Value) -> Result<(), CompatError> {
+        self.outbox.succeeded(job).await
+    }
+    async fn update(
+        &self,
+        job: &Value,
+        run: &str,
+        status: &str,
+        error: &str,
+        terminal: bool,
+    ) -> Result<(), CompatError> {
+        self.executor
+            .update_run(job, run, status, None, None, Some(error), false, terminal)
+            .await
+    }
+    async fn failed(
+        &self,
+        job: &Value,
+        error: &str,
+        delay: i32,
+        max: i32,
+    ) -> Result<(), CompatError> {
+        self.outbox.failed(job, error, Some(delay), max).await
+    }
+}
+
+/// Classifies persisted score outcomes; semantic review alone remains successful.
+pub fn persisted_run_error(kind: &str, infrastructure: bool, skipped: usize) -> Option<String> {
+    if infrastructure {
+        Some(
+            if kind == "ragas" {
+                "KB RAGAS infrastructure failure requires retry"
+            } else {
+                "Evaluator infrastructure failure requires retry"
+            }
+            .into(),
+        )
+    } else if skipped > 0 {
+        Some(format!(
+            "{skipped} evaluation target(s) had incomplete score persistence"
+        ))
+    } else {
+        None
+    }
 }

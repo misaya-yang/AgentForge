@@ -23,7 +23,9 @@ ExecutionGateway/device channel -> Local Node capability broker`. This package
 implements only the final device-side broker. It does not create a second
 planner or model loop.
 
-The current package is deliberately headless and dependency-free. It provides:
+The implementation is the headless Rust `ai-platform-local-node` crate in
+`rust/platform-native/crates/platform-local-node`. The retained Swift helper is
+in `apps/local-node/native/macos`. It provides:
 
 - loopback-only and outbound-only boundary validation;
 - one-time pairing challenges and an injectable OS secure-credential-store seam;
@@ -43,7 +45,7 @@ The current package is deliberately headless and dependency-free. It provides:
   claims platform-signed canonical actions, validates expiry/nonces/device scope,
   handles signed cancel/emergency-stop commands, and uploads an ordered
   digest-only receipt outbox;
-- a dependency-free `local-node doctor` command that never starts networking,
+- a non-starting `local-node doctor` command that never starts networking,
   reads credentials, or exposes a server/listener.
 
 It does **not** expose an HTTP listener, install a daemon, inherit shell
@@ -51,14 +53,14 @@ credentials, infer macOS Accessibility/Screen Recording permission, or select a
 native backend from the standalone CLI. A future packaged composition may wrap
 `LocalNodeRuntime`, but must preserve the boundary validators and action ledger.
 
-The concrete stdlib transport supports HTTPS with system CA/hostname
+The concrete native HTTPS transport supports HTTPS with system CA/hostname
 verification and refuses redirects. `wss://` is accepted by endpoint policy but
 remains unavailable until a WebSocket adapter is explicitly injected; there is
 no plaintext downgrade. Pairing requires an injected asymmetric device-proof
 signer and stores the opaque server credential only through an injected secure
-credential store. This source package intentionally ships neither a native
-Keychain adapter for those pairing/transport credentials nor a production
-asymmetric pairing signer, so standalone doctor output is `unavailable`. The
+credential store. The native library supplies an explicitly constructed macOS `MacKeychainStore`,
+but does not automatically compose it with a production asymmetric pairing
+signer, so standalone doctor output remains `unavailable`. The
 separate approval-only Keychain signer does not satisfy those authorities. The
 insecure file store and HMAC signers used in tests cannot be selected implicitly
 in production.
@@ -69,16 +71,12 @@ Run the non-starting diagnostic (exit status `2` means unavailable):
 local-node doctor --endpoint https://control.example.test/local-node
 ```
 
-There is currently **no native macOS Keychain (or equivalent) adapter for
-`DeviceIdentity` or the opaque outbound transport credential in this package**.
-The separate Keychain-backed trusted-local approval signer cannot be reused as
-pairing or transport authority. `DeviceIdentity.load_or_create(...)` therefore reports secure
-credential storage unavailable and pairing remains disabled unless a trusted
-packaged companion explicitly injects a real `SecureCredentialStore`. The only
-file-backed implementation is named `TestOnlyInsecureFileCredentialStore`; it
-must be explicitly selected by tests, reports `test_only_insecure`, and is never
-a production fallback. Existing legacy JSON containing a plaintext `key` is
-rejected and must be re-paired through secure storage.
+The native `credentials::MacKeychainStore` implements `SecureCredentialStore`
+on macOS when explicitly injected by a trusted composition root. Missing
+storage has no plaintext fallback. Standalone diagnostics never open Keychain
+or pair a device. Approval signing, device identity and transport credentials
+remain separate authorities; a test-only HMAC signer cannot establish
+production pairing authority. Legacy plaintext identity material is rejected.
 
 `ActionContext` is data, not authority. Every executable action binds tenant,
 user, device, session, run, agent identity and version, envelope version, tool name, operation,
@@ -131,7 +129,7 @@ Rollback is the signed operation `file.rollback` beneath the canonical
 The signed tool name and operation prevent a generic write envelope from being
 reinterpreted as rollback (or vice versa).
 
-The dependency-free host runner cannot prove network isolation. Canonical
+The host process runner cannot prove network isolation. Canonical
 control-plane requests use `network_policy="deny"` or
 `network_policy="allow_granted_domains"`; both remain unavailable until an
 explicit network-enforcing process backend is injected. The test-only host path
@@ -151,11 +149,39 @@ The tmp-only local acceptance receipt is E2 only for real file and polling
 behavior. It does not prove a native directory picker, durable grant persistence,
 provider analysis, user-directory access, or browser/desktop Computer Use.
 
-Run focused tests from this directory:
+Run focused native tests from the repository root:
 
 ```bash
-python -m pytest -q
+cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-local-node
 ```
+
+The following acceptance commands are explicit operational runs, separate from
+unit tests. The first creates fresh temporary files, watcher events and real
+allowlisted processes. It emits a JSON receipt and retains the original
+test-only signer and no-real-WSS evidence boundaries.
+
+```bash
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml \
+  -p ai-platform-local-node --bin local_live_acceptance
+```
+
+On macOS, the second compiles the retained Swift helper with Xcode command-line
+tools, launches Calculator, requests a native exact-intent approval, clicks the
+observed 7 button and verifies the Accessibility readback. Before invoking it,
+review and grant the appropriate Accessibility and Screen Recording permissions
+in System Settings → Privacy & Security for the actual execution host. Permission
+denial remains a failed acceptance result; the runner does not bypass it. The
+run can access its dedicated approval Keychain item and writes a private
+screenshot beneath the explicitly selected report directory.
+
+```bash
+cargo run --locked --manifest-path rust/platform-native/Cargo.toml \
+  -p ai-platform-local-node --bin macos_computer_live_acceptance -- \
+  --report-dir /absolute/private/report-directory
+```
+
+Neither command is evidence until actually executed on its intended host.
+Linux compilation does not prove macOS permission, GUI or Keychain behavior.
 
 Outbound receipts have a separate 2 MiB canonical UTF-8 JSON result budget,
 including JSON escaping and metadata. A local read may admit up to 8 MiB but

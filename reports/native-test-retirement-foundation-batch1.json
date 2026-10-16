@@ -1,0 +1,221 @@
+{
+  "schema": "ai-platform/native-test-parity-batch/v1",
+  "entries": [
+    {
+      "legacy_source": "tests/core/auth/test_rbac.py",
+      "source_sha256": "c01882fab804e21ed595d4a5d9fcccbf1228cbbbf305a78104e22401a1e16c5b",
+      "source_cases": [
+        "test_single_role",
+        "test_multiple_roles_merged",
+        "test_unknown_role_ignored",
+        "test_empty_roles",
+        "test_exact_match",
+        "test_no_match",
+        "test_admin_wildcard_matches_anything",
+        "test_hierarchical_wildcard",
+        "test_direct_permission_in_roles_list",
+        "test_mixed_roles_and_permissions",
+        "test_allowed",
+        "test_denied_raises"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_auth",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_auth.rs",
+      "native_functions": [
+        "rbac_role_union_exact_hierarchical_direct_and_require_contracts"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/auth/test_permissions.py",
+      "source_sha256": "c3da5f451e8e4ba82d4dfbe796f1bf3850e9ed3d00dc7cbe474c6c7652bd364d",
+      "source_cases": [
+        "test_agent_invoke",
+        "test_service_list_read",
+        "test_service_config_write",
+        "test_all_canonical_permissions_are_seeded_by_migrations",
+        "test_includes_canonical_and_legacy",
+        "test_canonical_is_first",
+        "test_metrics_read_excludes_dashboard_view_alias",
+        "test_gateway_write_permissions_imply_matching_read",
+        "test_allowed_via_role",
+        "test_denied",
+        "test_allowed_via_legacy_alias",
+        "test_allowed_via_admin_wildcard",
+        "test_permissions_param_merged",
+        "test_metrics_read_denied_via_dashboard_view_role",
+        "test_allowed_returns_decision",
+        "test_denied_raises",
+        "test_structure",
+        "test_custom_message"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_auth",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_auth.rs",
+      "native_functions": [
+        "capabilities_alias_decision_denial_and_seed_contracts"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/auth/test_service_access.py",
+      "source_sha256": "bd32851eb4612e5142d4be622f664921f60128b97177626fcc93a37126b5f732",
+      "source_cases": [
+        "test_comma_separated",
+        "test_list",
+        "test_tuple",
+        "test_none",
+        "test_empty_string",
+        "test_deduplication",
+        "test_non_iterable",
+        "test_exact_match",
+        "test_no_match",
+        "test_global_wildcard",
+        "test_prefix_wildcard",
+        "test_prefix_wildcard_no_match",
+        "test_empty_scope_matches_all",
+        "test_empty_candidates_no_match",
+        "test_no_metadata",
+        "test_allowlist_auto_detected",
+        "test_explicit_mode",
+        "test_denied_services",
+        "test_all_mode_allows",
+        "test_denied_by_policy",
+        "test_allowlist_allows_matching",
+        "test_allowlist_denies_non_matching",
+        "test_empty_allowlist_denies",
+        "test_normalizes_and_dedupes",
+        "test_empty"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_auth",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_auth.rs",
+      "native_functions": [
+        "service_scope_normalization_matching_and_user_policy_matrix"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/test_client_ip.py",
+      "source_sha256": "2fb415308754cde1953af39cd680b5085a569d8f2f19355f2761836b14242058",
+      "source_cases": [
+        "test_untrusted_peer_cannot_spoof_x_forwarded_for",
+        "test_trusted_proxy_uses_rightmost_untrusted_forwarded_ip",
+        "test_trusted_proxy_can_use_x_real_ip_when_forwarded_for_missing",
+        "test_invalid_forwarded_values_fall_back_to_direct_peer"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_gateway",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_gateway.rs",
+      "native_functions": [
+        "forwarded_addresses_require_trusted_peer_and_skip_invalid_hops"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/gateway/test_circuit_breaker.py",
+      "source_sha256": "5f2ac2a17eb84bef3d21dd3d88420640acb012bd1aa69c8958ee43f6d4d22ac0",
+      "source_cases": [
+        "test_starts_closed",
+        "test_opens_after_threshold_failures",
+        "test_stays_closed_below_threshold",
+        "test_open_rejects_calls",
+        "test_half_open_after_timeout",
+        "test_closes_after_success_threshold_in_half_open",
+        "test_success_resets_failure_count_in_closed",
+        "test_excluded_exception_not_counted",
+        "test_non_excluded_exception_counted",
+        "test_successful_call",
+        "test_failed_call_propagates_exception",
+        "test_call_rejected_when_open"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_gateway",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_gateway.rs",
+      "native_functions": [
+        "circuit_breaker_state_threshold_clock_exclusion_and_call_contracts"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/gateway/test_validator.py",
+      "source_sha256": "b0059f55a4c1cf00da1721696a9392a74e97df587a71989b38848a37fa340265",
+      "source_cases": [
+        "test_missing_service_id",
+        "test_missing_inputs",
+        "test_valid_request_passes",
+        "test_item_with_data_passes",
+        "test_item_with_url_passes",
+        "test_item_without_data_or_url_fails",
+        "test_valid_schema_passes",
+        "test_invalid_data_fails",
+        "test_empty_schema_skipped",
+        "test_string_schema_handled_gracefully"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_gateway",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_gateway.rs",
+      "native_functions": [
+        "request_required_fields_content_presence_and_json_schema_contracts"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/security/test_skill_entrypoint_policy.py",
+      "source_sha256": "e67b0e25b22ed52ea7b7ecfc32ba69dcd46d1d1ad388a55b7f964268ed5106ba",
+      "source_cases": [
+        "test_tenant_upload_rejects_source_entrypoint_and_exec_aliases",
+        "test_platform_skill_name_cannot_be_overridden",
+        "test_valid_upload_normalizes_to_exact_non_executable_db_entrypoint",
+        "test_malformed_db_identity_fails_closed"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_security",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_security.rs",
+      "native_functions": [
+        "tenant_skill_rejects_executable_aliases_and_reserved_platform_names",
+        "tenant_instruction_execution_requires_exact_database_artifact_identity"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/config/test_settings_security.py",
+      "source_sha256": "c553e692a0920fa628ac09dd98e3e1de0343e232707299da23dd7301d20688c1",
+      "source_cases": [
+        "test_dsn_not_default_credentials",
+        "test_auto_init_disabled_by_default",
+        "test_jwt_secret_is_empty_by_default",
+        "test_jwt_disabled_by_default",
+        "test_redis_url_not_production_default",
+        "test_redis_disabled_by_default",
+        "test_api_key_no_default_keys",
+        "test_api_key_disabled_by_default",
+        "test_all_auth_disabled_by_default",
+        "test_database_disabled_by_default"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_security",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_security.rs",
+      "native_functions": [
+        "settings_defaults_do_not_enable_auth_storage_or_seed_credentials"
+      ],
+      "retirement_eligibility": "All inspected business assertions represented; conditional on root compiling and passing the target.",
+      "residual": "No business assertion omitted. Python private class/exception/tuple/mock mechanics use native typed results, JSON arrays, and instrumented closures.",
+      "execution": "Unrun; root serializes Cargo."
+    }
+  ]
+}

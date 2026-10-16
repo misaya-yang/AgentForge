@@ -1,9 +1,9 @@
 //! Public invoke/submit/stream route factories from `src/api/v1/`.
 //!
 //! No listener, provider adapter, task worker, or alternate execution loop is
-//! created here. JWT authentication reuses the current account/role authority
-//! and revocation checks used by the existing gateway. Other resolver modes
-//! (API keys, guest cookies, disabled authentication) remain explicitly pending.
+//! created here. Production injects the canonical current-account/API-key/guest
+//! resolver. Verified JWT principals remain distinct for durable task and SDK
+//! grants; resolved guest or key identities never manufacture session authority.
 //! The hosting application owns global body limits and tracing middleware.
 //! SSE is pull-driven: dropping the body cancels admission and drops its owned
 //! GatewayStream, whose existing Drop path owns producer/history/usage cleanup.
@@ -50,17 +50,57 @@ use std::{
 struct InvocationState {
     auth: Arc<AuthService>,
     dispatcher: Arc<GatewayDispatcher>,
+    identity: Option<Arc<dyn InvocationIdentityResolver>>,
+}
+
+/// Trusted canonical user context, never decoded from public request fields.
+pub struct InvocationIdentity {
+    pub user_id: String,
+    pub tenant_id: String,
+    pub roles: Vec<String>,
+    pub permissions: Vec<String>,
+    pub session_principal: Option<Principal>,
+    pub session_jwt_selected: bool,
+}
+pub type InvocationIdentityFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<InvocationIdentity, Box<Response>>> + Send + 'a>>;
+pub trait InvocationIdentityResolver: Send + Sync {
+    fn resolve<'a>(&'a self, headers: &'a HeaderMap, path: &'a str)
+    -> InvocationIdentityFuture<'a>;
+}
+impl InvocationIdentity {
+    fn from_session(principal: Principal) -> Self {
+        Self {
+            user_id: principal.account.user_id.clone(),
+            tenant_id: principal.account.tenant_id.clone(),
+            roles: principal.authority.roles.clone(),
+            permissions: principal.authority.permissions.clone(),
+            session_principal: Some(principal),
+            session_jwt_selected: true,
+        }
+    }
 }
 
 /// The caller must use socket ConnectInfo (when available); forwarded headers
 /// are intentionally ignored, matching these routes' `request.client.host`.
 /// Merging this factory does not start a listener or a task consumer.
 pub fn router(auth: Arc<AuthService>, dispatcher: Arc<GatewayDispatcher>) -> Router {
+    router_with_identity(auth, dispatcher, None)
+}
+pub fn router_with_identity(
+    auth: Arc<AuthService>,
+    dispatcher: Arc<GatewayDispatcher>,
+    identity: Option<Arc<dyn InvocationIdentityResolver>>,
+) -> Router {
     Router::new()
         .route(contract::INVOKE, post(invoke))
         .route(contract::SUBMIT, post(submit))
         .route(contract::STREAM, post(stream))
-        .with_state(InvocationState { auth, dispatcher })
+        .with_state(InvocationState {
+            auth,
+            dispatcher,
+            identity,
+        })
 }
 
 /// Public JSON inputs deliberately reject structured `data`. The internal
@@ -727,8 +767,54 @@ fn resolved_subjects(roles: &[String], permissions: &[String]) -> Vec<String> {
     subjects
 }
 
-fn authority(principal: &Principal) -> PreflightAuthority<'_> {
-    PreflightAuthority::from_session_principal(principal)
+fn authority(identity: &InvocationIdentity) -> PreflightAuthority<'_> {
+    match &identity.session_principal {
+        Some(principal) => PreflightAuthority::from_session_principal(principal),
+        None => PreflightAuthority::from_resolved_context(
+            &identity.user_id,
+            &identity.tenant_id,
+            &identity.roles,
+        ),
+    }
+}
+pub(crate) async fn resolve_identity(
+    auth: &AuthService,
+    resolver: Option<&dyn InvocationIdentityResolver>,
+    headers: &HeaderMap,
+    path: &str,
+) -> Result<InvocationIdentity, Box<Response>> {
+    if let Some(resolver) = resolver {
+        let mut identity = resolver.resolve(headers, path).await?;
+        identity.roles = resolved_subjects(&identity.roles, &identity.permissions);
+        // Session-only features require a fresh genuine JWT principal. Other
+        // canonical identities keep no session grant and cannot forge one.
+        if identity.session_jwt_selected {
+            identity.session_principal = Some(authenticate(auth, headers).await?);
+        }
+        Ok(identity)
+    } else {
+        Ok(InvocationIdentity::from_session(
+            authenticate(auth, headers).await?,
+        ))
+    }
+}
+async fn sdk_read_lease(
+    state: &InvocationState,
+    request: &UnifiedRequest,
+    identity: &InvocationIdentity,
+    headers: &HeaderMap,
+) -> Result<Option<crate::sdk_read_grants::SdkReadLease>, GatewayDispatchError> {
+    match &identity.session_principal {
+        Some(principal) => {
+            state
+                .dispatcher
+                .sdk_read_lease(request, principal, headers)
+                .await
+        }
+        // SDK adapters independently require activation of an issued grant;
+        // absent genuine session authority never mints a substitute token.
+        None => Ok(None),
+    }
 }
 
 /// Preserve the legacy GatewayError handler, including AuthenticationRequired's
@@ -738,7 +824,11 @@ fn authority(principal: &Principal) -> PreflightAuthority<'_> {
 pub fn gateway_error_response(error: &GatewayDispatchError, headers: &HeaderMap) -> Response {
     let status = match error {
         GatewayDispatchError::Task(TaskError::AdmissionUnconfirmed(task_id)) => {
-            return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":"task_admission_unconfirmed","task_id":task_id}))).into_response();
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":"task_admission_unconfirmed","task_id":task_id})),
+            )
+                .into_response();
         }
         GatewayDispatchError::Task(TaskError::DurableAuthorityRequired) => StatusCode::FORBIDDEN,
         GatewayDispatchError::Preflight(PreflightError::ServiceNotFound(_)) => {
@@ -780,7 +870,15 @@ pub fn gateway_error_response(error: &GatewayDispatchError, headers: &HeaderMap)
 async fn request_context(
     state: &InvocationState,
     request: Request,
-) -> Result<(UnifiedRequest, Principal, Option<String>, HeaderMap), Box<Response>> {
+) -> Result<
+    (
+        UnifiedRequest,
+        InvocationIdentity,
+        Option<String>,
+        HeaderMap,
+    ),
+    Box<Response>,
+> {
     let (parts, body) = request.into_parts();
     let peer = parts
         .extensions
@@ -804,7 +902,13 @@ async fn request_context(
     } else {
         Value::String(String::from_utf8_lossy(&bytes).into_owned())
     };
-    let principal = authenticate(&state.auth, &parts.headers).await?;
+    let principal = resolve_identity(
+        &state.auth,
+        state.identity.as_deref(),
+        &parts.headers,
+        parts.uri.path(),
+    )
+    .await?;
     if value.is_null() {
         return Err(RequestSchemaError(vec![issue(
             "missing",
@@ -816,7 +920,7 @@ async fn request_context(
         .into());
     }
     let schema = UnifiedRequestSchema::from_value(value).map_err(IntoResponse::into_response)?;
-    let request = schema.to_domain(&principal.account.user_id, &principal.account.tenant_id);
+    let request = schema.to_domain(&principal.user_id, &principal.tenant_id);
     Ok((request, principal, peer, parts.headers))
 }
 /// FastAPI exposes character offsets, whereas serde reports byte columns. EOF
@@ -846,16 +950,21 @@ impl Drop for CancelOnDrop {
     }
 }
 async fn invoke(State(state): State<InvocationState>, request: Request) -> Response {
+    let cancellation = request
+        .extensions()
+        .get::<crate::request_governance::RequestCancellation>()
+        .cloned()
+        .unwrap_or_default();
     let (request, principal, client_ip, headers) = match request_context(&state, request).await {
         Ok(context) => context,
         Err(response) => return *response,
     };
-    let sdk_read_lease = match state.dispatcher.sdk_read_lease(&request,&principal,&headers).await {
-        Ok(lease)=>lease, Err(error)=>return gateway_error_response(&error,&headers),
+    let sdk_read_lease = match sdk_read_lease(&state, &request, &principal, &headers).await {
+        Ok(lease) => lease,
+        Err(error) => return gateway_error_response(&error, &headers),
     };
-    let cancellation = AdmissionCancellation::default();
     let _guard = CancelOnDrop(cancellation.clone());
-    let _sdk_read_lease=sdk_read_lease;
+    let _sdk_read_lease = sdk_read_lease;
     match state
         .dispatcher
         .invoke(
@@ -891,6 +1000,11 @@ async fn submit(State(state): State<InvocationState>, request: Request) -> Respo
     }
 }
 async fn stream(State(state): State<InvocationState>, request: Request) -> Response {
+    let cancellation = request
+        .extensions()
+        .get::<crate::request_governance::RequestCancellation>()
+        .cloned()
+        .unwrap_or_default();
     let (mut request, principal, client_ip, headers) = match request_context(&state, request).await
     {
         Ok(context) => context,
@@ -922,10 +1036,10 @@ async fn stream(State(state): State<InvocationState>, request: Request) -> Respo
         Ok(header) => header,
         Err(_) => return internal_error(&headers),
     };
-    let sdk_read_lease = match state.dispatcher.sdk_read_lease(&request,&principal,&headers).await {
-        Ok(lease)=>lease, Err(error)=>return gateway_error_response(&error,&headers),
+    let sdk_read_lease = match sdk_read_lease(&state, &request, &principal, &headers).await {
+        Ok(lease) => lease,
+        Err(error) => return gateway_error_response(&error, &headers),
     };
-    let cancellation = AdmissionCancellation::default();
     let signal = cancellation.clone();
     // Opening occurs on first body poll, after the HTTP 200 headers. Python's
     // dispatcher is an async generator, so service/preflight/adapter errors must
@@ -978,7 +1092,7 @@ enum SseState {
     Done,
 }
 struct InvocationSse {
-    sdk_read_lease:Option<crate::sdk_read_grants::SdkReadLease>,
+    sdk_read_lease: Option<crate::sdk_read_grants::SdkReadLease>,
     state: SseState,
     cancellation: AdmissionCancellation,
 }
@@ -1015,7 +1129,9 @@ impl Stream for InvocationSse {
                 SseState::Reading(future) => match future.as_mut().poll(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready((stream, Ok(Some(chunk)))) => {
-                        if chunk.is_final {this.sdk_read_lease.take();}
+                        if chunk.is_final {
+                            this.sdk_read_lease.take();
+                        }
                         this.state = SseState::Ready(stream);
                         let payload =
                             serde_json::to_string(&StreamChunkSchema::from_domain(&chunk))
@@ -1031,7 +1147,10 @@ impl Stream for InvocationSse {
                         return Poll::Ready(Some(Ok(error_event(&error))));
                     }
                 },
-                SseState::Done => {this.sdk_read_lease.take(); return Poll::Ready(None)},
+                SseState::Done => {
+                    this.sdk_read_lease.take();
+                    return Poll::Ready(None);
+                }
             }
         }
     }
@@ -1045,4 +1164,3 @@ fn error_event(error: &GatewayDispatchError) -> Bytes {
     };
     Bytes::from(format!("event: error\ndata: {message}\n\n"))
 }
-

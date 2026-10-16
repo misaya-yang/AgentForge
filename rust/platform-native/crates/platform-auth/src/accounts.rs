@@ -46,6 +46,42 @@ pub enum AuditAction {
 pub struct PgAccounts {
     pub(crate) pool: PgPool,
 }
+
+fn project_authority(
+    legacy_roles: Vec<String>,
+    current_roles: Vec<String>,
+    tier: String,
+    role_permissions: Vec<String>,
+    role_fallback_permissions: Vec<String>,
+    legacy_permissions: Vec<String>,
+    legacy_role_permissions: Vec<String>,
+    direct_permissions: Vec<String>,
+    current_only: bool,
+) -> Authority {
+    let mut permissions = role_permissions;
+    if permissions.is_empty() {
+        permissions = role_fallback_permissions;
+    }
+    if permissions.is_empty() && !current_only {
+        permissions = legacy_permissions;
+        permissions.extend(legacy_role_permissions);
+    }
+    permissions.extend(direct_permissions);
+    Authority {
+        roles: if current_only {
+            current_roles
+        } else {
+            legacy_roles
+        },
+        tier,
+        permissions: permissions
+            .into_iter()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
+    }
+}
+
 impl PgAccounts {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -88,8 +124,35 @@ impl PgAccounts {
         .await
         .map_err(|_| StoreError::Unavailable)
     }
-    /// Preserve staged fallback, then union direct grants. Errors fail closed.
+    /// Resolve current request authority without falling back to denormalized
+    /// account fields that can retain removed or expired grants.
     pub async fn authority(&self, user: &str, tenant: &str) -> Result<Authority, StoreError> {
+        self.authority_with_mode(user, tenant, true).await
+    }
+    /// Named form for call sites where the live-authority boundary should be
+    /// explicit in the code.
+    pub async fn current_authority(
+        &self,
+        user: &str,
+        tenant: &str,
+    ) -> Result<Authority, StoreError> {
+        self.authority(user, tenant).await
+    }
+    /// Compatibility projection for login and read-only profile metadata.
+    /// Protected-route admission must use `authority`/`current_authority`.
+    pub async fn legacy_authority(
+        &self,
+        user: &str,
+        tenant: &str,
+    ) -> Result<Authority, StoreError> {
+        self.authority_with_mode(user, tenant, false).await
+    }
+    async fn authority_with_mode(
+        &self,
+        user: &str,
+        tenant: &str,
+        current_only: bool,
+    ) -> Result<Authority, StoreError> {
         let mut tx = self
             .pool
             .begin()
@@ -99,46 +162,65 @@ impl PgAccounts {
             .execute(&mut *tx)
             .await
             .map_err(|_| StoreError::Unavailable)?;
-        let authority = Self::authority_in(&mut tx, user, tenant).await?;
+        let authority = Self::authority_in_mode(&mut tx, user, tenant, current_only).await?;
         tx.commit().await.map_err(|_| StoreError::Unavailable)?;
         Ok(authority)
     }
-    pub(crate) async fn authority_in(
+    pub(crate) async fn current_authority_in(
         connection: &mut sqlx::PgConnection,
         user: &str,
         tenant: &str,
     ) -> Result<Authority, StoreError> {
-        let (roles,permissions,tier):(Vec<String>,Vec<String>,String)=sqlx::query_as("SELECT u.roles,u.permissions,u.tier FROM gateway.users u JOIN gateway.tenants t ON t.tenant_id=u.tenant_id WHERE u.user_id=$1 AND u.tenant_id=$2 AND u.status='active' AND t.status='active'")
+        Self::authority_in_mode(connection, user, tenant, true).await
+    }
+    async fn authority_in_mode(
+        connection: &mut sqlx::PgConnection,
+        user: &str,
+        tenant: &str,
+        current_only: bool,
+    ) -> Result<Authority, StoreError> {
+        let (legacy_roles,legacy_permissions,tier):(Vec<String>,Vec<String>,String)=sqlx::query_as("SELECT u.roles,u.permissions,u.tier FROM gateway.users u JOIN gateway.tenants t ON t.tenant_id=u.tenant_id WHERE u.user_id=$1 AND u.tenant_id=$2 AND u.status='active' AND t.status='active'")
             .bind(user).bind(tenant).fetch_optional(&mut *connection).await.map_err(|_|StoreError::Unavailable)?.ok_or(StoreError::Changed)?;
-        let mut values:Vec<String>=sqlx::query_scalar("SELECT DISTINCT rp.permission_code FROM gateway.user_roles ur JOIN gateway.role_permissions rp ON ur.role_name=rp.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())")
+        let current_roles: Vec<String> = sqlx::query_scalar("SELECT role_name FROM gateway.user_roles WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW()) ORDER BY granted_at")
             .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?;
-        if values.is_empty() {
-            values=sqlx::query_scalar("SELECT DISTINCT unnest(rr.permissions) FROM gateway.user_roles ur JOIN gateway.rbac_roles rr ON ur.role_name=rr.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())")
-                .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?;
-        }
-        if values.is_empty() {
-            values = permissions;
+        let role_permissions:Vec<String>=sqlx::query_scalar("SELECT DISTINCT rp.permission_code FROM gateway.user_roles ur JOIN gateway.role_permissions rp ON ur.role_name=rp.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())")
+            .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?;
+        let role_fallback_permissions: Vec<String> = if role_permissions.is_empty() {
+            sqlx::query_scalar("SELECT DISTINCT unnest(rr.permissions) FROM gateway.user_roles ur JOIN gateway.rbac_roles rr ON ur.role_name=rr.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())")
+                .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?
+        } else {
+            Vec::new()
+        };
+        let (legacy_role_permissions, direct_permissions) = if role_permissions.is_empty()
+            && role_fallback_permissions.is_empty()
+            && !current_only
+        {
             let rows: Vec<Vec<String>> = sqlx::query_scalar(
                 "SELECT permissions FROM gateway.rbac_roles WHERE role_name=ANY($1)",
             )
-            .bind(&roles)
+            .bind(&legacy_roles)
             .fetch_all(&mut *connection)
             .await
             .map_err(|_| StoreError::Unavailable)?;
-            values.extend(rows.into_iter().flatten());
-        }
-        let direct:Vec<String>=sqlx::query_scalar("SELECT permission_code FROM gateway.user_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW())")
+            let direct: Vec<String> = sqlx::query_scalar("SELECT permission_code FROM gateway.user_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW())")
             .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?;
-        values.extend(direct);
-        Ok(Authority {
-            roles,
+            (rows.into_iter().flatten().collect(), direct)
+        } else {
+            let direct: Vec<String> = sqlx::query_scalar("SELECT permission_code FROM gateway.user_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW())")
+                .bind(user).fetch_all(&mut *connection).await.map_err(|_|StoreError::Unavailable)?;
+            (Vec::new(), direct)
+        };
+        Ok(project_authority(
+            legacy_roles,
+            current_roles,
             tier,
-            permissions: values
-                .into_iter()
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-        })
+            role_permissions,
+            role_fallback_permissions,
+            legacy_permissions,
+            legacy_role_permissions,
+            direct_permissions,
+            current_only,
+        ))
     }
     /// A single row update atomically increments attempts and establishes the lock.
     /// The expected hash prevents racing a password reset with a stale verification.

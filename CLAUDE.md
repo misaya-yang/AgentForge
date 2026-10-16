@@ -29,8 +29,8 @@ Read them to understand behaviour; change them only when that is the task.
 ## Working preferences
 
 - Use plan mode for anything touching more than ~3 files or crossing a service boundary.
-- Prefer scoped test runs (`pytest -q --no-cov <paths>`) over the full suite; the full suite is long
-  and `--cov-fail-under=25` makes unscoped partial runs fail for the wrong reason.
+- Prefer the affected native package or test target (`cargo test --locked --manifest-path
+  rust/platform-native/Cargo.toml -p <package>`) over an unrelated full test suite.
 - Parallelize independent reads. Do not parallelize Docker actions — `COMPOSE_PARALLEL_LIMIT=1`
   exists because this stack is memory-tight.
 - Reach for `Explore`/`Task` subagents only when the user asks for them.

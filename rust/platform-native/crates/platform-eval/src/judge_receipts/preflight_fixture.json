@@ -1,0 +1,492 @@
+{
+  "contract": {
+    "scenarios": [
+      {
+        "domain": "research",
+        "expected_assertions": [
+          {
+            "assertion_id": "answer",
+            "expected": 42,
+            "kind": "json_equals"
+          }
+        ],
+        "prompt": "Return 42.",
+        "repetitions": 3,
+        "require_parallel": false,
+        "required_agent_ids": [],
+        "scenario_id": "fixture.test",
+        "source_artifacts": [
+          {
+            "artifact_id": "document",
+            "path": "source.txt",
+            "sha256": "97b38b2ebda1ca4cf4ea291005d97d07c7053db2aed3ef866c04b49ecfb3448d"
+          }
+        ]
+      }
+    ],
+    "schema_version": "real-agent-scenarios/v1",
+    "suite_id": "fixture-suite"
+  },
+  "expected_summary": {
+    "all_assertions_passed": true,
+    "all_execution_checks_passed": true,
+    "coding_host_tests_verified": null,
+    "collector_attestation_verified": true,
+    "execution_check_count": 11,
+    "external_suite_nonce_binding_verified": true,
+    "golden_assertion_count": 1,
+    "golden_attestation_verified": true,
+    "lifecycle": {
+      "allowed_parent_tools": [
+        "spawn_subagent"
+      ],
+      "attempt_id": "attempt-1",
+      "completed_subagents": 0,
+      "observed_profile_ids": [],
+      "parallel_overlap_observed": false,
+      "required_agent_ids": [],
+      "scenario_id": "fixture.test",
+      "terminal_count": 1,
+      "terminal_type": "run_finished",
+      "tool_result_count": 0,
+      "tool_side_effect_states": []
+    },
+    "passed": true,
+    "provenance_verified": true,
+    "provider_observer_binding_verified": true,
+    "raw_sse_artifact_binding_verified": true,
+    "runtime_binding_verified": true,
+    "validation_seal_strength": "hmac-sha256"
+  },
+  "receipt": {
+    "merged_receipt_sha256": "3a3d056223af71a0447ddc38423e3a2f08e70df652f66e8ddedfd9f4ef3115d7",
+    "provenance": {
+      "coding_host_test_evidence": null,
+      "collector_attestation": {
+        "algorithm": "hmac-sha256",
+        "digest": "7484b5dc74f5cc35faa3af873d460334f724fdf73de3d0e91674362b2d105c88",
+        "key_id": "cd93782b7fb95559de14f738"
+      },
+      "golden_attestation": {
+        "algorithm": "hmac-sha256",
+        "digest": "90f36e53f44db33e865627bc8fd40e930047b117f0f483a36c2d2aacb4d6cdce",
+        "key_id": "61a60d172f92e0ef051b8973"
+      },
+      "observations_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider_observer_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "raw_sse_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "runtime_binding_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scenario_contract_sha256": "e1bd17ecd57f1ba549f78a841e0ea477a4a3d2496f9af924570aa44503827afc",
+      "suite_nonce_sha256": "06dcb600d5beaa7a4dbbbbda6b1247b2dfd5a68cd16312bd588783332f3dc57b",
+      "validation_seal_strength": "hmac-sha256",
+      "validation_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "schema_version": "real-agent-validated-receipts/v1",
+    "suite_id": "fixture-suite",
+    "trials": [
+      {
+        "golden_validation": {
+          "answer_parse_error": null,
+          "assertions": [
+            {
+              "actual_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "assertion_id": "answer",
+              "expected_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "kind": "json_equals",
+              "passed": true,
+              "reason": "matched"
+            }
+          ],
+          "candidate_self_assessment_detected": false,
+          "execution_checks": [
+            {
+              "check_id": "delegation.canonical-task-object",
+              "observed_sha256": "2b376937c1c4d0af0349d77c56be5c6c866d275567ff6aa4c327b08b19643a02",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.exact-profile-lifecycle",
+              "observed_sha256": "c059a62a78c453f9f71df66ac0d6f585bca4bba91ee2a4ef09e01c5dae5a97f5",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.parallel-overlap",
+              "observed_sha256": "71d1d09034cbb3b713beb468362c763583094d6d089bf340cf13e05740c90b0a",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.task-prompts",
+              "observed_sha256": "baca3cf52307e1240c78932e13f49b13eca0b25640e8138203508b30545d95d3",
+              "passed": true
+            },
+            {
+              "check_id": "lifecycle.delegation-synthesis-order",
+              "observed_sha256": "3566cb393a793339ba71532f84d7bc8a2519ea4083bc1cdb31d5e73e9cb8d456",
+              "passed": true
+            },
+            {
+              "check_id": "prompt.digest-bound",
+              "observed_sha256": "c804c029b002547a76fdbab862d5851d4e598715824b6d6b683f01eee33c8a47",
+              "passed": true
+            },
+            {
+              "check_id": "terminal.current-attempt-success",
+              "observed_sha256": "4e3987dbe9bdd0b348151e386801d4911cd893de5e1d3ae9baae183491e928c2",
+              "passed": true
+            },
+            {
+              "check_id": "tools.delegation-call-observed",
+              "observed_sha256": "fcb95347c8adf5fa1c4cfbdb95a850bc13a8607a2a90ab2821c587d69c70ad10",
+              "passed": true
+            },
+            {
+              "check_id": "tools.no-extra-parent-side-effects",
+              "observed_sha256": "ccaa8606158c03613ccf447cf927591e3e0f647befb023b92f5f6cd634429459",
+              "passed": true
+            },
+            {
+              "check_id": "tools.spawn-aggregate-success",
+              "observed_sha256": "30260b704853adb622ee1e9c9ebba105da0ecb3a3ae178ca0188e62c49ff8e03",
+              "passed": true
+            },
+            {
+              "check_id": "tools.start-result-paired",
+              "observed_sha256": "73afb3aaf28a972b139579d19228ae4b9415c7b9fe2dd275ceb1f8acb3d6cd9c",
+              "passed": true
+            }
+          ],
+          "execution_checks_passed": true,
+          "golden_passed": true,
+          "observation_sha256": "1afcbcf459cf8a5b1ebee1a5a89af54665f6e38e2d1fe64689785bc905e06af0",
+          "scenario_id": "fixture.test",
+          "trial": 1,
+          "trial_accepted": true
+        },
+        "observation": {
+          "attempt_ids": [
+            "attempt-1"
+          ],
+          "candidate_output": "42",
+          "candidate_output_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+          "collector_challenge": "023212d1fd4f0a3ad03c45c52a40871f468abc416ec181f6eebfc3226cc4753c",
+          "event_counts": {
+            "run_finished": 1
+          },
+          "event_sequence": [
+            {
+              "event_type": "text_delta",
+              "ordinal": 1
+            },
+            {
+              "event_type": "run_finished",
+              "ordinal": 2
+            }
+          ],
+          "observation_sha256": "1afcbcf459cf8a5b1ebee1a5a89af54665f6e38e2d1fe64689785bc905e06af0",
+          "parallel_overlaps": [],
+          "prompt_sha256": "a5921e8995b550db8417c996abf24260195e4fdf7e0480441a33e3b26e23a063",
+          "scenario_id": "fixture.test",
+          "session_id": "session-1",
+          "stream_sha256": "29b48932e3b4af06690778f20598ed04d778e217b5e332fb95372e9558f5eaf3",
+          "subagent_finishes": [],
+          "subagent_starts": [],
+          "suite_nonce": "9999999999999999999999999999999999999999999999999999999999999999",
+          "terminal_events": [
+            {
+              "attempt_id": "attempt-1",
+              "event_type": "run_finished",
+              "ordinal": 2,
+              "run_id": "run-1",
+              "terminal_envelope": {
+                "attempt_id": "attempt-1",
+                "run_id": "run-1",
+                "status": "succeeded",
+                "tenant_id": "tenant-1"
+              }
+            }
+          ],
+          "text_events": [
+            {
+              "content_chars": 2,
+              "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "event_type": "text_delta",
+              "ordinal": 1
+            }
+          ],
+          "tool_results": [],
+          "tool_starts": [],
+          "trial": 1
+        }
+      },
+      {
+        "golden_validation": {
+          "answer_parse_error": null,
+          "assertions": [
+            {
+              "actual_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "assertion_id": "answer",
+              "expected_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "kind": "json_equals",
+              "passed": true,
+              "reason": "matched"
+            }
+          ],
+          "candidate_self_assessment_detected": false,
+          "execution_checks": [
+            {
+              "check_id": "delegation.canonical-task-object",
+              "observed_sha256": "5a7f8759502e8be2cb0cee348eeb57370561383e91138c88b97107124ae298c1",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.exact-profile-lifecycle",
+              "observed_sha256": "eb32413ccd2625ff4d7b195ffe34d82d22405b0df4f8734d07d578d97f25387e",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.parallel-overlap",
+              "observed_sha256": "e758a0066e2b137a7d7bc9953d98bec36cecdbaeb0d9ddc5e402badd74e41a92",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.task-prompts",
+              "observed_sha256": "72feea5186c15adaad47e1013a75a923f0adcf38f5e8f451772a865c06dad9c7",
+              "passed": true
+            },
+            {
+              "check_id": "lifecycle.delegation-synthesis-order",
+              "observed_sha256": "ca519aa33e72204f717b2fb958b93189b746d7904354f402553fb89832112a9a",
+              "passed": true
+            },
+            {
+              "check_id": "prompt.digest-bound",
+              "observed_sha256": "97858f9acdf645d982fae94b0d0eeb2d9a726502aa38a8c4533edffd002c72b2",
+              "passed": true
+            },
+            {
+              "check_id": "terminal.current-attempt-success",
+              "observed_sha256": "61aa0b4cfa1d5eb3573d4b71165c2c77e913d7aa6efc336c178749115dcf1239",
+              "passed": true
+            },
+            {
+              "check_id": "tools.delegation-call-observed",
+              "observed_sha256": "643e76837cb79bbf800df8a53827d4e3f82154fbf23c7eddaf38ee9b20f9b8e4",
+              "passed": true
+            },
+            {
+              "check_id": "tools.no-extra-parent-side-effects",
+              "observed_sha256": "7fe92a1d010391ed7df036601fb54b76dd359e30f1e49fb3dd6dadbdfa0885ef",
+              "passed": true
+            },
+            {
+              "check_id": "tools.spawn-aggregate-success",
+              "observed_sha256": "0a3b1f683ae7967a58d8c8829e905e95d03f142a19a53e543f3aab5c124a472b",
+              "passed": true
+            },
+            {
+              "check_id": "tools.start-result-paired",
+              "observed_sha256": "2ee3691b732b9d2d3fbf3ae8b654ae7b3f3c2ba9c77878215df2af4c1f14b015",
+              "passed": true
+            }
+          ],
+          "execution_checks_passed": true,
+          "golden_passed": true,
+          "observation_sha256": "3d87a91d84f70d7f3e723f5005710c26189cacda8b7bdefe4f56ca4a3fb0dc1f",
+          "scenario_id": "fixture.test",
+          "trial": 2,
+          "trial_accepted": true
+        },
+        "observation": {
+          "attempt_ids": [
+            "attempt-2"
+          ],
+          "candidate_output": "42",
+          "candidate_output_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+          "collector_challenge": "b16b36bff6d0baefb5cda5f800d778c852cb838fcdca8c35f2bc9214172ae3d1",
+          "event_counts": {
+            "run_finished": 1
+          },
+          "event_sequence": [
+            {
+              "event_type": "text_delta",
+              "ordinal": 1
+            },
+            {
+              "event_type": "run_finished",
+              "ordinal": 2
+            }
+          ],
+          "observation_sha256": "3d87a91d84f70d7f3e723f5005710c26189cacda8b7bdefe4f56ca4a3fb0dc1f",
+          "parallel_overlaps": [],
+          "prompt_sha256": "a5921e8995b550db8417c996abf24260195e4fdf7e0480441a33e3b26e23a063",
+          "scenario_id": "fixture.test",
+          "session_id": "session-2",
+          "stream_sha256": "1dc4fef329d7839285d2fcdaf896c3218178612c08a1e0c5a839cb1cf2617aaf",
+          "subagent_finishes": [],
+          "subagent_starts": [],
+          "suite_nonce": "9999999999999999999999999999999999999999999999999999999999999999",
+          "terminal_events": [
+            {
+              "attempt_id": "attempt-2",
+              "event_type": "run_finished",
+              "ordinal": 2,
+              "run_id": "run-2",
+              "terminal_envelope": {
+                "attempt_id": "attempt-2",
+                "run_id": "run-2",
+                "status": "succeeded",
+                "tenant_id": "tenant-1"
+              }
+            }
+          ],
+          "text_events": [
+            {
+              "content_chars": 2,
+              "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "event_type": "text_delta",
+              "ordinal": 1
+            }
+          ],
+          "tool_results": [],
+          "tool_starts": [],
+          "trial": 2
+        }
+      },
+      {
+        "golden_validation": {
+          "answer_parse_error": null,
+          "assertions": [
+            {
+              "actual_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "assertion_id": "answer",
+              "expected_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+              "kind": "json_equals",
+              "passed": true,
+              "reason": "matched"
+            }
+          ],
+          "candidate_self_assessment_detected": false,
+          "execution_checks": [
+            {
+              "check_id": "delegation.canonical-task-object",
+              "observed_sha256": "bd15bd34141e7754c0c0700b4770f0ab44053ad58884502fcc6b7edbd45d5530",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.exact-profile-lifecycle",
+              "observed_sha256": "43d2a0415e881bd587a195b2f4abffc29d9ffefba7269598c8fe8dd6a9d017be",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.parallel-overlap",
+              "observed_sha256": "c0c999ab876cc53a9fff4b91cdd713a3cc24f1a05a6780f2bc2cca4a7f690f21",
+              "passed": true
+            },
+            {
+              "check_id": "delegation.task-prompts",
+              "observed_sha256": "8cf56e84a7847ebd4a7e8811e948e828ee46775de83d6efa5fa991a2c53285ba",
+              "passed": true
+            },
+            {
+              "check_id": "lifecycle.delegation-synthesis-order",
+              "observed_sha256": "251e2131e3e2b89055bb96ec17e93de1a75459b0d1368444ad8f5c49dbac3faf",
+              "passed": true
+            },
+            {
+              "check_id": "prompt.digest-bound",
+              "observed_sha256": "1c1e7c5fa1f8886af64b6da8f9842c0a6549a0def4d6943e4d38138fa96f3275",
+              "passed": true
+            },
+            {
+              "check_id": "terminal.current-attempt-success",
+              "observed_sha256": "b8715d9f4c16cf150f36ebcbf1198de742982a3aafa5a81d155bf7d2ee078fe5",
+              "passed": true
+            },
+            {
+              "check_id": "tools.delegation-call-observed",
+              "observed_sha256": "d5cd07d39acd374614f7aaed1dd43cb29ec57e2519f03f9ed868fc7c398d3e78",
+              "passed": true
+            },
+            {
+              "check_id": "tools.no-extra-parent-side-effects",
+              "observed_sha256": "b3855f6743a928b1773fe4aa109b4f5925dec01fdb9d7cb5f6b5254a2514fada",
+              "passed": true
+            },
+            {
+              "check_id": "tools.spawn-aggregate-success",
+              "observed_sha256": "cfa702e2c6bcfda06296e064de3b273239d38b9f7e4138be1ae7643b1c468b32",
+              "passed": true
+            },
+            {
+              "check_id": "tools.start-result-paired",
+              "observed_sha256": "cf42f6cb971206734d964855a0728c9d6826bd057647c9485acb28c8b90291d3",
+              "passed": true
+            }
+          ],
+          "execution_checks_passed": true,
+          "golden_passed": true,
+          "observation_sha256": "2986b5a4bafa3bc85eeade48d47ba87a5907df840b3de90aaf330f2bc01b5eb7",
+          "scenario_id": "fixture.test",
+          "trial": 3,
+          "trial_accepted": true
+        },
+        "observation": {
+          "attempt_ids": [
+            "attempt-3"
+          ],
+          "candidate_output": "42",
+          "candidate_output_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+          "collector_challenge": "298006194a28d4e6a7d4a6b95733eb195f9fafe5a35146a34a777df63e1bd45e",
+          "event_counts": {
+            "run_finished": 1
+          },
+          "event_sequence": [
+            {
+              "event_type": "text_delta",
+              "ordinal": 1
+            },
+            {
+              "event_type": "run_finished",
+              "ordinal": 2
+            }
+          ],
+          "observation_sha256": "2986b5a4bafa3bc85eeade48d47ba87a5907df840b3de90aaf330f2bc01b5eb7",
+          "parallel_overlaps": [],
+          "prompt_sha256": "a5921e8995b550db8417c996abf24260195e4fdf7e0480441a33e3b26e23a063",
+          "scenario_id": "fixture.test",
+          "session_id": "session-3",
+          "stream_sha256": "75534f0beba07ff8130932a8f0e7b3a84464de0065c2da4f384f1c5a2c9d8db4",
+          "subagent_finishes": [],
+          "subagent_starts": [],
+          "suite_nonce": "9999999999999999999999999999999999999999999999999999999999999999",
+          "terminal_events": [
+            {
+              "attempt_id": "attempt-3",
+              "event_type": "run_finished",
+              "ordinal": 2,
+              "run_id": "run-3",
+              "terminal_envelope": {
+                "attempt_id": "attempt-3",
+                "run_id": "run-3",
+                "status": "succeeded",
+                "tenant_id": "tenant-1"
+              }
+            }
+          ],
+          "text_events": [
+            {
+              "content_chars": 2,
+              "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "event_type": "text_delta",
+              "ordinal": 1
+            }
+          ],
+          "tool_results": [],
+          "tool_starts": [],
+          "trial": 3
+        }
+      }
+    ]
+  },
+  "source_content": "The answer is 42."
+}

@@ -81,13 +81,13 @@ fi
 
 read -r -a COMPOSE_CMD <<< "$(get_compose_cmd)"
 TOPOLOGY_MODE="${AI_PLATFORM_TOPOLOGY_MODE:-full}"
-if ! python3 "$PROJECT_ROOT/scripts/deploy/topology_modes.py" --mode "$TOPOLOGY_MODE" >/dev/null; then
+if ! platform-tools topology --repo-root "$PROJECT_ROOT" --mode "$TOPOLOGY_MODE" >/dev/null; then
     log_error "Invalid AI_PLATFORM_TOPOLOGY_MODE=$TOPOLOGY_MODE"
     exit 2
 fi
-COMPOSE_FILES=(-f docker-compose.yml -f "docker-compose.${TOPOLOGY_MODE}.yml")
+COMPOSE_FILES=(-f docker-compose.yml -f "deploy/compose/docker-compose.${TOPOLOGY_MODE}.yml")
 if [ "$BUILD" = true ]; then
-    COMPOSE_FILES+=(-f docker-compose.build.yml)
+    COMPOSE_FILES+=(-f deploy/compose/docker-compose.build.yml)
 fi
 
 compose() {
@@ -179,7 +179,7 @@ if [ "$BUILD" = true ]; then
         else
             log_info "Using Runtime and capability worker images built under the completed rust-build lease"
             for rust_artifact in agent_runtime capability_worker; do
-                if ! python3 scripts/harness/agent_runtime_supply_chain.py validate \
+                if ! platform-tools source-lock validate \
                     --repo-root "$PROJECT_ROOT" \
                     --lock "$PROJECT_ROOT/deploy/agent-runtime-source/lock.json" \
                     --require-artifact "$rust_artifact" >/dev/null; then

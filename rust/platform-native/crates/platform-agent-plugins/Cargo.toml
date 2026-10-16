@@ -1,0 +1,16 @@
+[package]
+name = "ai-platform-agent-plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml = "0.9"
+unsafe-libyaml = "0.2"
+sha2 = "0.10"
+regex = "1"
+url = "2"
+[[bin]]
+name = "validate-agent-plugin"
+path = "src/bin/validate_agent_plugin.rs"

@@ -68,3 +68,23 @@ An explicitly configured `EVENT_BUS_REDIS_URL` enables the canonical usage
 Redis Streams publisher and logger consumer, including group reclaim, delivery
 counts, deduplication and dead-letter handling. The consumer and transport are
 lifecycle-owned; an absent URL retains the source opt-in disabled behavior.
+
+## Gateway public diagnostics parity
+
+The foundation now constructs `SetupApi` from the same live model metadata as
+provider health and mounts setup and architecture diagnostics beneath `/api/v1`.
+Both share capability-denial auditing and trusted request traces. Setup reads
+`model_setup_mode` and `default_model` from captured host settings.
+
+The application mounts assistant session tools diagnostics against the existing
+session owner, tenant policy, snapshot store and Runtime catalog. Context metrics
+use the Python collector's process-local bounded recent-record semantics, rather
+than inventing a billing-table replacement. Its singleton starts empty, as does
+the source's lazy default collector; no new metrics producer is assumed.
+
+The production graph injects its existing NativeContentAccess into legacy
+assistant model/config/dataset/session reads and the foundation catalog. Guest
+identity remains unauthenticated; catalog/policy/plugin routes still reject it.
+History/source and share authorization use resolved ContentIdentity without
+manufacturing JWT Principals. Standalone legacy factories retain their verified
+JWT fallback when a native resolver is not supplied.

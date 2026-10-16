@@ -1,0 +1,144 @@
+{
+  "schema_version": "runtime-migration-parity-map/v1",
+  "native_package": "ai-platform-gateway",
+  "assertion_detail_report": "reports/runtime-migration-parity-events-tasks.md",
+  "image_detail_report": "reports/runtime-migration-image-history.md",
+  "root_verified_checkpoint": "gateway98.log (task targets); gateway-parity74.log (earlier targets); workspace96.log (all-target compile)",
+  "targets": [
+    {
+      "target": "runtime_migration_parity_task_observer",
+      "ordinary": 3,
+      "ignored": 0,
+      "status": "3 passed in root gateway98.log",
+      "source_files": [
+        "tests/services/task/test_task_cancellation_ownership.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_task_uncertainty",
+      "ordinary": 4,
+      "ignored": 0,
+      "status": "4 passed in root gateway98.log",
+      "source_files": [
+        "tests/services/task/test_task_transitions.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_events",
+      "ordinary": 0,
+      "ignored": 1,
+      "status": "compiled; Redis test unrun",
+      "source_files": [
+        "tests/events/test_envelope.py",
+        "tests/events/test_bus_publish.py",
+        "tests/events/test_consumer_idempotency.py",
+        "tests/events/test_consumer_dlq.py",
+        "tests/events/test_bus_publish_consume_e2e.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_task_lifecycle",
+      "ordinary": 10,
+      "ignored": 0,
+      "status": "10 passed in root gateway98.log",
+      "source_files": [
+        "tests/services/task/test_task_transitions.py",
+        "tests/services/task/test_task_cancellation_ownership.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_redaction",
+      "ordinary": 2,
+      "ignored": 0,
+      "status": "2 passed in root checkpoint74",
+      "source_files": [
+        "tests/services/assistant/test_redaction.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_timing",
+      "ordinary": 4,
+      "ignored": 0,
+      "status": "4 passed in root checkpoint74",
+      "source_files": [
+        "tests/services/agent_runtime/test_timing.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_model_tools",
+      "ordinary": 11,
+      "ignored": 0,
+      "status": "compiled in root workspace96.log; execution unverified",
+      "source_files": [
+        "tests/services/agent_runtime/test_model_tool_projection.py",
+        "tests/services/agent_runtime/test_model_plane_unsupported_history.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_request_context",
+      "ordinary": 2,
+      "ignored": 0,
+      "status": "compiled in root workspace96.log; execution unverified",
+      "source_files": [
+        "tests/services/assistant/test_request_id_propagation.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_image_history",
+      "ordinary": 13,
+      "ignored": 0,
+      "status": "compiled in root workspace96.log; execution unverified",
+      "source_files": [
+        "tests/services/assistant/test_image_signature_flow.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_safe_fetch",
+      "ordinary": 4,
+      "ignored": 0,
+      "status": "compiled in root workspace96.log; execution unverified",
+      "source_files": [
+        "tests/services/assistant/test_safe_fetch.py"
+      ]
+    },
+    {
+      "target": "runtime_migration_parity_session_tombstone",
+      "ordinary": 0,
+      "ignored": 1,
+      "status": "compiled in root workspace96.log; execution unverified",
+      "source_files": [
+        "tests/persistence/test_session_delete_tombstone.py"
+      ]
+    }
+  ],
+  "whole_source_retirement_candidates_after_verification": [
+    {
+      "source": "tests/services/assistant/test_redaction.py",
+      "condition": "already passed; accept typed-string input rationale for Python None/exception coercion"
+    },
+    {
+      "source": "tests/services/assistant/test_image_signature_flow.py",
+      "condition": "all13 cases must pass; export-only helper activity matches retained source"
+    },
+    {
+      "source": "tests/services/agent_runtime/test_model_tool_projection.py",
+      "condition": "all10 observable cases covered; test target must pass; private post-error buffer accessor rationale documented"
+    },
+    {
+      "source": "tests/services/agent_runtime/test_model_plane_unsupported_history.py",
+      "condition": "both functions/four rows must pass including exact error distinction"
+    },
+    {
+      "source": "tests/persistence/test_session_delete_tombstone.py",
+      "condition": "real three-outcome opt-in PostgreSQL assertion must be verified; ignored does not count as passed"
+    }
+  ],
+  "residuals": [
+    "Event generic unknown-type publisher/configurable trim surface and live Redis execution remain explicit",
+    "Task stop/worker recovery, independent cancellation lane reuse and optimized authority-only projection suites remain partial; callback and stalled-observer cases are authored but await root verification",
+    "Timing provider-controlled-delay integration and emitted six-decimal evidence remain partial",
+    "Request-ID original proxy header precedence/no-context cases remain separate",
+    "Safe-fetch network success, redirect/rebinding/stream byte cap and callback validation remain partial",
+    "Remaining assigned source suites not listed here are not claimed covered or retired"
+  ]
+}

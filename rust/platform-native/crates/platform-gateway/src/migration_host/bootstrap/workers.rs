@@ -115,7 +115,10 @@ impl GatewayGraph {
                 Box::pin(async move {
                     if let Some(running) = owner.scheduled.lock().await.take() {
                         let _ = running.stop.send(true);
-                        running.task.await.map_err(|_| HostError::Shutdown("scheduled_task_dispatcher"))?;
+                        running
+                            .task
+                            .await
+                            .map_err(|_| HostError::Shutdown("scheduled_task_dispatcher"))?;
                     }
                     Ok(())
                 })
@@ -123,20 +126,30 @@ impl GatewayGraph {
         });
         let owner = workers.clone();
         let pool = self.pools.data.clone();
+        let sdk_worker_config = self.core.sdk_worker_config.clone();
         starts.push(LifecycleStep {
             name: "sdk_session_cleanup",
             best_effort: false,
             operation: Arc::new(move || {
                 let owner = owner.clone();
                 let pool = pool.clone();
+                let sdk_worker_config = sdk_worker_config.clone();
                 Box::pin(async move {
                     let mut running = owner.sdk_cleanup.lock().await;
                     if running.is_none() {
                         sqlx::query("SELECT b.session_id,s.state FROM gateway.sdk_session_barriers b CROSS JOIN gateway.sdk_session_scopes s LIMIT 0")
                             .execute(&pool).await.map_err(|_| HostError::Database)?;
                         let (stop, signal) = watch::channel(false);
-                        *running = Some(RunningFiles { stop, task: tokio::spawn(
-                            crate::migration_adapters::sdk_session_cleanup::run(pool, signal)) });
+                        *running = Some(RunningFiles {
+                            stop,
+                            task: tokio::spawn(
+                                crate::migration_adapters::sdk_session_cleanup::run(
+                                    pool,
+                                    signal,
+                                    sdk_worker_config,
+                                ),
+                            ),
+                        });
                     }
                     Ok(())
                 })
@@ -151,7 +164,10 @@ impl GatewayGraph {
                 Box::pin(async move {
                     if let Some(running) = owner.sdk_cleanup.lock().await.take() {
                         let _ = running.stop.send(true);
-                        running.task.await.map_err(|_| HostError::Shutdown("sdk_session_cleanup"))?;
+                        running
+                            .task
+                            .await
+                            .map_err(|_| HostError::Shutdown("sdk_session_cleanup"))?;
                     }
                     Ok(())
                 })
@@ -288,6 +304,20 @@ impl GatewayGraph {
                     invocation.close().await;
                     discovery.close().await;
                     Ok(())
+                })
+            }),
+        });
+        let registry = self.core.registry.clone();
+        stops.push(LifecycleStep {
+            name: "service_adapters",
+            best_effort: true,
+            operation: Arc::new(move || {
+                let registry = registry.clone();
+                Box::pin(async move {
+                    registry
+                        .shutdown()
+                        .await
+                        .map_err(|_| HostError::Shutdown("service_adapters"))
                 })
             }),
         });

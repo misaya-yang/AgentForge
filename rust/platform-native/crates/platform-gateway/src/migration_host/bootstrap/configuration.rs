@@ -11,6 +11,16 @@ use std::{
     time::Duration,
 };
 
+pub(super) fn provider_environment(
+    environment: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    environment
+        .iter()
+        .filter(|(name, _)| !name.starts_with("AI_PLATFORM_LOCAL_NODE_"))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayDocument {
@@ -28,7 +38,9 @@ pub struct NativeDeployment {
     pub worker_writes_enabled: bool,
     pub local_utc_offset_seconds: i32,
     pub allow_private_knowledge_http: bool,
+    #[serde(default)]
     pub sandbox_origin: String,
+    #[serde(default)]
     pub sandbox_token: String,
     pub pdf: PdfDeployment,
     #[serde(default)]
@@ -125,6 +137,23 @@ impl GatewayDocument {
             "knowledge_origin",
         )?);
         proxy.allow_private_http = self.native.allow_private_knowledge_http;
+        let rpc_origin = p.env("GATEWAY_KNOWLEDGE_RPC_URL", "");
+        if !rpc_origin.trim().is_empty() {
+            let timeout = p.env_int("GATEWAY_KNOWLEDGE_RPC_TIMEOUT_MS", 30_000)?;
+            let capacity = p.env_int("GATEWAY_KNOWLEDGE_RPC_MAX_IN_FLIGHT", 32)?;
+            if !(100..=120_000).contains(&timeout) || !(1..=256).contains(&capacity) {
+                return Err(BootstrapError::Configuration("knowledge_rpc_bounds"));
+            }
+            let rpc = ai_platform_rpc::RpcConfig {
+                request_timeout: Duration::from_millis(timeout as u64),
+                max_in_flight: capacity as usize,
+                channel_buffer: capacity as usize,
+                ..Default::default()
+            };
+            rpc.validate()
+                .map_err(|_| BootstrapError::Configuration("knowledge_rpc_bounds"))?;
+            proxy.retrieval_rpc = Some((rpc_origin.trim().to_owned(), rpc));
+        }
         let history = if self.native.allow_private_knowledge_http {
             crate::knowledge::KnowledgeConfig::for_private_http(
                 &runtime.knowledge_origin,
@@ -168,9 +197,7 @@ impl GatewayDocument {
                 .map_err(|_| BootstrapError::Configuration("FILE_CLEANUP_INTERVAL_HOURS"))?,
             enabled: p.env("FILE_CLEANUP_ENABLED", "true").to_lowercase() == "true",
         };
-        let watermark = include_bytes!(
-            "../../../../../../../packages/ai-gateway-core/src/ai_gateway_core/image/assets/watermark.png"
-        );
+        let watermark = include_bytes!("../../../assets/watermark.png");
         let content = super::content::ContentRuntimeConfiguration {
             artifacts: p.storage()?,
             uploads: p.storage()?,
@@ -204,6 +231,11 @@ impl GatewayDocument {
                     live_services: None,
                     services: HashMap::new(),
                     allowed_models: vec![],
+                    quota_alert_dedupe_ttl_seconds:
+                        proxy_settings["quota_alert_dedupe_ttl_seconds"]
+                            .as_f64()
+                            .unwrap_or(60.0),
+                    security: None,
                     quota_fail_closed: proxy_settings["quota_check_failure_mode"].as_str()
                         == Some("fail_closed"),
                 },
@@ -228,7 +260,7 @@ impl GatewayDocument {
                 .collect(),
             native_foundation,
             provider_encryption_key: p.env("GATEWAY_ENCRYPTION_KEY", ""),
-            provider_environment: self.environment.clone(),
+            provider_environment: provider_environment(&self.environment),
             pricing_cache_ttl_seconds: 300.0,
             google_auth: crate::migration_host::google_auth::GoogleAuthConfig {
                 application_default_credentials: self
@@ -342,24 +374,15 @@ fn project_images(
     p: &SettingsProjection<'_>,
 ) -> crate::migration_content::image_provider::ImageGenerationConfig {
     use crate::migration_content::image_provider::ImageGenerationConfig;
-    let mut backend = first(p, &["GOOGLE_IMAGE_BACKEND", "GOOGLE_API_BACKEND"]).to_lowercase();
-    if backend != "vertex" {
-        backend = "ai_studio".into()
-    }
-    let google = if backend == "vertex" {
-        first(
-            p,
-            &[
-                "VERTEX_IMAGE_API_KEY",
-                "VERTEX_API_KEY",
-                "GEMINI_API_KEY",
-                "GOOGLE_API_KEY",
-            ],
-        )
-    } else {
-        first(p, &["GEMINI_API_KEY", "GOOGLE_API_KEY"])
+    use ai_platform_gateway_foundation::provider_startup_seeder::{
+        ChatEndpointResolver, EndpointDomain,
     };
-    let dash = first(p, &["DASHSCOPE_IMAGE_API_KEY", "DASHSCOPE_API_KEY"]);
+    let endpoints = ChatEndpointResolver::new(p.environment);
+    let google_endpoint = endpoints.resolve_google(EndpointDomain::Image);
+    let dash_endpoint = endpoints.resolve_dashscope(EndpointDomain::Image);
+    let backend = google_endpoint.backend;
+    let google = google_endpoint.api_key;
+    let dash = dash_endpoint.api_key;
     let ark = first(p, &["ARK_API_KEY"]);
     let mut provider = p.env("IMAGE_GENERATION_PROVIDER", "").trim().to_lowercase();
     if provider.is_empty() {
@@ -406,25 +429,7 @@ fn project_images(
         "dashscope" | "qwen" => {
             result.provider = "dashscope".into();
             result.api_key = dash;
-            let mut base = first(p, &["DASHSCOPE_IMAGE_BASE_URL", "DASHSCOPE_BASE_URL"])
-                .trim_end_matches('/')
-                .to_owned();
-            if base.is_empty() {
-                base = "https://dashscope.aliyuncs.com".into()
-            } else {
-                for suffix in [
-                    "/compatible-mode/v1/chat/completions",
-                    "/compatible-mode/v1",
-                    "/compatible-mode",
-                    "/api/v1",
-                ] {
-                    if base.ends_with(suffix) {
-                        base.truncate(base.len() - suffix.len());
-                        break;
-                    }
-                }
-            }
-            result.base_url = format!("{base}/api/v1");
+            result.base_url = dash_endpoint.base_url;
             result.model = p.env("DASHSCOPE_IMAGE_MODEL", "wan2.6-t2i");
             result.dashscope_submit_path = p.env(
                 "DASHSCOPE_IMAGE_SUBMIT_PATH",
@@ -524,4 +529,39 @@ pub fn project_rates(
             .collect(),
     };
     (md, http)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::provider_environment;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn local_node_private_configuration_is_not_forwarded_to_provider_or_mcp_secrets() {
+        let environment = BTreeMap::from([
+            (
+                "DASHSCOPE_API_KEY".to_owned(),
+                "provider-placeholder".to_owned(),
+            ),
+            (
+                "AI_PLATFORM_LOCAL_NODE_PLATFORM_SIGNING_SEED_B64".to_owned(),
+                "local-private-placeholder".to_owned(),
+            ),
+            (
+                "AI_PLATFORM_LOCAL_NODE_TLS_KEY_PATH".to_owned(),
+                "/private/local-node-key.pem".to_owned(),
+            ),
+        ]);
+
+        let projected = provider_environment(&environment);
+        assert_eq!(
+            projected.get("DASHSCOPE_API_KEY").map(String::as_str),
+            Some("provider-placeholder")
+        );
+        assert!(
+            !projected
+                .keys()
+                .any(|name| name.starts_with("AI_PLATFORM_LOCAL_NODE_"))
+        );
+    }
 }

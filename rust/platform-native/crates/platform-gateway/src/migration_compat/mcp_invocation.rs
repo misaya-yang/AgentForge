@@ -52,7 +52,7 @@ fn error(code: &str) -> CompatError {
     CompatError::new(502, code)
 }
 impl McpReadRequest {
-    fn validate(&self) -> Result<(), CompatError> {
+    pub fn validate(&self) -> Result<(), CompatError> {
         let hash = |s: &str| {
             s.strip_prefix("sha256:").is_some_and(|v| {
                 v.len() == 64

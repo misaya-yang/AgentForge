@@ -27,7 +27,7 @@ use std::{
     future::Future,
     pin::Pin,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -337,7 +337,12 @@ struct Registry {
     local: HashMap<String, Arc<LocalBudget>>,
     tenants: HashMap<String, Arc<LocalBudget>>,
 }
+/// Synchronous local telemetry; implementations must not perform I/O or affect admission.
+pub trait AdmissionRejectionObserver: Send + Sync {
+    fn rejected(&self, service: &str, reason: &str);
+}
 struct ControllerInner {
+    rejection_observer: OnceLock<Arc<dyn AdmissionRejectionObserver>>,
     options: AdmissionOptions,
     store: Option<Arc<dyn CapacityStore>>,
     states: Mutex<Registry>,
@@ -437,11 +442,15 @@ impl CapacityAdmissionController {
             inner: Arc::new(ControllerInner {
                 options,
                 store,
+                rejection_observer: OnceLock::new(),
                 states: Mutex::new(Registry::default()),
                 release_failures: AtomicU64::new(0),
                 lost_leases: AtomicU64::new(0),
             }),
         })
+    }
+    pub fn set_rejection_observer(&self, observer: Arc<dyn AdmissionRejectionObserver>) -> bool {
+        self.inner.rejection_observer.set(observer).is_ok()
     }
     pub fn shared_key(&self, budget_key: &str) -> String {
         format!(
@@ -622,6 +631,11 @@ impl CapacityAdmissionController {
         }
         .await;
         if let Err(error) = result {
+            if let AdmissionError::Rejected(rejected) = &error
+                && let Some(observer) = self.inner.rejection_observer.get()
+            {
+                observer.rejected(&request.service_id, &rejected.code);
+            }
             owned.release().await;
             return Err(error);
         }
@@ -1049,4 +1063,3 @@ impl Drop for CapacityLease {
         self.start_release();
     }
 }
-

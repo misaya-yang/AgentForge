@@ -94,6 +94,8 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
     setFusionMethod,
     rerank,
     setRerank,
+    rerankModelOptions,
+    rerankModelConfigStatus,
     mmr,
     setMmr,
     markRetrievalConfigCustom,
@@ -408,6 +410,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                 <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2 bg-card">
                   <Switch
                     checked={rerank}
+                    disabled={rerankModelOptions.length === 0}
                     onCheckedChange={(checked) => {
                       markRetrievalConfigCustom();
                       setRerank(checked);
@@ -438,6 +441,18 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                   <span className="text-sm font-medium text-foreground/80">{t("knowledge.detail.qaStrictMode")}</span>
                 </label>
               </div>
+              {rerankModelOptions.length === 0 && (
+                <p
+                  className="text-xs text-muted-foreground"
+                  role={rerankModelConfigStatus === "error" ? "alert" : "status"}
+                >
+                  {rerankModelConfigStatus === "loading"
+                    ? t("knowledge.detail.rerankModelsLoading")
+                    : rerankModelConfigStatus === "error"
+                      ? t("knowledge.detail.rerankModelLoadFailed")
+                      : t("knowledge.detail.rerankModelUnconfigured")}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {t("knowledge.detail.qaStrictModeHint")}
               </p>

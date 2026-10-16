@@ -50,6 +50,7 @@ function environment(locale = "en-US") {
     void _options;
     if (url.endsWith("/queries")) return page();
     if (url.endsWith("/feedback")) return { feedback: [negative()], has_more: false };
+    if (url.endsWith("/config")) return { dataset_id: "dataset-a", retrieval: { rerank: { enabled: false, model: "" } } };
     if (url.includes("presets")) return { presets: [] };
     if (url === "/api/v1/eval/datasets") return { datasets: [{ dataset_id: "eval-a", metadata: { kb_dataset_id: "dataset-a" } }], total: 1 };
     if (url.includes("/kb-failures/")) return null;
@@ -118,6 +119,7 @@ function host(file: string, exported: string, env: ReturnType<typeof environment
     ["./queryDiagnosticHandoff", "./queryDiagnosticHandoff.ts"], ["@/api/knowledge", "../../../api/knowledge.ts"],
     ["@/api/eval", "../../../api/eval.ts"], ["./evalCaseStore", "./evalCaseStore.ts"],
     ["./knowledgeSaveAuthority", "./knowledgeSaveAuthority.ts"], ["./kbEvalDataset", "./kbEvalDataset.ts"],
+    ["./rerankModelOptions", "./rerankModelOptions.ts"],
     ["@/pages/knowledge/detail/useHitTestConsole", "./useHitTestConsole.ts"],
   ]) modules[id!] = load(path!);
   modules["./detail/queryDiagnosticHandoff"] = modules["./queryDiagnosticHandoff"];
@@ -134,6 +136,53 @@ function host(file: string, exported: string, env: ReturnType<typeof environment
 }
 async function click(node: Node) { assert.equal(Boolean(node.props.disabled), false); await (node.props.onClick as () => unknown)(); }
 const observationProps = { datasetId: "dataset-a", permission: "owner", onTestQuestion(_v: unknown) { void _v; }, onInspect(_v: unknown) { void _v; } };
+
+test("retrieval rerank uses dataset configuration and refuses an unconfigured client fallback", async () => {
+  const configured = environment();
+  configured.setRead(async (url, options) => {
+    if (url.endsWith("/config")) {
+      return { dataset_id: "dataset-a", retrieval: { rerank: { enabled: true, provider: "dashscope", model: "qwen3-rerank" } } };
+    }
+    return configured.defaultRead(url, options);
+  });
+  const shell = host("../DatasetDetail.tsx", "KnowledgeDatasetDetailPage", configured);
+  shell.render(); await shell.flush();
+  let hit = shell.child("RetrievalTab").hitTest as Data;
+  assert.equal(hit.hitRerankModel, "qwen3-rerank");
+  assert.deepEqual(Array.from(hit.rerankModelOptions as string[]), ["qwen3-rerank"]);
+  const retrieval = host("./RetrievalTab.tsx", "RetrievalTab", configured, shell.child("RetrievalTab"));
+  retrieval.render();
+  assert.ok(nodes(retrieval.tree()).some(node => node.props.value === "qwen3-rerank"));
+  const rerankSwitch = nodes(retrieval.tree(), "Switch")[0]!;
+  assert.equal(rerankSwitch.props.disabled, false);
+
+  (hit.setQuery as (value: string) => void)("model configuration test");
+  (hit.setRerank as (value: boolean) => void)(true);
+  await shell.flush();
+  hit = shell.child("RetrievalTab").hitTest as Data;
+  await (hit.runHitTest as () => Promise<void>)(); await shell.flush();
+  const request = configured.calls.find(call => call.method === "POST" && call.url.endsWith("/hit_test"));
+  assert.equal(request?.body?.rerank_model, "qwen3-rerank");
+  shell.dispose(); retrieval.dispose();
+
+  const unconfigured = environment();
+  unconfigured.setRead(async (url, options) => {
+    if (url.endsWith("/config")) {
+      return { dataset_id: "dataset-a", retrieval: { rerank: { enabled: false, model: "" } } };
+    }
+    return unconfigured.defaultRead(url, options);
+  });
+  const unconfiguredShell = host("../DatasetDetail.tsx", "KnowledgeDatasetDetailPage", unconfigured);
+  unconfiguredShell.render(); await unconfiguredShell.flush();
+  const unconfiguredHit = unconfiguredShell.child("RetrievalTab").hitTest as Data;
+  assert.equal(unconfiguredHit.hitRerankModel, "");
+  assert.deepEqual(Array.from(unconfiguredHit.rerankModelOptions as string[]), []);
+  const unconfiguredRetrieval = host("./RetrievalTab.tsx", "RetrievalTab", unconfigured, unconfiguredShell.child("RetrievalTab"));
+  unconfiguredRetrieval.render();
+  assert.equal(nodes(unconfiguredRetrieval.tree(), "Switch")[0]?.props.disabled, true);
+  assert.ok(text(unconfiguredRetrieval.tree()).includes(unconfigured.i18n.t("knowledge.detail.rerankModelUnconfigured")));
+  unconfiguredShell.dispose(); unconfiguredRetrieval.dispose();
+});
 
 for (const locale of ["en-US", "zh-CN"]) test(`${locale}: actual translations, observation actions and unknown counts`, async () => {
   const e = environment(locale), handed: unknown[] = [];

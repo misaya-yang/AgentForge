@@ -379,7 +379,7 @@ pub struct ContentCapabilityBroker {
     pub artifacts: Arc<ArtifactStorage>,
     pub authorization: CapabilityAuthorization,
     pub image_provider: Arc<dyn ImageProvider>,
-    pub python: Arc<PythonCodeCapability>,
+    pub python: Option<Arc<PythonCodeCapability>>,
     pub pdf: Arc<dyn PdfAttachmentParser>,
 }
 impl ContentCapabilityBroker {
@@ -975,7 +975,11 @@ async fn python_execute(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, ContentError> {
     b.authorization.peer(&headers)?;
-    Ok(Json(b.python.execute(body).await?))
+    let capability = b
+        .python
+        .as_ref()
+        .ok_or_else(|| ContentError::new(503, "python capability unavailable"))?;
+    Ok(Json(capability.execute(body).await?))
 }
 async fn image(
     State(b): State<Arc<ContentCapabilityBroker>>,

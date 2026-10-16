@@ -608,8 +608,9 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires a disposable PostgreSQL database with migration 096"]
-    async fn postgres_contract_fixture_is_opt_in() {
+    #[ignore = "PostgreSQL connection smoke only; requires explicitly supplied disposable DATABASE_URL; does not validate quiz persistence"]
+    // Connection availability only. Migration 096 and quiz persistence are not asserted.
+    async fn postgres_connection_smoke_is_opt_in() {
         let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
         let pool = sqlx::PgPool::connect(&database_url)
             .await

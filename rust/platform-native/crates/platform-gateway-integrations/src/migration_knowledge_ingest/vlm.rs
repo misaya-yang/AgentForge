@@ -51,7 +51,7 @@ impl VlmService {
         {
             return Err(IngestError::Validation("invalid VLM endpoint".into()));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(timeout)

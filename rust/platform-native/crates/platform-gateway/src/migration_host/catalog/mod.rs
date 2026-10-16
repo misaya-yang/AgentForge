@@ -1,6 +1,7 @@
 //! Gateway-owned Worker V2 catalog authority. Local resolution avoids Gateway self-HTTP.
 mod descriptor;
 pub mod http;
+pub mod session_tools;
 use crate::assistant_catalog::{CapabilityCatalog, lifecycle};
 use crate::migration_agent::{AgentError, AgentFuture, Scope, control::RuntimeCatalog};
 use serde_json::{Value, json};
@@ -43,6 +44,7 @@ impl CatalogService {
         web_search_configured: bool,
     ) -> Result<Self, AgentError> {
         let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(2))
@@ -130,7 +132,8 @@ impl CatalogService {
             return Err(AgentError::code(403, "CAPABILITY_CATALOG_SCOPE_INVALID"));
         }
         let (subjects, policy) = self.identity_policy(scope).await?;
-        let bindings = lifecycle::load_bindings(&self.pool, &scope.tenant_id).await
+        let bindings = lifecycle::load_bindings(&self.pool, &scope.tenant_id)
+            .await
             .map_err(|_| error("CAPABILITY_CATALOG_PLUGIN_POLICY_UNAVAILABLE"))?;
         let lifecycle_denied = lifecycle::denied_capabilities(&self.records, &bindings)
             .map_err(|_| error("CAPABILITY_CATALOG_PLUGIN_POLICY_UNAVAILABLE"))?;
@@ -175,8 +178,13 @@ impl CatalogService {
         }
         // Deployment identity is independent of the request's model revision.
         // Tombstones preserve this expectation when every managed pack is off.
-        verify_activation_identity(&self.records, response.headers().get("x-ai-platform-plugin-activation")
-            .and_then(|value| value.to_str().ok()))?;
+        verify_activation_identity(
+            &self.records,
+            response
+                .headers()
+                .get("x-ai-platform-plugin-activation")
+                .and_then(|value| value.to_str().ok()),
+        )?;
         let mut bytes = Vec::new();
         while let Some(chunk) = response
             .chunk()
@@ -251,13 +259,21 @@ impl RuntimeCatalog for CatalogService {
     }
 }
 
-fn verify_activation_identity(records: &CapabilityCatalog, observed: Option<&str>) -> Result<(), AgentError> {
-    let expected: BTreeSet<_> = records.records().iter()
-        .filter_map(|record| record["plugin_metadata"]["activation_id"].as_str()).collect();
-    if expected.len() > 1 || match expected.iter().next() {
-        Some(expected) => observed != Some(*expected),
-        None => observed.is_some_and(|value| value != "none"),
-    } {
+fn verify_activation_identity(
+    records: &CapabilityCatalog,
+    observed: Option<&str>,
+) -> Result<(), AgentError> {
+    let expected: BTreeSet<_> = records
+        .records()
+        .iter()
+        .filter_map(|record| record["plugin_metadata"]["activation_id"].as_str())
+        .collect();
+    if expected.len() > 1
+        || match expected.iter().next() {
+            Some(expected) => observed != Some(*expected),
+            None => observed.is_some_and(|value| value != "none"),
+        }
+    {
         return Err(error("CAPABILITY_PLUGIN_ACTIVATION_MISMATCH"));
     }
     Ok(())

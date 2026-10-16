@@ -24,7 +24,7 @@ impl SummaryGenerator {
                 "summary endpoint scheme is invalid".into(),
             ));
         }
-        let client = reqwest::Client::builder()
+        let client = reqwest::Client::builder().retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .build()

@@ -24,8 +24,7 @@ source "$ENV_FILE"
 set +a
 
 cd "$PROJECT_ROOT"
-uv run --all-packages --extra test pytest -q --no-cov \
-    tests/database/test_agent_runtime_thread_store_migration.py
+cargo test --manifest-path "$PROJECT_ROOT/rust/platform-native/Cargo.toml" -p ai-platform-migration-authority --test runtime_thread_store_migration -- --include-ignored
 
 export AI_PLATFORM_RUNTIME_MIGRATION_PATH="$PROJECT_ROOT/database/migrations/089_agent_runtime_thread_store.sql"
 
@@ -33,8 +32,7 @@ export AI_PLATFORM_RUNTIME_MIGRATION_PATH="$PROJECT_ROOT/database/migrations/089
 # repository-owned Runtime overlay into an ephemeral tree before running its
 # PostgreSQL contract; testing the checkout directly omits the platform crate.
 overlay_root="$PROJECT_ROOT/rust/agent-runtime-overlay"
-upstream_sha=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream_sha"])' \
-    "$overlay_root/manifest.json")
+upstream_sha=$(platform-tools json-get "$overlay_root/manifest.json" upstream_sha)
 runtime_context=$(mktemp -d /tmp/ai-platform-agent-thread-store-contract.XXXXXX)
 
 cleanup() {

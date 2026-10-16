@@ -21,34 +21,14 @@ if [[ -n "$(git -C "$source_root" status --porcelain)" ]]; then
 fi
 
 manifest="$overlay_root/manifest.json"
-upstream_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream_sha"])' "$manifest")"
-overlay_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$manifest")"
+upstream_sha="$(platform-tools json-get "$manifest" upstream_sha)"
+overlay_sha="$(platform-tools json-get "$manifest" sha256)"
 if ! git -C "$source_root" cat-file -e "$upstream_sha^{commit}"; then
     echo "ERROR: controlled runtime source does not contain the pinned revision" >&2
     exit 1
 fi
 
-python3 - "$overlay_root" <<'PY'
-import hashlib
-import json
-import pathlib
-import sys
-
-root = pathlib.Path(sys.argv[1])
-manifest = json.loads((root / "manifest.json").read_text())
-digest = hashlib.sha256()
-files = []
-for path in sorted(p for p in root.rglob("*") if p.is_file() and p.name != "manifest.json"):
-    relative = path.relative_to(root).as_posix()
-    payload = path.read_bytes()
-    files.append(relative)
-    digest.update(relative.encode())
-    digest.update(b"\0")
-    digest.update(payload)
-    digest.update(b"\0")
-if manifest.get("file_count") != len(files) or manifest.get("sha256") != digest.hexdigest():
-    raise SystemExit("ERROR: Agent Runtime overlay manifest does not match its files")
-PY
+platform-tools source-lock verify-overlay --repo-root "$repo_root" --overlay-dir "$overlay_root"
 
 schema_sha="$(shasum -a 256 "$repo_root/database/migrations/096_agent_capability_executions.sql" | awk '{print $1}')"
 source_revision="${upstream_sha}+${overlay_sha:0:12}"
@@ -60,16 +40,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 - "$repo_root" "$source_root" "$upstream_sha" <<'PY_VERIFY_UPSTREAM'
-import sys
-from pathlib import Path
-
-from scripts.harness.rust_gate_identity import verify_overlay_upstream_base
-
-verify_overlay_upstream_base(
-    repo_root=Path(sys.argv[1]), source=Path(sys.argv[2]), upstream_sha=sys.argv[3]
-)
-PY_VERIFY_UPSTREAM
+platform-tools source-lock verify-overlay --repo-root "$repo_root" --source "$source_root" --upstream-sha "$upstream_sha"
 
 git -C "$source_root" archive "$upstream_sha" | tar -x -C "$build_context"
 cp -Rp "$overlay_root/kernel-rs/." "$build_context/codex-rs/"
@@ -94,10 +65,10 @@ monitor_build_memory() {
     wait "$build_pid"
 }
 
-docker build \
-    --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY \
-    --resource "memory=$build_memory" \
-    --resource "cpu-quota=$build_cpu_quota" \
+resource_builder="$(platform-tools buildx-resource-builder --repo-root "$repo_root" --memory "$build_memory" --cpu-quota "$build_cpu_quota")"
+platform_configure_build_proxy_args
+docker buildx build --builder "$resource_builder" --load \
+    ${platform_build_proxy_args[@]+"${platform_build_proxy_args[@]}"} \
     --file "$repo_root/deploy/agent-runtime-source/Dockerfile.capability-worker" \
     --build-arg "AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION=$source_revision" \
     --build-arg "AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256=$overlay_sha" \
@@ -120,7 +91,7 @@ if [[ "$image_revision" != "$source_revision" \
     exit 1
 fi
 
-python3 "$repo_root/scripts/harness/agent_runtime_supply_chain.py" record-local-image \
+platform-tools source-lock record-local-image \
     --repo-root "$repo_root" \
     --lock "$repo_root/deploy/agent-runtime-source/lock.json" \
     --artifact capability_worker \

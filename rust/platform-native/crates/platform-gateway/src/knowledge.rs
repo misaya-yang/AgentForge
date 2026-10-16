@@ -1,9 +1,9 @@
 //! Gateway-owned knowledge reads. Dataset ACL and ownership remain authoritative in KS.
 //!
 //! No environment, default endpoint, unsigned mode, public identity headers, or database
-//! access is used here. The HTTP mount is JWT-only until the API-key audit adapter lands.
+//! access is used here. The production HTTP mount shares native user-context authority.
 use ai_platform_auth::{
-    api_keys::{ApiKeyAuthority, SelectedCredential, select_credential},
+    api_keys::ApiKeyAuthority,
     service::{AuthService, Principal},
 };
 use axum::{
@@ -178,6 +178,21 @@ impl KnowledgeActor {
         })
     }
 
+    /// Accept only the native user-context resolver's result, never request claims.
+    pub(crate) fn from_identity(user: &crate::migration_content::ContentIdentity) -> Result<Self, KnowledgeError> {
+        if !user.is_authenticated {
+            return Self::anonymous(user.tenant_id.clone(), user.user_id.clone());
+        }
+        let roles: BTreeSet<String> = user.roles.iter().chain(&user.permissions).cloned().collect();
+        let tier = if roles.contains("admin") { "admin" } else if roles.contains("enterprise") {
+            "enterprise"
+        } else if roles.contains("premium") || roles.contains("vip") { "premium" } else { &user.tier };
+        Self::checked(Self {
+            user_id: user.user_id.clone(), tenant_id: user.tenant_id.clone(),
+            roles: roles.into_iter().collect(), tier: tier.to_owned(), authenticated: true,
+        })
+    }
+
     /// Does not authenticate or record key usage. The caller must already have
     /// completed those steps. Owner grants never substitute for declared key scope.
     pub fn from_api_key(key: &ApiKeyAuthority) -> Result<Self, KnowledgeError> {
@@ -308,7 +323,7 @@ pub struct DocumentSourceReference {
 }
 impl KnowledgeService {
     pub fn new(config: KnowledgeConfig) -> Result<Self, KnowledgeError> {
-        let http = reqwest::Client::builder()
+        let http = reqwest::Client::builder().retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(2))
@@ -1100,28 +1115,24 @@ pub fn project_datasets(rows: &[Value]) -> Result<Vec<DatasetInfo>, KnowledgeErr
 struct KnowledgeRoutes {
     auth: Arc<AuthService>,
     service: Option<Arc<KnowledgeService>>,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>,
 }
 /// Mount with the existing auth/router. None yields authenticated 503, never empty 200.
 pub fn router(auth: Arc<AuthService>, service: Option<Arc<KnowledgeService>>) -> Router {
+    router_with_identity(auth, service, None)
+}
+pub fn router_with_identity(auth: Arc<AuthService>, service: Option<Arc<KnowledgeService>>,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>) -> Router {
     Router::new()
-        .route("/api/v1/assistant/datasets", get(datasets))
-        .with_state(KnowledgeRoutes { auth, service })
+        .route("/api/v1/assistant/datasets", get(datasets).head(super::read_method_not_allowed))
+        .with_state(KnowledgeRoutes { auth, service, identity })
 }
 async fn datasets(State(state): State<KnowledgeRoutes>, headers: HeaderMap) -> Response {
-    let token = match select_credential(&headers, &HeaderName::from_static("x-api-key")) {
-        Ok(SelectedCredential::Jwt(token)) => token,
-        _ => return super::error(StatusCode::UNAUTHORIZED, "Authentication required"),
+    let principal = match super::resolve_read_identity(&state.auth, state.identity.as_deref(), &headers).await {
+        Ok(user) => user,
+        Err(response) => return response,
     };
-    let principal = match state.auth.authenticate(token).await {
-        Ok(p) => p,
-        Err(e) => {
-            return super::error(
-                StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
-                "Authentication failed",
-            );
-        }
-    };
-    let actor = match KnowledgeActor::from_principal(&principal) {
+    let actor = match KnowledgeActor::from_identity(&principal) {
         Ok(actor) => actor,
         Err(_) => return super::error(StatusCode::UNAUTHORIZED, "Authentication required"),
     };
@@ -1144,3 +1155,26 @@ async fn datasets(State(state): State<KnowledgeRoutes>, headers: HeaderMap) -> R
     }
 }
 
+
+#[cfg(test)]
+mod read_identity_tests {
+    use super::*;
+    #[test]
+    fn resolved_guest_retains_scope_without_authority_promotion() {
+        let actor=KnowledgeActor::from_identity(&crate::migration_content::ContentIdentity {
+            tenant_id:"public".into(),user_id:"guest_cookie".into(),is_authenticated:false,
+            roles:vec!["admin".into()],permissions:vec!["admin:*".into()],tier:"admin".into(),
+        }).unwrap();
+        assert!(!actor.authenticated);assert_eq!(actor.roles,vec!["guest"]);
+        assert_eq!(actor.tier,"anonymous");assert_eq!(actor.tenant_id,"public");
+    }
+    #[test]
+    fn resolved_authenticated_identity_keeps_real_scope_and_permissions() {
+        let actor=KnowledgeActor::from_identity(&crate::migration_content::ContentIdentity {
+            tenant_id:"tenant".into(),user_id:"owner".into(),is_authenticated:true,
+            roles:vec!["premium".into()],permissions:vec!["dataset:read".into()],tier:"standard".into(),
+        }).unwrap();
+        assert!(actor.authenticated);assert_eq!(actor.tier,"premium");
+        assert!(actor.roles.contains(&"dataset:read".to_string()));assert_eq!(actor.user_id,"owner");
+    }
+}

@@ -87,8 +87,15 @@ impl PostgresThreadStore {
             "UPDATE assistant_runtime_execution_owners o SET lease_until=NOW()+INTERVAL '30 seconds',heartbeat_at=NOW() \
              FROM assistant_runs r WHERE o.run_id=$1 AND o.owner_id=$2 AND o.fence=$3 AND o.lease_until>NOW() \
              AND r.run_id=o.run_id AND r.status IN ('running','awaiting_approval') \
-             AND EXISTS (SELECT 1 FROM assistant_runtime_model_leases l WHERE l.run_id=r.run_id AND l.status='active' AND l.expires_at>NOW()) \
-             AND NOT EXISTS (SELECT 1 FROM assistant_runtime_snapshot_revocations x WHERE x.snapshot_id=r.runtime_snapshot_id)")
+             AND r.engine='agent_runtime' AND r.harness_thread_id=o.runtime_thread_id AND r.harness_turn_id=r.run_id::text \
+             AND EXISTS (SELECT 1 FROM assistant_runtime_model_leases l \
+                 JOIN assistant_runtime_snapshots s ON s.snapshot_id=l.snapshot_id \
+                 WHERE l.run_id=r.run_id AND s.snapshot_id=r.runtime_snapshot_id \
+                   AND s.run_id=r.run_id AND s.runtime_thread_id=r.harness_thread_id \
+                   AND s.tenant_id=r.tenant_id AND s.user_id=r.user_id AND s.session_id=r.session_id \
+                   AND l.status='active' AND l.expires_at>clock_timestamp() \
+                   AND (s.expires_at IS NULL OR s.expires_at>clock_timestamp()) \
+                   AND NOT EXISTS (SELECT 1 FROM assistant_runtime_snapshot_revocations x WHERE x.snapshot_id=s.snapshot_id))")
             .bind(claim.run_id).bind(claim.owner_id).bind(claim.fence)
             .execute(&self.pool).await.map_err(store_error)?;
         Ok(changed.rows_affected() == 1)

@@ -387,10 +387,8 @@ struct ReadinessHealthResponse {
 
 async fn ready(State(state): State<RuntimeHttpState>) -> impl IntoResponse {
     let kernel_ready = state.kernel_ready.load(Ordering::Acquire);
-    let store_ready = sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.store.pool)
-        .await
-        .is_ok_and(|value| value == 1);
+    let store_stage = state.store.readiness_stage().await;
+    let store_ready = store_stage.is_healthy();
     let core_ready = kernel_ready && store_ready;
     let worker_status = capability_worker_status(&state.capability_client).await;
     let model_plane_status = model_plane_status();
@@ -423,11 +421,7 @@ async fn ready(State(state): State<RuntimeHttpState>) -> impl IntoResponse {
             ),
             (
                 "store",
-                if store_ready {
-                    "healthy"
-                } else {
-                    "unavailable"
-                },
+                store_stage.code(),
             ),
         ]),
         dependencies,

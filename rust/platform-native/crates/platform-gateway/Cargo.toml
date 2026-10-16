@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+ai-platform-rpc = { path = "../platform-rpc" }
+tracing = "0.1"
+ai-platform-migration-authority = { path = "../platform-migration-authority" }
+url = "2"
+ai-platform-config-loader = { path = "../platform-config-loader" }
 ai-platform-gateway-foundation = { path = "../platform-gateway-foundation" }
 ai-platform-auth = { path = "../platform-auth" }
 axum = { version = "0.8", features = ["multipart"] }
@@ -15,15 +20,20 @@ reqwest.workspace = true
 tokio.workspace = true
 sha2 = "0.10"
 hmac = "0.12"
+getrandom = "0.3"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
-redis = { version = "0.32", features = ["tokio-comp", "connection-manager"] }
+redis.workspace = true
 jsonschema = { version = "=0.33.0", default-features = false }
 futures-core = "0.3"
 futures-util = { version = "0.3", features = ["sink"] }
-tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite.workspace = true
 fernet = { version = "=0.2.2", default-features = false, features = ["rustcrypto", "fernet_danger_timestamps"] }
 base64 = "0.22"
+ring = "=0.17.14"
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"] }
+dotenvy = "0.15"
 # Canonical migration parsers, local SQLite ledger, and host middleware.
 regex = "1"
 jsonwebtoken = "9.3"
@@ -45,3 +55,6 @@ unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 
 ai-platform-gateway-integrations = { path = "../platform-gateway-integrations" }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

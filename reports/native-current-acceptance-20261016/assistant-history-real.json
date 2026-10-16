@@ -1,0 +1,34 @@
+{
+  "schema": "ai-platform/native-assistant-history-acceptance/v1",
+  "recorded_at_utc": "2026-10-16T06:02:29.512621+00:00",
+  "target": {
+    "base_url": "http://127.0.0.1:8080",
+    "compose_project": "agentforge-dev-7801d4a9a4",
+    "gateway_pid_from_operator": 50938,
+    "session_id": "270ba79a-39da-40b2-ae7b-da5631edd5a4",
+    "database_epoch": 21,
+    "gateway_binary_sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d",
+    "source_distribution_pin": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23"
+  },
+  "source_sha256": {
+    "credential_introspection.rs": "1a472c8b5941bd8956687bf310c9ddeaca588b7f9e444d8ebf54a8c35401ee02",
+    "session_history.rs": "c153ca98f41fc9c42dd399115837cdc1fb02c0015da22226acd90e4f538bfb52",
+    "session_history_schema_tests.rs": "8649470f659acca152c6b305b2b8c9be7b0ce8edba7498d34f92a881fe798e93"
+  },
+  "cases": [
+    {
+      "case_id": "restore_original_owned_prethread_session_history",
+      "http_status": 500,
+      "status": "failed",
+      "message_count": null,
+      "request_id": "9cc5d30e-1452-43fc-9c91-7d5afc6204f7",
+      "response_body_keys": [
+        "detail"
+      ]
+    }
+  ],
+  "unverified_scope": [
+    "History remained a generic HTTP 500 in this run; response body was not recorded, and no DB inspection or repair was performed.",
+    "The API response exposed only a generic detail field and request id; request id retained for operator log correlation."
+  ]
+}

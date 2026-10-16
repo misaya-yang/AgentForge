@@ -19,7 +19,9 @@ pub mod eval_gate;
 pub mod eval_http;
 pub mod eval_live;
 pub mod eval_observation;
+pub mod eval_online;
 pub mod eval_operations;
+pub mod eval_outbox_dispatch;
 pub mod eval_queue;
 pub mod eval_scoring;
 pub mod proxy_trace;
@@ -36,3 +38,9 @@ pub mod eval_knowledge;
 pub mod eval_feedback;
 
 pub mod mcp_circuit;
+
+pub mod proxy_http;
+
+pub mod route_pattern;
+
+pub mod sse_heartbeat;

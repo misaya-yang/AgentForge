@@ -1,85 +1,70 @@
 # syntax=docker/dockerfile:1.7
+# Native service build. All application processes below are Rust executables.
+FROM rust:1.99.0-bookworm AS builder
+WORKDIR /source
+COPY rust/platform-native/ rust/platform-native/
+COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY database/ database/
+WORKDIR /source/rust/platform-native
+ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
+    cargo build --locked --release -p ai-platform-gateway --bin gateway \
+      -p ai-platform-knowledge-service --bin platform-knowledge-service \
+      -p ai-platform-migration-authority --bin database-authority \
+      -p ai-platform-sdk-agent-worker --bin sdk-agent-worker \
+      -p ai-platform-local-node --bin local-node \
+      -p ai-platform-tools --bin platform-tools \
+      -p ai-platform-release --bin platform-release \
+    && install -d /output \
+    && install target/release/gateway target/release/platform-knowledge-service \
+      target/release/database-authority target/release/sdk-agent-worker target/release/local-node target/release/platform-tools target/release/platform-release /output/
 
-ARG PYTHON_BASE_IMAGE=python:3.12-slim-bookworm
+FROM rust:1.99.0-bookworm AS engine-builder
+WORKDIR /engine
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ ./
+ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=platform-native-engine-target,target=/engine/target,sharing=locked \
+    cargo build --locked --release \
+    && install -D target/release/ai-platform-sdk-agent-engine /output/ai-platform-sdk-agent-engine
 
-FROM ${PYTHON_BASE_IMAGE} AS builder
-
-ARG DEBIAN_MIRROR=https://deb.debian.org
-
-RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
-    apt-get -o Acquire::Retries=5 update && \
-    apt-get -o Acquire::Retries=5 install -y --no-install-recommends build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-ARG PIP_INDEX_URL=https://pypi.org/simple
-ARG PIP_TRUSTED_HOST=""
-
-WORKDIR /build
-
-# uv.lock is the single dependency source. These generated exports keep image
-# build tooling separate from runtime dependencies while retaining hashes for
-# every accepted artifact.
-COPY apps/knowledge-service/build-requirements.lock.txt /build/knowledge-service/build-requirements.lock.txt
-COPY apps/knowledge-service/requirements.lock.txt /build/knowledge-service/requirements.lock.txt
-COPY packages/ai-gateway-contracts/ /build/packages/ai-gateway-contracts/
-COPY packages/ai-gateway-core/ /build/packages/ai-gateway-core/
-COPY apps/knowledge-service/pyproject.toml apps/knowledge-service/README.md /build/knowledge-service/
-COPY apps/knowledge-service/src /build/knowledge-service/src
-
-# PRD T7-3: install the hash-locked build toolchain first so source-only
-# transitive packages cannot pull floating setuptools/wheel versions. The three
-# local workspace wheels use the exact-pinned Hatchling from that toolchain,
-# with build isolation disabled. `make kb-image-lock-refresh` regenerates the
-# exports and `make kb-image-lock-gate` rejects drift.
-RUN --mount=type=cache,id=ai-gateway-pip,target=/root/.cache/pip,sharing=locked \
-    python -m pip install --require-hashes \
-    -r /build/knowledge-service/build-requirements.lock.txt \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}} && \
-    python -m pip install --require-hashes --no-build-isolation \
-    -r /build/knowledge-service/requirements.lock.txt \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}} && \
-    python -m pip install --no-deps --no-build-isolation \
-    /build/packages/ai-gateway-contracts \
-    /build/packages/ai-gateway-core \
-    /build/knowledge-service \
-    --index-url ${PIP_INDEX_URL} \
-    ${PIP_TRUSTED_HOST:+--trusted-host ${PIP_TRUSTED_HOST}}
-
-FROM ${PYTHON_BASE_IMAGE} AS runtime
-
-ARG APP_VERSION=2.0.0
+FROM debian:bookworm-slim AS native-base
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl poppler-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1000 --create-home gateway \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sdk-worker \
+    && install -d -o 1000 -g 1000 /app/data /app/logs /app/agent-memory /app/uploads /app/data/pdf-scratch \
+    && install -d -m 0700 -o 10001 -g 10001 /var/lib/sdk-agent
+COPY --from=builder /output/ /usr/local/bin/
 ARG VCS_REF=unknown
-ARG DEBIAN_MIRROR=https://deb.debian.org
-LABEL org.opencontainers.image.title="AI Gateway Knowledge Service" \
-      org.opencontainers.image.source="https://github.com/misaya-yang/AI--Platfform" \
-      org.opencontainers.image.version="$APP_VERSION" \
-      org.opencontainers.image.revision="$VCS_REF"
-
-RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
-    apt-get -o Acquire::Retries=5 update && \
-    apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
-    poppler-utils curl \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+LABEL org.opencontainers.image.revision="$VCS_REF" com.misaya.ai-platform.artifact="native-services"
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database
 WORKDIR /app
+USER 1000:1000
 
-COPY --from=builder /opt/venv /opt/venv
+FROM native-base AS knowledge
+ENTRYPOINT ["/usr/local/bin/platform-knowledge-service"]
 
-RUN useradd --uid 1000 --create-home appuser && \
-    mkdir -p /app/data && \
-    chown -R appuser:appuser /app
-USER appuser
+FROM native-base AS migrate
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database
+ENTRYPOINT ["/usr/local/bin/database-authority"]
+CMD ["migrate"]
 
-EXPOSE 8092
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS http://localhost:8092/health || exit 1
+FROM native-base AS sdk-worker
+COPY --from=engine-builder /output/ai-platform-sdk-agent-engine /usr/local/bin/
+ENV HOME=/tmp SDK_AGENT_STATE_ROOT=/var/lib/sdk-agent
+USER 10001:10001
+WORKDIR /var/lib/sdk-agent
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD ["/usr/local/bin/sdk-agent-worker", "health"]
+ENTRYPOINT ["/usr/local/bin/sdk-agent-worker"]
+CMD ["serve"]
 
-CMD ["python", "-m", "uvicorn", "knowledge_service.main:app", "--host", "0.0.0.0", "--port", "8092"]
+FROM native-base AS runtime
+ENTRYPOINT ["/usr/local/bin/gateway"]
+CMD ["--config-env"]
+
+FROM knowledge AS final

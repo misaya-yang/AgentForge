@@ -244,7 +244,8 @@ impl IngestionService {
             .require_dataset_access(actor, dataset, "editor")
             .await?;
         require_index_writable(&d)?;
-        self.parser.require_supported_source(content, filename, mime)?;
+        self.parser
+            .require_supported_source(content, filename, mime)?;
         let id = uuid::Uuid::new_v4().to_string();
         let generation = uuid::Uuid::new_v4().to_string();
         let tenant = string(&d, "tenant_id");
@@ -372,12 +373,37 @@ impl IngestionService {
         )
     }
     pub async fn ingest_document(&self, dataset: &str, document: &str) -> Result<Vec<String>> {
-        let mut lease = self.store.document_lease(dataset, document).await?;
+        let mut lease = match self.store.document_lease(dataset, document).await {
+            Ok(lease) => lease,
+            Err(error) => {
+                if error == IngestError::LeaseBusy {
+                    crate::migration_knowledge_query::pipeline_metrics::worker_claim("deferred");
+                }
+                return Err(error);
+            }
+        };
         if !KnowledgeWriteStore::claim_processing(lease.connection(), dataset, document).await? {
+            crate::migration_knowledge_query::pipeline_metrics::worker_claim("contended");
             lease.release().await?;
             return Ok(vec![]);
         }
+        crate::migration_knowledge_query::pipeline_metrics::worker_claim("claimed");
+        let observed = KnowledgeWriteStore::document_on(lease.connection(), dataset, document)
+            .await
+            .ok();
+        let started = std::time::Instant::now();
         let result = self.ingest_owned(&mut lease).await;
+        if let Some(row) = observed {
+            let metadata = &row["metadata"];
+            crate::migration_knowledge_query::pipeline_metrics::ingest(
+                metadata["_document_ingest_action"]
+                    .as_str()
+                    .unwrap_or("ingest"),
+                metadata["processing_mode"].as_str().unwrap_or("text_only"),
+                result.is_ok(),
+                started.elapsed().as_secs_f64(),
+            );
+        }
         if let Err(error) = &result
             && *error != IngestError::PublicationContended
         {
@@ -1017,6 +1043,9 @@ impl IngestionService {
     }
 }
 pub fn with_display_status(mut value: Value) -> Value {
+    if !value.is_object() {
+        return value;
+    }
     value["display_status"] = json!(display_status(&value));
     value["processing_diagnostics"] = super::diagnostics::processing_diagnostics(&value);
     super::diagnostics::sanitize_processing_error(&mut value);
@@ -1255,7 +1284,7 @@ impl IngestionService {
         for id in &documents {
             self.assets
                 .delete_document_assets(&typed.tenant_id, id)
-                .await?
+                .await?;
         }
         self.indexer
             .vectors

@@ -1,6 +1,6 @@
 {
   "baseline_id": "2026_08_post_kb_v1",
-  "epoch": 17,
+  "epoch": 22,
   "changes": [
     {
       "sequence": 1,
@@ -363,6 +363,123 @@
       "resume_handler": null,
       "repair_handler": null,
       "notes": "Additive replacement of Gateway-only admission function. Explicit empty snapshot accepts no governed capabilities and has five-minute lifetime; existing governed admission retains thirty minutes. No table, grants, FK or function signature changes. Ship native Gateway and SDK worker as a paired release after epoch17; old binaries remain supported by the database. Drain before reverting binaries to avoid losing common lineage admission. Canonical verification must be measured on disposable PostgreSQL before rollout."
+    },
+    {
+      "sequence": 18,
+      "name": "application_schema_admission",
+      "file": "018_application_schema_admission.sql",
+      "sha256": "d24f6d8b4b04eb3429e2672983be9b3aef033a5026ff357ff15f82f942af9442",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NULL AND to_regclass('public.platform_schema_baselines') IS NOT NULL AND to_regclass('public.platform_schema_changes') IS NOT NULL AND to_regclass('public.platform_schema_change_attempts') IS NOT NULL"
+      ],
+      "postconditions": [
+        "SELECT p.prosecdef AND p.provolatile='s' AND p.pronargs=0 AND p.prorettype='jsonb'::regtype AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND p.proowner=n.nspowner FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+        "SELECT count(*)=4 AND bool_and(a.privilege_type='EXECUTE' AND a.grantor=p.proowner AND (a.grantee=p.proowner OR (NOT a.is_grantable AND pg_get_userbyid(a.grantee) IN (left(current_user,length(current_user)-5)||'gateway',left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker')))) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='gateway.platform_schema_admission_snapshot_v1()'::regprocedure",
+        "SELECT gateway.platform_schema_admission_snapshot_v1()->>'schema_version'='ai-platform/schema-admission-snapshot/v1'",
+        "SELECT NOT (rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls) FROM pg_roles WHERE rolname=current_user"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate018 metadata-only reader. Same transaction installs function and ledger record; structural and ACL fingerprint measurement required. No application activation authorized by this source. Knowledge admission must require019 trigger fix, durable Gateway020; legacy Python Gateway ceiling10 unchanged."
+    },
+    {
+      "sequence": 19,
+      "name": "knowledge_progress_trigger_authority",
+      "file": "019_knowledge_progress_trigger_authority.sql",
+      "sha256": "9349f691a519ec9f9f8cfc4217ca75ddd816192e9a4e254aa7c397377070d11c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL AND to_regclass('knowledge.documents') IS NOT NULL AND to_regclass('knowledge.kb_document_progress_events') IS NOT NULL",
+        "SELECT NOT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+      ],
+      "postconditions": [
+        "SELECT p.prosecdef AND p.proowner=n.nspowner AND p.prorettype='trigger'::regtype AND p.pronargs=0 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT count(*)=1 AND bool_and(a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE') FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure",
+        "SELECT NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname IN (left(current_user,length(current_user)-5)||'knowledge_api',left(current_user,length(current_user)-5)||'knowledge_worker') AND (has_table_privilege(r.oid,'knowledge.kb_document_progress_events','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_function_privilege(r.oid,'knowledge.record_kb_document_progress_event()'::regprocedure,'EXECUTE')))"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate019 repairs confirmed Knowledge worker SQLSTATE42501 without granting direct progress-ledger DML or sequence rights. Same owner and payload/retention contract; only hardened owner-powered trigger. Requires explicit action-time authorization and actual-login/worker-role matrix. Source-body MD5 is an exact source comparison, not a measured database fingerprint."
+    },
+    {
+      "sequence": 20,
+      "name": "gateway_task_deliveries",
+      "file": "020_gateway_task_deliveries.sql",
+      "sha256": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.tasks') IS NOT NULL AND to_regclass('gateway.task_deliveries') IS NULL AND to_regprocedure('gateway.platform_schema_admission_snapshot_v1()') IS NOT NULL",
+        "SELECT p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND md5(p.prosrc)='2d79b20842d512ea4239f215ca1f3086' FROM pg_proc p WHERE p.oid='knowledge.record_kb_document_progress_event()'::regprocedure"
+      ],
+      "postconditions": [
+        "SELECT c.relkind='r' AND c.relowner=n.nspowner AND pg_get_userbyid(c.relowner)=current_user AND obj_description(c.oid,'pg_class')='gateway.generic-task-delivery/v1' FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.oid='gateway.task_deliveries'::regclass",
+        "SELECT count(*)=10 AND bool_and(a.grantor=c.relowner AND (a.grantee=c.relowner OR (pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway' AND NOT a.is_grantable AND a.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.task_deliveries'::regclass",
+        "SELECT NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attacl IS NOT NULL)",
+        "SELECT count(*)=13 AND bool_and(NOT attisdropped) FROM pg_attribute WHERE attrelid='gateway.task_deliveries'::regclass AND attnum>0",
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND contype='f' AND confrelid='gateway.tasks'::regclass AND convalidated) AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='gateway.task_deliveries'::regclass AND NOT convalidated)",
+        "SELECT i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indnkeyatts=3 AND i.indnatts=3 AND i.indkey[0]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='priority' AND NOT attisdropped) AND (i.indoption[0] & 1)=1 AND i.indkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='admitted_at' AND NOT attisdropped) AND i.indkey[2]=(SELECT attnum FROM pg_attribute WHERE attrelid=i.indrelid AND attname='task_id' AND NOT attisdropped) AND pg_get_expr(i.indpred,i.indrelid)=$$(state = 'pending'::text)$$ FROM pg_index i WHERE i.indexrelid='gateway.task_deliveries_pending_order'::regclass AND i.indrelid='gateway.task_deliveries'::regclass"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate020 Gateway-only delivery ledger. Exact SELECT/INSERT/UPDATE; no DELETE/TRUNCATE/REFERENCES/TRIGGER or other application/PUBLIC access. Memory remains default; durable requires canonical020 and local ledger guard plus Redis authority. Quiesce all task writers before opt-in; no legacy row import, reset/replay or destructive rollback."
+    },
+    {
+      "sequence": 21,
+      "name": "knowledge_worker_ingestion_writes",
+      "file": "021_knowledge_worker_ingestion_writes.sql",
+      "sha256": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('knowledge.dataset_process_rules') IS NOT NULL AND to_regclass('knowledge.document_pipeline_executions') IS NOT NULL",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','UPDATE')"
+      ],
+      "postconditions": [
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','INSERT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.dataset_process_rules','TRIGGER')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'knowledge_worker','knowledge.document_pipeline_executions','TRIGGER')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate021 grants only the Knowledge worker INSERT on immutable dataset_process_rules and UPDATE on document_pipeline_executions, required by the normal prepare_execution and complete_execution ingestion path. Root review and isolated own-role rollback probe are required before activation."
+    },
+    {
+      "sequence": 22,
+      "name": "assistant_runtime_thread_projection_insert",
+      "file": "022_assistant_runtime_thread_projection_insert.sql",
+      "sha256": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('assistant.assistant_runtime_thread_projections') IS NOT NULL AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT')"
+      ],
+      "postconditions": [
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','UPDATE')",
+        "SELECT NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','assistant.assistant_runtime_thread_projections','TRIGGER')",
+        "SELECT count(*)=1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='assistant.assistant_runtime_thread_projections'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'runtime' AND a.grantor=c.relowner AND a.privilege_type='INSERT' AND NOT a.is_grantable"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate 022 grants only INSERT on assistant.assistant_runtime_thread_projections to the owner-prefix runtime role. The normal create_thread path already has required rights elsewhere; root review and isolated own-role rollback probe are required before activation."
     }
   ]
 }

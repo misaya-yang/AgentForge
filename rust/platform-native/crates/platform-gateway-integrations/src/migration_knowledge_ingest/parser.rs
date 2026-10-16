@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use std::{
     collections::HashSet,
     fs,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
@@ -108,42 +108,144 @@ pub fn decode_text_bytes(bytes: &[u8]) -> Result<String> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Block {
     pub block_id: String,
-    #[serde(rename = "type")]
+    #[serde(
+        rename = "type",
+        default = "text_kind",
+        deserialize_with = "block_kind"
+    )]
     pub kind: String,
+    #[serde(default)]
     pub text: String,
+    #[serde(default)]
     pub order: usize,
     pub bbox: Option<Value>,
+    #[serde(default)]
     pub parser: String,
+    #[serde(default)]
     pub parser_version: String,
     pub confidence: Option<f64>,
     pub table: Option<Value>,
     pub formula: Option<Value>,
     pub figure: Option<Value>,
+    #[serde(default = "empty_metadata")]
     pub metadata: Value,
+}
+fn empty_metadata() -> Value {
+    json!({})
+}
+fn text_kind() -> String {
+    "text".into()
+}
+fn schema_version() -> String {
+    "1".into()
+}
+fn block_kind<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<String, D::Error> {
+    let value = Value::deserialize(d)?;
+    Ok(match value.as_str() {
+        Some(
+            kind @ ("text" | "heading" | "table" | "formula" | "figure" | "list" | "caption"
+            | "code" | "unknown"),
+        ) => kind,
+        _ => "unknown",
+    }
+    .into())
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BBox {
+    pub x0: f64,
+    pub y0: f64,
+    pub x1: f64,
+    pub y1: f64,
+}
+impl BBox {
+    pub fn from_list(value: &Value) -> Option<Self> {
+        let values = value.as_array().filter(|v| v.len() >= 4)?;
+        let number = |i: usize| {
+            values[i]
+                .as_f64()
+                .or_else(|| values[i].as_str()?.parse().ok())
+        };
+        Some(Self {
+            x0: number(0)?,
+            y0: number(1)?,
+            x1: number(2)?,
+            y1: number(3)?,
+        })
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PageIR {
     pub page_number: usize,
+    #[serde(default)]
     pub blocks: Vec<Block>,
+    #[serde(default)]
     pub parser: String,
+    #[serde(default)]
     pub parser_version: String,
     pub page_width: Option<f64>,
     pub page_height: Option<f64>,
     pub confidence: Option<f64>,
+    #[serde(default)]
     pub hard_page: bool,
+    #[serde(default = "empty_metadata")]
     pub metadata: Value,
+}
+impl PageIR {
+    pub fn sorted_blocks(&self) -> Vec<&Block> {
+        let mut blocks: Vec<_> = self.blocks.iter().collect();
+        blocks.sort_by_key(|b| b.order);
+        blocks
+    }
+    pub fn page_text(&self) -> String {
+        self.sorted_blocks()
+            .into_iter()
+            .filter(|b| !b.text.is_empty())
+            .map(|b| b.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocIR {
     pub doc_id: String,
+    #[serde(default)]
     pub content_hash: String,
+    #[serde(default)]
     pub filename: String,
     pub mime: Option<String>,
+    #[serde(default = "schema_version")]
     pub schema_version: String,
+    #[serde(default)]
     pub pages: Vec<PageIR>,
+    #[serde(default = "empty_metadata")]
     pub metadata: Value,
 }
 impl DocIR {
+    pub fn page(&self, number: usize) -> Option<&PageIR> {
+        self.pages.iter().find(|p| p.page_number == number)
+    }
+    pub fn iter_blocks(&self) -> Vec<&Block> {
+        let mut pages: Vec<_> = self.pages.iter().collect();
+        pages.sort_by_key(|p| p.page_number);
+        pages.into_iter().flat_map(PageIR::sorted_blocks).collect()
+    }
+    pub fn stats(&self) -> Value {
+        let blocks = self.iter_blocks();
+        let mut by_type = std::collections::BTreeMap::<&str, usize>::new();
+        let mut parsers = std::collections::BTreeSet::new();
+        for block in &blocks {
+            *by_type.entry(&block.kind).or_default() += 1;
+            if !block.parser.is_empty() {
+                parsers.insert(block.parser.as_str());
+            }
+        }
+        for page in &self.pages {
+            if !page.parser.is_empty() {
+                parsers.insert(page.parser.as_str());
+            }
+        }
+        json!({"pages":self.pages.len(),"blocks":blocks.len(),"by_type":by_type,"text_chars":blocks.iter().map(|b|b.text.chars().count()).sum::<usize>(),"tables":by_type.get("table").copied().unwrap_or(0),"formulas":by_type.get("formula").copied().unwrap_or(0),"figures":by_type.get("figure").copied().unwrap_or(0),"hard_pages":self.pages.iter().filter(|p|p.hard_page).count(),"parsers":parsers})
+    }
     pub fn text(&self) -> Result<String> {
         let mut out = String::new();
         for p in &self.pages {

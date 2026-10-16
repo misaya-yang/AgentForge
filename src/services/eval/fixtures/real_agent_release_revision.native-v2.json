@@ -1,0 +1,93 @@
+{
+  "schema_version": "real-agent-release-revision/v1",
+  "revision_id": "general-agent-four-domain-release.native-v2",
+  "supersedes_release_id": "general-agent-four-domain-release.v1",
+  "supersedes_manifest_sha256": "b6ccdec24f5a5c7306a5196c8dce0fc4074f606b8ebc35c88a0ba77ae01e276c",
+  "reason": "Explicit implementation-language migration: Rust coding fixture, host validator and receipt verifier with new source identities; historical Python-v1 receipts are not reusable.",
+  "manifest": {
+    "path": "src/services/eval/fixtures/real_agent_release_manifest.native-v2.json",
+    "file_sha256": "d3706f1ada016612972d2e04ebe62ca7733a2018744babbe9b6cc684033e2d93",
+    "canonical_sha256": "52341a05477c37ffe93fa4a77f2343cbd4691745bd7b14a5bde642005c0d6f16"
+  },
+  "coding_host_test_policy": {
+    "path": "src/services/eval/fixtures/coding_host_test_policy.native-v2.json",
+    "file_sha256": "5c39c8f771fcf16111863f1280236afdabef39b5e2bf36c39218d98306104d84",
+    "canonical_sha256": "0df1548680eb2de61efb7e8e5f12e51b4d38c8081358e861eb0ae49e45093ee4"
+  },
+  "coding_scenario_contract_sha256": "ed3e58cef6dd97848d62e46cb2c97ebfe6d3e4c36f53b3595384f6c8bc9c078d",
+  "source_artifacts": [
+    {
+      "path": "tests/fixtures/eval/general_agent/coding_parallel_v2/scenario.json",
+      "file_sha256": "a8dadec5f46d67ead1bfb45dd0b605862b5c53b154671a8312363dcaf3e0b2e8"
+    },
+    {
+      "path": "tests/fixtures/eval/general_agent/coding_parallel_v2/validator_contract.json",
+      "file_sha256": "f9e4f5a08c6d4121cd62515c0aa9f073bf676e7d6622af66e94d147f5009cc96"
+    },
+    {
+      "path": "tests/fixtures/eval/general_agent/coding_parallel_v2/vendor-inventory.json",
+      "file_sha256": "8c8b43c173f00a0bfaf9d56f9f8f6b48a0238d093dc7204bcf6a9c22048adbed"
+    },
+    {
+      "path": "tests/fixtures/eval/general_agent/coding_parallel_v2/sandbox-image.json",
+      "file_sha256": "7ec7681a9862099be477b01aacf645ecf2386b19eccf55dc2c8a180bd2615eed"
+    },
+    {
+      "path": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/Cargo.lock",
+      "file_sha256": "fc5df41df7aed2764252a7aa0a950e66924d28d66c2c649c5bfa58370c4aec5d"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-eval/src/coding_sandbox.rs",
+      "file_sha256": "91056b82aef757938fb67751db33ed12e722c0b410716366f29908bd5323104a"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-eval/src/coding_receipt.rs",
+      "file_sha256": "4d6fe6f1196fb5cec33ad9913825a76a7a8df7fb0af45225e364f2a9b4061fb8"
+    }
+  ],
+  "acceptance_invariants": {
+    "domains": [
+      "coding",
+      "research",
+      "legal",
+      "finance"
+    ],
+    "repetitions_per_domain": 3,
+    "max_changed_lines": 48,
+    "minimum_child_duration_ms": 25,
+    "minimum_parallel_overlap_ms": 25,
+    "allowed_changes": [
+      "src/allocation.rs",
+      "src/idempotency.rs"
+    ],
+    "test_commands": [
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--test",
+        "idempotency"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--test",
+        "allocation"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--test",
+        "service"
+      ]
+    ],
+    "noncoding_contracts_unchanged": true,
+    "judge_thresholds_changed": false
+  },
+  "validation_status": "metadata-bound; native integrity tests pending; no candidate sandbox execution or live release acceptance claimed"
+}

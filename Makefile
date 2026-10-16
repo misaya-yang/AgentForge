@@ -20,7 +20,7 @@
 #   make logs            查看实时日志
 #   make stop            停止所有服务
 #   make restart         重启所有服务
-#   make hot-update      热更新本地部署容器源码 (不 pip、不重建镜像)
+#   make hot-update      从原生源码构建镜像并更新选定服务
 #
 #   make migrate         运行数据库迁移 (自动跳过已执行的)
 #   make migrate-init    首次初始化 schema 并运行全部待执行迁移
@@ -35,7 +35,7 @@
 #   make dev-stop        停止开发容器
 #   make dev-reset       重置开发环境
 #   make dev-status      查看开发环境状态
-#   make dev-compose     使用源码挂载启动应用服务 (无需反复构建)
+#   make dev-compose     从源码构建开发服务，原生代码修改后需要重新编译
 #
 #   make help            显示此帮助
 # =============================================================================
@@ -44,26 +44,12 @@ SHELL := /bin/bash
 SCRIPTS := scripts/new
 ENV_FILE ?= .env
 COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
-BUILD_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.build.yml
-DEV_COMPOSE := $(BUILD_COMPOSE) -f docker-compose.dev.yml
+BUILD_COMPOSE := $(COMPOSE) -f docker-compose.yml -f deploy/compose/docker-compose.build.yml
+DEV_COMPOSE := $(BUILD_COMPOSE) -f deploy/compose/docker-compose.dev.yml
 COMPOSE_PARALLEL_LIMIT ?= 1
 export COMPOSE_PARALLEL_LIMIT
 
 .DEFAULT_GOAL := help
-
-.PHONY: local-bootstrap local-baseline local-runtime-source
-local-bootstrap:            ## 安装隔离工具链和锁定依赖，不启动服务
-	@bash scripts/dev/bootstrap-local.sh
-
-local-baseline:             ## 用隔离工具链执行现有离线 harness 并保留逐项结果
-	@bash scripts/dev/with-local-toolchain.sh bash scripts/dev/check-local-baseline.sh
-
-local-runtime-source:       ## 恢复并校验外部固定 Runtime upstream Git 源码
-	@bash scripts/dev/with-local-toolchain.sh bash scripts/dev/prepare-runtime-source.sh
-
-.PHONY: local-services-up local-services-check local-services-init local-services-status local-services-stop
-local-services-up local-services-check local-services-init local-services-status local-services-stop:
-	@bash scripts/dev/with-local-toolchain.sh uv run --all-packages --extra test python scripts/dev/local-services.py $(subst local-services-,,$@)
 
 # -- Quick Start --------------------------------------------------------------
 
@@ -72,37 +58,29 @@ local-services-up local-services-check local-services-init local-services-status
 doctor:                     ## 环境体检: 工具/Docker/内存/端口/compose 归属 (只读)
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/doctor.sh --env "$(ENV_FILE)"
 
-harness-check:              ## 校验 harness.yml 契约: 命令存在、必备文档、指令文件行数预算
-	@python3 scripts/harness/check_harness.py
+harness-check: ## Native equivalent gate
+	@platform-tools harness-check --repo-root .
 
-runtime-dependency-gate:    ## 检查已退役 Python 执行面/docgen/OpenAPI 依赖未回流
-	@python3 scripts/harness/runtime_dependency_gate.py
+runtime-dependency-gate: ## Native equivalent gate
+	@platform-tools python-inventory --repo-root . --require-zero
 
 gateway-kb-boundary-gate:   ## 阻止 gateway 重新持有 KB 表 SQL 或 KB 请求 schema（PRD T8.4）
-	@python3 scripts/harness/gateway_kb_boundary_gate.py
+	@ai-platform-openapi gateway-kb-boundary
 
-architecture-boundary-gate: ## 静态 import 边界门禁: gateway/apps/core/contracts 区间合同 (含负向自测)
-	@python3 scripts/harness/import_boundary_gate.py --selftest
-	@python3 scripts/harness/import_boundary_gate.py
+architecture-boundary-gate: ## Native equivalent gate
+	@platform-tools architecture-boundary --repo-root .
 
-core-boundary-gate:         ## ai-gateway-core/contracts 清单与兼容边界（Git provenance + 负向自测）
-	@python3 scripts/core_boundary/check_core_boundary.py --self-test
-	@python3 scripts/core_boundary/check_core_boundary.py
+core-boundary-gate: ## Native equivalent gate
+	@platform-tools architecture-boundary --repo-root .
 
-single-instance-guard:      ## Gateway/Runtime 单实例门禁: topology + Helm values/templates (含负向自测)
-	@python3 scripts/harness/single_instance_guard.py --selftest
-	@python3 scripts/harness/single_instance_guard.py
+single-instance-guard: ## Native equivalent gate
+	@platform-tools single-instance-guard --repo-root .
 
-agent-runtime-source-contract: ## 校验 Agent Runtime 不可变源码、Schema、SBOM、许可证和 OCI 身份
-	@python3 scripts/harness/agent_runtime_supply_chain.py validate \
-		--repo-root . \
-		--lock deploy/agent-runtime-source/lock.json \
-		--require-artifact agent_runtime
-	@uv run --all-packages --extra test pytest -q --no-cov \
-		tests/harness/test_agent_runtime_supply_chain.py
+agent-runtime-source-contract: ## Native equivalent gate
+	@platform-tools source-lock validate --repo-root . --lock deploy/agent-runtime-source/lock.json --require-artifact agent_runtime
 
 agent-runtime-contract:     ## 校验 Rust Agent Runtime 已锁到独立、可运行的 OCI 制品
-	@python3 scripts/harness/agent_runtime_supply_chain.py validate \
+	@platform-tools source-lock validate \
 		--repo-root . \
 		--lock deploy/agent-runtime-source/lock.json \
 		--require-artifact agent_runtime
@@ -117,29 +95,23 @@ agent-runtime-smoke:        ## 在隔离 PostgreSQL/Docker 网络验证 Runtime 
 	@bash scripts/harness/smoke_agent_runtime_image.sh
 
 agent-runtime-text-gate:    ## 真实 Qwen Responses：简单、长输出与重启后多轮恢复
-	@uv run --all-packages --extra test python \
-		scripts/harness/agent_runtime_text_gate.py \
+	@agent-runtime-text-gate \
 		--env-file "$(ENV_FILE)" \
 		--runtime-image "$(AI_PLATFORM_AGENT_RUNTIME_IMAGE)"
 
 agent-runtime-single-kernel-gate: ## 验证唯一 Rust Agent 内核、V1/V2 投影和迁移合同
-	@python3 scripts/harness/agent_runtime_single_kernel_gate.py
-	@ENV_FILE="$(ENV_FILE)" uv run --all-packages --extra test pytest -q --no-cov \
-		tests/services/assistant/test_runtime_assignment.py \
-		tests/services/agent_runtime/test_thread_store.py \
-		tests/api/test_agent_v2.py \
-		tests/database/test_agent_runtime_thread_store_migration.py \
-		tests/contract/test_openapi_schema_compat.py
+	@platform-tools agent-runtime-single-kernel-gate
+	@ENV_FILE="$(ENV_FILE)" cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_agent
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_v2_turn_contract --test runtime_control_plane
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test runtime_thread_store_migration
+	@echo "Disposable PostgreSQL execution is the separate agent-thread-store-contract L2 gate; this offline target does not certify it."
+	@$(MAKE) verify-native-openapi-contract
 
-agent-runtime-readonly-gate: ## Context/Knowledge/Tool/MCP/Artifact 只读桥合同
-	@uv run --all-packages --extra test python scripts/harness/agent_runtime_readonly_gate.py
-	@uv run --all-packages --extra test pytest -q --no-cov \
-		tests/services/agent_runtime/test_readonly_capabilities.py \
-		tests/harness/test_agent_runtime_readonly_gate.py
+agent-runtime-readonly-gate: ## Native read-only contributor contract
+	@platform-tools agent-runtime-readonly-gate
 
 agent-runtime-write-gate:   ## 校验工具审批、dispatch fence、幂等和中断恢复闭环
-	@uv run --all-packages --extra test python \
-		scripts/harness/agent_runtime_write_gate.py \
+	@platform-tools agent-runtime-write-gate \
 		--fork "$(AI_PLATFORM_AGENT_RUNTIME_SOURCE)"
 
 agent-thread-store-contract: ## 在真实 PostgreSQL 验证 Agent ThreadStore 与预授权根线程闭环
@@ -172,9 +144,7 @@ agent-runtime-source-build-local: ## 低内存构建本地 Agent Runtime 源码�
 	@bash scripts/harness/build_agent_runtime_source_image.sh
 
 sdk-sse-contract:           ## 验证四端 SSE 合同；发布 CI 要求 Maven/Dart 必须存在
-	@uv run --all-packages --extra test pytest -q --no-cov \
-		sdk/python/tests/test_sse_inner_envelopes.py \
-		tests/contract/test_sdk_sse_fixture_contract.py
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --lib --test sdk_transport
 	@npm --prefix sdk/cli run typecheck
 	@npm --prefix sdk/cli test
 	@if command -v mvn >/dev/null 2>&1; then \
@@ -204,31 +174,24 @@ agent-runtime-cli-build-local: ## 在 Docker 内从固定 composed source 构建
 	@AI_PLATFORM_AGENT_RUNTIME_SOURCE="$(AI_PLATFORM_AGENT_RUNTIME_SOURCE)" \
 		bash scripts/harness/build_agent_runtime_cli_package.sh
 
-snapshot-gateway-openapi:  ## 导出 Python/hybrid 候选，保留混合 SDK 合同
-	@test -n "$(OPENAPI_OUTPUT)" || (echo "Set OPENAPI_OUTPUT to a separate candidate path" >&2; exit 2)
-	@uv run --all-packages --extra test python scripts/snapshot_gateway_openapi.py --profile python-hybrid --output "$(OPENAPI_OUTPUT)"
+snapshot-gateway-openapi: snapshot-native-openapi ## Export independent native candidate
 
-verify-openapi-contract:   ## 进程内离线 OpenAPI 合同门禁: 直接导出 FastAPI app, 无活栈, 绝不 skip
-	@uv run --all-packages --extra test python scripts/harness/openapi_contract_gate.py --selftest
-	@uv run --all-packages --extra test python scripts/harness/openapi_contract_gate.py --profile python-hybrid
-	@uv run --all-packages --extra test pytest -q --no-cov tests/contract/test_openapi_schema_compat.py tests/contract/test_openapi_profiles.py
+verify-openapi-contract: verify-native-openapi-contract ## Native source-owned public contract
 
 .PHONY: snapshot-native-openapi verify-native-openapi-contract compare-openapi-candidate
-snapshot-native-openapi: ## 原生及保留Python Knowledge声明候选；不满足完整原生门禁
+snapshot-native-openapi: ## 原生声明候选；完整性由原生门禁校验
 	@test -n "$(NATIVE_OPENAPI_PRODUCER)" -a -n "$(OPENAPI_OUTPUT)" -a -n "$(OPENAPI_COVERAGE_OUTPUT)" || (echo "Set NATIVE_OPENAPI_PRODUCER, OPENAPI_OUTPUT and OPENAPI_COVERAGE_OUTPUT (external paths)"; exit 2)
-	@uv run --all-packages --extra test python scripts/snapshot_native_openapi.py --producer "$(NATIVE_OPENAPI_PRODUCER)" --output "$(OPENAPI_OUTPUT)" --coverage-output "$(OPENAPI_COVERAGE_OUTPUT)" $(if $(NATIVE_OPENAPI_PREVIOUS),--previous "$(NATIVE_OPENAPI_PREVIOUS)") $(if $(KNOWLEDGE_OPENAPI_TOKENIZER_CACHE),--knowledge-tokenizer-cache "$(KNOWLEDGE_OPENAPI_TOKENIZER_CACHE)")
+	@ai-platform-openapi snapshot --root . --producer "$(NATIVE_OPENAPI_PRODUCER)" --output "$(OPENAPI_OUTPUT)" --coverage-output "$(OPENAPI_COVERAGE_OUTPUT)" $(if $(NATIVE_OPENAPI_PREVIOUS),--previous "$(NATIVE_OPENAPI_PREVIOUS)")
 
 verify-native-openapi-contract: ## 原生完整公开合同；缺独立候选时失败，不跳过
-	@uv run --all-packages --extra test python scripts/harness/openapi_contract_gate.py --profile native $(if $(NATIVE_OPENAPI_CANDIDATE),--candidate "$(NATIVE_OPENAPI_CANDIDATE)") --evidence-out tmp/gate-evidence/verify-native-openapi-contract.json
+	@ai-platform-openapi gate --root . --profile native $(if $(NATIVE_OPENAPI_CANDIDATE),--candidate "$(NATIVE_OPENAPI_CANDIDATE)") --evidence-out tmp/gate-evidence/verify-native-openapi-contract.json
 
 compare-openapi-candidate: ## 仅比较制品，不构成原生来源或发布证明
 	@test -n "$(OPENAPI_CANDIDATE)" || (echo "Set OPENAPI_CANDIDATE" >&2; exit 2)
-	@uv run --all-packages --extra test python scripts/harness/openapi_contract_gate.py --profile published --candidate "$(OPENAPI_CANDIDATE)" --evidence-out tmp/gate-evidence/compare-openapi-candidate.json
+	@ai-platform-openapi gate --root . --profile published --candidate "$(OPENAPI_CANDIDATE)" --evidence-out tmp/gate-evidence/compare-openapi-candidate.json
 
 live-openapi-contract-gate: ## Live OpenAPI 合同门禁: 需要活栈; 栈未起时报告 SKIPPED, 绝不冒充 PASS
-	@echo "TIER=L3-live: this gate needs the running stack; a skip here is SKIPPED, never PASS."
-	@uv run --all-packages --extra test pytest -q --no-cov -m integration \
-		tests/integration/test_gateway_openapi_contract.py
+	@platform-tools live-openapi-contract --repo-root . --evidence-out tmp/gate-evidence/live-openapi-contract-gate.json
 
 quickstart:                 ## 拉取版本化多架构镜像并一键部署 (仅需模型配置)
 	@bash $(SCRIPTS)/init-env.sh --env "$(ENV_FILE)" --if-missing
@@ -291,7 +254,7 @@ logs:                       ## 查看实时日志
 status:                     ## 查看所有服务状态和健康检查
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/status.sh
 
-hot-update:                 ## 热更新本地部署容器源码 (不 pip、不重建镜像)
+hot-update:                 ## 从原生源码构建镜像并更新选定服务
 	@bash $(SCRIPTS)/hot-update.sh --env "$(ENV_FILE)" $(ARGS)
 
 # -- Database Migrations ------------------------------------------------------
@@ -333,7 +296,7 @@ dev-start:                  ## 启动开发容器
 dev-stop:                   ## 停止开发容器
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/setup-dev.sh --stop
 
-dev-reset:                  ## 重置开发环境 (销毁并重建)
+dev-reset:                  ## 重建开发容器并保留已有数据卷
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/setup-dev.sh --reset
 
 dev-status:                 ## 查看开发环境状态
@@ -342,7 +305,7 @@ dev-status:                 ## 查看开发环境状态
 dev-compose:                ## 从源码构建并挂载后端服务，启用热重载
 	@bash $(SCRIPTS)/validate-env.sh --env "$(ENV_FILE)" --config-only
 	@$(DEV_COMPOSE) --env-file "$(ENV_FILE)" up -d --build --remove-orphans gateway knowledge-service knowledge-worker agent-runtime agent-capability-worker frontend
-	@echo "Development compose is running with backend source mounts and uvicorn reload."
+	@echo "Development compose is running native services built from the selected source."
 
 dev-compose-logs:           ## 查看源码挂载开发服务日志
 	@$(DEV_COMPOSE) --env-file "$(ENV_FILE)" logs -f gateway knowledge-service knowledge-worker agent-runtime agent-capability-worker frontend
@@ -353,142 +316,68 @@ dev-compose-logs:           ## 查看源码挂载开发服务日志
 
 EVAL_REGRESSION_REPORT_DIR ?= tmp/eval-regression
 EVAL_E1_ARTIFACT_DIR ?= tmp/eval-e1
-EVAL_UV_RUN ?= uv run --all-packages --extra test
-EVAL_RUFF_RUN ?= uv run --all-packages --extra dev
-# Extra pytest flags for gates (CI uses this to emit JUnit evidence into
-# tmp/gate-evidence/ for the final gate-enforcement audit).
-PYTEST_EXTRA ?=
+# Native Cargo gates retain their own structured output; live gates emit explicit receipts.
 
 verify-agent-studio:        ## 运行 AS-00~AS-08 版本化 Agent Studio 整体回归门禁
-	@uv run python scripts/agent_studio_regression.py $(ARGS)
+	@agent_studio_regression $(ARGS)
 
 verify-assistant-runtime-dev: ## 运行 Assistant Runtime 离线回归门禁 (AHR-01~AHR-04)
-	@$(EVAL_UV_RUN) python scripts/assistant_runtime_regression.py gate --no-write
+	@assistant_runtime_regression gate --no-write
 
 agent-runtime-eval-contract-gate: ## 验证 V2 Agent Runtime 的离线 Thread/Turn/Item 质量合同
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_agent_runtime_eval_contract.py \
-		tests/services/eval/test_eval_candidate_client.py
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --test runtime_contract_source
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_compat::eval
 
 agent-eval-core-gate:       ## 运行 Agent Runtime 候选执行、统计、评估器与多代理核心门禁
 	@$(MAKE) agent-runtime-eval-contract-gate
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_candidate_runner.py \
-		tests/services/eval/test_experiment_statistics.py \
-		tests/services/eval/test_eval_candidate_client.py \
-		tests/services/eval/test_evaluator_executor.py
-	@echo "Agent Runtime live-provider candidate is not run by this offline gate; use the explicit V2 live gate with AGENT_EVAL_AUTH_TOKEN or AGENT_EVAL_API_KEY."
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --lib
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test eval_online_outbox_contract
+	@echo 'Offline candidate/evaluator gate; real-provider acceptance requires the explicit live gate and credentials.'
 
 verify-eval-dev:            ## 运行 Agent Trace/Eval dev 分支验证门禁
-	@$(EVAL_RUFF_RUN) ruff check \
-		src/api/v1/eval.py \
-		src/api/schemas/eval.py \
-		src/api/eval_export.py \
-		packages/ai-gateway-core/src/ai_gateway_core/eval \
-		packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py \
-		tests/api/test_eval_traces.py \
-		tests/api/test_eval_api_trace_tree.py \
-		tests/services/eval \
-		tests/services/eval/test_agent_runtime_eval_contract.py
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/api/test_eval_traces.py \
-		tests/api/test_eval_api_trace_tree.py \
-		tests/services/eval/test_eval_permissions.py
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_evaluator_executor.py \
-		tests/services/eval/test_outbox_worker.py \
-		tests/services/eval/test_online_sampling.py \
-		tests/services/eval/test_eval_llm_client.py \
-		tests/services/eval/test_golden_regression_gate.py \
-		tests/services/eval/test_trace_retention_scheduler.py \
-		tests/services/eval/test_search_indexes.py \
-		tests/services/eval/test_drive_shipped_entrypoints.py
+	@cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval -- --check
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_compat::eval
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract --test eval_online_outbox_contract --test trace_feedback_source_matrix --test agent_studio_eval
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval
 	@$(MAKE) eval-e1-gate
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_agent_runtime_eval_contract.py
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_ingest_roundtrip.py \
-		tests/services/eval/test_trace_capture_helpers.py
 	@pnpm -C web lint
 	@pnpm -C web type-check
 
 eval-regression-gate:       ## 运行离线 Assistant Eval golden regression gate
-	@$(EVAL_UV_RUN) python scripts/eval_golden.py validate tests/fixtures/eval/golden/assistant_regression_v1.jsonl
-	@$(EVAL_UV_RUN) python scripts/eval_golden.py gate tests/fixtures/eval/golden/assistant_regression_v1.jsonl \
+	@eval_golden validate tests/fixtures/eval/golden/assistant_regression_v1.jsonl
+	@eval_golden gate tests/fixtures/eval/golden/assistant_regression_v1.jsonl \
 		--observations tests/fixtures/eval/observations/assistant_regression_v1.jsonl \
 		--output $(EVAL_REGRESSION_REPORT_DIR)/latest.json \
 		--markdown $(EVAL_REGRESSION_REPORT_DIR)/latest.md
 
 rag-eval-fixture-contract:  ## L1 离线双轨 RAG Eval fixture contract 回放（不调用 provider/活栈）
-	@$(EVAL_UV_RUN) python scripts/eval_rag.py validate tests/fixtures/eval/rag/golden/rag_regression_v1.jsonl \
+	@eval_rag validate tests/fixtures/eval/rag/golden/rag_regression_v1.jsonl \
 		--observations tests/fixtures/eval/rag/observations/rag_regression_v1.jsonl
-	@$(EVAL_UV_RUN) python scripts/eval_rag.py gate tests/fixtures/eval/rag/golden/rag_regression_v1.jsonl \
+	@eval_rag gate tests/fixtures/eval/rag/golden/rag_regression_v1.jsonl \
 		--observations tests/fixtures/eval/rag/observations/rag_regression_v1.jsonl \
 		--output $(EVAL_E1_ARTIFACT_DIR)/rag-latest.json
 
 # -- Knowledge Base gates ------------------------------------------------------
-# kb-unit-gate is the real KB suite: it imports knowledge_service, unlike
-# rag-eval-fixture-contract which only replays fixtures offline.
-#
-# The two tests/scripts files MUST stay ahead of the directory args: they sit
-# inside the tests/scripts package, so collecting them inserts tests/ onto
-# sys.path, which then shadows the repo-root `scripts` namespace package for
-# every later module (collection breaks with "cannot import name
-# 'migrate_sparse_vectors' from 'scripts'"). Keep the order.
+# Native Knowledge gates exercise production modules; live and migration gates remain separate.
 
-KB_IMAGE_BUILD_LOCK := apps/knowledge-service/build-requirements.lock.txt
-KB_IMAGE_RUNTIME_LOCK := apps/knowledge-service/requirements.lock.txt
-
-kb-image-lock-refresh:      ## 从 uv.lock 重建 Knowledge Service 镜像依赖锁（带 SHA-256）
-	@uv export --locked --package knowledge-service --only-group image-build \
-		--no-annotate --no-header --no-emit-project --no-emit-workspace \
-		--output-file $(KB_IMAGE_BUILD_LOCK)
-	@uv export --locked --package knowledge-service --no-dev --no-group image-build \
-		--no-annotate --no-header \
-		--no-emit-package knowledge-service --no-emit-package ai-gateway-core \
-		--no-emit-package ai-gateway-contracts \
-		--output-file $(KB_IMAGE_RUNTIME_LOCK)
+kb-image-lock-refresh:      ## 从原生 Rust 源码与依赖锁重建镜像输入清单（带 SHA-256）
+	@native-image-inputs --repo-root . --write
 
 kb-image-lock-gate:         ## 校验 Knowledge Service 镜像锁同步、哈希与静态分发合同
-	@$(EVAL_RUFF_RUN) ruff check tests/scripts/test_knowledge_image_supply_chain.py
-	@$(EVAL_UV_RUN) pytest -q --no-cov tests/scripts/test_knowledge_image_supply_chain.py
+	@native-image-inputs --repo-root .
 
-kb-unit-gate:               ## 运行 Knowledge Service 真实单元门禁（导入 knowledge_service,离线可跑）
-	@$(EVAL_UV_RUN) pytest -q --no-cov $(PYTEST_EXTRA) \
-		tests/scripts/test_backfill_bm25_v2.py \
-		tests/scripts/test_migrate_sparse_vectors.py \
-		tests/scripts/test_kb_golden_set.py \
-		tests/scripts/test_regen_rag_observations.py \
-		tests/scripts/test_import_kb_eval_golden.py \
-		tests/harness/test_kb_release_evidence_gate.py \
-		tests/services/eval/test_kb_ragas_client.py \
-		tests/services/eval/test_kb_ragas_service.py \
-		tests/services/eval/test_rag_regression_gate.py \
-		tests/services/eval/test_retrieval_metrics.py \
-		tests/services/knowledge \
-		tests/knowledge
+kb-unit-gate:               ## 运行 Knowledge Service 与原生运维工具的离线 Rust 单元门禁
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --lib
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --test process_contract --test local_embedding_contract --test rerank_contract
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --lib
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway-integrations --lib migration_knowledge
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --test rag
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi --test kb_release_source_matrix
 
 kb-migration-gate:          ## 运行 KB 100–112 + 097/101 restore + 完整链/账本迁移门禁（需临时 Postgres + pg_dump/restore）
-	@$(EVAL_UV_RUN) pytest -q --no-cov $(PYTEST_EXTRA) \
-		tests/database/test_migration_authority_entrypoints.py \
-		tests/database/test_run_migration.py \
-		tests/database/test_migration_runner_contract.py \
-		tests/database/test_migration_runner_concurrency.py \
-		tests/database/test_image_task_runtime_scope_migration.py \
-		tests/database/test_kb_migration_full_chain.py \
-		tests/database/test_kb_migration_101_restore.py \
-		tests/database/test_kb_migrations.py \
-		tests/database/test_kb_query_telemetry_migration.py \
-		tests/database/test_kb_query_feedback_migration.py \
-		tests/database/test_kb_ingestion_lifecycle_migration.py \
-		tests/database/test_kb_embedding_versioning_migration.py \
-		tests/database/test_kb_embedding_conflict_paths.py \
-		tests/database/test_kb_embedding_action_jobs.py \
-		tests/database/test_kb_process_rule_snapshot.py \
-		tests/database/test_kb_eval_golden_migration.py \
-		tests/database/test_bm25_v2_lifecycle_tierb.py \
-		tests/database/test_kb_artifact_migrations_tierb.py \
-		tests/database/test_kb_document_batch_migration.py
+	@echo "Native migration contract: full chain, idempotence, roles, lock serialization, crash rollback, and 101 dump/restore. Specialized historical embedding/artifact assertions are not certified by this target."
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test kb_migration_contract -- --ignored --test-threads=1
 
 # -- KB golden evaluation foundation (PRD T0-#2/#3/#4/#7) ---------------------
 # kb-golden-gate is a fully offline, CI-safe development-structure check. It
@@ -498,12 +387,12 @@ kb-migration-gate:          ## 运行 KB 100–112 + 097/101 restore + 完整链
 KB_GOLDEN_DIR := tests/fixtures/eval/rag/golden
 
 kb-golden-gate:             ## 校验 KB 开发夹具结构: manifest 哈希 + 种子漂移 + case 合同
-	@$(EVAL_UV_RUN) python scripts/regen_rag_observations.py verify --manifest $(KB_GOLDEN_DIR)/manifest.json
-	@$(EVAL_UV_RUN) python scripts/seed_kb_golden_set.py --check
-	@$(EVAL_UV_RUN) python scripts/eval_rag.py validate $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl
+	@regen_rag_observations verify --manifest $(KB_GOLDEN_DIR)/manifest.json
+	@seed_kb_golden_set --check
+	@eval_rag validate $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl
 
 kb-release-evidence-gate:   ## T0 发布证据: 人审黄金集 + manifest + 真实语料基线绑定
-	@$(EVAL_UV_RUN) python scripts/harness/kb_release_evidence_gate.py
+	@ai-platform-openapi kb-release-evidence
 
 # rag-live-quality-gate is the L3 LIVE tier of the RAG gate family: it replays
 # the KB golden set against a running Knowledge Service and gates on measured
@@ -521,23 +410,21 @@ RAG_LIVE_MIN_NDCG ?= 0
 rag-live-quality-gate:      ## L3 活栈 RAG 质量门禁: 黄金集对真实 KS 回放并门控（需绑定数据集）
 	@test -n "$(RAG_LIVE_DATASET_ID)" || { echo "usage: make rag-live-quality-gate RAG_LIVE_DATASET_ID=<bound eval dataset id> [RAG_LIVE_URL=...] [RAG_LIVE_MIN_RECALL=...]"; exit 2; }
 	@mkdir -p tmp/rag-live reports/rag-live-quality
-	@$(EVAL_UV_RUN) python scripts/regen_rag_observations.py record --retrieval-only \
+	@regen_rag_observations record --retrieval-only \
 		--expectations $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl \
 		--dataset-id $(RAG_LIVE_DATASET_ID) --url $(RAG_LIVE_URL) \
 		--output tmp/rag-live/observations.jsonl --force
-	@$(EVAL_UV_RUN) python scripts/eval_rag.py gate $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl \
+	@eval_rag gate $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl \
 		--observations tmp/rag-live/observations.jsonl \
 		--track retrieval_only \
 		--min-total-samples 1 --min-track-samples 1 \
 		--min-recall $(RAG_LIVE_MIN_RECALL) --min-mrr $(RAG_LIVE_MIN_MRR) --min-ndcg $(RAG_LIVE_MIN_NDCG) \
 		--output reports/rag-live-quality/latest.json
 
-# kb-integration-smoke is NOT wired into CI: it needs the docker-compose.kbms.yml
-# Qdrant up. The test skips itself when the stack is unreachable, so the target
-# is safe to run at any time.
-kb-integration-smoke:       ## Qdrant 集成冒烟（需 kbms 栈；栈未起时自动 skip）
-	@$(EVAL_UV_RUN) pytest -q --no-cov -m integration \
-		tests/knowledge/test_qdrant_integration_smoke.py
+# Explicit native live smoke requires Qdrant; ordinary cargo tests keep it ignored.
+# The named live gate fails if its required stack is unavailable.
+kb-integration-smoke:       ## Qdrant 集成冒烟（需 kbms 栈；显式调用时缺栈失败）
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --test qdrant_integration_smoke -- --ignored --test-threads=1
 
 # kb-baseline-record drives the T0-#3 discipline end to end against a LIVE
 # knowledge service: regenerate retrieval observations for the KB golden set
@@ -553,11 +440,11 @@ KB_BASELINE_NAME ?= kb-golden-v1-$(shell date +%Y-%m-%d-run1)
 kb-baseline-record:         ## 记录真实语料检索基线候选（需活的 KS + 已绑定的评测数据集）
 	@test -n "$(KB_BASELINE_DATASET_ID)" || { echo "usage: make kb-baseline-record KB_BASELINE_DATASET_ID=<bound eval dataset id> [KB_BASELINE_URL=...]"; exit 2; }
 	@mkdir -p reports/kb-eval-baseline tmp/eval-e1
-	@$(EVAL_UV_RUN) python scripts/regen_rag_observations.py record --retrieval-only \
+	@regen_rag_observations record --retrieval-only \
 		--expectations $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl \
 		--dataset-id $(KB_BASELINE_DATASET_ID) --url $(KB_BASELINE_URL) \
 		--output tmp/eval-e1/kb-baseline-observations.jsonl --force
-	@$(EVAL_UV_RUN) python scripts/eval_rag.py gate --track retrieval_only \
+	@eval_rag gate --track retrieval_only \
 		--expectations $(KB_GOLDEN_DIR)/kb_golden_qa_v1.jsonl \
 		--observations tmp/eval-e1/kb-baseline-observations.jsonl \
 		--min-recall 0 --min-mrr 0 --min-ndcg 0 \
@@ -566,12 +453,8 @@ kb-baseline-record:         ## 记录真实语料检索基线候选（需活的 
 	@echo "baseline candidate recorded; it is not release evidence until reviewed, bound, and kb-release-evidence-gate passes"
 
 eval-e1-unit-gate:          ## 运行 Agent stateful 与 RAG Eval E1 单元门禁
-	@$(EVAL_UV_RUN) pytest -q --no-cov \
-		tests/services/eval/test_agent_observation_adapter.py \
-		tests/services/eval/test_golden_regression_gate.py \
-		tests/services/eval/test_stateful_agent_eval.py \
-		tests/services/eval/test_rag_regression_gate.py \
-		tests/services/eval/test_retrieval_metrics.py
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --lib --test golden --test rag --test runtime_contract_source
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract
 
 eval-e1-gate:               ## 运行 Eval E1 离线 fixture-contract 门禁（Agent + RAG）
 	@$(MAKE) eval-e1-unit-gate
@@ -581,10 +464,9 @@ eval-e1-gate:               ## 运行 Eval E1 离线 fixture-contract 门禁（A
 # -- Agent Runtime isolation gate --------------------------------------------
 
 test-isolation:             ## 运行 Agent Runtime 与 Gateway 隔离契约测试
-	@uv run pytest -q --no-cov \
-		tests/integration/test_gateway_openapi_contract.py \
-		tests/integration/test_gateway_boot.py \
-		tests/api/test_assistant_control_plane_routes.py
+	@platform-tools live-openapi-contract --repo-root . --evidence-out tmp/gate-evidence/isolation-openapi.json
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_boot --test agent_studio_authorization --test runtime_control_plane
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_boot gateway_boot_constructs_all_production_routes_in_native_subprocess -- --ignored --exact
 
 # -- Repository quality gates (ARC-00B) ---------------------------------------
 
@@ -593,46 +475,46 @@ test-isolation:             ## 运行 Agent Runtime 与 Gateway 隔离契约测�
 BASE_SHA ?=
 
 hygiene-check:              ## 卫生检查: 空测试体/自证测试、.only/.fixme 扫描（含负向自测）
-	@python3 scripts/harness/hygiene_check.py --selftest
-	@python3 scripts/harness/hygiene_check.py
+	@platform-tools hygiene-check --selftest
+	@platform-tools hygiene-check --skip-baseline docs/architecture/baselines/2026-10-native/skip-baseline.json
 	@$(MAKE) evidence-policy-gate
 
 evidence-policy-gate:       ## ARC-07 evidence policy/manifest与具名候选机械合同
-	@python3 scripts/evidence/artifacts.py validate
-	@python3 scripts/evidence/known_candidates.py
+	@platform-tools evidence validate
+	@platform-tools known-candidates
 
 artifact-status:            ## 只读列出scratch artifact分类/年龄/大小/拒绝原因
-	@python3 scripts/evidence/artifacts.py status $(ARTIFACT_ARGS)
+	@platform-tools evidence status $(ARTIFACT_ARGS)
 
 artifact-cleanup:           ## 默认dry-run；apply需精确authorization manifest和外部quarantine
-	@python3 scripts/evidence/artifacts.py cleanup $(ARTIFACT_ARGS)
+	@platform-tools evidence cleanup $(ARTIFACT_ARGS)
 
 COMPATIBILITY_LEVEL ?= draft
 compatibility-manifest-gate: ## draft验证结构/离线事实；release必须COMPATIBILITY_LEVEL=candidate
-	@python3 scripts/release/compatibility_manifest.py --level "$(COMPATIBILITY_LEVEL)"
+	@platform-release compatibility --level "$(COMPATIBILITY_LEVEL)"
 
 platform-db-convergence-gate: ## L2真实DB authority/fingerprint/migration matrix；缺DSN=BLOCKED
-	@python3 scripts/release/integration_gates.py --gate platform-db
+	@platform-release integration --gate platform-db
 
 agent-execution-integration-gate: ## L2真实ThreadStore/Runtime/Worker/write-path组合门禁
-	@python3 scripts/release/integration_gates.py --gate agent-execution
+	@platform-release integration --gate agent-execution
 
 knowledge-integration-gate: ## L2真实Knowledge unit/Qdrant/live retrieval组合门禁
-	@python3 scripts/release/integration_gates.py --gate knowledge
+	@platform-release integration --gate knowledge
 
 fresh-install-gate:        ## L3隔离quickstart/validate/status；必须显式live authorization
-	@python3 scripts/release/integration_gates.py --gate fresh-install
+	@platform-release integration --gate fresh-install
 
 platform-rollback-rehearsal: ## L3 DB+Runtime+Knowledge current→frozen→current组合门禁
-	@python3 scripts/release/integration_gates.py --gate rollback
+	@platform-release integration --gate rollback
 
 platform-release-gate:     ## ARC-08最终总门禁：完整manifest + L2/L3/fresh/rollback零skip
 	@$(MAKE) compatibility-manifest-gate COMPATIBILITY_LEVEL=candidate
-	@python3 scripts/release/integration_gates.py --gate all
+	@platform-release integration --gate all
 
 loc-no-growth-gate:         ## LOC 不增长门禁: 超阈值文件零增长 + 新文件低于阈值（绑定基线清单）
-	@python3 scripts/harness/loc_no_growth_gate.py --selftest
-	@python3 scripts/harness/loc_no_growth_gate.py
+	@platform-tools loc-no-growth --selftest
+	@platform-tools loc-no-growth
 
 web-quality-gate:           ## Web 质量门禁: type-check + lint + node 单测 + i18n 检查
 	@pnpm -C web type-check
@@ -642,29 +524,20 @@ web-quality-gate:           ## Web 质量门禁: type-check + lint + node 单测
 
 affected-gates:             ## 由 BASE_SHA 的 diff 选择必须运行的门禁（未匹配路径 = 失败）
 	@test -n "$(BASE_SHA)" || { echo "usage: make affected-gates BASE_SHA=<base git sha>"; exit 2; }
-	@python3 scripts/harness/affected_gates.py --base "$(BASE_SHA)"
+	@platform-tools affected-gates --base "$(BASE_SHA)"
 
 ci-gate-enforcement:        ## CI 最终门禁: diff 所需 job 必须存在且成功（缺失/skip/fail 均失败）
-	@python3 scripts/harness/ci_gate_enforcement.py
+	@platform-tools ci-gate-enforcement
 
 ci-gate-enforcement-selftest: ## CI 最终门禁的纯离线负向自测
-	@python3 scripts/harness/ci_gate_enforcement.py --selftest
+	@platform-tools ci-gate-enforcement --selftest
 
 rust-changed-crate-gate:    ## 组合 lock-pinned upstream + 当前 overlay，串行测试变更 crate
 	@test -n "$(BASE_SHA)" || { echo "usage: make rust-changed-crate-gate BASE_SHA=<base git sha>"; exit 2; }
-	@python3 scripts/harness/rust_changed_crate_gate.py --base "$(BASE_SHA)"
+	@platform-tools rust-changed-crate-gate --base "$(BASE_SHA)"
 
 gateway-unit-gate:          ## Gateway 离线单元门禁: 排除 integration 标记与 KB/DB 套件
-	@$(EVAL_UV_RUN) pytest -q --no-cov -m "not integration" $(PYTEST_EXTRA) \
-		tests/unit \
-		tests/api \
-		tests/core \
-		tests/contract \
-		tests/harness \
-		tests/scripts/test_topology_modes.py \
-		tests/services/eval \
-		tests/services/agent_runtime \
-		tests/services/assistant
+	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway -p ai-platform-gateway-foundation -p ai-platform-gateway-integrations -p ai-platform-auth -p ai-platform-eval -p ai-platform-openapi -p ai-platform-tools --lib --tests
 
 # -- Help ---------------------------------------------------------------------
 
@@ -677,3 +550,26 @@ help:                       ## 显示此帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
+
+# Native migration entry points. All generated artifacts must remain external.
+NATIVE_MANIFEST := rust/platform-native/Cargo.toml
+NATIVE_BIN_DIR ?= $(HOME)/.local/bin
+.PHONY: native-check native-test native-install native-engine-build native-build-path-guard
+native-build-path-guard:
+	@test -n "$(CARGO_TARGET_DIR)" || { echo "Set an external CARGO_TARGET_DIR"; exit 2; }
+	@mkdir -p "$(CARGO_TARGET_DIR)"; target=$$(cd "$(CARGO_TARGET_DIR)" && pwd -P); root=$$(pwd -P); case "$$target/" in "$$root/"*) echo "CARGO_TARGET_DIR must be outside the source checkout"; exit 2;; esac
+native-check: native-build-path-guard ## Check every native service and test target
+	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
+	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo check --locked --manifest-path $(NATIVE_MANIFEST) --workspace --all-targets
+native-test: native-build-path-guard ## Run native unit and integration contracts
+	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
+	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked --manifest-path $(NATIVE_MANIFEST) --workspace
+native-engine-build: native-build-path-guard ## Build the native SDK execution process
+	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
+	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo build --locked --manifest-path rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml
+NATIVE_INSTALL_PACKAGES := ai-platform-client-packaging ai-platform-client ai-platform-gateway ai-platform-knowledge-service ai-platform-migration-authority ai-platform-sdk-agent-worker ai-platform-local-node ai-platform-tools ai-platform-release ai-platform-eval ai-platform-config-loader ai-platform-agent-plugins ai-platform-knowledge-ops ai-platform-openapi ai-platform-auth
+NATIVE_INSTALL_BINS := local_live_acceptance macos_computer_live_acceptance platform-client-packaging platformctl gateway gateway_capacity_inventory platform-knowledge-service database-authority sdk-agent-worker local-node platform-tools platform-release platform-knowledge-ops ai-platform-openapi prepare_native_gateway_config validate_agent_plugin admin-create repair-usage-metrics check-successor-proposals render-baseline-contract freeze-baseline probe-successor-roles database-policy generate-database-grants gateway-preflight recovery-pack verify-local-stack uat-gateway-capacity-probe uat-gateway-capacity-smoke agent_studio_regression assistant_runtime_regression assistant_ttft_benchmark collect_cra_compliance_research eval_general_agent_failure_recovery eval_golden eval_rag native_agent_parity_benchmark ppr00_resource_profile real_agent_scenario_runner regen_rag_observations seed_kb_golden_set validate_real_finance_eval ai-platform-sdk-agent-engine native-image-inputs agent-runtime-eval-contract agent-runtime-text-gate assistant_capability_live judge_real_agent_receipts verify_coding_parallel_fixture runtime_recovery_reference runtime_recovery_observe runtime_durable_recovery_gate
+native-install: native-engine-build ## Build and install native services and operational tools
+	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo build --locked --manifest-path $(NATIVE_MANIFEST) $(foreach p,$(NATIVE_INSTALL_PACKAGES),-p $(p)) --bins
+	@install -d "$(NATIVE_BIN_DIR)"
+	@for binary in $(NATIVE_INSTALL_BINS); do install "$(CARGO_TARGET_DIR)/debug/$$binary" "$(NATIVE_BIN_DIR)/$$binary"; done

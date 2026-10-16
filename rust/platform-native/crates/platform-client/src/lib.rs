@@ -2,15 +2,22 @@
 pub mod assistant_runs;
 pub mod compatibility;
 pub mod events;
-pub mod management;
-pub mod knowledge_sources;
 pub mod knowledge_connections;
+pub mod knowledge_sources;
+pub mod management;
 pub mod request;
 pub mod scheduled_notifications;
 pub mod scheduled_tasks;
 pub mod sdk_services;
 pub use request::ApiRequest;
+pub mod sdk;
+pub mod sdk_models;
+pub mod sdk_stream;
+pub mod sdk_threads;
 pub mod sse;
+pub use sdk::AssistantClient;
+pub mod assistant_sdk;
+pub mod mcp;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{net::IpAddr, sync::Arc, time::Duration};
@@ -18,6 +25,8 @@ use url::Url;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Submission outcome unknown; do not automatically resubmit")]
+    UnknownOutcome,
     #[error("Use an HTTPS origin, or an explicit loopback IP over HTTP")]
     Origin,
     #[error("Invalid request")]
@@ -33,11 +42,58 @@ pub enum Error {
     #[error("Authentication required")]
     Authentication,
 }
+/// Per-stream header and idle limits; independent from ordinary HTTP request timeouts.
+/// Values are positive and capped at 24 hours. Cancellation and consumer drop
+/// always remain active, even with long-running reasoning model limits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StreamLimits {
+    header_timeout: Duration,
+    idle_timeout: Duration,
+}
+impl StreamLimits {
+    pub fn new(header_timeout: Duration, idle_timeout: Duration) -> Result<Self, Error> {
+        let maximum = Duration::from_secs(24 * 60 * 60);
+        if header_timeout.is_zero()
+            || idle_timeout.is_zero()
+            || header_timeout > maximum
+            || idle_timeout > maximum
+        {
+            return Err(Error::Request);
+        }
+        Ok(Self {
+            header_timeout,
+            idle_timeout,
+        })
+    }
+    pub fn header_timeout(self) -> Duration {
+        self.header_timeout
+    }
+    pub fn idle_timeout(self) -> Duration {
+        self.idle_timeout
+    }
+}
+impl Default for StreamLimits {
+    fn default() -> Self {
+        Self {
+            header_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(90),
+        }
+    }
+}
 #[derive(Clone)]
 pub struct Client {
     origin: Url,
     http: reqwest::Client,
     token: Option<Arc<str>>,
+    sdk_auth: Option<Arc<SdkAuth>>,
+    default_timeout: Duration,
+    read_retries: u8,
+    stream_limits: StreamLimits,
+}
+struct SdkAuth {
+    api_key: String,
+    tenant_id: String,
+    user_id: Option<String>,
 }
 #[derive(Deserialize)]
 pub struct Login {
@@ -62,6 +118,7 @@ impl Client {
             return Err(Error::Origin);
         }
         let http = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))
@@ -72,11 +129,24 @@ impl Client {
             origin,
             http,
             token: None,
+            sdk_auth: None,
+            default_timeout: Duration::from_secs(30),
+            stream_limits: StreamLimits::default(),
+            read_retries: 0,
         })
+    }
+    pub fn with_stream_limits(mut self, limits: StreamLimits) -> Self {
+        self.stream_limits = limits;
+        self
+    }
+    pub fn stream_limits(&self) -> StreamLimits {
+        self.stream_limits
     }
     pub fn authenticated(&self, token: String) -> Self {
         Self {
             token: Some(token.into()),
+            sdk_auth: None,
+            read_retries: 0,
             ..self.clone()
         }
     }
@@ -120,22 +190,112 @@ impl Client {
         }
         Ok(login)
     }
+    pub fn authenticated_api_key(
+        &self,
+        api_key: String,
+        tenant_id: String,
+        user_id: Option<String>,
+    ) -> Result<Self, Error> {
+        if api_key.is_empty()
+            || [&api_key, &tenant_id]
+                .into_iter()
+                .chain(user_id.as_ref())
+                .any(|s| s.contains(['\r', '\n', '\0']))
+        {
+            return Err(Error::Authentication);
+        }
+        Ok(Self {
+            token: None,
+            read_retries: 3,
+            sdk_auth: Some(Arc::new(SdkAuth {
+                api_key,
+                tenant_id,
+                user_id: user_id.filter(|s| !s.is_empty()),
+            })),
+            ..self.clone()
+        })
+    }
+    pub fn with_transport_options(
+        &self,
+        timeout: Duration,
+        read_retries: u8,
+    ) -> Result<Self, Error> {
+        if timeout.is_zero() {
+            return Err(Error::Request);
+        }
+        Ok(Self {
+            default_timeout: timeout,
+            read_retries,
+            ..self.clone()
+        })
+    }
+    async fn send_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        read_only: bool,
+    ) -> Result<reqwest::Response, Error> {
+        let retries = if read_only { self.read_retries } else { 0 };
+        let mut attempt = 0u16;
+        loop {
+            let pending = request.try_clone().ok_or(Error::Request)?;
+            let result = pending.send().await;
+            let retry = match &result {
+                Ok(r) => [429, 502, 503, 504].contains(&r.status().as_u16()),
+                Err(_) => true,
+            };
+            if !retry || attempt >= retries as u16 {
+                return result.map_err(|_| Error::Transport);
+            }
+            let backoff = (0.5 * 2f64.powi(attempt.min(10) as i32)).min(30.);
+            let seconds = result
+                .as_ref()
+                .ok()
+                .and_then(|r| r.headers().get("Retry-After"))
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<f64>().ok())
+                .filter(|v| v.is_finite() && *v > 0.)
+                .map(|v| v.min(30.))
+                .unwrap_or(backoff);
+            drop(result);
+            tokio::time::sleep(Duration::from_secs_f64(seconds)).await;
+            attempt += 1;
+        }
+    }
+    fn authorize(
+        &self,
+        mut request: reqwest::RequestBuilder,
+    ) -> Result<reqwest::RequestBuilder, Error> {
+        if let Some(auth) = &self.sdk_auth {
+            request = request
+                .header("X-API-Key", &auth.api_key)
+                .header("X-Tenant-Id", &auth.tenant_id)
+                .header("X-SDK-Version", "rust/1.0.1")
+                .header("X-Request-Id", uuid::Uuid::new_v4().simple().to_string());
+            if let Some(user) = &auth.user_id {
+                request = request.header("X-User-Id", user);
+            }
+            Ok(request)
+        } else {
+            let token = self
+                .token
+                .as_ref()
+                .filter(|t| !t.is_empty() && !t.contains(['\r', '\n', '\0']))
+                .ok_or(Error::Authentication)?;
+            Ok(request.bearer_auth(token.as_ref()))
+        }
+    }
     async fn get(&self, segments: &[&str]) -> Result<Value, Error> {
-        let token = self.token.as_ref().ok_or(Error::Authentication)?;
-        self.decode(
-            self.http
-                .get(self.endpoint(segments)?)
-                .bearer_auth(token.as_ref()),
-        )
-        .await
+        self.endpoint(segments)?;
+        self.execute(ApiRequest::get(segments)).await
     }
     async fn post(&self, segments: &[&str], body: Value) -> Result<Value, Error> {
-        let token = self.token.as_ref().ok_or(Error::Authentication)?;
         self.decode(
-            self.http
-                .post(self.endpoint(segments)?)
-                .bearer_auth(token.as_ref())
-                .json(&body),
+            self.authorize(
+                self.http
+                    .post(self.endpoint(segments)?)
+                    .timeout(self.default_timeout)
+                    .json(&body),
+            )?,
         )
         .await
     }

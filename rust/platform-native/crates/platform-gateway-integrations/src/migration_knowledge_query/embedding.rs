@@ -33,6 +33,7 @@ impl Default for ProviderConfig {
 }
 #[derive(Clone)]
 pub struct EmbeddingManager {
+    pub document_batch_size: usize,
     client: Client,
     pool: Option<PgPool>,
     encryption_key: Arc<String>,
@@ -48,6 +49,7 @@ impl EmbeddingManager {
         defaults: BTreeMap<String, ProviderConfig>,
     ) -> Self {
         Self {
+            document_batch_size: 100,
             client,
             pool,
             encryption_key: Arc::new(encryption_key),
@@ -336,6 +338,11 @@ impl EmbeddingManager {
             100
         };
         let mut all = Vec::new();
+        let batch_size = if kind == "document" {
+            batch_size.min(self.document_batch_size.max(1))
+        } else {
+            batch_size
+        };
         for batch in texts.chunks(batch_size) {
             let processed: Vec<String> = batch
                 .iter()
@@ -367,6 +374,22 @@ impl EmbeddingManager {
         Ok(all)
     }
     async fn remote_batch(
+        &self,
+        c: &ResolvedEmbedding,
+        texts: &[String],
+        kind: &str,
+    ) -> Result<Vec<Vec<f64>>> {
+        let started = Instant::now();
+        let result = self.remote_batch_inner(c, texts, kind).await;
+        let outcome = match &result {
+            Ok(_) => "ok",
+            Err(QueryError::Provider(408 | 504)) => "timeout",
+            Err(_) => "error",
+        };
+        super::pipeline_metrics::embedding(outcome, started.elapsed().as_secs_f64());
+        result
+    }
+    async fn remote_batch_inner(
         &self,
         c: &ResolvedEmbedding,
         texts: &[String],

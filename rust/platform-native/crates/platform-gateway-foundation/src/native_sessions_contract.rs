@@ -153,13 +153,30 @@ pub fn extend_document(document: &mut Value) {
         }
         if *id == "delete_session" {
             // Concrete AuthService::authenticate emits credentials/unavailable only.
-            operation["responses"].as_object_mut().unwrap().remove("403");
-            operation["x-native-owner"] = json!("platform_gateway::session_history::delete with NativeServicesRuntime durable cleanup");
-            operation["x-native-authorization"] = json!("Account JWT only; API keys rejected. Exact authenticated tenant/user/session scope is checked by the durable cleanup owner before mutation and under its lifecycle lock. Session IDs are strings, not UUID-validated.");
-            operation["responses"]["200"]["description"] = json!("Logical deletion committed and permanent deletion barrier confirmed; asynchronous SDK cleanup may remain pending");
-            operation["responses"]["500"] = response("Cleanup or barrier readback failed; detail is Failed to delete session", detail.clone());
-            operation["responses"]["503"] = response("Authentication authority unavailable, cleanup collaborator absent, or deletion/barrier not confirmed; deletion detail is Session deletion was not completed", detail.clone());
-            operation["description"] = json!("No request body or query fields consumed. Deletes only the authenticated owner session through the shared durable cleanup owner. Required Runtime cleanup must acknowledge deleted or not_found for this session (or HTTP 404); malformed or unknown acknowledgement blocks deletion. Success confirms logical deletion and committed SDK cleanup intent, not immediate physical erasure. Repeated or concurrently completed deletion returns 404. No fallback manager delete. A failed or ambiguous acknowledgement may follow a committed deletion; inspect state rather than assume rollback.");
+            operation["responses"]
+                .as_object_mut()
+                .unwrap()
+                .remove("403");
+            operation["x-native-owner"] = json!(
+                "platform_gateway::session_history::delete with NativeServicesRuntime durable cleanup"
+            );
+            operation["x-native-authorization"] = json!(
+                "Account JWT only; API keys rejected. Exact authenticated tenant/user/session scope is checked by the durable cleanup owner before mutation and under its lifecycle lock. Session IDs are strings, not UUID-validated."
+            );
+            operation["responses"]["200"]["description"] = json!(
+                "Logical deletion committed and permanent deletion barrier confirmed; asynchronous SDK cleanup may remain pending"
+            );
+            operation["responses"]["500"] = response(
+                "Cleanup or barrier readback failed; detail is Failed to delete session",
+                detail.clone(),
+            );
+            operation["responses"]["503"] = response(
+                "Authentication authority unavailable, cleanup collaborator absent, or deletion/barrier not confirmed; deletion detail is Session deletion was not completed",
+                detail.clone(),
+            );
+            operation["description"] = json!(
+                "No request body or query fields consumed. Deletes only the authenticated owner session through the shared durable cleanup owner. Required Runtime cleanup must acknowledge deleted or not_found for this session (or HTTP 404); malformed or unknown acknowledgement blocks deletion. Success confirms logical deletion and committed SDK cleanup intent, not immediate physical erasure. Repeated or concurrently completed deletion returns 404. No fallback manager delete. A failed or ambiguous acknowledgement may follow a committed deletion; inspect state rather than assume rollback."
+            );
         } else if *id == "get_session_history" {
             operation["responses"]["503"] = response(
                 "Authentication or source visibility authority unavailable",
@@ -230,7 +247,10 @@ mod tests {
         let doc = super::super::document();
         let op = &doc["paths"][ITEM]["delete"];
         assert_eq!(op["security"], json!([{"NativeBearerAuth":[]}]));
-        assert_eq!(op["parameters"], json!([{"name":"session_id","in":"path","required":true,"schema":{"type":"string"}}]));
+        assert_eq!(
+            op["parameters"],
+            json!([{"name":"session_id","in":"path","required":true,"schema":{"type":"string"}}])
+        );
         assert!(op.get("requestBody").is_none());
         let responses = op["responses"].as_object().unwrap();
         let mut statuses = responses.keys().map(String::as_str).collect::<Vec<_>>();
@@ -238,13 +258,21 @@ mod tests {
         assert_eq!(statuses, vec!["200", "401", "404", "500", "503", "default"]);
         let schema = &responses["200"]["content"]["application/json"]["schema"];
         let actual = delete_response("legacy-not-a-uuid");
-        assert_eq!(actual, json!({"session_id":"legacy-not-a-uuid","status":"deleted"}));
-        assert_eq!(schema["properties"], json!({"session_id":{"type":"string"},"status":{"type":"string","const":"deleted"}}));
+        assert_eq!(
+            actual,
+            json!({"session_id":"legacy-not-a-uuid","status":"deleted"})
+        );
+        assert_eq!(
+            schema["properties"],
+            json!({"session_id":{"type":"string"},"status":{"type":"string","const":"deleted"}})
+        );
         assert_eq!(schema["required"], json!(["session_id", "status"]));
         assert_eq!(schema["additionalProperties"], false);
         for status in ["401", "404", "500", "503"] {
-            assert_eq!(responses[status]["content"]["application/json"]["schema"],
-                object(json!({"detail":{"type":"string"}})));
+            assert_eq!(
+                responses[status]["content"]["application/json"]["schema"],
+                object(json!({"detail":{"type":"string"}}))
+            );
         }
         assert_eq!(responses["default"]["x-native-undeclared"], true);
     }

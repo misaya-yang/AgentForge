@@ -32,6 +32,7 @@ fn context() -> OutboundContext {
 }
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
+        .retry(reqwest::retry::never())
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(10))

@@ -162,3 +162,13 @@ WITH saved AS (
     ) RETURNING *
 ) SELECT to_jsonb(saved) FROM saved
 "###;
+
+/// Bind order shared by transactional ingestion and source-contract tests.
+pub fn enqueue_trace_arguments<'a>(
+    tenant: &'a str,
+    payload: serde_json::Value,
+    trace: &'a str,
+    runtime: bool,
+) -> (&'a str, serde_json::Value, &'a str, bool) {
+    (tenant, payload, trace, runtime)
+}

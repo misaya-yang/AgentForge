@@ -81,7 +81,10 @@ pub fn capture() -> OutboundContext {
             trace_carrier.insert(name.into(), value.into());
         }
     }
-    OutboundContext { request_id, trace_carrier }
+    OutboundContext {
+        request_id,
+        trace_carrier,
+    }
 }
 pub fn internal_http_headers(
     mut existing: BTreeMap<String, String>,
@@ -185,9 +188,18 @@ pub async fn bridge(mut request: Request, next: Next) -> Response {
             .extensions()
             .get::<ActiveTraceCarrier>()
             .map(|c| c.0.clone())
+            .or_else(|| {
+                request
+                    .extensions()
+                    .get::<ai_platform_gateway_foundation::distributed_tracing::TraceCarrier>()
+                    .map(|c| c.0.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            })
             .unwrap_or_default(),
     };
-    let response = scoped(context.clone(), next.run(request)).await;
+    let mut response = scoped(context.clone(), next.run(request)).await;
+    if let Ok(value) = axum::http::HeaderValue::from_str(&context.request_id) {
+        response.headers_mut().insert("x-request-id", value);
+    }
     let (parts, body) = response.into_parts();
     Response::from_parts(parts, Body::new(ContextBody { body, context }))
 }

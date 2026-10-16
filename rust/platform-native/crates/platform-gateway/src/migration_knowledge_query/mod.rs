@@ -35,5 +35,6 @@ pub use ai_platform_gateway_integrations::migration_knowledge_query::source_auth
 pub use ai_platform_gateway_integrations::migration_knowledge_query::retrieval_eval;
 
 pub use ai_platform_gateway_integrations::migration_knowledge_query::observability;
+pub use ai_platform_gateway_integrations::migration_knowledge_query::pipeline_metrics;
 
 pub use ai_platform_gateway_integrations::migration_knowledge_query::ragas;

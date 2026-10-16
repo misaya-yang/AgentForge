@@ -56,7 +56,10 @@ impl KnowledgeLifecycle {
         drain: Arc<DrainState>,
         local_semantic: Option<query::embedding::EmbeddingManager>,
     ) -> Self {
-        let pdf_parser = ingestion.parser.supports_pdf().then(|| ingestion.parser.clone());
+        let pdf_parser = ingestion
+            .parser
+            .supports_pdf()
+            .then(|| ingestion.parser.clone());
         Self {
             pool: connections.database,
             client,

@@ -7,12 +7,15 @@ on:
     paths:
       - 'rust/platform-native/Cargo.toml'
       - 'rust/platform-native/Cargo.lock'
+      - 'rust/platform-native/rust-toolchain.toml'
       - 'rust/platform-native/README.md'
       - 'rust/platform-native/crates/*/Cargo.toml'
       - 'rust/platform-native/crates/platform-client/**'
       - 'rust/platform-native/crates/platform-desktop/**'
-      - 'scripts/harness/package_desktop.py'
-      - 'scripts/harness/package_platformctl.py'
+      - 'rust/platform-native/crates/platform-tools/src/packaging.rs'
+      - 'rust/platform-native/crates/platform-client-packaging/**'
+      - '.github/actions/setup-client-packaging/**'
+      - 'rust/platform-native/crates/platform-tools/src/main.rs'
       - 'deploy/release/desktop-targets.json'
       - 'docs/architecture/native-desktop-distribution.md'
       - 'docs/architecture/native-client-capability-matrix.md'
@@ -38,12 +41,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - uses: ./.github/actions/setup-client-packaging
       - name: Read canonical desktop target manifest
         id: targets
-        run: echo "matrix=$(python scripts/harness/package_desktop.py --matrix)" >> "$GITHUB_OUTPUT"
+        run: echo "matrix=$(platform-client-packaging package-desktop --matrix)" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build desktop (${{ matrix.name }})
@@ -65,10 +66,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: ./.github/actions/setup-client-packaging
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.rust_target }}
       - name: Install Linux native window dependencies
@@ -79,7 +78,7 @@ jobs:
             pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev \
             libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev
       - name: Bind build to clean source identity and platform options
-        run: python scripts/harness/package_desktop.py --build-env --target '${{ matrix.name }}' >> "$GITHUB_ENV"
+        run: platform-client-packaging package-desktop --build-env --target '${{ matrix.name }}' >> "$GITHUB_ENV"
       - name: Record toolchain
         run: |
           rustc --version --verbose
@@ -92,7 +91,7 @@ jobs:
           --target '${{ matrix.rust_target }}'
       - name: Package and verify extracted offline executable identity
         run: >-
-          python scripts/harness/package_desktop.py
+          platform-client-packaging package-desktop
           --target '${{ matrix.name }}'
           --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
           --output '${{ runner.temp }}/desktop-package'

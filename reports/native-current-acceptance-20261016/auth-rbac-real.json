@@ -1,0 +1,597 @@
+{
+  "schema": "ai-platform/native-auth-rbac-acceptance/v2",
+  "recorded_at_utc": "2026-10-16T06:02:29.513281+00:00",
+  "target": {
+    "base_url": "http://127.0.0.1:8080",
+    "compose_project": "agentforge-dev-7801d4a9a4",
+    "compose_working_dir_verified": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+    "gateway_pid_from_operator": 50938,
+    "database_epoch": 21,
+    "gateway_binary_sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d",
+    "source_distribution_pin": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23"
+  },
+  "source_sha256": {
+    "credential_introspection.rs": "1a472c8b5941bd8956687bf310c9ddeaca588b7f9e444d8ebf54a8c35401ee02",
+    "session_history.rs": "c153ca98f41fc9c42dd399115837cdc1fb02c0015da22226acd90e4f538bfb52",
+    "session_history_schema_tests.rs": "8649470f659acca152c6b305b2b8c9be7b0ce8edba7498d34f92a881fe798e93"
+  },
+  "admin_identity": {
+    "user_id": "admin",
+    "tenant_id": "default",
+    "platform_admin_authority": true,
+    "admin_token_file_mode": "0600"
+  },
+  "synthetic_acceptance_ids": {
+    "run_id": "d978604d",
+    "member_user_id": "native-j23-member-d978604d",
+    "tenant_admin_user_id": "native-j23-tenant-admin-d978604d",
+    "foreign_tenant_probe_id": "native-j23-foreign-d978604d"
+  },
+  "generated_passwords": {
+    "persisted_in_private_cache": true,
+    "secret_file_mode": "0600",
+    "values_in_receipt": false,
+    "secret_directory_mode": "0700",
+    "private_files_removed_after_acceptance": true
+  },
+  "pre_fix_calibration": {
+    "auth_me_with_pre_change_token": 200,
+    "protected_users_admin_with_same_pre_change_token": 401,
+    "note": "Recorded during the earlier live calibration before the credential-introspection source refresh.",
+    "observed_before_source_refresh": true
+  },
+  "cases": [
+    {
+      "case_id": "gateway_health",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "admin_current_identity",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "user_id": "admin",
+      "tenant_id": "default",
+      "platform_admin_authority": true
+    },
+    {
+      "case_id": "generated_credentials_private_storage",
+      "status": "passed",
+      "secret_file_mode": "0o600",
+      "values_in_receipt": false
+    },
+    {
+      "case_id": "create_user",
+      "http_status": 200,
+      "expected_http_status": [
+        200,
+        201
+      ],
+      "status": "passed",
+      "user_id": "native-j23-member-d978604d",
+      "credential_fields_absent": true
+    },
+    {
+      "case_id": "create_admin",
+      "http_status": 200,
+      "expected_http_status": [
+        200,
+        201
+      ],
+      "status": "passed",
+      "user_id": "native-j23-tenant-admin-d978604d",
+      "credential_fields_absent": true
+    },
+    {
+      "case_id": "member_initial_login",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "member_initial_login_requires_password_change",
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "member_first_password_change",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_login_after_password_change",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_login_after_password_change_not_forced",
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_current_identity",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "user_id": "native-j23-member-d978604d",
+      "tenant_id": "default",
+      "privileged_roles_absent": true
+    },
+    {
+      "case_id": "member_validate_token_baseline",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "valid": true
+    },
+    {
+      "case_id": "member_protected_endpoint_fresh_token_baseline",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "returned_session_count": 0
+    },
+    {
+      "case_id": "member_cannot_read_platform_admin_user_record",
+      "http_status": 403,
+      "expected_http_status": [
+        403
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_cannot_read_own_tenant_admin_policy",
+      "http_status": 403,
+      "expected_http_status": [
+        403
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_cannot_read_foreign_tenant_admin_policy",
+      "http_status": 403,
+      "expected_http_status": [
+        403
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_member_password_change_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_member_password_change_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_member_password_change_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "admin_password_reset",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_password_reset_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_password_reset_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_password_reset_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_login_after_admin_reset",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "login_after_admin_reset_requires_password_change",
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "member_password_change_after_admin_reset",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_login_after_admin_reset_password_change",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_login_after_reset_password_change_not_forced",
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_protected_endpoint_before_disable_baseline",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "returned_session_count": 0
+    },
+    {
+      "case_id": "admin_disables_member",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_disable_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_disable_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_disable_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "disabled_member_login_denied",
+      "http_status": 403,
+      "expected_http_status": [
+        401,
+        403
+      ],
+      "status": "passed",
+      "force_password_change": null
+    },
+    {
+      "case_id": "disabled_member_cannot_login",
+      "status": "passed",
+      "http_status": 403,
+      "denied_status_expected": [
+        401,
+        403
+      ]
+    },
+    {
+      "case_id": "admin_reenables_member",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "disabled_session_stays_invalid_after_reenable_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "disabled_session_stays_invalid_after_reenable_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "disabled_session_stays_invalid_after_reenable_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "member_login_after_reenable",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_login_after_reenable_not_forced",
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_current_identity_after_reenable",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "member_protected_endpoint_before_delete_baseline",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "returned_session_count": 0
+    },
+    {
+      "case_id": "admin_deletes_member",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_delete_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_delete_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "token_invalidated_after_admin_delete_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "deleted_member_login_denied",
+      "http_status": 401,
+      "expected_http_status": [
+        401,
+        403
+      ],
+      "status": "passed",
+      "force_password_change": null
+    },
+    {
+      "case_id": "deleted_member_cannot_login",
+      "status": "passed",
+      "http_status": 401,
+      "denied_status_expected": [
+        401,
+        403
+      ]
+    },
+    {
+      "case_id": "tenant_admin_initial_login",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "tenant_admin_initial_login_requires_password_change",
+      "status": "passed",
+      "force_password_change": true
+    },
+    {
+      "case_id": "tenant_admin_first_password_change",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "tenant_admin_login_after_password_change",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "tenant_admin_login_after_password_change_not_forced",
+      "status": "passed",
+      "force_password_change": false
+    },
+    {
+      "case_id": "tenant_admin_current_identity",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "user_id": "native-j23-tenant-admin-d978604d",
+      "tenant_id": "default",
+      "tenant_admin_authority": true,
+      "platform_admin_authority": false
+    },
+    {
+      "case_id": "tenant_admin_user_list_is_tenant_scoped",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "returned_user_count": 2,
+      "all_returned_tenant_ids_match_identity": null
+    },
+    {
+      "case_id": "tenant_admin_can_read_own_tenant_policy_scope",
+      "http_status": 404,
+      "expected_http_status": [
+        200,
+        404
+      ],
+      "status": "passed",
+      "policy_row_present": false
+    },
+    {
+      "case_id": "tenant_admin_cannot_read_foreign_tenant_policy",
+      "http_status": 403,
+      "expected_http_status": [
+        403
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "platform_admin_cross_tenant_policy_route_authorized",
+      "http_status": 404,
+      "expected_http_status": [
+        200,
+        404
+      ],
+      "status": "passed",
+      "synthetic_policy_row_present": false
+    },
+    {
+      "case_id": "tenant_admin_protected_endpoint_fresh_token_baseline",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed",
+      "returned_session_count": 0
+    },
+    {
+      "case_id": "admin_deletes_tenant_admin",
+      "http_status": 200,
+      "expected_http_status": [
+        200
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "tenant_admin_token_invalidated_after_delete_me_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "tenant_admin_token_invalidated_after_delete_validate_token_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "tenant_admin_token_invalidated_after_delete_protected_sessions_revoked",
+      "http_status": 401,
+      "expected_http_status": [
+        401
+      ],
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "created_users_deleted_via_public_admin_api": [
+      "native-j23-member-d978604d",
+      "native-j23-tenant-admin-d978604d"
+    ],
+    "pending_user_ids": []
+  },
+  "history_restore_case": {
+    "case_id": "restore_original_owned_prethread_session_history",
+    "http_status": 500,
+    "status": "failed",
+    "message_count": null,
+    "request_id": "9cc5d30e-1452-43fc-9c91-7d5afc6204f7",
+    "response_body_keys": [
+      "detail"
+    ]
+  },
+  "unverified_scope": [
+    "No public tenant-creation route is exposed; cross-tenant policy checks used a synthetic foreign tenant identifier, not a second live tenant.",
+    "No public time-bounded user-role assignment input exists; live role-assignment expiry was not exercised.",
+    "Browser/UI, download/result resource parity, and wall-clock JWT expiry were not exercised."
+  ]
+}

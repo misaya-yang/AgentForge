@@ -1,0 +1,23 @@
+{
+  "schema": "ai-platform/canonical-next-successor-measurement/v1",
+  "status": "measured_external_preview",
+  "database_actions": true,
+  "database_actions_scope": "named_isolated_database_only",
+  "source_activation": false,
+  "expected_database": "schema_successor_verify_fresh021_codex_20261016",
+  "predecessor_epoch": 21,
+  "candidate_epoch": 22,
+  "source_plan_sha256": "da8b8d04f098280e8386620f119702920ef1edb52dc56a1511d3278ae3591ff5",
+  "approved_predecessor_package_lock_sha256": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23",
+  "predecessor_manifest_sha256": "bbc6927b258011d63b97150f4eafbce18d20907c3c3c3f59d23eaab947e04cdd",
+  "candidate_manifest_sha256": "d723f09097401133748454355cad52e886df50c628d964b2fc55ca256685fc89",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "candidate_sql_sha256": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+  "successor_sequences": [
+    22
+  ],
+  "predecessor_measurement_receipt_sha256": "1f20bb8a45bff423332d28601f3a8934e97043ae50c8b37e1522e3848ca08aff",
+  "predecessor_activation_receipt_sha256": "676c46f8d0e8922248538e10390270fd4e25a697580dc7a0c49271f2ad0a6003",
+  "verification_ref_sha256": "c363e5b3f6cff0b5a8394fa1106a1729048d1254c14fda122eea262221ee2120",
+  "post_migration_noop": true
+}

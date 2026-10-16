@@ -160,9 +160,9 @@ git -C "$source_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail \
 [[ -z "$(git -C "$source_root" status --porcelain)" ]] || fail \
     "controlled Runtime source must be clean"
 
-identity_script="$repo_root/scripts/harness/agent_runtime_supply_chain.py"
+command -v platform-tools >/dev/null 2>&1 || fail "platform-tools is required"
 lock_file="$repo_root/deploy/agent-runtime-source/lock.json"
-[[ -f "$identity_script" && -f "$lock_file" ]] || fail \
+[[ -f "$lock_file" ]] || fail \
     "Agent Runtime identity authority is missing"
 
 declare -a build_scripts=()
@@ -226,21 +226,21 @@ echo "LOCAL-ONLY: this command does not publish or claim multi-arch artifacts."
 # A freshly refreshed source lock intentionally has no runnable image digest.
 # Validate its source/build identity first, let each Docker builder record its
 # immutable local image, then require the selected runnable artifacts below.
-run_command python3 "$identity_script" validate \
+run_command platform-tools source-lock validate \
     --repo-root "$repo_root" \
     --lock "$lock_file"
 for build_script in "${build_scripts[@]}"; do
     run_command bash "$build_script"
 done
 for identity_artifact in "${identity_artifacts[@]}"; do
-    run_command python3 "$identity_script" validate \
+    run_command platform-tools source-lock validate \
         --repo-root "$repo_root" \
         --lock "$lock_file" \
         --require-artifact "$identity_artifact"
 done
 
 if [[ "$artifact" == "all" ]]; then
-    run_command python3 "$identity_script" verify-local-images \
+    run_command platform-tools source-lock verify-local-images \
         --repo-root "$repo_root" \
         --lock "$lock_file"
 fi

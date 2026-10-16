@@ -14,7 +14,7 @@ docker image inspect "$image" >/dev/null 2>&1 || {
     exit 2
 }
 
-suffix="$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')"
+suffix="$(platform-tools uuid --short12)"
 network="capability-worker-smoke-${suffix}"
 postgres="capability-worker-pg-${suffix}"
 worker="capability-worker-${suffix}"
@@ -25,19 +25,12 @@ proof_secret="$(openssl rand -hex 32)"
 tenant_id="tenant-${suffix}"
 user_id="user-${suffix}"
 session_id="session-${suffix}"
-run_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-snapshot_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-runtime_thread_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-model_lease_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+run_id="$(platform-tools uuid)"
+snapshot_id="$(platform-tools uuid)"
+runtime_thread_id="$(platform-tools uuid)"
+model_lease_id="$(platform-tools uuid)"
 scratch="$(mktemp -d /tmp/ai-platform-capability-worker-smoke.XXXXXX)"
-host_port="$(python3 - <<'PY'
-import socket
-
-with socket.socket() as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
-)"
+host_port="$(platform-tools free-port)"
 
 cleanup() {
     status=$?
@@ -174,172 +167,7 @@ CAPABILITY_SMOKE_SESSION="$session_id" \
 CAPABILITY_SMOKE_RUN="$run_id" \
 CAPABILITY_SMOKE_URL="http://127.0.0.1:${host_port}" \
 CAPABILITY_SMOKE_SCRATCH="$scratch" \
-uv run --all-packages --extra test python - <<'PY'
-import json
-import os
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from pathlib import Path
-
-from src.services.agent_runtime.capability_leases import CapabilityEffect, CapabilityLeaseIssuer
-
-base = os.environ["CAPABILITY_SMOKE_URL"]
-token = os.environ["CAPABILITY_SMOKE_TOKEN"]
-tenant = os.environ["CAPABILITY_SMOKE_TENANT"]
-user = os.environ["CAPABILITY_SMOKE_USER"]
-session = os.environ["CAPABILITY_SMOKE_SESSION"]
-run_id = os.environ["CAPABILITY_SMOKE_RUN"]
-scratch = Path(os.environ["CAPABILITY_SMOKE_SCRATCH"])
-issuer = CapabilityLeaseIssuer(os.environ["CAPABILITY_SMOKE_LEASE_SECRET"], ttl_ms=120_000)
-opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-headers = {
-    "content-type": "application/json",
-    "x-ai-platform-internal-token": token,
-    "x-ai-tenant-id": tenant,
-    "x-ai-user-id": user,
-    "x-ai-session-id": session,
-}
-
-
-def call(method, path, body=None, request_headers=None):
-    payload = None if body is None else json.dumps(body, separators=(",", ":")).encode()
-    request = urllib.request.Request(
-        base + path,
-        data=payload,
-        method=method,
-        headers=request_headers or headers,
-    )
-    try:
-        with opener.open(request, timeout=5) as response:
-            raw = response.read()
-            try:
-                return response.status, json.loads(raw)
-            except json.JSONDecodeError as error:
-                raise AssertionError(
-                    f"non-JSON response status={response.status} body={raw[:512]!r}"
-                ) from error
-    except urllib.error.HTTPError as error:
-        raw = error.read()
-        try:
-            return error.code, json.loads(raw)
-        except json.JSONDecodeError as decode_error:
-            raise AssertionError(
-                f"non-JSON error status={error.code} body={raw[:512]!r}"
-            ) from decode_error
-
-
-catalog_status, catalog = call(
-    "POST",
-    "/internal/v2/capabilities/catalog",
-    {
-        "schema_version": "capability-catalog/v2",
-        "tenant_id": tenant,
-        "user_id": user,
-        "session_id": session,
-        "capability_revision": 1,
-    },
-)
-assert catalog_status == 200
-assert {item["id"] for item in catalog["capabilities"]} >= {
-    "platform.echo",
-    "platform.read_fixture",
-    "search_knowledge_base",
-}
-
-
-def execution_request(call_id, arguments, idempotency_key):
-    lease = issuer.issue(
-        tenant_id=tenant,
-        user_id=user,
-        session_id=session,
-        run_id=run_id,
-        tool_call_id=call_id,
-        attempt_id="attempt-1",
-        capability_id="platform.read_fixture",
-        capability_revision=1,
-        arguments=arguments,
-        effect=CapabilityEffect.READ,
-    )
-    return {
-        "schema_version": "capability-execution/v2",
-        "lease": lease.to_dict(),
-        "idempotency_key": idempotency_key,
-        "descriptor": next(
-            item
-            for item in catalog["capabilities"]
-            if item["id"] == "platform.read_fixture"
-        ),
-        "arguments": arguments,
-    }
-
-
-request = execution_request("call-basic", {"key": "basic"}, "idem-basic")
-status, execution = call("POST", "/internal/v2/capabilities/executions", request)
-assert status == 202, (status, execution)
-replay_status, replay = call("POST", "/internal/v2/capabilities/executions", request)
-assert replay_status == 200 and replay["execution_id"] == execution["execution_id"]
-conflict_request = execution_request(
-    "call-basic", {"key": "changed"}, "idem-basic"
-)
-conflict_status, _ = call(
-    "POST", "/internal/v2/capabilities/executions", conflict_request
-)
-assert conflict_status == 409
-
-forged_headers = dict(headers)
-forged_headers["x-ai-tenant-id"] = "tenant-forged"
-forged_status, _ = call(
-    "POST",
-    "/internal/v2/capabilities/executions",
-    request,
-    forged_headers,
-)
-assert forged_status == 403
-
-after = 0
-terminal = []
-for _ in range(100):
-    event_status, page = call(
-        "GET",
-        f"/internal/v2/capabilities/executions/{execution['execution_id']}/events?after_sequence={after}",
-    )
-    assert event_status == 200 and len(page["events"]) <= 1
-    if page["events"]:
-        event = page["events"][0]
-        assert event["sequence"] > after
-        after = event["sequence"]
-        if event["status"] in {"succeeded", "failed", "cancelled", "timeout", "side_effect_unknown"}:
-            terminal.append(event)
-            break
-    time.sleep(0.02)
-assert len(terminal) == 1 and terminal[0]["status"] == "succeeded"
-
-cancel_request = execution_request(
-    "call-cancel", {"key": "cancel", "delay_ms": 5_000}, "idem-cancel"
-)
-cancel_status, cancel_execution = call(
-    "POST", "/internal/v2/capabilities/executions", cancel_request
-)
-assert cancel_status == 202
-cancelled_status, cancelled = call(
-    "POST",
-    f"/internal/v2/capabilities/executions/{cancel_execution['execution_id']}:cancel",
-)
-assert cancelled_status == 200 and cancelled["status"] == "cancelled"
-
-recovery_request = execution_request(
-    "call-recover", {"key": "recover", "delay_ms": 5_000}, "idem-recover"
-)
-recovery_status, recovery = call(
-    "POST", "/internal/v2/capabilities/executions", recovery_request
-)
-assert recovery_status == 202
-scratch.joinpath("recovery-request.json").write_text(json.dumps(recovery_request))
-scratch.joinpath("recovery-execution-id").write_text(recovery["execution_id"])
-print("capability-worker-smoke: catalog, idempotency, scope, cursor and cancel passed")
-PY
+platform-tools capability-worker-smoke basic
 
 docker rm -f "$worker" >/dev/null
 start_worker
@@ -350,73 +178,4 @@ CAPABILITY_SMOKE_USER="$user_id" \
 CAPABILITY_SMOKE_SESSION="$session_id" \
 CAPABILITY_SMOKE_URL="http://127.0.0.1:${host_port}" \
 CAPABILITY_SMOKE_SCRATCH="$scratch" \
-uv run --all-packages --extra test python - <<'PY'
-import json
-import os
-import time
-import urllib.request
-from pathlib import Path
-
-base = os.environ["CAPABILITY_SMOKE_URL"]
-scratch = Path(os.environ["CAPABILITY_SMOKE_SCRATCH"])
-request_body = json.loads(scratch.joinpath("recovery-request.json").read_text())
-execution_id = scratch.joinpath("recovery-execution-id").read_text()
-headers = {
-    "content-type": "application/json",
-    "x-ai-platform-internal-token": os.environ["CAPABILITY_SMOKE_TOKEN"],
-    "x-ai-tenant-id": os.environ["CAPABILITY_SMOKE_TENANT"],
-    "x-ai-user-id": os.environ["CAPABILITY_SMOKE_USER"],
-    "x-ai-session-id": os.environ["CAPABILITY_SMOKE_SESSION"],
-}
-opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-
-
-def call(method, path, body=None):
-    payload = None if body is None else json.dumps(body, separators=(",", ":")).encode()
-    request = urllib.request.Request(base + path, data=payload, method=method, headers=headers)
-    with opener.open(request, timeout=5) as response:
-        return response.status, json.load(response)
-
-
-status, replay = call("POST", "/internal/v2/capabilities/executions", request_body)
-assert status == 200 and replay["execution_id"] == execution_id
-# The durable read dispatch lease is 30 seconds. A replacement worker must not
-# overtake a still-live predecessor, so crash recovery waits through that
-# bounded lease before reclaiming the read.
-for _ in range(800):
-    status, current = call(
-        "GET", f"/internal/v2/capabilities/executions/{execution_id}"
-    )
-    assert status == 200
-    if current["status"] in {"succeeded", "failed", "cancelled", "timeout", "side_effect_unknown"}:
-        assert current["status"] == "succeeded"
-        break
-    time.sleep(0.05)
-else:
-    raise AssertionError("worker restart did not recover read execution")
-
-after = 0
-terminal_events = []
-for _ in range(32):
-    status, page = call(
-        "GET",
-        f"/internal/v2/capabilities/executions/{execution_id}/events?after_sequence={after}",
-    )
-    assert status == 200 and len(page["events"]) <= 1
-    if not page["events"]:
-        break
-    event = page["events"][0]
-    assert event["sequence"] > after
-    after = event["sequence"]
-    if event["status"] in {
-        "succeeded",
-        "failed",
-        "cancelled",
-        "timeout",
-        "side_effect_unknown",
-    }:
-        terminal_events.append(event)
-assert len(terminal_events) == 1
-assert terminal_events[0]["status"] == "succeeded"
-print("capability-worker-smoke: restart recovery passed")
-PY
+platform-tools capability-worker-smoke recovery

@@ -15,50 +15,7 @@ if [ "$mode" != "--config-only" ] && [ "$mode" != "--built-image" ]; then
 fi
 
 check_config() {
-    python3 - "$PROJECT_ROOT" <<'PY'
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-nginx = (root / "web/nginx.conf").read_text(encoding="utf-8")
-helm = (root / "deploy/helm/ai-gateway/templates/frontend-configmap.yaml").read_text(encoding="utf-8")
-ingress = (root / "deploy/helm/ai-gateway/templates/ingress.yaml").read_text(encoding="utf-8")
-main = (root / "src/main.py").read_text(encoding="utf-8")
-security = (root / "src/core/middleware/_streaming/security_headers.py").read_text(encoding="utf-8")
-agent_public = (root / "src/api/v1/agent_public.py").read_text(encoding="utf-8")
-
-def location_block(source: str, marker: str) -> str:
-    start = source.index(marker)
-    brace = source.index("{", start)
-    depth = 0
-    for index in range(brace, len(source)):
-        if source[index] == "{":
-            depth += 1
-        elif source[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:index + 1]
-    raise AssertionError(f"unterminated block: {marker}")
-
-for name, source in (("web/nginx.conf", nginx), ("Helm frontend", helm)):
-    block = location_block(source, "location /embed/agents/")
-    assert "proxy_pass" in block, f"{name}: Embed is not dynamic"
-    assert "X-Frame-Options" not in block, f"{name}: Embed inherits explicit XFO"
-    assert "Content-Security-Policy" not in block, f"{name}: static CSP replaces Gateway CSP"
-    assert "add_header X-Content-Type-Options" in block, f"{name}: inheritance reset missing"
-
-assert 'add_header X-Frame-Options "SAMEORIGIN" always;' in nginx
-assert "frame-ancestors 'self'" in nginx
-assert 'add_header X-Frame-Options "SAMEORIGIN" always;' in helm
-assert "frame-ancestors 'self'" in helm
-assert "- path: /embed/agents" in ingress and "-gateway" in ingress
-assert "app.include_router(agent_embed_document_router)" in main
-assert '_EMBED_PREFIX = "/embed/agents/"' in security
-assert "allow_embed_frame = path.startswith(_EMBED_PREFIX)" in security
-assert 'response.headers["Content-Security-Policy"]' in agent_public
-assert "frame-ancestors {ancestors}" in agent_public
-print("Agent Embed config/header contract passed")
-PY
+    platform-tools embed-header-check --repo-root "$PROJECT_ROOT"
 }
 
 check_config
@@ -84,8 +41,8 @@ trap cleanup EXIT
 docker build --load -t "$image" "$PROJECT_ROOT/web"
 docker network create "$network" >/dev/null
 docker run -d --name "$gateway_container_name" --network "$network" --network-alias gateway \
-    -v "$PROJECT_ROOT/tests/deployment/agent_embed_header_fixture.py:/fixture.py:ro" \
-    "${PYTHON_FIXTURE_IMAGE:-python:3.12-slim-bookworm}" python /fixture.py >/dev/null
+    --entrypoint /usr/local/bin/platform-tools \
+    "${NATIVE_FIXTURE_IMAGE:-ai-platform/gateway:rust-local}" embed-fixture-server --bind 0.0.0.0:8080 >/dev/null
 docker run -d --name "$frontend_container_name" --network "$network" \
     -p 127.0.0.1::80 "$image" >/dev/null
 

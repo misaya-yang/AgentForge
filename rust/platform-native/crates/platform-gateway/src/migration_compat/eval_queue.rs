@@ -369,7 +369,14 @@ impl EvalOutbox {
         }
         let mut tx = self.pool.begin().await?;
         sqlx::query("WITH expired AS (UPDATE agent_trace_outbox SET status='failed',last_error='eval_outbox_attempts_exhausted',updated_at=NOW() WHERE status='running' AND lease_until<=NOW() AND attempts >= $1 RETURNING tenant_id,payload,job_type) UPDATE eval_experiment_runs r SET status='failed',finished_at=NOW(),error_message='eval_outbox_attempts_exhausted',updated_at=NOW() FROM expired e WHERE e.job_type='eval.evaluator.run' AND r.tenant_id=e.tenant_id AND r.run_id::text=e.payload->>'run_id'").bind(max_attempts).execute(&mut *tx).await?;
-        let rows=sqlx::query_scalar::<_,Value>("WITH picked AS (SELECT job_id FROM agent_trace_outbox WHERE ((status='queued' AND available_at<=NOW()) OR (status='running' AND lease_until<=NOW())) AND attempts<$2 ORDER BY available_at,created_at LIMIT $1 FOR UPDATE SKIP LOCKED),claimed AS (UPDATE agent_trace_outbox o SET status='running',attempts=o.attempts+1,owner_id=$3,claim_token=gen_random_uuid(),lease_until=NOW()+($4::int*INTERVAL '1 second'),heartbeat_at=NOW(),updated_at=NOW() FROM picked WHERE o.job_id=picked.job_id RETURNING o.*) SELECT to_jsonb(claimed) FROM claimed").bind(limit).bind(max_attempts).bind(owner).bind(lease_seconds.max(3)).fetch_all(&mut *tx).await?;
+        let plan = claim_plan(owner, limit, max_attempts, lease_seconds);
+        let rows = sqlx::query_scalar::<_, Value>(CLAIM_OUTBOX_SQL)
+            .bind(plan.limit)
+            .bind(plan.max_attempts)
+            .bind(plan.owner)
+            .bind(plan.lease_seconds)
+            .fetch_all(&mut *tx)
+            .await?;
         tx.commit().await?;
         Ok(rows)
     }
@@ -424,5 +431,22 @@ impl EvalOutbox {
         let actor=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('actor','eval-worker','subject',u.user_id,'tenant_id',u.tenant_id,'run_id',r.run_id,'job_id',o.job_id) FROM agent_trace_outbox o JOIN eval_experiment_runs r ON r.run_id::text=o.payload->>'run_id' AND r.tenant_id=o.tenant_id JOIN users u ON u.user_id=r.created_by AND u.tenant_id=r.tenant_id WHERE o.job_id=$1::text::uuid AND o.tenant_id=$2 AND u.status='active'").bind(text(job,"job_id")).bind(text(job,"tenant_id")).fetch_optional(&mut *tx).await?.ok_or_else(||CompatError::new(403,"AGENT_EVAL_DELEGATION_SUBJECT_UNAVAILABLE"))?;
         tx.commit().await?;
         Ok(actor)
+    }
+}
+
+pub const CLAIM_OUTBOX_SQL: &str = "WITH picked AS (SELECT job_id FROM agent_trace_outbox WHERE ((status='queued' AND available_at<=NOW()) OR (status='running' AND lease_until<=NOW())) AND attempts<$2 ORDER BY available_at,created_at LIMIT $1 FOR UPDATE SKIP LOCKED),claimed AS (UPDATE agent_trace_outbox o SET status='running',attempts=o.attempts+1,owner_id=$3,claim_token=gen_random_uuid(),lease_until=NOW()+($4::int*INTERVAL '1 second'),heartbeat_at=NOW(),updated_at=NOW() FROM picked WHERE o.job_id=picked.job_id RETURNING o.*) SELECT to_jsonb(claimed) FROM claimed";
+#[derive(Debug, PartialEq)]
+pub struct ClaimPlan<'a> {
+    pub owner: &'a str,
+    pub limit: i64,
+    pub max_attempts: i32,
+    pub lease_seconds: i32,
+}
+pub fn claim_plan(owner: &str, limit: i64, max_attempts: i32, lease_seconds: i32) -> ClaimPlan<'_> {
+    ClaimPlan {
+        owner,
+        limit,
+        max_attempts,
+        lease_seconds: lease_seconds.max(3),
     }
 }

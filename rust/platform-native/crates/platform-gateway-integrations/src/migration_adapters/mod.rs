@@ -34,7 +34,7 @@ pub use transport::{HttpResponse, HttpTransport, Lines};
 pub fn register_adapters(registry: &ServiceRegistry) {
     use crate::generic_rest_adapter::GenericRestAdapterFactory;
     for framework in ["openai_agents", "claude_agent_sdk"] {
-        registry.register_adapter(framework, Arc::new(native_sdk::NativeSdkFactory { session_pool:None, capabilities:registry.sdk_capabilities(), read_grants:registry.sdk_read_grants(), framework, encryption_key:registry.sdk_agent_key_handle() }));
+        registry.register_adapter(framework, Arc::new(native_sdk::NativeSdkFactory { session_pool:None, capabilities:registry.sdk_capabilities(), read_grants:registry.sdk_read_grants(), framework, encryption_key:registry.sdk_agent_key_handle(), worker_config:None }));
     }
     registry.register_adapter("generic_rest", Arc::new(GenericRestAdapterFactory));
     registry.register_adapter("dify", Arc::new(GenericRestAdapterFactory));
@@ -50,12 +50,18 @@ pub fn register_adapters(registry: &ServiceRegistry) {
         registry.register_adapter(kind.name(), Arc::new(ConcreteFactory(kind)));
     }
 }
-/// Native host registration supplies the canonical Gateway database, never request metadata.
-pub fn register_sdk_session_adapters(registry: &ServiceRegistry, pool: &sqlx::PgPool) {
+/// Native host supplies the canonical database and explicit operator environment;
+/// neither SDK service metadata nor ambient process state chooses the worker target.
+pub fn register_sdk_session_adapters(
+    registry: &ServiceRegistry,
+    pool: &sqlx::PgPool,
+    worker_config: Option<sdk_session_cleanup::SdkAgentWorkerConfig>,
+) {
     for framework in ["openai_agents", "claude_agent_sdk"] {
         registry.register_adapter(framework, Arc::new(native_sdk::NativeSdkFactory {
             framework, capabilities:registry.sdk_capabilities(), session_pool: Some(pool.clone()), encryption_key: registry.sdk_agent_key_handle(),
             read_grants: registry.sdk_read_grants(),
+            worker_config: worker_config.clone(),
         }));
     }
 }

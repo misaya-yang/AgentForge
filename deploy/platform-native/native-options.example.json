@@ -3,8 +3,6 @@
   "worker_writes_enabled": false,
   "local_utc_offset_seconds": 0,
   "allow_private_knowledge_http": true,
-  "sandbox_origin": "<reviewed-sandbox-origin>",
-  "sandbox_token": "<operator-supplied-token>",
   "pdf": {
     "pdfinfo": "/usr/bin/pdfinfo",
     "pdftotext": "/usr/bin/pdftotext",
@@ -14,6 +12,6 @@
   },
   "local_channel": "disabled",
   "confluence_registration": "disabled",
-  "model_publication": "absent",
-  "provider_publication": "absent"
+  "model_publication": "required",
+  "provider_publication": "required"
 }

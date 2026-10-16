@@ -479,7 +479,7 @@ validate_compose_config() {
     fi
 
     compose_cmd="$(get_compose_cmd)"
-    if ! python3 "$PROJECT_ROOT/scripts/deploy/topology_modes.py" --mode "$topology_mode" >/dev/null; then
+    if ! platform-tools topology --repo-root "$PROJECT_ROOT" --mode "$topology_mode" >/dev/null; then
         fail "AI_PLATFORM_TOPOLOGY_MODE must resolve one of compact/full/scale."
         return
     fi

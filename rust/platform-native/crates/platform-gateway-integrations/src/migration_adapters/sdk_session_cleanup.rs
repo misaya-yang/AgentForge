@@ -3,7 +3,7 @@
 use reqwest::{Client, Url, header::HeaderValue};
 use serde::Serialize;
 use sqlx::{PgPool, Row};
-use std::time::Duration;
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
 #[derive(Debug)]
@@ -150,7 +150,7 @@ pub async fn is_deleted(
         .bind(tenant).bind(user).bind(session).fetch_one(pool).await?)
 }
 
-fn worker_url(base: &str) -> Result<Url, CleanupError> {
+fn worker_origin(base: &str) -> Result<Url, CleanupError> {
     let url = Url::parse(base).map_err(|_| CleanupError::WorkerConfiguration)?;
     let local = matches!(url.host_str(), Some("127.0.0.1" | "[::1]" | "localhost"));
     if url.host_str().is_none()
@@ -163,8 +163,44 @@ fn worker_url(base: &str) -> Result<Url, CleanupError> {
     {
         return Err(CleanupError::WorkerConfiguration);
     }
-    url.join("v1/sessions")
+    Ok(url)
+}
+fn worker_url(base: &str) -> Result<Url, CleanupError> {
+    worker_origin(base)?
+        .join("v1/sessions")
         .map_err(|_| CleanupError::WorkerConfiguration)
+}
+/// Validated operator-only worker endpoint captured from the Gateway's explicit
+/// configuration document. It deliberately exposes no Debug or serialization.
+#[derive(Clone)]
+pub struct SdkAgentWorkerConfig {
+    base_url: String,
+    authorization: HeaderValue,
+}
+impl SdkAgentWorkerConfig {
+    pub fn from_operator_environment(environment: &BTreeMap<String, String>) -> Option<Self> {
+        let base = environment.get("SDK_AGENT_WORKER_URL")?;
+        let token = environment.get("SDK_AGENT_WORKER_TOKEN")?;
+        if token.len() < 32 {
+            return None;
+        }
+        let url = worker_origin(base).ok()?;
+        let mut authorization = HeaderValue::from_str(&format!("Bearer {token}")).ok()?;
+        authorization.set_sensitive(true);
+        Some(Self {
+            base_url: url.origin().ascii_serialization(),
+            authorization,
+        })
+    }
+    pub(super) fn base_url(&self) -> &str {
+        &self.base_url
+    }
+    pub(super) fn authorization(&self) -> HeaderValue {
+        self.authorization.clone()
+    }
+    fn sessions_url(&self) -> Result<Url, CleanupError> {
+        worker_url(&self.base_url)
+    }
 }
 struct Worker {
     client: Client,
@@ -172,25 +208,15 @@ struct Worker {
     auth: HeaderValue,
 }
 impl Worker {
-    fn configured() -> Result<Self, CleanupError> {
-        let base =
-            std::env::var("SDK_AGENT_WORKER_URL").map_err(|_| CleanupError::WorkerConfiguration)?;
-        let token = std::env::var("SDK_AGENT_WORKER_TOKEN")
-            .map_err(|_| CleanupError::WorkerConfiguration)?;
-        if token.len() < 32 {
-            return Err(CleanupError::WorkerConfiguration);
-        }
-        let mut auth = HeaderValue::from_str(&format!("Bearer {token}"))
-            .map_err(|_| CleanupError::WorkerConfiguration)?;
-        auth.set_sensitive(true);
+    fn configured(config: &SdkAgentWorkerConfig) -> Result<Self, CleanupError> {
         Ok(Self {
-            client: Client::builder()
+            client: Client::builder().retry(reqwest::retry::never())
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(10))
                 .build()
                 .map_err(|_| CleanupError::WorkerConfiguration)?,
-            url: worker_url(&base)?,
-            auth,
+            url: config.sessions_url()?,
+            auth: config.authorization(),
         })
     }
     async fn delete(&self, scope: &SdkScope) -> bool {
@@ -223,14 +249,17 @@ impl Worker {
 }
 /// A bounded retry sweep. Row lock is the lease; interrupted/unknown outcomes retry.
 /// A 200 acknowledgement is the only transition to deleted. No raw errors persisted.
-pub async fn drain_pending(pool: &PgPool) -> Result<(), CleanupError> {
+pub async fn drain_pending(
+    pool: &PgPool,
+    worker_config: Option<&SdkAgentWorkerConfig>,
+) -> Result<(), CleanupError> {
     // Do not even read optional worker configuration when there are no pending scopes.
     let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM gateway.sdk_session_scopes WHERE state='pending' AND next_attempt_at<=now())")
         .fetch_one(pool).await?;
     if !pending {
         return Ok(());
     }
-    let worker = Worker::configured()?;
+    let worker = Worker::configured(worker_config.ok_or(CleanupError::WorkerConfiguration)?)?;
     for _ in 0..16 {
         let mut tx = pool.begin().await?;
         let row = sqlx::query("SELECT tenant_id,user_id,session_id,service_id,framework FROM gateway.sdk_session_scopes WHERE state='pending' AND next_attempt_at<=now() ORDER BY next_attempt_at LIMIT 1 FOR UPDATE SKIP LOCKED")
@@ -273,7 +302,11 @@ pub async fn status(pool: &PgPool) -> Result<CleanupStatus, CleanupError> {
     })
 }
 /// Host-owned task: stop cancels the current bounded HTTP attempt; durable work remains.
-pub async fn run(pool: PgPool, mut stop: watch::Receiver<bool>) {
+pub async fn run(
+    pool: PgPool,
+    mut stop: watch::Receiver<bool>,
+    worker_config: Option<SdkAgentWorkerConfig>,
+) {
     let mut tick = tokio::time::interval(Duration::from_secs(30));
     loop {
         if *stop.borrow() {
@@ -284,7 +317,7 @@ pub async fn run(pool: PgPool, mut stop: watch::Receiver<bool>) {
             _ = tick.tick() => {
                 tokio::select! {
                     _ = stop.changed() => return,
-                    _ = drain_pending(&pool) => {},
+                    _ = drain_pending(&pool, worker_config.as_ref()) => {},
                 }
             }
         }
@@ -356,7 +389,7 @@ mod tests {
                 socket.write_all(format!("HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
             });
             let worker = Worker {
-                client: Client::builder()
+                client: Client::builder().retry(reqwest::retry::never())
                     .redirect(reqwest::redirect::Policy::none())
                     .timeout(Duration::from_secs(2))
                     .build()

@@ -2,6 +2,7 @@ use codex_protocol::ThreadId;
 use codex_thread_store::ThreadStoreError;
 use codex_thread_store::ThreadStoreResult;
 use sqlx::Row;
+use sqlx::PgConnection;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
@@ -9,8 +10,59 @@ use uuid::Uuid;
 use super::MemberScope;
 use super::PlatformThreadIdentity;
 use super::PostgresThreadStore;
+use super::RuntimeStoreReadinessStage;
 use super::projection::store_error;
 use super::projection::thread_uuid;
+
+const REQUIRED_RUNTIME_STORE_READINESS_SQL: &str = r#"
+SELECT CASE
+    WHEN NOT COALESCE(
+        has_schema_privilege(current_user, current_schema(), 'USAGE'), FALSE
+    ) THEN 'runtime_schema_usage_missing'
+    WHEN to_regclass('assistant_runtime_threads') IS NULL
+      OR to_regclass('assistant_runtime_thread_members') IS NULL
+      OR to_regclass('assistant_runtime_thread_projections') IS NULL
+      OR to_regclass('assistant_runtime_items') IS NULL THEN 'runtime_thread_schema_missing'
+    WHEN to_regprocedure(
+          'append_assistant_runtime_item(uuid,uuid,character varying,character varying,character varying,uuid,character varying,character varying,character varying,character varying,character varying,character varying,jsonb,character)'
+      ) IS NULL THEN 'runtime_item_append_function_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_threads'), 'SELECT'
+    ), FALSE) THEN 'runtime_thread_root_select_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_threads'), 'INSERT'
+    ), FALSE) THEN 'runtime_thread_root_insert_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_threads'), 'UPDATE'
+    ), FALSE) THEN 'runtime_thread_root_update_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_thread_members'), 'SELECT'
+    ), FALSE) THEN 'runtime_thread_member_select_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_thread_members'), 'INSERT'
+    ), FALSE) THEN 'runtime_thread_member_insert_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_thread_projections'), 'SELECT'
+    ), FALSE) THEN 'runtime_thread_projection_select_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_thread_projections'), 'INSERT'
+    ), FALSE) THEN 'runtime_thread_projection_insert_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_thread_projections'), 'UPDATE'
+    ), FALSE) THEN 'runtime_thread_projection_update_missing'
+    WHEN NOT COALESCE(has_table_privilege(
+        current_user, to_regclass('assistant_runtime_items'), 'SELECT'
+    ), FALSE) THEN 'runtime_items_select_missing'
+    WHEN NOT COALESCE(has_function_privilege(
+        current_user,
+        to_regprocedure(
+            'append_assistant_runtime_item(uuid,uuid,character varying,character varying,character varying,uuid,character varying,character varying,character varying,character varying,character varying,character varying,jsonb,character)'
+        ),
+        'EXECUTE'
+    ), FALSE) THEN 'runtime_item_append_execute_missing'
+    ELSE 'healthy'
+END
+"#;
 
 impl PostgresThreadStore {
     // The workspace lint protects SQLite callers; this store is explicitly PostgreSQL.
@@ -22,7 +74,7 @@ impl PostgresThreadStore {
             .connect(database_url)
             .await
             .map_err(connection_error)?;
-        Ok(Self::from_pool(pool))
+        Self::from_pool_and_check_readiness(pool).await
     }
 
     // The workspace lint protects SQLite callers; this store is explicitly PostgreSQL.
@@ -37,7 +89,77 @@ impl PostgresThreadStore {
             .connect_with(options)
             .await
             .map_err(connection_error)?;
-        Ok(Self::from_pool(pool))
+        Self::from_pool_and_check_readiness(pool).await
+    }
+
+    async fn from_pool_and_check_readiness(pool: sqlx::PgPool) -> ThreadStoreResult<Self> {
+        let store = Self::from_pool(pool);
+        let stage = store.readiness_stage().await;
+        if !stage.is_healthy() {
+            return Err(ThreadStoreError::Internal {
+                message: stage.code().to_string(),
+            });
+        }
+        Ok(store)
+    }
+
+    pub(crate) async fn readiness_stage(&self) -> RuntimeStoreReadinessStage {
+        let Ok(mut connection) = self.pool.acquire().await else {
+            return RuntimeStoreReadinessStage::DatabaseUnavailable;
+        };
+        self.readiness_stage_on(&mut *connection).await
+    }
+
+    pub(crate) async fn readiness_stage_on(
+        &self,
+        connection: &mut PgConnection,
+    ) -> RuntimeStoreReadinessStage {
+        let code = match sqlx::query_scalar::<_, String>(REQUIRED_RUNTIME_STORE_READINESS_SQL)
+            .fetch_one(&mut *connection)
+            .await
+        {
+            Ok(code) => code,
+            Err(_) => return RuntimeStoreReadinessStage::DatabaseUnavailable,
+        };
+        match code.as_str() {
+            "healthy" => RuntimeStoreReadinessStage::Healthy,
+            "runtime_schema_usage_missing" => RuntimeStoreReadinessStage::SchemaUsageMissing,
+            "runtime_thread_schema_missing" => RuntimeStoreReadinessStage::ThreadSchemaMissing,
+            "runtime_thread_root_select_missing" => {
+                RuntimeStoreReadinessStage::ThreadRootSelectMissing
+            }
+            "runtime_thread_root_insert_missing" => {
+                RuntimeStoreReadinessStage::ThreadRootInsertMissing
+            }
+            "runtime_thread_root_update_missing" => {
+                RuntimeStoreReadinessStage::ThreadRootUpdateMissing
+            }
+            "runtime_thread_member_select_missing" => {
+                RuntimeStoreReadinessStage::ThreadMemberSelectMissing
+            }
+            "runtime_thread_member_insert_missing" => {
+                RuntimeStoreReadinessStage::ThreadMemberInsertMissing
+            }
+            "runtime_thread_projection_select_missing" => {
+                RuntimeStoreReadinessStage::ThreadProjectionSelectMissing
+            }
+            "runtime_thread_projection_insert_missing" => {
+                RuntimeStoreReadinessStage::ThreadProjectionInsertMissing
+            }
+            "runtime_thread_projection_update_missing" => {
+                RuntimeStoreReadinessStage::ThreadProjectionUpdateMissing
+            }
+            "runtime_items_select_missing" => {
+                RuntimeStoreReadinessStage::RuntimeItemsSelectMissing
+            }
+            "runtime_item_append_function_missing" => {
+                RuntimeStoreReadinessStage::RuntimeItemAppendFunctionMissing
+            }
+            "runtime_item_append_execute_missing" => {
+                RuntimeStoreReadinessStage::RuntimeItemAppendExecuteMissing
+            }
+            _ => RuntimeStoreReadinessStage::ThreadSchemaMissing,
+        }
     }
 
     pub fn from_pool(pool: sqlx::PgPool) -> Self {

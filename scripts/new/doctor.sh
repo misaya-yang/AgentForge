@@ -66,7 +66,7 @@ fi
 # -- 2. Optional developer tooling -------------------------------------------
 log_step "Developer tooling (needed only to build or test from source)"
 
-for tool in git uv node pnpm; do
+for tool in git cargo rustc node pnpm; do
     if command -v "$tool" >/dev/null 2>&1; then
         ok "$tool found"
     else

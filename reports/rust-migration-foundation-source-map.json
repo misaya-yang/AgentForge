@@ -1,0 +1,1368 @@
+{
+  "schema_version": "native-migration-retirement-map/v1",
+  "lane": "foundation-auth-authority-integrations",
+  "verification": "Counterpart_ready means concrete native implementation and source boundary identified, not exhaustive live acceptance. No deletions were performed. Parent owns test evidence and final cutover.",
+  "entries": [
+    {
+      "source": "src/core/auth/api_key.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/admission.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/password.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/service.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/rbac.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/rbac.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/permissions.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/rbac.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/service_access.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_access_policy.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/service_access_resolver.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_access_resolver.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/jwt.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/jwt.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/jwt_config.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/user_resolver.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/auth/anonymous_middleware.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/middleware.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/auth/api_key_service.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/validator.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/request_validation.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/rate_limiter.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/dispatcher_rate_limiter.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/rate_policy.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/rate_policy_store.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/admission.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/capacity_admission.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/multi_dimension_rate_limiter.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/rate_limits.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/circuit_breaker.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/circuit_breaker.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/dispatcher.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/gateway_dispatcher.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/capacity.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/capacity.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/core/gateway/lua_scripts.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/capacity_admission.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/registry/database_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/registry_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/registry/service_registry.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/registry/load_balancer.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/registry_load_balancer.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/registry/health_monitor.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/registry_health_monitor.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/session/session_manager.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_manager.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/session/database_session_manager.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/session/guest_session_manager.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/guest_session_manager.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/task/database_task_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/task/task_queue.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/task/task_manager.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_manager.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/task/task_result_codec.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/task/task_worker.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_durable_worker.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/usage_parser.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/usage_recorder.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_recorder.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/audit_event_writer.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/config_audit_writer.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/metrics_recorder.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/metrics_recorder.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/data_status.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/metrics_recorder.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/realtime_metrics.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/realtime_metrics.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/metrics/redaction.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/metrics_redaction.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/provider_service.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_service.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/model_catalog_sync.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_catalog_sync.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/gateway_model_meta.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/gateway_model_meta.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/provider_setup.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_service.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/startup_seeder.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_startup_seeder.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/model_failover.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_failover.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/provider_health.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_health.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/provider_templates.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_templates.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/llm/model_service.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_service.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/billing/aggregation_task.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/billing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/billing/quota_service.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/quota_store.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/billing/usage_scheduler.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/billing_scheduler.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/billing/model_pricing.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_pricing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/billing/pricing_catalog.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/pricing_receipt.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/storage/image_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/storage/file_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/services/storage/artifact_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/base.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/dispatcher.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/registry.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/comfyui.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/comfyui.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/openai.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/openai.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/stable_diffusion.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/media.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/tts.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/media.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/whisper.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/media.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/adapters/dify.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/mod.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs"
+      ],
+      "status": "conditional",
+      "scope": "Source Dify inherits GenericREST; registry preserves that mapping. Shares HTTP/codec boundary below; optional dify_chat is not substituted."
+    },
+    {
+      "source": "src/adapters/generic_rest.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_jsonpath.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_response.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_multibyte.rs"
+      ],
+      "status": "conditional",
+      "scope": "JSON-representable mapping grammar and 14 multibyte codec transducers implemented with static source fixtures. Native reqwest pool/write-timeout semantics are documented; stateful Python-only codec labels still need explicit supported-codec policy."
+    },
+    {
+      "source": "src/adapters/langgraph.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs"
+      ],
+      "status": "native_extension_boundary",
+      "scope": "Remote HTTP implementation exists. Repository-wide graph_module search found no shipped configured graph. Arbitrary external Python modules require a native ProtocolAdapter/AdapterFactory replacement; native does not execute Python."
+    },
+    {
+      "source": "src/adapters/langgraph_local.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs"
+      ],
+      "status": "native_extension_boundary",
+      "scope": "Python LangChain object/event hooks for externally supplied in-process graphs. No shipped graph_module configuration found. Native plugin must implement equivalent local tool/usage events; remote stream implementation is not claimed equivalent to arbitrary objects."
+    },
+    {
+      "source": "src/adapters/langgraph_local_usage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs"
+      ],
+      "status": "native_extension_boundary",
+      "scope": "Python LangChain object/event hooks for externally supplied in-process graphs. No shipped graph_module configuration found. Native plugin must implement equivalent local tool/usage events; remote stream implementation is not claimed equivalent to arbitrary objects."
+    },
+    {
+      "source": "src/adapters/langgraph_proxy.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/langgraph.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "src/transports/http.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs",
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/transport.rs"
+      ],
+      "status": "conditional",
+      "scope": "Real HTTP adapters exist; independent write timeout/global idle accounting differ from httpx, with explicit source comments. Not an exhaustive HTTP wire-equivalence claim."
+    },
+    {
+      "source": "src/transports/message_queue.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/message_queue_transport.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Implemented lazy Redis stream publish/consume/ack/fail/retry/dead-letter with source first-message/cache/nontransactional ordering, and actual GenericREST/Dify factory transport selection. Tests and compilation pending parent."
+    },
+    {
+      "source": "src/transports/websocket.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/comfyui.rs",
+        "rust/platform-native/crates/platform-gateway-foundation/src/websocket_transport.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Exported caller-owned JSON WebSocketConnector/WebSocketConnection reused by actual ComfyUI adapter; JSON send/receive, binary Unicode decoding, control frames, close and deliberately unsupported HTTP request. Native control-frame/clean-close semantics are explicit."
+    },
+    {
+      "source": "src/transports/grpc.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Source GRPCConnector.request only raises NotImplementedError; native unsupported transport refusal preserves no successful behavior."
+    },
+    {
+      "source": "src/transports/base.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs"
+      ],
+      "status": "native_extension_boundary",
+      "scope": "ProtocolAdapter/AdapterFactory owns native extension lifecycle. Python importlib callable modules cannot execute after zero-Python cutover; no shipped graph module configured."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_recorder.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/metrics/realtime_metrics.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/realtime_metrics.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/session/models.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_manager.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/billing/pricing_catalog.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/pricing_receipt.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/mcp/client.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/mcp_http.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/mcp/resilience.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/circuit_breaker.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/mcp/outcomes.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/mcp_http.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_memory_store.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_grader.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/quiz_grading.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/storage/file_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/storage/image_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/auth/_core.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/jwt.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/auth/gateway_secret.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/context.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/auth/gateway_secret_middleware.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/middleware.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/auth/capability_proof.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/capability.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/tracing/propagation.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/distributed_tracing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/tracing/middleware.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/distributed_tracing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/tracing/httpx_hooks.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/distributed_tracing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/tracing/init.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/distributed_tracing.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/eval/online_sampling.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_online.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/eval/outbox_worker.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_outbox_dispatch.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/eval/evaluator_executor.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_executor.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/adoption.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bootstrap.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/baseline_manifest.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/manifest.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/bootstrap.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bootstrap.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/cli.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/main.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/commands.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/commands.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/constants.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/lib.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/credentials.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/credentials.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/discovery.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/legacy.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/epoch_verification.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/commands.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/fingerprint.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/fingerprint_catalog.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/fingerprint_values.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/fingerprint/values.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/ledger.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/ledger.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/ledger_acl.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/ledger_acl.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/legacy.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/legacy.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/manifest.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/manifest.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/numeric_evidence.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/numeric.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/numeric_reconciliation.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/numeric.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/per_service_manifest.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/manifest.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "database/authority/runner.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/runner.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/create_admin.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/bin/admin_create.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/metrics/repair_usage_metrics.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/repair_usage_metrics.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/database/check_successor_proposals.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/check_successor_proposals.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/database/freeze_baseline.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/freeze_baseline.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/database/probe_successor_roles.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/probe_successor_roles.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/database/render_baseline_contract.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/render_baseline_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/inventory/database_policy.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/database_policy.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/inventory/generate_database_grants.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bin/generate_database_grants.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/judge_real_agent_receipts.py",
+      "native": [
+        "rust/platform-native/crates/platform-eval/src/judge_receipts.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native production counterpart exists; root owns final serialized acceptance."
+    },
+    {
+      "source": "scripts/inventory/_common.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/data_access.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/dependency_baseline.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/contract_freeze.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/loc_baseline.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/skip_baseline.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "scripts/inventory/generate_baselines.py",
+      "native": [
+        "rust/platform-native/crates/platform-tools/src/inventory_generators.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Native source facts explicitly use v2 schemas; immutable historical baselines are preserved. Python AST identities are not falsely renamed to Rust identities."
+    },
+    {
+      "source": "tests/services/eval/test_online_sampling.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/eval_online_outbox_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Production-used Rust seams/router/source assertion matrix. Full PG/Redis boot explicitly ignored; test execution parent-owned."
+    },
+    {
+      "source": "tests/services/eval/test_outbox_worker.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/eval_online_outbox_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Production-used Rust seams/router/source assertion matrix. Full PG/Redis boot explicitly ignored; test execution parent-owned."
+    },
+    {
+      "source": "tests/security/test_management_api_authorization.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/agent_studio_authorization.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Production-used Rust seams/router/source assertion matrix. Full PG/Redis boot explicitly ignored; test execution parent-owned."
+    },
+    {
+      "source": "tests/integration/test_gateway_boot.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/agent_studio_boot.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Production-used Rust seams/router/source assertion matrix. Full PG/Redis boot explicitly ignored; test execution parent-owned."
+    },
+    {
+      "source": "database/authority/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/src/bootstrap.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/auth/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_host/jwt.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/billing/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/pricing_receipt.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/eval/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_online.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/mcp/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/mcp_http.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/memory/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_memory_store.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/metrics/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_recorder.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/quiz/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/quiz_grading.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/session/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_manager.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/storage/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "packages/ai-gateway-core/src/ai_gateway_core/tracing/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/distributed_tracing.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "scripts/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/bin/admin_create.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/adapters/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/dispatcher.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/core/auth/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-auth/src/admission.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/core/gateway/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/request_validation.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/billing/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/billing.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/llm/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_service.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/metrics/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/registry/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/registry_storage.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/session/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/session_manager.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/storage/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/services/task/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/task_storage.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "src/transports/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs",
+        "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/transport.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "tests/integration/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/agent_studio_boot.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "tests/services/eval/__init__.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway/tests/eval_online_outbox_contract.rs"
+      ],
+      "status": "obsolete_framework",
+      "scope": "Python package namespace/import reexports; corresponding native module exports replace import packaging. This does not waive unmapped sibling behavior."
+    },
+    {
+      "source": "tests/database/test_kb_migration_full_chain.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Observable PostgreSQL state/restore/serialization/crash assertions ported to five explicit ignored tests. No database execution; not substitute for remaining specialized KB cases."
+    },
+    {
+      "source": "tests/database/test_kb_migration_101_restore.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Observable PostgreSQL state/restore/serialization/crash assertions ported to five explicit ignored tests. No database execution; not substitute for remaining specialized KB cases."
+    },
+    {
+      "source": "tests/database/test_migration_runner_concurrency.py",
+      "native": [
+        "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Observable PostgreSQL state/restore/serialization/crash assertions ported to five explicit ignored tests. No database execution; not substitute for remaining specialized KB cases."
+    },
+    {
+      "source": "src/core/utils.py",
+      "native": [
+        "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs"
+      ],
+      "status": "counterpart_ready",
+      "scope": "Gateway owner completed source Unicode-codepoint truncate_text binary search beside the existing token estimate helper; final test parent-owned."
+    }
+  ],
+  "counts": {
+    "conditional": 3,
+    "counterpart_ready": 134,
+    "native_extension_boundary": 4,
+    "obsolete_framework": 26
+  },
+  "delegated_scopes": [
+    "Knowledge ingestion/query integration modules owned by knowledge-service lane; native paths exist but not certified by this map.",
+    "SDK adapters and local-node integration owned by SDK/runtime lanes.",
+    "Shared core modules not listed here remain under gateway/runtime retirement maps."
+  ],
+  "framework_test_retirement_policy": [
+    "Python import-path/class inheritance/Pydantic/FastAPI monkeypatch mechanics may retire when their production observable assertion is represented by native DTO/router/lifecycle tests.",
+    "Do not retire SQL migration state/restore/concurrency assertions as framework-only; ignored native PostgreSQL targets must preserve them.",
+    "Do not label provider/backend failures or unsupported configured transports as obsolete tests.",
+    "Historical manifests and source golden fixtures remain immutable even when their generator was Python."
+  ]
+}

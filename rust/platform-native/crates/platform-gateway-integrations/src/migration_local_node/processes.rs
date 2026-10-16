@@ -436,8 +436,16 @@ impl ProcessRunner {
             .keys()
             .cloned()
             .collect();
+        let mut first_error = None;
         for id in &ids {
-            self.cancel(id)?;
+            if let Err(error) = self.cancel(id) {
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
+        }
+        if let Some(error) = first_error {
+            return Err(error);
         }
         Ok(ids)
     }

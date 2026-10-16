@@ -14,9 +14,9 @@ use crate::{
     service_registry::ServiceRegistry,
     session_manager::{DatabaseSessionConfig, DatabaseSessionManager},
     session_storage::PgSessionStorage,
-    task_manager::{MemoryTaskQueue, SafeCallbackTransport, TaskManager},
-    task_delivery::PgTaskDeliveryLedger,
     task_actor::PgTaskActorValidator,
+    task_delivery::PgTaskDeliveryLedger,
+    task_manager::{MemoryTaskQueue, SafeCallbackTransport, TaskManager},
     task_storage::PgTaskStorage,
     task_worker::TaskWorker,
     usage_pricing::{PricedUsageSink, ScopedUsagePricing},
@@ -24,7 +24,10 @@ use crate::{
 };
 use ai_platform_auth::rbac::Rbac;
 use redis::aio::ConnectionManager;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
 pub struct CoreConfiguration {
@@ -59,6 +62,8 @@ pub struct CoreServices {
     pub task_worker: Arc<Mutex<TaskWorker>>,
     pub pricing: Arc<ScopedUsagePricing>,
     pub worker_concurrency: i64,
+    pub(crate) sdk_worker_config:
+        Option<crate::migration_adapters::sdk_session_cleanup::SdkAgentWorkerConfig>,
 }
 impl CoreServices {
     pub fn new(
@@ -67,7 +72,11 @@ impl CoreServices {
         config: CoreConfiguration,
         backends: CoreBackends,
         usage: &UsageRecorder,
+        operator_environment: &BTreeMap<String, String>,
     ) -> Result<Self, BootstrapError> {
+        let sdk_worker_config = crate::migration_adapters::sdk_session_cleanup::SdkAgentWorkerConfig::from_operator_environment(
+            operator_environment,
+        );
         let registry = Arc::new(ServiceRegistry::with_bulkhead_limits(
             Arc::new(PgRegistryStorage::new(pools.data.clone())),
             config.adapter_bulkhead_limits,
@@ -80,7 +89,11 @@ impl CoreServices {
                 callback_allowlist: backends.callback_allowlist,
             },
         );
-        crate::migration_adapters::register_sdk_session_adapters(&registry, &pools.data);
+        crate::migration_adapters::register_sdk_session_adapters(
+            &registry,
+            &pools.data,
+            sdk_worker_config.clone(),
+        );
         let session_storage = Arc::new(
             PgSessionStorage::new(pools.data.clone(), pools.control.clone())
                 .map_err(|_| BootstrapError::Construction("session_storage"))?,
@@ -95,17 +108,31 @@ impl CoreServices {
         );
         // Explicit rollout selection. Canonical17 keeps the existing memory
         // path; durable mode never downgrades after a ledger/authority failure.
-        let queue = if config.durable_tasks { None } else { Some(Arc::new(MemoryTaskQueue::new())) };
+        let queue = if config.durable_tasks {
+            None
+        } else {
+            Some(Arc::new(MemoryTaskQueue::new()))
+        };
         let actors = if config.durable_tasks {
-            if config.worker_concurrency <= 0 { return Err(BootstrapError::Configuration("task_worker_concurrency")); }
-            Some(Arc::new(PgTaskActorValidator::new(pools.data.clone(), redis.clone()
-                .ok_or(BootstrapError::Configuration("task_session_authority"))?)))
-        } else { None };
+            if config.worker_concurrency <= 0 {
+                return Err(BootstrapError::Configuration("task_worker_concurrency"));
+            }
+            Some(Arc::new(PgTaskActorValidator::new(
+                pools.data.clone(),
+                redis
+                    .clone()
+                    .ok_or(BootstrapError::Configuration("task_session_authority"))?,
+            )))
+        } else {
+            None
+        };
         let manager = if let Some(queue) = &queue {
             TaskManager::new(task_storage.clone(), queue.clone())
         } else {
-            let delivery = Arc::new(PgTaskDeliveryLedger::new(pools.data.clone(), pools.control.clone())
-                .map_err(|_|BootstrapError::Construction("task_delivery"))?);
+            let delivery = Arc::new(
+                PgTaskDeliveryLedger::new(pools.data.clone(), pools.control.clone())
+                    .map_err(|_| BootstrapError::Construction("task_delivery"))?,
+            );
             TaskManager::durable(task_storage.clone(), delivery)
         };
         let tasks = Arc::new(manager.with_safe_callback_transport(backends.callbacks));
@@ -123,6 +150,11 @@ impl CoreServices {
             CapacityAdmissionController::new(config.admission, store)
                 .map_err(|_| BootstrapError::Configuration("capacity_admission"))?,
         );
+        admission.set_rejection_observer(Arc::new(
+            crate::migration_host::metrics::AdmissionRejectionMetrics::new(
+                &crate::migration_host::metrics::global(),
+            ),
+        ));
         let executor = Arc::new(DispatchExecutor::new(
             admission.clone(),
             (*capacity).clone(),
@@ -137,9 +169,19 @@ impl CoreServices {
             sink,
         ));
         let task_worker = Arc::new(Mutex::new(match (queue, actors) {
-            (Some(queue), None) => TaskWorker::new(queue, task_storage.clone(), dispatcher.clone(), tasks.clone()),
-            (None, Some(actors)) => TaskWorker::durable(task_storage.clone(), dispatcher.clone(), tasks.clone(), actors)
-                .map_err(|_|BootstrapError::Construction("task_worker"))?,
+            (Some(queue), None) => TaskWorker::new(
+                queue,
+                task_storage.clone(),
+                dispatcher.clone(),
+                tasks.clone(),
+            ),
+            (None, Some(actors)) => TaskWorker::durable(
+                task_storage.clone(),
+                dispatcher.clone(),
+                tasks.clone(),
+                actors,
+            )
+            .map_err(|_| BootstrapError::Construction("task_worker"))?,
             _ => return Err(BootstrapError::Construction("task_delivery_mode")),
         }));
         let health_monitor = Arc::new(Mutex::new(HealthMonitor::with_runtime(
@@ -162,6 +204,7 @@ impl CoreServices {
             task_worker,
             pricing,
             worker_concurrency: config.worker_concurrency,
+            sdk_worker_config,
         })
     }
     /// Source _load_services_from_database populates caches without rewriting rows.
@@ -205,7 +248,9 @@ impl CoreServices {
                 let worker = worker.clone();
                 Box::pin(async move {
                     let mut worker = worker.lock().await;
-                    worker.verify_ready().await.map_err(|_|super::super::lifecycle::HostError::Startup("task_delivery"))?;
+                    worker.verify_ready().await.map_err(|_| {
+                        super::super::lifecycle::HostError::Startup("task_delivery")
+                    })?;
                     worker.start(concurrency).await;
                     Ok(())
                 })

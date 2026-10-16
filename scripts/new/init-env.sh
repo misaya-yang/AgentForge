@@ -176,7 +176,7 @@ AI_PLATFORM_CAPABILITY_PROOF_SECRET_VALUE="$(copy_env_or_default AI_PLATFORM_CAP
 AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_VALUE="$(copy_env_or_default AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN "$(generate_secret)")"
 AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION_VALUE="$(copy_env_or_default AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION "$(agent_runtime_kernel_revision)")"
 AI_PLATFORM_AGENT_RUNTIME_IMAGE_VALUE="$(copy_env_or_default AI_PLATFORM_AGENT_RUNTIME_IMAGE "$(agent_runtime_image_tag)")"
-DEFAULT_USER_PASSWORD_VALUE="$(copy_env_or_default DEFAULT_USER_PASSWORD "$(generate_secret)")"
+DEFAULT_USER_PASSWORD_VALUE="$(copy_env_or_default DEFAULT_USER_PASSWORD "$(generate_secret)Aa1!")"
 
 choose_embedding_provider() {
     local configured

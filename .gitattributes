@@ -5,3 +5,6 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# Evaluation inputs carry content hashes; preserve imported fixture bytes.
+tests/fixtures/eval/** -text
+

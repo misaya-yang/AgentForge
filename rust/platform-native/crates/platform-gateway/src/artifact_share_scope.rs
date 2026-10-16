@@ -10,10 +10,6 @@ use crate::{
     },
     users_store::UsersDatabase,
 };
-use ai_platform_auth::{
-    accounts::{Account, Authority},
-    service::Principal,
-};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sqlx::Row;
@@ -229,30 +225,13 @@ impl ArtifactShareScope for NativeArtifactShareScope {
                     && sources.documents.is_empty()
                     && sources.versions.is_empty());
             };
-            let principal = Principal {
-                account: Account {
-                    user_id: user.user_id.clone(),
-                    tenant_id: user.tenant_id.clone().unwrap_or_default(),
-                    email: None,
-                    display_name: None,
-                    department: None,
-                    tier: user.tier.clone(),
-                    roles: user.roles.clone(),
-                    permissions: user.permissions.clone(),
-                    status: "active".into(),
-                    password_hash: None,
-                    force_password_change: false,
-                    login_attempts: 0,
-                    locked_until: None,
-                    password_changed_at: None,
-                },
-                authority: Authority {
-                    roles: user.roles.clone(),
-                    permissions: user.permissions.clone(),
-                    tier: user.tier.clone(),
-                },
-                expires_at: 0, // Resolved resource identity, not a JWT session.
-                jti: String::new(),
+            let principal = crate::migration_content::ContentIdentity {
+                user_id: user.user_id.clone(),
+                tenant_id: user.tenant_id.clone().unwrap_or_default(),
+                tier: user.tier.clone(),
+                roles: user.roles.clone(),
+                permissions: user.permissions.clone(),
+                is_authenticated: user.is_authenticated,
             };
             let visible = access.visible_sources(&principal, sources).await;
             Ok(sources

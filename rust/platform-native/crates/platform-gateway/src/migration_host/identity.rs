@@ -29,7 +29,8 @@ impl Default for IdentityConfig {
             jwt_enabled: false,
             verify_jwt: None,
             api_key_enabled: false,
-            api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into(),
+            api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT
+                .into(),
             api_keys: vec![],
             guest_session_enabled: true,
             guest_session_header: "X-Guest-Session".into(),

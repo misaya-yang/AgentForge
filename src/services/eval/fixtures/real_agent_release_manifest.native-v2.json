@@ -1,0 +1,98 @@
+{
+  "schema_version": "real-agent-release-manifest/v1",
+  "release_id": "general-agent-four-domain-release.native-v2",
+  "suites": [
+    {
+      "suite_id": "general-agent.real-coding.v2",
+      "contract_sha256": "ed3e58cef6dd97848d62e46cb2c97ebfe6d3e4c36f53b3595384f6c8bc9c078d",
+      "coding_host_test_policy": {
+        "receipt_schema": "coding-agent-patch-validation/v2",
+        "evidence_schema": "coding-host-test-evidence/v2",
+        "required_trials": 3,
+        "validator_contract_sha256": "d8c1280c8b89a69d7a23c5062f421bcf5e2436620188bfb9a58464cc1a67872b",
+        "validator_contract_file_sha256": "f9e4f5a08c6d4121cd62515c0aa9f073bf676e7d6622af66e94d147f5009cc96",
+        "verifier_executable_sha256": "91056b82aef757938fb67751db33ed12e722c0b410716366f29908bd5323104a",
+        "receipt_verifier_executable_sha256": "4d6fe6f1196fb5cec33ad9913825a76a7a8df7fb0af45225e364f2a9b4061fb8",
+        "sandbox_image_reference": "rust@sha256:ba81bc3eaa4422af576c0262515d96b0111a628a6ccc2c86557cf55c9a4bbee0",
+        "sandbox_image_config_digest": "sha256:80aa908ca5b1f3f0a2c177e855c86caf970f169618089348371122e0d1a56793",
+        "sandbox_platform": "linux/amd64",
+        "test_commands": [
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--test",
+            "idempotency"
+          ],
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--test",
+            "allocation"
+          ],
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--test",
+            "service"
+          ]
+        ],
+        "allowed_changes": [
+          "src/allocation.rs",
+          "src/idempotency.rs"
+        ],
+        "max_changed_lines": 48,
+        "minimum_parallel_overlap_ms": 25.0
+      },
+      "scenarios": [
+        {
+          "scenario_id": "coding.parallel.settlement-retry",
+          "domain_key": "coding",
+          "domain": "production software engineering",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-research.cra-oss.v1",
+      "contract_sha256": "2ae8f2de407c3617025f75493ff48097a9ef7ddb59d0f26db2b1f14ae36ce005",
+      "scenarios": [
+        {
+          "scenario_id": "research.cra-oss.version-conflict",
+          "domain_key": "research",
+          "domain": "legal-compliance-research",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-legal-title-vii.v1",
+      "contract_sha256": "6f0700743aea302619b647b6cff3c51ec35aeb9d526d568d4cdecae234bb4871",
+      "scenarios": [
+        {
+          "scenario_id": "legal.title-vii.muldrow-transfer",
+          "domain_key": "legal",
+          "domain": "legal-analysis",
+          "repetitions": 3
+        }
+      ]
+    },
+    {
+      "suite_id": "assistant.real-finance.salesforce-fy26q1.v1",
+      "contract_sha256": "326070aad56dd9fc9e8d46e5259507de8145ad50b9d2862524fcd5d190c4e569",
+      "scenarios": [
+        {
+          "scenario_id": "finance.salesforce.cash-quality-liquidity.fy26q1",
+          "domain_key": "finance",
+          "domain": "public-company financial statement analysis",
+          "repetitions": 3
+        }
+      ]
+    }
+  ]
+}

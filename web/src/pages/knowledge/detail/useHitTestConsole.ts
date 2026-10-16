@@ -11,9 +11,10 @@
  * Extracted verbatim from DatasetDetail.tsx (C2 split); no behavior change.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  getDatasetConfig,
   hitTest,
   listRetrievalPresets,
   retrievalPresetToFlatRequest,
@@ -22,6 +23,7 @@ import {
 import { scoreKbRagasRetrieval, type KbRagasScoreRetrievalResult } from "@/api/eval";
 import type { RetrieveHit } from "@/types/knowledge";
 import { DEFAULT_RETRIEVAL_CONFIG } from "@/types/knowledge";
+import { getDefaultRerankModel, getRerankModelOptions } from "./rerankModelOptions";
 
 export function useHitTestConsole(datasetId?: string, identityScope?: { isCurrent: () => boolean }) {
   const hitTestControllerRef = useRef<AbortController | null>(null);
@@ -47,7 +49,14 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
   const [fusionMethod, setFusionMethod] = useState<"weighted" | "rrf">("weighted");
   const [scoreThreshold, setScoreThreshold] = useState(0);  // 0 means no filtering
   const [rerank, setRerank] = useState(false);
-  const [hitRerankModel, setHitRerankModel] = useState(DEFAULT_RETRIEVAL_CONFIG.rerank.model);
+  const [hitRerankModel, setHitRerankModel] = useState("");
+  const [rerankModelConfig, setRerankModelConfig] = useState<{
+    datasetId: string | undefined;
+    identityScope: typeof identityScope;
+    status: "loading" | "ready" | "error";
+    model: string;
+    provider: string;
+  }>({ datasetId: undefined, identityScope, status: "loading", model: "", provider: "" });
   const [hitRerankTopN, setHitRerankTopN] = useState<number | undefined>(undefined);
   const [mmr, setMmr] = useState(false);
   const [hitMmrLambda, setHitMmrLambda] = useState(DEFAULT_RETRIEVAL_CONFIG.mmr.lambda);
@@ -62,6 +71,61 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
   const [presetRequestConfig, setPresetRequestConfig] = useState<
     ReturnType<typeof retrievalPresetToFlatRequest>
   >({});
+  const rerankConfigMatchesView = rerankModelConfig.datasetId === datasetId
+    && rerankModelConfig.identityScope === identityScope;
+  const rerankModelConfigStatus = rerankConfigMatchesView
+    ? rerankModelConfig.status
+    : "loading";
+  const configuredRerankModel = rerankConfigMatchesView && rerankModelConfig.status === "ready"
+    ? rerankModelConfig.model
+    : "";
+  const configuredRerankProvider = rerankConfigMatchesView && rerankModelConfig.status === "ready"
+    ? rerankModelConfig.provider
+    : "";
+  const rerankModelOptions = useMemo(
+    () => currentView
+      ? getRerankModelOptions(configuredRerankModel, configuredRerankProvider, retrievalPresets)
+      : [],
+    [currentView, configuredRerankModel, configuredRerankProvider, retrievalPresets]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setRerankModelConfig({ datasetId, identityScope, status: "loading", model: "", provider: "" });
+    setHitRerankModel("");
+    if (!datasetId) {
+      setRerankModelConfig({ datasetId, identityScope, status: "ready", model: "", provider: "" });
+      return () => { cancelled = true; };
+    }
+
+    getDatasetConfig(datasetId)
+      .then((config) => {
+        if (cancelled || activeDatasetIdRef.current !== datasetId
+          || activeIdentityRef.current !== identityScope || identityScope?.isCurrent() === false) return;
+        if (config.dataset_id !== datasetId) throw new Error("Dataset config identity mismatch");
+        const model = typeof config.retrieval?.rerank?.model === "string"
+          ? config.retrieval.rerank.model.trim()
+          : "";
+        const provider = typeof config.retrieval?.rerank?.provider === "string"
+          ? config.retrieval.rerank.provider.trim()
+          : "";
+        setRerankModelConfig({ datasetId, identityScope, status: "ready", model, provider });
+      })
+      .catch(() => {
+        if (cancelled || activeDatasetIdRef.current !== datasetId
+          || activeIdentityRef.current !== identityScope || identityScope?.isCurrent() === false) return;
+        setRerankModelConfig({ datasetId, identityScope, status: "error", model: "", provider: "" });
+      });
+    return () => { cancelled = true; };
+  }, [datasetId, identityScope]);
+
+  useEffect(() => {
+    if (!currentView || rerankModelConfigStatus === "loading") return;
+    if (hitRerankModel && rerankModelOptions.includes(hitRerankModel)) return;
+    const model = getDefaultRerankModel(configuredRerankModel, configuredRerankProvider, retrievalPresets);
+    setHitRerankModel(model);
+    if (rerank && !model) setRerank(false);
+  }, [currentView, configuredRerankModel, configuredRerankProvider, hitRerankModel, rerank, rerankModelConfigStatus, rerankModelOptions, retrievalPresets]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -138,11 +202,23 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
       setDenseWeight(config.dense_weight);
       setBm25Weight(config.bm25_weight ?? 1 - config.dense_weight);
     }
-    setRerank(config.rerank ?? false);
-    setHitRerankModel(config.rerank_model ?? DEFAULT_RETRIEVAL_CONFIG.rerank.model);
+    const presetModel = typeof config.rerank_model === "string" ? config.rerank_model : "";
+    const presetProvider = typeof preset.config.rerank.provider === "string"
+      ? preset.config.rerank.provider
+      : "";
+    const presetProviderMatches = !presetProvider
+      || (configuredRerankProvider.length > 0 && presetProvider === configuredRerankProvider);
+    const presetModelIsAvailable = presetModel.length > 0
+      && rerankModelOptions.includes(presetModel)
+      && presetProviderMatches;
+    setRerank(config.rerank === true && presetModelIsAvailable);
+    setHitRerankModel(presetModelIsAvailable ? presetModel : configuredRerankModel);
     setHitRerankTopN(config.rerank_top_n);
     setMmr(config.mmr ?? false);
     setHitMmrLambda(config.mmr_lambda ?? DEFAULT_RETRIEVAL_CONFIG.mmr.lambda);
+    if (config.rerank === true && !presetModelIsAvailable) {
+      setHitMeta({ error: "rerank_preset_unavailable" });
+    }
   };
 
   const markRetrievalConfigCustom = () => {
@@ -166,6 +242,9 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
     setHitExecutedQuery("");
     setRagasResults([]);
     setRagasJudgeModel(null);
+    setRerank(false);
+    setHitRerankModel("");
+    setHitRerankTopN(undefined);
     return () => hitTestControllerRef.current?.abort();
   }, [datasetId, identityScope]);
 
@@ -226,6 +305,10 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
   async function runHitTest() {
     if (activeDatasetIdRef.current !== datasetId || activeIdentityRef.current !== identityScope) return;
     if (!currentView || !datasetId || !query.trim() || identityScope?.isCurrent() === false) return;
+    if (rerank && (!hitRerankModel || !rerankModelOptions.includes(hitRerankModel))) {
+      setHitMeta({ error: "rerank_model_unconfigured" });
+      return;
+    }
     const requestDatasetId = datasetId;
     const requestIdentity = identityScope;
     const requestQuery = query.trim();
@@ -251,7 +334,7 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
         fusion_method: mode === "hybrid" ? fusionMethod : undefined,
         score_threshold: scoreThreshold > 0 ? scoreThreshold : undefined,
         rerank,
-        rerank_model: rerank ? hitRerankModel : undefined,
+        rerank_model: rerank && hitRerankModel ? hitRerankModel : undefined,
         rerank_top_n: rerank ? hitRerankTopN : undefined,
         mmr,
         mmr_lambda: hitMmrLambda,
@@ -304,6 +387,8 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
     setRerank,
     hitRerankModel,
     setHitRerankModel,
+    rerankModelOptions: currentView ? rerankModelOptions : [],
+    rerankModelConfigStatus,
     mmr,
     setMmr,
     hitLoading: currentView ? hitLoading : false,

@@ -49,7 +49,7 @@ impl EvalCandidateClient {
         }
         Ok(Self {
             base,
-            http: reqwest::Client::builder()
+            http: reqwest::Client::builder().retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))

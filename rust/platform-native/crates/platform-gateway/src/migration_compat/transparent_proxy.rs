@@ -3,7 +3,7 @@
 //! Lease loss drops owned local work, including blocked delivery/accounting. This
 //! does not prove remote execution cessation or durable final billing.
 use super::{
-    common::{ByteReceiver, CompatError, CompatUser, SseDecoder, object, text},
+    common::{ByteReceiver, CompatError, CompatUser, object, text},
     langgraph_body,
 };
 use crate::{
@@ -132,6 +132,7 @@ pub struct ProxyRequest {
 #[derive(Clone)]
 struct Availability {
     checked: Instant,
+    checked_at: f64,
     urls: Vec<String>,
     error: String,
 }
@@ -234,10 +235,19 @@ impl TransparentProxy {
         clients.insert(config.service_id.clone(), client.clone());
         Ok(client)
     }
+    pub async fn availability(
+        self: &Arc<Self>,
+        config: &ProxyServiceConfig,
+    ) -> Result<Value, CompatError> {
+        let availability = self.available(config).await?;
+        Ok(
+            json!({"availability_status":if availability.urls.is_empty(){"unavailable"}else if availability.error.is_empty(){"available"}else{"degraded"},"available_upstreams":availability.urls,"last_health_error":availability.error,"last_health_check_at":availability.checked_at}),
+        )
+    }
     pub async fn health(&self, config: &ProxyServiceConfig) -> Result<Value, CompatError> {
         let availability = self.refresh(config).await?;
         Ok(
-            json!({"availability_status":if availability.urls.is_empty(){"unavailable"}else if availability.error.is_empty(){"available"}else{"degraded"},"available_upstreams":availability.urls,"last_health_error":availability.error,"last_health_check_at":chrono::Utc::now().timestamp()}),
+            json!({"availability_status":if availability.urls.is_empty(){"unavailable"}else if availability.error.is_empty(){"available"}else{"degraded"},"available_upstreams":availability.urls,"last_health_error":availability.error,"last_health_check_at":availability.checked_at}),
         )
     }
     async fn refresh(&self, config: &ProxyServiceConfig) -> Result<Availability, CompatError> {
@@ -280,6 +290,7 @@ impl TransparentProxy {
         }
         let availability = Availability {
             checked: Instant::now(),
+            checked_at: chrono::Utc::now().timestamp_millis() as f64 / 1000.0,
             urls,
             error: errors.join("; "),
         };
@@ -637,7 +648,15 @@ impl TransparentProxy {
                 headers.insert(k, v);
             }
         }
-        Ok((status, headers, Body::from_stream(ByteReceiver(rx))).into_response())
+        Ok((
+            status,
+            headers,
+            Body::from_stream(super::sse_heartbeat::with_sse_heartbeat(
+                ByteReceiver(rx),
+                super::sse_heartbeat::DEFAULT_HEARTBEAT_INTERVAL,
+            )),
+        )
+            .into_response())
     }
     async fn pump_stream(
         self: Arc<Self>,
@@ -834,40 +853,9 @@ pub fn is_streaming_path(path: &str) -> bool {
     path.ends_with("/stream") || path.ends_with("/sse") || path.contains("/stream")
 }
 pub fn detect_operation(method: &str, path: &str) -> &'static str {
-    let path = path.trim().trim_end_matches('/').to_lowercase();
-    let parts = path.trim_start_matches('/').split('/').collect::<Vec<_>>();
-    match (method.to_uppercase().as_str(), parts.as_slice()) {
-        ("GET", ["assistants"]) | ("POST", ["assistants", "search"]) => "assistant_list",
-        ("POST", ["assistants"]) => "assistant_create",
-        ("GET", ["assistants", ..]) => "assistant_read",
-        ("PATCH", ["assistants", ..]) => "assistant_update",
-        ("DELETE", ["assistants", ..]) => "assistant_delete",
-        ("POST", ["threads"]) => "thread_create",
-        ("POST", ["threads", "search"]) => "thread_search",
-        // Source's prefix matching precedes wildcard matching for GET/PATCH/DELETE threads.
-        ("GET", ["threads", ..]) => "thread_read",
-        ("PATCH", ["threads", ..]) => "thread_update",
-        ("DELETE", ["threads", ..]) => "thread_delete",
-        ("POST", ["threads", _, "state"]) => "state_update",
-        ("POST", ["threads", _, "runs"]) | ("POST", ["runs"]) => "run_create",
-        ("POST", ["threads", _, "runs", "stream"]) | ("POST", ["runs", "stream"]) => "run_stream",
-        ("POST", ["threads", _, "runs", "wait"]) | ("POST", ["runs", "wait"]) => "run_wait",
-        ("POST", ["threads", _, "runs", _, "cancel"]) => "run_cancel",
-        ("POST", ["threads", _, "runs", _, "join"]) => "run_join",
-        ("GET", ["runs", ..]) => "run_read",
-        ("GET", ["store", "items"]) => "store_read",
-        ("POST", ["store", "items"]) => "store_write",
-        ("DELETE", ["store", "items"]) => "store_delete",
-        ("GET" | "POST", ["store", "namespaces"]) => "store_list",
-        ("GET", ["crons"]) => "cron_list",
-        ("POST", ["crons"]) => "cron_create",
-        ("GET", ["crons", ..]) => "cron_read",
-        ("PATCH", ["crons", ..]) => "cron_update",
-        ("DELETE", ["crons", ..]) => "cron_delete",
-        ("POST", ["crons", _, "trigger"]) => "cron_trigger",
-        _ => "proxy",
-    }
+    super::proxy_http::operation(method, path)
 }
+
 fn hop(name: &str) -> bool {
     matches!(
         name,
@@ -892,6 +880,21 @@ pub fn forward_headers(
     headers: &HeaderMap,
     user: &CompatUser,
     config: &ProxyServiceConfig,
+) -> Result<HeaderMap, CompatError> {
+    forward_headers_with_client_ip(
+        headers,
+        user,
+        config,
+        &crate::migration_content::access::context().client_ip,
+    )
+}
+/// The IP argument is already resolved by trusted-proxy middleware, never copied
+/// from the incoming forwarding headers. Used by the production wrapper above.
+pub fn forward_headers_with_client_ip(
+    headers: &HeaderMap,
+    user: &CompatUser,
+    config: &ProxyServiceConfig,
+    trusted_client_ip: &str,
 ) -> Result<HeaderMap, CompatError> {
     let mut result = HeaderMap::new();
     for (name, value) in headers {
@@ -926,7 +929,13 @@ pub fn forward_headers(
         ("x-gw-user-tier", user.tier.as_str()),
         (
             "x-user-type",
-            if user.authenticated { "user" } else { "guest" },
+            if user.authenticated {
+                "user"
+            } else if user.user_id.is_empty() {
+                "anonymous"
+            } else {
+                "guest"
+            },
         ),
         (
             "x-gw-authenticated",
@@ -941,16 +950,45 @@ pub fn forward_headers(
                 .map_err(|_| CompatError::new(400, "Invalid context header"))?,
         );
     }
+    let mut permissions = vec!["read"];
+    if user.authenticated {
+        permissions.push("write");
+    }
+    if user.roles.iter().any(|r| r == "admin") || user.tier == "admin" {
+        permissions.extend(["admin", "delete"]);
+    }
+    result.insert(
+        "x-user-permissions",
+        HeaderValue::from_str(&permissions.join(","))
+            .map_err(|_| CompatError::new(400, "Invalid context header"))?,
+    );
+    if !trusted_client_ip.is_empty() {
+        result.insert(
+            "x-forwarded-for",
+            HeaderValue::from_str(trusted_client_ip)
+                .map_err(|_| CompatError::new(400, "Invalid context header"))?,
+        );
+    }
     if !config.forward_auth {
-        if let Some(token) = &config.auth_token {
+        if let Some(token) = config.auth_token.as_ref().filter(|v| !v.is_empty()) {
+            if token.contains(['\r', '\n'])
+                || (!token.starts_with("Bearer ") && token.contains(':'))
+            {
+                return Err(CompatError::new(
+                    503,
+                    "Invalid upstream authentication: service_auth_token",
+                ));
+            }
+            let name = if token.starts_with("Bearer ") {
+                "authorization"
+            } else {
+                "x-api-key"
+            };
             result.insert(
-                "authorization",
-                HeaderValue::from_str(&if token.starts_with("Bearer ") {
-                    token.clone()
-                } else {
-                    format!("Bearer {token}")
-                })
-                .map_err(|_| CompatError::new(503, "Invalid upstream authentication"))?,
+                name,
+                HeaderValue::from_str(token).map_err(|_| {
+                    CompatError::new(503, "Invalid upstream authentication: service_auth_token")
+                })?,
             );
         }
     }
@@ -960,3 +998,7 @@ pub fn forward_headers(
 #[cfg(test)]
 #[path = "transparent_proxy_lease_tests.rs"]
 mod lease_tests;
+
+#[cfg(test)]
+#[path = "transparent_proxy_source_matrix.rs"]
+mod source_matrix;

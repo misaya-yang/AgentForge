@@ -141,8 +141,10 @@ impl Descriptor {
         // Both sides must select the same immutable deployment generation. This
         // also rejects pack descriptors missing from Gateway's local catalog.
         let pack_tagged = tags.iter().any(|tag| tag.starts_with("plugin-"));
-        let pack_record = record.is_some_and(|r| r["plugin_metadata"].get("activation_id").is_some()
-            || r["plugin_metadata"].get("artifact_sha256").is_some());
+        let pack_record = record.is_some_and(|r| {
+            r["plugin_metadata"].get("activation_id").is_some()
+                || r["plugin_metadata"].get("artifact_sha256").is_some()
+        });
         if pack_tagged || pack_record {
             let r = record.ok_or_else(invalid)?;
             if r["plugin_metadata"]["worker_active"] == false {
@@ -152,14 +154,21 @@ impl Descriptor {
             let version = text(r, "plugin_version");
             let artifact = text(&r["plugin_metadata"], "artifact_sha256");
             let activation = text(&r["plugin_metadata"], "activation_id");
-            if id.is_empty() || version.is_empty()
+            if id.is_empty()
+                || version.is_empty()
                 || artifact != text(r, "content_hash")
-                || !artifact.strip_prefix("sha256:").is_some_and(|v| v.len() == 64
-                    && v.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)))
+                || !artifact.strip_prefix("sha256:").is_some_and(|v| {
+                    v.len() == 64
+                        && v.bytes()
+                            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+                })
                 || uuid::Uuid::parse_str(activation).is_err()
                 || !tags.contains(&format!("plugin-id:{id}"))
                 || !tags.contains(&format!("plugin-version:{version}"))
-                || !tags.contains(&format!("plugin-pack:{}", artifact.strip_prefix("sha256:").unwrap_or("")))
+                || !tags.contains(&format!(
+                    "plugin-pack:{}",
+                    artifact.strip_prefix("sha256:").unwrap_or("")
+                ))
                 || !tags.contains(&format!("plugin-activation:{activation}"))
                 || tags.iter().filter(|tag| tag.starts_with("plugin-")).count() != 4
             {
@@ -230,7 +239,11 @@ pub(super) fn permitted(subjects: &BTreeSet<String>, required: &BTreeSet<String>
         .iter()
         .find_map(|s| s.strip_prefix("tier:"))
         .unwrap_or("normal");
-    let tier = if tier.is_empty() { "anonymous".to_owned() } else { tier.to_lowercase() };
+    let tier = if tier.is_empty() {
+        "anonymous".to_owned()
+    } else {
+        tier.to_lowercase()
+    };
     // Match the Assistant registry's permission lattice: role admin may bypass
     // roles/named permissions, but never an explicit tier requirement. Unknown
     // caller tiers fail closed before any admin shortcut.

@@ -267,3 +267,33 @@ execution. The error may remain cached after the turn finishes. Cache expiration
 process/cache loss, ambiguous start acknowledgement, cancellation and concurrent
 store atomicity need separate recovery evidence. Streaming Responses still rejects
 idempotency keys. The observer does not fabricate a terminal execution fact.
+
+## Native HTTP request governance (2026-10-15)
+
+Gateway and Knowledge share `request_governance` middleware, separate from domain,
+tenant and Redis-backed admission. The typed `request_governance` configuration
+sets `max_concurrent_requests` (default 1024), `response_header_timeout_ms`
+(default 120000), and `response_body_idle_timeout_ms` (default 120000).
+Explicit JSON/YAML null disables an individual deadline; zero and out-of-range
+values are rejected. Admission is immediate: saturation returns HTTP 503 with
+`Retry-After: 1`. Exact health/live/ready and metrics probes remain available.
+
+A permit lives through response-body completion or disconnect. The header deadline
+returns HTTP 504 only before a response exists. The body deadline bounds inactivity
+between frames and terminates the body with a transport error after headers; it
+never rewrites an accepted response status or imposes a total SSE lifetime.
+Existing authentication, tenant quota, tracing, and graceful-drain authorities are
+preserved. `RequestCancellation`, using the existing admission cancellation signal,
+is available as a request extension for cooperative child work; dropping a handler
+future/body signals cancellation and releases local admission. Unrelated detached
+jobs and durable executions are not silently cancelled by a disconnected observer.
+WebSocket upgrade transfers to its own connection lifecycle after the HTTP response.
+
+Dashboard WebSockets have a separate per-API active-session semaphore because HTTP
+admission ends at upgrade. Defaults are 256 sessions, a 10-second snapshot/send
+deadline and a 60-second inbound-idle deadline; native construction can supply a
+validated `DashboardWebSocketConfig`. Authorization still precedes upgrade and
+session admission. Saturation returns HTTP 503 with Retry-After, while authentication
+and metrics-permission denial remain HTTP 403 before upgrade. Periodic protocol
+pings allow ordinary browser peers to stay live automatically. Text `ping` retains
+the existing JSON `pong` response. Every socket-task exit releases its owned permit.

@@ -660,51 +660,19 @@ impl ImageGenerationConfig {
     /// this function never reads process variables or secret files itself.
     pub fn from_values(values: &std::collections::BTreeMap<String, String>) -> Self {
         let get = |name: &str| values.get(name).map(String::as_str).unwrap_or("");
-        let first = |names: &[&str]| {
-            names
-                .iter()
-                .map(|n| get(n).trim())
-                .find(|v| !v.is_empty())
-                .unwrap_or("")
-                .to_owned()
-        };
         let fallback =
             |name: &str, default: &str| values.get(name).cloned().unwrap_or_else(|| default.into());
-        let mut backend = first(&["GOOGLE_IMAGE_BACKEND", "GOOGLE_API_BACKEND"]).to_lowercase();
-        if !["ai_studio", "vertex"].contains(&backend.as_str()) {
-            backend = "ai_studio".into()
-        }
-        let studio_key = first(&["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
-        let google_key = if backend == "vertex" {
-            let key = first(&["VERTEX_IMAGE_API_KEY", "VERTEX_API_KEY"]);
-            if key.is_empty() { studio_key } else { key }
-        } else {
-            studio_key
+        use ai_platform_gateway_foundation::provider_startup_seeder::{
+            ChatEndpointResolver, EndpointDomain,
         };
-        let google_base = if backend == "vertex" {
-            "https://aiplatform.googleapis.com"
-        } else {
-            "https://generativelanguage.googleapis.com"
-        };
-        let dashscope_key = first(&["DASHSCOPE_IMAGE_API_KEY", "DASHSCOPE_API_KEY"]);
-        let raw = first(&["DASHSCOPE_IMAGE_BASE_URL", "DASHSCOPE_BASE_URL"]);
-        let dashscope_base = if raw.is_empty() {
-            "https://dashscope.aliyuncs.com/api/v1".into()
-        } else {
-            let mut cleaned = raw.trim_end_matches('/');
-            for suffix in [
-                "/compatible-mode/v1/chat/completions",
-                "/compatible-mode/v1",
-                "/compatible-mode",
-                "/api/v1",
-            ] {
-                if let Some(base) = cleaned.strip_suffix(suffix) {
-                    cleaned = base;
-                    break;
-                }
-            }
-            format!("{cleaned}/api/v1")
-        };
+        let endpoints = ChatEndpointResolver::new(values);
+        let google = endpoints.resolve_google(EndpointDomain::Image);
+        let dash = endpoints.resolve_dashscope(EndpointDomain::Image);
+        let backend = google.backend;
+        let google_key = google.api_key;
+        let google_base = google.base_url;
+        let dashscope_key = dash.api_key;
+        let dashscope_base = dash.base_url;
         let ark_key = get("ARK_API_KEY").trim().to_owned();
         let mut provider = get("IMAGE_GENERATION_PROVIDER").trim().to_lowercase();
         if provider.is_empty() {

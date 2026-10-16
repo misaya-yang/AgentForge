@@ -1,6 +1,6 @@
 //! Opt-in official Agent SDK process adapters. Gateway remains Rust and owns admission.
 use super::*;
-use reqwest::{Url, header::{HeaderMap, HeaderValue}};
+use reqwest::header::{HeaderMap, HeaderValue};
 
 pub struct NativeSdkFactory {
     pub session_pool: Option<sqlx::PgPool>,
@@ -8,12 +8,14 @@ pub struct NativeSdkFactory {
     pub read_grants: Arc<ai_platform_gateway_foundation::sdk_read_grants::SdkReadGrants>,
     pub encryption_key: Arc<std::sync::OnceLock<Arc<str>>>,
     pub framework: &'static str,
+    pub(super) worker_config: Option<super::sdk_session_cleanup::SdkAgentWorkerConfig>,
 }
 impl AdapterFactory for NativeSdkFactory {
     fn create(&self, service: ServiceHandle) -> Result<Arc<dyn ProtocolAdapter>, RegistryError> {
         let bad = || RegistryError::AdapterConstructionFailed;
         if !matches!(self.framework, "openai_agents" | "claude_agent_sdk") { return Err(bad()); }
         let session_pool = self.session_pool.clone().ok_or_else(bad)?;
+        let worker_config = self.worker_config.as_ref().ok_or_else(bad)?;
         let snapshot = service.snapshot();
         if snapshot.max_retries != 0 || !snapshot.session_enabled { return Err(bad()); }
         let mut agent = snapshot.metadata.get("sdk_agent").cloned().ok_or_else(bad)?;
@@ -25,27 +27,17 @@ impl AdapterFactory for NativeSdkFactory {
         if agent["instructions"].as_str().is_some_and(|v|v.trim().is_empty()) {
             agent["instructions"] = json!("You are a helpful assistant.");
         }
-        // Neither public service metadata nor connector_config chooses the worker target.
-        let base = std::env::var("SDK_AGENT_WORKER_URL").map_err(|_| bad())?;
-        let url = Url::parse(&base).map_err(|_| bad())?;
-        let local = matches!(url.host_str(), Some("127.0.0.1" | "[::1]" | "localhost"));
-        if (url.scheme() != "https" && !(url.scheme() == "http" && local))
-            || !url.username().is_empty() || url.password().is_some() || url.query().is_some()
-            || url.fragment().is_some() || !matches!(url.path(), "" | "/") { return Err(bad()); }
-        let token = std::env::var("SDK_AGENT_WORKER_TOKEN").map_err(|_| bad())?;
-        if token.len() < 32 { return Err(bad()); }
         let key = ai_platform_gateway_foundation::sdk_agent_config::decrypt_key(&snapshot,
             self.encryption_key.get().map(|v|v.as_ref()).unwrap_or("")).map_err(|_|bad())?;
         // Captured secret headers are sent only to the private operator origin; no redirect/retry.
         let mut headers = HeaderMap::new();
-        for (name, value) in [("authorization", format!("Bearer {token}")), ("x-sdk-provider-key", key.to_owned())] {
-            let mut value = HeaderValue::from_str(&value).map_err(|_| bad())?;
-            value.set_sensitive(true);
-            headers.insert(name, value);
-        }
+        headers.insert("authorization", worker_config.authorization());
+        let mut provider_key = HeaderValue::from_str(&key).map_err(|_| bad())?;
+        provider_key.set_sensitive(true);
+        headers.insert("x-sdk-provider-key", provider_key);
         let timeout=if ai_platform_gateway_foundation::sdk_capabilities::selected(&snapshot).map_err(|_|bad())?.is_empty(){310}else{1830};
         let mut private = snapshot;
-        private.connector_config = json!({"base_url":base,"max_connections":16,"stream_timeout":timeout});
+        private.connector_config = json!({"base_url":worker_config.base_url(),"max_connections":16,"stream_timeout":timeout});
         Ok(Arc::new(NativeSdkAdapter { http: HttpTransport::new(ServiceHandle::new(private))?,
             framework:self.framework, agent, headers, service, capabilities:self.capabilities.clone(), read_grants:self.read_grants.clone(), session_pool }))
     }

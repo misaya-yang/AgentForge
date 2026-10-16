@@ -377,6 +377,12 @@ pub fn global() -> Arc<MetricsCollector> {
 
 const DEFINITIONS: &[(&str, &str, &[&str], Kind)] = &[
     (
+        "admission_rejected_total",
+        "Capacity admission rejections",
+        &["service", "reason"],
+        Kind::Counter,
+    ),
+    (
         "gateway_requests_total",
         "Total number of requests",
         &["method", "path", "status_code", "service_id"],
@@ -449,3 +455,43 @@ const DEFINITIONS: &[(&str, &str, &[&str], Kind)] = &[
         Kind::Counter,
     ),
 ];
+
+/// Source admission counter with finite reason vocabulary and capped service cardinality.
+pub struct AdmissionRejectionMetrics {
+    counter: Arc<Metric>,
+    services: Mutex<std::collections::BTreeSet<String>>,
+}
+impl AdmissionRejectionMetrics {
+    pub fn new(collector: &MetricsCollector) -> Self {
+        Self {
+            counter: collector
+                .metric("admission_rejected_total")
+                .expect("registered admission counter"),
+            services: Mutex::new(Default::default()),
+        }
+    }
+}
+impl ai_platform_gateway_foundation::capacity_admission::AdmissionRejectionObserver
+    for AdmissionRejectionMetrics
+{
+    fn rejected(&self, service: &str, reason: &str) {
+        let reason = match reason {
+            "GATEWAY_CAPACITY_EXHAUSTED"
+            | "GATEWAY_TENANT_CAPACITY_EXHAUSTED"
+            | "GATEWAY_CAPACITY_DEGRADED"
+            | "GATEWAY_CAPACITY_LEASE_LOST"
+            | "GATEWAY_LOAD_SHED" => reason,
+            _ => "other",
+        };
+        let mut services = self.services.lock().unwrap_or_else(|e| e.into_inner());
+        let service =
+            if service.len() > 128 || (!services.contains(service) && services.len() >= 1024) {
+                "other"
+            } else {
+                services.insert(service.to_owned());
+                service
+            };
+        self.counter
+            .inc(1., &[("service", service), ("reason", reason)]);
+    }
+}

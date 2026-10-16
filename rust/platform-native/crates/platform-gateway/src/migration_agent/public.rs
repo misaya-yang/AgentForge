@@ -814,7 +814,7 @@ impl PublicRuntime {
             let key = headers
                 .get("idempotency-key")
                 .and_then(|v| v.to_str().ok())
-                .ok_or_else(|| AgentError::code(400, "AGENT_RELEASE_IDEMPOTENCY_KEY_REQUIRED"))?;
+                .ok_or_else(|| AgentError::code(428, "AGENT_RELEASE_IDEMPOTENCY_KEY_REQUIRED"))?;
             super::routes::closed(&payload, &["target_version_id", "reason"])?;
             super::routes::bounded(&payload, "reason", 1, 1000, true)?;
             let mut value = state

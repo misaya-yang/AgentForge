@@ -12,7 +12,7 @@ load_env
 COMPOSE_CMD=$(get_compose_cmd)
 TOPOLOGY_MODE="${AI_PLATFORM_TOPOLOGY_MODE:-full}"
 cd "$PROJECT_ROOT"
-if ! python3 "$PROJECT_ROOT/scripts/deploy/topology_modes.py" --mode "$TOPOLOGY_MODE" >/dev/null; then
+if ! platform-tools topology --repo-root "$PROJECT_ROOT" --mode "$TOPOLOGY_MODE" >/dev/null; then
     log_error "Invalid AI_PLATFORM_TOPOLOGY_MODE=$TOPOLOGY_MODE"
     exit 2
 fi

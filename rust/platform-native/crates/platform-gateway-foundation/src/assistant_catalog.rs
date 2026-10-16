@@ -22,7 +22,7 @@ mod plugin_mutations;
 
 use ai_platform_auth::{
     api_keys::{SelectedCredential, select_credential},
-    service::{AuthService, Principal},
+    service::AuthService,
 };
 use axum::{
     Json, Router,
@@ -784,16 +784,35 @@ impl AssistantCatalogOptions {
     }
 }
 
+/// Trusted user-context projection: no account/password/JWT fields are synthesized.
+#[derive(Clone)]
+pub struct CatalogIdentity {
+    pub user_id: String,
+    pub tenant_id: String,
+    pub tier: String,
+    pub roles: Vec<String>,
+    pub is_authenticated: bool,
+}
+pub trait CatalogIdentityResolver: Send + Sync {
+    fn resolve<'a>(&'a self, headers: &'a HeaderMap)
+        -> std::pin::Pin<Box<dyn std::future::Future<Output=Result<CatalogIdentity, Response>> + Send + 'a>>;
+}
+
 #[derive(Clone)]
 struct CatalogState {
     auth: Arc<AuthService>,
     pool: PgPool,
     options: AssistantCatalogOptions,
+    identity: Option<Arc<dyn CatalogIdentityResolver>>,
 }
 
 /// Mount alongside the existing Gateway router; no listener or worker is started.
-/// JWT-only authentication matches the native Gateway's current auth integration.
+/// The production host supplies its canonical native user-context resolver.
 pub fn router(auth: Arc<AuthService>, pool: PgPool, options: AssistantCatalogOptions) -> Router {
+    router_with_identity(auth, pool, options, None)
+}
+pub fn router_with_identity(auth: Arc<AuthService>, pool: PgPool, options: AssistantCatalogOptions,
+    identity: Option<Arc<dyn CatalogIdentityResolver>>) -> Router {
     Router::new()
         .route("/api/v1/assistant/tools", get(list_tools))
         .route(PLUGINS, get(plugins::list_plugins))
@@ -803,6 +822,7 @@ pub fn router(auth: Arc<AuthService>, pool: PgPool, options: AssistantCatalogOpt
             auth,
             pool,
             options,
+            identity,
         })
 }
 
@@ -813,7 +833,14 @@ fn error(status: StatusCode, detail: &'static str) -> Response {
     clippy::result_large_err,
     reason = "Axum response is returned directly on the cold authentication error path"
 )]
-async fn authenticate(state: &CatalogState, headers: &HeaderMap) -> Result<Principal, Response> {
+async fn authenticate(state: &CatalogState, headers: &HeaderMap) -> Result<CatalogIdentity, Response> {
+    if let Some(identity) = &state.identity {
+        let user = identity.resolve(headers).await?;
+        if !user.is_authenticated || user.user_id.is_empty() || user.tenant_id.is_empty() {
+            return Err(error(StatusCode::UNAUTHORIZED, "authentication required"));
+        }
+        return Ok(user);
+    }
     let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
         Ok(SelectedCredential::Jwt(token)) => token,
         _ => return Err(error(StatusCode::UNAUTHORIZED, "authentication required")),
@@ -827,7 +854,10 @@ async fn authenticate(state: &CatalogState, headers: &HeaderMap) -> Result<Princ
     if principal.account.user_id.is_empty() || principal.account.tenant_id.is_empty() {
         return Err(error(StatusCode::UNAUTHORIZED, "authentication required"));
     }
-    Ok(principal)
+    Ok(CatalogIdentity {
+        user_id: principal.account.user_id, tenant_id: principal.account.tenant_id,
+        tier: principal.authority.tier, roles: principal.authority.roles, is_authenticated: true,
+    })
 }
 
 #[derive(FromRow)]
@@ -864,7 +894,7 @@ async fn load_tenant_policy(pool: &PgPool, tenant_id: &str) -> CatalogResult<Val
 
 async fn resolved_policies(
     state: &CatalogState,
-    principal: &Principal,
+    principal: &CatalogIdentity,
     catalog: &CapabilityCatalog,
 ) -> CatalogResult<AssistantPolicies> {
     let settings = state
@@ -872,7 +902,7 @@ async fn resolved_policies(
         .policy_settings
         .as_ref()
         .map_err(|error| *error)?;
-    let policy = load_tenant_policy(&state.pool, &principal.account.tenant_id).await?;
+    let policy = load_tenant_policy(&state.pool, &principal.tenant_id).await?;
     project_policies(catalog, &policy, settings)
 }
 
@@ -908,7 +938,7 @@ async fn list_tools(State(state): State<CatalogState>, headers: HeaderMap) -> Re
             );
         }
     };
-    let denied = match lifecycle::load_bindings(&state.pool, &principal.account.tenant_id).await
+    let denied = match lifecycle::load_bindings(&state.pool, &principal.tenant_id).await
         .and_then(|bindings| lifecycle::denied_capabilities(catalog, &bindings)) {
         Ok(denied) => denied,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin policy is unavailable"),
@@ -916,8 +946,8 @@ async fn list_tools(State(state): State<CatalogState>, headers: HeaderMap) -> Re
     match project_tools(
         catalog,
         true,
-        &principal.authority.tier,
-        &principal.authority.roles,
+        &principal.tier,
+        &principal.roles,
         &policy,
     ) {
         Ok(tools) => {

@@ -38,3 +38,5 @@ pub mod retrieval_eval;
 pub mod observability;
 
 pub mod ragas;
+
+pub mod pipeline_metrics;

@@ -1,5 +1,6 @@
-//! Authentication primitives only. No server routes are activated by this crate.
-//! PostgreSQL account checks and durable Redis revocation must precede deployment.
+//! Authentication services and router factories. The Gateway owns process
+//! configuration and listener startup; durable PostgreSQL/Redis authority is
+//! required for protected requests.
 pub mod accounts;
 pub mod contract;
 pub mod http;

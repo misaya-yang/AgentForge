@@ -11,6 +11,38 @@ use std::{
     task::{Context, Poll},
     time::Instant,
 };
+/// RPC applies only to the registered unary retrieve route; no wildcard upgrade.
+fn retrieval_rpc_dataset<'a>(method: &Method, path: &'a str) -> Option<&'a str> {
+    if method != Method::POST {
+        return None;
+    }
+    let (dataset, operation) = path.split_once('/')?;
+    (operation == "retrieve" && !dataset.is_empty()).then_some(dataset)
+}
+
+#[cfg(test)]
+mod rpc_selection_tests {
+    use super::*;
+    #[test]
+    fn only_registered_unary_retrieve_selects_rpc() {
+        assert_eq!(
+            retrieval_rpc_dataset(&Method::POST, "dataset-id/retrieve"),
+            Some("dataset-id")
+        );
+        for path in [
+            "retrieve",
+            "/retrieve",
+            "d/retrieve/",
+            "d/retrieve_batch",
+            "d/qa/stream",
+            "datasets/d/retrieve",
+            "d/documents",
+        ] {
+            assert_eq!(retrieval_rpc_dataset(&Method::POST, path), None);
+        }
+        assert_eq!(retrieval_rpc_dataset(&Method::GET, "d/retrieve"), None);
+    }
+}
 #[derive(Default)]
 pub(super) struct Breaker {
     state: Mutex<(usize, Option<Instant>)>,
@@ -142,13 +174,23 @@ fn signed_request(
     url.set_query((!query.is_empty()).then_some(query));
     headers.remove(api_key_header);
     let signature = signer
-        .sign(method.as_str(), url.path(), url.query().unwrap_or(""), &body, &headers)
+        .sign(
+            method.as_str(),
+            url.path(),
+            url.query().unwrap_or(""),
+            &body,
+            &headers,
+        )
         .map_err(|_| unavailable())?;
     headers.insert(
         "x-gateway-secret",
         HeaderValue::from_str(&signature).map_err(|_| unavailable())?,
     );
-    client.request(method, url).headers(headers).body(body).build()
+    client
+        .request(method, url)
+        .headers(headers)
+        .body(body)
+        .build()
         .map_err(|_| ContentError::new(502, "KB Service unavailable"))
 }
 #[cfg(test)]
@@ -175,8 +217,7 @@ impl KnowledgeProxy {
                 headers.clone(),
                 body.clone(),
             )?;
-            match self.client.execute(request).await
-            {
+            match self.client.execute(request).await {
                 Ok(response) => return Ok(response),
                 Err(error) if attempt == 0 && error.is_connect() => {
                     tokio::time::sleep(Duration::from_millis(50)).await
@@ -211,17 +252,8 @@ impl KnowledgeProxy {
         .await
         .map_err(|_| unavailable())?
         .map_err(|_| unavailable())?;
-        let key = path
-            .split('/')
-            .map(|s| {
-                if uuid::Uuid::parse_str(s).is_ok() || s.bytes().all(|b| b.is_ascii_digit()) {
-                    "{id}"
-                } else {
-                    s
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("/");
+        let upstream_path = public_upstream_path(&path);
+        let key = crate::migration_compat::route_pattern::extract_route_pattern(&upstream_path);
         let breaker = {
             let mut map = self.breakers.lock().unwrap_or_else(|e| e.into_inner());
             let key = if map.len() >= 1024 && !map.contains_key(&key) {
@@ -233,7 +265,6 @@ impl KnowledgeProxy {
         };
         breaker.gate()?;
         let headers = trusted_headers(&user, &incoming)?;
-        let upstream_path = public_upstream_path(&path);
         let mut observation = self
             .trace_capture
             .as_ref()
@@ -257,6 +288,81 @@ impl KnowledgeProxy {
                 captured: vec![],
                 truncated: false,
             });
+        // Only this exact unary operation opts into RPC. Its original signed REST
+        // path and bytes remain the Knowledge owner's authorization input.
+        if let Some(rpc) = &self.retrieval_rpc {
+            if let Some(dataset_id) = retrieval_rpc_dataset(&method, &path) {
+                if !query.is_empty() {
+                    return Err(ContentError::new(
+                        400,
+                        "Retrieval query parameters are not supported over RPC",
+                    ));
+                }
+                let message =
+                    ai_platform_rpc::request_from_json(dataset_id.to_owned(), body.clone())
+                        .map_err(|_| ContentError::new(422, "Invalid retrieval request"))?;
+                let signed = signed_request(
+                    &self.client,
+                    &self.config.origin,
+                    &self.signer,
+                    self.access.identities.api_key_header.as_str(),
+                    method.clone(),
+                    &upstream_path,
+                    "",
+                    headers,
+                    body,
+                )?;
+                let cancel = ai_platform_rpc::CancellationToken::new();
+                let reply = rpc.retrieve(message, signed.headers(), &cancel).await;
+                let reply = match reply {
+                    Ok(reply) => reply,
+                    Err(error) => {
+                        breaker.failure();
+                        let status = match error.code() {
+                            ai_platform_rpc::tonic::Code::DeadlineExceeded => 504,
+                            ai_platform_rpc::tonic::Code::ResourceExhausted => 503,
+                            ai_platform_rpc::tonic::Code::Cancelled => 499,
+                            _ => 502,
+                        };
+                        if let Some(mut o) = observation {
+                            o.status = status;
+                            o.finish();
+                        }
+                        return Err(ContentError::new(
+                            status,
+                            if status == 504 {
+                                "KB Service timeout"
+                            } else {
+                                "KB Service unavailable"
+                            },
+                        ));
+                    }
+                };
+                let status = u16::try_from(reply.status_code)
+                    .ok()
+                    .and_then(|v| StatusCode::from_u16(v).ok())
+                    .ok_or_else(unavailable)?;
+                breaker.response(status);
+                if let Some(mut o) = observation {
+                    o.status = status.as_u16();
+                    o.append(&reply.response_json);
+                    o.finish();
+                }
+                let mut response = Response::new(Body::from(reply.response_json));
+                *response.status_mut() = status;
+                response
+                    .headers_mut()
+                    .insert("content-type", HeaderValue::from_static("application/json"));
+                if let Some(value) = reply
+                    .retry_after
+                    .and_then(|v| HeaderValue::from_str(&v).ok())
+                {
+                    response.headers_mut().insert("retry-after", value);
+                }
+                drop(permit);
+                return Ok(response);
+            }
+        }
         // Replayable bytes are retained only through the HTTP response headers.
         // Retry only connect failures: a possibly committed mutation is never replayed.
         let response = self

@@ -14,17 +14,18 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     future::Future,
     path::Path,
     pin::Pin,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, Weak,
         atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
 pub const PROTOCOL_VERSION: &str = "ai-platform.local-node.v1";
+const MAX_EXCHANGE_REQUEST_BYTES: usize = 4 * 1024 * 1024;
 pub type TransportFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PairingRedemption {
@@ -55,6 +56,38 @@ impl ExchangeRequest {
         value["kind"] = json!("heartbeat");
         Ok(value)
     }
+}
+fn bounded_receipt_prefix(
+    request: &ExchangeRequest,
+    candidates: Vec<ReceiptEvent>,
+    max_bytes: usize,
+) -> Result<Vec<ReceiptEvent>> {
+    let mut empty = request.clone();
+    empty.receipts.clear();
+    let mut encoded_len = canonical_json(&empty.as_value()?).len();
+    if encoded_len > max_bytes {
+        return Err(Error::protocol("base exchange request exceeds byte budget"));
+    }
+    let had_candidates = !candidates.is_empty();
+    let mut batch = Vec::new();
+    for receipt in candidates {
+        let receipt_len = canonical_json(&receipt.as_value(true)?).len();
+        let increment = receipt_len.saturating_add(if batch.is_empty() { 0 } else { 1 });
+        let Some(next_len) = encoded_len.checked_add(increment) else {
+            break;
+        };
+        if next_len > max_bytes {
+            break;
+        }
+        encoded_len = next_len;
+        batch.push(receipt);
+    }
+    if had_candidates && batch.is_empty() {
+        return Err(Error::protocol(
+            "single pending receipt exceeds exchange request byte budget",
+        ));
+    }
+    Ok(batch)
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,6 +130,7 @@ impl HttpsJsonTransport {
             ));
         }
         let http = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs_f64(timeout))
             .no_proxy()
@@ -188,9 +222,13 @@ impl OutboundTransport for HttpsJsonTransport {
         request: &'a ExchangeRequest,
     ) -> TransportFuture<'a, ExchangeResponse> {
         Box::pin(async move {
-            let raw = self
-                .post(endpoint, request.as_value()?, Some(credential))
-                .await?;
+            let payload = request.as_value()?;
+            if canonical_json(&payload).len() > MAX_EXCHANGE_REQUEST_BYTES {
+                return Err(Error::protocol(
+                    "exchange request exceeds aggregate byte budget",
+                ));
+            }
+            let raw = self.post(endpoint, payload, Some(credential)).await?;
             let response: ExchangeResponse = serde_json::from_value(raw)?;
             if response.protocol_version != PROTOCOL_VERSION
                 || response.accepted_through_sequence < 0
@@ -264,8 +302,10 @@ impl DeviceActionDispatcher for LocalActionRouter {
         })
     }
     fn emergency_stop(&self) -> Result<Vec<String>> {
-        let mut cancelled = self.runtime.process_runner.cancel_all()?;
-        self.runtime.computer.emergency_stop()?;
+        let cancelled = self.runtime.process_runner.cancel_all();
+        let computer_stop = self.runtime.computer.emergency_stop();
+        let mut cancelled = cancelled?;
+        computer_stop?;
         cancelled.sort();
         cancelled.dedup();
         Ok(cancelled)
@@ -276,12 +316,32 @@ impl DeviceActionDispatcher for LocalActionRouter {
 }
 pub struct ClaimReplayGuard {
     db: Mutex<Connection>,
+    command_locks: Mutex<HashMap<String, Weak<Mutex<()>>>>,
 }
 impl ClaimReplayGuard {
     pub fn open(path: &Path) -> Result<Self> {
         let db = database::open(path)?;
         database::lock(&db)?.execute_batch("CREATE TABLE IF NOT EXISTS consumed_commands(command_id TEXT PRIMARY KEY,nonce TEXT UNIQUE NOT NULL,payload_digest TEXT NOT NULL,consumed_at REAL NOT NULL)")?;
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            command_locks: Mutex::new(HashMap::new()),
+        })
+    }
+    fn command_lock(&self, id: &str) -> Result<Arc<Mutex<()>>> {
+        if !valid_identifier(id, 512) {
+            return Err(Error::protocol("command id invalid"));
+        }
+        let mut locks = self
+            .command_locks
+            .lock()
+            .map_err(|_| Error::new("transport_unavailable", "command lock unavailable"))?;
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        if let Some(lock) = locks.get(id).and_then(Weak::upgrade) {
+            return Ok(lock);
+        }
+        let lock = Arc::new(Mutex::new(()));
+        locks.insert(id.to_owned(), Arc::downgrade(&lock));
+        Ok(lock)
     }
     pub fn reserve(&self, id: &str, nonce: &str, digest: &str) -> Result<bool> {
         if !valid_identifier(id, 512) || !valid_identifier(nonce, 512) {
@@ -332,9 +392,170 @@ pub struct DeviceOutboundRunner {
     pub dispatcher: Arc<dyn DeviceActionDispatcher>,
     pub doctor_provider: Arc<dyn Fn() -> Result<DoctorReport> + Send + Sync>,
     pub allow_test_credentials: bool,
-    pub stopped: AtomicBool,
+    pub stopped: Arc<AtomicBool>,
 }
+
+#[derive(Clone)]
+struct CommandProcessor {
+    identity: Arc<DeviceIdentity>,
+    replay_guard: Arc<ClaimReplayGuard>,
+    outbox: Arc<ReceiptOutbox>,
+    dispatcher: Arc<dyn DeviceActionDispatcher>,
+    platform_signature_verifier: Option<Arc<dyn PlatformSignatureVerifier>>,
+    stopped: Arc<AtomicBool>,
+}
+
+struct CommandPump {
+    sender: Option<tokio::sync::mpsc::Sender<Value>>,
+    queued: Arc<Mutex<HashSet<String>>>,
+    errors: Arc<Mutex<std::collections::VecDeque<Error>>>,
+    worker: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl CommandPump {
+    const CAPACITY: usize = 256;
+
+    fn new(processor: CommandProcessor) -> Self {
+        let (sender, mut receiver) = tokio::sync::mpsc::channel::<Value>(Self::CAPACITY);
+        let queued = Arc::new(Mutex::new(HashSet::new()));
+        let errors = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+        let worker_queued = queued.clone();
+        let worker_errors = errors.clone();
+        let worker = tokio::spawn(async move {
+            while let Some(command) = receiver.recv().await {
+                let command_id = command["command_id"].as_str().map(str::to_owned);
+                if processor.stopped.load(Ordering::Acquire) {
+                    if let Some(id) = command_id {
+                        if let Ok(mut queued) = worker_queued.lock() {
+                            queued.remove(&id);
+                        }
+                    }
+                    continue;
+                }
+                let processor = processor.clone();
+                let result =
+                    tokio::task::spawn_blocking(move || processor.process_command(&command)).await;
+                let error = match result {
+                    Ok(Ok(())) => None,
+                    Ok(Err(error)) => Some(error),
+                    Err(_) => Some(Error::new(
+                        "transport_unavailable",
+                        "local command worker failed",
+                    )),
+                };
+                if let Some(error) = error {
+                    if let Ok(mut errors) = worker_errors.lock() {
+                        errors.push_back(error);
+                    }
+                }
+                if let Some(id) = command_id {
+                    if let Ok(mut queued) = worker_queued.lock() {
+                        queued.remove(&id);
+                    }
+                }
+            }
+        });
+        Self {
+            sender: Some(sender),
+            queued,
+            errors,
+            worker: Some(worker),
+        }
+    }
+
+    fn try_enqueue(&self, command: Value) -> Result<Option<Value>> {
+        let id = required(&command, "command_id", 512)?.to_owned();
+        {
+            let mut queued = self
+                .queued
+                .lock()
+                .map_err(|_| Error::new("transport_unavailable", "command queue unavailable"))?;
+            if !queued.insert(id.clone()) {
+                return Ok(None);
+            }
+        }
+        let sender = self
+            .sender
+            .as_ref()
+            .ok_or_else(|| Error::new("transport_unavailable", "command queue closed"))?;
+        match sender.try_send(command) {
+            Ok(()) => Ok(None),
+            Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {
+                if let Ok(mut queued) = self.queued.lock() {
+                    queued.remove(&id);
+                }
+                Ok(Some(command))
+            }
+            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                if let Ok(mut queued) = self.queued.lock() {
+                    queued.remove(&id);
+                }
+                Err(Error::new(
+                    "transport_unavailable",
+                    "command worker stopped",
+                ))
+            }
+        }
+    }
+
+    fn take_error(&self) -> Result<Option<Error>> {
+        Ok(self
+            .errors
+            .lock()
+            .map_err(|_| Error::new("transport_unavailable", "command status unavailable"))?
+            .pop_front())
+    }
+
+    async fn close(mut self) -> Result<()> {
+        self.sender.take();
+        if let Some(worker) = self.worker.take() {
+            worker.await.map_err(|_| {
+                Error::new("transport_unavailable", "local command worker join failed")
+            })?;
+        }
+        if let Some(error) = self.take_error()? {
+            return Err(error);
+        }
+        Ok(())
+    }
+}
+
 impl DeviceOutboundRunner {
+    fn command_processor(&self) -> CommandProcessor {
+        CommandProcessor {
+            identity: self.identity.clone(),
+            replay_guard: self.replay_guard.clone(),
+            outbox: self.outbox.clone(),
+            dispatcher: self.dispatcher.clone(),
+            platform_signature_verifier: self.platform_signature_verifier.clone(),
+            stopped: self.stopped.clone(),
+        }
+    }
+    fn load_credential(&self) -> Result<Option<DeviceCredential>> {
+        let mut credential = self
+            .credential
+            .lock()
+            .map_err(|_| Error::new("transport_unavailable", "credential state unavailable"))?;
+        if credential.is_none() {
+            if let (Some(store), Some(reference)) = (
+                self.credential_store.as_ref(),
+                self.credential_reference.as_deref(),
+            ) {
+                let status = store.status();
+                let allowed = status == CredentialStorageStatus::Ready
+                    || (self.allow_test_credentials
+                        && status == CredentialStorageStatus::TestOnlyInsecure);
+                if allowed {
+                    *credential = load_persisted_credential(
+                        store.as_ref(),
+                        reference,
+                        &self.identity.device_id,
+                    )?;
+                }
+            }
+        }
+        Ok(credential.clone())
+    }
     pub fn doctor(&self) -> Result<TransportDoctorReport> {
         let endpoint = if self.endpoint.validate().is_ok() {
             "ready"
@@ -346,10 +567,7 @@ impl DeviceOutboundRunner {
         } else {
             "unavailable"
         };
-        let credential = self
-            .credential
-            .lock()
-            .map_err(|_| Error::new("transport_unavailable", "credential state unavailable"))?;
+        let credential = self.load_credential()?;
         let credential_status = match credential.as_ref() {
             None => "unavailable",
             Some(c)
@@ -507,6 +725,27 @@ impl DeviceOutboundRunner {
         Ok(credential)
     }
     pub async fn run_once(&self) -> Result<usize> {
+        // One-shot calls own and join their dispatcher queue; run_forever keeps it
+        // across polls so network controls remain independent of a long dispatch.
+        let pump = CommandPump::new(self.command_processor());
+        let result = self.run_once_with_pump(&pump).await;
+        let worker_result = pump.close().await;
+        match result {
+            Err(error) => {
+                let _ = worker_result;
+                Err(error)
+            }
+            Ok(count) => match worker_result {
+                Ok(()) => Ok(count),
+                Err(error) => {
+                    let _ = self.record_disconnect();
+                    Err(error)
+                }
+            },
+        }
+    }
+
+    async fn run_once_with_pump(&self, pump: &CommandPump) -> Result<usize> {
         let report = self.doctor()?;
         if report.status != "ready" {
             return Err(Error::new(
@@ -517,28 +756,30 @@ impl DeviceOutboundRunner {
             ));
         }
         let credential = self
-            .credential
-            .lock()
-            .map_err(|_| Error::new("transport_unavailable", "credential state unavailable"))?
-            .clone()
+            .load_credential()?
             .ok_or_else(|| Error::new("transport_unavailable", "credential missing"))?;
         let transport = self
             .transport
             .as_ref()
             .ok_or_else(|| Error::new("transport_unavailable", "outbound transport unavailable"))?;
-        self.dispatcher.connect()?;
-        let pending = self.outbox.pending(200)?;
-        let request = ExchangeRequest {
+        let candidates = self.outbox.pending(200)?;
+        let mut request = ExchangeRequest {
             device_id: self.identity.device_id.clone(),
             doctor: report.runtime,
-            receipts: pending
-                .iter()
-                .map(|e| e.as_value(true))
-                .collect::<Result<_>>()?,
+            receipts: Vec::new(),
             sent_at: now(),
             protocol_version: PROTOCOL_VERSION.into(),
         };
+        let pending = bounded_receipt_prefix(&request, candidates, MAX_EXCHANGE_REQUEST_BYTES)?;
+        request.receipts = pending
+            .iter()
+            .map(|event| event.as_value(true))
+            .collect::<Result<_>>()?;
+        self.dispatcher.connect()?;
         let result = async {
+            if let Some(error) = pump.take_error()? {
+                return Err(error);
+            }
             let response = transport
                 .exchange(&self.endpoint, &credential, &request)
                 .await?;
@@ -562,31 +803,53 @@ impl DeviceOutboundRunner {
             self.outbox
                 .acknowledge(response.accepted_through_sequence)?;
             let count = response.commands.len();
+            let processor = self.command_processor();
             for command in response.commands {
                 if self.stopped.load(Ordering::Acquire) {
                     break;
                 }
-                self.process_command(&command)?;
+                match command["kind"].as_str() {
+                    Some("claim") => {
+                        if let Some(command) = pump.try_enqueue(command)? {
+                            processor
+                                .reject_claim_unknown(&command, "local_dispatch_queue_full")?;
+                        }
+                    }
+                    Some("cancel" | "emergency_stop") => {
+                        processor.process_command(&command)?;
+                    }
+                    _ => return Err(Error::protocol("unsupported control command")),
+                }
+            }
+            if let Some(error) = pump.take_error()? {
+                return Err(error);
             }
             Ok(count)
         }
         .await;
         if result.is_err() {
-            for id in self.dispatcher.disconnect()? {
-                self.append_terminal(
-                    "disconnect",
-                    &DispatchOutcome {
-                        action_id: id,
-                        status: ActionStatus::Unknown,
-                        result: json!({"replay_allowed":false}),
-                        error_code: Some("transport_disconnected".into()),
-                    },
-                    false,
-                )?;
-            }
+            self.record_disconnect()?;
         }
         result
     }
+
+    fn record_disconnect(&self) -> Result<()> {
+        let processor = self.command_processor();
+        for id in self.dispatcher.disconnect()? {
+            processor.append_terminal(
+                "disconnect",
+                &DispatchOutcome {
+                    action_id: id,
+                    status: ActionStatus::Unknown,
+                    result: json!({"replay_allowed":false}),
+                    error_code: Some("transport_disconnected".into()),
+                },
+                false,
+            )?;
+        }
+        Ok(())
+    }
+
     pub async fn run_forever(&self, heartbeat: Duration) -> Result<()> {
         if heartbeat < Duration::from_millis(250) || heartbeat > Duration::from_secs(300) {
             return Err(Error::new(
@@ -595,24 +858,61 @@ impl DeviceOutboundRunner {
             ));
         }
         self.stopped.store(false, Ordering::Release);
-        while !self.stopped.load(Ordering::Acquire) {
-            self.run_once().await?;
-            tokio::time::sleep(heartbeat).await;
+        let pump = CommandPump::new(self.command_processor());
+        let loop_result = async {
+            while !self.stopped.load(Ordering::Acquire) {
+                self.run_once_with_pump(&pump).await?;
+                let deadline = tokio::time::Instant::now() + heartbeat;
+                while !self.stopped.load(Ordering::Acquire) {
+                    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+                    if remaining.is_zero() {
+                        break;
+                    }
+                    tokio::time::sleep(remaining.min(Duration::from_millis(100))).await;
+                }
+            }
+            Ok(())
         }
-        Ok(())
+        .await;
+        let worker_result = pump.close().await;
+        match loop_result {
+            Err(error) => {
+                let _ = worker_result;
+                Err(error)
+            }
+            Ok(()) => match worker_result {
+                Ok(()) => Ok(()),
+                Err(error) => {
+                    let _ = self.record_disconnect();
+                    Err(error)
+                }
+            },
+        }
     }
     pub fn stop(&self) -> Result<()> {
         self.stopped.store(true, Ordering::Release);
-        self.dispatcher.emergency_stop()?;
-        if let Some(transport) = &self.transport {
-            transport.close()?;
+        let emergency = self.dispatcher.emergency_stop();
+        let transport = self.transport.as_ref().map_or(Ok(()), |t| t.close());
+        if let Err(error) = emergency {
+            return Err(error);
         }
-        Ok(())
+        transport
     }
     pub fn process_command(&self, command: &Value) -> Result<()> {
+        self.command_processor().process_command(command)
+    }
+}
+
+impl CommandProcessor {
+    fn process_command(&self, command: &Value) -> Result<()> {
         if canonical_json(command).len() > 65536 {
             return Err(Error::protocol("control command exceeds 64 KiB"));
         }
+        let command_id = required(command, "command_id", 512)?;
+        let lock = self.replay_guard.command_lock(command_id)?;
+        let _guard = lock
+            .lock()
+            .map_err(|_| Error::new("transport_unavailable", "command lock unavailable"))?;
         match command["kind"].as_str() {
             Some("claim") => self.claim(command),
             Some("cancel") => self.control(command, false),
@@ -621,11 +921,56 @@ impl DeviceOutboundRunner {
         }
     }
     fn claim(&self, command: &Value) -> Result<()> {
+        let (command_id, action) = self.validate_claim(command)?;
+        if !self.replay_guard.reserve(
+            &command_id,
+            &action.nonce,
+            &sha256(&action.canonical_signed_payload()?),
+        )? {
+            self.append_unknown_if_missing(
+                &format!("command.{command_id}.{}", action.action_id),
+                Some(action.action_id),
+                "action.unknown",
+                "command_outcome_missing",
+            )?;
+            return Ok(());
+        }
+        self.dispatch_claim(command, &command_id, action)
+    }
+
+    fn reject_claim_unknown(&self, command: &Value, error_code: &str) -> Result<()> {
+        let (command_id, action) = self.validate_claim(command)?;
+        if !self.replay_guard.reserve(
+            &command_id,
+            &action.nonce,
+            &sha256(&action.canonical_signed_payload()?),
+        )? {
+            self.append_unknown_if_missing(
+                &format!("command.{command_id}.{}", action.action_id),
+                Some(action.action_id),
+                "action.unknown",
+                "command_outcome_missing",
+            )?;
+            return Ok(());
+        }
+        self.append_terminal(
+            &command_id,
+            &DispatchOutcome {
+                action_id: action.action_id,
+                status: ActionStatus::Unknown,
+                result: json!({"replay_allowed":false}),
+                error_code: Some(error_code.into()),
+            },
+            false,
+        )
+    }
+
+    fn validate_claim(&self, command: &Value) -> Result<(String, ActionContext)> {
         shape(
             command,
             &["kind", "command_id", "action", "normalized_arguments"],
         )?;
-        let command_id = required(command, "command_id", 512)?;
+        let command_id = required(command, "command_id", 512)?.to_owned();
         shape(
             &command["action"],
             &[
@@ -667,13 +1012,15 @@ impl DeviceOutboundRunner {
             None,
             None,
         )?;
-        if !self.replay_guard.reserve(
-            command_id,
-            &action.nonce,
-            &sha256(&action.canonical_signed_payload()?),
-        )? {
-            return Ok(());
-        }
+        Ok((command_id, action))
+    }
+
+    fn dispatch_claim(
+        &self,
+        command: &Value,
+        command_id: &str,
+        action: ActionContext,
+    ) -> Result<()> {
         match self
             .dispatcher
             .dispatch(&action, &command["normalized_arguments"])
@@ -728,6 +1075,11 @@ impl DeviceOutboundRunner {
             required(command, "platform_key_id", 512)?,
             required(command, "platform_signature", 8192)?,
         );
+        let action_id = if emergency {
+            None
+        } else {
+            Some(required(command, "action_id", 512)?.to_owned())
+        };
         let issued = command["issued_at"]
             .as_f64()
             .ok_or_else(|| Error::protocol("control issue time invalid"))?;
@@ -760,35 +1112,85 @@ impl DeviceOutboundRunner {
             .replay_guard
             .reserve(id, nonce, &sha256(payload.as_bytes()))?
         {
+            if emergency {
+                self.append_unknown_if_missing(
+                    &format!("command.{id}"),
+                    None,
+                    "device.emergency_stopped",
+                    "command_outcome_missing",
+                )?;
+            } else {
+                let action_id = action_id
+                    .as_deref()
+                    .ok_or_else(|| Error::protocol("cancel action id missing"))?;
+                self.append_unknown_if_missing(
+                    &format!("command.{id}.{action_id}"),
+                    Some(action_id.to_owned()),
+                    "action.unknown",
+                    "command_outcome_missing",
+                )?;
+            }
             return Ok(());
         }
         if emergency {
-            let mut stopped = self.dispatcher.emergency_stop()?;
-            stopped.sort();
-            self.outbox.append(
-                ReceiptEvent {
-                    sequence: 0,
-                    event_id: format!("command.{id}"),
-                    action_id: None,
-                    event_type: "device.emergency_stopped".into(),
-                    status: Some(ActionStatus::Cancelled),
-                    occurred_at: now(),
-                    result_digest: None,
-                    error_code: None,
-                    summary: None,
-                    result: Some(json!({"stopped_action_ids":stopped})),
-                },
-                false,
-            )?;
-            Ok(())
+            match self.dispatcher.emergency_stop() {
+                Ok(mut stopped) => {
+                    stopped.sort();
+                    self.append_bounded_receipt(
+                        ReceiptEvent {
+                            sequence: 0,
+                            event_id: format!("command.{id}"),
+                            action_id: None,
+                            event_type: "device.emergency_stopped".into(),
+                            status: Some(ActionStatus::Cancelled),
+                            occurred_at: now(),
+                            result_digest: None,
+                            error_code: None,
+                            summary: None,
+                            result: Some(json!({"stopped_action_ids":stopped})),
+                        },
+                        false,
+                    )
+                }
+                Err(error) => {
+                    self.append_bounded_receipt(
+                        ReceiptEvent {
+                            sequence: 0,
+                            event_id: format!("command.{id}"),
+                            action_id: None,
+                            event_type: "device.emergency_stopped".into(),
+                            status: Some(ActionStatus::Unknown),
+                            occurred_at: now(),
+                            result_digest: None,
+                            error_code: Some(error.code.into()),
+                            summary: None,
+                            result: Some(json!({"replay_allowed":false})),
+                        },
+                        false,
+                    )?;
+                    Err(error)
+                }
+            }
         } else {
-            self.append_terminal(
-                id,
-                &self
-                    .dispatcher
-                    .cancel(required(command, "action_id", 512)?)?,
-                false,
-            )
+            let action_id = action_id
+                .as_deref()
+                .ok_or_else(|| Error::protocol("cancel action id missing"))?;
+            match self.dispatcher.cancel(action_id) {
+                Ok(outcome) => self.append_terminal(id, &outcome, false),
+                Err(error) => {
+                    self.append_terminal(
+                        id,
+                        &DispatchOutcome {
+                            action_id: action_id.to_owned(),
+                            status: ActionStatus::Unknown,
+                            result: json!({"replay_allowed":false}),
+                            error_code: Some(error.code.into()),
+                        },
+                        false,
+                    )?;
+                    Err(error)
+                }
+            }
         }
     }
     fn append_terminal(
@@ -797,7 +1199,7 @@ impl DeviceOutboundRunner {
         outcome: &DispatchOutcome,
         retain: bool,
     ) -> Result<()> {
-        self.outbox.append(
+        self.append_bounded_receipt(
             ReceiptEvent {
                 sequence: 0,
                 event_id: format!("command.{command}.{}", outcome.action_id),
@@ -811,7 +1213,54 @@ impl DeviceOutboundRunner {
                 result: Some(outcome.result.clone()),
             },
             retain,
-        )?;
+        )
+    }
+
+    fn append_unknown_if_missing(
+        &self,
+        event_id: &str,
+        action_id: Option<String>,
+        event_type: &str,
+        error_code: &str,
+    ) -> Result<()> {
+        if self.outbox.contains_event(event_id)? {
+            return Ok(());
+        }
+        self.append_bounded_receipt(
+            ReceiptEvent {
+                sequence: 0,
+                event_id: event_id.to_owned(),
+                action_id,
+                event_type: event_type.to_owned(),
+                status: Some(ActionStatus::Unknown),
+                occurred_at: now(),
+                result_digest: None,
+                error_code: Some(error_code.to_owned()),
+                summary: None,
+                result: Some(json!({"replay_allowed":false})),
+            },
+            false,
+        )
+    }
+
+    fn append_bounded_receipt(&self, mut event: ReceiptEvent, mut retain: bool) -> Result<()> {
+        if event
+            .result
+            .as_ref()
+            .is_some_and(|result| canonical_json(result).len() > 2 * 1024 * 1024)
+        {
+            event.event_type = if event.action_id.is_some() {
+                "action.unknown".into()
+            } else {
+                event.event_type
+            };
+            event.status = Some(ActionStatus::Unknown);
+            event.error_code = Some("local_result_too_large".into());
+            event.result_digest = None;
+            event.result = Some(json!({"replay_allowed":false}));
+            retain = false;
+        }
+        self.outbox.append(event, retain)?;
         Ok(())
     }
 }
@@ -891,4 +1340,454 @@ pub fn load_persisted_credential(
         ));
     }
     parse_credential(&serde_json::from_slice(&raw)?, device, true)
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    use std::{
+        collections::BTreeMap,
+        fs,
+        path::PathBuf,
+        sync::{Condvar, atomic::AtomicUsize},
+    };
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "local-node-transport-recovery-{}",
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[derive(Default)]
+    struct MemoryStore(Mutex<BTreeMap<String, Vec<u8>>>);
+    impl SecureCredentialStore for MemoryStore {
+        fn status(&self) -> CredentialStorageStatus {
+            CredentialStorageStatus::Ready
+        }
+        fn load(&self, reference: &str) -> Result<Option<Vec<u8>>> {
+            Ok(self.0.lock().unwrap().get(reference).cloned())
+        }
+        fn store(&self, reference: &str, value: &[u8]) -> Result<()> {
+            self.0
+                .lock()
+                .unwrap()
+                .insert(reference.to_owned(), value.to_vec());
+            Ok(())
+        }
+    }
+
+    struct AcceptVerifier;
+    impl PlatformSignatureVerifier for AcceptVerifier {
+        fn verify(&self, _: &str, _: &[u8], _: &str) -> bool {
+            true
+        }
+    }
+
+    struct TestDispatcher {
+        cancel_calls: AtomicUsize,
+        cancel_status: ActionStatus,
+        cancel_result: Value,
+    }
+    impl DeviceActionDispatcher for TestDispatcher {
+        fn connect(&self) -> Result<()> {
+            Ok(())
+        }
+        fn dispatch(&self, _: &ActionContext, _: &Value) -> Result<DispatchOutcome> {
+            Err(Error::new("test_error", "unused dispatch"))
+        }
+        fn cancel(&self, action_id: &str) -> Result<DispatchOutcome> {
+            self.cancel_calls.fetch_add(1, Ordering::Relaxed);
+            Ok(DispatchOutcome {
+                action_id: action_id.to_owned(),
+                status: self.cancel_status,
+                result: self.cancel_result.clone(),
+                error_code: None,
+            })
+        }
+        fn emergency_stop(&self) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+        fn disconnect(&self) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn runner(
+        temp: &TempDir,
+        dispatcher: Arc<dyn DeviceActionDispatcher>,
+    ) -> (DeviceOutboundRunner, Arc<MemoryStore>) {
+        let store = Arc::new(MemoryStore::default());
+        let identity = Arc::new(
+            DeviceIdentity::load_or_create(&temp.0.join("identity"), store.as_ref()).unwrap(),
+        );
+        let credential_store: Arc<dyn SecureCredentialStore> = store.clone();
+        let runner = DeviceOutboundRunner {
+            identity,
+            endpoint: OutboundControlPlane {
+                url: "https://control.example.test/device".into(),
+            },
+            transport: None,
+            credential: Mutex::new(None),
+            credential_store: Some(credential_store),
+            credential_reference: Some("outbound-credential".into()),
+            platform_signature_verifier: Some(Arc::new(AcceptVerifier)),
+            pairing_signer: None,
+            outbox: Arc::new(ReceiptOutbox::open(&temp.0.join("outbox.sqlite")).unwrap()),
+            replay_guard: Arc::new(ClaimReplayGuard::open(&temp.0.join("replay.sqlite")).unwrap()),
+            dispatcher,
+            doctor_provider: Arc::new(|| -> Result<DoctorReport> {
+                Err(Error::new("test_error", "unused doctor"))
+            }),
+            allow_test_credentials: false,
+            stopped: Arc::new(AtomicBool::new(false)),
+        };
+        (runner, store)
+    }
+
+    fn test_dispatcher(status: ActionStatus, result: Value) -> Arc<TestDispatcher> {
+        Arc::new(TestDispatcher {
+            cancel_calls: AtomicUsize::new(0),
+            cancel_status: status,
+            cancel_result: result,
+        })
+    }
+
+    fn cancel_command(device: &str, command_id: &str, nonce: &str) -> Value {
+        cancel_action_command(device, command_id, nonce, "action-1")
+    }
+
+    fn cancel_action_command(
+        device: &str,
+        command_id: &str,
+        nonce: &str,
+        action_id: &str,
+    ) -> Value {
+        json!({
+            "kind":"cancel",
+            "command_id":command_id,
+            "device_id":device,
+            "nonce":nonce,
+            "issued_at":now()-1.0,
+            "expires_at":now()+60.0,
+            "platform_key_id":"test-key",
+            "platform_signature":"test-signature",
+            "action_id":action_id
+        })
+    }
+
+    fn reserve_control(runner: &DeviceOutboundRunner, command: &Value) {
+        let mut signed = command.clone();
+        signed.as_object_mut().unwrap().remove("platform_signature");
+        runner
+            .replay_guard
+            .reserve(
+                command["command_id"].as_str().unwrap(),
+                command["nonce"].as_str().unwrap(),
+                &sha256(canonical_json(&signed).as_bytes()),
+            )
+            .unwrap();
+    }
+
+    fn claim_command(device: &str) -> Value {
+        let arguments = json!({});
+        let action = ActionContext {
+            action_id: "long-action".into(),
+            idempotency_key: "idempotency-long-action".into(),
+            tenant_id: "tenant-1".into(),
+            user_id: "user-1".into(),
+            session_id: "session-1".into(),
+            run_id: "run-1".into(),
+            agent_id: "agent-1".into(),
+            agent_version: "v1".into(),
+            call_id: "call-1".into(),
+            device_id: device.into(),
+            envelope_version: 1,
+            capability: "computer.click".into(),
+            tool_name: "computer_click".into(),
+            operation: "computer.click".into(),
+            capability_lease_id: "lease-1".into(),
+            resource_refs: vec!["window-1".into()],
+            arguments_digest: digest_payload(&arguments),
+            target_snapshot_digest: "target-digest".into(),
+            policy_snapshot_digest: "policy-digest".into(),
+            nonce: "claim-nonce-1".into(),
+            issued_at: now() - 1.0,
+            expires_at: now() + 300.0,
+            platform_key_id: "test-key".into(),
+            platform_signature: "test-signature".into(),
+            approval: None,
+            trace_context: None,
+        };
+        json!({
+            "kind":"claim",
+            "command_id":"claim-command-1",
+            "action":serde_json::to_value(action).unwrap(),
+            "normalized_arguments":arguments
+        })
+    }
+
+    #[test]
+    fn oversized_cancel_result_is_persisted_as_unknown() {
+        let temp = TempDir::new();
+        let dispatcher = test_dispatcher(
+            ActionStatus::Succeeded,
+            json!({"output":"x".repeat(3 * 1024 * 1024)}),
+        );
+        let (runner, _) = runner(&temp, dispatcher.clone());
+        let command = cancel_command(&runner.identity.device_id, "oversized-1", "nonce-1");
+
+        runner.process_command(&command).unwrap();
+
+        let receipts = runner.outbox.pending(200).unwrap();
+        assert_eq!(dispatcher.cancel_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].event_type, "action.unknown");
+        assert_eq!(receipts[0].status, Some(ActionStatus::Unknown));
+        assert_eq!(
+            receipts[0].error_code.as_deref(),
+            Some("local_result_too_large")
+        );
+        assert_eq!(
+            receipts[0].result_digest.as_deref(),
+            Some(digest_payload(&json!({"replay_allowed":false})).as_str())
+        );
+    }
+
+    #[test]
+    fn consumed_command_without_receipt_recovers_unknown_without_dispatch() {
+        let temp = TempDir::new();
+        let dispatcher = test_dispatcher(ActionStatus::Succeeded, json!({"ok":true}));
+        let (runner, _) = runner(&temp, dispatcher.clone());
+        let command = cancel_command(&runner.identity.device_id, "crash-1", "nonce-1");
+        reserve_control(&runner, &command);
+
+        runner.process_command(&command).unwrap();
+
+        let receipts = runner.outbox.pending(200).unwrap();
+        assert_eq!(dispatcher.cancel_calls.load(Ordering::Relaxed), 0);
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].event_id, "command.crash-1.action-1");
+        assert_eq!(receipts[0].event_type, "action.unknown");
+        assert_eq!(receipts[0].status, Some(ActionStatus::Unknown));
+        assert_eq!(
+            receipts[0].error_code.as_deref(),
+            Some("command_outcome_missing")
+        );
+    }
+
+    #[test]
+    fn duplicate_preserves_a_committed_terminal_receipt() {
+        let temp = TempDir::new();
+        let dispatcher = test_dispatcher(ActionStatus::Succeeded, json!({"ok":true}));
+        let (runner, _) = runner(&temp, dispatcher.clone());
+        let command = cancel_command(&runner.identity.device_id, "committed-1", "nonce-1");
+        let committed = runner
+            .outbox
+            .append(
+                ReceiptEvent {
+                    sequence: 0,
+                    event_id: "command.committed-1.action-1".into(),
+                    action_id: Some("action-1".into()),
+                    event_type: "action.succeeded".into(),
+                    status: Some(ActionStatus::Succeeded),
+                    occurred_at: now(),
+                    result_digest: None,
+                    error_code: None,
+                    summary: None,
+                    result: Some(json!({"committed":true})),
+                },
+                false,
+            )
+            .unwrap();
+        runner.outbox.acknowledge(committed.sequence).unwrap();
+        reserve_control(&runner, &command);
+
+        runner.process_command(&command).unwrap();
+
+        assert_eq!(dispatcher.cancel_calls.load(Ordering::Relaxed), 0);
+        assert!(runner.outbox.pending(200).unwrap().is_empty());
+        assert!(
+            runner
+                .outbox
+                .contains_event("command.committed-1.action-1")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn paired_credential_is_reloaded_from_secure_storage() {
+        let temp = TempDir::new();
+        let (runner, store) = runner(&temp, test_dispatcher(ActionStatus::Succeeded, json!({})));
+        let saved = json!({
+            "protocol_version":PROTOCOL_VERSION,
+            "device_id":runner.identity.device_id,
+            "credential":"device-secret",
+            "expires_at":now()+3600.0
+        });
+        store
+            .store("outbound-credential", canonical_json(&saved).as_bytes())
+            .unwrap();
+
+        let loaded = runner.load_credential().unwrap().unwrap();
+
+        assert_eq!(loaded.credential, "device-secret");
+        assert_eq!(loaded.device_id, runner.identity.device_id);
+    }
+
+    #[test]
+    fn receipt_batches_budget_escaped_json_and_keep_a_contiguous_prefix() {
+        let base = ExchangeRequest {
+            device_id: "device-1".into(),
+            doctor: json!({"status":"ready"}),
+            receipts: Vec::new(),
+            sent_at: now(),
+            protocol_version: PROTOCOL_VERSION.into(),
+        };
+        let escaped = "\0".repeat(349_500);
+        let receipt = |sequence| ReceiptEvent {
+            sequence,
+            event_id: format!("event-{sequence}"),
+            action_id: Some(format!("action-{sequence}")),
+            event_type: "action.succeeded".into(),
+            status: Some(ActionStatus::Succeeded),
+            occurred_at: now(),
+            result_digest: None,
+            error_code: None,
+            summary: None,
+            result: Some(json!({"payload":escaped.clone()})),
+        };
+        let first = receipt(1);
+        let second = receipt(2);
+        let base_len = canonical_json(&base.as_value().unwrap()).len();
+        let first_len = canonical_json(&first.as_value(true).unwrap()).len();
+        assert!(canonical_json(first.result.as_ref().unwrap()).len() <= 2 * 1024 * 1024);
+        assert!(first_len > 2 * 1024 * 1024);
+        assert!(base_len + first_len * 2 + 1 > MAX_EXCHANGE_REQUEST_BYTES);
+
+        let batch =
+            bounded_receipt_prefix(&base, vec![first, second], MAX_EXCHANGE_REQUEST_BYTES).unwrap();
+        let mut request = base.clone();
+        request.receipts = batch
+            .iter()
+            .map(|event| event.as_value(true).unwrap())
+            .collect();
+
+        assert_eq!(
+            batch.iter().map(|item| item.sequence).collect::<Vec<_>>(),
+            [1]
+        );
+        assert!(canonical_json(&request.as_value().unwrap()).len() <= MAX_EXCHANGE_REQUEST_BYTES);
+    }
+
+    struct BlockingDispatcher {
+        state: Mutex<(bool, bool)>,
+        changed: Condvar,
+    }
+    impl BlockingDispatcher {
+        fn new() -> Self {
+            Self {
+                state: Mutex::new((false, false)),
+                changed: Condvar::new(),
+            }
+        }
+        fn wait_until_started(&self) {
+            let mut state = self.state.lock().unwrap();
+            while !state.0 {
+                state = self.changed.wait(state).unwrap();
+            }
+        }
+    }
+    impl DeviceActionDispatcher for BlockingDispatcher {
+        fn connect(&self) -> Result<()> {
+            Ok(())
+        }
+        fn dispatch(&self, action: &ActionContext, _: &Value) -> Result<DispatchOutcome> {
+            let mut state = self.state.lock().unwrap();
+            state.0 = true;
+            self.changed.notify_all();
+            while !state.1 {
+                state = self.changed.wait(state).unwrap();
+            }
+            Ok(DispatchOutcome {
+                action_id: action.action_id.clone(),
+                status: ActionStatus::Cancelled,
+                result: json!({"cancelled":true}),
+                error_code: None,
+            })
+        }
+        fn cancel(&self, action_id: &str) -> Result<DispatchOutcome> {
+            if action_id != "long-action" {
+                return Err(Error::new("test_error", "wrong action targeted"));
+            }
+            let mut state = self.state.lock().unwrap();
+            state.1 = true;
+            self.changed.notify_all();
+            Ok(DispatchOutcome {
+                action_id: action_id.to_owned(),
+                status: ActionStatus::Cancelled,
+                result: json!({}),
+                error_code: None,
+            })
+        }
+        fn emergency_stop(&self) -> Result<Vec<String>> {
+            let mut state = self.state.lock().unwrap();
+            state.1 = true;
+            self.changed.notify_all();
+            Ok(vec!["long-action".into()])
+        }
+        fn disconnect(&self) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+    }
+
+    #[tokio::test]
+    async fn cancel_command_runs_while_fifo_dispatch_is_blocked() {
+        let temp = TempDir::new();
+        let dispatcher = Arc::new(BlockingDispatcher::new());
+        let dispatcher_trait: Arc<dyn DeviceActionDispatcher> = dispatcher.clone();
+        let (runner, _) = runner(&temp, dispatcher_trait);
+        let processor = runner.command_processor();
+        let pump = CommandPump::new(processor.clone());
+        assert!(
+            pump.try_enqueue(claim_command(&runner.identity.device_id))
+                .unwrap()
+                .is_none()
+        );
+
+        let wait_dispatch = dispatcher.clone();
+        tokio::task::spawn_blocking(move || wait_dispatch.wait_until_started())
+            .await
+            .unwrap();
+        processor
+            .process_command(&cancel_action_command(
+                &runner.identity.device_id,
+                "cancel-long-action",
+                "cancel-nonce-1",
+                "long-action",
+            ))
+            .unwrap();
+        pump.close().await.unwrap();
+
+        let receipts = runner.outbox.pending(200).unwrap();
+        assert_eq!(receipts.len(), 2);
+        assert!(receipts.iter().any(|receipt| {
+            receipt.event_id == "command.claim-command-1.long-action"
+                && receipt.status == Some(ActionStatus::Cancelled)
+        }));
+        assert!(receipts.iter().any(|receipt| {
+            receipt.event_id == "command.cancel-long-action.long-action"
+                && receipt.status == Some(ActionStatus::Cancelled)
+        }));
+    }
 }

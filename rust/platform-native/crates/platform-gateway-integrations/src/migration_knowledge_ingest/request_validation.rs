@@ -1350,7 +1350,6 @@ impl<S: Send + Sync, const DIGITS_ONLY: bool> axum::extract::FromRequestParts<S>
         parts: &mut axum::http::request::Parts,
         state: &S,
     ) -> Result<Self, Response> {
-        use axum::extract::FromRequestParts;
         let axum::extract::Path((dataset, document, raw)) =
             axum::extract::Path::<(String, String, String)>::from_request_parts(parts, state)
                 .await
@@ -1375,3 +1374,7 @@ impl<S: Send + Sync, const DIGITS_ONLY: bool> axum::extract::FromRequestParts<S>
         }
     }
 }
+
+#[cfg(test)]
+#[path = "knowledge_migration_parity_schema.rs"]
+mod knowledge_migration_parity_schema;

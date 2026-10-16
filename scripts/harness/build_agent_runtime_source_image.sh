@@ -20,9 +20,9 @@ if [[ -n "$(git -C "$fork_root" status --porcelain)" ]]; then
     exit 1
 fi
 
-receipt_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["fork_sha"])' "$repo_root/deploy/agent-runtime-source/source-receipt.json")"
-schema_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["schema_bundle"]["sha256"])' "$repo_root/deploy/agent-runtime-source/source-receipt.json")"
-upstream_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["upstream_sha"])' "$repo_root/deploy/agent-runtime-source/source-receipt.json")"
+receipt_sha="$(platform-tools json-get "$repo_root/deploy/agent-runtime-source/source-receipt.json" source.fork_sha)"
+schema_sha="$(platform-tools json-get "$repo_root/deploy/agent-runtime-source/source-receipt.json" schema_bundle.sha256)"
+upstream_sha="$(platform-tools json-get "$repo_root/deploy/agent-runtime-source/source-receipt.json" source.upstream_sha)"
 
 if ! git -C "$fork_root" cat-file -e "$upstream_sha^{commit}"; then
     echo "ERROR: source checkout does not contain the pinned upstream revision" >&2
@@ -30,31 +30,9 @@ if ! git -C "$fork_root" cat-file -e "$upstream_sha^{commit}"; then
 fi
 
 overlay_root="$repo_root/rust/agent-runtime-overlay"
-python3 - "$overlay_root" "$receipt_sha" "$upstream_sha" <<'PY'
-import hashlib
-import json
-import pathlib
-import sys
+platform-tools source-lock verify-overlay --repo-root "$repo_root" --overlay-dir "$overlay_root" --source-revision "$receipt_sha" --upstream-sha "$upstream_sha"
 
-root = pathlib.Path(sys.argv[1])
-manifest = json.loads((root / "manifest.json").read_text())
-digest = hashlib.sha256()
-files = []
-for path in sorted(p for p in root.rglob("*") if p.is_file() and p.name != "manifest.json"):
-    rel = path.relative_to(root).as_posix()
-    payload = path.read_bytes()
-    files.append(rel)
-    digest.update(rel.encode())
-    digest.update(b"\0")
-    digest.update(payload)
-    digest.update(b"\0")
-if manifest.get("source_revision") != sys.argv[2] or manifest.get("upstream_sha") != sys.argv[3]:
-    raise SystemExit("ERROR: Agent Runtime overlay source identity does not match the receipt")
-if manifest.get("file_count") != len(files) or manifest.get("sha256") != digest.hexdigest():
-    raise SystemExit("ERROR: Agent Runtime overlay manifest does not match its files")
-PY
-
-overlay_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$overlay_root/manifest.json")"
+overlay_sha="$(platform-tools json-get "$overlay_root/manifest.json" sha256)"
 source_revision="${upstream_sha}+${overlay_sha:0:12}"
 image_tag="ai-gateway-agent-runtime-source:local-${upstream_sha:0:12}-${overlay_sha:0:12}"
 build_context="$(mktemp -d /tmp/ai-platform-agent-runtime-source-build.XXXXXX)"
@@ -64,16 +42,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 - "$repo_root" "$fork_root" "$upstream_sha" <<'PY_VERIFY_UPSTREAM'
-import sys
-from pathlib import Path
-
-from scripts.harness.rust_gate_identity import verify_overlay_upstream_base
-
-verify_overlay_upstream_base(
-    repo_root=Path(sys.argv[1]), source=Path(sys.argv[2]), upstream_sha=sys.argv[3]
-)
-PY_VERIFY_UPSTREAM
+platform-tools source-lock verify-overlay --repo-root "$repo_root" --source "$fork_root" --upstream-sha "$upstream_sha"
 
 git -C "$fork_root" archive "$upstream_sha" | tar -x -C "$build_context"
 cp -R "$overlay_root/kernel-rs/." "$build_context/codex-rs/"
@@ -98,10 +67,10 @@ monitor_build_memory() {
     wait "$build_pid"
 }
 
-docker build \
-    --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY \
-    --resource "memory=$build_memory" \
-    --resource "cpu-quota=$build_cpu_quota" \
+resource_builder="$(platform-tools buildx-resource-builder --repo-root "$repo_root" --memory "$build_memory" --cpu-quota "$build_cpu_quota")"
+platform_configure_build_proxy_args
+docker buildx build --builder "$resource_builder" --load \
+    ${platform_build_proxy_args[@]+"${platform_build_proxy_args[@]}"} \
     --file "$repo_root/deploy/agent-runtime-source/Dockerfile" \
     --build-arg "AI_PLATFORM_AGENT_RUNTIME_UPSTREAM_SHA=$source_revision" \
     --build-arg "AI_PLATFORM_AGENT_RUNTIME_SCHEMA_SHA256=$schema_sha" \
@@ -123,68 +92,10 @@ if [[ "$image_revision" != "$source_revision" \
     exit 1
 fi
 
-python3 - "$image_tag" <<'PY'
-import json
-import select
-import subprocess
-import sys
-import time
-
-image = sys.argv[1]
-request = {
-    "method": "initialize",
-    "id": 0,
-    "params": {"clientInfo": {"name": "ai_platform_probe", "title": "AI Platform Probe", "version": "0.1.0"}},
-}
-process = subprocess.Popen(
-    ["docker", "run", "--rm", "-i", "--network", "none", image],
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True,
-)
-assert process.stdin is not None
-assert process.stdout is not None
-assert process.stderr is not None
-process.stdin.write(json.dumps(request) + "\n")
-process.stdin.flush()
-
-deadline = time.monotonic() + 30
-initialize_seen = False
-stdout_lines = []
-while time.monotonic() < deadline:
-    readable, _, _ = select.select([process.stdout], [], [], 1)
-    if not readable:
-        if process.poll() is not None:
-            break
-        continue
-    line = process.stdout.readline()
-    if not line:
-        break
-    stdout_lines.append(line)
-    if not line.strip().startswith("{"):
-        continue
-    item = json.loads(line)
-    if item.get("id") == 0 and isinstance(item.get("result"), dict):
-        initialize_seen = True
-        break
-
-process.stdin.close()
-try:
-    process.wait(timeout=10)
-except subprocess.TimeoutExpired:
-    process.terminate()
-    process.wait(timeout=5)
-stderr = process.stderr.read()
-if not initialize_seen:
-    raise SystemExit(
-        "image protocol probe did not return initialize result; "
-        f"stdout={''.join(stdout_lines)[-1000:]!r}; stderr={stderr[-1000:]!r}"
-    )
-PY
+platform-tools image-initialize-probe --image "$image_tag"
 
 image_id="$(docker image inspect "$image_tag" --format '{{.Id}}')"
-python3 "$repo_root/scripts/harness/agent_runtime_supply_chain.py" record-local-image \
+platform-tools source-lock record-local-image \
     --repo-root "$repo_root" \
     --lock "$repo_root/deploy/agent-runtime-source/lock.json" \
     --artifact app_server \

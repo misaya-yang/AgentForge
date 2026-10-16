@@ -1,0 +1,37 @@
+{
+  "schema": "ai-platform/canonical-successor-measurement/v1",
+  "status": "measured_external_preview",
+  "database_actions": true,
+  "database_actions_scope": "named_isolated_database_only",
+  "source_activation": false,
+  "expected_database": "schema_successor_verify_codex_20261016",
+  "source_plan_sha256": "9df8b75bc06048b190136a090b109fc32f39b5bdd9fe953201a5a3399e2fdc92",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "epoch_manifest_sha256": "d526d3c1551c3c4a6f88477b9ac7a5bae59f898e055f4fe85a99ea0dda319d23",
+  "successor_sequences": [
+    18,
+    19,
+    20
+  ],
+  "verification_refs": {
+    "018_verification.json": "bdb39dce3b92b845846183f92e94d9115fc9667bab398f8e72c48ccd89d12d0b",
+    "019_verification.json": "c2242553ad6579bf633c3bf8f57f55f4c75cfdbfa134342583a0423786e98d4b",
+    "020_verification.json": "ec021f78081800e3ee3b20b186fda536fcec499f71b8d39ae6c2b917e6b1b2b2"
+  },
+  "post_migration_noop": true,
+  "source_distribution": {
+    "archive_sha256": "73e5f00d5c4c64a2f4a6e44eccbaa4838e415af22fdc0785dd252c64b7368587",
+    "import_manifest_sha256": "a543a87834f4827d1cb848eb775591586688f75480e1e984112c6a0b8df66cab",
+    "import_receipt_sha256": "4b5dc607cdab45d940e2f9acee33635d7c0b0ea938d8a1679c60ba7f924c6deb",
+    "source_files": 4599,
+    "rust_files": 2082,
+    "verified_source_files": 4599,
+    "all_source_files_match_archive": true,
+    "python_source_files_in_archive": 0,
+    "producer_descriptor_sha256": "e43ea7a1bbb94aa2e5b0cec6c3ec84577ce3c36efe1b08ac7d1056e0c184722c",
+    "producer_replacements_verified": 11,
+    "historical_preimage_sha256": "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc",
+    "historical_preimage_verified": true,
+    "historical_git_blobs_verified": false
+  }
+}

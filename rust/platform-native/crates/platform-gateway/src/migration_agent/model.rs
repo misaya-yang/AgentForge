@@ -410,6 +410,7 @@ impl AgentModelPlane {
         body: Value,
         call: AuthorizedCall,
     ) -> Result<ModelStream, AgentError> {
+        let mut timing = super::model_timing::TimingEvidence::new(&call);
         let mut cleanup = CallCleanup {
             plane: self.clone(),
             id: call.call_id.clone(),
@@ -433,6 +434,12 @@ impl AgentModelPlane {
             }
         };
         sqlx::query("UPDATE assistant_runtime_model_calls SET status='dispatched',dispatched_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status='reserved'").bind(&call.call_id).execute(&self.pool).await?;
+        timing.wire = if prepared.native {
+            "responses_v1"
+        } else {
+            "chat_completions"
+        };
+        timing.dispatch();
         let mut response = match self
             .client
             .post(prepared.url)
@@ -515,6 +522,8 @@ impl AgentModelPlane {
                             };
                             if prepared.native {
                                 if let Some(frame) = native.consume(payload)? {
+                                    timing.frame();
+                                    timing.projected(&frame);
                                     observed.observe(&frame);
                                     if tx.send(Ok(frame)).await.is_err() {
                                         return Ok(());
@@ -526,7 +535,11 @@ impl AgentModelPlane {
                                 let p: Value = serde_json::from_str(payload).map_err(|_| {
                                     AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INVALID")
                                 })?;
+                                if p.is_object() {
+                                    timing.frame();
+                                }
                                 for frame in chat.consume(&p)? {
+                                    timing.projected(&frame);
                                     observed.observe(&frame);
                                     if tx.send(Ok(frame)).await.is_err() {
                                         return Ok(());
@@ -1118,7 +1131,17 @@ pub fn provider_body(
     } else if input.as_str().is_none_or(str::is_empty) {
         return Err(AgentError::code(400, "RUNTIME_RESPONSES_INPUT_INVALID"));
     }
-    validate_transcript(&input, &wire_names, &aliases.values().cloned().collect())?;
+    if let Err(error) =
+        validate_transcript(&input, &wire_names, &aliases.values().cloned().collect())
+    {
+        // Source native Responses first permits completed kernel/rejection
+        // receipts without advertised tools. Invalid receipts in that phase
+        // retain its tools-disabled error rather than granting transcript use.
+        if native && wire_names.is_empty() {
+            return Err(AgentError::code(422, "RUNTIME_TOOLS_NOT_ENABLED_FOR_PHASE"));
+        }
+        return Err(error);
+    }
     let has_transcript = input.as_array().is_some_and(|a| {
         a.iter()
             .any(|v| matches!(text(v, "type"), "function_call" | "function_call_output"))
@@ -1193,14 +1216,19 @@ pub fn provider_body(
     if choice.is_object() {
         let name = text(&choice, "name").to_owned();
         if let Some(namespace) = choice.get("namespace").filter(|value| !value.is_null()) {
-            let namespace = namespace.as_str()
+            let namespace = namespace
+                .as_str()
                 .ok_or_else(|| AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"))?;
             if !namespace.is_empty() && namespace != "functions" {
-                let alias = reverse.get(&(namespace.to_owned(), name.clone()))
+                let alias = reverse
+                    .get(&(namespace.to_owned(), name.clone()))
                     .ok_or_else(|| AgentError::code(422, "RUNTIME_TOOL_CHOICE_INVALID"))?;
                 choice["name"] = alias.clone().into();
             }
-            choice.as_object_mut().expect("function choice").remove("namespace");
+            choice
+                .as_object_mut()
+                .expect("function choice")
+                .remove("namespace");
         } else if let Some(alias) = aliases.get(&name).and_then(|id| reverse.get(id)) {
             // The legacy bare name is accepted only when unambiguous.
             choice["name"] = alias.clone().into();

@@ -266,6 +266,7 @@ async fn actual_proxy_queue_is_fenced_before_any_http_send() {
         "service".into(),
         Availability {
             checked: Instant::now(),
+            checked_at: 0.0,
             urls: vec!["http://unused.invalid".into()],
             error: String::new(),
         },

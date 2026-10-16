@@ -1,10 +1,10 @@
 #!/bin/bash
 # =============================================================================
-# Compatibility wrapper for the single PostgreSQL migration authority.
+# Native Rust wrapper for the single PostgreSQL migration authority.
 # =============================================================================
 # This script intentionally contains no psql, SQL-file, legacy-ledger, or lock
-# implementation. ``database.authority`` owns discovery, reconciliation,
-# locking, transactions, attempts, fingerprints and every schema/ledger write.
+# implementation. database-authority owns discovery, reconciliation, locking,
+# transactions, attempts, fingerprints and every schema/ledger write.
 #
 # Usage:  make migrate
 #   or:   ./scripts/new/migrate.sh [OPTIONS]
@@ -12,7 +12,7 @@
 # Options:
 #   --init       Initialize an empty database from the frozen baseline
 #   --status     Show read-only authority status
-#   --auto       Accepted for deploy compatibility; migration stays fail-fast
+#   --auto       Classify the source and run required administrator setup
 #   --env FILE   Use a specific env file instead of .env
 # =============================================================================
 
@@ -60,68 +60,139 @@ if [ "$EXPLICIT_ENV_FILE" = true ]; then
     require_env_file
 fi
 load_env
+export AI_GATEWAY_AUTHORITY_SOURCE_MODE="${AI_GATEWAY_AUTHORITY_SOURCE_MODE:-distribution}"
 cd "$PROJECT_ROOT"
 
-if ! command -v uv >/dev/null 2>&1; then
-    log_error "uv is required to run the repository-pinned database authority"
+if ! command -v database-authority >/dev/null 2>&1; then
+    log_error "database-authority is required; build/install the native Rust tools first"
     exit 1
 fi
 
-# Local Compose-era env files predate the role-specific authority variable.
-# Keep the authority itself fail-closed while adapting that explicit local
-# bootstrap credential at this compatibility boundary. Managed deployments
-# set AI_GATEWAY_DATABASE_MIGRATOR_DSN directly and never enter this branch.
-if [ -z "${AI_GATEWAY_DATABASE_MIGRATOR_DSN:-}" ] && [ -n "${POSTGRES_PASSWORD:-}" ]; then
-    local_authority_dsn="$({
-        python3 - "${POSTGRES_HOST:-127.0.0.1}" "${POSTGRES_PORT:-5432}" \
-            "${POSTGRES_USER:-postgres}" "$POSTGRES_PASSWORD" \
-            "${POSTGRES_DB:-gateway}" <<'PY'
-import sys
-from urllib.parse import quote
+uri_component() {
+    local LC_ALL=C value="$1" output="" character hex index
+    for ((index = 0; index < ${#value}; index++)); do
+        character="${value:index:1}"
+        case "$character" in
+            [a-zA-Z0-9.~_-]) output+="$character" ;;
+            *) printf -v hex '%%%02X' "'$character"; output+="$hex" ;;
+        esac
+    done
+    printf '%s' "$output"
+}
 
-host, port, user, password, database = sys.argv[1:]
-print(
-    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@"
-    f"{host}:{port}/{quote(database, safe='')}"
-)
-PY
-    })"
-    AI_GATEWAY_DATABASE_MIGRATOR_DSN="$local_authority_dsn"
-    export AI_GATEWAY_DATABASE_MIGRATOR_DSN
-    if [ -z "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
-        AI_GATEWAY_DATABASE_ADMIN_DSN="$local_authority_dsn"
-        export AI_GATEWAY_DATABASE_ADMIN_DSN
+require_migrator_dsn() {
+    if [ -n "${AI_GATEWAY_DATABASE_MIGRATOR_DSN:-}" ]; then
+        return 0
     fi
-fi
+    if [ -z "${LOCAL_DB_MIGRATOR_PASSWORD:-}" ]; then
+        log_error "Set AI_GATEWAY_DATABASE_MIGRATOR_DSN or LOCAL_DB_MIGRATOR_PASSWORD"
+        return 1
+    fi
+
+    local prefix="${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}"
+    local pg_host="${POSTGRES_HOST:-127.0.0.1}"
+    local pg_port="${POSTGRES_PORT:-5432}"
+    local pg_database="${POSTGRES_DB:-gateway}"
+    local url_host encoded_user encoded_password encoded_database
+
+    if [[ ! "$prefix" =~ ^[a-z][a-z0-9_]{0,20}_$ ]]; then
+        log_error "AI_GATEWAY_ROLE_PREFIX is invalid"
+        return 1
+    fi
+    if [[ "$pg_host" == *:* ]]; then
+        if [[ ! "$pg_host" =~ ^[0-9A-Fa-f:.]+$ ]]; then
+            log_error "POSTGRES_HOST is invalid for a local migrator DSN"
+            return 1
+        fi
+        url_host="[$pg_host]"
+    else
+        if [[ ! "$pg_host" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            log_error "POSTGRES_HOST is invalid for a local migrator DSN"
+            return 1
+        fi
+        url_host="$pg_host"
+    fi
+    if [[ ! "$pg_port" =~ ^[0-9]{1,5}$ ]] \
+        || (( 10#$pg_port < 1 || 10#$pg_port > 65535 )); then
+        log_error "POSTGRES_PORT is invalid"
+        return 1
+    fi
+
+    encoded_user="$(uri_component "${prefix}migrator")"
+    encoded_password="$(uri_component "$LOCAL_DB_MIGRATOR_PASSWORD")"
+    encoded_database="$(uri_component "$pg_database")"
+    AI_GATEWAY_DATABASE_MIGRATOR_DSN="postgresql://${encoded_user}:${encoded_password}@${url_host}:${pg_port}/${encoded_database}"
+    export AI_GATEWAY_DATABASE_MIGRATOR_DSN
+}
+
+require_distinct_admin_dsn() {
+    if [ -z "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
+        log_error "AI_GATEWAY_DATABASE_ADMIN_DSN is required for administrator bootstrap"
+        return 1
+    fi
+    if [ "$AI_GATEWAY_DATABASE_ADMIN_DSN" = "$AI_GATEWAY_DATABASE_MIGRATOR_DSN" ]; then
+        log_error "AI_GATEWAY_DATABASE_ADMIN_DSN must be distinct from AI_GATEWAY_DATABASE_MIGRATOR_DSN"
+        return 1
+    fi
+    return 0
+}
+
+require_migrator_dsn || exit 1
 
 log_step "Database authority: ${AUTHORITY_COMMAND}"
 
-# Local deploy owns the explicit admin bootstrap phase required by ARC-03.
-# Classify the source read-only, then route it without guessing migration
-# history. Tracked legacy sources complete their immutable chain before admin
-# ownership cutover. Ledgerless platform schemas go directly through explicit
-# admin cutover and four-fingerprint adoption; empty/adopted sources need only
-# the normal authority command.
-if [ "$AUTO_MODE" = true ] && [ "$AUTHORITY_COMMAND" = "migrate" ] \
-    && [ -n "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
-    uv run --extra database python -m database.authority provision-roles
-    source_kind="$(uv run --extra database python -m database.authority source-kind)"
+# Fresh-install initialization still uses the native source classifier. It
+# pre-provisions roles first so the dedicated migrator can classify the empty
+# database, then has the administrator install required extensions.
+if [ "$AUTHORITY_COMMAND" = "init-fresh" ]; then
+    require_distinct_admin_dsn || exit 1
+    database-authority provision-roles
+    source_kind="$(database-authority source-kind)"
+    if [ "$source_kind" = "empty" ]; then
+        database-authority provision-extensions
+    fi
+    exec database-authority init-fresh
+fi
+
+# Classify the source read-only, then preserve historical cutover ordering:
+# tracked legacy sources complete their immutable chain before admin ownership
+# cutover; ledgerless platform schemas use explicit cutover and adoption.
+if [ "$AUTO_MODE" = true ] && [ "$AUTHORITY_COMMAND" = "migrate" ]; then
+    if [ -n "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
+        require_distinct_admin_dsn || exit 1
+        database-authority provision-roles
+    fi
+    source_kind="$(database-authority source-kind)"
     case "$source_kind" in
-        empty|adopted)
-            exec uv run --extra database python -m database.authority migrate
+        empty)
+            if [ -z "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
+                log_error "AI_GATEWAY_DATABASE_ADMIN_DSN is required to bootstrap an empty database"
+                exit 1
+            fi
+            database-authority provision-extensions
+            exec database-authority migrate
+            ;;
+        adopted)
+            exec database-authority migrate
             ;;
         ledgerless-platform)
-            uv run --extra database python -m database.authority \
+            if [ -z "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
+                exec database-authority migrate
+            fi
+            database-authority \
                 prepare-cutover-ownership \
                 --expected-database "${POSTGRES_DB:-gateway}"
-            exec uv run --extra database python -m database.authority migrate
+            exec database-authority migrate
             ;;
         tracked-legacy)
-            uv run --extra database python -m database.authority migrate --no-adoption
-            uv run --extra database python -m database.authority \
+            if [ -z "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
+                exec database-authority migrate
+            fi
+            database-authority migrate --no-adoption
+            database-authority \
                 prepare-cutover-ownership \
                 --expected-database "${POSTGRES_DB:-gateway}"
-            exec uv run --extra database python -m database.authority migrate
+            exec database-authority migrate
             ;;
         *)
             log_error "Database authority returned unknown source kind"
@@ -130,4 +201,4 @@ if [ "$AUTO_MODE" = true ] && [ "$AUTHORITY_COMMAND" = "migrate" ] \
     esac
 fi
 
-exec uv run --extra database python -m database.authority "$AUTHORITY_COMMAND"
+exec database-authority "$AUTHORITY_COMMAND"

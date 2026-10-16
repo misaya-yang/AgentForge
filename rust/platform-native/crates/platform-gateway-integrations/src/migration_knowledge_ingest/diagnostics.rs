@@ -4,7 +4,7 @@ use super::string;
 use serde_json::{Value, json};
 
 pub(super) const SAFE_PROCESSING_ERROR: &str =
-    "Document processing failed. Check the document status and ID.";
+    "Document processing failed. Check the source file and retry manually.";
 
 pub(super) fn processing_diagnostics(document: &Value) -> Value {
     let status = string(document, "status").trim().to_lowercase();
@@ -68,6 +68,10 @@ pub(super) fn processing_diagnostics(document: &Value) -> Value {
 }
 
 pub(super) fn sanitize_processing_error(value: &mut Value) {
+    const SPECIALIZED_REBUILD_UNAVAILABLE: &str = "specialized_rebuild_unavailable";
+    if value.get("error").and_then(Value::as_str) == Some(SPECIALIZED_REBUILD_UNAVAILABLE) {
+        value["failure_code"] = json!(SPECIALIZED_REBUILD_UNAVAILABLE);
+    }
     if let Some(error) = value.get("error") {
         let populated = match error {
             Value::Null => false,
@@ -78,7 +82,15 @@ pub(super) fn sanitize_processing_error(value: &mut Value) {
             Value::Object(value) => !value.is_empty(),
         };
         value["error"] = if populated {
-            json!(SAFE_PROCESSING_ERROR)
+            if value.get("failure_code").and_then(Value::as_str)
+                == Some(SPECIALIZED_REBUILD_UNAVAILABLE)
+            {
+                json!(
+                    "This processing path may have partial results and cannot be replayed safely. Ask an administrator to inspect it before retrying."
+                )
+            } else {
+                json!(SAFE_PROCESSING_ERROR)
+            }
         } else {
             Value::Null
         };

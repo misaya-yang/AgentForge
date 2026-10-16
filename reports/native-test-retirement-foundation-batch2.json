@@ -1,0 +1,153 @@
+{
+  "schema": "ai-platform/native-test-parity-batch/v1",
+  "entries": [
+    {
+      "legacy_source": "tests/packages/ai_gateway_core/test_api_version_middleware.py",
+      "source_sha256": "d9cfb6a5475fcc808bc768f15f5df42ec1a9461e6fe95e562431016c53168485",
+      "source_cases": [
+        "test_api_version_middleware_parses_vendor_accept_header",
+        "test_api_version_middleware_adds_deprecation_headers"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_middleware",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_middleware.rs",
+      "native_functions": [
+        "vendor_version_and_deprecated_route_headers_are_observable"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/test_cors.py",
+      "source_sha256": "961fdf5edb2c7cf699a595020d96042c2e7952a5b8b2fbbaa713e92a25c8b45d",
+      "source_cases": [
+        "test_cors_rejects_unlisted_origin_when_credentials_enabled"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_middleware",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_middleware.rs",
+      "native_functions": [
+        "credentialed_cors_does_not_allow_unlisted_origin"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/middleware/test_request_body_limit.py",
+      "source_sha256": "a7f1e05976d712b738f15c919784fd240853881094f1740b2aa8e252e8b297bb",
+      "source_cases": [
+        "test_request_body_limit_rejects_oversized_content_length",
+        "test_request_body_limit_preserves_legitimate_body"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_middleware",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_middleware.rs",
+      "native_functions": [
+        "request_body_limit_rejects_oversize_and_preserves_exact_boundary"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "Source custom /chat fixture uses actual native guarded /api/v1/assistant/chat path.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/middleware/test_security_headers_streaming.py",
+      "source_sha256": "bbd332b9374db44857cedf7d0d06cb7022110fd8ecb6778578c0e025bab3fa9d",
+      "source_cases": [
+        "test_security_headers_middleware_does_not_use_call_next",
+        "test_assistant_chat_and_responses_are_streaming_paths",
+        "test_security_headers_emit_first_body_before_handler_returns"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_middleware",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_middleware.rs",
+      "native_functions": [
+        "security_headers_preserve_first_chunk_without_collecting_stream"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "Python inspect.getsource(call_next) machinery replaced by actual non-collecting native stream assertion on both required paths.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/test_gateway_capacity_resolver.py",
+      "source_sha256": "f143eccf44b77486bed49140677bac37f1cd8a99070f0c57831ee704dc26e171",
+      "source_cases": [
+        "test_default_uat_budgets_include_gateway_stream_upstream_and_provider",
+        "test_service_capacity_override_controls_upstream_budget",
+        "test_admin_reads_bypass_service_budget_but_not_gateway_process_budget",
+        "test_unknown_service_budget_is_reported_as_missing_not_silently_enforced"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_capacity",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_capacity.rs",
+      "native_functions": [
+        "capacity_defaults_overrides_admin_bypass_and_missing_budget_contracts"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/test_hot_path_metrics.py",
+      "source_sha256": "2d0e0ae8ba5daa38110fb92a44a84cbaa82a5579a1fd83067233e23e67603b97",
+      "source_cases": [
+        "test_sliding_window_limiter_allowed_check_is_one_round_trip",
+        "test_sliding_window_limiter_denied_check_is_one_atomic_round_trip",
+        "test_multi_dimension_limiter_counts_one_round_trip_per_dimension",
+        "test_multi_dimension_limiter_denied_check_is_one_atomic_round_trip"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_capacity",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_capacity.rs",
+      "native_functions": [
+        "successful_redis_checks_increment_global_hot_path_once_per_atomic_round_trip"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "Injected Redis-store boundary; no live Redis claim.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_baseline_manifest.py",
+      "source_sha256": "ce5d3baed8b2b65f47cbdb382221458e861ddc298e24de69cb27ed26140bfcc7",
+      "source_cases": [
+        "test_baseline_manifest_rejects_ambiguous_metadata",
+        "test_load_baseline_rejects_freeze_point_mismatch",
+        "test_baseline_ready_requires_cutover_contract",
+        "test_baseline_ready_rejects_pending_live_freeze"
+      ],
+      "native_package": "ai-platform-migration-authority",
+      "native_target": "authority_migration_parity_manifests",
+      "native_path": "rust/platform-native/crates/platform-migration-authority/tests/authority_migration_parity_manifests.rs",
+      "native_functions": [
+        "baseline_metadata_rejects_all_original_ambiguous_shapes",
+        "baseline_readiness_requires_frozen_state_cutover_and_legacy_freeze_agreement"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "Other baseline assertions covered in authority_migration_parity; verify-contract zero-row/live-query checks still not mapped.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_manifest_legacy.py",
+      "source_sha256": "de3613770630f64c0f56a84a100a4ba9922bc5fe6b0084b13d813e599b36a97e",
+      "source_cases": [
+        "test_epoch_ledger_id_allows_leading_digits_but_must_match_directory",
+        "test_epoch_manifest_rejects_extra_sql_and_checksum_drift",
+        "test_epoch_manifest_rejects_unsafe_execution_contracts",
+        "test_legacy_manifest_rejects_extra_sql_and_checksum_drift",
+        "test_transaction_control_rejects_unpaired_nested_or_rollback",
+        "test_all_manifest_legacy_sql_has_safe_transaction_control"
+      ],
+      "native_package": "ai-platform-migration-authority",
+      "native_target": "authority_migration_parity_manifests",
+      "native_path": "rust/platform-native/crates/platform-migration-authority/tests/authority_migration_parity_manifests.rs",
+      "native_functions": [
+        "epoch_rejects_directory_mismatch_extra_sql_checksum_and_unsafe_execution_contracts",
+        "legacy_rejects_extra_sql_checksum_and_invalid_transaction_wrappers"
+      ],
+      "retirement_eligibility": "Listed cases represented; root verification pending. Whole suite only when every case covered.",
+      "residual": "Only listed pure artifact contracts; reconciliation/crash/transaction DB assertions remain pending.",
+      "execution": "Unrun; root serializes Cargo."
+    }
+  ]
+}

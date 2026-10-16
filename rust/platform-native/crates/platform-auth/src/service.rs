@@ -1,4 +1,4 @@
-//! Unmounted service orchestration. Live PostgreSQL/Redis acceptance is required.
+//! Authentication service orchestration. Live PostgreSQL/Redis acceptance is required.
 pub use crate::contract::{LoginResponse, UserProfile};
 use crate::{
     Claims, PasswordEngine, TokenCodec,
@@ -199,7 +199,7 @@ impl AuthService {
             })?;
         let authority = self
             .accounts
-            .authority(&account.user_id, &account.tenant_id)
+            .legacy_authority(&account.user_id, &account.tenant_id)
             .await
             .map_err(|e| {
                 if e == StoreError::Changed {
@@ -315,7 +315,7 @@ impl AuthService {
         }
         let authority = self
             .accounts
-            .authority(&claims.sub, &claims.tenant_id)
+            .current_authority(&claims.sub, &claims.tenant_id)
             .await
             .map_err(|e| {
                 if e == StoreError::Changed {
