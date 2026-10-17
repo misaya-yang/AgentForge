@@ -141,12 +141,19 @@ require_migrator_dsn || exit 1
 
 log_step "Database authority: ${AUTHORITY_COMMAND}"
 
+initialize_local_credentials() {
+    if [ "${AI_PLATFORM_LOCAL_DEV_CREDENTIALS:-false}" = true ]; then
+        database-authority initialize-local-credentials --expected-database "${POSTGRES_DB:-gateway}"
+    fi
+}
+
 # Fresh-install initialization still uses the native source classifier. It
 # pre-provisions roles first so the dedicated migrator can classify the empty
 # database, then has the administrator install required extensions.
 if [ "$AUTHORITY_COMMAND" = "init-fresh" ]; then
     require_distinct_admin_dsn || exit 1
     database-authority provision-roles
+    initialize_local_credentials
     source_kind="$(database-authority source-kind)"
     if [ "$source_kind" = "empty" ]; then
         database-authority provision-extensions
@@ -161,6 +168,7 @@ if [ "$AUTO_MODE" = true ] && [ "$AUTHORITY_COMMAND" = "migrate" ]; then
     if [ -n "${AI_GATEWAY_DATABASE_ADMIN_DSN:-}" ]; then
         require_distinct_admin_dsn || exit 1
         database-authority provision-roles
+        initialize_local_credentials
     fi
     source_kind="$(database-authority source-kind)"
     case "$source_kind" in

@@ -1,6 +1,6 @@
 use ai_platform_migration_authority::{
-    AuthorityError, DEFAULT_BASELINE_ID, Result, bootstrap, commands, credentials,
-    runner::MigrationAuthority,
+    AuthorityError, DEFAULT_BASELINE_ID, Result, bootstrap, commands, credential_bootstrap,
+    credentials, runner::MigrationAuthority,
 };
 #[tokio::main]
 async fn main() {
@@ -18,7 +18,7 @@ async fn run() -> Result<()> {
     })?;
     if matches!(command.as_str(), "--help" | "-h") {
         println!(
-            "usage: database-authority {{migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--no-adoption] [--reconciliation-evidence-out PATH]"
+            "usage: database-authority {{migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections,initialize-local-credentials}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--no-adoption] [--reconciliation-evidence-out PATH]"
         );
         return Ok(());
     }
@@ -36,6 +36,7 @@ async fn run() -> Result<()> {
         "prepare-cutover-ownership",
         "cutover",
         "verify-role-connections",
+        "initialize-local-credentials",
     ]
     .contains(&command.as_str())
     {
@@ -77,13 +78,29 @@ async fn run() -> Result<()> {
             "unknown application principal".into(),
         ));
     }
-    if command == "prepare-cutover-ownership" && expected.as_deref().is_none_or(str::is_empty) {
+    if matches!(
+        command.as_str(),
+        "prepare-cutover-ownership" | "initialize-local-credentials"
+    ) && expected.as_deref().is_none_or(str::is_empty)
+    {
         return Err(AuthorityError::Refused(
-            "prepare-cutover-ownership requires --expected-database".into(),
+            "administrator setup requires --expected-database".into(),
         ));
     }
     let prefix = credentials::role_prefix_from_env()?;
     let paths = commands::default_paths();
+    if command == "initialize-local-credentials"
+        || std::env::var("AI_PLATFORM_LOCAL_DEV_CREDENTIALS").as_deref() == Ok("true")
+    {
+        let local_database = expected
+            .clone()
+            .or_else(|| std::env::var("POSTGRES_DB").ok())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                AuthorityError::Refused("explicit local expected database required".into())
+            })?;
+        credential_bootstrap::verify_local_target(&paths, &prefix, &local_database).await?;
+    }
     commands::verify_source(&paths, &baseline)?;
     if command == "verify-role-connections" {
         let count = credentials::verify_role_connections(&prefix, None).await?;
@@ -94,7 +111,8 @@ async fn run() -> Result<()> {
         "provision-roles"
         | "provision-extensions"
         | "bootstrap-ledger-acl"
-        | "prepare-cutover-ownership" => "admin",
+        | "prepare-cutover-ownership"
+        | "initialize-local-credentials" => "admin",
         "startup-check" => principal.as_str(),
         _ => "migrator",
     };
@@ -102,6 +120,10 @@ async fn run() -> Result<()> {
         MigrationAuthority::new(credentials::dsn_for_principal(identity)?, paths, prefix)?;
     let outcome: Result<()> = async {
         match command.as_str() {
+            "initialize-local-credentials" => println!(
+                "{}",
+                credential_bootstrap::initialize(&authority, expected.as_deref().unwrap()).await?
+            ),
             "migrate" => {
                 commands::migrate(&authority, &baseline, !no_adoption, true, false).await?
             }

@@ -12,7 +12,7 @@ export type NavItem = {
   group?: NavGroup;
 };
 
-// Dashboard stays ungrouped on top; the rest splits into 使用 (assistant +
+// Workbench and Dashboard stay ungrouped on top; the rest splits into 使用 (assistant +
 // agents), 构建 (knowledge, playground, eval), and 治理 (services, users,
 // tasks, settings). Empty groups collapse away during filtering below.
 export const GROUP_ORDER: NavGroup[] = ["use", "build", "govern"];

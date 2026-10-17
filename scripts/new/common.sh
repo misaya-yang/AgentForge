@@ -37,6 +37,8 @@ env_file_path() {
 load_env() {
     local env_file
     env_file="$(env_file_path)"
+    # This opt-in must come from the selected file, including when the key is absent.
+    unset AI_PLATFORM_LOCAL_DEV_CREDENTIALS
     if [ -f "$env_file" ]; then
         set -a
         # Parse KEY=VALUE lines only (skip comments, empty lines; no arbitrary execution)
@@ -55,7 +57,9 @@ load_env() {
                 # Callers may pin a release/runtime image explicitly. Keep
                 # those exported values authoritative; the env file supplies
                 # defaults only for variables that are not already present.
-                if [[ ${!key+x} ]]; then
+                # The selected private local-profile marker controls the native
+                # ownership guard; ambient env must not silently disable it.
+                if [[ ${!key+x} ]] && [[ "$key" != AI_PLATFORM_LOCAL_DEV_CREDENTIALS ]]; then
                     continue
                 fi
                 export "$key=$value"

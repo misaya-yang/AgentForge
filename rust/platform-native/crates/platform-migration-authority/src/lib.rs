@@ -2,6 +2,7 @@
 //! No alternative schema ledger or migration lock is introduced.
 pub mod bootstrap;
 pub mod commands;
+pub mod credential_bootstrap;
 pub mod credentials;
 pub mod distribution;
 pub mod ledger;

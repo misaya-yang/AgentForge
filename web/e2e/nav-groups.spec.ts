@@ -1,7 +1,7 @@
 /**
  * Sidebar nav regrouping e2e: Use / Build / Govern groups.
  *
- * Dashboard stays ungrouped on top, then 使用 (assistant + agents),
+ * Workbench and Dashboard stay ungrouped on top, then 使用 (assistant + agents),
  * 构建 (knowledge + playground + eval), 治理 (services + users +
  * tasks + settings). The model_tester role renders a flat rail with only
  * the playground item and no headings.
@@ -37,7 +37,7 @@ function watchRuntimeFailures(page: Page) {
 }
 
 test.describe("sidebar nav groups", () => {
-  test("regroups the sidebar into Use / Build / Govern with dashboard first", async ({
+  test("regroups the sidebar into Use / Build / Govern after Workbench and Dashboard", async ({
     page,
   }) => {
     const assertNoRuntimeFailures = watchRuntimeFailures(page);
@@ -48,9 +48,10 @@ test.describe("sidebar nav groups", () => {
     // Group headings in order.
     await expect(page.locator(".app-nav-group-label")).toHaveText(["Use", "Build", "Govern"]);
 
-    // Full item order: dashboard ungrouped first, then the grouped sections,
+    // Full item order: Workbench and Dashboard first, then the grouped sections,
     // with no trailing items.
     await expect(page.locator("nav .app-nav-label")).toHaveText([
+      "Workbench",
       "Dashboard",
       "AI Assistant",
       "Agents",

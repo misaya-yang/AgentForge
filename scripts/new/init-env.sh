@@ -11,10 +11,11 @@ source "$SCRIPT_DIR/common.sh"
 ENV_FILE="${ENV_FILE:-${PROJECT_ROOT}/.env}"
 FORCE=false
 IF_MISSING=false
+LOCAL_DEV=false
 
 usage() {
     cat <<'USAGE'
-Usage: scripts/new/init-env.sh [--env FILE] [--force] [--if-missing]
+Usage: scripts/new/init-env.sh [--env FILE] [--force] [--if-missing] [--local-dev]
 
 Creates a local env file from .env.example without printing secret values.
 
@@ -22,6 +23,7 @@ Options:
   --env FILE     Destination env file. Defaults to .env
   --force        Replace an existing env file
   --if-missing   Exit successfully when the env file already exists
+  --local-dev    Prepare private inputs for the existing local development project
 USAGE
 }
 
@@ -43,6 +45,10 @@ while [ $# -gt 0 ]; do
             IF_MISSING=true
             shift
             ;;
+        --local-dev)
+            LOCAL_DEV=true
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -54,6 +60,16 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+prepare_local_dev() {
+    if [ "$LOCAL_DEV" = true ]; then
+        if ! command -v platform-tools >/dev/null 2>&1; then
+            log_error "platform-tools is required to prepare the local development profile"
+            return 1
+        fi
+        platform-tools local-dev-env --repo-root "$PROJECT_ROOT" --env-file "$ENV_FILE"
+    fi
+}
 
 EXAMPLE_FILE="${PROJECT_ROOT}/.env.example"
 
@@ -127,6 +143,7 @@ if [ -e "$ENV_FILE" ] && [ "$FORCE" != true ]; then
             log_success "Added missing generated configuration to: $ENV_FILE"
         fi
         log_success "Env file already exists: $ENV_FILE"
+        prepare_local_dev
         exit 0
     fi
     log_error "Env file already exists: $ENV_FILE. Use --force to replace it."
@@ -361,3 +378,4 @@ if ! grep -Eq '^(DASHSCOPE_CHAT_API_KEY|DASHSCOPE_API_KEY|GOOGLE_API_KEY|GEMINI_
 fi
 
 log_info "Next: make validate-config ENV_FILE=\"$ENV_FILE\""
+prepare_local_dev

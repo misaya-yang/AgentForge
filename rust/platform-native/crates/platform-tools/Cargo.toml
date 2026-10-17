@@ -25,3 +25,4 @@ tokio.workspace = true
 ai-platform-capability-contract = { path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract" }
 tar = "0.4"
 flate2 = "1"
+dotenvy = "0.15"

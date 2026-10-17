@@ -4,10 +4,10 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
   "status": "in_progress",
-  "last_updated": "2026-10-17T04:54:02.328358Z",
+  "last_updated": "2026-10-17T05:22:35.685743+00:00",
   "priority": "platform_upgrade_ph0_then_dependency_order",
   "active_phase": "platform_upgrade_ph0",
-  "next_action": "Finish local U-PE-03 checkpoint, then UP-PH0-ACCEPT: initialize the single local project from private owner-provided key/workspace, provision native scoped roles and source-bound services, verify real Responses/Redis and Assistant/Knowledge/Local Node journeys. Keep U-PE-03 hosted PR cohort open; no paid resource, publication or production change authorized.",
+  "next_action": "UP-PH0-ACCEPT: verify fresh local bootstrap and current UI contracts, then source-bound services and actual Responses/Redis plus Assistant/Knowledge/Local Node journeys; retain hosted CI and final product acceptance as open.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
@@ -142,12 +142,26 @@
       "pr_p50": "NOT_MEASURED"
     },
     "local_environment_preparation": {
-      "status": "private_env_initialized",
+      "status": "bootstrap_and_fixture_ui_verified_product_journeys_open",
       "project": "agentforge-dev-7801d4a9a4",
       "doctor": "PASS",
-      "provider_authentication": "Exact plain clipboard key matches saved value. Workspace Responses, embedding and independent curl/x-api-key Anthropic all401 InvalidApiKey. Key validity/workspace binding unresolved; no unchanged retry.",
+      "provider_authentication": "PASS after owner corrected clipboard credential: workspace qwen3.8-flash Responses200/completed/OK and text-embedding-v4 native200/1024 finite dimensions. Direct provider connectivity only.",
       "complete_runtime_acceptance": "NOT_RUN",
-      "private_values_in_git": false
+      "private_values_in_git": false,
+      "infra_ready": [
+        "postgres",
+        "redis",
+        "qdrant",
+        "object-store"
+      ],
+      "schema_epoch": 22,
+      "frozen_verification": "PASS",
+      "scoped_connections": 7,
+      "live_credential_regression": "PASS (explicit --ignored, zero skips)",
+      "frontend_fixture_routes": "53 PASS / 0 FAIL; prior 3 stale assumptions corrected",
+      "node": "26.11.1 external cache",
+      "pnpm": "12.11.2 external cache",
+      "evidence": "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
     }
   },
   "blockers": [
@@ -171,15 +185,15 @@
     },
     {
       "id": "builder-relocation",
-      "cause": "Buildx helper derives a builder name from the absolute source path; lifting the repository changes that hash.",
+      "cause": "Historical dedicated builder is absent; only built-in default/desktop-linux docker-driver builders exist. Current helper would create a forbidden extra builder.",
       "affected_scope": "Next source image build",
-      "next_action": "Reuse the existing validated agentforge-rust-c4b4565e14f050b5 builder; adapt operator selection if needed before invoking the build helper."
+      "next_action": "Implement explicit existing-builder-only selection with verified context/daemon resource ceilings; never create another builder."
     },
     {
-      "id": "local-environment-unavailable",
-      "cause": "Owner has now supplied a provider credential and Singapore workspace API Host. Private .env.dev was initialized with mode0600. Original local containers/volumes/builder remain absent; selected project identity is unchanged.",
+      "id": "current-service-admission-open",
+      "cause": "Private provider connectivity, pinned frontend toolchain, same-project infra and native frozen epoch022 are now verified; Gateway/Knowledge and source-bound Runtime/Worker are not running yet.",
       "affected_scope": "UP-PH0-ACCEPT live journeys and source-bound Runtime/Worker images",
-      "next_action": "Continue same-project local acceptance setup and source-bound builds using existing Docker builders, preserving any newly created data. Provider workspace probes and complete runtime acceptance remain separately measured."
+      "next_action": "Build/admit current services with one serialized writer, reuse the ready project and preserve all volumes."
     },
     {
       "id": "responses-idempotency-observation",
@@ -189,7 +203,7 @@
     },
     {
       "id": "clean-ci-native-inputs",
-      "cause": "Watermark restored, missing final tool installation wired, focused formatting repaired. Remaining historical CI failures include composed upstream input, V8 artifact fetch and frontend route smoke; no new hosted candidate has run.",
+      "cause": "Watermark, final tool install and focused formatting repaired; frontend route smoke now 53/53 PASS locally with pinned toolchain. Composed upstream input and V8 artifact path still need measured current build; hosted candidate not run.",
       "affected_scope": "Ph0 native candidate/build and hosted CI acceptance",
       "next_action": "Continue repairing actual failed paths without weakening tests. Source-bound hosted candidate and real PR cohort need explicit publication approval when ready."
     }
@@ -208,7 +222,9 @@
     "reports/platform-upgrade-20261017/U-PE-02.json",
     "reports/platform-upgrade-20261017/UP-PH0-RESPONSES.json",
     "reports/platform-upgrade-20261017/U-PE-03.json",
-    "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json"
+    "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json",
+    "reports/platform-upgrade-20261017/UP-PH0-provider-connectivity.json",
+    "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
   ],
   "active_package": "UP-PH0-ACCEPT",
   "plan_adoption": {
@@ -2546,7 +2562,7 @@
       "status": "in_progress",
       "source": "docs/plans/platform-upgrade-2026-10/README.md#6-phases-and-work-package-map",
       "result": "Accept current source-bound native build through original Assistant, Knowledge and Local Node journeys and required fault/recovery gates.",
-      "base_sha": "7c8a77f0440d8334e35018ac5ed0530aa2d4fbf2",
+      "base_sha": "d491fc38d85688e31f2c810a41843dce9615ea60",
       "depends_on": [
         {
           "id": "U-PE-01",
@@ -2560,7 +2576,23 @@
       "owned_paths": [
         ".env.dev (ignored private input only)",
         "scripts/new/setup-dev.sh",
-        "scripts/new/init-env.sh"
+        "scripts/new/init-env.sh",
+        "rust/platform-native/crates/platform-tools/src/local_dev_env.rs",
+        "rust/platform-native/crates/platform-tools/tests/local_dev_env.rs",
+        "rust/platform-native/crates/platform-tools/src/main.rs",
+        "rust/platform-native/crates/platform-tools/Cargo.toml",
+        "rust/platform-native/Cargo.lock",
+        "rust/platform-native/crates/platform-migration-authority/src/credential_bootstrap.rs",
+        "rust/platform-native/crates/platform-migration-authority/src/credentials.rs",
+        "rust/platform-native/crates/platform-migration-authority/src/lib.rs",
+        "rust/platform-native/crates/platform-migration-authority/src/main.rs",
+        "rust/platform-native/crates/platform-migration-authority/tests/local_credential_bootstrap.rs",
+        "scripts/new/migrate.sh",
+        "docs/harness/commands.md",
+        "rust/platform-native/crates/platform-migration-authority/Cargo.toml",
+        "web/e2e/agent-studio.spec.ts",
+        "web/e2e/nav-groups.spec.ts",
+        "web/src/config/consoleNavigation.ts"
       ],
       "integration_paths": [
         "deploy/local/**",
@@ -2605,16 +2637,20 @@
       },
       "evidence": [
         "deploy/runbooks/native-enterprise-upgrade/UP-PH0-ACCEPT.md",
-        "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json"
+        "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json",
+        "reports/platform-upgrade-20261017/UP-PH0-provider-connectivity.json",
+        "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
       ],
       "stop_conditions": [
         "Unproven runtime ownership or source/image identity",
         "New paid resource, production mutation or publication without approval",
         "Data loss or weakened tenant/privilege/acceptance contract"
       ],
-      "implementation": "private environment preparation in progress",
-      "verification": "doctor PASS; new complete runtime acceptance NOT_RUN",
-      "authorization_note": "Owner explicitly supplied clipboard credential and workspace API Host for local development and acceptance on 2026-10-17."
+      "implementation": "Private local profile and source/project/port-bound native credential initialization implemented and integrated; same-project infra and frozen epoch022 initialized without password rotation or SQL/fingerprint changes; current UI submit/navigation contracts covered.",
+      "verification": "44 deployment + 6 local-env + 3 credential unit tests PASS; explicit real-PG regression 1 PASS/0 ignored; frozen epoch022 verify and 7 scoped connections PASS; frontend frozen install/type-check and 53 rendered fixture tests PASS. Independent review: no blocker/high. Complete product journeys remain NOT_RUN.",
+      "authorization_note": "Owner explicitly supplied clipboard credential and workspace API Host for local development and acceptance on 2026-10-17.",
+      "next_action": "Checkpoint local bootstrap; build current Gateway/Knowledge; reuse existing builder capacity for source-locked Runtime/Worker then real Responses/Redis and original product journeys.",
+      "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds."
     }
   ]
 }

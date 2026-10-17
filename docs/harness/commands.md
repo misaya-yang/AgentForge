@@ -150,9 +150,31 @@ Restoring over shared data requires a current backup and explicit approval.
 | Purpose | Command |
 | --- | --- |
 | One-shot local dev environment | `make dev-setup` |
+| Prepare private local inputs for the same development project | `scripts/new/init-env.sh --env .env.dev --if-missing --local-dev` |
 | Start / stop / reset / inspect dev containers | `make dev-start` / `make dev-stop` / `make dev-reset` / `make dev-status` |
 | Build and run native backend services from the current source | `make dev-compose` |
 | Follow native development-service logs | `make dev-compose-logs` |
+
+The explicit local profile delegates private S3/scoped-role configuration to
+`platform-tools local-dev-env`. It preserves existing credentials and refuses tracked,
+non-private, conflicting or other-checkout env files. The file must be in the selected
+repository root and use the Compose-published numeric `127.0.0.1` database host.
+It prepares inputs without starting Docker or writing
+the database. The opt-in `AI_PLATFORM_LOCAL_DEV_CREDENTIALS=true` tells the normal native
+migration wrapper to run `database-authority initialize-local-credentials --expected-database NAME`
+after role provisioning. The marker is read only from the selected file; ambient values
+cannot enable or disable it. The command verifies this binary's source checkout, exact
+Compose ownership/configuration and published port before connecting to the database. It initializes
+only missing SCRAM passwords, checks existing credentials without rotating them, and verifies
+the independent role connections. Frozen SQL, fingerprints and application privileges remain
+owned by the existing authority.
+
+After local setup, run the explicit live no-rotation and role-denial regression under the
+integration-runtime resource lock with `ENV_FILE` pointing to the selected `.env.dev`:
+`cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test local_credential_bootstrap -- --ignored`.
+It requires all six credentials to exist, compares role catalog values privately in memory,
+rejects a mismatched password and source override, validates metadata-only admission, and
+checks denied direct ledger/password access and owner escalation. It never resets data.
 
 ## 5. Native tests and formatting
 

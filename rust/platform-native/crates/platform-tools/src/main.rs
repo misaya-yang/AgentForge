@@ -17,6 +17,7 @@ mod hygiene;
 mod inventory_generators;
 mod live_openapi;
 mod loc;
+mod local_dev_env;
 mod native_gates;
 mod packaging;
 mod resource_lock;
@@ -371,6 +372,7 @@ fn run() -> Result<bool> {
  "affected-gates"=>selection::run(&args)?,
  "ci-gate-enforcement"=>ci::run(&args)?,
  "ci-capacity"=>ci_capacity::run(&args)?,
+ "local-dev-env"=>local_dev_env::run(&args)?,
  "rust-changed-crate-gate"=>rust_gate::run(&args)?,
  "architecture-boundary"=>architecture::check(&root, args.values.get("--composed-workspace").map(Path::new))?,
  "python-inventory"=>architecture::python_inventory(&root,args.flag("--require-zero"))?,

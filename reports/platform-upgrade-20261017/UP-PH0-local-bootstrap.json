@@ -1,0 +1,155 @@
+{
+  "schema_version": "platform-upgrade-local-bootstrap/v1",
+  "measured_at": "2026-10-17T05:22:35.685743+00:00",
+  "package": "UP-PH0-ACCEPT",
+  "result": "checkpoint_pass_complete_product_acceptance_open",
+  "source": {
+    "base_sha": "d491fc38d85688e31f2c810a41843dce9615ea60",
+    "state": "scoped working tree changes on base",
+    "sha256": {
+      "rust/platform-native/crates/platform-migration-authority/src/credential_bootstrap.rs": "56f57e64ef1fdcadc5d52ebb44eb243d411904a8b021cd6b4a96787a4de704dc",
+      "rust/platform-native/crates/platform-migration-authority/src/main.rs": "6f0adfbc1d88fdc48316ac6b7a7f7f96bd8aa5c56bbe203e0f4412b563c6275c",
+      "rust/platform-native/crates/platform-migration-authority/tests/local_credential_bootstrap.rs": "89ea7f6aaf5854d2add155fb97c27084f8072c442d938a6858624e86b00700a1",
+      "rust/platform-native/crates/platform-tools/src/local_dev_env.rs": "d88ea3d5f4d26d754dfacaf64d282dd57a00a3357785cf63f41396368e7a3835",
+      "rust/platform-native/crates/platform-tools/tests/local_dev_env.rs": "9f4777f1ac7e3655925b1745e56c1964aaab4e126408f6d0749280f41efcc362",
+      "scripts/new/init-env.sh": "46e4a8969775126ebe430190500c86d649284af952d0337394cf900a873175fd",
+      "scripts/new/migrate.sh": "d09e67bd95f99673f9cd22e4608e0cf2551119dde998f1f0a39fb85b7628d05c",
+      "scripts/new/common.sh": "3994c3981c3dac11df1181eba3130773737c85d9d7334afef89cf91e58865875",
+      "web/e2e/agent-studio.spec.ts": "a3d8d44515ac899197eca573fffa6f6c18dbb99405d86d6b61f0662eeb25b667",
+      "web/e2e/nav-groups.spec.ts": "aba3779f145dd300d1fa5ede0b9097f4e75d05dbd8e7f62d3bbf505ecb6fb8ee"
+    }
+  },
+  "environment": {
+    "project": "agentforge-dev-7801d4a9a4",
+    "working_dir": "/Users/yang/projects/AgentForge",
+    "private_env": "ignored .env.dev, mode0600, values withheld",
+    "node": "26.11.1",
+    "pnpm": "12.11.2",
+    "toolchain_location": "external task cache; system installations unchanged",
+    "playwright": "1.61.0",
+    "chromium": "149.0.7827.55",
+    "browser_strategy": "Browser plugin not available; repository Playwright used",
+    "cargo_jobs": 1,
+    "cargo_debug": false,
+    "cargo_incremental": false,
+    "targets_and_captures": "external task cache",
+    "existing_builders": [
+      "default",
+      "desktop-linux"
+    ],
+    "additional_builders_created": 0,
+    "disk_free_gib_observed": 52
+  },
+  "bootstrap": {
+    "dev_start": "PASS",
+    "dev_setup": "PASS",
+    "services_ready": [
+      "postgres",
+      "redis",
+      "qdrant",
+      "object-store"
+    ],
+    "volumes": "owned project volumes created and preserved; no reset/removal",
+    "schema": "2026_08_post_kb_v1 through successor022",
+    "frozen_verify": "PASS",
+    "role_connections": 7,
+    "first_initialization": {
+      "initialized": 6,
+      "preserved": 0
+    },
+    "repeat_initialization": {
+      "initialized": 0,
+      "preserved": 6,
+      "passwords_rotated": false
+    }
+  },
+  "tests": {
+    "tools_deployment_script_contracts": {
+      "passed": 44,
+      "failed": 0,
+      "ignored": 0
+    },
+    "tools_local_dev_env": {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0
+    },
+    "credential_bootstrap_unit": {
+      "passed": 3,
+      "failed": 0,
+      "filtered_unrelated": 69
+    },
+    "credential_live_explicit_ignored_flag": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "checks": [
+        "owned source/project/port admitted",
+        "all six role catalog rows and SCRAM salts unchanged",
+        "mismatched password rejected without rotation",
+        "source-root override rejected before DB connection",
+        "Gateway and Knowledge metadata-only admission succeeds",
+        "all five application roles denied direct ledger/password reads and owner escalation"
+      ]
+    },
+    "frontend_type_check": "PASS",
+    "frontend_frozen_install": "PASS",
+    "frontend_fixture_routes": {
+      "baseline_passed": 50,
+      "baseline_failed": 3,
+      "current_passed": 53,
+      "current_failed": 0,
+      "workers": 1,
+      "duration_seconds": 132,
+      "viewport_evidence_inspected": [
+        "1440x900 populated",
+        "390x844 filtered empty"
+      ],
+      "scope": "fixture-backed rendered UI; not real-service acceptance"
+    }
+  },
+  "failure_analysis": [
+    {
+      "failure": "live regression initially expected direct ledger SELECT",
+      "cause": "test assumption contradicted frozen successor018 metadata-only admission contract",
+      "resolution": "use production metadata function for positive check and retain direct ledger denial; no SQL/grants/fingerprints changed"
+    },
+    {
+      "failure": "three frontend fixture baseline cases",
+      "cause": "tests assumed immediate search filtering and Dashboard-first navigation; current product explicitly uses Apply/Enter and Workbench entry",
+      "resolution": "exercise both submit methods, assert unsubmitted edits preserve applied results, retain exact navigation and permission expectations"
+    }
+  ],
+  "review": {
+    "mode": "independent read-only",
+    "final_blocker_or_high": 0,
+    "runtime_tests": "executed by primary; reviewer did not independently rerun"
+  },
+  "not_accepted": [
+    "current Gateway/Knowledge process and image admission",
+    "Runtime/Worker image build and source-lock admission",
+    "actual production Responses POST/Redis failure and retry cases",
+    "Assistant original start/history/tool/approval/cancel/recovery journeys",
+    "Knowledge versioned citations/current ACL/uncached retrieval",
+    "Local Node successor023 TLS pairing/control journeys",
+    "hosted CI candidate and PR p50"
+  ],
+  "secrets_in_report": false,
+  "acceptance_criteria_changed": false,
+  "published": false,
+  "gates": {
+    "harness_check": "PASS, five existing historical warnings",
+    "architecture_boundary": "PASS with identity-verified composed workspace; direct partial-overlay invocation correctly failed without composed inputs",
+    "shell_syntax": "PASS",
+    "scoped_rustfmt": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "runtime_source_preparation": {
+    "upstream": "openai/codex",
+    "commit": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "tree": "572cdecd45cd985f0ad80b63d8b86ffcb345f47a",
+    "fetch": "PASS via authenticated gh; external clean shallow checkout",
+    "overlay_preimages": "PASS",
+    "composition": "upstream git archive plus locked overlay, external cache; no host Runtime compilation"
+  }
+}

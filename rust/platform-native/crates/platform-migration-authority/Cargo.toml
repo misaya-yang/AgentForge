@@ -12,6 +12,10 @@ serde_json.workspace = true
 tokio.workspace = true
 serde_yaml = "0.9"
 sha2 = "0.10"
+pbkdf2 = "=0.12.2"
+hmac = "0.12"
+base64 = "0.22"
+subtle = "2"
 regex = "1"
 url = "2"
 percent-encoding = "2"

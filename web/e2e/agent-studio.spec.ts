@@ -425,7 +425,7 @@ async function captureEvidence(
       height: Number(viewportLabel[2]),
     });
   }
-  const evidenceDir = path.resolve(process.cwd(), "../reports/agent-studio/as-05/matrix");
+  const evidenceDir = test.info().outputPath("evidence");
   await fs.mkdir(evidenceDir, { recursive: true });
   await page.screenshot({
     path: path.join(evidenceDir, `${name}.png`),
@@ -456,14 +456,20 @@ test.describe("Agent Studio directory", () => {
     await expect(page.getByText("3 agents")).toBeVisible();
     await captureEvidence(page, "directory-populated-desktop-1440x900");
     await page.getByLabel("Search agents").fill("Policy");
+    await expect(page.getByRole("link", { name: "Support Triage" })).toBeVisible();
+    await page.getByRole("button", { name: "Apply filters", exact: true }).click();
     await expect(page.getByRole("link", { name: "Policy Copilot" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Support Triage" })).toHaveCount(0);
     await page.getByLabel("Search agents").fill("");
+    await page.getByLabel("Search agents").press("Enter");
     await expect(page.getByRole("link", { name: "Support Triage" })).toBeVisible();
     await page.getByLabel("Search agents").fill("no matching agent");
+    await page.getByRole("button", { name: "Apply filters", exact: true }).click();
     await expect(page.getByText("No agents match these filters.")).toBeVisible();
     await captureEvidence(page, "directory-filtered-empty-desktop-1440x900");
     await page.getByLabel("Search agents").fill("");
+    await page.getByLabel("Search agents").press("Enter");
+    await expect(page.getByRole("link", { name: "Support Triage" })).toBeVisible();
     const createButton = page.getByRole("button", { name: "Create agent" });
     await tabTo(page, createButton);
     await expect(createButton).toBeFocused();
@@ -479,9 +485,13 @@ test.describe("Agent Studio directory", () => {
     await expect(page.locator(".agent-table-desktop")).toBeHidden();
     await captureEvidence(page, "directory-populated-mobile-390x844");
     await page.getByLabel("Search agents").fill("no matching agent");
+    await expect(page.getByRole("link", { name: "Support Triage" })).toBeVisible();
+    await page.getByRole("button", { name: "Apply filters", exact: true }).click();
     await expect(page.getByText("No agents match these filters.")).toBeVisible();
     await captureEvidence(page, "directory-filtered-empty-mobile-390x844");
     await page.getByLabel("Search agents").fill("");
+    await page.getByLabel("Search agents").press("Enter");
+    await expect(page.getByRole("link", { name: "Support Triage" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
     assertHappy();
   });
@@ -531,6 +541,8 @@ test.describe("Agent Studio directory", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await captureEvidence(page, "directory-empty-mobile-390x844");
     await page.getByLabel("Search agents").fill("missing");
+    await expect(page.getByText("Create your first agent to configure a reusable runtime.")).toBeVisible();
+    await page.getByRole("button", { name: "Apply filters", exact: true }).click();
     await expect(page.getByText("No agents match these filters.")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("Create your first agent to configure a reusable runtime.")).toBeVisible();
