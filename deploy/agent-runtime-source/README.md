@@ -75,6 +75,37 @@ against the selected source unit before changing application services.
 Source identity checks do not claim that native execution, Docker health,
 provider calls, rollback, publication or another platform has been verified.
 
+### Reuse existing local builder capacity
+
+The resource helper never creates, selects globally, or removes a builder. Its
+default checkout-scoped builder must already exist with the exact container
+memory/CPU limits. An explicit `AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER` instead
+selects an existing single-node `docker` driver in the current local Unix-socket
+context. `DOCKER_HOST` overrides and remote/mismatched endpoints are refused.
+
+For this mode, each build's memory/CPU inputs bound the **shared Docker daemon**,
+including infrastructure. They are not a per-build container limit. The helper
+checks actual `MemTotal` and `NCPU` before building and fails when either exceeds
+the explicit budget. Keep the shared Rust build lock, one Cargo job, host-memory
+guard and adequate daemon headroom. Runtime and Worker builds select the current
+source lock's local platform, `linux/arm64`; image recording and pair verification
+remain mandatory.
+
+For an already capped local daemon of at most 4 GiB and four CPUs:
+
+```sh
+AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER=desktop-linux \
+AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/pinned-clean-checkout \
+AI_PLATFORM_AGENT_RUNTIME_BUILD_MEMORY=4g \
+AI_PLATFORM_AGENT_RUNTIME_BUILD_CPU_QUOTA=400000 \
+AI_PLATFORM_CAPABILITY_WORKER_BUILD_MEMORY=4g \
+AI_PLATFORM_CAPABILITY_WORKER_BUILD_CPU_QUOTA=400000 \
+CARGO_BUILD_JOBS=1 scripts/rust/build-update.sh --artifact all
+```
+
+No daemon configuration is changed by this command. A missing builder, unknown
+capacity or exceeded ceiling stops the build before image construction.
+
 When the platform overlay or capability migration changes, refresh its derived
 identity and Worker dependency SBOM from the clean, controlled composed source
 workspace. This command reads that workspace and updates the repository lock, overlay manifest and

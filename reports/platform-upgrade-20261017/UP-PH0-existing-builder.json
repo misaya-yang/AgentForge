@@ -1,0 +1,99 @@
+{
+  "result": "pass",
+  "cases": [
+    {
+      "arguments": [
+        "--memory",
+        "4g",
+        "--cpu-quota",
+        "400000",
+        "--existing-builder",
+        "desktop-linux"
+      ],
+      "expected_success": true,
+      "expected_result_observed": true
+    },
+    {
+      "arguments": [
+        "--memory",
+        "2g",
+        "--cpu-quota",
+        "400000",
+        "--existing-builder",
+        "desktop-linux"
+      ],
+      "expected_success": false,
+      "expected_result_observed": true
+    },
+    {
+      "arguments": [
+        "--memory",
+        "4g",
+        "--cpu-quota",
+        "200000",
+        "--existing-builder",
+        "desktop-linux"
+      ],
+      "expected_success": false,
+      "expected_result_observed": true
+    },
+    {
+      "arguments": [
+        "--memory",
+        "4g",
+        "--cpu-quota",
+        "400000"
+      ],
+      "expected_success": false,
+      "expected_result_observed": true
+    }
+  ],
+  "builders_before": [
+    "default",
+    "desktop-linux"
+  ],
+  "builders_after": [
+    "default",
+    "desktop-linux"
+  ],
+  "builder_mutations": 0,
+  "actual_daemon_memory_bytes": 4107141120,
+  "actual_daemon_cpus": 4,
+  "schema_version": "platform-upgrade-existing-builder/v1",
+  "package": "UP-PH0-ACCEPT",
+  "measured_at": "2026-10-17T05:30:28.346495+00:00",
+  "base_sha": "6ae194e",
+  "source_sha256": {
+    "rust/platform-native/crates/platform-tools/src/buildx_resource.rs": "1f6f2ad28400a8c94aa9fe86c89b5c161c4f26db7fd25fc67de5c92713340af7",
+    "rust/platform-native/crates/platform-tools/tests/buildx_existing.rs": "e97fd7610bcd23b7e3bfb142d98345a31481348026c8e9ec3eea8567bf1eeb10",
+    "scripts/harness/build_agent_runtime_image.sh": "5c3633b69b546b4f132cac0fbf3a9db42a2a800aaa60967e940f023f7c991313",
+    "scripts/harness/build_agent_capability_worker_image.sh": "f2f113630eeb2c0d0a1fea84e7ed433a4636587073610c6fb3fd056c093449bb"
+  },
+  "unit_tests": {
+    "passed": 7,
+    "failed": 0,
+    "filtered_unrelated": 63
+  },
+  "cli_subprocess_regression": {
+    "passed": 1,
+    "failed": 0,
+    "cases": 4,
+    "scope": "default/explicit selection, remote context/DOCKER_HOST overrides rejected before builder calls"
+  },
+  "deployment_contract_tests": {
+    "passed": 44,
+    "failed": 0
+  },
+  "review": "Independent read-only final review: no blocker/high; tests and actual CLI run by primary",
+  "resource_semantics": "Shared Docker daemon capacity, not isolated per-build container; all image builds serialized with one Cargo job and host memory guard",
+  "image_build": "NOT_RUN at this checkpoint",
+  "image_acceptance": "OPEN",
+  "published": false,
+  "gates": {
+    "harness_check": "PASS (five historical warnings)",
+    "architecture_boundary": "PASS with verified composed source",
+    "shell_syntax": "PASS",
+    "scoped_rustfmt": "PASS",
+    "git_diff_check": "PASS"
+  }
+}

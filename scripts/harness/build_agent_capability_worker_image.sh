@@ -67,7 +67,7 @@ monitor_build_memory() {
 
 resource_builder="$(platform-tools buildx-resource-builder --repo-root "$repo_root" --memory "$build_memory" --cpu-quota "$build_cpu_quota")"
 platform_configure_build_proxy_args
-docker buildx build --builder "$resource_builder" --load \
+docker buildx build --builder "$resource_builder" --platform linux/arm64 --load \
     ${platform_build_proxy_args[@]+"${platform_build_proxy_args[@]}"} \
     --file "$repo_root/deploy/agent-runtime-source/Dockerfile.capability-worker" \
     --build-arg "AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION=$source_revision" \

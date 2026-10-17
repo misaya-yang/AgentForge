@@ -86,3 +86,21 @@ and prepare source-locked Runtime/Worker artifacts using existing builder capaci
 Measure real POST/Redis regressions and the original Assistant, Knowledge and
 Local Node journeys after the required services are admitted. Compilation, direct
 provider probes and preflight remain distinct from final acceptance.
+
+Checkpoint `6ae194e` records the local bootstrap and rendered-UI evidence. The
+current Gateway binary then built successfully with one host Cargo job; its
+configuration projection and temporary loopback liveness passed. The resource-lock
+runner stopped the process on command completion; no persistent Gateway service or
+readiness acceptance is claimed. Knowledge process compilation is the next serial
+native build. Runtime source was fetched from the official upstream at the locked
+commit/tree, verified against overlay preimages and composed outside the checkout;
+the architecture boundary gate passes with these explicit inputs. A direct gate
+without composed inputs correctly failed on the partial overlay's missing dependency.
+
+The next builder change removes automatic creation entirely and adds explicit
+existing local docker-driver selection with context/endpoint and actual shared-daemon
+capacity validation. Current daemon evidence is 4,107,141,120 bytes and four CPUs;
+the selected ceiling will be 4 GiB/four CPUs, one Cargo job, serial builds and host
+memory guard. This is a shared daemon limit, not an isolated builder limit. The
+Runtime/Worker source lock still contains no admitted image; build, recovery tests,
+image pair identity and live journeys are open.

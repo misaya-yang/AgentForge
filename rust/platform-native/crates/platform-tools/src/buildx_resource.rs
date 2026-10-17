@@ -1,4 +1,4 @@
-//! Checkout-scoped Buildx builders with verified BuildKit resource ceilings.
+//! Read-only selection of existing builders with verified resource ceilings.
 use crate::{Args, Result};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -80,6 +80,31 @@ fn inspected_driver(output: &str) -> Option<&str> {
     })
 }
 
+fn local_context_with(
+    execute: &mut impl FnMut(&[String]) -> std::result::Result<CommandOutput, String>,
+) -> std::result::Result<String, String> {
+    let context = execute(&["context".into(), "show".into()])?;
+    let name = context.stdout.trim();
+    if !context.success || name.is_empty() || name.lines().count() != 1 {
+        return Err("Docker context lookup failed".into());
+    }
+    let endpoint = execute(&[
+        "context".into(),
+        "inspect".into(),
+        name.into(),
+        "--format".into(),
+        "{{json .Endpoints.docker.Host}}".into(),
+    ])?;
+    let host: String = serde_json::from_str(&endpoint.stdout)
+        .ok()
+        .filter(|_: &String| endpoint.success)
+        .ok_or("Docker context endpoint unavailable")?;
+    if !host.starts_with("unix:///") {
+        return Err("local builds require a local Unix-socket Docker context".into());
+    }
+    Ok(name.into())
+}
+
 fn ensure_builder_with(
     root: &Path,
     memory: &str,
@@ -96,49 +121,29 @@ fn ensure_builder_with(
     if !root.is_dir() {
         return Err("repository root must be a directory".into());
     }
-    let context = execute(&["context".into(), "show".into()])?;
-    if !context.success {
-        return Err("Docker context lookup failed".into());
-    }
-    let context = context.stdout.trim();
-    if context.is_empty() || context.lines().count() != 1 {
-        return Err("Docker returned an invalid context name".into());
-    }
-    let context = context.to_owned();
+    let context = local_context_with(&mut execute)?;
     let name = builder_name(&root, &context, memory, cpu_quota);
     let inspect = vec!["buildx".into(), "inspect".into(), name.clone()];
     let existing = execute(&inspect)?;
     if !existing.success {
-        let node = format!("{name}0");
-        let create = vec![
-            "buildx".into(),
-            "create".into(),
-            "--name".into(),
-            name.clone(),
-            "--node".into(),
-            node,
-            "--driver".into(),
-            "docker-container".into(),
-            "--driver-opt".into(),
-            format!("memory={memory}"),
-            "--driver-opt".into(),
-            format!("cpu-quota={cpu_quota}"),
-            "--bootstrap".into(),
-            context,
-        ];
-        let created = execute(&create)?;
-        if !created.success {
-            return Err("scoped Buildx builder creation failed".into());
-        }
+        return Err("scoped Buildx builder is absent; creation is disabled; explicitly select an existing local builder".into());
     }
-
-    let inspected = if existing.success {
-        existing
-    } else {
-        execute(&inspect)?
-    };
+    let inspected = existing;
     if !inspected.success || inspected_driver(&inspected.stdout) != Some("docker-container") {
         return Err("scoped Buildx builder has an unexpected driver".into());
+    }
+    let endpoints: Vec<_> = inspected
+        .stdout
+        .lines()
+        .filter_map(|line| {
+            let (field, value) = line.split_once(':')?;
+            (field.trim() == "Endpoint").then_some(value.trim())
+        })
+        .collect();
+    if endpoints != [context.as_str()] {
+        return Err(
+            "scoped Buildx builder must have one node in the selected local context".into(),
+        );
     }
 
     let container = format!("buildx_buildkit_{name}0");
@@ -175,6 +180,71 @@ fn execute_docker(args: &[String]) -> std::result::Result<CommandOutput, String>
     })
 }
 
+fn existing_local_builder_with(
+    name: &str,
+    memory: &str,
+    cpu_quota: u64,
+    mut execute: impl FnMut(&[String]) -> std::result::Result<CommandOutput, String>,
+) -> std::result::Result<String, String> {
+    let memory_limit = memory_bytes(memory)?;
+    if name.is_empty()
+        || name.starts_with('-')
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
+        || cpu_quota == 0
+    {
+        return Err(
+            "existing builder name and resource ceilings must be explicit and valid".into(),
+        );
+    }
+    let context_name = local_context_with(&mut execute)?;
+    let inspected = execute(&["buildx".into(), "inspect".into(), name.into()])?;
+    let fields = |field: &str| {
+        inspected
+            .stdout
+            .lines()
+            .filter_map(|line| {
+                let (key, value) = line.split_once(':')?;
+                (key.trim() == field).then(|| value.trim().to_owned())
+            })
+            .collect::<Vec<_>>()
+    };
+    if !inspected.success
+        || inspected_driver(&inspected.stdout) != Some("docker")
+        || fields("Name").first().map(String::as_str) != Some(name)
+        || fields("Endpoint") != [context_name]
+        || fields("Status") != ["running"]
+    {
+        return Err("existing builder must be a running single-node docker driver in the selected local context".into());
+    }
+    let info = execute(&[
+        "info".into(),
+        "--format".into(),
+        "{\"memory\":{{json .MemTotal}},\"cpus\":{{json .NCPU}}}".into(),
+    ])?;
+    let value: Value = serde_json::from_str(&info.stdout)
+        .ok()
+        .filter(|_: &Value| info.success)
+        .ok_or("Docker daemon capacity unavailable")?;
+    let memory = value["memory"]
+        .as_u64()
+        .filter(|n| *n > 0)
+        .ok_or("Docker daemon memory ceiling unavailable")?;
+    let cpu = value["cpus"]
+        .as_u64()
+        .filter(|n| *n > 0)
+        .and_then(|n| n.checked_mul(100_000))
+        .ok_or("Docker daemon CPU ceiling unavailable")?;
+    if memory > memory_limit || cpu > cpu_quota {
+        return Err(
+            "existing Docker daemon exceeds the explicitly selected shared memory/CPU ceilings"
+                .into(),
+        );
+    }
+    Ok(name.into())
+}
+
 pub fn run(args: &Args) -> Result<Value> {
     if args.flag("--help")
         || args
@@ -183,7 +253,7 @@ pub fn run(args: &Args) -> Result<Value> {
             .is_some_and(|arg| arg == "-h" || arg == "--help")
     {
         return Ok(serde_json::json!({
-            "_plain": "usage: platform-tools buildx-resource-builder --repo-root PATH --memory Nm|Ng --cpu-quota N"
+            "_plain": "usage: platform-tools buildx-resource-builder --repo-root PATH --memory Nm|Ng --cpu-quota N [--existing-builder NAME]; never creates builders. Existing docker-driver mode checks shared daemon ceilings. AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER supplies the same explicit selection to build wrappers."
         }));
     }
     let memory = args.get("--memory")?;
@@ -192,7 +262,21 @@ pub fn run(args: &Args) -> Result<Value> {
         .parse::<u64>()
         .map_err(|_| "CPU quota must be a positive integer")?;
     let root = Path::new(args.get("--repo-root")?);
-    let name = ensure_builder_with(root, memory, cpu_quota, execute_docker)?;
+    let selected = args
+        .values
+        .get("--existing-builder")
+        .cloned()
+        .or_else(|| std::env::var("AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER").ok())
+        .filter(|s| !s.is_empty());
+    if std::env::var_os("DOCKER_HOST").is_some_and(|v| !v.is_empty()) {
+        return Err("unset DOCKER_HOST; builds require the explicit local Docker context".into());
+    }
+    let name = if let Some(selected) = selected {
+        root.canonicalize()?;
+        existing_local_builder_with(&selected, memory, cpu_quota, execute_docker)?
+    } else {
+        ensure_builder_with(root, memory, cpu_quota, execute_docker)?
+    };
     Ok(serde_json::json!({"_plain": name}))
 }
 
@@ -216,71 +300,120 @@ mod tests {
     }
 
     #[test]
-    fn creates_a_scoped_builder_and_verifies_actual_container_limits() {
+    fn missing_builder_never_creates_or_selects_one() {
         let root = root();
-        let expected_name = super::builder_name(
-            &root.canonicalize().unwrap(),
-            "desktop-linux",
-            "4g",
-            200_000,
-        );
-        let calls = RefCell::new(Vec::<Vec<String>>::new());
-        let name = ensure_builder_with(&root, "4g", 200_000, |args| {
+        let calls = RefCell::new(Vec::new());
+        let result = ensure_builder_with(&root, "4g", 200_000, |args| {
             calls.borrow_mut().push(args.to_vec());
             match args {
                 [context, show] if context == "context" && show == "show" => {
                     Ok(output(true, "desktop-linux\n"))
                 }
+                [context, inspect, ..] if context == "context" && inspect == "inspect" => {
+                    Ok(output(true, "\"unix:///fixture/docker.sock\""))
+                }
                 [buildx, inspect, _] if buildx == "buildx" && inspect == "inspect" => {
-                    let count = calls
-                        .borrow()
-                        .iter()
-                        .filter(|call| call.first().is_some_and(|v| v == "buildx"))
-                        .count();
-                    if count == 1 {
-                        Ok(output(false, ""))
-                    } else {
-                        Ok(output(true, "Name: test\nDriver: docker-container\n"))
-                    }
+                    Ok(output(false, ""))
                 }
-                [buildx, create, ..] if buildx == "buildx" && create == "create" => {
-                    assert!(
-                        args.windows(2)
-                            .any(|w| w[0] == "--driver" && w[1] == "docker-container")
-                    );
-                    assert!(
-                        args.windows(2)
-                            .any(|w| w[0] == "--driver-opt" && w[1] == "memory=4g")
-                    );
-                    assert!(
-                        args.windows(2)
-                            .any(|w| { w[0] == "--driver-opt" && w[1] == "cpu-quota=200000" })
-                    );
-                    assert!(args.iter().any(|arg| arg == "desktop-linux"));
-                    Ok(output(true, ""))
-                }
-                [container, inspect, format, template, name]
-                    if container == "container"
-                        && inspect == "inspect"
-                        && format == "--format"
-                        && template == "{{json .HostConfig}}" =>
-                {
-                    assert_eq!(name, &format!("buildx_buildkit_{expected_name}0"));
-                    Ok(output(true, r#"{"Memory":4294967296,"CpuQuota":200000}"#))
-                }
-                _ => panic!("unexpected Docker command: {args:?}"),
+                _ => panic!("missing builder must not cause a mutation: {args:?}"),
             }
+        });
+        assert!(result.unwrap_err().contains("creation is disabled"));
+        assert_eq!(calls.into_inner().len(), 3);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    fn local_responses() -> Vec<CommandOutput> {
+        vec![
+            output(true, "desktop-linux\n"),
+            output(true, "\"unix:///fixture/docker.sock\""),
+            output(
+                true,
+                "Name: desktop-linux\nDriver: docker\nNodes:\nName: desktop-linux\nEndpoint: desktop-linux\nStatus: running\n",
+            ),
+            output(true, r#"{"memory":4107141120,"cpus":4}"#),
+        ]
+    }
+
+    #[test]
+    fn existing_local_daemon_selection_is_readonly_and_budgeted() {
+        let mut responses = local_responses().into_iter();
+        let mut calls = vec![];
+        let name = existing_local_builder_with("desktop-linux", "4g", 400_000, |args| {
+            calls.push(args.to_vec());
+            Ok(responses.next().expect("unexpected extra Docker query"))
         })
         .unwrap();
-        assert_eq!(name, expected_name);
-        let calls = calls.into_inner();
-        assert_eq!(calls.len(), 5);
-        assert!(
-            !calls
+        assert_eq!(name, "desktop-linux");
+        assert_eq!(calls.len(), 4);
+        assert!(calls.iter().all(|call| {
+            !call
                 .iter()
-                .any(|call| call.iter().any(|arg| arg == "use" || arg == "rm"))
+                .any(|v| ["create", "use", "rm", "update", "--bootstrap"].contains(&v.as_str()))
+        }));
+    }
+
+    #[test]
+    fn rejects_remote_wrong_context_multi_node_and_unbounded_daemons() {
+        for (step, replacement) in [
+            (1, output(true, "\"tcp://remote.invalid:2376\"")),
+            (2, output(false, "")),
+            (
+                2,
+                output(
+                    true,
+                    "Name: other\nDriver: docker\nEndpoint: desktop-linux\nStatus: running\n",
+                ),
+            ),
+            (
+                2,
+                output(
+                    true,
+                    "Name: desktop-linux\nDriver: docker-container\nEndpoint: desktop-linux\nStatus: running\n",
+                ),
+            ),
+            (
+                2,
+                output(
+                    true,
+                    "Name: desktop-linux\nDriver: docker\nEndpoint: remote\nStatus: running\n",
+                ),
+            ),
+            (
+                2,
+                output(
+                    true,
+                    "Name: desktop-linux\nDriver: docker\nEndpoint: desktop-linux\nEndpoint: remote\nStatus: running\n",
+                ),
+            ),
+            (
+                2,
+                output(
+                    true,
+                    "Name: desktop-linux\nDriver: docker\nEndpoint: desktop-linux\nStatus: stopped\n",
+                ),
+            ),
+            (3, output(true, r#"{"memory":8589934592,"cpus":4}"#)),
+            (3, output(true, r#"{"memory":4107141120,"cpus":8}"#)),
+            (3, output(true, r#"{"memory":0,"cpus":4}"#)),
+            (3, output(true, "not JSON")),
+        ] {
+            let mut responses = local_responses();
+            responses[step] = replacement;
+            let mut responses = responses.into_iter();
+            assert!(
+                existing_local_builder_with("desktop-linux", "4g", 400_000, |_| {
+                    Ok(responses.next().expect("selection must not mutate Docker"))
+                })
+                .is_err()
+            );
+        }
+        assert!(
+            existing_local_builder_with("--bootstrap", "4g", 400_000, |_| panic!(
+                "invalid name must not run Docker"
+            ))
+            .is_err()
         );
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -291,7 +424,8 @@ mod tests {
             step += 1;
             Ok(match step {
                 1 => output(true, "default\n"),
-                2 => output(true, "Name: scoped\nDriver: docker\n"),
+                2 => output(true, "\"unix:///fixture/docker.sock\""),
+                3 => output(true, "Name: scoped\nDriver: docker\n"),
                 _ => panic!("unexpected Docker call"),
             })
         });
@@ -305,8 +439,12 @@ mod tests {
             step += 1;
             Ok(match step {
                 1 => output(true, "default\n"),
-                2 => output(true, "Name: scoped\nDriver: docker-container\n"),
-                3 => output(true, r#"{"Memory":1073741824,"CpuQuota":0}"#),
+                2 => output(true, "\"unix:///fixture/docker.sock\""),
+                3 => output(
+                    true,
+                    "Name: scoped\nDriver: docker-container\nEndpoint: default\n",
+                ),
+                4 => output(true, r#"{"Memory":1073741824,"CpuQuota":0}"#),
                 _ => panic!("unexpected Docker call"),
             })
         });
@@ -325,21 +463,25 @@ mod tests {
             step += 1;
             Ok(match step {
                 1 => output(true, "default\n"),
-                2 => {
+                2 => output(true, "\"unix:///fixture/docker.sock\""),
+                3 => {
                     assert_eq!(args[0], "buildx");
                     assert_eq!(args[1], "inspect");
-                    output(true, "Name: existing\nDriver:        docker-container\n")
+                    output(
+                        true,
+                        "Name: existing\nDriver:        docker-container\nEndpoint: default\n",
+                    )
                 }
-                3 => {
+                4 => {
                     assert_eq!(args[0], "container");
                     assert_eq!(args[1], "inspect");
                     output(true, r#"{"Memory":2147483648,"CpuQuota":100000}"#)
                 }
-                _ => panic!("reused builder should require exactly three Docker calls"),
+                _ => panic!("reused builder should require exactly four Docker calls"),
             })
         })
         .unwrap();
-        assert_eq!(step, 3);
+        assert_eq!(step, 4);
         assert!(name.starts_with("agentforge-rust-"));
         std::fs::remove_dir_all(root).unwrap();
     }

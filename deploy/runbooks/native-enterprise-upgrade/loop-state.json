@@ -4,10 +4,10 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
   "status": "in_progress",
-  "last_updated": "2026-10-17T05:22:35.685743+00:00",
+  "last_updated": "2026-10-17T05:30:28.346495+00:00",
   "priority": "platform_upgrade_ph0_then_dependency_order",
   "active_phase": "platform_upgrade_ph0",
-  "next_action": "UP-PH0-ACCEPT: verify fresh local bootstrap and current UI contracts, then source-bound services and actual Responses/Redis plus Assistant/Knowledge/Local Node journeys; retain hosted CI and final product acceptance as open.",
+  "next_action": "UP-PH0-ACCEPT: source-locked Runtime/Worker Docker build with existing builder only, then admit current Gateway/Knowledge and measure real Responses/Redis plus original product journeys.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
@@ -161,7 +161,9 @@
       "frontend_fixture_routes": "53 PASS / 0 FAIL; prior 3 stale assumptions corrected",
       "node": "26.11.1 external cache",
       "pnpm": "12.11.2 external cache",
-      "evidence": "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
+      "evidence": "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json",
+      "native_gateway_build": "PASS; configuration projection and temporary liveness PASS, resource runner stopped process after command; current readiness not accepted",
+      "native_knowledge_build": "PASS (platform-knowledge-service binary)"
     }
   },
   "blockers": [
@@ -185,9 +187,9 @@
     },
     {
       "id": "builder-relocation",
-      "cause": "Historical dedicated builder is absent; only built-in default/desktop-linux docker-driver builders exist. Current helper would create a forbidden extra builder.",
+      "cause": "Existing-builder-only selection now implemented and tested against desktop-linux with actual daemon capacity; no new builder created. Current source images still need build and admission.",
       "affected_scope": "Next source image build",
-      "next_action": "Implement explicit existing-builder-only selection with verified context/daemon resource ceilings; never create another builder."
+      "next_action": "Build and verify paired Runtime/Worker images through existing desktop-linux capacity under shared rust-build lock."
     },
     {
       "id": "current-service-admission-open",
@@ -224,7 +226,8 @@
     "reports/platform-upgrade-20261017/U-PE-03.json",
     "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json",
     "reports/platform-upgrade-20261017/UP-PH0-provider-connectivity.json",
-    "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
+    "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json",
+    "reports/platform-upgrade-20261017/UP-PH0-existing-builder.json"
   ],
   "active_package": "UP-PH0-ACCEPT",
   "plan_adoption": {
@@ -2592,7 +2595,13 @@
         "rust/platform-native/crates/platform-migration-authority/Cargo.toml",
         "web/e2e/agent-studio.spec.ts",
         "web/e2e/nav-groups.spec.ts",
-        "web/src/config/consoleNavigation.ts"
+        "web/src/config/consoleNavigation.ts",
+        "rust/platform-native/crates/platform-tools/src/buildx_resource.rs",
+        "scripts/harness/build_agent_runtime_image.sh",
+        "scripts/harness/build_agent_capability_worker_image.sh",
+        "deploy/agent-runtime-source/README.md",
+        "rust/platform-native/crates/platform-tools/tests/buildx_existing.rs",
+        "deploy/agent-runtime-source/lock.json"
       ],
       "integration_paths": [
         "deploy/local/**",
@@ -2639,7 +2648,8 @@
         "deploy/runbooks/native-enterprise-upgrade/UP-PH0-ACCEPT.md",
         "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json",
         "reports/platform-upgrade-20261017/UP-PH0-provider-connectivity.json",
-        "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json"
+        "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json",
+        "reports/platform-upgrade-20261017/UP-PH0-existing-builder.json"
       ],
       "stop_conditions": [
         "Unproven runtime ownership or source/image identity",
@@ -2647,10 +2657,10 @@
         "Data loss or weakened tenant/privilege/acceptance contract"
       ],
       "implementation": "Private local profile and source/project/port-bound native credential initialization implemented and integrated; same-project infra and frozen epoch022 initialized without password rotation or SQL/fingerprint changes; current UI submit/navigation contracts covered.",
-      "verification": "44 deployment + 6 local-env + 3 credential unit tests PASS; explicit real-PG regression 1 PASS/0 ignored; frozen epoch022 verify and 7 scoped connections PASS; frontend frozen install/type-check and 53 rendered fixture tests PASS. Independent review: no blocker/high. Complete product journeys remain NOT_RUN.",
+      "verification": "44 deployment + 6 local-env + 3 credential unit tests PASS; explicit real-PG regression 1 PASS/0 ignored; frozen epoch022 verify and 7 scoped connections PASS; frontend frozen install/type-check and 53 rendered fixture tests PASS. Independent review: no blocker/high. Complete product journeys remain NOT_RUN. Current Gateway/Knowledge binaries BUILD PASS; existing builder 7 unit + 1 CLI regression and actual selection/over-budget/missing-builder probes PASS, zero builder mutations.",
       "authorization_note": "Owner explicitly supplied clipboard credential and workspace API Host for local development and acceptance on 2026-10-17.",
-      "next_action": "Checkpoint local bootstrap; build current Gateway/Knowledge; reuse existing builder capacity for source-locked Runtime/Worker then real Responses/Redis and original product journeys.",
-      "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds."
+      "next_action": "Commit existing-builder guard, then run source-locked Runtime/Worker builds serially with desktop-linux, daemon ceilings4g/400000 and one Cargo job; no publication. Source/image/health and complete product journeys remain open.",
+      "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds. Next source-build step: existing-builder-only selection with context/resource validation; serial Runtime/Worker builds must never create a new builder. Private native options may use current public example with external PDF/storage paths; no runtime acceptance until all services admitted."
     }
   ]
 }
