@@ -3,7 +3,7 @@
     "component_count": 621,
     "format": "CycloneDX-1.5",
     "path": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
-    "sha256": "80e16432f7c64630721353b519c333c50632e46a5d10d37e62795ed6468b7290"
+    "sha256": "2f86fc087c57343a1f8844b67ec1d05d224f43a8a09c277573952bebbe182474"
   },
   "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
   "evidence_provenance": {
@@ -32,8 +32,8 @@
     "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
     "file_count": 163,
     "manifest_schema": "ai-platform/agent-runtime-overlay/v2",
-    "manifest_sha256": "22a11c30fa73fd4849e5455628226f93df1081748aa38a1bb7f2fda93eb100b0",
-    "sha256": "f778bc606a5bd445da8c97eb65da75ae7d23c9be19b00a15e02bf1a22602ad90",
+    "manifest_sha256": "8fed1e8ad5a54c5dcfe1b6f21980a90cba395fb7c286ebf2ff1b30ac145d1a95",
+    "sha256": "12fbb73aec9b1a19ffb9f055b2d285e2bebbc7fb63d226ca7c2ab01ee7e59562",
     "source_revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
     "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d"
   },

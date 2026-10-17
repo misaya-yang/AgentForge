@@ -36,10 +36,11 @@ curl --version >/dev/null
 ssh -V 2>/dev/null
 bwrap --version >/dev/null
 bash -c 'test "$((2 + 3))" = 5'
-printf 'runtime-image-probe\n' > "$scratch/probe"
-rg -q '^runtime-image-probe$' "$scratch/probe"
-git -C "$scratch" init --quiet
-git -C "$scratch" -c user.name=image-check -c user.email=image-check@invalid add probe
-git -C "$scratch" -c user.name=image-check -c user.email=image-check@invalid commit --quiet -m image-check
-[ -z "$(git -C "$scratch" status --porcelain)" ] || fail 'git command probe failed'
+mkdir "$scratch/git-probe"
+printf 'runtime-image-probe\n' > "$scratch/git-probe/probe"
+rg -q '^runtime-image-probe$' "$scratch/git-probe/probe"
+git -C "$scratch/git-probe" init --quiet
+git -C "$scratch/git-probe" -c user.name=image-check -c user.email=image-check@invalid add probe
+git -C "$scratch/git-probe" -c user.name=image-check -c user.email=image-check@invalid commit --quiet -m image-check
+[ -z "$(git -C "$scratch/git-probe" status --porcelain)" ] || fail 'git command probe failed'
 echo 'runtime-image-check: PASS (Debian13, nonroot, tools, ELF, no compiler)'

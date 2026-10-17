@@ -3,7 +3,7 @@
     "app_server_schema_file_count": 1060,
     "app_server_schema_sha256": "0e8f4bcb6abd17e538e875e0dbe77dbc1e521015bab7f44dfebae4d6e072d49f",
     "capability_worker_sbom": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
-    "capability_worker_sbom_sha256": "80e16432f7c64630721353b519c333c50632e46a5d10d37e62795ed6468b7290",
+    "capability_worker_sbom_sha256": "2f86fc087c57343a1f8844b67ec1d05d224f43a8a09c277573952bebbe182474",
     "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
     "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
     "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
@@ -12,14 +12,14 @@
     "overlay_file_count": 163,
     "overlay_manifest": "rust/agent-runtime-overlay/manifest.json",
     "overlay_manifest_schema": "ai-platform/agent-runtime-overlay/v2",
-    "overlay_manifest_sha256": "22a11c30fa73fd4849e5455628226f93df1081748aa38a1bb7f2fda93eb100b0",
-    "overlay_sha256": "f778bc606a5bd445da8c97eb65da75ae7d23c9be19b00a15e02bf1a22602ad90",
+    "overlay_manifest_sha256": "8fed1e8ad5a54c5dcfe1b6f21980a90cba395fb7c286ebf2ff1b30ac145d1a95",
+    "overlay_sha256": "12fbb73aec9b1a19ffb9f055b2d285e2bebbc7fb63d226ca7c2ab01ee7e59562",
     "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "sbom": "deploy/agent-runtime-source/sbom.cdx.json",
     "sbom_sha256": "f610826098ad48732cbf9bb5c09c77e7551b6d020ae5ac23958501bafbddec5e",
     "source_receipt": "deploy/agent-runtime-source/source-receipt.json",
-    "source_receipt_sha256": "4e151b78f8cb1e7f9e945450123cc9a07a7802369a3f9e6d6f0f57668a310a1a"
+    "source_receipt_sha256": "42ddb57dd4f638871542aa610ea59951b687b0a6164d6d201adadd0ed59f5df7"
   },
   "license": {
     "notice": "deploy/agent-runtime-source/NOTICE.md",
