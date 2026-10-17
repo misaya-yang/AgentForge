@@ -99,8 +99,11 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
                 "${source_file}"; \
         fi; \
     done \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+    && apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends \
         bash bubblewrap ca-certificates coreutils curl diffutils findutils \
         gawk git grep gzip bzip2 xz-utils tar unzip patch \
