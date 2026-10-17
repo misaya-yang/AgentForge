@@ -156,7 +156,7 @@ Line count is a guardrail, not an architecture metric.
 - Record a post-RAG LOC baseline for production and test files.
 - Existing files over the threshold may not grow without a dated exception, owner, reason, and
   removal condition.
-- New Python modules should remain below 800 lines; new TS/TSX modules below 500 lines.
+- New first-party Rust modules should remain below 800 lines; new TS/TSX modules below 500 lines.
 - A split is successful only when each module has one owner/use-case group, the import graph becomes
   clearer, and behaviour contracts remain stable.
 - Pinned upstream/fork code is classified separately; do not churn it solely to satisfy local LOC.

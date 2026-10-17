@@ -8,7 +8,7 @@ instructions take precedence. Read linked area documentation when needed.
 - All platform services and operational tools are Rust. The optional Python user-code sandbox
   is retained; do not restore retired Python services or backup source trees.
 - Work in this repository, not the Downloads import. The Git root is
-  `/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild`.
+  `/Users/yang/projects/AgentForge`.
 - The dots Rust import is complete. Its original import receipt is historical evidence;
   previous Python backup/recovery directories were subsequently deleted at the owner's request.
 - The owner authorized local database, real-provider and built-in-browser acceptance, including

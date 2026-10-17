@@ -10,7 +10,7 @@ global:
   imagePullPolicy: IfNotPresent
 
 # -----------------------------------------------------------------------------
-# Gateway (Python backend)
+# Retired Gateway deployment profile; U-PE-30 replaces this chart for native services.
 # -----------------------------------------------------------------------------
 gateway:
   replicaCount: 1

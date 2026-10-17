@@ -1,5 +1,7 @@
 # Agent Runtime source release lock
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 This directory is the main repository's immutable reference to the separately
 maintained upstream Agent Runtime source. Runtime deployment must never follow a
 branch, mutable tag, local checkout, or unverified App Server schema.
@@ -16,10 +18,11 @@ Files:
 - `Dockerfile.runtime` builds the private Rust HTTP/SSE Agent Runtime after the
   controlled fork revision and release receipt are updated together.
 
-Generate source evidence from the independent fork:
+Generate source evidence from the independent fork (the command runs Cargo metadata and
+hashes the supplied schema directory; it does not compile the schema):
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py generate \
+platform-tools source-lock generate \
   --fork /absolute/path/to/agent-runtime-source \
   --schema-dir /absolute/path/to/source-built-schemas \
   --receipt deploy/agent-runtime-source/source-receipt.json \
@@ -35,7 +38,7 @@ Refresh and build a new local release unit only after the controlled fork is
 clean and committed:
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py refresh-source-lock \
+platform-tools source-lock refresh-source-lock \
   --repo-root . --lock deploy/agent-runtime-source/lock.json
 AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-source-build-local
 AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-build-local
@@ -50,37 +53,35 @@ serially, then checks both selected images against the source lock. App Server
 remains a separate protocol-probe artifact.
 
 `make quickstart-build` and `scripts/new/deploy.sh --build` use both existing Rust
-builders before Compose builds the Python/Web images. A prebuilt Runtime never
+builders before Compose builds native Gateway/Knowledge/migrate and Web images. A prebuilt Runtime never
 substitutes for a missing Worker. Deployment verifies the actual selected image
 IDs, platform, source/schema/binary labels and the Worker's full overlay hash
 before stopping or starting application services:
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py verify-local-images \
+platform-tools source-lock verify-local-images \
   --repo-root . --lock deploy/agent-runtime-source/lock.json \
   --runtime-image <runtime-tag-or-digest> --worker-image <worker-tag-or-digest>
 ```
 
 Source hot-update uses the same pair check and compares container image IDs,
 so replacing an image behind the same tag still recreates the Runtime/Worker
-pair. Existing stopped Python containers can receive Gateway/Knowledge source
-and both shared packages without starting the old application: site-packages is
-queried by an isolated `python` entrypoint from that container's immutable image.
-The frontend entrypoint is copied with execute permission, then runs on the final
-restart. `--no-restart` copies files without starting services or probing app health.
-Hot-update does not rewrite container environment values; deployment requires any
-explicit kernel revision to match the selected source unit before building or
-changing application services.
+pair. Native source changes require compiled image replacement; source copying is not
+an update mechanism. `make hot-update` rebuilds selected native/Web images. Its `--no-restart`
+mode builds without replacing services; it is not runtime acceptance. Hot-update does not
+rewrite existing container environment values. Deployment checks an explicit kernel revision
+against the selected source unit before changing application services.
 
 Source identity checks do not claim that native execution, Docker health,
 provider calls, rollback, publication or another platform has been verified.
 
 When the platform overlay or capability migration changes, refresh its derived
 identity and Worker dependency SBOM from the clean, controlled composed source
-workspace. This command only reads that workspace; it does not modify it:
+workspace. This command reads that workspace and updates the repository lock, overlay manifest and
+derived Worker SBOM; it does not compile or admit an image:
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py refresh-overlay \
+platform-tools source-lock refresh-overlay \
   --repo-root . \
   --lock deploy/agent-runtime-source/lock.json \
   --cargo-workspace /absolute/path/to/composed/codex-rs
@@ -97,7 +98,7 @@ a complete reviewed overlay and its actual Cargo-resolved lock without advancing
 the live pin or admitting an image:
 
 ```bash
-python3 scripts/harness/agent_runtime_source_candidate.py \
+platform-tools source-candidate verify \
   --package /absolute/path/to/source-candidate-package \
   --upstream /absolute/path/to/existing-clean-upstream \
   --repo-root . \
@@ -126,7 +127,7 @@ and resolved composed lock. It does not relax `generate`'s clean-fork requiremen
 or permit a clean upstream-only dependency graph to stand in for platform crates.
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py generate-composed \
+platform-tools source-lock generate-composed \
   --package /absolute/path/to/source-candidate-package \
   --upstream /absolute/path/to/clean-immutable-upstream \
   --composed /absolute/path/to/composed-source \
@@ -180,11 +181,12 @@ identities. Successful generation alone does not authorize live pin refresh,
 service startup, publication, or deployment.
 
 
-## Stable candidate source lock: 2026-10-12
+## Current stable source lock (upstream selected 2026-10-12)
 
 The source-only update selects official stable `rust-v0.162.1`, immutable target
-`092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`, plus the complete 130-file reviewed
-platform overlay and actual resolved Cargo.lock. Its genuinely compiled protocol
+`092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`, plus the reviewed platform overlay.
+The current manifest has 148 files (111 platform-owned and 37 upstream modifications).
+The source unit includes the actual resolved Cargo.lock. Its compiled protocol
 schema contains 1,060 files. Source and Worker SBOMs were generated from the
 unfiltered locked composed graph. The receipt records host protocol generation;
 it does not claim a Docker build or linked Runtime/Worker executable.
@@ -194,7 +196,7 @@ false and previous image references/digests are cleared. Check source identity
 without weakening the existing runnable gates:
 
 ```bash
-python3 scripts/harness/agent_runtime_supply_chain.py validate \
+platform-tools source-lock validate \
   --repo-root . --lock deploy/agent-runtime-source/lock.json
 ```
 

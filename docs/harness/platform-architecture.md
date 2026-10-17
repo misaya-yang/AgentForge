@@ -107,8 +107,10 @@ platform improvements through `permissions`, and holds still exactly where it pi
 | Corpus | **Knowledge Base** |
 | A new way for a human or client program to reach an agent | **Surface** (see §5) |
 
-Business logic must never land in `packages/ai-gateway-core/`. That package is imported by every
-Python service; a domain concept there forces the gateway and the knowledge service to carry it too.
+Business logic must stay with its native domain owner. `packages/ai-gateway-core/` now retains
+static catalog data. Native foundation/integrations crates still contain substantial domain
+implementation; their shared dependency graph is transitional debt, not a new home for unrelated
+artifact domains. See [the current native boundaries](architecture.md#3-code-dependency-contract).
 
 ## 5. Adding a surface
 

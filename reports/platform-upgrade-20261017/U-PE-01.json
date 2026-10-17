@@ -1,0 +1,105 @@
+{
+  "schema": "agentforge/work-package-evidence/v1",
+  "package": "U-PE-01",
+  "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "tested_at": "2026-10-17T04:11:41.088005Z",
+  "environment": {
+    "host": "macOS arm64",
+    "rust": "1.99.0",
+    "cargo_jobs": 1,
+    "incremental": false,
+    "debug_info": false,
+    "external_target_dir": "/Users/yang/.cache/agentforge-upgrade/native-target",
+    "target_size_mib": 463,
+    "runtime_mutated": false
+  },
+  "commands": [
+    {
+      "command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_TARGET_DIR=/Users/yang/.cache/agentforge-upgrade/native-target cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test compose_image_identity --test deployment_script_contracts --test tools_migration_parity_ci",
+      "exit": 0,
+      "suites": [
+        {
+          "target": "compose_image_identity",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "deployment_script_contracts",
+          "passed": 44,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tools_migration_parity_ci",
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "command": "PATH=<external-target>/debug:$PATH make validate-example-config",
+      "exit": 0,
+      "actual_docker_render_positive_cases": 9,
+      "actual_docker_render_negative_rejections": 2,
+      "artifact_acceptance": "not_checked"
+    },
+    {
+      "command": "PATH=<external-target>/debug:$PATH make harness-check",
+      "exit": 0,
+      "errors": 0,
+      "historical_program_warnings": 5
+    },
+    {
+      "command": "bash -n scripts/new/validate-env.sh",
+      "exit": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    },
+    {
+      "command": "Affected identity test target and make validate-example-config rerun after review repair",
+      "exit": 0,
+      "identity_tests_passed": 5,
+      "matrix_positive_cases": 9,
+      "matrix_negative_cases": 2
+    }
+  ],
+  "review": {
+    "independent_agent": "deployment_review (Luna max, read-only)",
+    "initial": "No blocker/high; medium continuous-matrix coverage gap reported.",
+    "repair": "Actual matrix retained in make validate-example-config; Runtime/Worker build definitions rejected even with source-build enabled; frontend builder-stage rejection included.",
+    "final": "Independent incremental review: no blocker/high. Both reported medium coverage gaps repaired and affected gates rerun."
+  },
+  "source_hashes": {
+    ".env.example": "4326754a4c6953818abc1fbdbbfc41fa5619d4dd281b629138efc95953ee491f",
+    "Makefile": "6f3b9892486c7a5ef98219dcb22950be19c347ea6da8a912ef7747f848169ae5",
+    "docker-compose.yml": "4c6e16158266bf20eac104daf4568fe67638c3e18fac42bfff67473247588982",
+    "docs/README.md": "bfb38a2a0e8a5236c2c4975f97869bb9a57d522e74f14ef7528f9f15ab037daa",
+    "docs/harness/commands.md": "c3580c53af14fd7baf96ae94fd1cda1c4823e0f703207b71d3a28c85ba247ae0",
+    "rust/platform-native/crates/platform-tools/src/harness.rs": "88ef66425c1f1b3c2c168e8406447cc8fc05af72926a2429ba59fffea45d4ea0",
+    "rust/platform-native/crates/platform-tools/src/main.rs": "56f3634254b3cc67f692966bb9861ed5a21cd4c18d035f2418c1a293ecb316b5",
+    "rust/platform-native/crates/platform-tools/tests/deployment/validation.rs": "45d528f6a6effcecc1bf78c732c5daf9b232c217303de2462ea6e0f2106ca939",
+    "rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs": "c70c3906aebe39c9dcf653e087767a576463f37873bce6e588d765078f31b56f",
+    "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs": "d006258e3a7dbacc1bd27dcba9282beffbf19cc1ae9d07f842a605e82b488926",
+    "scripts/new/validate-env.sh": "3359806e52f2e1627358f5c7b198634615d98f3a325eb174af570f42a0463c22",
+    "rust/platform-native/crates/platform-tools/src/compose_identity.rs": "9deffde260288faf700fa78376350cc4e501f63fc48d70a236f16ff4978b8e81",
+    "rust/platform-native/crates/platform-tools/tests/compose_image_identity.rs": "374e2c0dd7ba097f96e78139e0ba82d0087ee281c0eb675d7f9c0a36fd9dbf55",
+    "rust/platform-native/crates/platform-tools/tests/support/compose.rs": "651b909fe5c2c96179d22a3eda5ebba17fde4aee08d29036ddc64be4353ec448"
+  },
+  "external_log_sha256": {
+    "upe01-example-final.log": "7d4f410bc2a55c8f5dd160ec26d6a9f9d7a3e4395b0b2c9face909fe5a032dc5",
+    "upe01-tests-final.log": "d21735a80082b823b2cad2265b61cbbbc28b95cac049952519bb458fc0f59a92",
+    "upe01-harness-final.log": "3bd2e51996bf21a50716cf7d899097d319346c14e07435d8cdac79a872057eac",
+    "upe01-review-repair.log": "0d60572645e9f76cc821415fdd1726a2c01d7e466f178de93e8ec4a25140ad70",
+    "upe01-matrix-repair.log": "7d4f410bc2a55c8f5dd160ec26d6a9f9d7a3e4395b0b2c9face909fe5a032dc5"
+  },
+  "limits": [
+    "No current-source Gateway/Knowledge/Runtime/Worker images were built or started.",
+    "Source lock runnable-image flags remain false; no image artifact, paid provider, browser or rollback acceptance is claimed.",
+    "Assistant/Knowledge/Local Node journeys remain required and open."
+  ],
+  "verdict": "direct_verified; current image and final live acceptance outstanding"
+}

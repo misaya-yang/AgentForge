@@ -1,6 +1,9 @@
 # Contributing
 
-Thanks for contributing to AI Gateway. This repository contains a FastAPI gateway, assistant and knowledge microservices, a React frontend, SDKs, and Docker Compose deployment tooling.
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
+Thanks for contributing to AI Gateway. Platform services and operational tools are Rust; the console is React/TypeScript, with SDKs
+and Docker Compose deployment tooling. The optional Python user-code sandbox is retained.
 
 ## Before You Start
 
@@ -12,9 +15,9 @@ Thanks for contributing to AI Gateway. This repository contains a FastAPI gatewa
 ## Local Setup
 
 ```bash
-cp .env.example .env
-make validate-config
+make doctor
 make quickstart
+make status
 ```
 
 If your env file lives outside the repo, use `ENV_FILE=/path/to/.env` with Make targets.
@@ -25,16 +28,17 @@ Run the checks that match your change:
 
 ```bash
 git diff --check
-docker compose --env-file .env.example config --quiet
-uv run ruff check src apps packages tests
-uv run --extra dev --extra test pytest -q --no-cov tests/scripts/test_web_runtime_config_entrypoint.py tests/scripts/test_validate_env_quickstart.py
+make validate-example-config
+make harness-check
+CARGO_TARGET_DIR=/absolute/external/target make native-check
 pnpm -C web type-check
 pnpm -C web lint
 pnpm -C web build
 ```
 
-Generated planning and harness files under root `docs/` are ignored by Git. Keep
-durable operational follow-ups in tracked locations such as `deploy/runbooks/`.
+Use the pinned toolchains and affected tests in [the command catalog](docs/harness/commands.md).
+Keep plans in tracked `docs/plans/`, execution status in the owning `deploy/runbooks/` ledger,
+and durable verification receipts in `reports/`. Build output and private captures stay external.
 
 If a check cannot run locally, include the exact command, the blocker, and what a passing result would prove.
 
@@ -60,9 +64,9 @@ Security-sensitive areas include authentication, HMAC service communication, ses
 Use concise imperative commit messages, for example:
 
 ```text
-Add release config validation
-Harden assistant model selection
-Document open-source contribution flow
+fix(deploy): validate release image identities
+feat(assistant): enforce model admission
+docs: update native contribution workflow
 ```
 
 ## Maintainer Review Expectations

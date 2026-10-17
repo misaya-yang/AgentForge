@@ -5,8 +5,10 @@
 > isolated SQL evidence and live release acceptance are different facts.
 
 **Schema:** `harness/architecture/v3`
-**Source review:** 2026-10-12, `385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec` plus the
-uncommitted native-enterprise candidate. This is not a deployed-release assertion.
+**Last verified:** 2026-10-17 (source review of `22d9ce0` plus U-PE-01).
+This describes the native source and configuration; current image and live acceptance remain
+open in the execution ledger. The Rust-native successor decision is proposed in
+[P-ADR-1](../architecture/proposals/rust-native-platform-baseline.md).
 
 The active implementation/evidence authority is
 [`native-enterprise-upgrade/loop-state.json`](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json).
@@ -21,20 +23,20 @@ context or independently deployable service.
 
 | Context / role | Current source | Owner and boundary |
 | --- | --- | --- |
-| Gateway Control | Retained Python `src/`; candidate `rust/platform-native/crates/platform-gateway`, `platform-gateway-foundation`, `platform-gateway-integrations`, `platform-auth` | Public APIs, identity/current tenant policy, service/provider/model admission, quotas/accounting, immutable launch, private model plane and Gateway-owned brokers |
+| Gateway Control | `rust/platform-native/crates/platform-gateway`, `platform-gateway-foundation`, `platform-gateway-integrations`, `platform-auth` | Public APIs, identity/current tenant policy, service/provider/model admission, quotas/accounting, immutable launch, private model plane and Gateway-owned brokers |
 | Managed Agent Execution | `rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime` with pinned Codex Core/App Server | Managed Thread/Turn execution, capability orchestration, owner/fence recovery and ordered durable events; not provider credentials or billing policy |
 | Capability execution | `ai-platform-capability-worker` and `ai-platform-capability-contract` in the overlay | Signed scoped tool execution, single-use approval receipt, dispatch fence, durable result and unknown-side-effect barrier |
-| Explicit official SDK execution | Optional `apps/sdk-agent-worker`, admitted by native Gateway | Actual OpenAI Agents SDK or Claude Agent SDK loop in a distinct SDK session/run; no implicit core-kernel substitution or cross-engine failover |
-| Knowledge API / Worker | Retained `apps/knowledge-service`; candidate native `knowledge-service` binary and `migration_knowledge_*` modules | Dataset/document lifecycle, resource ACL, generation/publication, ingestion and retrieval; separate API/worker/all process roles |
+| Explicit official SDK execution | Optional `platform-sdk-agent-worker` with `ai-platform-sdk-agent-engine`, admitted by Gateway | Native SDK-protocol execution in a distinct SDK session/run; no implicit core-kernel substitution or cross-engine failover |
+| Knowledge API / Worker | `platform-knowledge-service` binary and `migration_knowledge_*` modules in `platform-gateway-integrations` | Dataset/document lifecycle, resource ACL, generation/publication, ingestion and retrieval; separate API/worker/all process roles |
 | Hosted surfaces | `web/`, published client SDKs, native `platform-client` and `platform-desktop` / platformctl | Gateway clients; render server facts, submit explicit commands, reconnect reads without re-submitting execution |
 | Independent local Agent CLI | `sdk/cli` launcher and lock-pinned local Rust CLI/App Server | Local provider/profile/home and execution, under ADR-009; only explicit `gateway` subcommand uses the remote compatibility client |
-| Database migration authority | `database/authority` and immutable baseline/ordered changes | The only schema-change authority; applications receive scoped roles and enforce read-only compatibility preconditions |
+| Database migration authority | `platform-migration-authority` and immutable `database/` artifacts | The only schema-change authority; applications receive scoped roles and enforce read-only compatibility preconditions |
 
-The default Dockerfile/Compose commands still select Python Gateway and Knowledge.
-Native binaries are an explicit candidate profile, not an automatic replacement.
-The optional SDK overlay requires a compatible native Gateway and does not replace
-its image or database configuration. Retained Python is not permission to weaken
-its supported database window or silently roll back an upgraded database.
+The default Dockerfile/build overlay compiles Rust binaries; the base Compose consumes
+versioned images and never builds source. Runtime/Worker use the separate pinned source
+workflow and one release lock. Registry tags alone do not prove a native executable identity.
+The optional SDK overlay selects an additional native worker, not a replacement managed kernel.
+First-party Python services are retired; only the optional Python user-code sandbox remains.
 
 Gateway and managed Runtime remain single-instance release assumptions until
 specific multi-instance ownership/recovery/affinity gates pass. Capability and
@@ -71,14 +73,12 @@ replace them with an unscoped universal bearer simply to reduce code.
 
 ## 3. Code dependency contract
 
-Python implementation imports remain siblings over reviewed shared leaves:
-`src/` and `apps/*` may depend on `packages/ai-gateway-core` and the pure
-`packages/ai-gateway-contracts`; they may not import each other's implementation.
-Core/contracts may not import Gateway or applications. One app may not import another.
-
-`make architecture-boundary-gate` and `make core-boundary-gate` exist and enforce
-their declared Python/import/allowlist scopes. They do not certify all native Rust
-domain boundaries or distributed runtime behavior.
+Native Cargo dependencies and source imports are checked by `make architecture-boundary-gate`
+and `make core-boundary-gate` (the same native checker). The gate resolves renamed/path/workspace
+and target dependencies, rejects cross-context implementation edges, and records one explicit
+transitional Knowledge-to-Gateway exception. The partial upstream overlay requires an
+identity-verified composed workspace. Passing the graph gate does not prove runtime isolation.
+`src/` and `packages/` retain static catalogs/evaluation resources, not Python services.
 
 Native `platform-client` is a transport/client boundary shared by desktop and
 platformctl. It must not acquire Gateway stores, policy or Agent execution logic.
@@ -91,7 +91,7 @@ it, preserving existing ports and wire contracts.
 
 Cross-language protocols require one named producer authority and shared versioned
 schema/fixtures. Do not independently invent status vocabularies, field meanings,
-canonical JSON/hash formats or retry semantics in Python, Rust and TypeScript.
+canonical JSON/hash formats or retry semantics across Rust and TypeScript consumers.
 A pure shared contract must not acquire environment, filesystem, DB, HTTP or service
 configuration dependencies. ADR-011 records the existing bounded admissions.
 
@@ -100,8 +100,8 @@ configuration dependencies. ADR-011 records the existing bounded admissions.
 Every persistent object must have a migration owner, permitted mutations/readers
 and tenant-isolation evidence. Some assistant tables intentionally span admission,
 execution and accounting: specify engine/field/function ownership, not only schema
-names. Scoped roles and canonical grants are implemented work; broad shared-login
-claims from the pre-convergence baseline are historical, not current defaults.
+names. Scoped roles and canonical grants exist. The local runtime profile selects scoped DSNs,
+while the public base Compose still uses bootstrap-superuser defaults (U-DATA-02 remains open).
 A role never substitutes for tenant predicates, object authorization or owner fences.
 
 File and tenant-policy administration must distinguish tenant `admin` / `file_admin`
@@ -135,17 +135,12 @@ Targeted upload deletion remains available to same-tenant administrators.
   durable cancellation/fencing acknowledgement and quarantine. Neither observation
   failure nor cancellation acknowledgement alone proves external-effect cessation.
 - Generic `/api/v1/tasks`, scheduled Agent tasks, SDK runs and managed turns are different
-  contracts. Retained Python and the default native memory profile use destructive
-  in-process dequeue and do not survive process loss. Python retains an undispatched
-  envelope across recognized transient pre-claim read failures with one-second
-  backpressure; cancellation during that read/backoff requeues it for same-process
-  restart. Claim writes, unknown execution and terminal persistence are never replayed.
-  Malformed, missing, permission-denied and configuration reads are not retried.
-  Native has a separate explicit durable-delivery opt-in with atomic task/envelope
-  publication and a claimed-unknown barrier; it remains inactive without its reviewed
-  canonical schema successor and real-role acceptance. The ledger proposal and
-  isolated tests do not prove deployed restart recovery. Do not transfer guarantees
-  from scheduled Agent, SDK or managed execution ledgers to either generic profile.
+  contracts. The default native memory task profile uses destructive in-process dequeue
+  and does not survive process loss. The explicit durable-delivery mode uses atomic
+  task/envelope publication and a claimed-unknown barrier. Its source guard requires the
+  appropriate schema successor; isolated evidence does not prove deployed restart recovery.
+  Do not transfer guarantees from scheduled Agent, SDK or managed execution ledgers to
+  either generic task profile.
 
 The native raw transparent proxy binds a private capacity owner once and fences
 its admitted request lifetime and transferred streaming pump on lease loss.
@@ -162,24 +157,17 @@ fence. Accounting may be interrupted, while recording work already independently
 owned by UsageRecorder may continue. Neither cancellation nor resource release
 establishes durable final billing or exactly-once charging.
 
-Canonical migrations remain immutable and forward-compatible windows must be
-reviewed per implementation. Current retained Python Gateway supports epochs2–10;
-retained Python Knowledge supports5–17. Native process-wide read-only epoch admission
-is still a gap: SELECT1/table existence does not prove compatible function semantics.
-Do not start new workers or claim production readiness without the required schema
-and role evidence for the selected release profile.
+Canonical migrations remain immutable. Gateway and Knowledge perform application-role,
+read-only schema admission before providers, workers and readiness. For the current epoch-22
+source, windows are Gateway 18–22, durable Gateway 20–22, Knowledge API 19–22 and Knowledge
+Worker 21–22. Admission checks the frozen baseline marker, exact migration-prefix checksums
+and unresolved attempts; full structural/ACL/extension/reference fingerprint recomputation
+belongs to `database-authority verify`.
 
-### Retained Python transparent-proxy SSE lifetime
-
-Accepted upstream SSE responses transfer to one demand-driven lifetime owner before
-returning from the proxy. Capacity renewal loss cancels this owner across reads,
-downstream backpressure and accounting; the route's ASGI response also observes
-owner failure to interrupt blocked delivery. Heartbeat reads do not become lease
-owners. Explicit close and ASGI finalization release an accepted upstream response
-and service admission even if no body read started. Transport/admission cleanup is
-shielded against repeated caller cancellation, while accounting remains interruptible.
-Offline production-method and in-process ASGI tests cover these local ownership
-paths; they do not establish durable billing or prove remote execution stopped; indefinitely blocked cleanup is not newly time-bounded.
+Runtime/Capability Worker are not covered by that application guard yet. Their authority CLI
+startup branches retain a legacy 2–10 window and cannot certify epoch 22. U-GW-20 owns this gap,
+including real wrong-baseline/missing-ledger/out-of-window rejection and process startup evidence.
+The source epoch and source windows do not prove the schema of a running database.
 
 ## 5. Managed and optional SDK execution contract
 
@@ -204,9 +192,9 @@ need bounded reconciliation, not a global success alias.
 
 | Contract | Authority / required proof |
 | --- | --- |
-| Public API/OpenAPI | Owning routes + `sdk/openapi.json`; native/Python profile-aware contract comparison, live checks reported separately |
-| Managed events | Runtime canonical producer and shared fixtures; Rust/Python/Web/CLI/SDK projection, reconnect and terminal/cancel races |
-| Capability execution | Rust Contract V2, immutable lease/approval/result; exact cross-language hashes and real Runtime↔Worker fault matrix |
+| Public API/OpenAPI | Owning routes + `sdk/openapi.json`; native source/profile-aware contract comparison, live checks reported separately |
+| Managed events | Runtime canonical producer and shared fixtures; Rust/Web/CLI/SDK projection, reconnect and terminal/cancel races |
+| Capability execution | Rust Contract V2, immutable lease/approval/result; exact cross-consumer hashes and real Runtime↔Worker fault matrix |
 | Official SDK private protocol | Native adapter + worker contract fixtures/locked packages; pure/KB/governed profiles, actual libraries, provider/cancel/restart/retention separately |
 | Knowledge identity | Signed envelope/current actor/ACL, including replay, revoked roles and cross-tenant negative cases |
 | Database | Canonical baseline/epoch, immutable history, measured fingerprints and actual application-role checks; startup window enforcement separately |
@@ -214,17 +202,17 @@ need bounded reconciliation, not a global success alias.
 | Trace and time budgets | Sanitized request/trace/run/call identity per hop; connect/header/idle/execution/cleanup timeouts and safe-retry category |
 | Release profile | Actual executable/image/protocol identities of included services; draft manifest and local build receipt are not deployed identity |
 
-A release may retain Python Knowledge with native Gateway when their signed
-contract/database windows are proven compatible. No full-language cutover is
-required. A rollback must use a real compatible code/schema/data bundle; preserving
-old source alone is not rollback evidence.
+A rollback requires a real compatible native code/schema/data bundle and a paired Runtime/Worker.
+Deleted Python services are not an available rollback target. Preserve historical evidence
+without treating old source, source locks or registry tags as an accepted running release.
 
 ## 7. Current prioritized debt
 
 1. Managed recovery terminal semantics and crash atomicity: canonical success/failure
    mapping, then owner-fenced terminal fact+event transaction and Gateway convergence.
-2. Native per-process schema/profile admission before workers; deployment readiness
-   consistency. Helm and Compose use `/health/ready`; the retained Helm chart still
+2. Complete per-process schema/profile admission for Runtime/Worker and prove all process
+   startup refusals; retain the implemented Gateway/Knowledge guards and deployment readiness.
+   Helm and Compose use `/health/ready`; the retained Helm chart still
    needs a reviewed managed-Runtime/native deployment profile (see `DEPLOY.md`).
 3. Explicit release/topology identity for retained/candidate/optional implementations,
    including SDK Worker when selected. Current release manifest is draft.
@@ -252,23 +240,27 @@ that fixes an observed boundary defect; keep public contracts stable unless an
 explicit versioned migration is the task.
 
 
-## Accepted Responses observation failures
-
-For retained Python non-streaming `/v1/responses`, an accepted Runtime turn is
-independent of its response observer. With an `Idempotency-Key`, observation
-exceptions and EOF without terminal evidence retain the original 503/502 response
-in the existing 24-hour response cache. Same-key/body retries replay that result
-and its `x-run-id` and `x-session-id`, including waiters; changed bodies conflict.
-They do not submit another turn merely to recover a missing observation. Errors
-before acceptance retain their existing retry behavior.
-
-This is fail-closed error replay, not transparent resumption or exactly-once
-execution. The error may remain cached after the turn finishes. Cache expiration,
-process/cache loss, ambiguous start acknowledgement, cancellation and concurrent
-store atomicity need separate recovery evidence. Streaming Responses still rejects
-idempotency keys. The observer does not fabricate a terminal execution fact.
-
 ## Native HTTP request governance (2026-10-15)
+
+### Accepted Responses observation-failure contract
+
+For non-streaming `/v1/responses`, once Runtime accepts a turn, an observation error
+must not release the request for a second execution. With an `Idempotency-Key`, retain
+the original 503/502 response and its `x-run-id`/`x-session-id` in the existing 24-hour
+response cache. Same-key/body retries and waiters replay that result; changed bodies
+conflict. Failures before acceptance retain their existing retry behavior. Streaming
+Responses continues to reject idempotency keys.
+
+The Ph0 source repair retains stream-open/read failures and EOF after `start_turn`
+through one accepted-failure cache path. Its production-route, real-store and live gates
+remain open in `UP-PH0-RESPONSES`; source changes alone do not establish acceptance.
+If cache persistence is unavailable, retain the claim and report storage failure with
+run/session identity. An uncertain cache write may later yield the original cached error
+or in-progress; it cannot guarantee original-error replay. A cached observer failure is not an execution
+terminal fact, transparent resumption or an exactly-once execution guarantee. Cache
+expiry/loss, ambiguous start acknowledgement and cancellation need separate evidence.
+
+### Native middleware ownership
 
 Gateway and Knowledge share `request_governance` middleware, separate from domain,
 tenant and Redis-backed admission. The typed `request_governance` configuration

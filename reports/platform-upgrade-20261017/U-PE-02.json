@@ -1,0 +1,102 @@
+{
+  "schema": "agentforge/work-package-evidence/v1",
+  "package": "U-PE-02",
+  "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "tested_at": "2026-10-17T04:24:44.039231Z",
+  "verdict": "verified for documentation scope only",
+  "changes": [
+    "Native source/default implementation, root path and command mappings corrected.",
+    "Exact Gateway/Knowledge schema windows and Runtime/Worker remaining gap documented.",
+    "P-ADR-1 remains Proposed; accepted ADRs and frozen database artifacts unchanged.",
+    "Required Responses accepted-failure contract restored; source defect registered as Ph0 support package, not waived."
+  ],
+  "commands": [
+    {
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test docs_truth --test tools_migration_parity_ci (single job, no debug/incremental, external target)",
+      "exit": 0,
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test tools_migration_parity_performance (same resource controls)",
+      "exit": 0,
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "platform_limit": "Linux /proc-only cases are not compiled on macOS; no live performance measurement."
+    },
+    {
+      "command": "platform-tools docs-truth-check --repo-root .",
+      "exit": 0,
+      "documents_checked": 9,
+      "errors": 0,
+      "warnings": 0,
+      "limits": "Bounded living-doc registry; root instructions also checked by harness/manual diff. Not every repository document."
+    },
+    {
+      "command": "make harness-check (current source-built tools on PATH)",
+      "exit": 0,
+      "errors": 0,
+      "existing_program_warnings": 5
+    },
+    {
+      "command": "platform-tools gateway-performance-baseline",
+      "exit": 0,
+      "result": "PREPARED_NOT_EXECUTED"
+    },
+    {
+      "command": "platform-tools source-lock validate --repo-root . --lock deploy/agent-runtime-source/lock.json",
+      "exit": 0,
+      "release_state": "local_source_locked",
+      "runnable_artifacts": []
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    }
+  ],
+  "review": {
+    "independent": "ph0_state (Luna max, read-only)",
+    "initial_findings": [
+      "Required Responses compatibility contract removed from living doc",
+      "Native clients wording too broad",
+      "Nested source-lock operations were not checked",
+      "Helm authority command description too broad"
+    ],
+    "repairs": "Restored contract and registered independent Ph0 route repair; narrowed language/Helm claims; added nested command negative tests. No remaining blocker/high in documentation scope."
+  },
+  "source_hashes": {
+    "AGENTS.md": "cb86a82980fcb9edcf92dcd67dc57261f04fa6b7d87c9ea48005c2f84262ac1d",
+    "CLAUDE.md": "1d06dfbc5449bb277223bac1dd725ee1cc6f4b9190bb1ee7c55e795b2fad2d07",
+    "CONTRIBUTING.md": "06effac4f7e771a9223e2ebb9e277fbdba8827ffaec8d60a5b7ea54efbca3332",
+    "DEPLOY.md": "db73fec382db0fd6dba1851a8b360ddecba90006cd1aa80829dc076826d31aaf",
+    "docs/harness/architecture.md": "cac3f9a6a1fd7b553dcf7fd2490b7ff0df910667d9dfbdd9886dfbbba7f71ce6",
+    "docs/harness/integration-and-rollback.md": "e989814aa08ddce2edf20793e35f966ce1eb19cac7ca793cc714758a927879fb",
+    "docs/harness/work-packages.md": "1a31e503ae0a16105aa4131bf905bafd8e24ba6d30f8857e336c72eaac037e20",
+    "docs/harness/platform-architecture.md": "35755b01485ca8af967040a638d1739dd2d6e45b57951c1eece895940b384e85",
+    "docs/harness/repository-quality.md": "1a5e5071ef6711c1de404eb0f9064dc3d629af4b9b2d3015068f7d9defc4a2e5",
+    "docs/design/enterprise-performance-contract.md": "7741c0c54f1e0fa67a151cece9e078160b9623ec4b763cde6024e1a60af3658d",
+    "docs/deployment/operator-guide.md": "9bb88d7c7cec80d56c0f771cdd188f65c1e63bc18a10bfb77027f115a6b17812",
+    "database/authority/README.md": "34538673020b186e31e321fbc13da9e1679f2bb3ad14957af5d4540b72b0096b",
+    "deploy/agent-runtime-source/README.md": "76e14b572aef1e07a29638d2c4049c0124faead76add17362f0945b3488b4380",
+    "docs/architecture/proposals/rust-native-platform-baseline.md": "498e6ad045759a20f345b22d75148a7dcea2a7d10d8896cc0f24bbd40ff5a6c1",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/README.md": "f660a92d7adf1e043177efe300563fa0e1552a71158df9c7394c151dcb8e21f6",
+    "rust/platform-native/crates/platform-tools/src/docs_truth.rs": "275295691cc46aab0a2fd6825a8e0511e2ed3b24de6ac010dc592e3ed1eb235b",
+    "rust/platform-native/crates/platform-tools/src/harness.rs": "ca02e69a6218dde67ad825233d76e48cf7f706fca35f9bc49414b8ca103e1798",
+    "rust/platform-native/crates/platform-tools/src/main.rs": "579624b89ea18a3a11010dda77210d7695d0d70d4fefebc4ea575a9abbfa00ed",
+    "rust/platform-native/crates/platform-tools/tests/docs_truth.rs": "e8667b6f845669ff121fd9b337204027c46f98276ac10e38db51863aeef6b1fd",
+    "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs": "fbf91d84a1c94b238bffc0816cf272aa4e3c44687edf56060293b79aaf60208f",
+    "rust/platform-native/crates/platform-migration-authority/README.md": "8868fcf0a6cf0776cb788404c53d896e14ed263851eb0c60aacf910ee6798030",
+    "docs/README.md": "de4c8f8c727b0b32eaab6daa896960d3b58ef9642d07a8a355ec74eda53c2db9",
+    "docs/harness/commands.md": "f068ffbadf01c9aa0c66ec4cf666f41b973cd99e8091261901de61b39b98bf4d",
+    "docker-compose.yml": "ce7f874fb797fd319e7262a0e62a4a0d5b332f209b95e04eb362e4e293388b47",
+    "web/nginx.conf": "775238481da717d29a1eba53263ec9e72f6997d9dee37cdfa057a3c8e79b5a77",
+    "deploy/helm/ai-gateway/values.yaml": "cfecab4554b970e17dd6d5693db3c4d758aa91ed246b469b1717d36e3e390594"
+  },
+  "limits": [
+    "No provider/browser/current-image or enterprise performance acceptance.",
+    "Underlying Responses retry safety remains a P0 source defect until UP-PH0-RESPONSES gates pass.",
+    "P-ADR-1 is a draft; no accepted historical ADR was rewritten."
+  ]
+}

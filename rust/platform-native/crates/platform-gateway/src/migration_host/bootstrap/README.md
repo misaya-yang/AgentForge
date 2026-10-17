@@ -1,8 +1,10 @@
 # Durable Gateway construction
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 `GatewayGraph::new` is the explicit constructor boundary for the PostgreSQL + Redis + registered Agent Runtime deployment profile. It accepts resolved typed configuration, independent data/control pools and already-owned Redis connectivity. It does not read environment files, discover secrets, connect pools, start workers, contact services, bootstrap schema, or bind a listener.
 
-Construction order follows the dependency relationships in `src/container.py` and `src/main.py`:
+Construction order follows the explicit dependencies in `graph.rs`, `core.rs` and `process.rs`:
 
 1. Trace/usage repositories and recorder.
 2. Live model/provider services and shared quota authority, then registry with all source protocol adapters; durable sessions and tasks; in-process task queue; RBAC, rate limiting, capacity admission, priced dispatcher, health monitor and task worker.

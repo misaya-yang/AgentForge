@@ -1,5 +1,7 @@
 # Operator guide
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 Detailed service, provider, deployment and troubleshooting reference. See the
 [root README](../../README.md) for current source entry points and acceptance status.
 Published release commands below do not certify the current source revision.
@@ -272,18 +274,21 @@ The compose file wires services through Docker DNS names:
 - Gateway/Runtime/worker/knowledge to PostgreSQL and Redis through internal service names
 
 Internal service requests use `AI_PLATFORM_INTERNAL_TOKEN` plus scoped runtime
-leases. Provider credentials remain in the Gateway model plane and are never
-sent to Runtime or capability-worker containers.
+leases. Managed Runtime model calls use the Gateway model plane. Knowledge currently holds its own
+provider credentials, and the optional SDK engine receives a provider key; U-KN-10 and U-SW-01
+move those calls behind the model plane. Do not describe that target as already enforced.
 
-Core service-to-service calls use the shared `ai-gateway-core` communication layer:
+Core service-to-service calls use the native foundation/integration communication modules:
 
 - Gateway proxy routes use `ServiceProxy` for request-id/trace propagation, header stripping, HMAC signing, SSE pass-through, bounded timeouts, retry budget, and per-route circuit breaking.
 - Gateway-to-knowledge calls use `KBProxyClient`, backed by the same outbound client primitives.
-- `src/proxy/transparent_proxy.py` remains for external or dynamically registered proxy targets; do not add new core gateway-to-service hops there.
+- Native transparent-proxy handlers serve external or dynamically registered targets; new core
+  service hops use the owning typed client and signed protocol.
 - Internal clients apply bounded retry, optional token-bucket service limits, automatic idempotency keys for replay-safe non-GET calls, and low-cardinality service-call metrics.
 - Admission control separates global, per-tenant, streaming, and adapter-level capacity so one tenant, long SSE stream, or failed AI backend cannot consume all service slots.
 
-Local quickstart keeps `INTERNAL_AUTH_VERSION=v1` and `INTERNAL_COMM_STATE_BACKEND=memory`. For multi-worker or multi-replica deployments, set:
+The public quickstart selects `INTERNAL_AUTH_VERSION=v2` and Redis replay state. Keep those
+authorities shared when workers replicate. The documented controls are:
 
 ```env
 INTERNAL_COMM_STATE_BACKEND=redis

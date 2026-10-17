@@ -75,6 +75,7 @@ Rule of thumb: **design** says why, **plans** say what next, **runbooks** track 
 | [`ADR-007`](architecture/ADR-007-agent-runtime-data-boundaries.md) | Gateway model plane, ThreadStore, and capability-service boundaries |
 | [`ADR-009`](architecture/ADR-009-independent-cli-local-runtime.md) | Independent CLI local Runtime and provider ownership |
 | [`ADR-010`](architecture/ADR-010-phase1-tenant-identity-and-knowledge-authorization.md) | Authenticated tenant preconditions, epoch 001 Knowledge ACL/privileges, Gateway actor/deletion confirmation and epoch 2 compatibility |
+| [P-ADR-1 (proposed)](architecture/proposals/rust-native-platform-baseline.md) | Rust-native implementation baseline; precise successor scope for ADR-008 language clauses |
 | [`ADR-011`](architecture/ADR-011-phase1-shared-contracts-and-metrics-ownership.md) | Reviewed pure pricing/schema-revision/retrieval contracts; metrics collector remains Gateway-owned with explicit core transport injection |
 
 Write a new ADR when a change alters a dependency boundary, adds a service, or changes a contract
@@ -84,6 +85,7 @@ listed in [`harness/architecture.md`](harness/architecture.md) §6.
 
 | Plan | Subject |
 | --- | --- |
+| [`plans/platform-upgrade-2026-10/README.md`](plans/platform-upgrade-2026-10/README.md) | **adopted for execution** — 109 work packages in four phases; scope and acceptance contract from the 2026-10-16 review. Current package status and evidence stay in the `native-enterprise-upgrade` ledger. |
 | [现有功能完善 PRD](plans/product-feature-completion-2026-09-23/README.md) | **PRD v1.0 / 待产品评审** — 对13个现有模块进行产品分析，定义功能需求、优先级、正常/异常验收及R0～R5迭代；本轮仅规划，未启动开发。 |
 | [Codex内核更新与Gateway兼容优化](plans/codex-harness-refresh-2026-09-22.md) | **active / 实现与集成中** — 从`94cbbdda`升级到指定快照`279ba894`；用户授权多代理代码更新、优化/review及本地Docker/内置浏览器验收。状态以执行账本为准。 |
 | [`plans/agent-platform-vnext-2026-09/README.md`](plans/agent-platform-vnext-2026-09/README.md) | **active / 一期实现** — 三期升级PRD；一期已在 `codex/agent-platform-vnext-phase1` 启动，P1-01首批租户边界代码与验证见执行receipt；二/三期仍为计划。 |

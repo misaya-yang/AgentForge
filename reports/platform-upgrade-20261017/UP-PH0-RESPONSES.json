@@ -1,0 +1,64 @@
+{
+  "schema": "agentforge/work-package-evidence/v1",
+  "package": "UP-PH0-RESPONSES",
+  "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "tested_at": "2026-10-17T04:32:49.325062Z",
+  "verdict": "source compiled and helper regressions passed; required route/Redis/live acceptance OPEN",
+  "implementation": [
+    "Post-accept stream-open/read/EOF failures retain original 503/502 body, digest and run/session headers.",
+    "Generic finish/pre-accept abort and streaming idempotency refusal remain unchanged.",
+    "Uncertain failure-cache write returns storage failure with IDs and retains the original claim."
+  ],
+  "commands": [
+    {
+      "command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_TARGET_DIR=/Users/yang/.cache/agentforge-upgrade/native-target cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib accepted_response_cache_tests -- --test-threads=1",
+      "exit": 0,
+      "duration_seconds": 253,
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 146,
+      "limits": "Production cache-helper coverage only. No authenticated POST route or actual Runtime start counter was exercised."
+    },
+    {
+      "command": "git show ed6ea2e:src/assets/watermark.png and independent historical core watermark SHA-256 comparison",
+      "result": "identical",
+      "sha256": "da1d9304549d9c1e153c37472748ec949a87f3af1b395412e17a451c9b41a6ff"
+    }
+  ],
+  "review": {
+    "independent": "deployment_review (Luna max, read-only)",
+    "verdict": "No blocker/high in bounded source fix. Source branches and helper behavior inspected; no runtime execution claimed."
+  },
+  "source_hashes": {
+    "rust/platform-native/crates/platform-gateway/src/migration_compat/responses.rs": "ea9da56370171613adbe9c7d8f602cb76b09d10e030e95d119db64c55a256930",
+    "rust/platform-native/crates/platform-gateway/assets/watermark.png": "da1d9304549d9c1e153c37472748ec949a87f3af1b395412e17a451c9b41a6ff",
+    ".gitignore": "a9c1483a09dee92d9025e9f502544d1b4a46b3ea902655e54e5e2d163270a584",
+    "docs/harness/architecture.md": "876b80731c3cf09987e9b4c768c46264125dc789e041e532b73d8bacbdd30431"
+  },
+  "external_log_sha256": "dad38c72d2e183f3ac0af3be0a9678cea85b5562b60175c2d92759a953c6d365",
+  "remaining_required": [
+    "Actual production POST route with counted start_turn for open failure/read error/EOF/concurrent waiter",
+    "Real Redis replay and store-failure behavior",
+    "Current paired Gateway/Runtime/Worker public retry journey"
+  ],
+  "excluded_guarantees": [
+    "No exactly-once claim; cache expiry/loss, request cancellation/process death and ambiguous start acknowledgement remain separate.",
+    "A failed/uncertain cache write does not guarantee original-error replay.",
+    "Existing successful-terminal cache-write failure behavior was not changed."
+  ],
+  "environment": {
+    "host": "macOS arm64",
+    "rust": "1.99.0",
+    "cargo_jobs": 1,
+    "incremental": false,
+    "debug_info": false,
+    "external_target": "/Users/yang/.cache/agentforge-upgrade/native-target",
+    "sampled_compiler_rss_mib": 847,
+    "sampled_system_memory_free_percent_range": [
+      53,
+      55
+    ],
+    "note": "Samples are not a measured peak. No containers, schema, accounts or provider configuration changed."
+  }
+}

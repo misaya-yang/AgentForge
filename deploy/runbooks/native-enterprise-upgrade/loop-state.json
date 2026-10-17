@@ -4,10 +4,10 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
   "status": "in_progress",
-  "last_updated": "2026-10-16T07:17:53.230Z",
-  "priority": "repository_cleanup_commit_push_then_real_machine_acceptance",
-  "active_phase": "repository_layout_checkpoint",
-  "next_action": "Finish cleanup gates and push this checkpoint; confirm a clean working tree. Then reuse the single existing project from the new root, build current source, and close Assistant, Knowledge and Local Node end-to-end journeys.",
+  "last_updated": "2026-10-17T04:32:49.325062Z",
+  "priority": "platform_upgrade_ph0_then_dependency_order",
+  "active_phase": "platform_upgrade_ph0",
+  "next_action": "U-PE-03: freeze existing hosted CI failure/capacity readback, prepare bounded standard-runner sccache/nextest/job policy without new paid resources or publication. Complete actual POST/Redis/live Responses gates as soon as local environment is supplied/selected.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
@@ -92,14 +92,46 @@
     "sdk_workflow": "Bounded API and browser two-turn Qwen continuity plus known effect-free cancellation recovery passed; see sdk-qwen-real.json",
     "authentication": "64 actual public cases passed on the previous source-bound process; see auth-rbac-real.json",
     "runtime_images": "Current overlay identity refreshed; runnable image claims invalidated. Rebuild current Runtime and Worker before acceptance.",
-    "local_environment": "Owned host services and six project containers stopped for relocation; volumes preserved. Container labels still name the previous root until controlled same-project recreation.",
+    "local_environment": {
+      "status": "not_ready",
+      "observed_at": "2026-10-17T04:04:20.043279Z",
+      "compose_project": "agentforge-dev-7801d4a9a4",
+      "running_containers": 0,
+      "docker_volumes": 0,
+      "selected_env_present": false,
+      "recorded_builder_present": false,
+      "docker_memory_gib_advisory": 3,
+      "note": "Current machine has no prior env/volumes/builder; do not invent recovery state or initialize a duplicate project. Native Rust toolchains are present; Node/pnpm differ from pins."
+    },
     "repository_cleanup": {
       "status": "passed",
       "receipt": "reports/repository-layout-20261016.json",
       "deployment_contracts_passed": 43,
       "topology_contracts_passed": 31,
       "harness_errors": 0,
-      "commit_push": "next action"
+      "commit_push": "Observed local HEAD and origin/main refs both 22d9ce0; checkpoint exists. No remote publication performed in this run."
+    },
+    "hosted_ci_observed": {
+      "status": "existing_main_failed",
+      "source_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "run_id": 38867440866,
+      "duration_seconds": 1679,
+      "url": "https://github.com/misaya-yang/AgentForge/actions/runs/38867440866",
+      "limits": "Two historical push runs only, zero PR cohort; cannot claim PR p50 or capacity acceptance. No workflow dispatched.",
+      "failed_jobs": [
+        "Frontend route smoke",
+        "Changed Rust crates (missing watermark input; V8 artifact 404 observed)",
+        "Agent Eval core (missing watermark input)",
+        "Knowledge image lock",
+        "Architecture gate (missing composed workspace)",
+        "Gate-result enforcement (platform-tools not installed)"
+      ]
+    },
+    "checkpoint_tools_tests": {
+      "passed": 82,
+      "failed": 0,
+      "ignored": 0,
+      "scope": "Five selected platform-tools targets; no native workspace or product acceptance claim."
     }
   },
   "blockers": [
@@ -126,6 +158,24 @@
       "cause": "Buildx helper derives a builder name from the absolute source path; lifting the repository changes that hash.",
       "affected_scope": "Next source image build",
       "next_action": "Reuse the existing validated agentforge-rust-c4b4565e14f050b5 builder; adapt operator selection if needed before invoking the build helper."
+    },
+    {
+      "id": "local-environment-unavailable",
+      "cause": "At activation .env.dev, Docker volumes and the historical Buildx builder are absent on this machine. Node v24.14.0/pnpm 10.33.0 differ from required 26.11.1/12.11.2.",
+      "affected_scope": "UP-PH0-ACCEPT live journeys and source-bound Runtime/Worker images",
+      "next_action": "Locate existing authorized private inputs and controlled upstream/cache without printing secrets; continue offline code/gates meanwhile. Do not create duplicate infrastructure or fabricate original data."
+    },
+    {
+      "id": "responses-idempotency-observation",
+      "cause": "Read-only review confirmed native Responses aborts the idempotency claim after accepted start_turn on event-stream open/read failure or EOF; finish discards 5xx. Retry may submit a second turn.",
+      "affected_scope": "Non-streaming public /v1/responses retry safety; Ph0 acceptance",
+      "next_action": "Implement UP-PH0-RESPONSES after U-PE-02; preserve and prove cached observer failure semantics with exact route start count and real-store/live evidence."
+    },
+    {
+      "id": "clean-ci-native-inputs",
+      "cause": "Current main CI is failed. A native include_bytes watermark is absent from clean Git; architecture lacks composed upstream input; some gates lack installed tool binary; frontend route smoke also failed.",
+      "affected_scope": "Ph0 native candidate/build and hosted CI acceptance",
+      "next_action": "First restore exact existing Git asset required by Gateway compilation, then repair each actual failing path without weakening tests; source-bound green hosted rerun remains required."
     }
   ],
   "history": {
@@ -137,6 +187,2324 @@
     "reports/native-current-acceptance-20261016/schema-021-real.json",
     "reports/native-current-acceptance-20261016/sdk-qwen-real.json",
     "reports/native-current-acceptance-20261016/auth-rbac-real.json",
-    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json"
+    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json",
+    "reports/platform-upgrade-20261017/U-PE-01.json",
+    "reports/platform-upgrade-20261017/U-PE-02.json",
+    "reports/platform-upgrade-20261017/UP-PH0-RESPONSES.json"
+  ],
+  "active_package": "U-PE-03",
+  "plan_adoption": {
+    "domain_id": "platform-upgrade-2026-10",
+    "source": "docs/plans/platform-upgrade-2026-10/README.md",
+    "adopted_at": "2026-10-17T04:04:20.043279Z",
+    "authority": "User explicitly requested full implementation and required acceptance on 2026-10-17.",
+    "source_base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+    "total_packages": 109,
+    "optional_and_demand_conditions_preserved": true,
+    "required_completion": "Every required package implemented, integrated and accepted; config/docs/compile/partial tests are not overall acceptance.",
+    "checkpoints": "Local reviewable checkpoints; external publication, production changes and new paid resources require confirmation."
+  },
+  "work_packages": [
+    {
+      "id": "U-GW-01",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Price book v2 and immutable receipts (F-03)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Composite key; migration with provider attribution and quarantine; typed `Result`; cross-provider/tenant collision tests",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-02",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Ed25519 leases and envelopes; per-turn capability ceilings that the Runtime attenuates per call; key rotation; verify-only consumers (F-04)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "No signing key in Runtime/Worker/Knowledge config; dual-verify window (HMAC v1 + v2); \"verifier cannot mint\" and \"attenuation cannot widen\" negative tests; rotation drill",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-RT-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-20",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-03",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "BFF session cookies + CSRF, Argon2id, EdDSA API tokens (F-07, F-08)",
+      "priority": "P1",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "Console holds no bearer token; CSRF and Origin negative suite; bcrypt hashes rehash on login",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-DATA-02",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-04",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "OIDC SSO, SAML via broker, SCIM 2.0, passkeys and MFA",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Entra ID/Okta/Keycloak conformance runs; SCIM create/update/deactivate propagates within one minute",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-03",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-05",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Inbound LLM API surface with passthrough-first codecs; Knowledge model calls through the model plane (F-29, F-33)",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Official-SDK conformance against the Gateway for each surface; byte-exact passthrough fixtures; usage receipts for every call",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-02",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-06",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Routing policy v1: versioned, explainable, deterministic for eval",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "`x-route-decision` ID resolves to policy version and candidate trace; eval reruns pin the policy",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-17",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-07",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Token-aware admission (reserve/settle), GCRA, ≤ 2 Valkey round trips, Valkey-backed quota RPM",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Load test at target RPS with correct rejection shapes; reservation reclaim on crash",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-05",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-08",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Prompt-cache passthrough and cached-token accounting",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Cache components on receipts; per tenant/model hit-ratio metric",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-05",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-09",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Guardrails pipeline v1 (F-30)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Per-tenant policy; injection, PII/secret and content-safety stages; decisions audited; added latency budget measured",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-10",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Multi-revision MCP including `2026-07-28`; OAuth resource metadata; stdio servers sandboxed (F-32)",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Conformance against reference servers on both revisions; downgrade and mismatch fixtures",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CW-04",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-11",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Make the existing opt-in durable task path ([design](../../design/generic-task-durable-rollout.md)) the default after canonical schema acceptance; add operator reconciliation for `claimed_unknown`; provider Batch API on the same ledger (F-09)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Kill-9 before and after claim leaves recoverable pending work or an explicit `claimed_unknown`, never a silent loss or replay",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-12",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Process roles and singleton worker leases",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Two worker replicas never run the same singleton job (fence-violation counter stays 0)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-13",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Cedar decision point: shadow, then enforce; decision logs",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Differential test zero-diff on the authorization matrix before each enforcement flip",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-14",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Gateway multi-instance",
+      "priority": "P2",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "State inventory closed; failover and chaos suite; single-instance assumption retired by ADR",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-12",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-07",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-15",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "A2A v1.0 inbound and outbound",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Signed Agent Cards; task-state mapping fixtures; governed external agent run end to end",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-RT-03",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-14",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-16",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Tenant-scoped semantic cache experiment (opt-in)",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Paired eval shows no quality loss at the chosen threshold; cost saving measured",
+      "activation_condition": "Opt-in experiment only; adopt at paired quality parity with measured cost saving.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-17",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Typed catalog, routing and failover; canonical JSON v2 (F-16, P-ADR-3)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "No `Value` in routing signatures; v1 hashes still verify; v2 hashes match the JCS test vectors",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-18",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Quiz as a plugin-delivered capability (F-17)",
+      "priority": "P3",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "The `ai-quiz` plugin works with no quiz code in foundation or Worker",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-19",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Typed, versioned configuration schema; secrets from files (F-27)",
+      "priority": "P2",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "Published JSON Schema; `--check-config` covers every key; no long-lived secret in env vars in the reference deployment",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-20",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Schema-epoch admission before readiness and workers (evolution F3, Stage B)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Wrong baseline, missing ledger and out-of-window epochs fail closed",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-21",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Trace propagation and per-edge budgets (evolution F5/F6, Stage D)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Round-trip fixtures across Gateway → Runtime → Worker → Knowledge",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-22",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Problem Details error envelope (compatible with `detail`)",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "OpenAPI documents the problem types; SDKs map them to typed errors",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-23",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Eval subsystem in its own crate and worker role",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Judge load no longer affects API p99 (measured A/B)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-GW-24",
+      "source": "docs/plans/platform-upgrade-2026-10/02-gateway.md#6-work-packages",
+      "result": "Platform MCP server (knowledge retrieval, published agents, read-only admin)",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "MCP conformance on `2026-07-28`; OAuth audience tests; same policy decisions as the REST equivalents",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-13",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-01",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Terminal-state correctness: Stage A vocabulary repair and Stage C atomic owner-fenced terminal commit (evolution F1, F2)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Crash matrix (before transaction, after row update, before event, after commit and before broadcast) yields one correct terminal per run",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-02",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Process-local state inventory; persist the state a takeover needs",
+      "priority": "P1",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "Every item listed in the architecture doc with an owner and a takeover rule",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-03",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Thread owner leases, routing to the owner, cross-instance interrupt and approval delivery, takeover",
+      "priority": "P2",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Two-instance chaos suite: failover within one lease period, 0 fence violations, 0 duplicate tool executions",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-RT-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-RT-02",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-RT-04",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-04",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Event fan-out v2: per-thread hub, gate pruning, LISTEN/NOTIFY wake-ups, `Last-Event-ID` (F-35, F-20)",
+      "priority": "P2",
+      "phase": "Ph2 (single instance), Ph3 (cross-instance)",
+      "status": "queued",
+      "acceptance": "DB reads per idle subscriber fall from 2/s to ≤ 0.2/s; no missed events under NOTIFY loss injection",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-RT-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-RT-02",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-05",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "History compatibility: revision-tagged items, N-1 decoder corpus, rollback drill",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Release blocked if the corpus fails; restore drill documented",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-06",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Tenant-keyed upstream state backend (memories), only with product demand",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Cross-tenant negative tests on memory reads",
+      "activation_condition": "Only activate on explicit product demand for native memories.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-07",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Overlay seam reduction and upstream proposals; monthly sync windows with gates",
+      "priority": "P1",
+      "phase": "Continuous",
+      "status": "queued",
+      "acceptance": "Modified upstream files ≤ 15 within two windows; sync report each window",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-08",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Runtime and Worker image slimming; Debian 13 base (F-22)",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "No compiler in the runtime image; image scan clean of criticals",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-RT-09",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "OpenTelemetry for Runtime and Worker with GenAI agent spans (F-14)",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "One trace from the Gateway request through model calls and tool executions",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-01",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Sandbox baseline: Landlock, seccomp allowlist, cgroup v2; `seccomp=unconfined` removed (F-06)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Escape suite passes: file reads outside the workspace, network egress, fork and memory bombs, `ptrace`, `mount`, sensitive `/proc`",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-02",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Execution pools per class and fair per-tenant queues (F-34)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Mixed load (long Python runs plus many reads): read p95 within 10 % of reads alone",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-03",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Strong isolation tier: gVisor/Kata RuntimeClass via Agent Sandbox, or Firecracker; warm pools",
+      "priority": "P2",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Tier detection fails closed; cold and warm start latency measured",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CW-04",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-04",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Separate the control pool from the credential-free sandbox pool",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Sandbox processes hold no token, secret or DSN (verified by environment and file inspection tests)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CW-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-CW-02",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-CW-07",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-05",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Python 3.14 runtime with locked wheels and tenant package allowlists",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Reproducible image; curated library smoke tests",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-06",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Plugin packs v2: publisher signatures; WebAssembly only if executable plugins are admitted by ADR",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Unsigned or wrong-publisher packs rejected; current digest pins still honoured",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-07",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Verify-only leases and workload identity in Runtime and Worker",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Neither Runtime nor Worker configuration contains a signing secret; \"verifier cannot mint\" and \"attenuation cannot widen\" tests",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-02",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-12",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CW-08",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Quiz capabilities move out with U-GW-18",
+      "priority": "P3",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "No quiz code in the Worker",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-18",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-SW-01",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "SDK engine calls models through the Gateway model plane (F-11)",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "No provider key in SDK worker input or environment; a receipt for every model call",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-05",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-SW-02",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Push-based revocation with lease expiry; poll as backstop",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Revocation takes effect in < 2 s (p95)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-SW-03",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "External framework agents through A2A (with U-GW-15)",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Governed end-to-end run of one external framework agent",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-15",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-SW-04",
+      "source": "docs/plans/platform-upgrade-2026-10/03-agent-execution.md#6-work-packages",
+      "result": "Retire parity modules and session importers after the import window",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Modules deleted; import path closed with a documented cutoff",
+      "activation_condition": "Close the documented import window before removing importers; preserve existing users.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-01",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Crate extraction; no dependency on the Gateway crate (F-15)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Knowledge builds without `ai-platform-gateway`; wire hashes unchanged; compile-scope report",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-RT-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-20",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-21",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-02",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Parsing in the credential-free sandbox pool",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "No parser process can read secrets or reach the network; malformed-PDF corpus passes",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-CW-04",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-03",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Heartbeat claims, NOTIFY wake-ups, stage checkpoints (F-20)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Crashed-worker recovery ≤ 2 lease periods; re-embedding does not re-parse",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-01",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-04",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Parsing v2: DocIR v2, VLM layout parser routing, tables and formulas",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Parsing golden set: CER and TEDS improve on scanned and table-heavy classes; no regression on born-digital",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-02",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-05",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Qdrant 1.19: quantization, memory tiers, per-tenant IDF, tiered multitenancy",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Memory per million chunks reduced (target ≥ 4×) at equal Recall@20; BM25 score parity after consolidation",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-DATA-07",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-06",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Multimodal retrieval (F-19)",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Multimodal golden set baseline, then promotion gate",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-04",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-05",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-07",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Result and query-embedding caches v2 (F-18)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Cache-hit p95 < 20 ms; zero cross-ACL hits (negative tests)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-01",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-08",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Semantic default embedding and model lifecycle",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "New datasets get a semantic model when available; re-embedding migration tested",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-09",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Retrieval v2: query understanding, rerank cascade, contextual headers, region citations",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Golden-set nDCG@10 gain per enabled option; latency within README §8 budgets",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-KN-04",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-10",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "All Knowledge model calls through the Gateway model plane (F-33)",
+      "priority": "P1",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Knowledge configuration holds no provider key; receipts for every call",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-05",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-11",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Evaluation and promotion pipeline in CI; judge calibration",
+      "priority": "P1",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "Baselines recorded in Ph1; profile changes blocked on regression",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-12",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Connector framework with ACL sync; Confluence first",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Delta sync and ACL propagation tests per connector",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-13",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "`parse`, `embed` and `index` roles scaled by queue depth",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Throughput scales linearly to the target node count",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-KN-14",
+      "source": "docs/plans/platform-upgrade-2026-10/04-knowledge.md#6-work-packages",
+      "result": "Python residue cleanup: telemetry labels (`fusion_applied_by: \"python\"`, [service.rs:574](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs)), parity module names, typed configuration (F-16)",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Dashboards migrated before labels change",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-01",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "Cookie sessions, CSRF, step-up, strict CSP and Trusted Types (F-07, F-37)",
+      "priority": "P1",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "No token readable from script; CSRF and Origin negative tests; CSP report-only for one release, then enforced with zero violations on e2e",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-03",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-02",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "Generated, typed API client from OpenAPI 3.2",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "No hand-written request types left; CI fails on undocumented operations",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CL-10",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-03",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "One design system; dead dependencies removed (F-25)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Radix, `cva`, `date-fns` and unused packages removed; lint rule blocks reintroduction",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-04",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "React Compiler, `codeSplitting`, budgets with no exceptions, precompression, TS 7 type checks",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Every route within budget; type-check time reduced (measured)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-05",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "Streaming client v2 with idle budgets and resume",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Hour-long turn completes with no client timeout; network-flap e2e passes",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-06",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "Real-user metrics, browser trace propagation, error reporting",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "INP and LCP p75 dashboards; browser-to-Runtime trace links",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-PE-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-11",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-07",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "WCAG 2.2 AA gate on all routes; ICU messages; RTL if adopted",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "axe passes on every route in e2e",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-08",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "Workbench surfaces for the new platform capabilities",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Each surface ships with its backend package and an e2e spec",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-04",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-06",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-09",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-10",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-13",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-04",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-KN-06",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-RT-09",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-WEB-09",
+      "source": "docs/plans/platform-upgrade-2026-10/05-web-console.md#6-work-packages",
+      "result": "nginx 1.30 unprivileged image and container hardening (F-37)",
+      "priority": "P1",
+      "phase": "Ph0–Ph1",
+      "status": "queued",
+      "acceptance": "Image scan clean of criticals; container runs read-only and non-root",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-PE-01",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-01",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Desktop GA on the shell chosen by P-ADR-8",
+      "priority": "P2",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "ADR with measurements; signed and notarized builds; staged auto-update",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "P-ADR-8",
+          "required_state": "verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-02",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Local Node secure storage on Windows and Linux; device-bound keys with proof of possession",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Credential replay from another process fails; fail-closed tests per OS",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-03",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Local Node streaming control channel with poll fallback",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Remote stop p95 < 1 s on a healthy link; fallback tested behind a buffering proxy",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-04",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Computer use on Windows and Linux (on product demand)",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Same approval, ledger and emergency-stop tests as macOS",
+      "activation_condition": "Only activate on product demand for Windows/Linux computer use.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-05",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Cross-platform signed CLI distribution",
+      "priority": "P2",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Install and launch tests on all five targets; signature verification at launch",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-06",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "ACP adapter for the CLI",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Zed and one JetBrains IDE complete a governed local session",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-07",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "CLI device login and keychain storage for the Gateway mode",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "No API key in arguments; tokens refreshed and revocable",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-GW-03",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-08",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "platformctl on the generated client with OIDC device login",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "JSON output schema per command",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CL-09",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-GW-03",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-09",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "Generated TypeScript, Python and Rust-model SDKs; Java/Dart decision",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "All SDKs pass the shared fixture suite in CI",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CL-10",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-CL-10",
+      "source": "docs/plans/platform-upgrade-2026-10/06-clients-and-edge.md#6-work-packages",
+      "result": "OpenAPI 3.2 producer with `itemSchema`; breaking-change gate (F-28)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Spec validates against 3.2; the diff gate blocks an unversioned breaking change",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-01",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "PostgreSQL 16 → 18 through the authority, rehearsed on a copy",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Authority `verify` passes on the upgraded copy; measured downtime; rollback plan tested",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-01b",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "PostgreSQL 18 → 19 after GA and its first minor",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Same as above; `REPACK CONCURRENTLY` replaces manual bloat work",
+      "activation_condition": "Only activate after PostgreSQL 19 GA and first minor are independently verified.",
+      "depends_on": [
+        {
+          "id": "U-DATA-01",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-02",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Per-service roles and schema-scoped `search_path` in every profile (F-05)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "No superuser in any service configuration (CI check); negative cross-schema tests",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-03",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Time partitioning and partition-based retention (F-21)",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Online migration rehearsed on a restored snapshot; retention without large `DELETE`s",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-DATA-06",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-12",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-04",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Row-level security for tenant tables (F-21)",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Cross-tenant negative suite at the SQL layer; plan regressions measured",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-DATA-02",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-12",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-05",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Valkey 9 with separate `coord` and `cache` instances, ACL users, TLS (F-40)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Memory-pressure test: no silent loss of leases or sessions; admission fails closed",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-06",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "PITR, Qdrant snapshots, object versioning, encrypted backups, quarterly drills (F-38)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Drill meets RPO ≤ 5 min and RTO ≤ 30 min",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-07",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Qdrant 1.18.2 → 1.19.2",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Snapshot, upgrade, retrieval golden set unchanged",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-08",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Qdrant API keys or JWT, TLS and network segmentation (F-39)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Unauthenticated access refused; only Knowledge roles reach Qdrant",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-09",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "S3-compatible object storage by default for shared blobs",
+      "priority": "P2",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Local-to-S3 migration tool with checksums; multi-replica Gateway serves the same blobs",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-10",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Optional analytics tier (ClickHouse or Parquet with DuckDB)",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Only with evidence of primary load; dashboards moved off the primary",
+      "activation_condition": "Optional; only activate with measured primary-database dashboard load.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-11",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "PgBouncer pooling per role",
+      "priority": "P2",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Connection count bounded under replica scale-out",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-12",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Migration lint, lock timeouts, N-1 compatibility tests per successor",
+      "priority": "P2",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "Lint gate in CI; N-1 suite green per successor",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-DATA-13",
+      "source": "docs/plans/platform-upgrade-2026-10/07-data-platform.md#6-work-packages",
+      "result": "Lite profile experiment: PostgreSQL-only retrieval",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Adopt only at golden-set parity",
+      "activation_condition": "Optional experiment; adopt only at retrieval golden-set parity.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-01",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Compose image identity and pairing checks (F-01, F-02)",
+      "priority": "P0",
+      "phase": "Ph0",
+      "status": "direct_verified",
+      "acceptance": "Rendered config check passes; web, Knowledge and Runtime/Worker identities distinct and paired",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "integrated_source",
+      "verification": "Direct and L0 actual Compose gates passed; required current-image/live acceptance remains open.",
+      "evidence": [
+        "deploy/runbooks/native-enterprise-upgrade/U-PE-01.md",
+        "reports/platform-upgrade-20261017/U-PE-01.json"
+      ],
+      "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "owned_paths": [
+        "rust/platform-native/crates/platform-tools/src/compose_identity.rs",
+        "rust/platform-native/crates/platform-tools/src/main.rs",
+        "rust/platform-native/crates/platform-tools/src/harness.rs",
+        "rust/platform-native/crates/platform-tools/tests/compose_image_identity.rs",
+        "rust/platform-native/crates/platform-tools/tests/deployment/**",
+        "scripts/new/validate-env.sh",
+        "rust/platform-native/crates/platform-tools/tests/support/compose.rs",
+        "rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs",
+        "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs"
+      ],
+      "forbidden_paths": [
+        "database/baselines/**",
+        "database/migrations/**",
+        "rust/agent-runtime-overlay/**",
+        "provider or tenant data"
+      ],
+      "integration_paths": [
+        "docker-compose.yml",
+        "deploy/compose/docker-compose.build.yml",
+        ".env.example",
+        "docs/README.md",
+        "docs/plans/platform-upgrade-2026-10/README.md",
+        "deploy/runbooks/native-enterprise-upgrade/**",
+        "Makefile",
+        "docs/harness/commands.md"
+      ],
+      "must_preserve": [
+        "Existing FRONTEND_IMAGE and KNOWLEDGE_IMAGE operator overrides; no new WEB_IMAGE alias.",
+        "Knowledge API and worker use the identical code-unit image.",
+        "Runtime/Worker pairing uses existing source lock; config checks do not claim built-artifact validity.",
+        "No base-file source builds, secret output, startup or database mutation in the offline gate."
+      ],
+      "direct_gates": [
+        "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test compose_image_identity",
+        "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts"
+      ],
+      "integration_gates": [
+        "Real docker compose config JSON: default/no-env override, operator overrides, source-build overlay, full/compact/scale profiles; identity gate rejects collision/mismatch.",
+        "make validate-example-config",
+        "make harness-check"
+      ],
+      "live_gates": [
+        "UP-PH0-ACCEPT verifies current source images and existing Assistant/Knowledge/Local Node journeys; config rendering alone cannot close F-02 image acceptance."
+      ],
+      "skip_policy": "none for direct/integration; live image acceptance remains explicit and open until executed",
+      "rollback": "old-binary-compatible; revert config/tool changes, no schema/data change",
+      "review": {
+        "mode": "independent read-only review",
+        "threshold": "blocker/high",
+        "verdict": "No blocker/high; medium matrix and build-boundary gaps repaired, affected tests/matrix passed."
+      },
+      "stop_conditions": [
+        "Unknown runtime image accepted as current",
+        "Image identity changes alter tenant/data/protocol contracts"
+      ],
+      "scope_note": "Existing script/harness fixture adapters are included because the production gates now consume structured Compose JSON and enforce image contracts. This does not authorize unrelated CI changes."
+    },
+    {
+      "id": "U-PE-02",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Docs truth pass and P-ADR-1 draft (F-31)",
+      "priority": "P2",
+      "phase": "Ph0",
+      "status": "verified",
+      "acceptance": "Live docs describe Rust defaults; no references to deleted scripts",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "integrated",
+      "verification": "Declared documentation/command/link/freshness gates and review repairs passed; product acceptance not implied.",
+      "evidence": [
+        "deploy/runbooks/native-enterprise-upgrade/U-PE-02.md",
+        "reports/platform-upgrade-20261017/U-PE-02.json"
+      ],
+      "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "owned_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CONTRIBUTING.md",
+        "DEPLOY.md",
+        "docs/harness/architecture.md",
+        "docs/harness/integration-and-rollback.md",
+        "docs/harness/work-packages.md",
+        "docs/harness/platform-architecture.md",
+        "docs/harness/repository-quality.md",
+        "docs/design/enterprise-performance-contract.md",
+        "docs/deployment/operator-guide.md",
+        "database/authority/README.md",
+        "deploy/agent-runtime-source/README.md",
+        "docs/architecture/proposals/rust-native-platform-baseline.md",
+        "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/README.md",
+        "rust/platform-native/crates/platform-tools/src/docs_truth.rs",
+        "rust/platform-native/crates/platform-tools/src/harness.rs",
+        "rust/platform-native/crates/platform-tools/src/main.rs",
+        "rust/platform-native/crates/platform-tools/tests/docs_truth.rs",
+        "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs",
+        "rust/platform-native/crates/platform-migration-authority/README.md"
+      ],
+      "integration_paths": [
+        "docs/README.md",
+        "docs/harness/commands.md",
+        "deploy/runbooks/native-enterprise-upgrade/**",
+        "docker-compose.yml",
+        "web/nginx.conf",
+        "deploy/helm/ai-gateway/values.yaml"
+      ],
+      "forbidden_paths": [
+        "docs/architecture/ADR-004*",
+        "docs/architecture/ADR-005*",
+        "docs/architecture/ADR-006*",
+        "docs/architecture/ADR-007*",
+        "docs/architecture/ADR-008*",
+        "docs/architecture/ADR-009*",
+        "docs/architecture/ADR-010*",
+        "docs/architecture/ADR-011*",
+        "database/baselines/**",
+        "database/migrations/**",
+        "reports/native-current-acceptance-20261016/**"
+      ],
+      "must_preserve": [
+        "Accepted ADRs, frozen baselines and dated receipts remain unchanged.",
+        "Document current source/runtime separately; no new production acceptance claims.",
+        "No fabricated native substitute for an unavailable old Python command.",
+        "Single managed Codex kernel, ADR-009 local CLI, tenant isolation, no signature/hash changes."
+      ],
+      "direct_gates": [
+        "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test docs_truth --test tools_migration_parity_ci",
+        "platform-tools docs-truth-check --repo-root .",
+        "make harness-check",
+        "git diff --check"
+      ],
+      "integration_gates": [
+        "Resolve local links and source command declarations for the selected live docs."
+      ],
+      "live_gates": [],
+      "skip_policy": "none",
+      "rollback": "documentation/tool-gate revert; old-binary-compatible, no data change",
+      "review": {
+        "mode": "independent read-only review",
+        "threshold": "repair blocker/high before integration"
+      },
+      "stop_conditions": [
+        "A proposed architecture is described as accepted",
+        "Historical evidence is rewritten",
+        "Documentation claims tests or runtime transitions that did not run"
+      ],
+      "scope_note": "Compose/nginx/Helm changes in this package are comments only; no deployment behavior or frozen schema changes."
+    },
+    {
+      "id": "U-PE-03",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Hosted CI capacity: runners, `sccache`, `nextest`, job parallelism",
+      "priority": "P1",
+      "phase": "Ph0",
+      "status": "in_progress",
+      "acceptance": "PR CI p50 measured, then ≤ 20 min",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": [
+        "deploy/runbooks/native-enterprise-upgrade/U-PE-03.md"
+      ],
+      "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "owned_paths": [
+        ".github/actions/setup-native/action.yml",
+        "rust/platform-native/crates/platform-tools/src/rust_gate.rs",
+        "rust/platform-native/crates/platform-tools/src/ci_capacity.rs",
+        "rust/platform-native/crates/platform-tools/src/main.rs",
+        "rust/platform-native/crates/platform-tools/tests/ci_capacity.rs",
+        "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs",
+        "docs/harness/commands.md"
+      ],
+      "integration_paths": [
+        ".github/workflows/ci.yml",
+        "harness.yml",
+        "deploy/runbooks/native-enterprise-upgrade/**",
+        "reports/platform-upgrade-20261017/**"
+      ],
+      "forbidden_paths": [
+        "database/**",
+        "rust/agent-runtime-overlay/**",
+        "paid runner provisioning",
+        "production environments"
+      ],
+      "must_preserve": [
+        "Local native builds remain one-job with external targets and no debug/incremental output.",
+        "Preserve all current unit/integration/doc-test obligations; nextest must not silently omit doctests.",
+        "No workflow dispatch, public source push or new paid resource without authorization.",
+        "Existing failing tests stay explicit until repaired, never weakened to obtain a timing result."
+      ],
+      "direct_gates": [
+        "Native capacity policy unit/CLI negative cases and affected existing CI selection tests",
+        "Workflow/action syntax and preserving-outcome gate checks"
+      ],
+      "integration_gates": [
+        "Hosted candidate run on existing standard public runners; measure exact job/resource/cache identities and complete gate outcomes."
+      ],
+      "live_gates": [
+        "A valid PR CI cohort proves p50 <=20 minutes; two failed historical push runs do not satisfy this."
+      ],
+      "skip_policy": "none for required gates; missing hosted candidate/cohort is not a pass",
+      "rollback": "Revert CI configuration/tool changes; no data change or production operation",
+      "review": {
+        "mode": "independent read-only",
+        "threshold": "blocker/high"
+      },
+      "stop_conditions": [
+        "New paid capacity is required without owner authorization",
+        "Test/skip population changes without preserving original obligations"
+      ]
+    },
+    {
+      "id": "U-PE-04",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Performance baselines on the accepted build",
+      "priority": "P1",
+      "phase": "Ph0",
+      "status": "queued",
+      "acceptance": "Baseline report checked in under `reports/`",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "UP-PH0-ACCEPT",
+          "required_state": "verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-10",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Observability stack v2 (F-13)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "One trace backend; dashboards and SLO alerts as code",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-11",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "OTLP traces, metrics and logs in every service; pinned GenAI conventions (F-14)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "End-to-end trace from browser to Worker; token and cost metrics per tenant",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-12",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Workload identity (mTLS) and file-based secrets; shared bearer retired (F-04)",
+      "priority": "P1",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "No long-lived secret in environment variables; rotation drill",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-13",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Supply-chain gates: pinning, `permissions:`, `cargo-deny`, scanning, signing, verification (F-23)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Unsigned or critically vulnerable image cannot deploy",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-14",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Dependency hygiene: `serde_yaml` replacement, `rustpython` removal, version unification (F-26)",
+      "priority": "P2",
+      "phase": "Ph1–Ph2",
+      "status": "queued",
+      "acceptance": "`cargo-deny` clean with no exceptions for these crates",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-15",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Licence alignment (F-24)",
+      "priority": "P2",
+      "phase": "Ph0–Ph1",
+      "status": "queued",
+      "acceptance": "One licence declared consistently; NOTICE and third-party notices generated",
+      "activation_condition": "Owner must choose repository licence; prepare inventory first, no unilateral relicensing.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-20",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "One Dockerfile with per-binary images and slim bases (F-22)",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Five copies removed; image size budgets met",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-21",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Native arm64 builds and merged manifests (F-23)",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Release build ≤ 45 min (README §8)",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-22",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Container hardening and network segmentation (F-36, F-39)",
+      "priority": "P1",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Hardening check passes for every service; data stores unreachable from the edge",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-30",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Helm v2 for the Rust topology with operators (F-12)",
+      "priority": "P1",
+      "phase": "Ph2–Ph3",
+      "status": "queued",
+      "acceptance": "Chart tests on kind; install, upgrade and rollback rehearsed",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-CW-03",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-06",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-DATA-11",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-22",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-31",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "GitOps and SLO-gated progressive delivery",
+      "priority": "P3",
+      "phase": "Ph3",
+      "status": "queued",
+      "acceptance": "Canary rollback triggered automatically in a drill",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [
+        {
+          "id": "U-PE-30",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-13",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-10",
+          "required_state": "direct_verified"
+        }
+      ],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-32",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Compose overlays folded into profiles",
+      "priority": "P3",
+      "phase": "Ph2",
+      "status": "queued",
+      "acceptance": "Documented matrix; `make hot-update` unchanged",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "U-PE-40",
+      "source": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md#6-work-packages",
+      "result": "Harness checks for this review's recurring findings",
+      "priority": "P2",
+      "phase": "Ph1",
+      "status": "queued",
+      "acceptance": "Each check has a negative test in the gate self-test",
+      "activation_condition": "Required; review current code and freeze package boundaries before activation.",
+      "depends_on": [],
+      "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
+      "implementation": "not_assessed",
+      "verification": "not_run",
+      "evidence": []
+    }
+  ],
+  "support_packages": [
+    {
+      "id": "UP-PH0-RESPONSES",
+      "status": "blocked",
+      "priority": "P0",
+      "phase": "Ph0",
+      "source": "docs/harness/architecture.md#accepted-responses-observation-failure-contract",
+      "requirement_bindings": [
+        "E1",
+        "E3",
+        "U-GW-05",
+        "F-29"
+      ],
+      "result": "After an accepted Runtime turn, same-key/body Responses retries replay the original observation failure and run/session identities instead of submitting a duplicate turn.",
+      "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "depends_on": [
+        {
+          "id": "U-PE-02",
+          "required_state": "direct_verified"
+        }
+      ],
+      "owned_paths": [
+        "rust/platform-native/crates/platform-gateway/src/migration_compat/responses.rs",
+        "rust/platform-native/crates/platform-gateway/tests/*responses*",
+        "rust/platform-native/crates/platform-gateway/assets/watermark.png"
+      ],
+      "integration_paths": [
+        "docs/harness/architecture.md",
+        "deploy/runbooks/native-enterprise-upgrade/**",
+        "reports/platform-upgrade-20261017/**",
+        ".gitignore"
+      ],
+      "forbidden_paths": [
+        "database/baselines/**",
+        "database/migrations/**",
+        "rust/agent-runtime-overlay/**"
+      ],
+      "must_preserve": [
+        "Original 503/502 error codes/bodies and run/session identities after acceptance.",
+        "Same actor/tenant/key/body replay; changed body conflict and cross-tenant isolation.",
+        "Pre-accept failure retry behavior and unsupported streaming idempotency unchanged.",
+        "No fabricated terminal, automatic execution retry or exactly-once claim."
+      ],
+      "direct_gates": [
+        "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib accepted_response_cache_tests -- --test-threads=1 (helper-only evidence; does not replace required production-route cases)",
+        "Native production-route regression: stream-open failure, read error, EOF, concurrent same-key waiter; exact start_turn count remains one; replay body/status/headers match; body conflict and tenant/actor separation.",
+        "Affected existing Responses validation/projection/idempotency tests."
+      ],
+      "integration_gates": [
+        "Real Redis-backed replay and waiter behavior required; controlled RESP fixtures do not replace a real-store result."
+      ],
+      "live_gates": [
+        "Ph0 public Responses transport-failure/retry journey on current paired services."
+      ],
+      "skip_policy": "No required scenario may skip; unrun real-store/live evidence remains open.",
+      "rollback": "old-binary-compatible source/image rollback; no data/schema change",
+      "review": {
+        "mode": "independent read-only",
+        "threshold": "blocker/high",
+        "verdict": "No blocker/high in bounded source fix. Cache-write uncertainty, cancellation/process loss, cache expiry/loss and ambiguous start acknowledgement remain separate unaccepted boundaries."
+      },
+      "evidence": [
+        "deploy/runbooks/native-enterprise-upgrade/UP-PH0-RESPONSES.md",
+        "reports/platform-upgrade-20261017/UP-PH0-RESPONSES.json"
+      ],
+      "stop_conditions": [
+        "A post-accept error releases the request for duplicate execution",
+        "Public response or tenant scope is weakened"
+      ],
+      "implementation": "compiled_source; five cache-helper regressions passed",
+      "verification": "Helper-only PASS; required actual POST/Redis/live gates remain NOT_RUN",
+      "prerequisite_repair": "Gateway compilation is blocked in clean CI by a missing embedded watermark asset. Restore byte-identical src/assets/watermark.png from existing ed6ea2e Git object into its native include path; retain no Python implementation or backup tree. Pin hash in receipt.",
+      "build_input_repair": {
+        "path": "rust/platform-native/crates/platform-gateway/assets/watermark.png",
+        "source_git_object": "ed6ea2e:src/assets/watermark.png",
+        "independent_matching_object": "ed6ea2e:packages/ai-gateway-core/src/ai_gateway_core/image/assets/watermark.png",
+        "sha256": "da1d9304549d9c1e153c37472748ec949a87f3af1b395412e17a451c9b41a6ff",
+        "scope": "Exact existing product PNG only; no Python implementation restored."
+      },
+      "remaining_required": [
+        "Actual production POST route with counted start_turn for open failure/read error/EOF/concurrent waiter",
+        "Real Redis replay and store-failure behavior",
+        "Current paired Gateway/Runtime/Worker public retry journey"
+      ],
+      "blocker": "Original local environment absent; user environment selection/input question pending. Authenticated route/real-store/live evidence must not be replaced with helper fixtures."
+    }
   ]
 }

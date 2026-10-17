@@ -7,6 +7,8 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
 };
+#[path = "support/compose.rs"]
+mod compose;
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../..")
@@ -42,6 +44,11 @@ impl Fixture {
         let f = Self { dir };
         f.executable("docker", DOCKER);
         f.executable("curl", CURL);
+        fs::write(
+            f.dir.join("compose.json"),
+            serde_json::to_vec(&compose::rendered(&root())).unwrap(),
+        )
+        .unwrap();
         f
     }
     fn executable(&self, name: &str, text: &str) {
@@ -58,7 +65,8 @@ impl Fixture {
                 "PATH",
                 format!("{}:/usr/bin:/bin", self.dir.join("bin").display()),
             )
-            .env("ENV_FILE", self.dir.join(".env"));
+            .env("ENV_FILE", self.dir.join(".env"))
+            .env("FAKE_COMPOSE_JSON", self.dir.join("compose.json"));
         for (k, _) in std::env::vars() {
             if k.starts_with("VITE_")
                 || k.ends_with("API_KEY")
@@ -91,7 +99,19 @@ fn outcome(o: Output, code: i32) -> String {
     s
 }
 const DOCKER: &str = r#"#!/bin/sh
-if [ "$1" = compose ]; then case "$*" in *" config"*) exit 0;; esac; case "$2" in version|--env-file) exit 0;; esac; fi
+if [ "$1" = compose ]; then
+ case "$*" in *" config"*)
+  # Validate referenced files too: an old overlay location must not false-green.
+  previous=""
+  for arg in "$@"; do
+   if [ "$previous" = -f ] && [ ! -f "$arg" ]; then exit 1; fi
+   previous="$arg"
+  done
+  case "$*" in *"--format json"*) cat "$FAKE_COMPOSE_JSON";; esac
+  exit 0;;
+ esac
+ case "$2" in version|--env-file) exit 0;; esac
+fi
 if [ "$1" = info ]; then exit 0; fi
 if [ "$1" = ps ]; then echo ai-gateway-pg; exit 0; fi
 if [ "$1" = exec ]; then case "$*" in

@@ -491,7 +491,7 @@ validate_compose_config() {
 
     if [ "$no_interpolate" = true ]; then
         if ! (cd "$PROJECT_ROOT" && $compose_cmd -f docker-compose.yml \
-            -f "docker-compose.${topology_mode}.yml" --env-file "$ENV_FILE" \
+            -f "deploy/compose/docker-compose.${topology_mode}.yml" --env-file "$ENV_FILE" \
             config --quiet --no-interpolate "$@"); then
             fail "docker compose config validation failed."
         fi
@@ -499,8 +499,9 @@ validate_compose_config() {
     fi
 
     if ! (cd "$PROJECT_ROOT" && $compose_cmd -f docker-compose.yml \
-        -f "docker-compose.${topology_mode}.yml" --env-file "$ENV_FILE" config --quiet "$@"); then
-        fail "docker compose config validation failed."
+        -f "deploy/compose/docker-compose.${topology_mode}.yml" --env-file "$ENV_FILE" config --format json "$@" \
+        | platform-tools compose-image-check --repo-root "$PROJECT_ROOT" --config - --mode "$topology_mode" >/dev/null); then
+        fail "docker compose config or image identity validation failed."
     fi
 }
 

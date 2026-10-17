@@ -134,6 +134,12 @@ pub fn check(root: &Path) -> Result<Value> {
         serde_yaml::from_slice(&std::fs::read(root.join(".github/workflows/ci.yml"))?)?;
     let mut errors = vec![];
     let mut warnings = vec![];
+    if let Err(error) = compose_identity::source_contract(root) {
+        errors.push(format!("Compose image identity: {error}"));
+    }
+    let docs_truth = docs_truth::check(root)?;
+    errors.extend(strings(&docs_truth["errors"]).into_iter().map(str::to_owned));
+    warnings.extend(strings(&docs_truth["warnings"]).into_iter().map(str::to_owned));
     let docs = strings(&config["required_docs"]);
     if docs.is_empty() {
         errors.push("harness.yml has no required_docs block".into());

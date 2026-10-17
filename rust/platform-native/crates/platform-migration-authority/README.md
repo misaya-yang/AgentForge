@@ -1,5 +1,7 @@
 # Native database authority
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 `database-authority` ports the existing `database.authority` command surface.
 It consumes the same frozen `database/baselines`, immutable legacy/per-service
 manifests, canonical epoch manifest and verification files. It does not invent
@@ -22,11 +24,14 @@ Commands: `migrate`, `init-fresh`, `cutover`, `status`, `source-kind`, `verify`,
 - Role bootstrap is explicit admin work; ordinary migration verifies its result.
 - The ledger ACLv1 digest, receipt, exact rights and ACL delta remain unchanged.
 - `status`, `verify`, `source-kind` and `startup-check` connect read-only.
-- `startup-check` retains the Python command's reviewed principal windows:
-  Gateway/Runtime/Capability Worker 2–10; Knowledge API/Worker 5–17. Actual native
-  application startup guards remain independently owned contracts.
+- `startup-check` and production Gateway/Knowledge startup use the native application guard.
+  Current epoch-22 source windows: Gateway 18–22, durable Gateway 20–22, Knowledge API 19–22,
+  Knowledge Worker 21–22. Runtime/Capability Worker CLI branches still retain legacy 2–10
+  checks and do not establish current-schema admission (tracked in U-GW-20).
+- Application admission compares the frozen baseline marker and contiguous epoch/checksum/attempt
+  metadata. It does not recompute all database fingerprints; `verify` remains independently required.
 - Nontransactional execution requires explicitly registered recovery callbacks.
-  The CLI registers none, as the Python CLI does. The current canonical epoch
+  The CLI registers none. The current canonical epoch
   has only transactional changes. An executable digest change refuses recovery
   of older open attempts instead of assuming state-machine compatibility.
 - `--reconciliation-evidence-out` is the only way CLI commands write a receipt
@@ -89,13 +94,11 @@ the three source-bound verification references. The final role probe stays
 offline unless its separately named probe flag and exact fixture arguments are
 supplied.
 
-After an explicitly reviewed activation, `check-successor-proposals` verifies
-the active epoch-20 chain from `SUCCESSOR_ACTIVATION.json`; requesting a new
-preview then refuses. The historical inactive proposal remains unchanged.
-Activation verification binds the retained epoch-17 manifest and package lock,
-the measurement receipt, and the three measured successor references under the
-release-pinned migration directory. A single-root role probe validates that
-same active receipt before database access.
+Current canonical source is epoch 22. Activation receipts for each predecessor remain
+under `database/migrations/2026_08_post_kb_v1/`; successor023 is still an inactive proposal.
+`check-successor-proposals` verifies the active source chain and refuses an incompatible
+preview. Measurement/role probes require the exact declared isolated database and retained
+source evidence; no command may synthesize missing fingerprints or guess a preimage.
 
 Native policy scanning maps Knowledge integration modules to Knowledge roles,
 not the gateway crate name. Shared API/worker modules produce shared static

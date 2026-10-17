@@ -20,10 +20,9 @@ Do not carry knowledge forward from a prior session in your head. If it matters,
 | `.claude/commands/` | `/review`, `/review-file`, `/test`, `/test-gen` — repo-local slash commands |
 | `.claude/settings.json` | Enabled plugins and permissions; `settings.local.json` is untracked |
 | `agent-plugins/` | Agent Plugin 1.0.0 packages shipped **by** this platform — product surface, not your tooling |
-| `skills/` | Skill packages served by the platform — treat as vendored data, do not refactor |
 | `web/e2e/` | The **only** home for Playwright specs — see [`web/e2e/README.md`](web/e2e/README.md) |
 
-`agent-plugins/`, `skills/`, and `sdk/` are product artifacts this platform ships to its users.
+`agent-plugins/` and `sdk/` are product artifacts this platform ships to its users.
 Read them to understand behaviour; change them only when that is the task.
 
 ## Working preferences

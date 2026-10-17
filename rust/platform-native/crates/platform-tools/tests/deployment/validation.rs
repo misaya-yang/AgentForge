@@ -31,6 +31,25 @@ fn example_modes() {
     }
 }
 #[test]
+fn compose_image_failure_is_not_hidden_by_valid_env() {
+    let f = Fixture::new();
+    fs::write(f.dir.join(".env"), valid("DASHSCOPE_API_KEY=test-chat-key")).unwrap();
+    let mut config = compose::rendered(&root());
+    config["services"]["frontend"]["image"] =
+        config["services"]["knowledge-service"]["image"].clone();
+    fs::write(
+        f.dir.join("compose.json"),
+        serde_json::to_vec(&config).unwrap(),
+    )
+    .unwrap();
+    let out = outcome(f.run("scripts/new/validate-env.sh", &["--config-only"]), 1);
+    has(
+        &out,
+        &["docker compose config or image identity validation failed"],
+    );
+    lacks(&out, &["Configuration validation passed", SECRET]);
+}
+#[test]
 fn example_not_release() {
     validate(
         &read(".env.example"),
@@ -68,7 +87,20 @@ fn default_model_round_trip() {
 }
 #[test]
 fn release_image_required() {
-    validate(&set(&valid("DASHSCOPE_API_KEY=test-chat-key"),"GATEWAY_IMAGE","ghcr.io/misaya-yang/ai-gateway:nightly"),&["--config-only"],"",1,&["GATEWAY_IMAGE must use a full semantic release tag (for example 2.0.0) or sha256 digest."],&[]);
+    validate(
+        &set(
+            &valid("DASHSCOPE_API_KEY=test-chat-key"),
+            "GATEWAY_IMAGE",
+            "ghcr.io/misaya-yang/ai-gateway:nightly",
+        ),
+        &["--config-only"],
+        "",
+        1,
+        &[
+            "GATEWAY_IMAGE must use a full semantic release tag (for example 2.0.0) or sha256 digest.",
+        ],
+        &[],
+    );
 }
 #[test]
 fn example_shape() {
@@ -125,7 +157,16 @@ fn runtime_provider_alignment() {
 #[test]
 fn vertex_provider_aliases() {
     for p in ["dashscope|1\ngoogle-vertex|1", "dashscope|1\ngoogle|1"] {
-        validate(&valid("DASHSCOPE_API_KEY=test-dashscope-key\nGOOGLE_CHAT_BACKEND=vertex\nVERTEX_CHAT_API_KEY=test-vertex-chat-key"),&["--runtime"],p,0,&["Chat model/provider alignment is valid (2 available model(s))."],&[]);
+        validate(
+            &valid(
+                "DASHSCOPE_API_KEY=test-dashscope-key\nGOOGLE_CHAT_BACKEND=vertex\nVERTEX_CHAT_API_KEY=test-vertex-chat-key",
+            ),
+            &["--runtime"],
+            p,
+            0,
+            &["Chat model/provider alignment is valid (2 available model(s))."],
+            &[],
+        );
     }
 }
 #[test]

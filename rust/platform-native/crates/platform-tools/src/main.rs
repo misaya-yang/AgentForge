@@ -5,6 +5,8 @@ mod build_ops;
 mod buildx_resource;
 mod candidates;
 mod ci;
+mod compose_identity;
+mod docs_truth;
 mod embed;
 mod evidence;
 mod guard;
@@ -278,6 +280,7 @@ impl Args {
                     "--matrix",
                     "--build-env",
                     "--short12",
+                    "--source-build",
                 ]
                 .contains(&s.as_str())
                     && it.peek().is_some_and(|v| !v.starts_with("--"))
@@ -339,6 +342,9 @@ fn run() -> Result<bool> {
  "free-port"=>{let listener=std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST,0))?;json!({"_plain":listener.local_addr()?.port().to_string()})},
  "sha256-file"=>json!({"_plain":digest(Path::new(args.positionals.get(1).ok_or("sha256-file requires FILE")?))?}),
  "harness-check"=>harness::check(&root)?,
+ "compose-image-check"=>compose_identity::run(&args)?,
+ "compose-image-matrix"=>compose_identity::matrix(&root)?,
+ "docs-truth-check"=>docs_truth::check(&root)?,
  "evidence"=>evidence::run(&args)?,
  "topology-inventory"=>guard::generate(&args)?,
  "single-instance-guard"=>guard::run(&args)?,

@@ -40,6 +40,7 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 | Purpose | Command |
 | --- | --- |
 | Preflight the machine before anything else | `make doctor` |
+| Check living-document scripts, links, top-level CLI names and review dates (also included in harness) | `platform-tools docs-truth-check --repo-root .` |
 | Verify the pinned Agent Runtime source release unit | `make agent-runtime-source-contract` |
 | Verify the independent local-Runtime CLI | `make independent-cli-gate` |
 | Build the independent native CLI inside Docker | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-cli-build-local` |
@@ -65,17 +66,21 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 | Preview / load local demo data | `make seed-demo` / `make seed-demo-apply` |
 
 `*-build-local` means the Docker daemon is local; Cargo runs only in the multi-stage Docker builder.
+`make validate-example-config` also runs `platform-tools compose-image-matrix --repo-root .`:
+actual Compose rendering for fallback/overridden/source-build images across full/compact/scale,
+plus collision and stale-pair negative cases. It uses public examples, starts no services and
+does not admit image artifacts. The deploy/hot-update source-lock image checks remain required.
 `make agent-runtime-recovery-tests` runs Runtime/Worker library tests and the
 scoped Core original-turn recovery/suspension regressions inside that builder,
 using `AI_PLATFORM_AGENT_RUNTIME_SOURCE` for the clean pinned upstream. It is
 local Docker evidence, separate from the hosted CI gate.
 For these local Runtime acceptance targets, retain the Docker-builder convention;
-do not substitute host Cargo runs for their Docker evidence. Separately, the
-owner-approved isolated cloud migration workspace may run pinned Cargo/Rust
-commands for native compilation and targeted tests. Those runs must be serialized
+do not substitute host Cargo runs for their Docker evidence. For native services/tools,
+current `AGENTS.md` also authorizes pinned host Cargo/Rust
+compilation and targeted tests. Those runs must be serialized
 (`CARGO_BUILD_JOBS=1`), use an external `CARGO_TARGET_DIR`, and disable debug and
 incremental build output. This exception does not authorize deployment or establish
-local Docker acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
+local runtime acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
 not a replacement local acceptance command.
 
 Every target above accepts `ENV_FILE=/path/to/.env` when the real env file lives outside the repo.

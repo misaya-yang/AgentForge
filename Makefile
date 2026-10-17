@@ -209,6 +209,7 @@ validate-config:            ## 仅校验 .env 和 Compose 配置
 
 validate-example-config:    ## 校验提交的 .env.example 和 Compose 示例配置
 	@bash $(SCRIPTS)/validate-env.sh --env ".env.example" --example
+	@platform-tools compose-image-matrix --repo-root .
 
 seed-demo:                  ## 预览本地 demo 数据 SQL 和路由 (不写数据库)
 	@bash $(SCRIPTS)/seed-demo-data.sh --env "$(ENV_FILE)" --dry-run

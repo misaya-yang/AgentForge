@@ -1,5 +1,7 @@
 # Enterprise Gateway performance acceptance contract
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 Status: executable exploratory harness, not a measured performance result or an
 accepted release. Owner: Gateway control/data-plane maintainers, with Runtime,
 Knowledge and Capability owners accountable for their named timing boundaries.
@@ -13,9 +15,10 @@ do not individually establish that requirement.
 
 ## 1. Current executable baseline
 
-[`scripts/harness/gateway_performance_baseline.py`](../../scripts/harness/gateway_performance_baseline.py)
-is a dependency-free Python 3.10+ Linux measurement library. Its command-line
-entrypoint only prints an offline plan. Live calls belong inside an explicitly
+The native [`ai_platform_tools::performance`](../../rust/platform-native/crates/platform-tools/src/performance.rs)
+library implements the bounded fixed-GET measurement. `platform-tools gateway-performance-baseline`
+prints an offline plan only. Its process sampler requires Linux `/proc`; a macOS source/test
+run does not establish process-resource measurements. Live calls belong inside an explicitly
 reviewed existing-fixture controller that already owns the current Gateway
 process, application database, source/artifact receipts and authenticated actor.
 The library never starts services, logs in, provisions accounts, reads a secret
@@ -160,27 +163,25 @@ pass.
 Offline plan, no network or service action:
 
 ```sh
-python -B scripts/harness/gateway_performance_baseline.py
+platform-tools gateway-performance-baseline
 ```
 
 Canonical repository regression command:
 
 ```sh
-uv run --all-packages --extra test pytest -q --no-cov tests/harness/test_gateway_performance_baseline.py
+CARGO_TARGET_DIR=/absolute/external/target CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 \
+CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked --manifest-path rust/platform-native/Cargo.toml \
+  -p ai-platform-tools --test tools_migration_parity_performance
 ```
 
-The regressions use standard-library fake byte streams and mocked connections.
-When the full workspace environment is unavailable, the identical offline cases
-can also run without installing dependencies:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python -B -m unittest discover -s tests/harness -p test_gateway_performance_baseline.py -v
-```
+The Rust regressions use controlled byte streams and loopback connections. Linux-only
+process-sampling cases are conditionally compiled on Linux; their absence on macOS must be
+reported separately. No offline fixture proves a live Gateway performance baseline.
 
 These checks cover math, denominators, fixed targets/owner identity, framing,
 timeout/local cancellation, bounded workers, warmup accounting and resource
-failure behavior. They are not measurements of a real Gateway and open no
-network listener. Live results must be a separate controller receipt with exact
+failure behavior. They are not measurements of a real Gateway; loopback transport fixtures are
+distinct from a deployed service. Live results must be a separate controller receipt with exact
 current source/artifact/PID verification, measured observations and cleanup facts.
 Previous historical fixture results do not become a fresh baseline after an
 environment replacement.

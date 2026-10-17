@@ -112,11 +112,7 @@ services:
   # explicit so a stale image that lacks database.authority fails instead of
   # silently falling back to a historical per-service writer.
   migrate:
-    image: "${MIGRATE_IMAGE:-ai-platform/migrate:rust-local}"
-    build:
-      context: .
-      dockerfile: deploy/platform-native/Dockerfile
-      target: migrate
+    image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
     container_name: ai-gateway-migrate
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}"
@@ -183,11 +179,7 @@ services:
 
   # AI Gateway Backend
   gateway:
-    image: "${GATEWAY_IMAGE:-ai-platform/gateway:rust-local}"
-    build:
-      context: .
-      dockerfile: deploy/platform-native/Dockerfile
-      target: runtime
+    image: "${GATEWAY_IMAGE:-ghcr.io/misaya-yang/ai-gateway:2.0.0}"
     container_name: ai-gateway-backend
     environment:
       GATEWAY_NATIVE_CONFIG: "${GATEWAY_NATIVE_CONFIG:-/app/config/native-gateway.json}"
@@ -396,11 +388,7 @@ services:
 
   # AI Gateway Frontend (Web Console)
   frontend:
-    image: "${KNOWLEDGE_IMAGE:-ai-platform/knowledge:rust-local}"
-    build:
-      context: .
-      dockerfile: deploy/platform-native/Dockerfile
-      target: knowledge
+    image: "${FRONTEND_IMAGE:-ghcr.io/misaya-yang/ai-gateway-web:2.0.0}"
     container_name: ai-gateway-frontend
     environment:
       VITE_API_URL: "${VITE_API_URL:-}"
@@ -442,7 +430,7 @@ services:
       KNOWLEDGE_APP__PORT: "8092"
       # Guard-documented dev escape valve: the startup check refuses to boot
       # with neither the internal token nor anonymity. Default false keeps it
-      # fail-closed; see apps/knowledge-service main.py Phase K5c.
+      # fail-closed; see platform-knowledge-service native startup.
       KNOWLEDGE_APP__ALLOW_ANONYMOUS: "${KNOWLEDGE_APP__ALLOW_ANONYMOUS:-false}"
       ENVIRONMENT: "${ENVIRONMENT:-}"
       KNOWLEDGE_DATABASE__DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dknowledge%2Cgateway%2Cassistant%2Cpublic"
@@ -561,11 +549,7 @@ services:
   # Knowledge durable ingestion worker. It shares the API image and database,
   # exposes health only, and discovers queued generations from PostgreSQL.
   knowledge-worker:
-    image: "${KNOWLEDGE_IMAGE:-ai-platform/knowledge:rust-local}"
-    build:
-      context: .
-      dockerfile: deploy/platform-native/Dockerfile
-      target: knowledge
+    image: "${KNOWLEDGE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0}"
     environment:
       <<: *knowledge-service-environment
       KNOWLEDGE_RUNTIME_ROLE: "worker"
@@ -597,7 +581,7 @@ services:
 
   # Rust capability worker. It owns durable tool execution but never a model loop.
   agent-capability-worker:
-    image: "${AGENT_CAPABILITY_WORKER_IMAGE:-ai-gateway-agent-capability-worker:local-94cbbddafc17-46158add036c}"
+    image: "${AGENT_CAPABILITY_WORKER_IMAGE:?Select the capability-worker image from the current source lock}"
     expose:
       - "8095"
     environment:
@@ -650,7 +634,7 @@ services:
   # Rust Agent Runtime. It is the sole Agent kernel for new and resumed turns.
   agent-runtime:
     container_name: ai-gateway-agent-runtime
-    image: "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:-ai-gateway-agent-runtime:local-94cbbddafc17-46158add036c}"
+    image: "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:?Select the Runtime image from the current source lock}"
     expose:
       - "8094"
     environment:

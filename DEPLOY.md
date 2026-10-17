@@ -1,5 +1,7 @@
 # Deployment Guide
 
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
 This guide covers Docker Compose deployment for the standalone AI Gateway project.
 
 For a first local run, start with [`README.md`](README.md). Use this document when you want a
@@ -167,33 +169,24 @@ Optional Knowledge, capability-worker or image-worker failures degrade the relev
 capability without making core Gateway readiness fail. `make status` separately
 checks the stack's services, so its broader release gate can still fail.
 
-- Base Compose and its `compact`, `full`, `scale`, and development overlays retain
-  Python Gateway by default and inherit its `/health/ready` container healthcheck.
-  `make status` uses the same Gateway endpoint. Topology mode does not select a
-  native implementation or expand a process's supported database epoch window.
-- Helm default and production values use `/health/live` and `/health/ready` on
-  port 8080. The template still accepts operator overrides through
-  `gateway.probes.liveness.*` and `gateway.probes.readiness.*`; no other service's
-  probe contract changes. Do not override readiness to `/health` to hide a failed
-  dependency or incompatible deployment.
-- The current Helm chart remains a retained Python profile: its schema-check init
-  container runs `python -m database.authority startup-check`, and the chart has
-  historical LangGraph templates but no managed Agent Runtime template. It does
-  not supply the required managed Runtime/model-plane configuration. A standalone
-  chart install is therefore not evidence of a complete ready platform; operators
-  need a separately compatible Runtime and reviewed private routing/configuration.
-  The corrected probe may expose those missing dependencies as unready.
-- Native Gateway implements the same public probe paths, but replacing only a Helm
-  image does not produce a reviewed native release profile. Retained Python Gateway
-  supports schema epochs 2..10; the native-enterprise epoch-17 candidate needs its
-  own compatible startup/image/profile evidence. The optional SDK Worker overlay
-  explicitly requires native Gateway and does not select it automatically.
+- Base Compose consumes versioned Gateway, Web, Knowledge and migrate images. Source builds
+  are opt-in through `deploy/compose/docker-compose.build.yml`. Topology overlays select roles
+  and replicas, not implementation languages or database compatibility windows.
+- Runtime and Capability Worker must come from the same source lock and pass actual image
+  digest/platform/label admission. A successful Compose render is configuration evidence only.
+- Gateway and Knowledge implement application-role schema admission before readiness/workers.
+  The current epoch-22 source windows and Runtime/Worker admission gap are documented in
+  [architecture](docs/harness/architecture.md#4-data-execution-and-cancellation-authority).
+- The retained Helm chart already uses native `database-authority` startup/init commands,
+  but lacks the managed Runtime/Capability Worker and Knowledge Worker topology. It retains
+  legacy image/service assumptions and is not a supported complete
+  native install path. U-PE-30 owns its replacement and install/upgrade/rollback evidence.
+  Do not try to obtain a native release merely by replacing a Helm image value.
 
-Offline regressions live in `tests/scripts/test_release_readiness_probes.py` and
-`tests/api/test_gateway_readiness_contract.py`. The config tests parse committed
-values/Compose and exercise real `helm template` for default, production, and
-operator-override cases when Helm is installed; missing Helm is an explicit skip.
-These checks do not prove Kubernetes rollout, a native binary, or live readiness.
+`make validate-example-config` runs real Compose identity/render checks. Offline native
+regressions are `cargo test --locked --manifest-path rust/platform-native/Cargo.toml
+-p ai-platform-tools --test deployment_script_contracts`. They do not prove live readiness,
+image contents or a Kubernetes rollout. Runtime acceptance remains a separate gate.
 
 ## Update
 

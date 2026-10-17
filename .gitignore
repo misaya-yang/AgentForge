@@ -146,6 +146,7 @@ apps/islamic-content-service/data/
 
 # ======================== Screenshots & Playwright ========================
 *.png
+!/rust/platform-native/crates/platform-gateway/assets/watermark.png
 *.jpeg
 .playwright-mcp/
 

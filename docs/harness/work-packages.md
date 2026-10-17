@@ -103,8 +103,8 @@ The following paths are cross-cutting and may be changed only in a named integra
 primary session:
 
 ```text
-src/main.py
-src/api/router.py
+rust/platform-native/crates/platform-gateway/src/bin/gateway.rs
+rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/**
 docker-compose*.yml
 Makefile
 harness.yml

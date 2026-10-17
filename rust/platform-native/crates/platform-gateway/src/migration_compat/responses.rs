@@ -617,6 +617,11 @@ impl ResponsesIdempotency {
         if cached.status >= 500 {
             return self.abort(scope).await;
         }
+        self.store(scope, cached).await
+    }
+    // The accepted-turn observer retains its 502/503; generic pre-accept failures
+    // keep finish/abort's existing retry behavior.
+    async fn store(&self, scope: &str, cached: CachedResponse) -> Result<(), CompatError> {
         if let Some(mut redis) = self.redis.clone() {
             let _: () = redis
                 .set_ex(
@@ -698,6 +703,64 @@ pub fn response_error(
     )
         .into_response()
 }
+fn cached_response(cached: CachedResponse, replayed: bool) -> Response {
+    let mut response = (
+        StatusCode::from_u16(cached.status).unwrap_or(StatusCode::OK),
+        cached.body,
+    ).into_response();
+    for (key, value) in cached.headers {
+        if !matches!(key.to_lowercase().as_str(), "content-length" | "transfer-encoding") {
+            if let (Ok(key), Ok(value)) = (
+                HeaderName::from_bytes(key.as_bytes()), HeaderValue::from_str(&value),
+            ) {
+                response.headers_mut().insert(key, value);
+            }
+        }
+    }
+    if replayed {
+        response.headers_mut().insert("x-idempotency-replayed", HeaderValue::from_static("true"));
+    }
+    response
+}
+
+async fn accepted_observation_failure(
+    idempotency: &ResponsesIdempotency,
+    claim: Option<&(String, String)>,
+    run_id: &str,
+    session_id: &str,
+    status: u16,
+    code: &str,
+    message: &str,
+) -> Response {
+    let headers: Vec<(String, String)> = vec![
+        ("content-type".into(), "application/json".into()),
+        ("x-run-id".into(), run_id.into()),
+        ("x-session-id".into(), session_id.into()),
+    ];
+    let cached = CachedResponse {
+        status,
+        headers: headers.clone(),
+        body: json!({"error":{"message":message,"type":"server_error","param":null,"code":code}})
+            .to_string().into_bytes(),
+        digest: claim.map(|(_, digest)| digest.clone()).unwrap_or_default(),
+    };
+    if let Some((scope, _)) = claim {
+        if idempotency.store(scope, cached.clone()).await.is_err() {
+            // A failed cache write never grants permission to execute the
+            // already accepted turn again: keep its original claim fenced.
+            return cached_response(CachedResponse {
+                status: 503,
+                headers,
+                body: json!({"error":{"message":"Response persistence is temporarily unavailable.",
+                    "type":"server_error","param":null,"code":"idempotency_store_unavailable"}})
+                    .to_string().into_bytes(),
+                digest: String::new(),
+            }, false);
+        }
+    }
+    cached_response(cached, false)
+}
+
 async fn create_response(State(state): State<Arc<ResponsesState>>, request: Request) -> Response {
     let admission = state.auth.request(request.headers(), request.uri().path());
     let mut user = match admission.resolve().await {
@@ -984,30 +1047,7 @@ async fn create_response(State(state): State<Arc<ResponsesState>>, request: Requ
         .begin(&user, &idempotency_key, &bytes)
         .await
     {
-        Ok(BeginResponse::Replay(cached)) => {
-            let mut response = (
-                StatusCode::from_u16(cached.status).unwrap_or(StatusCode::OK),
-                cached.body,
-            )
-                .into_response();
-            for (k, v) in cached.headers {
-                if !matches!(
-                    k.to_lowercase().as_str(),
-                    "content-length" | "transfer-encoding"
-                ) {
-                    if let (Ok(k), Ok(v)) = (
-                        HeaderName::from_bytes(k.as_bytes()),
-                        HeaderValue::from_str(&v),
-                    ) {
-                        response.headers_mut().insert(k, v);
-                    }
-                }
-            }
-            response
-                .headers_mut()
-                .insert("x-idempotency-replayed", HeaderValue::from_static("true"));
-            return response;
-        }
+        Ok(BeginResponse::Replay(cached)) => return cached_response(cached, true),
         Ok(BeginResponse::Claim { scope, digest }) => Some((scope, digest)),
         Ok(BeginResponse::Unkeyed) => None,
         Err(error) => {
@@ -1136,22 +1176,17 @@ async fn create_response(State(state): State<Arc<ResponsesState>>, request: Requ
             turn.runtime_thread_id,
             turn.after_sequence,
             1000,
-            Some(turn.run_id),
+            Some(turn.run_id.clone()),
         )
         .await;
     let mut events = match events {
         Ok(events) => events,
         Err(_) => {
-            if let Some((scope, _)) = &claim {
-                let _ = state.idempotency.abort(scope).await;
-            }
-            return response_error(
-                503,
-                "agent_runtime_event_stream_failed",
+            return accepted_observation_failure(
+                &state.idempotency, claim.as_ref(), &turn.run_id, &parsed.session_id,
+                503, "agent_runtime_event_stream_failed",
                 "Agent Runtime event stream is temporarily unavailable.",
-                None,
-                "server_error",
-            );
+            ).await;
         }
     };
     if parsed.stream {
@@ -1188,30 +1223,20 @@ async fn create_response(State(state): State<Arc<ResponsesState>>, request: Requ
                 }
             }
             Err(_) => {
-                if let Some((scope, _)) = &claim {
-                    let _ = state.idempotency.abort(scope).await;
-                }
-                return response_error(
-                    503,
-                    "agent_runtime_event_stream_failed",
+                return accepted_observation_failure(
+                    &state.idempotency, claim.as_ref(), &turn.run_id, &parsed.session_id,
+                    503, "agent_runtime_event_stream_failed",
                     "Agent Runtime event stream is temporarily unavailable.",
-                    None,
-                    "server_error",
-                );
+                ).await;
             }
         }
     }
     if projection.terminal.is_none() {
-        if let Some((scope, _)) = &claim {
-            let _ = state.idempotency.abort(scope).await;
-        }
-        return response_error(
-            502,
-            "agent_runtime_stream_incomplete",
+        return accepted_observation_failure(
+            &state.idempotency, claim.as_ref(), &turn.run_id, &parsed.session_id,
+            502, "agent_runtime_stream_incomplete",
             "Agent Runtime ended without a terminal event.",
-            None,
-            "server_error",
-        );
+        ).await;
     }
     let error=projection.terminal.as_deref().filter(|status|*status!="completed").map(|status|json!({"code":status,"message":"The response could not be completed.","type":"server_error"}));
     let payload = projection.completed_response(error);
@@ -1233,4 +1258,106 @@ async fn create_response(State(state): State<Arc<ResponsesState>>, request: Requ
         }
     }
     Json(payload).into_response()
+}
+
+#[cfg(test)]
+mod accepted_response_cache_tests {
+    use super::*;
+
+    fn user(tenant: &str, actor: &str) -> CompatUser {
+        CompatUser {
+            tenant_id: tenant.into(), user_id: actor.into(), authenticated: true,
+            ..Default::default()
+        }
+    }
+    async fn claim(cache: &ResponsesIdempotency, actor: &CompatUser, body: &[u8]) -> (String, String) {
+        match cache.begin(actor, "request-1", body).await.unwrap() {
+            BeginResponse::Claim { scope, digest } => (scope, digest),
+            _ => panic!("expected a fresh claim"),
+        }
+    }
+    async fn body(response: Response) -> Bytes {
+        to_bytes(response.into_body(), 4096).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn accepted_failure_keeps_original_status_body_and_identity_on_replay() {
+        for (status, code, message) in [
+            (503, "agent_runtime_event_stream_failed", "Agent Runtime event stream is temporarily unavailable."),
+            (502, "agent_runtime_stream_incomplete", "Agent Runtime ended without a terminal event."),
+        ] {
+            let cache = ResponsesIdempotency::new(None);
+            let actor = user("tenant-a", "actor-a");
+            let key = claim(&cache, &actor, b"original-body").await;
+            let response = accepted_observation_failure(&cache, Some(&key), "run-1", "session-1", status, code, message).await;
+            assert_eq!(response.status().as_u16(), status);
+            assert_eq!(response.headers()["x-run-id"], "run-1");
+            assert_eq!(response.headers()["x-session-id"], "session-1");
+            let original = body(response).await;
+            assert_eq!(serde_json::from_slice::<Value>(&original).unwrap(),
+                json!({"error":{"message":message,"type":"server_error","param":null,"code":code}}));
+            let BeginResponse::Replay(cached) = cache.begin(&actor, "request-1", b"original-body").await.unwrap() else {
+                panic!("accepted failure must replay, never claim another execution");
+            };
+            let replay = cached_response(cached, true);
+            assert_eq!(replay.status().as_u16(), status);
+            assert_eq!(replay.headers()["x-run-id"], "run-1");
+            assert_eq!(replay.headers()["x-session-id"], "session-1");
+            assert_eq!(replay.headers()["x-idempotency-replayed"], "true");
+            assert_eq!(body(replay).await, original);
+            assert_eq!(cache.begin(&actor, "request-1", b"changed-body").await.err().unwrap().status, 409);
+        }
+    }
+
+    #[tokio::test]
+    async fn concurrent_waiter_receives_the_retained_failure() {
+        let cache = Arc::new(ResponsesIdempotency::new(None));
+        let actor = user("tenant-a", "actor-a");
+        let key = claim(&cache, &actor, b"body").await;
+        let (waiting, pending) = tokio::sync::oneshot::channel();
+        let waiter = {
+            let cache = cache.clone(); let actor = actor.clone();
+            tokio::spawn(async move {
+                let future = cache.begin(&actor, "request-1", b"body");
+                tokio::pin!(future);
+                assert!(futures_util::poll!(&mut future).is_pending());
+                waiting.send(()).unwrap();
+                future.await
+            })
+        };
+        pending.await.unwrap();
+        let _ = accepted_observation_failure(&cache, Some(&key), "run-1", "session-1", 503,
+            "agent_runtime_event_stream_failed", "Agent Runtime event stream is temporarily unavailable.").await;
+        let result = tokio::time::timeout(Duration::from_secs(1), waiter).await.unwrap().unwrap().unwrap();
+        assert!(matches!(result, BeginResponse::Replay(CachedResponse { status: 503, .. })));
+    }
+
+    #[tokio::test]
+    async fn generic_preaccept_failures_still_allow_a_new_claim() {
+        let cache = ResponsesIdempotency::new(None);
+        let actor = user("tenant-a", "actor-a");
+        let key = claim(&cache, &actor, b"body").await;
+        cache.finish(&key.0, CachedResponse { status: 503, headers: vec![], body: vec![], digest: key.1 }).await.unwrap();
+        assert!(matches!(cache.begin(&actor, "request-1", b"body").await.unwrap(), BeginResponse::Claim { .. }));
+    }
+
+    #[tokio::test]
+    async fn accepted_failure_cache_stays_scoped_to_actor_and_tenant() {
+        let cache = ResponsesIdempotency::new(None);
+        let actor = user("tenant-a", "actor-a");
+        let key = claim(&cache, &actor, b"body").await;
+        let _ = accepted_observation_failure(&cache, Some(&key), "run-1", "session-1", 502,
+            "agent_runtime_stream_incomplete", "Agent Runtime ended without a terminal event.").await;
+        for different_actor in [user("tenant-b", "actor-a"), user("tenant-a", "actor-b")] {
+            assert!(matches!(cache.begin(&different_actor, "request-1", b"body").await.unwrap(), BeginResponse::Claim { .. }));
+        }
+    }
+
+    #[test]
+    fn streaming_requests_still_reject_an_idempotency_key() {
+        let result = ResponsesRequest::after_model_authorization(json!({"model":"model-a","input":"hello","stream":true}), "request-1");
+        let error = result.err().expect("streaming idempotency remains unsupported");
+        assert_eq!(error.status, 409);
+        assert_eq!(error.detail["code"], "streaming_idempotency_not_supported");
+    }
 }

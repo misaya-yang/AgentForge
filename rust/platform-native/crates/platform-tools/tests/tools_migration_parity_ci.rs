@@ -216,6 +216,10 @@ fn fetch_depth_belongs_to_architecture_checkout_step() {
 }
 fn harness(gate: Value, run: &str) -> Fixture {
     let f = Fixture::new();
+    f.write(
+        "docker-compose.yml",
+        fs::read(repository().join("docker-compose.yml")).unwrap(),
+    );
     for doc in [
         "AGENTS.md",
         "CLAUDE.md",
@@ -230,7 +234,31 @@ fn harness(gate: Value, run: &str) -> Fixture {
         "docs/harness/integration-and-rollback.md",
         "docs/harness/repository-quality.md",
     ] {
-        f.write(doc, "Fixture\n");
+        f.write(
+            doc,
+            format!(
+                "Fixture\n\n**Last verified:** {}\n",
+                chrono::Utc::now().date_naive()
+            ),
+        );
+    }
+    for doc in [
+        "CONTRIBUTING.md",
+        "DEPLOY.md",
+        "docs/deployment/operator-guide.md",
+        "database/authority/README.md",
+        "deploy/agent-runtime-source/README.md",
+        "docs/design/enterprise-performance-contract.md",
+        "rust/platform-native/crates/platform-migration-authority/README.md",
+        "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/README.md",
+    ] {
+        f.write(
+            doc,
+            format!(
+                "Fixture\n\n**Last verified:** {}\n",
+                chrono::Utc::now().date_naive()
+            ),
+        );
     }
     f.write("Makefile", "unit-gate:\n\t@echo genuine\n");
     f.json("harness.yml",&json!({"required_docs":["AGENTS.md"],"budgets":{"AGENTS.md":10},"workspace":{"spec_roots":["web"],"spec_globs":["*.spec.ts"],"root_forbidden":["stray.tmp"]},"gates":{"unit":gate}}));
