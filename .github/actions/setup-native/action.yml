@@ -7,14 +7,20 @@ inputs:
   packages:
     description: Space-separated native operational packages to build
     default: ai-platform-tools ai-platform-openapi ai-platform-config-loader ai-platform-release ai-platform-eval ai-platform-migration-authority
+  cache-mode:
+    description: auto uses no compiler cache on release tags; none forbids restore/use
+    default: auto
   nextest:
     description: Install the pinned nextest runner for the changed-crate gate
     default: 'false'
 runs:
   using: composite
   steps:
-    - uses: dtolnay/rust-toolchain@1.99.0
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: '1.99.0'
     - name: Install pinned Rust compiler cache
+      if: inputs.cache-mode != 'none' && !startsWith(github.ref, 'refs/tags/')
       uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
       with:
         version: v0.18.0
@@ -28,20 +34,12 @@ runs:
       shell: bash
       env:
         AI_PLATFORM_CI_CAPACITY_PROFILE: ${{ inputs.capacity-profile }}
+        CI_CACHE_MODE: ${{ inputs.cache-mode }}
       run: |
         [[ "$AI_PLATFORM_CI_CAPACITY_PROFILE" == single || "$AI_PLATFORM_CI_CAPACITY_PROFILE" == hosted ]] || exit 1
         rustc --edition=2024 rust/platform-native/crates/platform-tools/src/ci_capacity_bootstrap.rs -o "$RUNNER_TEMP/ci-capacity"
-        "$RUNNER_TEMP/ci-capacity" >> "$GITHUB_ENV"
-        echo "AI_PLATFORM_CI_CAPACITY_PROFILE=$AI_PLATFORM_CI_CAPACITY_PROFILE" >> "$GITHUB_ENV"
-        echo 'CARGO_INCREMENTAL=0' >> "$GITHUB_ENV"
-        echo 'CARGO_PROFILE_DEV_DEBUG=0' >> "$GITHUB_ENV"
-        echo 'CARGO_PROFILE_TEST_DEBUG=0' >> "$GITHUB_ENV"
-        echo "CARGO_TARGET_DIR=$RUNNER_TEMP/platform-native-target" >> "$GITHUB_ENV"
-        echo "$RUNNER_TEMP/platform-native-target/debug" >> "$GITHUB_PATH"
-        echo 'RUSTC_WRAPPER=sccache' >> "$GITHUB_ENV"
-        echo 'SCCACHE_GHA_ENABLED=true' >> "$GITHUB_ENV"
-        echo "SCCACHE_DIR=$RUNNER_TEMP/sccache" >> "$GITHUB_ENV"
-        echo 'SCCACHE_CACHE_SIZE=2G' >> "$GITHUB_ENV"
+        rustc --edition=2024 rust/platform-native/crates/platform-tools/src/github_env_bootstrap.rs -o "$RUNNER_TEMP/github-env-bootstrap"
+        "$RUNNER_TEMP/github-env-bootstrap" native
     - name: Build native operational tools
       shell: bash
       env:

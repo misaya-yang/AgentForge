@@ -36,7 +36,7 @@ function panel(contexts: ReturnType<typeof merged>) {
     } },
     "react/jsx-runtime": { jsx, jsxs: jsx },
     "react-i18next": { useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }) },
-    "framer-motion": { motion: named, AnimatePresence: "AnimatePresence" },
+    "motion/react": { motion: named, AnimatePresence: "AnimatePresence" },
     "@/lib/utils": { cn: (...values: unknown[]) => values.filter(Boolean).join(" ") },
     "./citationSource": { citationSource },
   };

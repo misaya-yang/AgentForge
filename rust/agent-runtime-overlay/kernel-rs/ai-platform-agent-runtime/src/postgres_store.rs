@@ -28,6 +28,7 @@ mod approval_decision;
 mod events;
 pub(crate) mod execution;
 mod identity;
+pub(crate) mod history_codec;
 pub(crate) mod projection;
 pub(crate) mod recovery_terminal;
 mod thread_store;
@@ -435,7 +436,7 @@ impl PostgresThreadStore {
     ) -> ThreadStoreResult<()> {
         let kernel_thread_id = thread_uuid(thread_id)?;
         for (event_key, event_id, item) in items {
-            let payload = serde_json::to_value(item).map_err(json_error)?;
+            let payload = history_codec::encode_rollout(&item).map_err(json_error)?;
             let payload_hash = payload_hash(&payload)?;
             let item_type = payload.get("type").and_then(Value::as_str);
             sqlx::query(
@@ -486,7 +487,7 @@ impl PostgresThreadStore {
             .into_iter()
             .map(|row| {
                 let payload: Value = row.try_get("payload").map_err(store_error)?;
-                serde_json::from_value(payload).map_err(json_error)
+                history_codec::decode_rollout(payload).map_err(json_error)
             })
             .collect::<ThreadStoreResult<Vec<_>>>()?;
         Ok(StoredThreadHistory {

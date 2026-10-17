@@ -1,0 +1,15 @@
+{
+  "schema": "agentforge/responses-route-canonical-live/v1",
+  "epoch": 24,
+  "exit_code": 101,
+  "elapsed_seconds": 5.286,
+  "database": "explicit epoch24 canonical clone using source role identities",
+  "production_state_roles": [
+    "gateway",
+    "runtime"
+  ],
+  "redis": "real project Redis; exact random test-owned keys only",
+  "runtime_boundary": "local HTTP stub; real-provider complete journey remains open",
+  "assertions": "fresh session/thread/run; concurrent waiter; one start_turn; post-accept EOF; memory and Redis replay; body conflict; auth and tenant separation",
+  "accepted_product": false
+}

@@ -1516,7 +1516,7 @@ mod tests {
     }
 
     #[test]
-    fn current_source_is_exact_020_or_fully_verified_021_or_022() {
+    fn current_source_is_exact_020_or_its_fully_verified_current_chain() {
         let root = repository_root();
         let path = root.join(ACTIVE_MANIFEST_RELATIVE);
         let active = manifest::load_epoch_manifest(&path).unwrap();
@@ -1537,26 +1537,67 @@ mod tests {
                 assert_eq!(candidate.package_lock_sha256, APPROVED_020_LOCK_SHA256);
                 assert_eq!(candidate.plan["fingerprint_status"], "not_measured");
             }
-            CANDIDATE_EPOCH => {
-                let (_, verified) = verify_activated_source(&root).unwrap();
-                assert_eq!(verified.epoch, CANDIDATE_EPOCH);
-                assert_eq!(verified.changes.len(), CANDIDATE_EPOCH as usize);
-            }
-            epoch if epoch == crate::source_tools::next_successor_022::CANDIDATE_EPOCH => {
-                let (_, verified) =
-                    crate::source_tools::next_successor_022::verify_activated_source(&root)
-                        .unwrap();
-                assert_eq!(
-                    verified.epoch,
-                    crate::source_tools::next_successor_022::CANDIDATE_EPOCH
-                );
-                assert_eq!(
-                    verified.changes.len(),
-                    crate::source_tools::next_successor_022::CANDIDATE_EPOCH as usize
-                );
+            21..=24 => {
+                let verified = super::historical_test_fixtures::verify_current_chain(&root);
+                assert_eq!(verified.epoch, active.epoch);
+                assert_eq!(verified.changes.len(), active.epoch as usize);
             }
             _ => panic!("unexpected canonical schema epoch"),
         }
+    }
+
+    #[test]
+    fn historical_021_fixture_preserves_its_exact_measurement_and_reference_contract() {
+        let fixture = super::historical_test_fixtures::HistoricalSourceFixture::new(21);
+        let root = fixture.root();
+        fixture.verify_inventory().unwrap();
+        let (_, plan, plan_sha256) = load_plan(root).unwrap();
+        let baseline_path = root.join(format!("database/baselines/{BASELINE}/manifest.json"));
+        let baseline = manifest::load_baseline_manifest(&baseline_path).unwrap();
+        let baseline_sha256 = manifest::file_sha256(&baseline_path).unwrap();
+        let epoch = manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap();
+        let (lock, package_lock_sha256) = archived_approved_lock(root, &plan).unwrap();
+        let candidate = Candidate {
+            plan: serde_json::from_slice(&fs::read(root.join(PLAN_RELATIVE)).unwrap()).unwrap(),
+            manifest_value: serde_json::from_slice(
+                &fs::read(root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap(),
+            )
+            .unwrap(),
+            epoch,
+            baseline,
+            baseline_sha256,
+            package_lock_sha256,
+            plan_sha256,
+            proposal_sha256: plan.successor.change.sha256.clone(),
+            predecessor_measurement_sha256: plan
+                .approved_predecessor_measurement_receipt_sha256
+                .clone(),
+            predecessor_activation_sha256: plan
+                .approved_predecessor_activation_receipt_sha256
+                .clone(),
+        };
+        assert_eq!(candidate.epoch.epoch, 21);
+        assert_eq!(candidate.epoch.changes.len(), 21);
+        assert_eq!(lock_files(&lock).unwrap().len(), 178);
+        let reference = verify_reference(&candidate, root).unwrap();
+        let measurement: Value = serde_json::from_slice(
+            &fs::read(root.join(format!("{EPOCH_RELATIVE}/{NEXT_MEASUREMENT_FILE}"))).unwrap(),
+        )
+        .unwrap();
+        let activation: Value = serde_json::from_slice(
+            &fs::read(root.join(format!("{EPOCH_RELATIVE}/{NEXT_ACTIVATION_FILE}"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(measurement["verification_ref_sha256"], reference);
+        assert_eq!(activation["source_plan_sha256"], candidate.plan_sha256);
+        assert_eq!(activation["verification_ref_sha256"], reference);
+        let _ = fixture.assert_release_eligibility(verify_activated_source(root));
+        let path = root.join(format!("{EPOCH_RELATIVE}/{NEXT_REFERENCE_FILE}"));
+        let mut value: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        value["sequence"] = json!(22);
+        fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(fixture.verify_inventory().is_err());
+        assert!(verify_reference(&candidate, root).is_err());
     }
 
     #[test]
@@ -1577,3 +1618,7 @@ mod tests {
         assert!(prepared.contains(&format!("migrations/{BASELINE}/{NEXT_SQL_FILE}")));
     }
 }
+
+#[cfg(test)]
+#[path = "historical_successor_test_fixtures.rs"]
+pub(crate) mod historical_test_fixtures;

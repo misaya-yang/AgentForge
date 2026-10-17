@@ -105,6 +105,29 @@ services:
     restart: unless-stopped
     mem_limit: "${QDRANT_MEMORY_LIMIT:-352m}"
 
+  # Explicit admin-only preparation. No application or migrator gets this DSN.
+  # Fresh databases receive canonical roles/extensions and absent SCRAM passwords;
+  # existing scopes must already verify. Never repairs/replaces unknown databases.
+  database-bootstrap:
+    image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
+    environment:
+      AI_GATEWAY_ROLE_PREFIX: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}"
+      AI_GATEWAY_DATABASE_ADMIN_DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}migrator:${LOCAL_DB_MIGRATOR_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_GATEWAY_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}gateway:${LOCAL_DB_GATEWAY_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_RUNTIME_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}runtime:${LOCAL_DB_RUNTIME_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}capability_worker:${LOCAL_DB_CAPABILITY_WORKER_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_api:${LOCAL_DB_KNOWLEDGE_API_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_worker:${LOCAL_DB_KNOWLEDGE_WORKER_PASSWORD:?Run init-env for distinct scoped credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
+    entrypoint: ["/usr/local/bin/database-authority"]
+    command: ["deployment-bootstrap", "--expected-database", "${POSTGRES_DB:-gateway}", "--expected-admin", "${POSTGRES_USER:-postgres}"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai-gateway-net
+    restart: "no"
+
   # ===========================================================================
   # Migration Job — single schema authority
   # ===========================================================================
@@ -115,16 +138,16 @@ services:
     image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
     container_name: ai-gateway-migrate
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}"
-      # Explicit authority input. Local Compose may reuse the bootstrap
-      # credential during the pending-baseline compatibility epoch; managed
-      # deployments override this with the dedicated migrator DSN.
-      AI_GATEWAY_DATABASE_MIGRATOR_DSN: "${AI_GATEWAY_DATABASE_MIGRATOR_DSN:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}}"
+      # Scoped authority login only; bootstrap/admin is never a migrate fallback.
+      AI_GATEWAY_ROLE_PREFIX: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}"
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}migrator:${LOCAL_DB_MIGRATOR_PASSWORD:?Run init-env for distinct migrator credentials}@postgres:5432/${POSTGRES_DB:-gateway}"
     entrypoint: ["/usr/local/bin/database-authority"]
     command: ["migrate"]
     depends_on:
       postgres:
         condition: service_healthy
+      database-bootstrap:
+        condition: service_completed_successfully
     networks:
       - ai-gateway-net
     restart: "no"
@@ -193,7 +216,8 @@ services:
 
       # Database
       GATEWAY_DATABASE__ENABLED: "true"
-      GATEWAY_DATABASE__DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dgateway%2Cassistant%2Cknowledge%2Cpublic"
+      GATEWAY_DATABASE__POOL_MAX_SIZE: "${GATEWAY_DATABASE_POOL_MAX_SIZE:-10}"
+      GATEWAY_DATABASE__DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}gateway:${LOCAL_DB_GATEWAY_PASSWORD:?Run init-env for distinct service credentials}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dpg_catalog%2Cgateway%2Cassistant%2Cknowledge%2Cpublic%20-cstatement_timeout%3D30000%20-cidle_in_transaction_session_timeout%3D15000"
       # Application processes never execute DDL; migrate owns schema changes.
       GATEWAY_DATABASE__AUTO_INIT: "false"
 
@@ -390,6 +414,13 @@ services:
   frontend:
     image: "${FRONTEND_IMAGE:-ghcr.io/misaya-yang/ai-gateway-web:2.0.0}"
     container_name: ai-gateway-frontend
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,uid=101,gid=101,mode=1770
     environment:
       VITE_API_URL: "${VITE_API_URL:-}"
       VITE_API_BASE_URL: "${VITE_API_BASE_URL:-}"
@@ -399,14 +430,14 @@ services:
       VITE_SSE_DEBUG: "${VITE_SSE_DEBUG:-}"
       VITE_AGENT_STUDIO_ENABLED: "${VITE_AGENT_STUDIO_ENABLED:-true}"
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8081}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-8081}:8080"
     networks:
       - ai-gateway-net
     depends_on:
       gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -433,7 +464,8 @@ services:
       # fail-closed; see platform-knowledge-service native startup.
       KNOWLEDGE_APP__ALLOW_ANONYMOUS: "${KNOWLEDGE_APP__ALLOW_ANONYMOUS:-false}"
       ENVIRONMENT: "${ENVIRONMENT:-}"
-      KNOWLEDGE_DATABASE__DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dknowledge%2Cgateway%2Cassistant%2Cpublic"
+      KNOWLEDGE_DATABASE__POOL_MAX_SIZE: "${KNOWLEDGE_DATABASE_POOL_MAX_SIZE:-10}"
+      KNOWLEDGE_DATABASE__DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_api:${LOCAL_DB_KNOWLEDGE_API_PASSWORD:?Run init-env for distinct service credentials}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dpg_catalog%2Cknowledge%2Cgateway%2Cassistant%2Cpublic%20-cstatement_timeout%3D30000%20-cidle_in_transaction_session_timeout%3D15000"
       KNOWLEDGE_REDIS__ENABLED: "true"
       KNOWLEDGE_REDIS__URL: "redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/2"
       KNOWLEDGE_QDRANT__URL: "http://qdrant:6333"
@@ -553,6 +585,7 @@ services:
     environment:
       <<: *knowledge-service-environment
       KNOWLEDGE_RUNTIME_ROLE: "worker"
+      KNOWLEDGE_DATABASE__DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_worker:${LOCAL_DB_KNOWLEDGE_WORKER_PASSWORD:?Run init-env for distinct service credentials}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dpg_catalog%2Cknowledge%2Cgateway%2Cassistant%2Cpublic%20-cstatement_timeout%3D30000%20-cidle_in_transaction_session_timeout%3D15000"
     entrypoint: ["/usr/local/bin/platform-knowledge-service"]
     command: []
     volumes:
@@ -598,8 +631,8 @@ services:
       AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: "/workspace"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}capability_worker"
+      POSTGRES_PASSWORD: "${LOCAL_DB_CAPABILITY_WORKER_PASSWORD:?Run init-env for worker credentials}"
       POSTGRES_DB: "${POSTGRES_DB:-gateway}"
       AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: "${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}"
     volumes:
@@ -628,7 +661,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - seccomp=unconfined
+      - seccomp=./deploy/security/capability-worker-seccomp.json
     init: true
 
   # Rust Agent Runtime. It is the sole Agent kernel for new and resumed turns.
@@ -653,8 +686,8 @@ services:
       AI_PLATFORM_AGENT_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}runtime"
+      POSTGRES_PASSWORD: "${LOCAL_DB_RUNTIME_PASSWORD:?Run init-env for runtime credentials}"
       POSTGRES_DB: "${POSTGRES_DB:-gateway}"
       AI_PLATFORM_RUNTIME_DB_POOL_MAX_SIZE: "${AI_PLATFORM_AGENT_RUNTIME_DB_POOL_MAX_SIZE:-10}"
       AI_PLATFORM_RUNTIME_CHANNEL_CAPACITY: "${AI_PLATFORM_AGENT_RUNTIME_CHANNEL_CAPACITY:-256}"

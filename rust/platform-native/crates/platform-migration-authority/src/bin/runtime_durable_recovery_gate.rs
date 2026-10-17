@@ -389,6 +389,254 @@ async fn scenario(name: &str) -> Result<()> {
     blocker_cleanup?;
     cleanup
 }
+
+const TERMINAL_BOUNDARIES: [&str; 5] = [
+    "normal_commit", "terminal_before_transaction", "terminal_after_row_update",
+    "terminal_after_event", "terminal_after_commit",
+];
+
+impl Gate {
+    async fn terminal_arm(&self, stage: &str) -> Result<()> {
+        docker(&["exec", "-i", "ai-gateway-agent-runtime", "sh", "-c",
+            "umask 077\ncat > \"$AI_PLATFORM_AGENT_HOME/terminal-acceptance-fault.json\""],
+            Some(&json!({"stage":stage,"run_id":self.id()?}).to_string()), false).await?;
+        Ok(())
+    }
+
+    async fn terminal_marker(&self, stage: &str) -> Result<()> {
+        let deadline = Instant::now() + Duration::from_secs(180);
+        while Instant::now() < deadline {
+            let output = docker(&["exec", "ai-gateway-agent-runtime", "sh", "-c",
+                "cat \"$AI_PLATFORM_AGENT_HOME/terminal-acceptance-hit.json\""], None, true).await?;
+            if serde_json::from_str::<Value>(&output).ok().is_some_and(|v|
+                v["stage"] == stage && v["run_id"] == self.id().unwrap().to_string()) {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Err(format!("terminal boundary was not reached: {stage}").into())
+    }
+
+    async fn terminal_clear(&self) -> Result<()> {
+        docker(&["exec", "ai-gateway-agent-runtime", "sh", "-c",
+            "rm -f \"$AI_PLATFORM_AGENT_HOME/terminal-acceptance-fault.json\" \"$AI_PLATFORM_AGENT_HOME/terminal-acceptance-hit.json\" \"$AI_PLATFORM_AGENT_HOME/terminal-acceptance-consumed.json\""], None, false).await?;
+        Ok(())
+    }
+
+    async fn crash_runtime(&mut self) -> Result<Value> {
+        let other_active: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM assistant.assistant_runs WHERE engine='agent_runtime' AND status IN ('running','awaiting_approval') AND run_id<>$1")
+            .bind(self.id()?).fetch_one(&mut self.db).await?;
+        check(other_active == 0, "unrelated active Runtime runs forbid process crash")?;
+        // Revalidate immediately before every destructive operation. Only the
+        // exact existing dev container is killed; no compose recreation/build.
+        let raw = docker(&["inspect", "ai-gateway-agent-runtime", "--format",
+            "{{json .}}"], None, false).await?;
+        let info: Value = serde_json::from_str(&raw)?;
+        let expected_root = root().to_string_lossy().into_owned();
+        check(info["Config"]["Labels"]["com.docker.compose.project.working_dir"] == expected_root.as_str(), "wrong runtime worktree owner")?;
+        check(info["Config"]["Labels"]["com.docker.compose.project"] == "agentforge-dev-7801d4a9a4", "wrong runtime Compose project")?;
+        check(info["State"]["Running"] == true, "runtime is not running")?;
+        let id = info["Id"].as_str().ok_or("container id missing")?;
+        docker(&["kill", "--signal", "KILL", id], None, false).await?;
+        docker(&["start", id], None, false).await?;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while Instant::now() < deadline {
+            if !docker(&["exec", id, "sh", "-c",
+                "curl -fsS http://127.0.0.1:8094/health/ready"], None, true).await?.is_empty() {
+                return Ok(json!({"container_id":id,"image_id":info["Image"],"signal":"SIGKILL"}));
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        Err("SIGKILL restart readiness timeout".into())
+    }
+
+    async fn terminal_rows(&mut self) -> Result<Vec<Value>> {
+        Ok(sqlx::query_scalar::<_, Value>(
+            "SELECT jsonb_build_object('sequence',sequence,'event_key',event_key,'payload',payload) \
+             FROM assistant.assistant_runtime_items WHERE runtime_thread_id=$1 AND turn_id=$2 \
+             AND event_type IN ('compat/v1/run_finished','compat/v1/run_error','compat/v1/cancelled') ORDER BY sequence")
+            .bind(self.thread.parse::<Uuid>()?).bind(self.id()?.to_string())
+            .fetch_all(&mut self.db).await?)
+    }
+
+    async fn replay_terminal(&self, saved: &Value) -> Result<()> {
+        // Public SSE must recover the committed terminal without its original
+        // process's broadcast channel. Start one cursor before the saved fact.
+        let sequence = saved["sequence"].as_i64().ok_or("terminal cursor missing")?;
+        let mut response = self.client.get(format!(
+            "http://127.0.0.1:8081/api/v2/agent/threads/{}/events?after_sequence={}&turn_id={}",
+            self.thread, sequence - 1, self.id()?))
+            .bearer_auth(&self.token).send().await?;
+        check(response.status().is_success(), "terminal SSE replay rejected")?;
+        let mut pending = Vec::<u8>::new();
+        let found = tokio::time::timeout(Duration::from_secs(20), async {
+            while let Some(chunk) = response.chunk().await? {
+                pending.extend_from_slice(&chunk);
+                check(pending.len() <= 1_048_576, "SSE replay frame exceeds bound")?;
+                while let Some(end) = pending.windows(2).position(|w| w == b"\n\n") {
+                    let frame = String::from_utf8(pending[..end].to_vec())?;
+                    pending.drain(..end + 2);
+                    for line in frame.lines().filter_map(|line| line.strip_prefix("data: ")) {
+                        if let Ok(value) = serde_json::from_str::<Value>(line) {
+                            if terminal_replay_matches(&value, saved) {
+                                return Ok::<bool, Box<dyn std::error::Error + Send + Sync>>(true);
+                            }
+                        }
+                    }
+                    check(pending.len() <= 1_048_576, "SSE replay frame exceeds bound")?;
+                }
+            }
+            Ok(false)
+        }).await??;
+        check(found, "original committed terminal absent from SSE replay")
+    }
+}
+
+fn terminal_replay_matches(value: &Value, saved: &Value) -> bool {
+    // Public V2 wraps the original wire event in event.payload. Runtime's
+    // private SSE uses event directly; accept both without relaxing identity.
+    let event = value.pointer("/event/payload")
+        .or_else(|| value.get("event")).unwrap_or(value);
+    let expected = &saved["payload"];
+    value["sequence"] == saved["sequence"]
+        && event["event_type"] == expected["event_type"]
+        && event["timestamp"] == expected["timestamp"]
+        && event["data"]["run_id"] == expected["data"]["run_id"]
+        && event["data"]["status"] == expected["data"]["status"]
+}
+
+fn terminal_assert_rows(rows: &[Value], run: Uuid, expected: &str) -> Result<()> {
+    check(rows.len() == 1, "run must have exactly one durable terminal envelope")?;
+    let event = &rows[0]["payload"];
+    check(event["schema_version"] == "assistant-turn-contract/v1"
+        && event["data"]["run_id"] == run.to_string()
+        && event["data"]["status"] == expected
+        && event["event_type"] == if expected == "succeeded" { "run_finished" } else { "run_error" },
+        "wrong terminal outcome or identity")
+}
+
+async fn terminal_case(boundary: &str, expired: bool, evidence_root: &Path) -> Result<()> {
+    let mut g = Gate::open().await?;
+    let title = format!("DR-CRASH-terminal-{boundary}-{}", Uuid::new_v4().simple());
+    let evidence = evidence_root.join(&title);
+    std::fs::create_dir_all(&evidence)?;
+    let result: Result<()> = async {
+        g.terminal_clear().await?;
+        g.arm("approval_saved", &title).await?;
+        g.create(&title).await?;
+        g.poll("approval_saved").await?;
+        let original = g.identity().await?;
+        let approval = g.poll("approval").await?;
+        let mut crashes = Vec::new();
+        let mut original_execution = None;
+        if expired {
+            // Real durable revocation, not a fabricated terminal or status reset.
+            sqlx::query("INSERT INTO assistant.assistant_runtime_snapshot_revocations(snapshot_id,tenant_id,user_id,session_id,reason_code,revoked_by) SELECT snapshot_id,tenant_id,user_id,session_id,'controlled_terminal_acceptance','local-test' FROM assistant.assistant_runtime_snapshots WHERE run_id=$1")
+                .bind(g.id()?).execute(&mut g.db).await?;
+            if boundary != "normal_commit" { g.terminal_arm(boundary).await?; }
+        } else {
+            // Reach a real persisted Core terminal, then kill before ordinary
+            // V1 projection. No direct SQL changes to the ledger or Core facts.
+            g.terminal_arm("terminal_core_saved").await?;
+            docker(&["exec", "ai-gateway-agent-runtime", "sh", "-c",
+                "rm -f \"$AI_PLATFORM_AGENT_HOME/recovery-acceptance-hit.json\""], None, false).await?;
+            g.decide(approval.as_str().ok_or("approval UUID missing")?, true).await?;
+            g.terminal_marker("terminal_core_saved").await?;
+            let core = g.facts(&evidence.join("core-terminal.json")).await?;
+            check(core["core"]["complete"] == 1 && core["run"]["status"] == "running", "bootstrap must contain real Core terminal and active ledger")?;
+            check(g.terminal_rows().await?.is_empty(), "bootstrap already projected a terminal")?;
+            original_execution = Some(array(&core["executions"])?.first().ok_or("bootstrap execution missing")?.clone());
+            if boundary != "normal_commit" { g.terminal_arm(boundary).await?; }
+        }
+        crashes.push(g.crash_runtime().await?);
+        if boundary != "normal_commit" {
+            g.terminal_marker(boundary).await?;
+            let rows = g.terminal_rows().await?;
+            let status: String = sqlx::query_scalar("SELECT status FROM assistant.assistant_runs WHERE run_id=$1")
+                .bind(g.id()?).fetch_one(&mut g.db).await?;
+            let expected = if expired { "failed" } else { "succeeded" };
+            if boundary == "terminal_after_commit" {
+                terminal_assert_rows(&rows, g.id()?, expected)?;
+                check(status == expected, "committed ledger status mismatch")?;
+                // Runtime is paused before broadcast: this is genuine backlog
+                // delivery while the original notification cannot have fired.
+                g.replay_terminal(&rows[0]).await?;
+            } else {
+                check(rows.is_empty() && ["running","awaiting_approval"].contains(&status.as_str()), "uncommitted terminal escaped transaction")?;
+            }
+            write(&evidence.join("at-boundary.json"), &json!({"stage":boundary,"visible_terminal_rows":rows,"visible_run_status":status}))?;
+            crashes.push(g.crash_runtime().await?);
+        }
+        let expected = if expired { "failed" } else { "succeeded" };
+        check(g.poll("terminal").await? == expected, "recovered ledger outcome mismatch")?;
+        let before_retry = g.terminal_rows().await?;
+        terminal_assert_rows(&before_retry, g.id()?, expected)?;
+        g.duplicate().await?;
+        let after_retry = g.terminal_rows().await?;
+        check(before_retry == after_retry, "duplicate recovery changed original terminal/cursor/timestamp")?;
+        g.replay_terminal(&after_retry[0]).await?;
+        let facts = g.facts(&evidence.join("after.json")).await?;
+        g.no_extra().await?;
+        check(g.identity().await? == original, "recovery replaced durable identity")?;
+        let executions = array(&facts["executions"])?;
+        if expired {
+            check(executions.is_empty() && g.quizzes(&title).await? == 0, "revoked run dispatched a tool")?;
+            check(after_retry[0]["payload"]["data"]["error_code"] == "RUNTIME_RECOVERY_AUTHORITY_EXPIRED", "wrong authority-expired failure")?;
+        } else {
+            check(facts["run"]["fence"].as_i64().is_some_and(|f| f >= 2), "recovery did not acquire a newer fence")?;
+            check(executions.len() == 1 && executions[0]["status"] == "succeeded"
+                && executions[0]["attempt_id"] == executions[0]["tool_call_id"], "execution replayed or lost stable attempt identity")?;
+            check(Some(&executions[0]) == original_execution.as_ref(), "execution identity/dispatch fence changed across recovery")?;
+            check(g.quizzes(&title).await? == 1, "side effect was not exactly one")?;
+            for key in ["calls", "outputs"] {
+                let items = facts["core"][key].as_object().ok_or("missing Core call/output facts")?;
+                check(items.len() == 1 && items.values().all(|n| n == 1), "Core tool call/output duplicated")?;
+            }
+        }
+        write(&evidence.join("result.json"), &json!({"result":"PASS","boundary":boundary,"expired_authority":expired,"run_id":g.id()?,"crashes":crashes,"terminal":after_retry,"checks":["one_original_run","one_correct_terminal","immutable_duplicate_replay","durable_sse_replay","fenced_recovery","no_duplicate_tool_effect"]}))?;
+        Ok(())
+    }.await;
+    let receipt = if result.is_err() {
+        write(&evidence.join("result.json"), &json!({"result":"FAILED","boundary":boundary,"expired_authority":expired,"run_id":g.run,"failure":"terminal crash matrix case failed; raw errors deliberately redacted"}))
+    } else { Ok(()) };
+    // Remove pauses before interrupt cleanup so a failed case cannot leave a
+    // deliberately blocked Runtime. Keep all database evidence and dev volumes.
+    let cleared = g.terminal_clear().await;
+    let cleanup = g.cleanup().await;
+    result?;
+    receipt?;
+    cleared?;
+    cleanup
+}
+
+async fn terminal_matrix(args: &[String]) -> Result<()> {
+    check(args.len() == 4 && args[0] == "--terminal-matrix"
+        && args[1] == "--allow-runtime-sigkill" && args[2] == "--evidence-dir",
+        "explicit --terminal-matrix --allow-runtime-sigkill --evidence-dir /external/path required")?;
+    let path = std::path::PathBuf::from(&args[3]);
+    check(path.is_absolute() && !path.starts_with(root()), "evidence directory must be absolute and outside repository")?;
+    std::fs::create_dir_all(&path)?;
+    let canonical = path.canonicalize()?;
+    check(!canonical.starts_with(root().canonicalize()?), "evidence directory resolves into repository")?;
+    // Serial, fail closed: invalidate old success before starting a new run.
+    let summary = canonical.join("terminal-matrix.json");
+    write(&summary, &json!({"result":"RUNNING","required_cases":10,"executed_cases":0}))?;
+    let mut executed = 0;
+    for expired in [false, true] {
+        for boundary in TERMINAL_BOUNDARIES {
+            if let Err(error) = terminal_case(boundary, expired, &canonical).await {
+                write(&summary, &json!({"result":"FAILED","required_cases":10,
+                    "passed_cases":executed,"failed_boundary":boundary,"expired_authority":expired,
+                    "unrun_cases":9-executed}))?;
+                return Err(error);
+            }
+            executed += 1;
+        }
+    }
+    write(&summary, &json!({"result":"PASS","required_cases":10,"executed_cases":executed,"skipped":0,"boundaries":TERMINAL_BOUNDARIES,"outcomes":["succeeded","failed_authority_expired"],"limitations":"cancelled Core-tail terminal and multi-instance stale-owner races remain separate required gates"}))
+}
+
 #[tokio::main]
 async fn main() {
     if run().await.is_err() {
@@ -398,9 +646,12 @@ async fn main() {
 }
 async fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args.first().is_some_and(|a| a == "--terminal-matrix") {
+        return terminal_matrix(&args).await;
+    }
     if args == ["--help"] || args == ["-h"] {
         println!(
-            "runtime_durable_recovery_gate --scenario {}",
+            "runtime_durable_recovery_gate --terminal-matrix --allow-runtime-sigkill --evidence-dir /external/path\nruntime_durable_recovery_gate --scenario {}",
             STAGES
                 .into_iter()
                 .chain(["cancel", "revoke", "reject", "worker_unknown"])
@@ -424,6 +675,37 @@ async fn run() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn terminal_replay_matches_original_public_v2_cursor_and_timestamp() {
+        let payload = json!({"event_type":"run_finished","timestamp":123.5,
+            "data":{"run_id":"original","status":"succeeded"}});
+        let saved = json!({"sequence":42,"payload":payload});
+        let public = json!({"sequence":42,"event":{"type":"run_finished","payload":payload}});
+        assert!(terminal_replay_matches(&public, &saved));
+        let private = json!({"sequence":42,"event":payload});
+        assert!(terminal_replay_matches(&private, &saved));
+        let mut wrong = public.clone();
+        wrong["sequence"] = json!(43);
+        assert!(!terminal_replay_matches(&wrong, &saved));
+        wrong = public.clone();
+        wrong["event"]["payload"]["timestamp"] = json!(124.0);
+        assert!(!terminal_replay_matches(&wrong, &saved));
+        wrong = public;
+        wrong["event"]["payload"]["data"]["run_id"] = json!("another-run");
+        assert!(!terminal_replay_matches(&wrong, &saved));
+    }
+
+    #[test]
+    fn terminal_rows_reject_duplicates_wrong_outcome_and_run() {
+        let run = Uuid::from_u128(1);
+        let row = json!({"payload":{"schema_version":"assistant-turn-contract/v1","event_type":"run_finished","data":{"run_id":run,"status":"succeeded"}}});
+        assert!(terminal_assert_rows(&[row.clone()], run, "succeeded").is_ok());
+        assert!(terminal_assert_rows(&[], run, "succeeded").is_err());
+        assert!(terminal_assert_rows(&[row.clone(),row.clone()], run, "succeeded").is_err());
+        assert!(terminal_assert_rows(&[row.clone()], run, "failed").is_err());
+        assert!(terminal_assert_rows(&[row], Uuid::from_u128(2), "succeeded").is_err());
+    }
+
     #[test]
     fn invocation_pause_refuses_early_approval() {
         let b = json!({"core":{"complete":0,"outputs":{}},"invocations":[{"has_response":false}],"approvals":[],"executions":[]});

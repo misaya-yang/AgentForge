@@ -95,7 +95,7 @@ for (const transport of [sseFetch, sseFetchEvents]) {
     const response = new Response(new ReadableStream<Uint8Array>({ cancel() { cancelled++; } }));
     t.mock.method(globalThis, "fetch", async () => response);
     const caller = new AbortController();
-    assert.equal((await transport("/fixture", { signal: caller.signal, timeoutMs: 5 }).next()).done, true);
+    await assert.rejects(transport("/fixture", { signal: caller.signal, timeoutMs: 5 }).next(), /idle budget exceeded/);
     assert.equal(cancelled, 1);
     assert.equal(response.body?.locked, false);
     assert.equal(getEventListeners(caller.signal, "abort").length, 0);

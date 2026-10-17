@@ -12,7 +12,8 @@ use std::{
     fmt,
     path::{Path, PathBuf},
 };
-const SOURCE: &str = "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/sql.rs";
+const SOURCE: &str =
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/sql.rs";
 // Pin the extracted production statement; changes need explicit contract review.
 const REQUEUE_SQL_SHA256: &str = "076606710cce625d8071ed96c091fa2a08b55b1962fab3c559afda14f4717d97";
 const ROLES: &[&str] = &[
@@ -687,19 +688,29 @@ mod tests {
                 .join(BASELINE)
                 .join("manifest.yml");
             let current_epoch = manifest::load_epoch_manifest(&epoch_path).unwrap();
-            if current_epoch.epoch == 17 {
-                return Self {
-                    root: current,
-                    _scratch: None,
-                };
+            assert!(matches!(current_epoch.epoch, 17 | 20 | 21 | 22 | 23 | 24));
+            if current_epoch.epoch == 24 {
+                let receipt = crate::source_tools::next_successor_024::verify_activated_source(&current).unwrap();
+                assert_eq!(receipt["candidate_epoch"], current_epoch.epoch);
+            } else if current_epoch.epoch == 23 {
+                let (_, verified_epoch) = crate::source_tools::next_successor_023::verify_activated_source(&current).unwrap();
+                assert_eq!(verified_epoch.epoch, current_epoch.epoch);
+            } else if current_epoch.epoch != 17 {
+                let (_, verified_epoch) = successors::verify_activated_source(&current).unwrap();
+                assert_eq!(verified_epoch.epoch, current_epoch.epoch);
             }
-            assert!(matches!(current_epoch.epoch, 20 | 21 | 22));
-            let (_, verified_epoch) = successors::verify_activated_source(&current).unwrap();
-            assert_eq!(verified_epoch.epoch, current_epoch.epoch);
 
             let epoch_dir = current.join("database/migrations").join(BASELINE);
-            let predecessor_manifest = epoch_dir.join("017_predecessor_manifest.yml");
-            let predecessor_lock = epoch_dir.join("017_predecessor_package_lock.json");
+            let predecessor_manifest = if current_epoch.epoch == 17 {
+                epoch_path
+            } else {
+                epoch_dir.join("017_predecessor_manifest.yml")
+            };
+            let predecessor_lock = if current_epoch.epoch == 17 {
+                current.join("database/authority/package-authority-lock.json")
+            } else {
+                epoch_dir.join("017_predecessor_package_lock.json")
+            };
             let lock: Value =
                 serde_json::from_slice(&std::fs::read(&predecessor_lock).unwrap()).unwrap();
             let scratch = Scratch::new("source-17-fixture");
@@ -766,7 +777,7 @@ mod tests {
                 "docs/design/application-schema-admission.sql.proposal",
                 "docs/design/knowledge-progress-trigger-authority.sql.proposal",
                 "docs/design/generic-task-durable-schema.sql.proposal",
-                "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/sql.rs",
+                SOURCE,
             ] {
                 copy(&current.join(relative), &fixture_root.join(relative));
             }
@@ -774,7 +785,50 @@ mod tests {
             let mut import: Value =
                 serde_json::from_slice(&std::fs::read(&import_path).unwrap()).unwrap();
             let canonical_fixture = std::fs::canonicalize(&fixture_root).unwrap();
+            // Unit-only source-distribution envelope: this deliberately tests
+            // offline hash/path binding, not a historical archive import or DB
+            // measurement. Never mutate/re-create the real frozen import receipt.
+            let archive = scratch.0.join("synthetic-offline-archive.fixture");
+            std::fs::write(
+                &archive,
+                b"synthetic offline verifier input; not the historical source archive\n",
+            )
+            .unwrap();
+            let import_manifest = scratch.0.join("synthetic-offline-import-manifest.json");
+            std::fs::write(
+                &import_manifest,
+                br#"{"unit_fixture":true,"historical_import_verified":false}"#,
+            )
+            .unwrap();
+            // Only the one missing frozen preimage is recovered, from real
+            // readable repository history into an external temporary fixture.
+            // No retired service/backup tree is restored in the repository.
+            let preimage_root = scratch.0.join("historical-preimage-fixture");
+            let preimage = preimage_root.join("database/authority/ledger_acl.py");
+            std::fs::create_dir_all(preimage.parent().unwrap()).unwrap();
+            let historical = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&current)
+                .args(["show", "22d9ce0^:database/authority/ledger_acl.py"])
+                .output()
+                .expect("historical Git preimage must be readable for this unit fixture");
+            assert!(
+                historical.status.success(),
+                "required historical ledger ACL Git preimage is unavailable"
+            );
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&historical.stdout)),
+                "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc",
+                "unit fixture must use the real frozen ledger ACL preimage"
+            );
+            std::fs::write(&preimage, historical.stdout).unwrap();
             import["target"] = json!(canonical_fixture);
+            import["previous_checkout"] = json!(preimage_root.canonicalize().unwrap());
+            import["source_archive"] = json!(archive.canonicalize().unwrap());
+            import["archive_sha256"] = json!(manifest::file_sha256(&archive).unwrap());
+            import["manifest_sha256"] = json!(manifest::file_sha256(&import_manifest).unwrap());
+            import["unit_fixture"] = json!(true);
+            import["historical_import_evidence"] = json!(false);
             let report_path = fixture_root.join("reports/dots-source-import-20261015.json");
             std::fs::create_dir_all(report_path.parent().unwrap()).unwrap();
             std::fs::write(&report_path, serde_json::to_vec_pretty(&import).unwrap()).unwrap();
@@ -833,6 +887,43 @@ mod tests {
         assert_eq!(error.error_class(), "refused");
         assert_eq!(error.sqlstate(), None);
         assert!(!error.to_string().contains("secret.example"));
+    }
+
+    #[test]
+    fn source_fixture_is_external_synthetic_and_frozen_preimage_checked() {
+        let fixture = SourceFixture::source_17();
+        let import: Value = serde_json::from_slice(
+            &std::fs::read(
+                fixture
+                    .root
+                    .join("reports/dots-source-import-20261015.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(import["unit_fixture"], true);
+        assert_eq!(import["historical_import_evidence"], false);
+        let archive = PathBuf::from(import["source_archive"].as_str().unwrap());
+        let preimages = preimage_root(&fixture.root);
+        assert!(!archive.starts_with(&fixture.root));
+        assert!(!preimages.starts_with(&fixture.root));
+        assert_eq!(
+            manifest::file_sha256(&archive).unwrap(),
+            import["archive_sha256"]
+        );
+        assert!(
+            !fixture
+                .root
+                .join("database/authority/ledger_acl.py")
+                .exists()
+        );
+        assert!(successors::validate_with_preimage_root(&fixture.root, Some(&preimages)).is_ok());
+        std::fs::write(
+            preimages.join("database/authority/ledger_acl.py"),
+            b"tampered fixture",
+        )
+        .unwrap();
+        assert!(successors::validate_with_preimage_root(&fixture.root, Some(&preimages)).is_err());
     }
 
     #[test]

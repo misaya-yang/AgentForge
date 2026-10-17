@@ -98,6 +98,7 @@ impl PostgresThreadStore {
             return Err(conflict("recovery terminal owner is not this process"));
         }
         let root_id = thread_uuid(claim.thread_id)?;
+        crate::http_service::recovery_fault::terminal_pause("terminal_before_transaction", claim.run_id).await;
         let mut tx = self.pool.begin().await.map_err(store_error)?;
         let row = sqlx::query(LOCK_RUN)
             .bind(claim.run_id).bind(root_id)
@@ -193,9 +194,11 @@ impl PostgresThreadStore {
         if changed.rows_affected() != 1 {
             return Err(conflict("recovery terminal transition lost its fence"));
         }
+        crate::http_service::recovery_fault::terminal_pause("terminal_after_row_update", claim.run_id).await;
         let saved = self.append_v1_event_in_transaction(
             &mut tx, &scope, claim.thread_id, claim.run_id, &event_key, event,
         ).await?;
+        crate::http_service::recovery_fault::terminal_pause("terminal_after_event", claim.run_id).await;
         if mode == RecoveryTerminalMode::Owned {
             // Do not commit after an append blocked past the owner's lease.
             sqlx::query("SELECT assert_runtime_execution_fence($1,$2,$3)")
@@ -203,6 +206,8 @@ impl PostgresThreadStore {
                 .execute(&mut *tx).await.map_err(store_error)?;
         }
         tx.commit().await.map_err(store_error)?;
+        // Durable SSE replay remains authoritative if the process dies here.
+        crate::http_service::recovery_fault::terminal_pause("terminal_after_commit", claim.run_id).await;
         Ok(Some(saved))
     }
 }

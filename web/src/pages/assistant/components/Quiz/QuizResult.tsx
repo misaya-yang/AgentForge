@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import { CheckCircle2, Clock, RefreshCw, Users, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listAttempts, type QuizAttemptSummary } from "@/api/quiz";

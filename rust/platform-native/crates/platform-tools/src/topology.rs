@@ -97,7 +97,7 @@ pub(crate) fn validate_manifest(m: Value) -> Result<Value> {
             "worker scale contract invalid",
         )?;
     }
-    for job in ["gateway-init", "migrate"] {
+    for job in ["gateway-init", "database-bootstrap", "migrate"] {
         require(
             by_id.get(job).is_some_and(|r| r["lifecycle"] == "one-shot"),
             "init job must be one-shot",

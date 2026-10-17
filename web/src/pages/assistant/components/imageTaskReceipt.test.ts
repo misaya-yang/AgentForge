@@ -35,7 +35,7 @@ function host() {
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (s: typeof auth) => unknown) => select(auth), { getState: () => auth, subscribe: (fn: (a: typeof auth, b: typeof auth) => void) => { subscribers.add(fn); return () => subscribers.delete(fn); } }) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/utils": { generateUUID: () => `scope-${++id}`, cn: () => "" },
     "@/lib/api": { api: { get: (...args: unknown[]) => new Promise((resolve, reject) => requests.push({ args, resolve, reject })), post: () => { posts++; throw Error("Unexpected POST"); } } },
-    "@/pages/assistant/sse-events": {}, "framer-motion": { motion: { div: "motion-div" } }, "lucide-react": {}, "../thinkingPreview": {}, "./ContextDisplay": {}, "./CitationDisplay": {}, "./Quiz": {}, "./ActivityPill": {},
+    "@/pages/assistant/sse-events": {}, "motion/react": { motion: { div: "motion-div" } }, "lucide-react": {}, "../thinkingPreview": {}, "./ContextDisplay": {}, "./CitationDisplay": {}, "./Quiz": {}, "./ActivityPill": {},
     "./rightPanelContext": { useRightPanel: () => ({}) }, "@/features/chat/messageRenderPerformance": { messageContainmentStyle: () => ({}) },
     "@/lib/authenticatedDownload": {}, "@/hooks/use-toast": { toast: {} } };
   function compile(relative: string) {

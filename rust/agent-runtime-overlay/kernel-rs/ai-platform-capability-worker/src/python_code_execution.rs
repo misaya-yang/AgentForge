@@ -17,6 +17,8 @@ use std::sync::{
 };
 use std::thread;
 
+#[path = "python_isolation.rs"]
+mod isolation;
 #[path = "python_supervisor.rs"]
 mod supervisor;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -93,8 +95,12 @@ pub enum CodeExecutionError {
     ArgumentsHashMismatch,
     #[error("sandbox configuration is invalid")]
     Configuration,
+    #[error("required Linux sandbox isolation or delegated cgroup is unavailable")]
+    IsolationUnavailable,
     #[error("sandbox process could not be started")]
     ProcessStart,
+    #[error("sandbox cgroup memory limit exceeded")]
+    ResourceLimitExceeded,
     #[error("sandbox process timed out")]
     TimedOut,
     #[error("sandbox process was cancelled")]
@@ -215,6 +221,8 @@ pub struct PythonCodeExecutionResult {
 pub struct LocalPythonSandboxConfig {
     pub python_binary: PathBuf,
     pub workspace_root: PathBuf,
+    /// An operator-delegated cgroup v2 subtree with memory/pids/cpu enabled.
+    pub cgroup_root: PathBuf,
     /// The image is expected to provide a network-isolated child namespace.
     /// If the kernel cannot create it, execution fails closed.
     pub require_network_isolation: bool,
@@ -225,6 +233,7 @@ impl Default for LocalPythonSandboxConfig {
         Self {
             python_binary: PathBuf::from("/usr/local/bin/python3"),
             workspace_root: PathBuf::from("/workspace"),
+            cgroup_root: PathBuf::from("/sys/fs/cgroup/agentforge-sandbox"),
             require_network_isolation: true,
         }
     }
@@ -237,7 +246,11 @@ pub struct LocalPythonSandboxBroker {
 
 impl LocalPythonSandboxBroker {
     pub fn new(config: LocalPythonSandboxConfig) -> Result<Self, CodeExecutionError> {
-        if !config.python_binary.is_absolute() || !config.workspace_root.is_absolute() {
+        if !config.python_binary.is_absolute()
+            || !config.workspace_root.is_absolute()
+            || !config.cgroup_root.is_absolute()
+            || !config.require_network_isolation
+        {
             return Err(CodeExecutionError::Configuration);
         }
         fs::create_dir_all(&config.workspace_root)
@@ -266,6 +279,11 @@ impl PythonSandboxBroker for LocalPythonSandboxBroker {
 }
 
 impl LocalPythonSandboxBroker {
+    /// Non-mutating preflight; per-execution writes/enforcement remain mandatory.
+    pub fn isolation_available(&self) -> bool {
+        isolation::available(&self.config).is_ok()
+    }
+
     pub async fn execute_cancellable(
         &self,
         request: PythonCodeExecutionRequest,
@@ -275,16 +293,11 @@ impl LocalPythonSandboxBroker {
         if cancelled.load(Ordering::Acquire) {
             return Err(CodeExecutionError::Cancelled);
         }
+        isolation::available(&self.config)?;
         let config = self.config.clone();
-        tokio::task::spawn_blocking(move || {
-            if config.require_network_isolation {
-                supervisor::run_isolated(&config, &request, &cancelled)
-            } else {
-                run_python_process(&config, &request, &cancelled)
-            }
-        })
-        .await
-        .map_err(|_| CodeExecutionError::SideEffectUnknown)?
+        tokio::task::spawn_blocking(move || supervisor::run_isolated(&config, &request, &cancelled))
+            .await
+            .map_err(|_| CodeExecutionError::SideEffectUnknown)?
     }
 }
 
@@ -528,7 +541,7 @@ fn run_python_process(
                 .map_err(|_| CodeExecutionError::ProcessStart)?;
         }
 
-        let mut command = python_command(config, request.limits.pids);
+        let mut command = Command::new(&config.python_binary);
         command
             .arg("-I")
             .arg("-S")
@@ -546,7 +559,8 @@ fn run_python_process(
         configure_child(
             &mut command,
             &request.limits,
-            config.require_network_isolation,
+            &config.python_binary,
+            &workspace,
         )?;
         let mut child = command
             .spawn()
@@ -730,9 +744,18 @@ fn collect_output_file(
 fn configure_child(
     command: &mut Command,
     limits: &PythonSandboxLimits,
-    require_network_isolation: bool,
+    python_binary: &Path,
+    workspace: &Path,
 ) -> Result<(), CodeExecutionError> {
     use std::os::unix::process::CommandExt;
+    #[cfg(target_os = "linux")]
+    let policy = isolation::ChildPolicy::prepare(python_binary, workspace)
+        .map_err(|_| CodeExecutionError::IsolationUnavailable)?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (python_binary, workspace);
+        return Err(CodeExecutionError::IsolationUnavailable);
+    }
     let cpu_seconds = u64::from(limits.cpu_millis).div_ceil(1000).max(1);
     let memory = limits.memory_bytes;
     let pids = u64::from(limits.pids);
@@ -742,14 +765,13 @@ fn configure_child(
             if libc::setsid() == -1 {
                 return Err(io::Error::last_os_error());
             }
-            if !require_network_isolation
-                && libc::setrlimit(
-                    libc::RLIMIT_NPROC,
-                    &libc::rlimit {
-                        rlim_cur: pids,
-                        rlim_max: pids,
-                    },
-                ) != 0
+            if libc::setrlimit(
+                libc::RLIMIT_NPROC,
+                &libc::rlimit {
+                    rlim_cur: pids,
+                    rlim_max: pids,
+                },
+            ) != 0
             {
                 return Err(io::Error::last_os_error());
             }
@@ -786,10 +808,7 @@ fn configure_child(
             }
             #[cfg(target_os = "linux")]
             {
-                supervisor::restrict_python_process()?;
-                if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 {
-                    return Err(io::Error::last_os_error());
-                }
+                supervisor::restrict_python_process(&policy)?;
             }
             Ok(())
         });
@@ -797,42 +816,14 @@ fn configure_child(
     Ok(())
 }
 
-fn python_command(config: &LocalPythonSandboxConfig, pids: u32) -> Command {
-    #[cfg(target_os = "linux")]
-    if config.require_network_isolation {
-        let mut command = Command::new("/usr/bin/unshare");
-        command
-            .arg("--user")
-            .arg("--map-root-user")
-            .arg("--net")
-            .arg("--mount")
-            .arg("--pid")
-            .arg("--fork")
-            .arg("--")
-            .arg("/bin/sh")
-            .arg("-c")
-            .arg(
-                "mount --make-rprivate / && mount -t tmpfs -o size=4k,mode=0555,nosuid,nodev,noexec tmpfs \"$PWD/.proc\" && mount --bind \"$PWD/.proc\" /proc && mount -o remount,bind,ro /proc && mount -t tmpfs -o size=4k,mode=0555,nosuid,nodev,noexec tmpfs \"$PWD/.mask\" && for target in /tmp /var/tmp /run/lock /dev/shm /dev/mqueue; do mount --bind \"$PWD/.mask\" \"$target\" && mount -o remount,bind,ro \"$target\" || exit 1; done && mount --bind \"$PWD\" /workspace && mount -o remount,rw,bind /workspace && cd /workspace && pids=\"$1\" && shift && exec /usr/bin/prlimit --nproc=\"$pids\" -- \"$@\"",
-            )
-            .arg("python-sandbox")
-            .arg(pids.to_string())
-            .arg(&config.python_binary);
-        return command;
-    }
-    Command::new(&config.python_binary)
-}
-
 #[cfg(not(unix))]
 fn configure_child(
     _command: &mut Command,
     _limits: &PythonSandboxLimits,
-    require_network_isolation: bool,
+    _python_binary: &Path,
+    _workspace: &Path,
 ) -> Result<(), CodeExecutionError> {
-    if require_network_isolation {
-        Err(CodeExecutionError::Configuration)
-    } else {
-        Ok(())
-    }
+    Err(CodeExecutionError::IsolationUnavailable)
 }
 
 fn kill_process_group(child: &mut Child) {
@@ -869,34 +860,15 @@ mod tests {
     }
 
     #[test]
-    fn linux_network_isolation_uses_an_unprivileged_namespace_wrapper() {
-        let command = python_command(&LocalPythonSandboxConfig::default(), 32);
-        #[cfg(target_os = "linux")]
-        {
-            assert_eq!(command.get_program(), "/usr/bin/unshare");
-            let arguments = command
-                .get_args()
-                .map(|argument| argument.to_string_lossy().into_owned())
-                .collect::<Vec<_>>();
-            assert_eq!(
-                arguments,
-                [
-                    "--user",
-                    "--map-root-user",
-                    "--net",
-                    "--mount",
-                    "--pid",
-                    "--fork",
-                    "--",
-                    "/bin/sh",
-                    "-c",
-                    "mount --make-rprivate / && mount -t tmpfs -o size=4k,mode=0555,nosuid,nodev,noexec tmpfs \"$PWD/.proc\" && mount --bind \"$PWD/.proc\" /proc && mount -o remount,bind,ro /proc && mount -t tmpfs -o size=4k,mode=0555,nosuid,nodev,noexec tmpfs \"$PWD/.mask\" && for target in /tmp /var/tmp /run/lock /dev/shm /dev/mqueue; do mount --bind \"$PWD/.mask\" \"$target\" && mount -o remount,bind,ro \"$target\" || exit 1; done && mount --bind \"$PWD\" /workspace && mount -o remount,rw,bind /workspace && cd /workspace && pids=\"$1\" && shift && exec /usr/bin/prlimit --nproc=\"$pids\" -- \"$@\"",
-                    "python-sandbox",
-                    "32",
-                    "/usr/local/bin/python3",
-                ]
-            );
-        }
+    fn unsafe_configuration_cannot_enable_a_weaker_execution_path() {
+        let config = LocalPythonSandboxConfig {
+            require_network_isolation: false,
+            ..LocalPythonSandboxConfig::default()
+        };
+        assert_eq!(
+            LocalPythonSandboxBroker::new(config).unwrap_err(),
+            CodeExecutionError::Configuration
+        );
     }
 
     #[test]
@@ -915,3 +887,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "python_escape_tests.rs"]
+mod escape_tests;

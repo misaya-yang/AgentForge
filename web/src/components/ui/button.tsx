@@ -1,13 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { Button as AntButton } from "antd";
+import { childWithProps } from "./composition";
+
 
 import { cn } from "@/lib/utils";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none active:translate-y-px",
-  {
+const buttonStyles = {
     variants: {
       variant: {
         default: "bg-primary/8 text-primary border border-primary/15 hover:bg-primary/[0.14] hover:border-primary/25 dark:bg-primary/12 dark:border-primary/20 dark:hover:bg-primary/20 dark:hover:border-primary/30",
@@ -31,24 +30,30 @@ const buttonVariants = cva(
       size: "default",
     },
   }
-);
+;
+
+type ButtonVariant = keyof typeof buttonStyles.variants.variant;
+type ButtonSize = keyof typeof buttonStyles.variants.size;
+function buttonVariants({ variant, size, className }: { variant?: ButtonVariant | null; size?: ButtonSize | null; className?: string } = {}) {
+  return cn(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none active:translate-y-px", buttonStyles.variants.variant[variant ?? "default"], buttonStyles.variants.size[size ?? "default"], className);
+}
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant | null;
+  size?: ButtonSize | null;
   asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    );
+  ({ className, variant, size, asChild = false, color: _color, ...props }, ref) => {
+    void _color;
+    const classes = buttonVariants({ variant, size, className });
+    if (asChild) return childWithProps(props.children, { ...props, className: classes, ref });
+    return <AntButton {...props} ref={ref} htmlType={props.type ?? "button"}
+      type={variant === "primary" ? "primary" : variant === "link" ? "link" : variant === "ghost" ? "text" : "default"}
+      danger={variant === "destructive"} className={classes} />;
   }
 );
 Button.displayName = "Button";

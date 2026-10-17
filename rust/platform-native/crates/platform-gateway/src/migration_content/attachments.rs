@@ -418,10 +418,8 @@ pub fn xml_text(raw: &[u8]) -> Result<String, ContentError> {
     }
     Ok(parts.join(" "))
 }
-pub trait PdfAttachmentParser: Send + Sync {
-    fn extract_strict(&self, raw: &[u8], max_pages: usize)
-    -> Result<(String, usize), ContentError>;
-}
+// One shared parser/error contract; backend and attachment authority remain separate.
+pub use ai_platform_gateway_integrations::migration_content::attachments::PdfAttachmentParser;
 /// Explicit source missing-pypdf branch. This makes broker construction possible
 /// without implying that PDF extraction is available or selecting another parser.
 #[derive(Clone, Copy, Default)]
@@ -578,5 +576,16 @@ impl crate::migration_agent::routes::AgentAttachments for AttachmentBinder {
                 })?;
             Ok((bound, images))
         })
+    }
+}
+
+#[cfg(test)]
+mod shared_pdf_port_identity_tests {
+    use super::*;
+    #[test]
+    fn legacy_gateway_path_and_domain_contract_are_the_same_trait() {
+        let gateway:Box<dyn PdfAttachmentParser>=Box::new(UnavailablePdfAttachmentParser);
+        let shared:Box<dyn ai_platform_gateway_integrations::migration_content::attachments::PdfAttachmentParser>=gateway;
+        let error:ai_platform_gateway_integrations::migration_content::ContentError=shared.extract_strict(b"not-pdf",1).unwrap_err();assert_eq!(error.status,422);assert_eq!(error.detail,"PDF cannot be safely parsed: strict pypdf backend is unavailable");
     }
 }

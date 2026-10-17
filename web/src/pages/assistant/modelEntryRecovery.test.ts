@@ -23,7 +23,7 @@ function host() {
   const modules: Record<string, unknown> = {
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named, "react-router-dom": { Link: "Link" },
     "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: string) => fallback || key }) },
-    "framer-motion": { motion: named, AnimatePresence: "AnimatePresence", useReducedMotion: () => true },
+    "motion/react": { motion: named, AnimatePresence: "AnimatePresence", useReducedMotion: () => true },
     "@/lib/utils": { generateUUID: () => `scope-${++uuid}`, cn: (...values: unknown[]) => values.filter(Boolean).join(" ") },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: (user: unknown) => JSON.stringify(user) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((selector: (state: typeof auth) => unknown) => selector(auth), { getState: () => auth, subscribe: (fn: (current: typeof auth, prior: typeof auth) => void) => { subscribers.add(fn); return () => subscribers.delete(fn); } }) },

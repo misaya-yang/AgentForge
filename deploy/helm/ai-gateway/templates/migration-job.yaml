@@ -31,18 +31,7 @@ spec:
             - /usr/local/bin/database-authority
             - migrate
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
             - name: GATEWAY_DATABASE__ENABLED
               value: "true"
-            - name: AI_GATEWAY_DATABASE_MIGRATOR_DSN
-              value: {{ include "ai-gateway.postgresDSN" . | quote }}
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_MIGRATOR_DSN" "key" "MIGRATOR_DSN") | nindent 12 }}
 {{- end }}

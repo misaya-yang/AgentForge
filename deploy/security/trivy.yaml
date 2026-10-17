@@ -1,0 +1,8 @@
+# Explicit config; no repository ignore file or VEX waiver can hide criticals.
+scan:
+  scanners: [vuln]
+severity: [UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL]
+ignore-unfixed: false
+ignorefile: /dev/null
+exit-code: 0
+format: json

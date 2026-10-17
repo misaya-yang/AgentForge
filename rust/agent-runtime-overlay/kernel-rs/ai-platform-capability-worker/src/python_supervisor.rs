@@ -11,13 +11,17 @@ pub fn supervisor_main() -> Result<(), CodeExecutionError> {
         serde_json::from_slice(&bytes).map_err(|_| CodeExecutionError::MalformedResult)?;
     validate_request(&request)?;
     let result = (|| {
+        let cgroup_path = std::env::args_os()
+            .nth(2)
+            .map(PathBuf::from)
+            .ok_or(CodeExecutionError::IsolationUnavailable)?;
+        isolation::verify_supervised(&cgroup_path, &request.limits)?;
         mount_workspace(&request)?;
         let config = LocalPythonSandboxConfig {
             python_binary: std::env::args_os()
                 .nth(1)
                 .map(PathBuf::from)
                 .ok_or(CodeExecutionError::Configuration)?,
-            require_network_isolation: false,
             ..LocalPythonSandboxConfig::default()
         };
         run_python_process(&config, &request, &AtomicBool::new(false))
@@ -32,6 +36,12 @@ pub(super) fn run_isolated(
     request: &PythonCodeExecutionRequest,
     cancelled: &AtomicBool,
 ) -> Result<PythonCodeExecutionResult, CodeExecutionError> {
+    isolation::available(config)?;
+    #[cfg(target_os = "linux")]
+    let cgroup = isolation::CgroupJob::create(config, &request.limits)
+        .map_err(|_| CodeExecutionError::IsolationUnavailable)?;
+    #[cfg(target_os = "linux")]
+    let cgroup_fd = cgroup.join_fd();
     let bytes = serde_json::to_vec(request).map_err(|_| CodeExecutionError::MalformedResult)?;
     if bytes.len() > MAX_MESSAGE {
         return Err(CodeExecutionError::InputsTooLarge);
@@ -50,6 +60,16 @@ pub(super) fn run_isolated(
         ])
         .arg("/usr/local/bin/ai-platform-python-supervisor")
         .arg(&config.python_binary)
+        .arg({
+            #[cfg(target_os = "linux")]
+            {
+                cgroup.path()
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Path::new("/unavailable")
+            }
+        })
         .current_dir(&config.workspace_root)
         .env_clear()
         .env("PATH", "/usr/local/bin:/usr/bin:/bin")
@@ -60,13 +80,17 @@ pub(super) fn run_isolated(
     {
         use std::os::unix::process::CommandExt;
         unsafe {
-            command.pre_exec(|| {
+            command.pre_exec(move || {
                 if libc::setsid() == -1 {
                     return Err(io::Error::last_os_error());
                 }
                 #[cfg(target_os = "linux")]
-                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL, 0, 0, 0) != 0 {
-                    return Err(io::Error::last_os_error());
+                {
+                    if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL, 0, 0, 0) != 0
+                        || libc::write(cgroup_fd, b"0\n".as_ptr().cast(), 2) != 2
+                    {
+                        return Err(io::Error::last_os_error());
+                    }
                 }
                 Ok(())
             });
@@ -127,6 +151,13 @@ pub(super) fn run_isolated(
     if exceeded {
         return Err(CodeExecutionError::OutputLimitExceeded);
     }
+    #[cfg(target_os = "linux")]
+    if cgroup
+        .oom_killed()
+        .map_err(|_| CodeExecutionError::SideEffectUnknown)?
+    {
+        return Err(CodeExecutionError::ResourceLimitExceeded);
+    }
     if !status.success() || written.is_err() {
         return Err(CodeExecutionError::ProcessFailed);
     }
@@ -175,7 +206,7 @@ fn mount_workspace(request: &PythonCodeExecutionRequest) -> Result<(), CodeExecu
         "tmpfs",
         "/workspace",
         "tmpfs",
-        libc::MS_NOSUID | libc::MS_NODEV,
+        libc::MS_NOSUID | libc::MS_NODEV | libc::MS_NOEXEC,
         &format!("size={size},nr_inodes={inodes},mode=0700"),
     )?;
     fs::create_dir("/workspace/.mask").map_err(|_| CodeExecutionError::ProcessStart)?;
@@ -228,7 +259,7 @@ pub(super) fn read_only_input(path: &Path) -> Result<(), CodeExecutionError> {
 }
 
 #[cfg(target_os = "linux")]
-pub(super) fn restrict_python_process() -> io::Result<()> {
+pub(super) fn restrict_python_process(policy: &isolation::ChildPolicy) -> io::Result<()> {
     // Namespace root must not retain the ability to enlarge its tmpfs quota.
     #[repr(C)]
     struct CapHeader {
@@ -274,107 +305,5 @@ pub(super) fn restrict_python_process() -> io::Result<()> {
             return Err(io::Error::last_os_error());
         }
     }
-    let mut filter = vec![libc::sock_filter {
-        code: 0x20,
-        jt: 0,
-        jf: 0,
-        k: 4,
-    }];
-    #[cfg(target_arch = "aarch64")]
-    let architecture = 0xc00000b7;
-    #[cfg(target_arch = "x86_64")]
-    let architecture = 0xc000003e;
-    filter.push(libc::sock_filter {
-        code: 0x15,
-        jt: 1,
-        jf: 0,
-        k: architecture,
-    });
-    filter.push(libc::sock_filter {
-        code: 0x06,
-        jt: 0,
-        jf: 0,
-        k: 0x80000000,
-    });
-    filter.push(libc::sock_filter {
-        code: 0x20,
-        jt: 0,
-        jf: 0,
-        k: 0,
-    });
-    // x32 shares the x86_64 audit architecture but uses tagged syscall IDs.
-    #[cfg(target_arch = "x86_64")]
-    {
-        filter.push(libc::sock_filter {
-            code: 0x45,
-            jt: 0,
-            jf: 1,
-            k: 0x40000000,
-        });
-        filter.push(libc::sock_filter {
-            code: 0x06,
-            jt: 0,
-            jf: 0,
-            k: 0x00050000 | libc::EPERM as u32,
-        });
-    }
-    let denied = [
-        libc::SYS_clone,
-        libc::SYS_clone3,
-        libc::SYS_unshare,
-        libc::SYS_setns,
-        libc::SYS_mount,
-        libc::SYS_umount2,
-        libc::SYS_pivot_root,
-        libc::SYS_chroot,
-        libc::SYS_fsopen,
-        libc::SYS_fsmount,
-        libc::SYS_fsconfig,
-        libc::SYS_move_mount,
-        libc::SYS_open_tree,
-        libc::SYS_mount_setattr,
-    ];
-    for syscall in denied {
-        filter.push(libc::sock_filter {
-            code: 0x15,
-            jt: 0,
-            jf: 1,
-            k: syscall as u32,
-        });
-        filter.push(libc::sock_filter {
-            code: 0x06,
-            jt: 0,
-            jf: 0,
-            k: 0x00050000 | libc::EPERM as u32,
-        });
-    }
-    #[cfg(target_arch = "x86_64")]
-    for syscall in [libc::SYS_fork, libc::SYS_vfork] {
-        filter.push(libc::sock_filter {
-            code: 0x15,
-            jt: 0,
-            jf: 1,
-            k: syscall as u32,
-        });
-        filter.push(libc::sock_filter {
-            code: 0x06,
-            jt: 0,
-            jf: 0,
-            k: 0x00050000 | libc::EPERM as u32,
-        });
-    }
-    filter.push(libc::sock_filter {
-        code: 0x06,
-        jt: 0,
-        jf: 0,
-        k: 0x7fff0000,
-    });
-    let program = libc::sock_fprog {
-        len: filter.len() as u16,
-        filter: filter.as_mut_ptr(),
-    };
-    if unsafe { libc::prctl(libc::PR_SET_SECCOMP, 2, &program, 0, 0) } != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(())
+    policy.apply()
 }

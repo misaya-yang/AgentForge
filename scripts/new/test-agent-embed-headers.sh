@@ -42,11 +42,13 @@ docker build --load -t "$image" "$PROJECT_ROOT/web"
 docker network create "$network" >/dev/null
 docker run -d --name "$gateway_container_name" --network "$network" --network-alias gateway \
     --entrypoint /usr/local/bin/platform-tools \
-    "${NATIVE_FIXTURE_IMAGE:-ai-platform/gateway:rust-local}" embed-fixture-server --bind 0.0.0.0:8080 >/dev/null
+    "${NATIVE_FIXTURE_IMAGE:-ai-platform/tools:rust-local}" embed-fixture-server --bind 0.0.0.0:8080 >/dev/null
 docker run -d --name "$frontend_container_name" --network "$network" \
-    -p 127.0.0.1::80 "$image" >/dev/null
+    --user 101:101 --read-only --cap-drop ALL --security-opt no-new-privileges \
+    --tmpfs /tmp:rw,noexec,nosuid,size=64m,uid=101,gid=101,mode=1770 \
+    -p 127.0.0.1::8080 "$image" >/dev/null
 
-port="$(docker port "$frontend_container_name" 80/tcp | awk -F: 'NR==1 {print $NF}')"
+port="$(docker port "$frontend_container_name" 8080/tcp | awk -F: 'NR==1 {print $NF}')"
 base="http://127.0.0.1:$port"
 for _attempt in $(seq 1 30); do
     if curl -fsS "$base/health" >/dev/null 2>&1; then

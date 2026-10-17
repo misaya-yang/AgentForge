@@ -46,6 +46,7 @@ gateway:
     GATEWAY_PORT: "8080"
     GATEWAY_DATABASE__ENABLED: "true"
     GATEWAY_DATABASE__AUTO_INIT: "false"
+    GATEWAY_DATABASE__POOL_MAX_SIZE: "10"
     GATEWAY_REDIS__ENABLED: "true"
     GATEWAY_AUTHENTICATION__JWT__ENABLED: "true"
     GATEWAY_AUTHENTICATION__JWT__ALGORITHMS: '["HS256"]'
@@ -101,6 +102,7 @@ knowledgeService:
   env:
     KNOWLEDGE_APP__HOST: "0.0.0.0"
     KNOWLEDGE_APP__PORT: "8092"
+    KNOWLEDGE_DATABASE__POOL_MAX_SIZE: "10"
     KNOWLEDGE_PROCESSING__WORKER_CONCURRENCY: "2"
 
 # -----------------------------------------------------------------------------
@@ -265,3 +267,11 @@ secrets:
 migration:
   enabled: true
   backoffLimit: 3
+
+# U-DATA-02: populated by the authority/operator, separate from bootstrap Secret.
+# Required keys: GATEWAY_DSN, KNOWLEDGE_API_DSN, KNOWLEDGE_WORKER_DSN, MIGRATOR_DSN.
+# DSNs must use the corresponding canonical NOINHERIT role and URL-encoded
+# options: statement_timeout=30000, idle_in_transaction_session_timeout=15000,
+# and the approved schema-scoped search_path (pg_catalog first).
+databaseRoles:
+  existingSecret: ""

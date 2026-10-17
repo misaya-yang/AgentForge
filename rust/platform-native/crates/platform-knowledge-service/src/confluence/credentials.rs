@@ -1,6 +1,6 @@
 //! Fail-closed, owner/origin-bound cfcred:v1 envelope; legacy reads never rewrite.
 use super::{Error, Result, owner, text};
-use ai_platform_gateway::{
+use ai_platform_service_primitives::{
     provider_cipher::NativeProviderCipher, provider_service::ProviderCipher,
 };
 use serde_json::{Value, json};

@@ -538,7 +538,7 @@ impl Default for ProcessingSettings {
     }
 }
 pub struct KnowledgeConfiguration {
-    pub request_governance: ai_platform_gateway::request_governance::RequestGovernanceConfig,
+    pub request_governance: ai_platform_service_primitives::request_governance::RequestGovernanceConfig,
     pub confluence_enabled: bool,
     pub confluence_request_timeout: f64,
     pub confluence_max_retries: u32,

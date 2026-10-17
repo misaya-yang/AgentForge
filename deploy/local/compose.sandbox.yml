@@ -1,0 +1,11 @@
+# Optional, explicit Linux delegation for this project's capability Worker.
+# The host operator prepares this subtree; Compose never creates or delegates it.
+services:
+  agent-capability-worker:
+    volumes:
+      - type: bind
+        source: ${AGENT_CAPABILITY_WORKER_CGROUP_DELEGATION:?Select this Worker's predelegated cgroup subtree}
+        target: /sys/fs/cgroup/agentforge-sandbox
+        read_only: false
+        bind:
+          create_host_path: false

@@ -59,19 +59,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "ai-gateway.fullname" $ }}-secret
                   key: LANGGRAPH_CLOUD_LICENSE_KEY
-            # Database (agent-specific database for isolation)
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" $ }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" $ }}-secret
-                  key: POSTGRES_PASSWORD
-            - name: DATABASE_URI
-              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ include "ai-gateway.postgresHost" $ }}:{{ include "ai-gateway.postgresPort" $ }}/{{ $agent.databaseName }}?sslmode=disable"
+            # Externally provisioned isolated agent database/login, never bootstrap.
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" $ "env" "DATABASE_URI" "key" (printf "LANGGRAPH_%s_DSN" ($name | upper))) | nindent 12 }}
             # Redis (agent-specific db number for isolation)
             - name: REDIS_PASSWORD
               valueFrom:

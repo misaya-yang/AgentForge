@@ -116,13 +116,6 @@ Qdrant URL - internal or external
 {{- end }}
 
 {{/*
-Full PostgreSQL DSN
-*/}}
-{{- define "ai-gateway.postgresDSN" -}}
-postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ include "ai-gateway.postgresHost" . }}:{{ include "ai-gateway.postgresPort" . }}/{{ include "ai-gateway.postgresDatabase" . }}
-{{- end }}
-
-{{/*
 Full Redis URL
 */}}
 {{- define "ai-gateway.redisURL" -}}
@@ -152,4 +145,14 @@ Used by the gateway to discover and proxy LangGraph agents.
 {{- end }}
 {{- end }}
 {{- join "," $urls }}
+{{- end }}
+
+{{/* Complete, URL-encoded DSNs reside in a separately provisioned Secret.
+Application pods receive exactly their own key; never bootstrap credentials. */}}
+{{- define "ai-gateway.roleDatabaseEnv" -}}
+- name: {{ .env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "databaseRoles.existingSecret is required; bootstrap credentials cannot serve applications" .root.Values.databaseRoles.existingSecret }}
+      key: {{ .key }}
 {{- end }}

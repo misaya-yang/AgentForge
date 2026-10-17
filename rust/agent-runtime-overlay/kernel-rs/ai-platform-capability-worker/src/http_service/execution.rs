@@ -207,9 +207,19 @@ pub(super) async fn create_execution(
             "capability_version": descriptor.version,
         });
     }
+    // The store invokes this only for a new reservation, under its owner and
+    // identity locks. A duplicate/conflict never consumes admission capacity.
+    let class = super::pools::ExecutionClass::for_descriptor(&descriptor);
+    let target = super::pools::write_target(&descriptor, &scope, &resource_binding);
+    let mut ticket = None;
+    let mut admit = || {
+        ticket = Some(state.execution_pools.admit(class, &scope.tenant_id, target.clone())
+            .map_err(|_| StoreError::CapacityExhausted)?);
+        Ok(())
+    };
     let outcome = state
         .store
-        .reserve_owned(
+        .reserve_admitted_owned(
             NewExecution {
                 execution,
                 arguments,
@@ -229,9 +239,11 @@ pub(super) async fn create_execution(
                 .get("x-runtime-execution-fence")
                 .and_then(|value| value.to_str().ok())
                 .and_then(|value| value.parse().ok()),
+            &mut admit,
         )
         .await
         .map_err(store_error)?;
+    drop(admit);
     let actual_id = outcome.record.execution.execution_id.clone();
     if outcome.created {
         let published_event_id = event_id(&actual_id, 1)?;
@@ -259,6 +271,7 @@ pub(super) async fn create_execution(
             outcome.record.execution.capability_id.clone(),
             outcome.record.arguments.clone(),
             descriptor,
+            ticket.expect("new committed reservation has an admission ticket"),
         )));
     }
     let current = state

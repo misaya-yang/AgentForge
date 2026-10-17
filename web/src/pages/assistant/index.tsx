@@ -7,7 +7,7 @@
 import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo, useLayoutEffect, Component, type ErrorInfo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import {
   ArrowDown,
   PanelLeftClose,

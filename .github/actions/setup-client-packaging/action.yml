@@ -3,17 +3,14 @@ description: Build only cross-platform Rust packaging tools, without Unix servic
 runs:
   using: composite
   steps:
-    - uses: dtolnay/rust-toolchain@1.99.0
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: '1.99.0'
     - name: Configure bounded external packaging build
       shell: bash
       run: |
-        target_dir="${CARGO_TARGET_DIR:-$RUNNER_TEMP/platform-client-packaging-target}"
-        echo 'CARGO_BUILD_JOBS=1' >> "$GITHUB_ENV"
-        echo 'CARGO_INCREMENTAL=0' >> "$GITHUB_ENV"
-        echo 'CARGO_PROFILE_DEV_DEBUG=0' >> "$GITHUB_ENV"
-        echo 'CARGO_PROFILE_TEST_DEBUG=0' >> "$GITHUB_ENV"
-        echo "CARGO_TARGET_DIR=$target_dir" >> "$GITHUB_ENV"
-        echo "$target_dir/debug" >> "$GITHUB_PATH"
+        rustc --edition=2024 rust/platform-native/crates/platform-tools/src/github_env_bootstrap.rs -o "$RUNNER_TEMP/github-env-bootstrap"
+        "$RUNNER_TEMP/github-env-bootstrap" packaging
     - name: Build portable packaging command
       shell: bash
       run: >-

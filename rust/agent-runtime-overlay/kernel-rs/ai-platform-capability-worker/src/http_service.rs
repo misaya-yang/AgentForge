@@ -11,7 +11,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::{Mutex, Notify, Semaphore};
+use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
 use crate::{
@@ -30,6 +30,7 @@ mod events;
 mod execution;
 mod execution_run;
 mod recovery;
+pub mod pools;
 
 use self::catalog::catalog;
 use self::events::get_events;
@@ -48,7 +49,7 @@ pub struct WorkerState {
     pub store: DynStore,
     pub internal_token: Arc<str>,
     pub lease_secret: Arc<[u8]>,
-    pub execution_slots: Arc<Semaphore>,
+    pub execution_pools: pools::ExecutionPools,
     pub read_executor: Option<Arc<ReadCapabilityExecutor>>,
     pub write_executor: Option<Arc<WriteCapabilityExecutor>>,
     pub quiz_executor: Option<Arc<QuizPersistenceAdapter>>,
@@ -88,7 +89,8 @@ impl WorkerState {
             store,
             internal_token: Arc::from(internal_token),
             lease_secret: Arc::from(lease_secret),
-            execution_slots: Arc::new(Semaphore::new(1)),
+            execution_pools: pools::ExecutionPools::new(pools::ExecutionPoolConfig::default())
+                .expect("valid default execution pool limits"),
             read_executor: None,
             write_executor: None,
             quiz_executor: None,
@@ -115,6 +117,13 @@ impl WorkerState {
             plugin_activation: None,
             cancellation: Arc::new(Mutex::new(BTreeMap::new())),
         })
+    }
+
+    /// Replace pool limits before exposing the router or spawning recovery.
+    pub fn with_execution_pool_config(mut self, config: pools::ExecutionPoolConfig)
+        -> Result<Self, &'static str> {
+        self.execution_pools = pools::ExecutionPools::new(config)?;
+        Ok(self)
     }
 
     pub fn with_read_executor(mut self, executor: Arc<ReadCapabilityExecutor>) -> Self {
@@ -236,6 +245,8 @@ struct EventsQuery {
 struct ErrorBody {
     error: &'static str,
     message: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retryable: Option<bool>,
 }
 
 type HttpError = (StatusCode, Json<ErrorBody>);
@@ -246,6 +257,7 @@ fn error(status: StatusCode, code: &'static str, message: &'static str) -> HttpE
         Json(ErrorBody {
             error: code,
             message,
+            retryable: (code == "capacity_exhausted").then_some(true),
         }),
     )
 }
@@ -285,6 +297,10 @@ fn store_error(value: StoreError) -> HttpError {
             StatusCode::FORBIDDEN,
             "runtime_binding_unauthorized",
             "runtime capability binding is not active",
+        ),
+        StoreError::CapacityExhausted => error(
+            StatusCode::SERVICE_UNAVAILABLE, "capacity_exhausted",
+            "execution queue is full; retry with the same idempotency key",
         ),
         StoreError::Internal => error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -539,7 +555,8 @@ fn worker_capability_health(state: &WorkerState) -> BTreeMap<&'static str, &'sta
             advertised(
                 state,
                 &["execute_python_code"],
-                state.python_executor.is_some(),
+                state.python_executor.as_ref().is_some_and(|executor| executor.isolation_available())
+                    && state.python_artifact_store.is_some(),
             ),
         ),
         (

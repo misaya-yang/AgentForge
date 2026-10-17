@@ -152,14 +152,22 @@ fn prepare(values: BTreeMap<String, String>) -> Result<BTreeMap<String, String>>
             _ => None,
         };
         if let Some(application_key) = application_key {
+            // Authority login DSNs remain query-free for credential verification;
+            // application connections receive finite per-session policies only.
+            let mut application_url = reqwest::Url::parse(&role_dsn)?;
+            application_url.query_pairs_mut().append_pair(
+                "options",
+                "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=15000",
+            );
+            let application_dsn: String = application_url.into();
             if let Some(existing) = values.get(application_key).filter(|s| !s.is_empty()) {
                 require(
-                    existing == &admin || existing == &role_dsn,
+                    existing == &admin || existing == &role_dsn || existing == &application_dsn,
                     "existing application DSN is outside the selected local profile",
                 )?;
             }
-            if values.get(application_key) != Some(&role_dsn) {
-                changes.insert(application_key.into(), role_dsn);
+            if values.get(application_key) != Some(&application_dsn) {
+                changes.insert(application_key.into(), application_dsn);
             }
         }
     }

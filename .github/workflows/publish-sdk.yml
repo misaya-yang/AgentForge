@@ -5,24 +5,29 @@ on:
     tags:
       - 'sdk-v*'  # Trigger on tags like sdk-v1.0.2
 
+permissions:
+  contents: read
+
 jobs:
   verify-sse-contract:
     name: Verify shared SDK SSE contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-native
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '26.11.1'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
       - name: Install Maven
         run: sudo apt-get update && sudo apt-get install --yes maven
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
         with:
           sdk: stable
       - name: Install CLI dependencies
@@ -39,14 +44,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-native
       - name: Verify and package Rust client
         run: |
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client
           cargo package --locked --manifest-path rust/platform-native/crates/platform-client/Cargo.toml --no-verify
       - name: Upload Rust SDK candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: rust-client-source
           path: ${{ runner.temp }}/platform-native-target/package/*.crate
@@ -58,9 +65,11 @@ jobs:
     needs: verify-sse-contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-native
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '26.11.1'
           registry-url: 'https://registry.npmjs.org'
@@ -106,7 +115,9 @@ jobs:
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-client-packaging
       - id: targets
         name: Read the canonical platformctl target manifest
@@ -125,25 +136,33 @@ jobs:
       CARGO_BUILD_JOBS: '1'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_RELEASE_DEBUG: '0'
-      CARGO_TARGET_DIR: ${{ runner.temp }}/platformctl-target
+      PACKAGE_TARGET: ${{ matrix.name }}
+      RUST_TARGET: ${{ matrix.rust_target }}
+      PACKAGE_BINARY: ${{ matrix.binary }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-client-packaging
-      - uses: dtolnay/rust-toolchain@1.99.0
+      - name: Select external platformctl target directory
+        shell: bash
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/platformctl-target" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-client-packaging
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
+        with:
+          toolchain: 1.99.0
           targets: ${{ matrix.rust_target }}
       - name: Build only the shared management client binary
         shell: bash
-        run: cargo build --locked --release --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --bin platformctl --target '${{ matrix.rust_target }}'
+        run: cargo build --locked --release --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --bin platformctl --target "$RUST_TARGET"
       - name: Verify native binary and create checksummed candidate archive
         shell: bash
         run: >-
           platform-client-packaging package-platformctl
-          --target '${{ matrix.name }}'
-          --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
-          --output '${{ runner.temp }}/platformctl-package'
+          --target "$PACKAGE_TARGET"
+          --binary "$CARGO_TARGET_DIR/$RUST_TARGET/release/$PACKAGE_BINARY"
+          --output "$RUNNER_TEMP/platformctl-package"
       - name: Upload candidate package, checksum and source receipt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: platformctl-${{ matrix.name }}
           path: ${{ runner.temp }}/platformctl-package/*

@@ -2,7 +2,7 @@
 //! authentication boundaries; no process is started by these factories.
 use crate::{
     migration_agent as agent, migration_compat as compat, migration_content as content,
-    migration_knowledge_ingest as ingest, migration_knowledge_query as query,
+    migration_knowledge_query as query,
     migration_local_node as local,
 };
 use ai_platform_auth::service::AuthService;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 /// The foundation contains the established authentication, provider/model,
 /// session/admin/usage/config routes, constructed by foundation::FoundationApis.
 /// Knowledge forwarding stays at the signed HTTP client boundary. Knowledge
-/// Service business routers belong only to KnowledgeApplication below.
+/// Service business routers belong only to the separate Knowledge service crate.
 pub struct GatewayApplication {
     pub foundation: Router,
     pub auth: Arc<AuthService>,
@@ -101,52 +101,6 @@ impl GatewayApplication {
             .merge(local::broker::local_node_broker_router(self.local_node)))
     }
 }
-/// Only signed gateway identities enter the Knowledge Service public operation
-/// surface. The independently proof-authorized capability route is separate.
-pub struct KnowledgeApplication {
-    pub service_auth: Arc<query::auth::GatewayAuth>,
-    pub retrieval: Arc<query::service::RetrievalService>,
-    pub qa: Option<Arc<query::qa::QaService>>,
-    pub writes: ingest::http::WriteApiState,
-    pub lexical: query::lexical_http::LexicalApiState,
-    pub embedding_migrations: Arc<query::migration::EmbeddingMigration>,
-    pub source_store: query::store::QueryStore,
-    pub capabilities: query::actor::CapabilityState,
-    pub ragas: Arc<query::ragas::RagasService>,
-}
-impl KnowledgeApplication {
-    pub fn into_router(self) -> query::types::Result<Router> {
-        self.service_auth.validate_service_boundary()?;
-        Ok(Router::new()
-            .merge(query::ragas::knowledge_service_router(
-                self.service_auth.clone(),
-                self.ragas,
-            )?)
-            .merge(query::http::knowledge_service_router(
-                self.service_auth.clone(),
-                self.retrieval,
-                self.qa,
-            )?)
-            .merge(ingest::http::service_routes(
-                self.writes,
-                self.service_auth.clone(),
-            ))
-            .merge(query::lexical_http::knowledge_service_router(
-                self.lexical,
-                self.service_auth.clone(),
-            )?)
-            .merge(query::migration_http::knowledge_service_router(
-                self.embedding_migrations,
-                self.service_auth.clone(),
-            )?)
-            .merge(query::source_authz::router(
-                self.source_store,
-                self.service_auth,
-            )?)
-            .merge(query::actor::capability_router(self.capabilities)))
-    }
-}
-
 /// The same native declaration producer used by the offline contract gate.
 pub async fn openapi_document() -> axum::Json<serde_json::Value> {
     axum::Json(super::openapi_document::extend_document(

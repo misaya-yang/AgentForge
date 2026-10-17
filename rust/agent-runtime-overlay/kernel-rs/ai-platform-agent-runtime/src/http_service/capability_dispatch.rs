@@ -931,7 +931,13 @@ async fn load_readonly_turn_binding(
            AND snapshot.user_id = $4
            AND snapshot.session_id = $5
            AND lease.status = 'active'
-           AND lease.expires_at > NOW()
+           AND lease.expires_at > clock_timestamp()
+           AND (snapshot.expires_at IS NULL OR snapshot.expires_at > clock_timestamp())
+           AND run.runtime_snapshot_id = snapshot.snapshot_id
+           AND run.harness_thread_id = snapshot.runtime_thread_id
+           AND run.tenant_id = snapshot.tenant_id
+           AND run.user_id = snapshot.user_id
+           AND run.session_id = snapshot.session_id
            AND run.status = 'running'
            AND run.engine = 'agent_runtime'
            AND NOT EXISTS (

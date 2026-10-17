@@ -1,0 +1,48 @@
+{
+  "gate": "architecture-boundary-gate",
+  "tier": "L0",
+  "result": "pass",
+  "composed_workspace": "/Users/yang/.cache/agentforge-upgrade/composed-092d3acd-f778bc606a5b/codex-rs",
+  "composed_identity_prerequisites": 4,
+  "scanned_manifests": 52,
+  "edges": [
+    {
+      "from": "ai-platform-desktop",
+      "to": "ai-platform-client"
+    },
+    {
+      "from": "ai-platform-gateway",
+      "to": "ai-platform-auth"
+    },
+    {
+      "from": "ai-platform-gateway",
+      "to": "ai-platform-gateway-foundation"
+    },
+    {
+      "from": "ai-platform-gateway",
+      "to": "ai-platform-gateway-integrations"
+    },
+    {
+      "from": "ai-platform-gateway-foundation",
+      "to": "ai-platform-auth"
+    },
+    {
+      "from": "ai-platform-gateway-integrations",
+      "to": "ai-platform-auth"
+    },
+    {
+      "from": "ai-platform-gateway-integrations",
+      "to": "ai-platform-gateway-foundation"
+    },
+    {
+      "from": "ai-platform-knowledge-ops",
+      "to": "ai-platform-knowledge-service"
+    },
+    {
+      "from": "ai-platform-knowledge-service",
+      "to": "ai-platform-knowledge-domain"
+    }
+  ],
+  "violations": [],
+  "allowlisted": []
+}

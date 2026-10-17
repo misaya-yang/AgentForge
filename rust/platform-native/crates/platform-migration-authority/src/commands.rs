@@ -259,22 +259,15 @@ pub async fn startup_check(authority: &MigrationAuthority, principal: &str) -> R
             println!("startup schema check passed (profile={profile:?})");
             Ok(())
         }
-        // Runtime and capability-worker retain their existing source-specific
-        // object/epoch gate; this change only replaces application authority
-        // admission for Gateway and Knowledge.
         "runtime" | "capability_worker" => {
-            let result = bootstrap::startup_schema_check(&mut conn, 2, 10).await?;
+            let profile = if principal == "runtime" {
+                crate::application_guard::ApplicationPrincipal::Runtime
+            } else {
+                crate::application_guard::ApplicationPrincipal::CapabilityWorker
+            };
+            crate::application_guard::require_compatible_schema(&mut conn, profile).await?;
             conn.close().await?;
-            if result["ok"] != true {
-                return Err(AuthorityError::Refused(format!(
-                    "startup schema check failed: {}",
-                    result.get("reason").unwrap_or(&result["missing_objects"])
-                )));
-            }
-            println!(
-                "startup schema check passed (epoch={})",
-                result["epoch"].as_str().unwrap_or("")
-            );
+            println!("startup schema check passed (profile={profile:?})");
             Ok(())
         }
         _ => Err(AuthorityError::Refused(

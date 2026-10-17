@@ -1,6 +1,6 @@
 {
   "baseline_id": "2026_08_post_kb_v1",
-  "epoch": 22,
+  "epoch": 24,
   "changes": [
     {
       "sequence": 1,
@@ -480,6 +480,52 @@
       "resume_handler": null,
       "repair_handler": null,
       "notes": "Candidate 022 grants only INSERT on assistant.assistant_runtime_thread_projections to the owner-prefix runtime role. The normal create_thread path already has required rights elsewhere; root review and isolated own-role rollback probe are required before activation."
+    },
+    {
+      "sequence": 23,
+      "name": "local_node_device_credentials_and_durable_cancel",
+      "file": "023_local_node_device_credentials.sql",
+      "sha256": "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.local_node_devices') IS NOT NULL AND to_regclass('gateway.local_node_channels') IS NOT NULL AND to_regclass('gateway.local_node_executions') IS NOT NULL AND to_regclass('gateway.local_node_pairing_challenges') IS NOT NULL AND to_regclass('gateway.local_node_grants') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials') IS NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at')",
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_channels' AND column_name='fingerprint') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_executions','UPDATE')"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.local_node_device_credentials') IS NOT NULL AND (SELECT count(*)=11 AND bool_and(column_name=ANY(ARRAY['credential_id','credential_sha256','tenant_id','user_id','device_id','channel_id','expires_at','accepted_through_sequence','last_seen_at','revoked_at','created_at'])) FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials' AND column_name IN ('credential','token','secret','plaintext'))",
+        "SELECT to_regclass('gateway.local_node_device_credentials_active_channel') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials_owner_device') IS NOT NULL AND (SELECT count(*)=6 FROM pg_constraint WHERE conrelid='gateway.local_node_device_credentials'::regclass AND conname=ANY(ARRAY['local_node_device_credentials_pkey','local_node_device_credentials_credential_sha256_key','local_node_device_credentials_credential_sha256_check','local_node_device_credentials_sequence_check','local_node_device_credentials_device_scope_fkey','local_node_device_credentials_channel_id_fkey'])) AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at' AND data_type='timestamp with time zone' AND is_nullable='YES')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRIGGER') AND (SELECT count(*)=3 AND bool_and(pg_get_userbyid(a.grantor)=current_user AND NOT a.is_grantable AND a.privilege_type=ANY(ARRAY['SELECT','INSERT','UPDATE'])) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.local_node_device_credentials'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate 023 persists only an opaque credential SHA-256, owner/device/channel scope, expiry, receipt acknowledgement cursor and revocation timestamps; it adds durable cancel_requested_at. Gateway alone receives SELECT, INSERT and UPDATE on the new table. The existing channel fingerprint and frozen 001-022 sources remain unchanged; root review and isolated own-role acceptance are required before activation."
+    },
+    {
+      "sequence": 24,
+      "name": "runtime_worker_schema_admission_reader",
+      "file": "024_runtime_worker_schema_admission_reader.sql",
+      "sha256": "74c1667fa594267a85701aec9915ffad5a4f73192c8aab2ec5759a14d86bbec9",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regprocedure('assistant.platform_schema_admission_snapshot_v1()') IS NULL AND to_regclass('public.platform_schema_baselines') IS NOT NULL AND to_regclass('public.platform_schema_changes') IS NOT NULL AND to_regclass('public.platform_schema_change_attempts') IS NOT NULL",
+        "SELECT has_schema_privilege(left(current_user,length(current_user)-5)||'runtime','assistant','USAGE') AND has_schema_privilege(left(current_user,length(current_user)-5)||'capability_worker','assistant','USAGE')"
+      ],
+      "postconditions": [
+        "SELECT count(*)=1 AND bool_and(p.prosecdef AND p.provolatile='s' AND p.pronargs=0 AND p.prorettype='jsonb'::regtype AND l.lanname='sql' AND pg_get_userbyid(p.proowner)=current_user AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']::text[]) FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure('assistant.platform_schema_admission_snapshot_v1()')",
+        "SELECT count(*)=3 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable AND a.grantor=p.proowner AND pg_get_userbyid(a.grantee)=ANY(ARRAY[current_user,left(current_user,length(current_user)-5)||'runtime',left(current_user,length(current_user)-5)||'capability_worker'])) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid=to_regprocedure('assistant.platform_schema_admission_snapshot_v1()')",
+        "SELECT assistant.platform_schema_admission_snapshot_v1()->>'schema_version'='ai-platform/schema-admission-snapshot/v1' AND NOT has_schema_privilege(left(current_user,length(current_user)-5)||'runtime','public','USAGE') AND NOT has_schema_privilege(left(current_user,length(current_user)-5)||'capability_worker','public','USAGE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'runtime','public.platform_schema_baselines','SELECT') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'capability_worker','public.platform_schema_baselines','SELECT')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Fixed metadata-only SECURITY DEFINER reader and EXECUTE for runtime/capability_worker; no business grants or role-policy changes."
     }
   ]
 }

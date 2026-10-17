@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_BASE_IMAGE: "${NODE_BASE_IMAGE:-node:26.11.1-alpine3.24}"
-        NGINX_BASE_IMAGE: "${NGINX_BASE_IMAGE:-nginx:1.27-alpine}"
+        NGINX_BASE_IMAGE: "${NGINX_BASE_IMAGE:-nginxinc/nginx-unprivileged:1.30-alpine}"
         VCS_REF: "${VCS_REF:-unknown}"
         NPM_REGISTRY: "${NPM_REGISTRY:-https://registry.npmjs.org}"
         VITE_API_URL: ""

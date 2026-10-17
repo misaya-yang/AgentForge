@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+ai-platform-service-primitives = { path = "../platform-service-primitives" }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
 opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
@@ -36,11 +37,12 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
 scraper = "0.23"
 tiktoken-rs = "0.7"
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
 libc = "0.2"
 unicode-normalization = "0.1"
 http-body = "1"
+ryu-js = "=1.0.2"
 
 # Source-compatible OSS signing and local file metadata digests.
 sha1 = "0.10"

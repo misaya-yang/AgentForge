@@ -1427,6 +1427,15 @@ mod tests {
                 crate::source_tools::next_successor_022::CANDIDATE_EPOCH as usize
             );
             assert!(validate_with_preimage_root(&root, None).is_err());
+        } else if matches!(epoch.epoch, 23 | 24) {
+            assert!(activated);
+            let verified =
+                crate::source_tools::next_successor::historical_test_fixtures::verify_current_chain(
+                    &root,
+                );
+            assert_eq!(verified.epoch, epoch.epoch);
+            assert_eq!(verified.changes.len(), epoch.epoch as usize);
+            assert!(validate_with_preimage_root(&root, None).is_err());
         } else {
             panic!("unexpected canonical schema epoch");
         }

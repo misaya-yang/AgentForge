@@ -1,0 +1,28 @@
+{
+  "schema": "agentforge/schema023-main-native-transition/v1",
+  "source_epoch": 23,
+  "backup_bytes": 995974,
+  "backup_sha256": "3b97ecad9454d855e3f813670343b75ab6190475c1e11556fec276cb03ee5b8b",
+  "backup_catalog_verified": true,
+  "stages": [
+    {
+      "command": "migrate",
+      "exit_code": 0
+    },
+    {
+      "command": "verify",
+      "exit_code": 0
+    },
+    {
+      "command": "verify-role-connections",
+      "exit_code": 0
+    },
+    {
+      "command": "migrate",
+      "exit_code": 0
+    }
+  ],
+  "database_actions": "canonical native authority only; additive credential table/cancel intent",
+  "credentials_rotated": false,
+  "accepted_product": false
+}

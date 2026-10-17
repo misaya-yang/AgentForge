@@ -16,7 +16,10 @@ Files:
 - `NOTICE.md` preserves upstream attribution and the exact audited hashes.
 - `Dockerfile` builds the Phase 0 source-pinned App Server protocol probe.
 - `Dockerfile.runtime` builds the private Rust HTTP/SSE Agent Runtime after the
-  controlled fork revision and release receipt are updated together.
+  controlled fork revision and release receipt are updated together. Its final
+  stage uses Debian 13 slim with an explicit runtime-only tool/library inventory;
+  see [runtime-image-dependencies.md](runtime-image-dependencies.md) for the
+  image contract and required unrun acceptance gates.
 
 Generate source evidence from the independent fork (the command runs Cargo metadata and
 hashes the supplied schema directory; it does not compile the schema):
@@ -236,3 +239,13 @@ artifact, as does `make agent-runtime-contract`; both must remain blocked until
 matching images exist. A passing source-only CLI check is not a pass for either
 Make target. The measured schema comparison and remaining acceptance scope are
 recorded in [the source-only update report](../../reports/architecture/codex-stable-source-2026-10-12.md).
+
+### Native history compatibility
+
+Persisted rollout items carry compiled upstream/schema writer provenance. The
+release gate now requires the actual native N-1 decode corpus; missing raw
+history evidence blocks release. See
+[history compatibility and rollback](../../docs/design/agent-runtime-history-compatibility.md)
+for decoder build/run inputs, frozen N-1 rollback gating and stop-write/data-restore
+rules. The checked-in corpus manifest is deliberately blocked rather than using
+projection reports or generated turns as historical evidence.

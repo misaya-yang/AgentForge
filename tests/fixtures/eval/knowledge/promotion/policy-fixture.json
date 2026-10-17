@@ -1,0 +1,44 @@
+{
+  "schema": "knowledge-promotion/v1",
+  "baseline": {
+    "path": "tests/fixtures/eval/knowledge/promotion/baseline-fixture.json",
+    "sha256": "612d7e6e9467cb80fe7d9cbe5c71813d00e18d0ae6db0edcfcd855a082ba9228"
+  },
+  "evaluator_sha256": "b7d537705cbf39a1a74d831c053510f4582f5255fc2181941c50797994eebf52",
+  "suites": [
+    {
+      "id": "retrieval-starter",
+      "kind": "retrieval",
+      "dataset_version": "2026-08-28.1-fixture",
+      "golden": {
+        "path": "tests/fixtures/eval/rag/golden/rag_regression_v1.jsonl",
+        "sha256": "dee0b0507dbbddb65e58b6ec140bfc105962f1a792ac659f7df5c0ac212502c3"
+      },
+      "label_provenance": "fixture",
+      "corpus_class": "text",
+      "profiles": [
+        "native-hybrid"
+      ]
+    },
+    {
+      "id": "parse-starter",
+      "kind": "parsing",
+      "dataset_version": "parse-fixture-v1",
+      "golden": {
+        "path": "tests/fixtures/eval/knowledge/promotion/parsing-golden.jsonl",
+        "sha256": "eb47f3e7387820fbf933a73509151e42b165a445467353528b44b7a3729bd111"
+      },
+      "label_provenance": "fixture",
+      "corpus_class": "table",
+      "profiles": [
+        "native-parser"
+      ]
+    }
+  ],
+  "human_labels": {
+    "path": "tests/fixtures/eval/knowledge/promotion/human-labels-fixture.json",
+    "sha256": "532e8a47ec0d357bc2483da57d995a1a4c7633fb68afcb1df48594ad3154835a"
+  },
+  "judge_model": "fixture-only",
+  "judge_prompt_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+}

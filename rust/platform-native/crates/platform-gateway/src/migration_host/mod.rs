@@ -19,7 +19,6 @@ pub mod google_auth;
 pub mod idempotency;
 pub mod identity;
 pub mod jwt;
-pub mod knowledge_bootstrap;
 pub mod knowledge_proxy;
 pub mod lifecycle;
 pub mod logging;

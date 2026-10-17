@@ -8,7 +8,7 @@ import type { SdkToolActivity } from "@/features/chat/stream/sdkLifecycle";
  * All rendering logic lives in `@/components/chat/*`.
  * This file re-exports the public types and composes the message list.
  */
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { TimelineState } from "@/components/agent/AgentTimeline";
 import type { ArtifactData } from "@/components/agent/ArtifactCard";

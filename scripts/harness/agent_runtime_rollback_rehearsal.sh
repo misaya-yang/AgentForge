@@ -2,6 +2,10 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+# A new-to-old in-place rehearsal cannot bypass the frozen decoder corpus.
+# Otherwise use the owning stop-write + data-restore drill, never old code on
+# unproven newly written history.
+bash "$repo_root/scripts/harness/check_agent_runtime_history.sh" --rollback
 env_file="${ENV_FILE:-$repo_root/.env}"
 bundle_path="${ROLLBACK_BUNDLE:-$repo_root/deploy/runbooks/agent-runtime-full-rust-cutover/rollback-bundle.json}"
 report_path="${ROLLBACK_REPORT:-$repo_root/reports/agent-runtime/rollback-rehearsal-latest.json}"

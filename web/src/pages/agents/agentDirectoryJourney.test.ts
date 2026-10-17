@@ -47,7 +47,7 @@ function host(initial = "other=keep") {
     antd: { ...Object.fromEntries(["Alert", "Button", "Dropdown", "Input", "Select", "Skeleton", "Table", "Tag"].map(key => [key, key])), Empty: Object.assign(() => {}, { PRESENTED_IMAGE_SIMPLE: "empty" }), Typography: named, App: { useApp: () => ({ message: { success() {}, error() {} }, modal: { confirm() {} } }) } },
     "react-i18next": { useTranslation: () => ({ t: (key: string, args?: unknown) => args ? `${key}:${JSON.stringify(args)}` : key, i18n: { resolvedLanguage: "en-US" } }) },
     "react-router-dom": { Link: "Link", useSearchParams: () => [params, setParams], useNavigate: () => () => {} },
-    "date-fns": { formatDistanceToNow: () => "now" }, "date-fns/locale": {}, "./agent-studio.css": {},
+    dayjs: Object.assign(() => ({ locale: () => ({ fromNow: () => "now" }) }), { extend() {} }), "dayjs/plugin/relativeTime": {}, "dayjs/locale/zh-cn": {}, "./agent-studio.css": {},
     "./agentDirectoryNavigation": navigation,
     "@/store/useAuthStore": { useAuthStore: authStore }, "@/lib/sdkAuthorityScope": { sdkAuthorityScope: authority }, "@/lib/utils": { generateUUID: () => `scope-${++uuid}` },
     "@tanstack/react-query": { useQuery: (next: Query) => { options = next; return { isFetching: false, isLoading: false, ...result, refetch() {} }; }, useMutation: () => ({}), useQueryClient: () => ({}) },

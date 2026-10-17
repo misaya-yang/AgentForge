@@ -803,6 +803,16 @@ impl ExecutionStore for PostgresExecutionStore {
         owner: Option<&str>,
         fence: Option<i64>,
     ) -> Result<ReserveOutcome, StoreError> {
+        self.reserve_admitted_owned(requested, owner, fence, &mut || Ok(())).await
+    }
+
+    async fn reserve_admitted_owned(
+        &self,
+        requested: NewExecution,
+        owner: Option<&str>,
+        fence: Option<i64>,
+        admit: &mut (dyn FnMut() -> Result<(), StoreError> + Send),
+    ) -> Result<ReserveOutcome, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         sqlx::query("SELECT assistant.assert_worker_execution_owner($1,$2,$3,$4,$5,$6,TRUE)")
             .bind(uuid(&requested.execution.run_id)?)
@@ -851,6 +861,19 @@ impl ExecutionStore for PostgresExecutionStore {
         .await
         .map_err(database_error)?;
         let record = row_to_record(&row)?;
+        // The authority function already serializes identity conflicts and the
+        // transaction retains the owner fence lock. A new row is uncommitted:
+        // recovery/dispatch cannot see it until admission succeeds and commits.
+        if !crate::same_reservation(&record, &requested) {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(StoreError::IdempotencyConflict);
+        }
+        if record.execution.execution_id == proposed_id.to_string()
+            && let Err(error) = admit()
+        {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(error);
+        }
         transaction.commit().await.map_err(database_error)?;
         Ok(ReserveOutcome {
             created: record.execution.execution_id == proposed_id.to_string(),

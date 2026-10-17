@@ -135,6 +135,42 @@
       "modes": {"compact": {"present": false, "replicas": 0}, "full": {"present": true, "replicas": 1, "runtime_role": "worker"}, "scale": {"present": true, "replicas": 2, "runtime_role": "worker"}}
     },
     {
+      "service_id": "database-bootstrap",
+      "display_name": "Database Bootstrap",
+      "bounded_context": "infrastructure",
+      "process_role": "Explicit administrator role, extension and initial credential setup before scoped migrations",
+      "lifecycle": "one-shot",
+      "exposure": "private",
+      "required_deps": [
+        "postgres"
+      ],
+      "optional_deps": [],
+      "state_owner": "initial scoped role credentials only; existing credentials are never rotated",
+      "scale_support": "one-shot",
+      "health_contract": {
+        "kind": "completion",
+        "source_key": "database-bootstrap"
+      },
+      "image_artifact": {
+        "version_env": "MIGRATE_IMAGE",
+        "default_version": "2.0.0"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
+    },
+    {
       "service_id": "migrate",
       "display_name": "Migration Authority",
       "bounded_context": "infrastructure",

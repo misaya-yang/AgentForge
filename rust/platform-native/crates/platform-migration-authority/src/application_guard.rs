@@ -11,7 +11,7 @@ use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
 const ADMISSION_SNAPSHOT_VERSION: &str = "ai-platform/schema-admission-snapshot/v1";
-const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 22;
+const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 24;
 const BASELINE_MANIFEST_BYTES: &[u8] =
     include_bytes!("../../../../../database/baselines/2026_08_post_kb_v1/manifest.json");
 const EPOCH_MANIFEST_BYTES: &[u8] =
@@ -25,6 +25,8 @@ pub enum ApplicationPrincipal {
     GatewayDurable,
     KnowledgeApi,
     KnowledgeWorker,
+    Runtime,
+    CapabilityWorker,
 }
 
 #[derive(Clone)]
@@ -145,6 +147,9 @@ fn compiled_contract(baseline_bytes: &[u8], epoch_bytes: &[u8]) -> Result<Admiss
 
 fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
     match principal {
+        ApplicationPrincipal::Runtime | ApplicationPrincipal::CapabilityWorker => {
+            (24, source_epoch)
+        }
         ApplicationPrincipal::Gateway => (18, source_epoch),
         ApplicationPrincipal::GatewayDurable => (20, source_epoch),
         ApplicationPrincipal::KnowledgeApi => (19, source_epoch),
@@ -159,9 +164,9 @@ fn validate_snapshot_value(
     contract: &AdmissionContract,
 ) -> Result<()> {
     if !(20..=MAX_SUPPORTED_SUCCESSOR_EPOCH).contains(&contract.source_epoch) {
-        return Err(refused(
-            "application admission requires an exact measured 018-020, 018-021, or 018-022 manifest",
-        ));
+        return Err(refused(&format!(
+            "application admission requires an exact measured source manifest at epoch 20..={MAX_SUPPORTED_SUCCESSOR_EPOCH}",
+        )));
     }
     if !exact_keys(
         snapshot,
@@ -268,25 +273,226 @@ fn classify_reader_error(error: sqlx::Error) -> ReaderFailure {
     }
 }
 
+// This catalog query runs as the connected login, before SECURITY DEFINER.
+// The reader's schema is chosen by code, never by the DSN or search_path.
+const PRINCIPAL_IDENTITY_SQL: &str = r#"
+SELECT pg_catalog.jsonb_build_object(
+    'current_user', current_user, 'session_user', session_user,
+    'login', caller.rolcanlogin, 'inherit', caller.rolinherit,
+    'superuser', caller.rolsuper, 'createdb', caller.rolcreatedb,
+    'createrole', caller.rolcreaterole, 'replication', caller.rolreplication,
+    'bypassrls', caller.rolbypassrls, 'owner', owner.rolname,
+    'canonical_owner', reader.proowner = namespace.nspowner
+        AND NOT (owner.rolcanlogin OR owner.rolsuper OR owner.rolcreatedb
+                 OR owner.rolcreaterole OR owner.rolreplication OR owner.rolbypassrls),
+    'metadata_reader', reader.prosecdef AND reader.prokind = 'f'
+        AND reader.prorettype = 'pg_catalog.jsonb'::pg_catalog.regtype)
+FROM pg_catalog.pg_proc AS reader
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = reader.pronamespace
+JOIN pg_catalog.pg_roles AS owner ON owner.oid = reader.proowner
+JOIN pg_catalog.pg_roles AS caller ON caller.rolname = current_user
+WHERE namespace.nspname = $1
+  AND reader.proname = 'platform_schema_admission_snapshot_v1'
+  AND reader.pronargs = 0
+"#;
+
+fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
+    match principal {
+        ApplicationPrincipal::Gateway | ApplicationPrincipal::GatewayDurable => "gateway",
+        ApplicationPrincipal::KnowledgeApi => "knowledge_api",
+        ApplicationPrincipal::KnowledgeWorker => "knowledge_worker",
+        ApplicationPrincipal::Runtime => "runtime",
+        ApplicationPrincipal::CapabilityWorker => "capability_worker",
+    }
+}
+
+fn validate_principal_identity(identity: &Value, principal: ApplicationPrincipal) -> Result<()> {
+    let owner = identity["owner"].as_str().unwrap_or_default();
+    let stem = owner.strip_suffix("_owner").unwrap_or_default();
+    let valid_prefix = !stem.is_empty()
+        && stem.len() <= 21
+        && stem.as_bytes()[0].is_ascii_lowercase()
+        && stem
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_');
+    let expected_role = format!("{stem}_{}", principal_role_suffix(principal));
+    if !valid_prefix
+        || identity["current_user"] != expected_role
+        || identity["session_user"] != expected_role
+        || identity["login"] != true
+        || identity["canonical_owner"] != true
+        || identity["metadata_reader"] != true
+        || [
+            "inherit",
+            "superuser",
+            "createdb",
+            "createrole",
+            "replication",
+            "bypassrls",
+        ]
+        .iter()
+        .any(|key| identity[*key] != false)
+    {
+        return Err(refused(
+            "schema admission requires the canonical unprivileged service login role",
+        ));
+    }
+    Ok(())
+}
+
 /// Run before exposing routes or starting background work, on the application's
-/// own connection. This performs one EXECUTE-only metadata read. It never reads
+/// own connection. This verifies login identity, then performs one EXECUTE-only
+/// metadata read. It never reads
 /// ledger tables directly or changes role after a function/permission failure.
 pub async fn require_compatible_schema(
     conn: &mut PgConnection,
     principal: ApplicationPrincipal,
 ) -> Result<()> {
     let contract = compiled_contract(BASELINE_MANIFEST_BYTES, EPOCH_MANIFEST_BYTES)?;
-    let snapshot =
-        sqlx::query_scalar::<_, Value>("SELECT gateway.platform_schema_admission_snapshot_v1()")
-            .fetch_one(&mut *conn)
-            .await
-            .map_err(classify_reader_error);
+    let reader_schema = match principal {
+        ApplicationPrincipal::Runtime | ApplicationPrincipal::CapabilityWorker => "assistant",
+        _ => "gateway",
+    };
+    let identity = sqlx::query_scalar::<_, Value>(PRINCIPAL_IDENTITY_SQL)
+        .bind(reader_schema)
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(|_| refused("schema admission principal identity unavailable"))?;
+    validate_principal_identity(&identity, principal)?;
+    let reader = match principal {
+        ApplicationPrincipal::Runtime | ApplicationPrincipal::CapabilityWorker => {
+            "SELECT assistant.platform_schema_admission_snapshot_v1()"
+        }
+        _ => "SELECT gateway.platform_schema_admission_snapshot_v1()",
+    };
+    let snapshot = sqlx::query_scalar::<_, Value>(reader)
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(classify_reader_error);
     validate_reader_result(snapshot, principal, &contract)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn principal_fixture(principal: ApplicationPrincipal) -> Value {
+        let role = format!("fixture_{}", principal_role_suffix(principal));
+        serde_json::json!({
+            "current_user": role, "session_user": role,
+            "login": true, "inherit": false, "superuser": false,
+            "createdb": false, "createrole": false, "replication": false,
+            "bypassrls": false, "owner": "fixture_owner",
+            "canonical_owner": true, "metadata_reader": true,
+        })
+    }
+
+    #[test]
+    fn only_matching_unprivileged_service_login_is_admitted() {
+        let principals = [
+            ApplicationPrincipal::Gateway,
+            ApplicationPrincipal::GatewayDurable,
+            ApplicationPrincipal::KnowledgeApi,
+            ApplicationPrincipal::KnowledgeWorker,
+            ApplicationPrincipal::Runtime,
+            ApplicationPrincipal::CapabilityWorker,
+        ];
+        for principal in principals {
+            let identity = principal_fixture(principal);
+            assert!(validate_principal_identity(&identity, principal).is_ok());
+            for key in [
+                "inherit",
+                "superuser",
+                "createdb",
+                "createrole",
+                "replication",
+                "bypassrls",
+            ] {
+                let mut bad = identity.clone();
+                bad[key] = true.into();
+                assert!(
+                    validate_principal_identity(&bad, principal).is_err(),
+                    "{key}"
+                );
+                bad[key] = Value::Null;
+                assert!(
+                    validate_principal_identity(&bad, principal).is_err(),
+                    "missing {key}"
+                );
+            }
+            for key in ["login", "canonical_owner", "metadata_reader"] {
+                let mut bad = identity.clone();
+                bad[key] = false.into();
+                assert!(
+                    validate_principal_identity(&bad, principal).is_err(),
+                    "{key}"
+                );
+            }
+            for key in ["current_user", "session_user"] {
+                for role in [
+                    "postgres",
+                    "fixture_owner",
+                    "fixture_migrator",
+                    "foreign_gateway",
+                ] {
+                    let mut bad = identity.clone();
+                    bad[key] = role.into();
+                    assert!(
+                        validate_principal_identity(&bad, principal).is_err(),
+                        "{key} {role}"
+                    );
+                }
+            }
+            for other in principals {
+                let other_identity = principal_fixture(other);
+                assert_eq!(
+                    validate_principal_identity(&other_identity, principal).is_ok(),
+                    principal_role_suffix(other) == principal_role_suffix(principal)
+                );
+            }
+            for owner in [
+                "postgres",
+                "Owner_owner",
+                "_owner",
+                "bad-prefix_owner",
+                "aaaaaaaaaaaaaaaaaaaaaa_owner",
+                "foreign_owner",
+            ] {
+                let mut bad = identity.clone();
+                bad["owner"] = owner.into();
+                assert!(
+                    validate_principal_identity(&bad, principal).is_err(),
+                    "{owner}"
+                );
+            }
+        }
+        assert!(validate_principal_identity(&Value::Null, ApplicationPrincipal::Gateway).is_err());
+    }
+
+    #[test]
+    fn runtime_and_worker_require_source_024_and_reject_bad_ledger() {
+        let contract = fixture_contract(24);
+        for principal in [
+            ApplicationPrincipal::Runtime,
+            ApplicationPrincipal::CapabilityWorker,
+        ] {
+            for epoch in [10, 18, 21, 22, 23, 25] {
+                assert!(
+                    validate_snapshot_value(&snapshot(&contract, epoch), principal, &contract)
+                        .is_err()
+                );
+            }
+            assert!(
+                validate_snapshot_value(&snapshot(&contract, 24), principal, &contract).is_ok()
+            );
+            let mut bad = snapshot(&contract, 24);
+            bad["changes"][0]["checksum_sha256"] = Value::Null;
+            assert!(validate_snapshot_value(&bad, principal, &contract).is_err());
+            assert!(
+                validate_reader_result(Err(ReaderFailure::Denied), principal, &contract).is_err()
+            );
+        }
+    }
 
     fn fixture_contract(source_epoch: i32) -> AdmissionContract {
         let mut contract = compiled_contract(BASELINE_MANIFEST_BYTES, EPOCH_MANIFEST_BYTES)

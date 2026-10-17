@@ -24,7 +24,7 @@ function host() {
     "@/store/useAppStore": { useAppStore: Object.assign(() => app, { getState: () => app, subscribe: (fn: (state: typeof app, prior: typeof app) => void) => { appListeners.add(fn); return () => appListeners.delete(fn); } }) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: (user: unknown) => JSON.stringify(user) },
     "@/lib/api": { api: { get: (path: string, options: { signal: AbortSignal }) => new Promise((resolve, reject) => requests.push({ path, signal: options.signal, resolve: value => resolve({ data: { artifacts: value } }), reject })) } },
-    "@/pages/assistant/sse-events": { SSEEventType: {} }, "framer-motion": { motion: named, AnimatePresence: "AnimatePresence" }, "lucide-react": named,
+    "@/pages/assistant/sse-events": { SSEEventType: {} }, "motion/react": { motion: named, AnimatePresence: "AnimatePresence" }, "lucide-react": named,
     "@/lib/utils": { cn: (...values: unknown[]) => values.filter(Boolean).join(" ") }, "@/hooks/use-toast": { toast: { error: noop } },
     "@/lib/format": { formatFileSize: () => "1 KB", getFormatLabel: () => "file" }, "@/lib/clipboard": { copyToClipboard: noop },
     "@/lib/authenticatedDownload": { artifactAccessErrorKey: () => "error", downloadAssistantArtifact: noop, openAssistantArtifact: noop },

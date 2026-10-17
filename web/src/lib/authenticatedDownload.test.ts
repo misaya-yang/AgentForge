@@ -85,7 +85,7 @@ function host(language = "en-US") {
   const modules: Record<string, unknown> = {
     react, "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "fragment" },
     "react-i18next": { useTranslation: () => ({ t: translate }) },
-    "framer-motion": { motion: new Proxy({}, { get: (_, key) => `motion.${String(key)}` }), AnimatePresence: "presence" },
+    "motion/react": { motion: new Proxy({}, { get: (_, key) => `motion.${String(key)}` }), AnimatePresence: "presence" },
     "lucide-react": new Proxy({}, { get: (_, key) => String(key) }),
     "@/lib/utils": { cn: () => "" },
     "@/hooks/use-toast": { toast: {

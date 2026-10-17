@@ -1,0 +1,12 @@
+{
+  "schema": "agentforge/service-admission-live/v1",
+  "epoch": 24,
+  "exit_code": 0,
+  "elapsed_seconds": 3.438,
+  "positive_role_admissions": 5,
+  "wrong_role_refusals": 30,
+  "privilege_denials": 15,
+  "runtime_worker_snapshots_equal_source": true,
+  "schema_or_role_mutations": false,
+  "accepted_product": false
+}

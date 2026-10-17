@@ -31,7 +31,7 @@ function render(message: Partial<ChatMessage> = {}, locale = "en-US", visible = 
     react: { ...realReact, lazy: () => () => { throw new Promise(() => {}); } },
     "react/jsx-runtime": require("react/jsx-runtime"),
     "react-i18next": { useTranslation: () => ({ t }) },
-    "framer-motion": { motion: { div: ({ children }: { children: React.ReactNode }) => createElement("div", null, children) } },
+    "motion/react": { motion: { div: ({ children }: { children: React.ReactNode }) => createElement("div", null, children) } },
     "@/lib/utils": utils,
     "@/features/chat/messageRenderPerformance": load("../../features/chat/messageRenderPerformance.ts", {}),
     "./MessageAvatar": { MessageAvatar: () => null },

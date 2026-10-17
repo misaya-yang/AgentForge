@@ -202,6 +202,17 @@ if [ "$INFRA_ONLY" != true ]; then
         "${AGENT_CAPABILITY_WORKER_IMAGE:-$(agent_capability_worker_image_tag)}"
 fi
 
+# Admit exact signed release digests before stopping or starting any application.
+# Keep rendered configuration on the pipe: it may contain private environment values.
+if [ "$INFRA_ONLY" != true ]; then
+    signature_services="$FULL_APP_SERVICES"
+    if [ "$SKIP_MIGRATE" != true ]; then
+        signature_services="$signature_services migrate"
+    fi
+    compose config --format json | platform-tools supply-chain verify-compose \
+        --repo-root "$PROJECT_ROOT" --config - --service-ids "$signature_services"
+fi
+
 # The authority wrapper is the schema owner. Stop app services first so a
 # previous run cannot race migrations during startup.
 if [ "$INFRA_ONLY" != true ]; then

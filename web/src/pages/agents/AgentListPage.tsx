@@ -27,8 +27,10 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
-import { enUS, zhCN } from "date-fns/locale";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/zh-cn";
+dayjs.extend(relativeTime);
 import { useTranslation } from "react-i18next";
 
 import { agentErrorDetail, archiveAgent, copyAgent, listAgents } from "@/api/agents";
@@ -96,7 +98,7 @@ function AgentMobileRow({
   onArchive: (agent: AgentSummary) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const dateLocale = i18n.resolvedLanguage === "zh-CN" ? zhCN : enUS;
+  const dateLocale = i18n.resolvedLanguage === "zh-CN" ? "zh-cn" : "en";
   return (
     <article className="agent-mobile-row">
       <span className="agent-avatar" aria-hidden><Bot size={18} /></span>
@@ -106,7 +108,7 @@ function AgentMobileRow({
         <span className="agent-mobile-meta">
           <Tag color={statusColor(agent.status)}>{t(`agents.common.statuses.${agent.status}`)}</Tag>
           <span>{t("agents.list.draftRevision", { revision: agent.draft_revision ?? 0 })}</span>
-          <span>{formatDistanceToNow(new Date(agent.updated_at), { addSuffix: true, locale: dateLocale })}</span>
+          <span>{dayjs(agent.updated_at).locale(dateLocale).fromNow()}</span>
         </span>
       </Link>
       <AgentActions agent={agent} onCopy={onCopy} onArchive={onArchive} />
@@ -167,7 +169,7 @@ function AgentDirectoryContent({ scopeId, isCurrent }: { scopeId: string; isCurr
   const agents = isCurrent() && !error ? query.data?.items ?? [] : [];
   const nextCursor = !error && !query.isFetching ? agentDirectoryNextCursor(query.data?.next_cursor, cursor) : undefined;
   const filtersActive = Boolean(search || status || owner || cursor);
-  const dateLocale = i18n.resolvedLanguage === "zh-CN" ? zhCN : enUS;
+  const dateLocale = i18n.resolvedLanguage === "zh-CN" ? "zh-cn" : "en";
   const copyMutation = useMutation({
     mutationFn: (agent: AgentSummary) => { if (!isCurrent()) throw new Error("Agent directory authorization changed"); return copyAgent(agent.agent_id); },
     onSuccess: (copied) => {
@@ -231,7 +233,7 @@ function AgentDirectoryContent({ scopeId, isCurrent }: { scopeId: string; isCurr
       title: t("agents.list.columns.updated"),
       dataIndex: "updated_at",
       width: 150,
-      render: (value: string) => formatDistanceToNow(new Date(value), { addSuffix: true, locale: dateLocale }),
+      render: (value: string) => dayjs(value).locale(dateLocale).fromNow(),
     },
     {
       title: <span className="sr-only">{t("agents.list.columns.actions")}</span>,

@@ -327,12 +327,12 @@ impl ProcessSettings {
         // Existing native endpoint normalization consumes the explicitly resolved
         // task URLs; preserve regional configured roots instead of guessing keys.
         let endpoint_resolver =
-            ai_platform_gateway::provider_startup_seeder::ChatEndpointResolver::new(&e.0);
+            ai_platform_service_primitives::provider_endpoints::ChatEndpointResolver::new(&e.0);
         let embedding_endpoint = endpoint_resolver.resolve_dashscope(
-            ai_platform_gateway::provider_startup_seeder::EndpointDomain::Embedding,
+            ai_platform_service_primitives::provider_endpoints::EndpointDomain::Embedding,
         );
         let ocr_endpoint = endpoint_resolver
-            .resolve_dashscope(ai_platform_gateway::provider_startup_seeder::EndpointDomain::Ocr);
+            .resolve_dashscope(ai_platform_service_primitives::provider_endpoints::EndpointDomain::Ocr);
         provider_keys.dashscope_embedding_api_key = embedding_endpoint.api_key;
         provider_keys.dashscope_embedding_base_url = embedding_endpoint.base_url;
         provider_keys.dashscope_ocr_api_key = ocr_endpoint.api_key;
@@ -533,7 +533,7 @@ impl ProcessSettings {
         };
         let configuration = KnowledgeConfiguration {
             request_governance:
-                ai_platform_gateway::request_governance::RequestGovernanceConfig::new(
+                ai_platform_service_primitives::request_governance::RequestGovernanceConfig::new(
                     e.number("KNOWLEDGE_HTTP__MAX_CONCURRENT_REQUESTS", 1024)?,
                     http_deadline("KNOWLEDGE_HTTP__RESPONSE_HEADER_TIMEOUT_MS")?,
                     http_deadline("KNOWLEDGE_HTTP__RESPONSE_BODY_IDLE_TIMEOUT_MS")?,

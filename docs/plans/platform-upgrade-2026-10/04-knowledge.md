@@ -235,3 +235,10 @@ other. Deadlines and batching stay with Knowledge.
   generations in one result.
 - **Cost and latency.** Cost per 1,000 pages by parser route; p95 latency per pipeline stage;
   memory per million chunks.
+
+### U-KN-11 implementation entry point (2026-10-17)
+
+The native offline measurement gate, CI integration and synthetic positive/negative contract tests
+are documented in [Knowledge evaluation and promotion](knowledge-evaluation-promotion.md).
+This records implementation only: production baseline captures, reviewed corpora, human/judge
+calibration and live quality acceptance remain open. Existing starter fixtures are not quality evidence.

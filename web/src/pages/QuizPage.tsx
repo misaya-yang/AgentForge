@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { BookOpen, ChevronLeft, ChevronRight, Loader2, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QuizQuestionData, QuizAttemptResult } from "@/pages/assistant/types";

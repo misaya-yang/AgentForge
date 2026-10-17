@@ -73,6 +73,8 @@ pub mod model_service;
 pub mod postgres_operation;
 pub mod presign_api;
 pub mod pricing_receipt;
+pub mod price_book;
+pub mod canonical_json_v2;
 pub mod protocol;
 pub mod provider_admin_api;
 pub mod provider_cipher;

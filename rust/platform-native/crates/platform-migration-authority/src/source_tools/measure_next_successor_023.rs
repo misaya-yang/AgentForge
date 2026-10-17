@@ -26,7 +26,10 @@ fn write_measurement_receipt(
     candidate: &next_successor_023::Candidate,
     expected_database: &str,
 ) -> Result<()> {
-    let epoch_dir = preview_root.join("database").join("migrations").join(next_successor_023::BASELINE);
+    let epoch_dir = preview_root
+        .join("database")
+        .join("migrations")
+        .join(next_successor_023::BASELINE);
     let reference_path = epoch_dir.join(REFERENCE_FILE);
     let manifest_path = epoch_dir.join("manifest.yml");
     let receipt = json!({
@@ -54,10 +57,14 @@ fn write_measurement_receipt(
 }
 
 async fn measure(options: MeasureOptions) -> Result<()> {
-    let (candidate, _) = next_successor_023::verify_preview(&options.source_root, &options.preview_root)?;
+    let (candidate, _) =
+        next_successor_023::verify_preview(&options.source_root, &options.preview_root)?;
     let source_root = options.source_root.canonicalize()?;
     let preview_root = options.preview_root.canonicalize()?;
-    let epoch_dir = preview_root.join("database").join("migrations").join(next_successor_023::BASELINE);
+    let epoch_dir = preview_root
+        .join("database")
+        .join("migrations")
+        .join(next_successor_023::BASELINE);
     measure_successors::measure_single_step(
         &preview_root.join("database"),
         &options.expected_database,
@@ -85,6 +92,48 @@ async fn measure(options: MeasureOptions) -> Result<()> {
     Ok(())
 }
 
+fn validate_options(options: &MeasureOptions) -> Result<()> {
+    if !options.run_approved {
+        return Err(refused(
+            "measurement requires --run-approved-isolated-measurements",
+        ));
+    }
+    measure_successors::validate_database_name(&options.expected_database)
+}
+
 pub async fn run(options: MeasureOptions) -> Result<()> {
+    // Reject unapproved or incorrectly named targets before inspecting previews
+    // or allowing the shared loopback/migrator/ledger-locked database runner.
+    validate_options(&options)?;
     measure(options).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn options(database: &str, approved: bool) -> MeasureOptions {
+        MeasureOptions {
+            source_root: PathBuf::from("/unread-source"),
+            preview_root: PathBuf::from("/unread-preview"),
+            expected_database: database.into(),
+            run_approved: approved,
+        }
+    }
+    #[test]
+    fn approval_and_disposable_name_are_required_before_source_or_database_access() {
+        assert!(validate_options(&options("schema_successor_verify_023_probe", false)).is_err());
+        for target in [
+            "postgres",
+            "agentforge",
+            "schema_successor_verify_short",
+            "schema_successor_verify_Prod0023",
+            "schema_successor_verify_probe-023",
+        ] {
+            assert!(
+                validate_options(&options(target, true)).is_err(),
+                "{target}"
+            );
+        }
+        assert!(validate_options(&options("schema_successor_verify_023_probe", true)).is_ok());
+    }
 }

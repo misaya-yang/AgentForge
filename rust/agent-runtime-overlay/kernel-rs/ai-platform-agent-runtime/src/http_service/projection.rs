@@ -68,6 +68,12 @@ pub(super) async fn persist_projected_events(
     };
     let fallback = text_projection.fallback_event(notification, &context);
     if let codex_app_server_protocol::ServerNotification::TurnCompleted(completed) = notification {
+        // Controlled acceptance bootstrap: Core has durably saved its real
+        // terminal; pause before compatibility projection can publish it.
+        // A subsequent SIGKILL exercises the existing recovery-tail path.
+        if let Ok(run_id) = Uuid::parse_str(&completed.turn.id) {
+            super::recovery_fault::terminal_pause("terminal_core_saved", run_id).await;
+        }
         readonly_by_turn
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

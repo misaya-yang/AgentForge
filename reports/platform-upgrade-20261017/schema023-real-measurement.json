@@ -1,0 +1,35 @@
+{
+  "schema": "agentforge/schema023-real-measurement/v1",
+  "database": "schema_successor_verify_localnode023",
+  "stages": [
+    {
+      "stage": "source",
+      "exit_code": 0
+    },
+    {
+      "stage": "prepare",
+      "exit_code": 0
+    },
+    {
+      "stage": "preview",
+      "exit_code": 0
+    },
+    {
+      "stage": "measure",
+      "exit_code": 0
+    },
+    {
+      "stage": "measured",
+      "exit_code": 0
+    },
+    {
+      "stage": "bundle",
+      "exit_code": 0
+    }
+  ],
+  "source_activated": false,
+  "main_database_mutated": false,
+  "preview": "/Users/yang/.cache/agentforge-upgrade/schema023-preview-20261017",
+  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema023-bundle-20261017",
+  "database_actions": "native authority exact022->023 single-step only"
+}

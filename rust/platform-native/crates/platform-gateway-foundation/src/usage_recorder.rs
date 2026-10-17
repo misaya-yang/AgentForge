@@ -235,12 +235,23 @@ pub fn prepare_with_snapshot(
     record: &mut UsageRecord,
     snapshot: &Value,
 ) -> Result<(), UsageRecorderError> {
+    // Only an explicit v2 marker selects the new contract. Legacy receipts and
+    // their rounding remain unchanged. Validate all references before mutation.
+    let price_book_v2 = snapshot.get("price_book_schema").is_some();
+    if price_book_v2 {
+        crate::price_book::validate_token_snapshot(snapshot)
+            .map_err(|error| UsageRecorderError::Collaborator(error.to_string()))?;
+    }
     let receipt =
         validate_pricing_snapshot(snapshot, &record.tenant_id, &record.provider, &record.model)?;
     let costs = TokenRates::parse(&receipt.input_price_per_1k, &receipt.output_price_per_1k)?
         .calculate_cost(record.input_tokens, record.output_tokens)?
         .usage_storage_cost()?;
-    let serialized = receipt.to_value();
+    let serialized = if price_book_v2 {
+        snapshot.clone()
+    } else {
+        receipt.to_value()
+    };
     record.input_cost_cents = costs.input_cost_cents;
     record.output_cost_cents = costs.output_cost_cents;
     record

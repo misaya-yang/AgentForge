@@ -8,12 +8,15 @@ mod ci;
 mod ci_capacity;
 mod ci_capacity_policy;
 mod compose_identity;
+mod database_identity;
+mod dependency_policy;
 mod docs_truth;
 mod embed;
 mod evidence;
 mod guard;
 mod harness;
 mod hygiene;
+mod image_size;
 mod inventory_generators;
 mod live_openapi;
 mod loc;
@@ -26,6 +29,7 @@ mod rust_gate;
 mod selection;
 mod smoke_ops;
 mod source;
+mod supply_chain;
 mod topology;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -368,6 +372,10 @@ fn run() -> Result<bool> {
  "agent-runtime-write-gate"=>native_gates::write(&args)?,
  "agent-runtime-single-kernel-gate"=>native_gates::single_kernel(&args)?,
  "image-initialize-probe"=>build_ops::image_probe(&args)?,
+ "image-size-check"=>image_size::run(&args)?,
+ "database-identity-gate"=>database_identity::run(&args)?,
+ "dependency-policy"=>dependency_policy::run(&args)?,
+ "supply-chain"=>supply_chain::run(&args)?,
  "buildx-resource-builder"=>buildx_resource::run(&args)?,
  "affected-gates"=>selection::run(&args)?,
  "ci-gate-enforcement"=>ci::run(&args)?,

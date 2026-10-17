@@ -231,7 +231,8 @@ async fn recover_claim(state: &RuntimeHttpState, claim: ExecutionClaim) -> Resul
             row.try_get::<Value, _>("payload")
                 .map_err(|_| "recovery_history_invalid")
                 .and_then(|value| {
-                    serde_json::from_value(value).map_err(|_| "recovery_history_invalid")
+                    crate::postgres_store::history_codec::decode_rollout(value)
+                        .map_err(|_| "recovery_history_invalid")
                 })
         })
         .collect::<Result<Vec<RolloutItem>, _>>()?;

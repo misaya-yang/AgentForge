@@ -1,0 +1,103 @@
+{
+  "verified_by": "unauthenticated read-only git ls-remote of official repositories",
+  "actions": {
+    "actions/checkout": {
+      "ref": "v4",
+      "sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "source": "https://github.com/actions/checkout"
+    },
+    "actions/download-artifact": {
+      "ref": "v4",
+      "sha": "d3f86a106a0bac45b974a628896c90dbdf5c8093",
+      "source": "https://github.com/actions/download-artifact"
+    },
+    "actions/upload-artifact": {
+      "ref": "v4",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "source": "https://github.com/actions/upload-artifact"
+    },
+    "actions/setup-java": {
+      "ref": "v4",
+      "sha": "cf277c60eb25467037889841efdb72551f06f6c3",
+      "source": "https://github.com/actions/setup-java"
+    },
+    "actions/setup-node": {
+      "ref": "v4",
+      "sha": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "source": "https://github.com/actions/setup-node"
+    },
+    "docker/build-push-action": {
+      "ref": "v6",
+      "sha": "10e90e3645eae34f1e60eeb005ba3a3d33f178e8",
+      "source": "https://github.com/docker/build-push-action"
+    },
+    "docker/login-action": {
+      "ref": "v3",
+      "sha": "c94ce9fb468520275223c153574b00df6fe4bcc9",
+      "source": "https://github.com/docker/login-action"
+    },
+    "docker/metadata-action": {
+      "ref": "v5",
+      "sha": "c299e40c65443455700f0fdfc63efafe5b349051",
+      "source": "https://github.com/docker/metadata-action"
+    },
+    "docker/setup-buildx-action": {
+      "ref": "v3",
+      "sha": "8d2750c68a42422c14e847fe6c8ac0403b4cbd6f",
+      "source": "https://github.com/docker/setup-buildx-action"
+    },
+    "dart-lang/setup-dart": {
+      "ref": "v1",
+      "sha": "6afc89df92d6eb3834022f73cd65adc8cdfcb92d",
+      "source": "https://github.com/dart-lang/setup-dart"
+    },
+    "dtolnay/rust-toolchain": {
+      "ref": "master",
+      "sha": "683b588c487a69d01f6c6ddf40f036ff682cc2c8",
+      "source": "https://github.com/dtolnay/rust-toolchain"
+    },
+    "sigstore/cosign-installer": {
+      "ref": "v3.9.2",
+      "sha": "d58896d6a1865668819e1d91763c7751a165e159",
+      "source": "https://github.com/sigstore/cosign-installer"
+    },
+    "aquasecurity/setup-trivy": {
+      "ref": "v0.3.1",
+      "sha": "81e514348e19b6112ce2a7e3ecbafe19c1e1f567",
+      "source": "https://github.com/aquasecurity/setup-trivy"
+    },
+    "zizmorcore/zizmor-action": {
+      "ref": "v0.7.1",
+      "sha": "85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e",
+      "source": "https://github.com/zizmorcore/zizmor-action"
+    },
+    "taiki-e/install-action": {
+      "ref": "v2.87.29",
+      "sha": "8cca0918f8471c33515202b73f56ab27f2bed283",
+      "source": "https://github.com/taiki-e/install-action"
+    }
+  },
+  "tools": {
+    "trivy": {
+      "version": "0.76.0",
+      "commit": "531360e5d2a88e732373f1614ba99a38738538b8",
+      "source": "https://github.com/aquasecurity/trivy"
+    },
+    "cosign": {
+      "version": "3.1.3",
+      "commit": "11926fa5bbbbde47e88fc006b625a17769b743b2",
+      "source": "https://github.com/sigstore/cosign"
+    },
+    "zizmor": {
+      "version": "1.31.1",
+      "commit": "effdb35fa7868863f11655db256d9008922fa427",
+      "source": "https://github.com/zizmorcore/zizmor"
+    },
+    "cargo-deny": {
+      "version": "0.20.2",
+      "commit": "bca0dde53651ee946720e4540b5ce2610bec8f06",
+      "crate_checksum": "e528dfcbe739af7ce37a77d3d6df1b29dd6887b1c701d888820c0f16b864f737",
+      "source": "https://github.com/EmbarkStudios/cargo-deny"
+    }
+  }
+}

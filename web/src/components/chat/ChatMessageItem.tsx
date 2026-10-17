@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { lazy, memo, Suspense, useState, forwardRef } from "react";
 import { useTranslation } from "react-i18next";
 import { cn, getSafePlaygroundAssistantContent } from "@/lib/utils";

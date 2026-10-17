@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { ChevronDown, Send, Loader2, X, FileText, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

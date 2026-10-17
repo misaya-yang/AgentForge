@@ -127,6 +127,7 @@ agent-capability-worker-smoke: ## 隔离 PostgreSQL 验证 capability worker 的
 
 agent-runtime-release-gate:   ## 串行运行单内核发布合同（不构建镜像、不调用 provider）
 	@$(MAKE) agent-runtime-source-contract
+	@$(MAKE) agent-runtime-history-gate
 	@$(MAKE) runtime-dependency-gate
 	@$(MAKE) agent-runtime-single-kernel-gate
 	@$(MAKE) agent-runtime-readonly-gate
@@ -210,6 +211,10 @@ validate-config:            ## 仅校验 .env 和 Compose 配置
 validate-example-config:    ## 校验提交的 .env.example 和 Compose 示例配置
 	@bash $(SCRIPTS)/validate-env.sh --env ".env.example" --example
 	@platform-tools compose-image-matrix --repo-root .
+
+.PHONY: database-identity-gate
+database-identity-gate:     ## 以公开 fixture 验证全部 Compose 模式的独立数据库身份
+	@platform-tools database-identity-gate --repo-root . --matrix
 
 seed-demo:                  ## 预览本地 demo 数据 SQL 和路由 (不写数据库)
 	@bash $(SCRIPTS)/seed-demo-data.sh --env "$(ENV_FILE)" --dry-run
@@ -574,3 +579,7 @@ native-install: native-engine-build ## Build and install native services and ope
 	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo build --locked --manifest-path $(NATIVE_MANIFEST) $(foreach p,$(NATIVE_INSTALL_PACKAGES),-p $(p)) --bins
 	@install -d "$(NATIVE_BIN_DIR)"
 	@for binary in $(NATIVE_INSTALL_BINS); do install "$(CARGO_TARGET_DIR)/debug/$$binary" "$(NATIVE_BIN_DIR)/$$binary"; done
+
+.PHONY: agent-runtime-history-gate
+agent-runtime-history-gate: ## N-1 native rollout decoder corpus; missing evidence blocks release
+	@bash scripts/harness/check_agent_runtime_history.sh

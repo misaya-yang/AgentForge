@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { ArtifactList, type ArtifactData } from "@/components/agent/ArtifactCard";
 import { Sparkles } from "lucide-react";

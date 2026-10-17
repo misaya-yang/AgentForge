@@ -305,9 +305,396 @@ pub async fn initialize(
     Ok(result)
 }
 
+// Public deployment bootstrap is separate from the Docker-owned loopback local
+// initializer above. It never weakens or calls that initializer's target guard.
+fn deployment_plan(
+    values: &BTreeMap<String, String>,
+    prefix: &str,
+    expected: &str,
+    expected_admin: &str,
+) -> Result<Plan> {
+    credentials::validate_role_prefix(prefix)?;
+    let identifier = |value: &str| {
+        !value.is_empty()
+            && value.len() <= 63
+            && value.as_bytes()[0].is_ascii_alphabetic()
+            && value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    };
+    if !identifier(expected)
+        || !identifier(expected_admin)
+        || expected_admin.starts_with(prefix)
+        || values
+            .get("AI_PLATFORM_LOCAL_DEV_CREDENTIALS")
+            .is_some_and(|v| v == "true")
+    {
+        return Err(refuse(
+            "deployment bootstrap requires an explicit deployment database/admin and cannot replace local credential initialization",
+        ));
+    }
+    let parse = |principal: &str| -> Result<(url::Url, String)> {
+        let raw = values
+            .get(&format!(
+                "AI_GATEWAY_DATABASE_{}_DSN",
+                principal.to_ascii_uppercase()
+            ))
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                refuse("deployment bootstrap requires all seven distinct explicit DSNs")
+            })?;
+        let url =
+            url::Url::parse(raw).map_err(|_| refuse("invalid deployment DSN; values withheld"))?;
+        if !["postgres", "postgresql"].contains(&url.scheme())
+            || url.host_str().is_none()
+            || url.fragment().is_some()
+            || url.path().strip_prefix('/') != Some(expected)
+            || url.query_pairs().any(|(key, value)| {
+                key != "sslmode"
+                    || !["disable", "require", "verify-ca", "verify-full"].contains(&value.as_ref())
+            })
+            || url.query_pairs().count() > 1
+        {
+            return Err(refuse(
+                "deployment DSNs must name the exact expected database without endpoint/identity overrides",
+            ));
+        }
+        let password = percent_encoding::percent_decode_str(
+            url.password()
+                .ok_or_else(|| refuse("deployment passwords must be explicit"))?,
+        )
+        .decode_utf8()
+        .map_err(|_| refuse("invalid deployment password encoding"))?
+        .into_owned();
+        if !(32..=1024).contains(&password.len())
+            || !password.bytes().all(|b| (0x21..=0x7e).contains(&b))
+        {
+            return Err(refuse(
+                "deployment passwords must be 32 to 1024 printable ASCII characters",
+            ));
+        }
+        Ok((url, password))
+    };
+    let (admin, password) = parse("admin")?;
+    if admin.username() != expected_admin {
+        return Err(refuse(
+            "administrator DSN differs from explicitly expected bootstrap administrator",
+        ));
+    }
+    let mut passwords = BTreeSet::from([password]);
+    let mut logins = Vec::new();
+    for principal in credentials::ALL_PRINCIPALS
+        .iter()
+        .copied()
+        .filter(|p| *p != "admin")
+    {
+        let (url, password) = parse(principal)?;
+        let role = format!("{prefix}{principal}");
+        if url.username() != role
+            || url.host_str() != admin.host_str()
+            || url.port().unwrap_or(5432) != admin.port().unwrap_or(5432)
+            || url.query() != admin.query()
+            || !passwords.insert(password.clone())
+        {
+            return Err(refuse(
+                "deployment roles require distinct passwords and exact scoped identities at the same explicit endpoint",
+            ));
+        }
+        logins.push(Login { role, password });
+    }
+    Ok(Plan {
+        admin_user: expected_admin.into(),
+        admin_port: admin.port().unwrap_or(5432),
+        logins,
+    })
+}
+
+/// Decide before any role/schema DDL. Existing roles are validated, never
+/// repaired; unknown/partially provisioned cluster scopes need explicit repair.
+fn deployment_scope(
+    present: &BTreeSet<String>,
+    prefix: &str,
+    empty: bool,
+    canonical: bool,
+    adopted_verified: bool,
+) -> Result<bool> {
+    let expected: BTreeSet<_> = bootstrap::PRINCIPALS
+        .iter()
+        .map(|name| format!("{prefix}{name}"))
+        .collect();
+    if present.is_empty() && empty {
+        return Ok(true);
+    }
+    if present != &expected || !canonical || (!empty && !adopted_verified) {
+        return Err(refuse(
+            "deployment bootstrap refuses an unknown database or mismatched/partial canonical role scope",
+        ));
+    }
+    Ok(false)
+}
+
+fn deployment_admin_valid(
+    current: &str,
+    session: &str,
+    database: &str,
+    admin: bool,
+    expected_user: &str,
+    expected_database: &str,
+) -> bool {
+    admin && current == expected_user && session == expected_user && database == expected_database
+}
+
+fn deployment_password_missing(password: &str, stored: Option<&str>) -> Result<bool> {
+    match stored {
+        None => Ok(true),
+        Some(value) if matches(password, value) => Ok(false),
+        Some(_) => Err(refuse(
+            "existing deployment credential does not match; no passwords rotated",
+        )),
+    }
+}
+
+/// Explicit administrator-only fresh deployment preparation. Uses the native
+/// frozen role/extension primitives and initializes only absent SCRAM passwords.
+pub async fn deployment_bootstrap(
+    authority: &MigrationAuthority,
+    baseline_id: &str,
+    expected: &str,
+    expected_admin: &str,
+) -> Result<serde_json::Value> {
+    tokio::time::timeout(
+        Duration::from_secs(120),
+        deployment_bootstrap_inner(authority, baseline_id, expected, expected_admin),
+    )
+    .await
+    .map_err(|_| refuse("deployment bootstrap timed out; no credentials were rotated"))?
+}
+
+async fn deployment_bootstrap_inner(
+    authority: &MigrationAuthority,
+    baseline_id: &str,
+    expected: &str,
+    expected_admin: &str,
+) -> Result<serde_json::Value> {
+    let plan = deployment_plan(
+        &std::env::vars().collect(),
+        &authority.role_prefix,
+        expected,
+        expected_admin,
+    )?;
+    crate::commands::load_baseline(&authority.paths, baseline_id)?;
+    let mut conn = tokio::time::timeout(Duration::from_secs(15), authority.connect(false))
+        .await
+        .map_err(|_| refuse("deployment bootstrap connection timed out"))??;
+    sqlx::raw_sql("SET statement_timeout='30s'; SET lock_timeout='10s'")
+        .execute(&mut conn)
+        .await?;
+    authority.acquire_lock(&mut conn).await?;
+    let outcome = async {
+        let state = sqlx::query("SELECT current_user::text AS identity,session_user::text AS session,current_database()::text AS database, (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS admin,pg_get_userbyid(datdba)::text AS database_owner FROM pg_database WHERE datname=current_database()")
+            .fetch_one(&mut conn).await?;
+        if !deployment_admin_valid(&state.try_get::<String,_>("identity")?,
+            &state.try_get::<String,_>("session")?, &state.try_get::<String,_>("database")?,
+            state.try_get::<bool,_>("admin")?, &plan.admin_user, expected) {
+            return Err(refuse("deployment bootstrap requires the explicitly named administrator login and database"));
+        }
+        let empty = bootstrap::database_empty(&mut conn, bootstrap::SCHEMAS).await?;
+        let extra_schemas: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname <> 'information_schema' AND NOT (nspname = ANY($1)))")
+            .bind(bootstrap::SCHEMAS).fetch_one(&mut conn).await?;
+        if extra_schemas { return Err(refuse("deployment bootstrap refuses foreign database schemas")); }
+        // Nonempty deployments are read-only fingerprint verified before any
+        // credential update; an absent/mismatched adoption marker is refused.
+        let adopted_verified = if !empty {
+            let marker = authority.adopted_baseline(&mut conn).await?
+                .ok_or_else(|| refuse("nonempty deployment requires a verified canonical adoption marker"))?;
+            let (baseline, sha) = crate::commands::load_baseline(&authority.paths, baseline_id)?;
+            bootstrap::validate_adoption_marker(&marker, &baseline, &sha)?;
+            crate::commands::verify(authority, baseline_id).await?;
+            true
+        } else { false };
+        let mut tx = conn.begin().await?;
+        // Role/password check and initialization are atomic across cluster-wide
+        // role updates, not only this database's migration advisory lock.
+        sqlx::query("LOCK TABLE pg_catalog.pg_authid IN SHARE ROW EXCLUSIVE MODE").execute(&mut *tx).await?;
+        let present: BTreeSet<String> = sqlx::query_scalar("SELECT rolname::text FROM pg_roles WHERE left(rolname,length($1))=$1 ORDER BY rolname")
+            .bind(&authority.role_prefix).fetch_all(&mut *tx).await?.into_iter().collect();
+        let canonical = if present.is_empty() { false } else {
+            bootstrap::role_bootstrap_issues(&mut tx, &authority.role_prefix).await?.is_empty()
+        };
+        let provision = deployment_scope(&present, &authority.role_prefix, empty, canonical, adopted_verified)?;
+        if provision {
+            let canonical_schemas_present: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=ANY(ARRAY['gateway','assistant','knowledge']))")
+                .fetch_one(&mut *tx).await?;
+            if state.try_get::<String,_>("database_owner")? != plan.admin_user || canonical_schemas_present {
+                return Err(refuse("fresh deployment must be owned by the explicit bootstrap admin and have no preexisting application schemas"));
+            }
+            bootstrap::provision_roles_admin(&mut tx, &authority.paths, &authority.role_prefix).await?;
+        }
+        if empty { bootstrap::provision_extensions_admin(&mut tx, &authority.paths).await?; }
+        let mut initialized = 0;
+        let mut preserved = 0;
+        for login in &plan.logins {
+            let stored: Option<String> = sqlx::query_scalar("SELECT rolpassword FROM pg_catalog.pg_authid WHERE rolname=$1 AND rolcanlogin")
+                .bind(&login.role).fetch_one(&mut *tx).await?;
+            if !deployment_password_missing(&login.password, stored.as_deref())? {
+                preserved += 1;
+            } else {
+                let encoded = verifier(&login.password, uuid::Uuid::new_v4().as_bytes());
+                let statement: String = sqlx::query_scalar("SELECT pg_catalog.format('ALTER ROLE %I PASSWORD %L',$1::text,$2::text)")
+                    .bind(&login.role).bind(encoded).fetch_one(&mut *tx).await?;
+                sqlx::raw_sql(&statement).execute(&mut *tx).await?;
+                initialized += 1;
+            }
+        }
+        tx.commit().await?;
+        let verified = tokio::time::timeout(Duration::from_secs(30), credentials::verify_role_connections(&authority.role_prefix, Some(expected))).await
+            .map_err(|_| refuse("deployment role connection verification timed out"))??;
+        Ok(serde_json::json!({"result":"pass","command":"deployment-bootstrap","initialized":initialized,"preserved":preserved,"verified_connections":verified,"passwords_rotated":false,"values_withheld":true}))
+    }.await;
+    let released = authority.release_lock(conn).await;
+    let value = outcome?;
+    released?;
+    Ok(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn deployment_values() -> BTreeMap<String, String> {
+        credentials::ALL_PRINCIPALS
+            .iter()
+            .enumerate()
+            .map(|(i, principal)| {
+                let user = if *principal == "admin" {
+                    "postgres".to_owned()
+                } else {
+                    format!("ai_gateway_{principal}")
+                };
+                (
+                    format!("AI_GATEWAY_DATABASE_{}_DSN", principal.to_ascii_uppercase()),
+                    format!("postgresql://{user}:fixture-{i:032}@postgres:5432/gateway"),
+                )
+            })
+            .collect()
+    }
+    #[test]
+    fn public_deployment_plan_accepts_named_endpoint_without_weakening_local_guard() {
+        let values = deployment_values();
+        assert_eq!(
+            deployment_plan(&values, "ai_gateway_", "gateway", "postgres")
+                .unwrap()
+                .logins
+                .len(),
+            6
+        );
+        assert!(plan(&values, "ai_gateway_", "gateway").is_err());
+        for principal in credentials::ALL_PRINCIPALS {
+            let mut bad = values.clone();
+            bad.remove(&format!(
+                "AI_GATEWAY_DATABASE_{}_DSN",
+                principal.to_ascii_uppercase()
+            ));
+            assert!(deployment_plan(&bad, "ai_gateway_", "gateway", "postgres").is_err());
+        }
+        let mut local = values.clone();
+        local.insert("AI_PLATFORM_LOCAL_DEV_CREDENTIALS".into(), "true".into());
+        assert!(deployment_plan(&local, "ai_gateway_", "gateway", "postgres").is_err());
+        assert!(deployment_plan(&values, "ai_gateway_", "foreign", "postgres").is_err());
+        assert!(deployment_plan(&values, "ai_gateway_", "gateway", "anotheradmin").is_err());
+        assert!(deployment_plan(&values, "unsafe-prefix", "gateway", "postgres").is_err());
+        assert!(
+            deployment_plan(
+                &values,
+                "ai_gateway_",
+                "gateway;DROP DATABASE x",
+                "postgres"
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn deployment_plan_rejects_redirect_shared_password_and_wrong_role_without_values() {
+        let values = deployment_values();
+        for replacement in [
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@foreign/gateway",
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@postgres/gateway?host=foreign",
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@postgres/gateway?options=-crole=postgres",
+            "postgresql://ai_gateway_gateway:private-sentinel-password-00000000@postgres/gateway",
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@postgres/other",
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@postgres/gateway#foreign",
+            "postgresql://ai_gateway_runtime:short@postgres/gateway",
+            "postgresql://ai_gateway_runtime:private-sentinel-password-00000000@postgres:5433/gateway",
+        ] {
+            let mut bad = values.clone();
+            bad.insert("AI_GATEWAY_DATABASE_RUNTIME_DSN".into(), replacement.into());
+            let error = deployment_plan(&bad, "ai_gateway_", "gateway", "postgres")
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(!error.contains("private-sentinel") && !error.contains("postgresql://"));
+        }
+        let mut shared = values.clone();
+        shared.insert(
+            "AI_GATEWAY_DATABASE_RUNTIME_DSN".into(),
+            values["AI_GATEWAY_DATABASE_GATEWAY_DSN"]
+                .replace("ai_gateway_gateway", "ai_gateway_runtime"),
+        );
+        assert!(deployment_plan(&shared, "ai_gateway_", "gateway", "postgres").is_err());
+    }
+    #[test]
+    fn deployment_scope_refuses_partial_foreign_and_unverified_business_databases() {
+        let none = BTreeSet::new();
+        let complete: BTreeSet<_> = bootstrap::PRINCIPALS
+            .iter()
+            .map(|p| format!("ai_gateway_{p}"))
+            .collect();
+        assert!(deployment_scope(&none, "ai_gateway_", true, false, false).unwrap());
+        assert!(!deployment_scope(&complete, "ai_gateway_", true, true, false).unwrap());
+        assert!(!deployment_scope(&complete, "ai_gateway_", false, true, true).unwrap());
+        assert!(deployment_scope(&none, "ai_gateway_", false, false, false).is_err());
+        assert!(deployment_scope(&complete, "ai_gateway_", false, true, false).is_err());
+        assert!(deployment_scope(&complete, "ai_gateway_", true, false, false).is_err());
+        let mut partial = complete.clone();
+        partial.remove("ai_gateway_runtime");
+        assert!(deployment_scope(&partial, "ai_gateway_", true, true, false).is_err());
+        let mut foreign = complete;
+        foreign.insert("ai_gateway_unrecognized".into());
+        assert!(deployment_scope(&foreign, "ai_gateway_", true, true, false).is_err());
+    }
+    #[test]
+    fn deployment_admin_must_be_explicit_superuser_session_and_database() {
+        assert!(deployment_admin_valid(
+            "postgres", "postgres", "gateway", true, "postgres", "gateway"
+        ));
+        for (current, session, database, admin) in [
+            ("postgres", "other", "gateway", true),
+            ("other", "other", "gateway", true),
+            ("postgres", "postgres", "foreign", true),
+            ("postgres", "postgres", "gateway", false),
+        ] {
+            assert!(!deployment_admin_valid(
+                current, session, database, admin, "postgres", "gateway"
+            ));
+        }
+    }
+    #[test]
+    fn deployment_passwords_initialize_null_only_and_never_rotate() {
+        let password = "fixture-private-deployment-password";
+        let encoded = verifier(password, &[7; 16]);
+        assert!(deployment_password_missing(password, None).unwrap());
+        assert!(!deployment_password_missing(password, Some(&encoded)).unwrap());
+        for stored in [
+            "md5legacy",
+            "malformed",
+            &verifier("other-password", &[7; 16]),
+        ] {
+            let error = deployment_password_missing(password, Some(stored))
+                .unwrap_err()
+                .to_string();
+            assert!(!error.contains(password) && !error.contains(stored));
+        }
+    }
+
     #[test]
     fn compose_owner_config_running_state_and_loopback_port_are_all_required() {
         let root = std::path::Path::new("/fixture/repo");

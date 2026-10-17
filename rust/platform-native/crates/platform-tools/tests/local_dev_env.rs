@@ -66,14 +66,23 @@ fn prepares_distinct_roles_without_printing_values_and_is_byte_idempotent() {
         assert_eq!(dsn.username(), format!("ai_gateway_{principal}"));
         assert!(!String::from_utf8_lossy(&first.stdout).contains(password));
     }
-    assert_eq!(
-        values["GATEWAY_DATABASE__DSN"],
-        values["AI_GATEWAY_DATABASE_GATEWAY_DSN"]
-    );
-    assert_eq!(
-        values["KNOWLEDGE_DATABASE__DSN"],
-        values["AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN"]
-    );
+    for (application, authority) in [
+        ("GATEWAY_DATABASE__DSN", "AI_GATEWAY_DATABASE_GATEWAY_DSN"),
+        ("KNOWLEDGE_DATABASE__DSN", "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN"),
+    ] {
+        let mut app = reqwest::Url::parse(&values[application]).unwrap();
+        let login = reqwest::Url::parse(&values[authority]).unwrap();
+        assert_eq!(login.query(), None);
+        assert_eq!(
+            app.query_pairs().collect::<Vec<_>>(),
+            vec![(
+                "options".into(),
+                "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=15000".into(),
+            )]
+        );
+        app.set_query(None);
+        assert_eq!(app, login);
+    }
     assert_ne!(
         values["GATEWAY_DATABASE__DSN"],
         values["AI_GATEWAY_DATABASE_ADMIN_DSN"]

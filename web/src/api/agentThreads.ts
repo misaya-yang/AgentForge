@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { sseFetch } from "@/lib/sse";
+import { sseFetch, waitForSseReconnect } from "@/lib/sse";
 import type { ChatRequest, StreamEvent } from "@/api/assistant";
 import {
   buildAgentTurnPayload,
@@ -106,19 +106,6 @@ export async function getAgentRuntimeApproval(
   return data;
 }
 
-function waitForReconnect(signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(done, 250);
-    function done() {
-      window.clearTimeout(timer);
-      signal?.removeEventListener("abort", done);
-      resolve();
-    }
-    signal?.addEventListener("abort", done, { once: true });
-  });
-}
-
 /** Read the durable backlog long enough to recover a pending approval/terminal. */
 export async function getAgentRuntimeV2RunSnapshot(
   threadId: string,
@@ -143,7 +130,7 @@ export async function getAgentRuntimeV2RunSnapshot(
       } catch (error) {
         if (!controller.signal.aborted && !shouldReconnectRuntimeV2Stream(error)) throw error;
       }
-      if (!snapshot.terminalStatus) await waitForReconnect(controller.signal);
+      if (!snapshot.terminalStatus) await waitForSseReconnect(controller.signal);
     }
   } finally {
     window.clearTimeout(deadline);
@@ -163,6 +150,7 @@ export async function* streamAgentRuntimeV2(
   );
   const turn = started?.turn as { id?: string; events_url?: string } | undefined;
   if (!turn?.events_url) throw new Error("V2 Agent Runtime did not return an events cursor");
+  let reconnectAttempt = 0;
   let terminal = false;
   let awaitingApproval = false;
   let afterSequence = afterSequenceFromEventsUrl(turn.events_url);
@@ -174,8 +162,9 @@ export async function* streamAgentRuntimeV2(
           method: "GET", headers: { Accept: "text/event-stream" }, signal,
         });
         for await (const item of stream) {
-          if (!Number.isFinite(item.sequence) || item.sequence <= afterSequence) continue;
+          if (!Number.isSafeInteger(item.sequence) || item.sequence <= afterSequence) continue;
           afterSequence = item.sequence;
+          reconnectAttempt = 0;
           for (const projected of projectAgentV2Events(item, thread.session_id)) {
             if (projected.event_type === "artifact_created") {
               const artifactId = (projected.data as { artifact_id?: unknown } | null)?.artifact_id;
@@ -198,7 +187,7 @@ export async function* streamAgentRuntimeV2(
         if (signal?.aborted) break;
         if (!shouldReconnectRuntimeV2Stream(error)) throw error;
       }
-      if (!terminal && !signal?.aborted) await waitForReconnect(signal);
+      if (!terminal && !signal?.aborted) await waitForSseReconnect(signal, reconnectAttempt++);
     }
   } finally {
     // A dropped transport reconnects above. An explicit caller abort is a real

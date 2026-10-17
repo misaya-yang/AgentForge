@@ -26,7 +26,7 @@ Graph construction now supplies concrete callbacks, security persistence, live m
 
 MCP credential resolution is shared between discovery and execution; the discovery broker uses the exact same repository instance as registry administration. Knowledge business operations remain signed HTTP requests to Knowledge Service.
 The independent Knowledge PDF and asset-URL profile is documented in
-[`../knowledge_bootstrap/README.md`](../knowledge_bootstrap/README.md).
+[Knowledge service backend configuration](../../../../platform-knowledge-service/README.md).
 
 This profile cannot represent all Python disabled/degraded startup branches yet. Existing `AgentState` requires a control plane and existing `AuthService` requires Redis plus a valid HS256 codec. The graph surfaces configuration/construction failures instead of fabricated readiness. `GatewayDocument` projects the supported durable profile and supplies its concrete deployment backends.
 

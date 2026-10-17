@@ -29,18 +29,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command: ["/usr/local/bin/database-authority", "startup-check"]
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
-            - name: AI_GATEWAY_DATABASE_GATEWAY_DSN
-              value: {{ include "ai-gateway.postgresDSN" . | quote }}
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_GATEWAY_DSN" "key" "GATEWAY_DSN") | nindent 12 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -62,23 +51,12 @@ spec:
             - configMapRef:
                 name: {{ include "ai-gateway.fullname" . }}-config
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "ai-gateway.fullname" . }}-secret
                   key: REDIS_PASSWORD
-            - name: GATEWAY_DATABASE__DSN
-              value: {{ include "ai-gateway.postgresDSN" . | quote }}
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" . "env" "GATEWAY_DATABASE__DSN" "key" "GATEWAY_DSN") | nindent 12 }}
             - name: GATEWAY_REDIS__URL
               value: {{ include "ai-gateway.redisURL" . | quote }}
             - name: GATEWAY_AUTHENTICATION__JWT__SECRET

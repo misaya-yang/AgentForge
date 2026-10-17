@@ -14,7 +14,7 @@ chrono = "0.4"
 dotenvy = "0.15"
 shell-words = "1"
 uuid = { version = "1", features = ["v4"] }
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 tempfile = "3"
 libc = "0.2"
 rustpython-parser = "0.4"

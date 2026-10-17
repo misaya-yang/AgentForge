@@ -22,6 +22,16 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@radix-ui/*', '@langchain/*', 'class-variance-authority', 'class-variance-authority/*', 'date-fns', 'date-fns/*', 'marked', 'marked/*', 'react-grid-layout', 'react-grid-layout/*', 'react-resizable', 'react-resizable/*', 'framer-motion', 'framer-motion/*'],
+          message: 'Use the antd 6 design system and dayjs; retired console dependencies must not return.',
+        }],
+      }],
+      'no-restricted-syntax': ['error', {
+        selector: 'ImportExpression[source.value=/^(@radix-ui|@langchain|class-variance-authority|date-fns|marked|react-grid-layout|react-resizable|framer-motion)/]',
+        message: 'Load console UI from antd and dates from dayjs; retired dependencies must not return through dynamic imports.',
+      }],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },

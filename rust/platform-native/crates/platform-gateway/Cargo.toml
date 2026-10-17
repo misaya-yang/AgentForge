@@ -42,7 +42,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
 scraper = "0.23"
 tiktoken-rs = "0.7"
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
 libc = "0.2"
 unicode-normalization = "0.1"

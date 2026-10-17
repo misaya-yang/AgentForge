@@ -16,7 +16,8 @@ pub fn root() -> PathBuf {
 }
 pub fn options() -> Result<PgConnectOptions> {
     let env: BTreeMap<String, String> =
-        dotenvy::from_path_iter(".env")?.collect::<std::result::Result<_, _>>()?;
+        dotenvy::from_path_iter(std::env::var_os("ENV_FILE").unwrap_or_else(|| ".env".into()))?
+            .collect::<std::result::Result<_, _>>()?;
     let required = |k: &str| {
         env.get(k)
             .ok_or_else(|| format!("missing local database setting {k}"))

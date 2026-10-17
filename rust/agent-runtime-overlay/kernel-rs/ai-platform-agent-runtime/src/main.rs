@@ -1,3 +1,5 @@
+mod startup_admission;
+
 use std::net::SocketAddr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -93,17 +95,21 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
         .into());
     }
 
+    let postgres_options = PgConnectOptions::new()
+        .host(&args.postgres_host)
+        .port(args.postgres_port)
+        .username(&args.postgres_user)
+        .password(&args.postgres_password)
+        .database(&args.postgres_database)
+        .options([
+            ("search_path", "pg_catalog,assistant"),
+            ("statement_timeout", "30000"),
+            ("idle_in_transaction_session_timeout", "15000"),
+        ]);
+    startup_admission::require_compatible_schema(&postgres_options).await?;
     let store = Arc::new(
-        PostgresThreadStore::connect_with_options(
-            PgConnectOptions::new()
-                .host(&args.postgres_host)
-                .port(args.postgres_port)
-                .username(&args.postgres_user)
-                .password(&args.postgres_password)
-                .database(&args.postgres_database),
-            args.postgres_pool_max_size,
-        )
-        .await?,
+        PostgresThreadStore::connect_with_options(postgres_options, args.postgres_pool_max_size)
+            .await?,
     );
     // Use the upstream catalog with the supported Gateway wire selected. This
     // is model metadata, not a new model loop or a guessed config flag.

@@ -1,0 +1,36 @@
+{
+  "schema": "agentforge/web-design-system-acceptance/v1",
+  "changes": [
+    "11 Radix adapters migrated",
+    "18 packages removed",
+    "motion/react entry migration",
+    "asChild nested-Link regression reproduced and repaired"
+  ],
+  "targeted_tests": 68,
+  "slot_regressions": 18,
+  "typescript": "passed",
+  "browser": {
+    "first_run": {
+      "passed": 50,
+      "failed": 3,
+      "cause": "asChild child children replaced, creating nested anchors"
+    },
+    "repaired_run": {
+      "passed": 53,
+      "failed": 0,
+      "duration_seconds": 132,
+      "workers": 1
+    },
+    "assertions_weakened": false,
+    "path": "Browser plugin not available; repository Playwright",
+    "screenshots_inspected": [
+      "directory-populated-desktop-1440x900.png",
+      "directory-populated-mobile-390x844.png"
+    ]
+  },
+  "limits": [
+    "tailwind-merge retained for proven active style conflict semantics",
+    "fixture APIs; not real backend acceptance",
+    "full production build/bundle budgets not yet run"
+  ]
+}

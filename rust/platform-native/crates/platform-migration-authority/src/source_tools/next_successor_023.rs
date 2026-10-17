@@ -978,7 +978,7 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
         baseline,
         baseline_sha256: baseline_sha.clone(),
         package_lock: approved_lock,
-        package_lock_sha256: archive_sha,
+        package_lock_sha256: archive_sha.clone(),
         plan_sha256: plan_sha.clone(),
         proposal_sha256: plan.successor.change.sha256.clone(),
         predecessor_measurement_sha256: plan.approved_predecessor_measurement_receipt_sha256.clone(),
@@ -1043,22 +1043,58 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::source_tools::next_successor::historical_test_fixtures::{
+        HistoricalSourceFixture, verify_current_chain,
+    };
     fn repository_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../..")
             .canonicalize()
             .unwrap()
     }
-
     #[test]
-    fn active_022_is_the_exact_preimage_for_one_reviewed_023_extension() {
+    fn current_root_uses_its_complete_verified_source_chain() {
         let root = repository_root();
-        let candidate = validate_source(&root).unwrap();
+        let verified = verify_current_chain(&root);
+        assert!((22..=24).contains(&verified.epoch));
+        assert_eq!(verified.changes.len(), verified.epoch as usize);
+    }
+    #[test]
+    fn historical_022_is_exact_preimage_for_one_reviewed_023_extension() {
+        let fixture = HistoricalSourceFixture::new(22);
+        let candidate = validate_source(fixture.root()).unwrap();
         assert_eq!(candidate.epoch.epoch, CANDIDATE_EPOCH);
         assert_eq!(candidate.epoch.changes.len(), CANDIDATE_EPOCH as usize);
         assert_eq!(candidate.package_lock_sha256, APPROVED_022_LOCK_SHA256);
-        assert_eq!(candidate.proposal_sha256, "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118");
+        assert_eq!(
+            candidate.proposal_sha256,
+            "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118"
+        );
         assert_eq!(candidate.plan["fingerprint_status"], "not_measured");
     }
+    #[test]
+    fn historical_023_activation_remains_fully_verified_after_source_advances() {
+        let fixture = HistoricalSourceFixture::new(23);
+        fixture.verify_inventory().unwrap();
+        let verified = fixture.assert_release_eligibility(verify_activated_source(fixture.root()));
+        if let Some((plan, epoch)) = verified {
+            assert_eq!(epoch.epoch, 23);
+            assert_eq!(epoch.changes.len(), 23);
+            assert_eq!(plan["candidate_epoch"], 23);
+        }
+        let path = fixture
+            .root()
+            .join("database")
+            .join(EPOCH_RELATIVE)
+            .join(NEXT_ACTIVATION_FILE);
+        let mut bytes = fs::read(&path).unwrap();
+        bytes.push(b' ');
+        fs::write(&path, bytes).unwrap();
+        assert!(fixture.verify_inventory().is_err());
+        assert!(verify_activated_source(fixture.root()).is_err());
+    }
 }
+
+#[cfg(test)]
+#[path = "next_successor_023_tests.rs"]
+mod successor_023_tests;

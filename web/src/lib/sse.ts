@@ -1,75 +1,146 @@
 export type SSEMessage<T = unknown> = { data: T };
 export type SSEEvent<T = unknown> = { event: string; data: T; id?: string };
-
-import { isSseDebugEnabled } from "@/config/runtime";
 import { getAuthToken } from "@/lib/api";
 import { parseSseEventPart } from "./sseEventParser";
 
+export type SSEConnectionState = "connecting" | "streaming" | "background" | "reconnecting" | "unknown_outcome" | "server_terminal";
 export interface SSEFetchOptions extends RequestInit {
   signal?: AbortSignal;
-  /** SSE stream timeout in ms. Default: 5 minutes. Set 0 to disable. */
+  /** Compatibility alias for idleTimeoutMs. No overall turn deadline is imposed. 0 disables. */
   timeoutMs?: number;
-  /** sseFetchEvents only: retain raw named/data-less and [DONE] control frames. */
+  /** Maximum foreground silence without received bytes, including keep-alive comments. */
+  idleTimeoutMs?: number;
   preserveControlFrames?: boolean;
+  onConnectionState?: (state: SSEConnectionState) => void;
+  /** sseFetchEvents only: enable on a read-only GET endpoint that supports Last-Event-ID replay. Never replays a POST. */
+  resume?: {
+    maxRetries?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+    isTerminal: (event: SSEEvent<unknown>) => boolean;
+  };
 }
-
-const DEFAULT_SSE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
+export class SSEIdleTimeoutError extends Error {
+  constructor() { super("SSE idle budget exceeded; the server outcome is unknown"); this.name = "SSEIdleTimeoutError"; }
+}
+export class SSERequestError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) { super(`SSE request failed: ${status}${detail ? ` ${detail}` : ""}`); this.name = "SSERequestError"; this.status = status; }
+}
+const DEFAULT_SSE_IDLE_MS = 45_000;
 function authenticatedHeaders(headers?: HeadersInit): Headers {
   const resolved = new Headers(headers);
   const token = getAuthToken();
-  if (token && !resolved.has("Authorization")) {
-    resolved.set("Authorization", `Bearer ${token}`);
-  }
+  if (token && !resolved.has("Authorization")) resolved.set("Authorization", `Bearer ${token}`);
   return resolved;
 }
-
-/**
- * Create a combined AbortSignal that fires on either the caller's signal or a timeout.
- */
-function createTimeoutSignal(
-  existingSignal?: AbortSignal | null,
-  timeoutMs?: number,
-): { signal: AbortSignal; cleanup: () => void } {
-  const ms = timeoutMs ?? DEFAULT_SSE_TIMEOUT_MS;
-  if (ms <= 0 && !existingSignal) {
-    return { signal: new AbortController().signal, cleanup: () => {} };
-  }
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  if (ms > 0) {
-    timer = setTimeout(() => controller.abort(new Error("SSE stream timeout")), ms);
-  }
-  const forwardAbort = () => controller.abort(existingSignal?.reason);
-  if (existingSignal) {
-    if (existingSignal.aborted) forwardAbort();
-    else existingSignal.addEventListener("abort", forwardAbort, { once: true });
-  }
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      if (timer) clearTimeout(timer);
-      existingSignal?.removeEventListener("abort", forwardAbort);
-    },
-  };
+function notify(init: SSEFetchOptions, state: SSEConnectionState) {
+  // Observers are diagnostic/UI sinks and must not change dispatch or replay semantics.
+  try { init.onConnectionState?.(state); } catch { /* Ignore observer failure. */ }
 }
-
+function idleSignal(init: SSEFetchOptions) {
+  const controller = new AbortController();
+  const ms = init.idleTimeoutMs ?? init.timeoutMs ?? DEFAULT_SSE_IDLE_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const visibility = typeof document === "undefined" ? undefined : document;
+  const touch = () => {
+    clearTimeout(timer);
+    if (ms > 0 && !controller.signal.aborted && visibility?.visibilityState !== "hidden") {
+      timer = setTimeout(() => controller.abort(new SSEIdleTimeoutError()), ms);
+    }
+  };
+  const forwardAbort = () => controller.abort(init.signal?.reason);
+  const visible = () => { touch(); notify(init, visibility?.visibilityState === "hidden" ? "background" : "streaming"); };
+  if (init.signal?.aborted) forwardAbort();
+  else init.signal?.addEventListener("abort", forwardAbort, { once: true });
+  visibility?.addEventListener("visibilitychange", visible);
+  touch();
+  return { signal: controller.signal, touch, cleanup: () => {
+    clearTimeout(timer);
+    init.signal?.removeEventListener("abort", forwardAbort);
+    visibility?.removeEventListener("visibilitychange", visible);
+  } };
+}
 async function readResponseErrorDetail(resp: Response): Promise<string> {
   const text = (await resp.text().catch(() => "")).trim();
   if (!text) return "";
-
   try {
     const payload = JSON.parse(text) as Record<string, unknown>;
     const detail = payload.detail ?? payload.message ?? payload.error;
     if (typeof detail === "string") return detail.trim();
     if (detail != null) return JSON.stringify(detail);
-  } catch {
-    // Keep plain response body if it's not JSON.
-  }
-
+  } catch { /* Keep plain-text error details. */ }
   return text.replace(/\s+/g, " ").trim().slice(0, 400);
 }
 
+/** Equal jitter, capped even after many failures; deterministic bounds are unit tested. */
+export function sseReconnectDelayMs(attempt: number, initial = 250, maximum = 10_000): number {
+  const cap = Math.min(maximum, initial * 2 ** Math.min(30, Math.max(0, attempt)));
+  return Math.floor(cap / 2 + Math.random() * cap / 2);
+}
+export function waitForSseReconnect(signal?: AbortSignal, attempt = 0, initial = 250, maximum = 10_000): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise(resolve => {
+    const visibility = typeof document === "undefined" ? undefined : document;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const done = () => { clearTimeout(timer); signal?.removeEventListener("abort", done); visibility?.removeEventListener("visibilitychange", schedule); resolve(); };
+    const schedule = () => {
+      clearTimeout(timer);
+      if (visibility?.visibilityState !== "hidden") timer = setTimeout(done, sseReconnectDelayMs(attempt, initial, maximum));
+    };
+    signal?.addEventListener("abort", done, { once: true });
+    visibility?.addEventListener("visibilitychange", schedule);
+    schedule();
+  });
+}
+
+/** One byte reader for all protocols. A disconnect never flushes a partial frame as a complete event. */
+async function* readSseParts(url: string, init: SSEFetchOptions): AsyncGenerator<string> {
+  const budget = idleSignal(init);
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  const cancel = () => { void reader?.cancel().catch(() => {}); };
+  notify(init, "connecting");
+  try {
+    const { timeoutMs: _timeout, idleTimeoutMs: _idle, preserveControlFrames: _control, onConnectionState: _state, resume: _resume, ...request } = init;
+    void _timeout; void _idle; void _control; void _state; void _resume;
+    const response = await fetch(url, { ...request, headers: authenticatedHeaders(init.headers), signal: budget.signal });
+    if (!response.ok || !response.body) throw new SSERequestError(response.status, await readResponseErrorDetail(response));
+    budget.touch();
+    reader = response.body.getReader();
+    budget.signal.addEventListener("abort", cancel, { once: true });
+    if (budget.signal.aborted) cancel();
+    notify(init, typeof document !== "undefined" && document.visibilityState === "hidden" ? "background" : "streaming");
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (!budget.signal.aborted) {
+      const { done, value } = await reader.read();
+      if (budget.signal.aborted) break;
+      if (value?.byteLength) budget.touch();
+      if (done) {
+        buffer += decoder.decode();
+        // Preserve legacy final-frame handling on a clean EOF only.
+        if (buffer.trim()) yield buffer.replace(/\r\n/g, "\n");
+        return;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.replace(/\r\n/g, "\n").split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) yield part;
+    }
+    if (budget.signal.reason instanceof SSEIdleTimeoutError) throw budget.signal.reason;
+  } catch (error) {
+    if (!init.signal?.aborted) notify(init, "unknown_outcome");
+    throw error;
+  } finally {
+    budget.signal.removeEventListener("abort", cancel);
+    await reader?.cancel().catch(() => {});
+    reader?.releaseLock();
+    budget.cleanup();
+  }
+}
+function dataText(part: string) {
+  return part.split("\n").filter(line => line.startsWith("data:")).map(line => line.slice(5).trim()).join("\n");
+}
 // ============================================================================
 // AG-UI Protocol Types
 // ============================================================================
@@ -191,391 +262,77 @@ export interface AGUIEvent {
   [key: string]: unknown;
 }
 
-/**
- * Read authenticated SSE data. Returning early (including a durable terminal)
- * cancels the body; failed connections release their timeout and abort listener
- * so callers can reconnect without retaining resources from the previous read.
- */
-export async function* sseFetch<T>(
-  url: string,
-  init: SSEFetchOptions
-): AsyncGenerator<T, void, void> {
-  const debug = import.meta.env.DEV && isSseDebugEnabled();
-  const startTime = performance.now();
-  if (debug) {
-    console.log(`[SSE] Starting fetch to ${url}`);
-  }
-
-  const { signal: timeoutSignal, cleanup: cleanupTimeout } = createTimeoutSignal(init.signal, init.timeoutMs);
-  let resp: Response;
-  try {
-    resp = await fetch(url, {
-      ...init,
-      headers: authenticatedHeaders(init.headers),
-      signal: timeoutSignal,
-    });
-  } catch (error) {
-    cleanupTimeout();
-    throw error;
-  }
-
-  if (debug) {
-    console.log(
-      `[SSE] Response received in ${(performance.now() - startTime).toFixed(0)}ms, status=${resp.status}`
-    );
-  }
-  
-  if (!resp.ok || !resp.body) {
-    try {
-      const errorDetail = await readResponseErrorDetail(resp);
-      const suffix = errorDetail ? ` ${errorDetail}` : "";
-      throw new Error(`SSE request failed: ${resp.status}${suffix}`);
-    } finally {
-      cleanupTimeout();
-    }
-  }
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  let chunkCount = 0;
-  let firstChunkTime: number | null = null;
-  let aborted = false;
-  const abortReader = () => {
-    aborted = true;
-    void reader.cancel().catch(() => {});
-  };
-  timeoutSignal.addEventListener("abort", abortReader, { once: true });
-
-  try {
-    while (true) {
-      if (aborted || timeoutSignal.aborted) {
-        break;
-      }
-      const { done, value } = await reader.read();
-      
-      if (value && firstChunkTime === null) {
-        firstChunkTime = performance.now();
-        if (debug) {
-          console.log(
-            `[SSE] First data chunk received at ${(firstChunkTime - startTime).toFixed(0)}ms, size=${value.length}`
-          );
-        }
-      }
-      
-      if (done) {
-        if (debug) {
-          console.log(
-            `[SSE] Stream done. Total chunks: ${chunkCount}, duration: ${(performance.now() - startTime).toFixed(0)}ms`
-          );
-        }
-        // 处理缓冲区中剩余的数据
-        if (buffer.trim()) {
-          const line = buffer.split("\n").find((l) => l.startsWith("data:"));
-          if (line) {
-            const jsonStr = line.slice(5).trim();
-            if (jsonStr && jsonStr !== "[DONE]") {
-              try {
-                const parsed = JSON.parse(jsonStr);
-                yield parsed as T;
-              } catch {
-                // 解析失败，忽略
-              }
-            }
-          }
-        }
-        break;
-      }
-      
-      buffer += decoder.decode(value, { stream: true });
-      // SSE events can be separated by \n\n or \r\n\r\n - normalize to \n\n first
-      const normalizedBuffer = buffer.replace(/\r\n/g, "\n");
-      const parts = normalizedBuffer.split("\n\n");
-      buffer = parts.pop() || "";
-      
-      for (const part of parts) {
-        const lines = part.split("\n");
-        // 找到 data: 行
-        const dataLine = lines.find((l) => l.startsWith("data:"));
-        if (!dataLine) continue;
-        
-        const jsonStr = dataLine.slice(5).trim();
-        if (!jsonStr || jsonStr === "[DONE]") continue;
-        
-        try {
-          const parsed = JSON.parse(jsonStr);
-          chunkCount++;
-          if (debug && (chunkCount <= 3 || chunkCount % 50 === 0)) {
-            console.log(
-              `[SSE] Yielding chunk #${chunkCount} at ${(performance.now() - startTime).toFixed(0)}ms`
-            );
-          }
-          yield parsed as T;
-        } catch (e) {
-          if (debug) {
-            console.warn("SSE parse error:", e, jsonStr);
-          }
-          continue;
-        }
-      }
-    }
-  } finally {
-    timeoutSignal.removeEventListener("abort", abortReader);
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
-    cleanupTimeout();
+/** Data-only compatibility API. Mutating inference requests are dispatched once. */
+export async function* sseFetch<T>(url: string, init: SSEFetchOptions): AsyncGenerator<T, void, void> {
+  for await (const part of readSseParts(url, init)) {
+    const text = dataText(part);
+    if (!text || text === "[DONE]") continue;
+    let value: T;
+    try { value = JSON.parse(text) as T; } catch { continue; }
+    yield value;
   }
 }
 
-export async function* sseFetchEvents<T>(
-  url: string,
-  init: SSEFetchOptions
-): AsyncGenerator<SSEEvent<T>, void, void> {
-  const debug = import.meta.env.DEV && isSseDebugEnabled();
-  const startTime = performance.now();
-
-  if (debug) console.log(`[SSE-Events] Starting fetch to ${url}`);
-  const { signal, cleanup: cleanupTimeout } = createTimeoutSignal(
-    init.signal,
-    init.timeoutMs
-  );
-
-  let resp: Response;
-  try {
-    resp = await fetch(url, {
-      ...init,
-      headers: authenticatedHeaders(init.headers),
-      signal,
-    });
-  } catch (error) {
-    cleanupTimeout();
-    throw error;
-  }
-
-  if (debug) {
-    console.log(`[SSE-Events] Response: status=${resp.status}, content-type=${resp.headers.get("content-type")}`);
-  }
-
-  if (!resp.ok || !resp.body) {
-    const errorDetail = await readResponseErrorDetail(resp);
-    const suffix = errorDetail ? ` ${errorDetail}` : "";
-    cleanupTimeout();
-    throw new Error(`SSE request failed: ${resp.status}${suffix}`);
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  let firstChunkTime: number | null = null;
-  let yieldedCount = 0;
-  let aborted = false;
-  const abortReader = () => {
-    aborted = true;
-    void reader.cancel().catch(() => {});
-  };
-  signal.addEventListener("abort", abortReader, { once: true });
-
-  try {
-    while (true) {
-      if (aborted || signal.aborted) {
-        break;
+/** Named events, with opt-in bounded replay exclusively for resumable read-only endpoints. */
+export async function* sseFetchEvents<T>(url: string, init: SSEFetchOptions): AsyncGenerator<SSEEvent<T>, void, void> {
+  if (init.signal?.aborted) throw init.signal.reason ?? new DOMException("Aborted", "AbortError");
+  const resume = init.resume;
+  if (resume && (init.method ?? "GET").toUpperCase() !== "GET") throw new Error("SSE resume requires a read-only GET endpoint; inference must never be resubmitted");
+  const authority = getAuthToken();
+  let cursor = new Headers(init.headers).get("Last-Event-ID") ?? "";
+  const seen = new Set<string>();
+  if (cursor) seen.add(cursor);
+  let deliveredWithoutCursor = false;
+  let attempts = 0;
+  while (!init.signal?.aborted) {
+    if (resume && authority !== getAuthToken()) throw new Error("SSE authority changed; resume cancelled");
+    const headers = new Headers(init.headers);
+    if (cursor) headers.set("Last-Event-ID", cursor);
+    try {
+      for await (const part of readSseParts(url, { ...init, headers })) {
+        const event = parseSseEventPart<T>(part, { preserveControlFrames: init.preserveControlFrames });
+        if (!event) continue;
+        if (resume && event.id && seen.has(event.id)) continue;
+        if (event.id) {
+          cursor = event.id;
+          seen.add(cursor);
+        } else if (resume) deliveredWithoutCursor = true;
+        yield event;
+        if (resume?.isTerminal(event)) { notify(init, "server_terminal"); return; }
       }
-      const { done, value } = await reader.read();
-
-      if (value && firstChunkTime === null) {
-        firstChunkTime = performance.now();
-        if (debug) {
-          console.log(`[SSE-Events] First chunk at ${(firstChunkTime - startTime).toFixed(0)}ms, size=${value.length}`);
-        }
-      }
-
-      if (done) {
-        if (debug) {
-          console.log(`[SSE-Events] Stream done. Total yielded: ${yieldedCount}, duration: ${(performance.now() - startTime).toFixed(0)}ms`);
-        }
-
-        if (buffer.trim()) {
-          const evt = parseSseEventPart<T>(buffer, { preserveControlFrames: init.preserveControlFrames });
-          if (evt) {
-            yieldedCount++;
-            yield evt;
-          }
-        }
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      // SSE events can be separated by \n\n or \r\n\r\n - normalize to \n\n first
-      const normalizedBuffer = buffer.replace(/\r\n/g, "\n");
-      const parts = normalizedBuffer.split("\n\n");
-      // Keep the last incomplete part in buffer
-      const lastPart = parts.pop() || "";
-      buffer = lastPart;
-
-      for (const part of parts) {
-        const evt = parseSseEventPart<T>(part, { preserveControlFrames: init.preserveControlFrames });
-        if (!evt) continue;
-        yieldedCount++;
-        if (debug && (yieldedCount <= 3 || yieldedCount % 50 === 0)) {
-          console.log(`[SSE-Events] Yielding #${yieldedCount} event='${evt.event}' at ${(performance.now() - startTime).toFixed(0)}ms`);
-        }
-        yield evt;
-      }
+      if (!resume || init.signal?.aborted) return;
+    } catch (error) {
+      if (!resume || init.signal?.aborted || (error instanceof SSERequestError && error.status < 500 && ![408, 425, 429].includes(error.status))) throw error;
     }
-  } finally {
-    signal.removeEventListener("abort", abortReader);
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
-    cleanupTimeout();
+    // An event without an ID cannot be replayed without possibly repeating tokens/effects.
+    if (deliveredWithoutCursor || attempts >= (resume?.maxRetries ?? 5)) {
+      notify(init, "unknown_outcome");
+      throw new Error("SSE disconnected without a safe resume cursor or exhausted its retry budget; the server outcome is unknown");
+    }
+    notify(init, "reconnecting");
+    await waitForSseReconnect(init.signal, attempts++, resume?.initialDelayMs, resume?.maxDelayMs);
   }
 }
 
-// ============================================================================
-// AG-UI Protocol SSE Fetch
-// ============================================================================
-
-/**
- * AG-UI Protocol aware SSE fetch.
- *
- * This function handles the AG-UI SSE format:
- *   event: EVENT_TYPE
- *   data: {"event": "EVENT_TYPE", "request_id": "...", ...}
- *
- * It yields typed AGUIEvent objects that can be processed by useAgentTimeline
- * and useAgentStream hooks.
- *
- * @param url - The SSE endpoint URL
- * @param init - Fetch options
- * @returns AsyncGenerator of AGUIEvent objects
- */
-export async function* sseFetchAGUI(
-  url: string,
-  init: SSEFetchOptions
-): AsyncGenerator<AGUIEvent, void, void> {
-  const debug = import.meta.env.DEV && isSseDebugEnabled();
-  const startTime = performance.now();
-
-  if (debug) console.log(`[SSE-AGUI] Starting fetch to ${url}`);
-
-  const resp = await fetch(url, {
-    ...init,
-    signal: init.signal,
-  });
-
-  if (debug) {
-    console.log(`[SSE-AGUI] Response: status=${resp.status}, content-type=${resp.headers.get("content-type")}`);
-  }
-
-  if (!resp.ok || !resp.body) {
-    const errorDetail = await readResponseErrorDetail(resp);
-    const suffix = errorDetail ? ` ${errorDetail}` : "";
-    throw new Error(`SSE request failed: ${resp.status}${suffix}`);
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-  let firstChunkTime: number | null = null;
-  let yieldedCount = 0;
-  let aborted = false;
-  const abortReader = () => {
-    aborted = true;
-    void reader.cancel().catch(() => {});
-  };
-  init.signal?.addEventListener("abort", abortReader, { once: true });
-
-  const parseAGUIPart = (part: string): AGUIEvent | null => {
-    const lines = part.split("\n");
-    let eventType: AGUIEventType | "" = "";
-    const dataLines: string[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("event:")) {
-        eventType = line.slice(6).trim() as AGUIEventType;
-      } else if (line.startsWith("data:")) {
-        dataLines.push(line.slice(5).trim());
-      }
-    }
-
-    const dataStr = dataLines.join("\n");
-    if (!dataStr || dataStr === "[DONE]") return null;
-
+/** AG-UI uses the same byte activity budget, auth and cleanup as the other clients. */
+export async function* sseFetchAGUI(url: string, init: SSEFetchOptions): AsyncGenerator<AGUIEvent, void, void> {
+  let count = 0;
+  for await (const part of readSseParts(url, init)) {
+    const text = dataText(part);
+    if (!text || text === "[DONE]") continue;
+    const eventType = part.split("\n").find(line => line.startsWith("event:"))?.slice(6).trim();
+    let event: AGUIEvent;
     try {
-      const parsed = JSON.parse(dataStr) as AGUIEvent;
-      // Use event type from SSE event field if present, otherwise from data
-      if (eventType && !parsed.event) {
-        parsed.event = eventType;
-      }
-      // Ensure required fields have defaults
-      parsed.request_id = parsed.request_id || "";
-      parsed.chunk_index = parsed.chunk_index ?? yieldedCount;
-      parsed.timestamp = parsed.timestamp ?? Date.now() / 1000;
-      return parsed;
-    } catch (e) {
-      if (debug) {
-        console.warn("[SSE-AGUI] Failed to parse event:", dataStr, e);
-      }
-      // Return raw event for unparseable data
-      return {
-        event: "raw_event",
-        request_id: "",
-        chunk_index: yieldedCount,
-        timestamp: Date.now() / 1000,
-        raw: dataStr,
-      };
+      event = JSON.parse(text) as AGUIEvent;
+      if (eventType && !event.event) event.event = eventType as AGUIEventType;
+      event.request_id ||= "";
+      event.chunk_index ??= count;
+      event.timestamp ??= Date.now() / 1000;
+    } catch {
+      event = { event: "raw_event", request_id: "", chunk_index: count, timestamp: Date.now() / 1000, raw: text };
     }
-  };
-
-  try {
-    while (true) {
-      if (aborted || init.signal?.aborted) {
-        break;
-      }
-      const { done, value } = await reader.read();
-
-      if (value && firstChunkTime === null) {
-        firstChunkTime = performance.now();
-        if (debug) {
-          console.log(`[SSE-AGUI] First chunk at ${(firstChunkTime - startTime).toFixed(0)}ms, size=${value.length}`);
-        }
-      }
-
-      if (done) {
-        if (debug) {
-          console.log(`[SSE-AGUI] Stream done. Total yielded: ${yieldedCount}, duration: ${(performance.now() - startTime).toFixed(0)}ms`);
-        }
-
-        // Process remaining buffer
-        if (buffer.trim()) {
-          const evt = parseAGUIPart(buffer);
-          if (evt) {
-            yieldedCount++;
-            yield evt;
-          }
-        }
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      // SSE events are separated by \n\n or \r\n\r\n - normalize first
-      const normalizedBuffer = buffer.replace(/\r\n/g, "\n");
-      const parts = normalizedBuffer.split("\n\n");
-      // Keep the last incomplete part in buffer
-      buffer = parts.pop() || "";
-
-      for (const part of parts) {
-        const evt = parseAGUIPart(part);
-        if (!evt) continue;
-        yieldedCount++;
-        if (debug && (yieldedCount <= 3 || yieldedCount % 50 === 0)) {
-          console.log(`[SSE-AGUI] Yielding #${yieldedCount} event='${evt.event}' at ${(performance.now() - startTime).toFixed(0)}ms`);
-        }
-        yield evt;
-      }
-    }
-  } finally {
-    init.signal?.removeEventListener("abort", abortReader);
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
+    count++;
+    yield event;
   }
 }
 

@@ -4,10 +4,10 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
   "status": "in_progress",
-  "last_updated": "2026-10-17T05:30:28.346495+00:00",
+  "last_updated": "2026-10-17T06:55:06.652435+00:00",
   "priority": "platform_upgrade_ph0_then_dependency_order",
   "active_phase": "platform_upgrade_ph0",
-  "next_action": "UP-PH0-ACCEPT: source-locked Runtime/Worker Docker build with existing builder only, then admit current Gateway/Knowledge and measure real Responses/Redis plus original product journeys.",
+  "next_action": "Build current locked Runtime/Worker pair from local source checkpoint with warmed existing builder. Continue direct independent architecture packages after build contexts freeze; diagnose actual canonical Gateway storage failure and finish original live journeys after serialized build.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
@@ -83,11 +83,12 @@
       "scope": "Whole native workspace, all targets, after relocation and missing Utc test-import repair"
     },
     "schema": {
-      "source_epoch": 22,
-      "main_database_epoch": 22,
-      "locked_inputs": 186,
-      "package_lock_sha256": "df91c12df09ecd9f6361eceaf476ac3230cff43e1548217cfcd214286ee37855",
-      "next_epoch_023": "Proposal/code staged only; not wired, compiled as an active transition, or activated"
+      "source_epoch": 24,
+      "main_database_epoch": 24,
+      "locked_inputs": 194,
+      "package_lock_sha256": "624e5b9b833bcc1d5667fb93bb43c424a7c4d14f14171d4822e7ebbd22f50643",
+      "next_epoch_023": "Activated from actual isolated full fingerprint measurement; selected local main migrate/verify/7-role-connections/no-op all passed; backup kept private",
+      "next_epoch_024": "Native isolated23->24 full fingerprint/ACL-delta/no-op measurement and source activation passed; selected main backup/migrate/verify/7-role-connections/no-op passed. Runtime/CW metadata reader granted only exact two consumers; actual startup/negative matrix pending."
     },
     "sdk_workflow": "Bounded API and browser two-turn Qwen continuity plus known effect-free cancellation recovery passed; see sdk-qwen-real.json",
     "authentication": "64 actual public cases passed on the previous source-bound process; see auth-rbac-real.json",
@@ -164,6 +165,195 @@
       "evidence": "reports/platform-upgrade-20261017/UP-PH0-local-bootstrap.json",
       "native_gateway_build": "PASS; configuration projection and temporary liveness PASS, resource runner stopped process after command; current readiness not accepted",
       "native_knowledge_build": "PASS (platform-knowledge-service binary)"
+    },
+    "architecture_batch_20261017": {
+      "status": "checkpoint_native_verified_runtime_build_pending",
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "docker_build": "Current exact163-file overlay composed; controlled Docker Rust1.95 full metadata export running before lock/SBOM refresh",
+      "native_build": "Current selected Gateway/Knowledge/ops all-target checks passed with maintained YAML backend; production route binary built",
+      "product_acceptance": "not_accepted",
+      "preserved_evidence": "Earlier tests describe pre-architecture checkpoint only",
+      "tools": {
+        "status": "passed",
+        "tests": 142,
+        "suites": {
+          "unit": 85,
+          "buildx_existing": 1,
+          "deployment_script_contracts": 44,
+          "image_size_gate": 3,
+          "local_dev_env": 6,
+          "publish_workflow": 3
+        },
+        "binary_build": "passed",
+        "fixed_failures": [
+          "new bootstrap job missing in topology and inventory fixture",
+          "application DSNs now carry bounded timeout options; asserts now prove exact base role DSN plus exact policy"
+        ]
+      },
+      "runtime_baseline_image": {
+        "status": "built_not_admitted",
+        "identity": "local-092d3acd6bec-20f13835e49d",
+        "platform": "linux/arm64",
+        "bytes": 2408542817,
+        "reason": "source overlay changed after build context frozen; validation correctly refused digest/count drift"
+      },
+      "schema023_preparation": {
+        "database": "schema_successor_verify_localnode023",
+        "epoch22_full_verify": "passed",
+        "global_role_catalog_unchanged": true,
+        "main_schema_mutated": false,
+        "measurement": "Completed all six stages; main canonical23then24transition fully verified"
+      },
+      "web_design_system": {
+        "source": "direct_landed",
+        "lock_install": "passed pnpm12.11.2, motion12.43.0",
+        "targeted_tests": 68,
+        "typescript": "app/node typecheck and lint passed",
+        "browser": {
+          "status": "passed",
+          "first_run": "50 passed, 3 failed; nested Link regression in asChild composition",
+          "fix": "Preserve original child children; two new regressions first reproduced failures. No E2E assertions changed.",
+          "current_run": "53/53 passed in2.2min; one Chromium worker; original assertions unchanged",
+          "browser_path": "Browser plugin not available; repository Playwright used",
+          "visual": "Primary inspected1440x900 desktop and390x844 mobile populated Agent directory screenshots; readable, no horizontal overflow",
+          "backend": "Fixture APIs only; real service/backend acceptance remains open"
+        }
+      },
+      "architecture_boundary": {
+        "status": "passed",
+        "manifests": 52,
+        "violations": 0,
+        "allowlisted": 0,
+        "runtime_composed_identity_prerequisites": 4,
+        "implementation": "Gateway uses signed Knowledge HTTP transport and concrete shared wire/engine contracts; both domain dependency directions removed"
+      },
+      "authority_source_tests": {
+        "status": "passed",
+        "passed": 100,
+        "failed": 0,
+        "command": "cargo test --locked -p ai-platform-migration-authority --lib",
+        "historical_fixture_fix": "Self-contained explicitly synthetic offline envelopes; real archived022 proof pin preserved; production verifiers unchanged"
+      },
+      "schema023": {
+        "status": "native_transition_verified",
+        "isolated_measurement": "all six stages passed",
+        "main_transition": "migrate + verify + seven role connections + no-op passed",
+        "backup": "private custom-format backup exists; pg_restore catalog check passed",
+        "source_activation": "190 inputs verified from measured bundle; exact epoch22 archived inputs preserved",
+        "acceptance": "Local Node user journey and complete product acceptance remain open"
+      },
+      "schema024": {
+        "status": "native_transition_verified",
+        "targeted_source_tests": 9,
+        "cli_tests": 2,
+        "isolated_measurement": "all six stages passed",
+        "main_transition": "backup verified; migrate/verify/seven-role connections/no-op all passed",
+        "runtime_worker_min_epoch": 24,
+        "startup_admission": "Strict Runtime/Worker CLI hooks repaired; actual production matrix passed5positive/30wrong-role/15privilege denials with exact compiled24reader"
+      },
+      "supply_chain": {
+        "source": "direct_landed_and_wired",
+        "tools_unit_tests": 90,
+        "supply_chain_cli_tests": 7,
+        "publish_workflow_tests": 3,
+        "public_database_identity_matrix": "passed all nine real Compose mode/build variants plus two rejection cases; no services started",
+        "actual_signing_scan_release": "not_run",
+        "actual_zizmor": "42 findings; direct source/CI fixes in progress, no broad ignore",
+        "zizmor_current": {
+          "findings": 35,
+          "fixed": "all7 github-env findings removed with bounded native helper; remaining27self-repository/3cache-poisoning/2template-injection/2adhoc-packages/1trusted-publishing",
+          "status": "not_passed"
+        },
+        "actionlint_current": "all workflow files pass1.7.12"
+      },
+      "service_admission_live": {
+        "schema": "agentforge/service-admission-live/v1",
+        "epoch": 24,
+        "exit_code": 0,
+        "elapsed_seconds": 3.438,
+        "positive_role_admissions": 5,
+        "wrong_role_refusals": 30,
+        "privilege_denials": 15,
+        "runtime_worker_snapshots_equal_source": true,
+        "schema_or_role_mutations": false,
+        "accepted_product": false
+      },
+      "core_libraries": {
+        "status": "passed",
+        "tests": 276,
+        "suites": {
+          "auth": 8,
+          "foundation": 212,
+          "knowledge_domain": 51,
+          "service_primitives": 5
+        },
+        "preserved_pdf_contract": "Module explicitly compiled after reexport move; original trait identity/strict refusal test retained and run"
+      },
+      "knowledge_promotion": {
+        "status": "passed",
+        "tests": 6,
+        "fixture_only": true,
+        "real_quality_baseline": "not_run"
+      },
+      "native_all_targets_before_yaml_switch": {
+        "status": "passed",
+        "packages": [
+          "gateway",
+          "knowledge-service",
+          "knowledge-ops"
+        ],
+        "elapsed_seconds": 44.94
+      },
+      "yaml_switch": {
+        "source": "serde_yaml_ng=0.10.0 workspace alias for all7owners",
+        "compatibility_before": 5,
+        "compatibility_after": 5,
+        "dependency_negative_tests": 6,
+        "ci_env_bootstrap_tests": 6,
+        "full_current_native_recheck": "all-target checks, authority100tests and core276tests passed",
+        "measured_baselines_changed": false
+      },
+      "runtime_source_refresh": {
+        "status": "passed",
+        "overlay_files": 163,
+        "overlay_sha256": "f778bc606a5bd445da8c97eb65da75ae7d23c9be19b00a15e02bf1a22602ad90",
+        "metadata": "Full resolved Cargo graph exported using Docker Rust1.95 after an explicit offline-cache miss; actual locked downloads used, no fake/no-deps metadata",
+        "source_lock_validation": "passed",
+        "overlay_preimages": "passed",
+        "runnable_images": "not_yet_built_current_source",
+        "next": "local reviewed source checkpoint then controlled paired images"
+      },
+      "secret_handling_incident": {
+        "category": "local infrastructure DSNs echoed once in child tool result by overly broad search",
+        "provider_key_exposed": false,
+        "source_or_report_secret_copied": false,
+        "mitigation": "Restricted searches to explicit source paths; no private values retained in ledger"
+      },
+      "native_all_targets_after_yaml_switch": {
+        "status": "passed",
+        "elapsed_seconds": 42.59
+      },
+      "tools_all_targets": {
+        "first_run": "One failure: moved Knowledge README link broken; other executed suites passed",
+        "repair": "Owning Knowledge backend guide moved with source; bootstrap link updated; harness-check now pass and failed20-test CI suite re-run20/20passed",
+        "source_tests_skipped": false
+      },
+      "native_image_input_lock": {
+        "status": "regenerated_and_verified",
+        "inputs": 33,
+        "image_execution_verified": false
+      },
+      "responses_route_canonical": {
+        "status": "blocked_actual_gateway_storage_path",
+        "latest_exit_code": 101,
+        "source_and_clone_full_verify": "both passed exact24nativefingerprints",
+        "gateway_role_startup": "both passed",
+        "global_role_authority": "unchanged after native provisioning; guarded in transaction",
+        "actual_error": "503 agent_storage_unavailable before Runtime event projection",
+        "test_diagnostics": "Early response now reports original status/error code instead of masking with ten-second timeout; all original acceptance assertions retained",
+        "next": "Trace actual scoped Gateway SQL/storage failure and repair owning runtime contract; no blanket grants or admin application pool"
+      },
+      "checkpoint_scope": "Local source checkpoint only. Runtime/Worker current images, real-provider product journeys and required later packages remain open."
     }
   },
   "blockers": [
@@ -181,9 +371,9 @@
     },
     {
       "id": "local-node-023-and-control",
-      "cause": "Scoped device-credential successor023 and TLS composition are staged but not active.",
+      "cause": "Canonical023 is measured, activated and applied; actual Local Node TLS/control journeys remain open.",
       "affected_scope": "Production pairing, approved reads/writes, remote cancel and emergency-stop journeys",
-      "next_action": "Finish and measure the least-privilege transition; activate through native authority and run real TLS pairing/control with the retained optional sandbox boundary."
+      "next_action": "Build current services and run retained TLS pairing, approved reads/writes, remote cancel and emergency-stop journeys."
     },
     {
       "id": "builder-relocation",
@@ -193,7 +383,7 @@
     },
     {
       "id": "current-service-admission-open",
-      "cause": "Private provider connectivity, pinned frontend toolchain, same-project infra and native frozen epoch022 are now verified; Gateway/Knowledge and source-bound Runtime/Worker are not running yet.",
+      "cause": "Provider/pinned toolchains/same-project infra and frozen main epoch024 verified; operational Runtime/CW startup gate being aligned with exact24 reader; current service/image journeys remain open.",
       "affected_scope": "UP-PH0-ACCEPT live journeys and source-bound Runtime/Worker images",
       "next_action": "Build/admit current services with one serialized writer, reuse the ready project and preserve all volumes."
     },
@@ -248,14 +438,29 @@
       "result": "Price book v2 and immutable receipts (F-03)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Composite key; migration with provider attribution and quarantine; typed `Result`; cross-provider/tenant collision tests",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct Sol implementation active on owning source; primary owns shared dependencies, integration and all native/Docker builds",
+      "verification": "not_run_current_source",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_pricebook",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "typed price book and immutable receipt paths in native Gateway/foundation; new unactivated proposal SQL only",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "remaining": "Full prescribed integration and measured acceptance remain required"
     },
     {
       "id": "U-GW-02",
@@ -566,14 +771,25 @@
       "result": "Typed catalog, routing and failover; canonical JSON v2 (F-16, P-ADR-3)",
       "priority": "P2",
       "phase": "Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "No `Value` in routing signatures; v1 hashes still verify; v2 hashes match the JCS test vectors",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct parallel implementation",
+      "verification": "Original source/integration/live gates remain open",
+      "evidence": [],
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "parallel_preparation": {
+        "owner": "sol_pricebook",
+        "state": "direct_source_implementation",
+        "scope": "typed routing/catalog/failover and JCS v2; preserve frozen v1 verifier",
+        "write_authorization": "Owner explicitly requested direct subagent code edits; no review queue",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary serialized only",
+        "dependencies": "Preserved before activation/acceptance",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch"
+      }
     },
     {
       "id": "U-GW-18",
@@ -611,14 +827,30 @@
       "result": "Schema-epoch admission before readiness and workers (evolution F3, Stage B)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Wrong baseline, missing ledger and out-of-window epochs fail closed",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_admission",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "native migration-authority application admission; Runtime/Worker main.rs startup hooks; new unactivated proposal SQL only",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_admission/manifest.json",
+        "verification": "candidate source only; primary build/integration/live gates remain open",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-GW-21",
@@ -695,14 +927,30 @@
       "result": "Terminal-state correctness: Stage A vocabulary repair and Stage C atomic owner-fenced terminal commit (evolution F1, F2)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Crash matrix (before transaction, after row update, before event, after commit and before broadcast) yields one correct terminal per run",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_runtime",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/** (excluding main.rs); runtime durability tests",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_runtime/manifest.json",
+        "verification": "candidate source only; primary build/integration/live gates remain open",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-RT-02",
@@ -710,14 +958,30 @@
       "result": "Process-local state inventory; persist the state a takeover needs",
       "priority": "P1",
       "phase": "Ph1–Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Every item listed in the architecture doc with an owner and a takeover rule",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_runtime",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "runtime state inventory and takeover rules; same Runtime ownership, excluding startup main.rs",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_runtime/manifest.json",
+        "verification": "candidate source only; primary build/integration/live gates remain open",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-RT-03",
@@ -777,14 +1041,25 @@
       "result": "History compatibility: revision-tagged items, N-1 decoder corpus, rollback drill",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Release blocked if the corpus fails; restore drill documented",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Revision-tagged persisted history and N-1 decoder release gate",
+      "verification": "Source implementation only; required dependency, compilation, integration and actual acceptance gates remain open.",
+      "evidence": [],
+      "parallel_preparation": {
+        "owner": "sol_runtime",
+        "state": "direct_source_implementation",
+        "authorized_at": "2026-10-17T05:57:32.690908+00:00",
+        "scope": "Revision-tagged persisted history and N-1 decoder release gate",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized",
+        "write_authorization": "Explicit owner instruction: Sol subagents directly implement disjoint code, without candidate approval queue",
+        "acceptance": "Original acceptance contract unchanged; no promotion before dependencies and evidence pass"
+      }
     },
     {
       "id": "U-RT-06",
@@ -822,14 +1097,25 @@
       "result": "Runtime and Worker image slimming; Debian 13 base (F-22)",
       "priority": "P2",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "No compiler in the runtime image; image scan clean of criticals",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct parallel implementation",
+      "verification": "Original source/integration/live gates remain open",
+      "evidence": [],
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "parallel_preparation": {
+        "owner": "sol_runtime",
+        "state": "direct_source_implementation",
+        "scope": "compiler-free Runtime image with inventoried executable/runtime dependencies",
+        "write_authorization": "Owner explicitly requested direct subagent code edits; no review queue",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary serialized only",
+        "dependencies": "Preserved before activation/acceptance",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch"
+      }
     },
     {
       "id": "U-RT-09",
@@ -852,14 +1138,25 @@
       "result": "Sandbox baseline: Landlock, seccomp allowlist, cgroup v2; `seccomp=unconfined` removed (F-06)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Escape suite passes: file reads outside the workspace, network egress, fork and memory bombs, `ptrace`, `mount`, sensitive `/proc`",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Landlock/seccomp/cgroup2 sandbox source and escape suite landed; deployment wiring and actual Linux tests pending",
+      "verification": "Exact container default-deny seccomp profile passed nonroot shell startup on owned local image. Python escape suite and actual delegated cgroup execution remain unrun.",
+      "evidence": [],
+      "parallel_preparation": {
+        "owner": "sol_worker_pools",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:57:32.690908+00:00",
+        "scope": "Landlock/seccomp/cgroup2 sandbox source and escape suite landed; deployment wiring and actual Linux tests pending",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized",
+        "write_authorization": "Explicit owner instruction: Sol subagents directly implement disjoint code, without candidate approval queue",
+        "acceptance": "Original acceptance contract unchanged; no promotion before dependencies and evidence pass"
+      }
     },
     {
       "id": "U-CW-02",
@@ -867,14 +1164,28 @@
       "result": "Execution pools per class and fair per-tenant queues (F-34)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Mixed load (long Python runs plus many reads): read p95 within 10 % of reads alone",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_worker_pools",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/** (excluding main.rs); worker pool tests",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-CW-03",
@@ -1074,7 +1385,7 @@
       "result": "Crate extraction; no dependency on the Gateway crate (F-15)",
       "priority": "P2",
       "phase": "Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Knowledge builds without `ai-platform-gateway`; wire hashes unchanged; compile-scope report",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [
@@ -1092,9 +1403,21 @@
         }
       ],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Knowledge domain and service no longer depend on Gateway/auth/foundation; Gateway links neutral wire/engine contracts and signed Knowledge HTTP transport only",
+      "verification": "architecture gate pass52manifests/0violations/0exceptions; current Gateway/Knowledge alltargets pass; signed/wire/domain tests preserved",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_knowledge",
+        "state": "direct_source_landed",
+        "scope": "Knowledge service/domain dependency extraction; no pricing/admission/Docker/Runtime/Worker edits; shared Cargo/lib wiring proposed for primary",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "U-RT-01/U-GW-20/U-GW-21 unchanged before activation",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "remaining": "Standalone Knowledge measured compile-scope report and complete live wire/product acceptance remain open"
     },
     {
       "id": "U-KN-02",
@@ -1230,7 +1553,7 @@
       "result": "Result and query-embedding caches v2 (F-18)",
       "priority": "P2",
       "phase": "Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Cache-hit p95 < 20 ms; zero cross-ACL hits (negative tests)",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [
@@ -1240,9 +1563,20 @@
         }
       ],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Generation/ACL/profile-keyed size-aware result and model/version/text embedding cache",
+      "verification": "Source implementation only; required dependency, compilation, integration and actual acceptance gates remain open.",
+      "evidence": [],
+      "parallel_preparation": {
+        "owner": "sol_knowledge",
+        "state": "direct_source_implementation",
+        "authorized_at": "2026-10-17T05:57:32.690908+00:00",
+        "scope": "Generation/ACL/profile-keyed size-aware result and model/version/text embedding cache",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized",
+        "write_authorization": "Explicit owner instruction: Sol subagents directly implement disjoint code, without candidate approval queue",
+        "acceptance": "Original acceptance contract unchanged; no promotion before dependencies and evidence pass"
+      }
     },
     {
       "id": "U-KN-08",
@@ -1322,14 +1656,25 @@
       "result": "Evaluation and promotion pipeline in CI; judge calibration",
       "priority": "P1",
       "phase": "Ph1–Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Baselines recorded in Ph1; profile changes blocked on regression",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct parallel implementation",
+      "verification": "Original source/integration/live gates remain open",
+      "evidence": [],
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "parallel_preparation": {
+        "owner": "sol_knowledge",
+        "state": "direct_source_implementation",
+        "scope": "version-pinned evaluation and promotion gates; real quality acceptance open",
+        "write_authorization": "Owner explicitly requested direct subagent code edits; no review queue",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary serialized only",
+        "dependencies": "Preserved before activation/acceptance",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch"
+      }
     },
     {
       "id": "U-KN-12",
@@ -1422,14 +1767,25 @@
       "result": "One design system; dead dependencies removed (F-25)",
       "priority": "P2",
       "phase": "Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Radix, `cva`, `date-fns` and unused packages removed; lint rule blocks reintroduction",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Antd component consolidation, dependency removal with equivalent behavior, no-return lint gate",
+      "verification": "Source implementation only; required dependency, compilation, integration and actual acceptance gates remain open.",
+      "evidence": [],
+      "parallel_preparation": {
+        "owner": "sol_web",
+        "state": "direct_source_implementation",
+        "authorized_at": "2026-10-17T05:57:32.690908+00:00",
+        "scope": "Antd component consolidation, dependency removal with equivalent behavior, no-return lint gate",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized",
+        "write_authorization": "Explicit owner instruction: Sol subagents directly implement disjoint code, without candidate approval queue",
+        "acceptance": "Original acceptance contract unchanged; no promotion before dependencies and evidence pass"
+      }
     },
     {
       "id": "U-WEB-04",
@@ -1452,14 +1808,15 @@
       "result": "Streaming client v2 with idle budgets and resume",
       "priority": "P2",
       "phase": "Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Hour-long turn completes with no client timeout; network-flap e2e passes",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct Sol implementation active on owning source; primary owns shared dependencies, integration and all native/Docker builds",
+      "verification": "not_run_current_source",
+      "evidence": [],
+      "remaining": "Full prescribed integration and measured acceptance remain required"
     },
     {
       "id": "U-WEB-06",
@@ -1558,7 +1915,7 @@
       "result": "nginx 1.30 unprivileged image and container hardening (F-37)",
       "priority": "P1",
       "phase": "Ph0–Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Image scan clean of criticals; container runs read-only and non-root",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [
@@ -1568,9 +1925,25 @@
         }
       ],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_delivery",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "frontend Dockerfile/nginx configuration and serving security overlays",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_delivery/manifest.json",
+        "verification": "candidate source only; primary build/integration/live gates remain open",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-CL-01",
@@ -1787,14 +2160,25 @@
       "result": "Per-service roles and schema-scoped `search_path` in every profile (F-05)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "No superuser in any service configuration (CI check); negative cross-schema tests",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct per-service configuration, Rust config gate and explicit admin-only fresh deployment bootstrap landed; primary topology integration and actual role checks pending.",
+      "verification": "Original source/integration/live gates remain open",
+      "evidence": [],
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "parallel_preparation": {
+        "owner": "sol_admission",
+        "state": "direct_source_implementation",
+        "scope": "scoped service identities and safe per-service deployment/configuration",
+        "write_authorization": "Owner explicitly requested direct subagent code edits; no review queue",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary serialized only",
+        "dependencies": "Preserved before activation/acceptance",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch"
+      }
     },
     {
       "id": "U-DATA-03",
@@ -2297,14 +2681,25 @@
       "result": "Supply-chain gates: pinning, `permissions:`, `cargo-deny`, scanning, signing, verification (F-23)",
       "priority": "P1",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Unsigned or critically vulnerable image cannot deploy",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Critical scan/signature/deployment verification supply-chain enforcement",
+      "verification": "Source implementation only; required dependency, compilation, integration and actual acceptance gates remain open.",
+      "evidence": [],
+      "parallel_preparation": {
+        "owner": "sol_delivery",
+        "state": "direct_source_implementation",
+        "authorized_at": "2026-10-17T05:57:32.690908+00:00",
+        "scope": "Critical scan/signature/deployment verification supply-chain enforcement",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized",
+        "write_authorization": "Explicit owner instruction: Sol subagents directly implement disjoint code, without candidate approval queue",
+        "acceptance": "Original acceptance contract unchanged; no promotion before dependencies and evidence pass"
+      }
     },
     {
       "id": "U-PE-14",
@@ -2312,14 +2707,15 @@
       "result": "Dependency hygiene: `serde_yaml` replacement, `rustpython` removal, version unification (F-26)",
       "priority": "P2",
       "phase": "Ph1–Ph2",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "`cargo-deny` clean with no exceptions for these crates",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Maintained serde_yaml_ng=0.10.0 workspace alias selected across all7owners; RustPython eval retirement still open",
+      "verification": "before/after5YAML behavior/API compatibility tests pass, authority100currenttests pass, no banned-parser or advisory waivers",
+      "evidence": [],
+      "remaining": "Remove RustPython parity implementation without reducing functional acceptance; actual cargo-deny and complete dependency/version unification gates"
     },
     {
       "id": "U-PE-15",
@@ -2342,14 +2738,30 @@
       "result": "One Dockerfile with per-binary images and slim bases (F-22)",
       "priority": "P2",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Five copies removed; image size budgets met",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct source implementation landed by assigned Sol worker; primary integrates shared manifests/locks and runs consolidated gates.",
+      "verification": "Static/parse checks reported; Cargo/build/integration/live acceptance not yet established.",
+      "evidence": [],
+      "parallel_preparation": {
+        "base_sha": "316b96a",
+        "owner": "sol_delivery",
+        "state": "direct_source_landed",
+        "authorized_at": "2026-10-17T05:33:57.484783+00:00",
+        "scope": "native Dockerfile copies and their build references; excludes Runtime/Worker source Dockerfiles",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary only; serialized; no subagent Cargo/Docker",
+        "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
+        "dependencies": "preserved before activation and acceptance",
+        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_delivery/manifest.json",
+        "verification": "candidate source only; primary build/integration/live gates remain open",
+        "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
+      },
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769"
     },
     {
       "id": "U-PE-21",
@@ -2357,14 +2769,25 @@
       "result": "Native arm64 builds and merged manifests (F-23)",
       "priority": "P2",
       "phase": "Ph1",
-      "status": "queued",
+      "status": "in_progress",
       "acceptance": "Release build ≤ 45 min (README §8)",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
-      "evidence": []
+      "implementation": "Direct parallel implementation",
+      "verification": "Original source/integration/live gates remain open",
+      "evidence": [],
+      "base_sha": "316b96a67b554cf64fa53e97f5551e873910b769",
+      "parallel_preparation": {
+        "owner": "sol_delivery",
+        "state": "direct_source_implementation",
+        "scope": "native architecture CI builds and digest manifest merge",
+        "write_authorization": "Owner explicitly requested direct subagent code edits; no review queue",
+        "shared_manifest_and_lock_owner": "primary",
+        "builds": "primary serialized only",
+        "dependencies": "Preserved before activation/acceptance",
+        "output": "Direct shared-checkout source edits; any earlier external proposal retained only as scratch"
+      }
     },
     {
       "id": "U-PE-22",
@@ -2556,7 +2979,7 @@
         "Real Redis replay and store-failure behavior",
         "Current paired Gateway/Runtime/Worker public retry journey"
       ],
-      "blocker": "Private environment is initialized; source-bound local infra/services and actual POST/Redis/live gates still required."
+      "blocker": "Provider/environment choice resolved; current Redis is ready. Production-route and paired-service gates are queued for the consolidated acceptance window, not replaced by helper tests."
     },
     {
       "id": "UP-PH0-ACCEPT",
@@ -2664,5 +3087,6 @@
       "next_action": "Commit existing-builder guard, then run source-locked Runtime/Worker builds serially with desktop-linux, daemon ceilings4g/400000 and one Cargo job; no publication. Source/image/health and complete product journeys remain open.",
       "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds. Next source-build step: existing-builder-only selection with context/resource validation; serial Runtime/Worker builds must never create a new builder. Private native options may use current public example with external PDF/storage paths; no runtime acceptance until all services admitted."
     }
-  ]
+  ],
+  "execution_note": "Owner explicit correction: Sol subagents directly modify their assigned code paths. Six lanes have landed architecture changes; primary owns shared wiring, locks and resource-serialized builds, then consolidates acceptance. No approval/audit queue substitutes for implementation."
 }

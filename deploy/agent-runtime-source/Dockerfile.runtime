@@ -6,8 +6,8 @@ ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 
 # GNU ld exceeds the 4 GiB local Docker budget when statically linking the
 # embedded Codex kernel.  lld is materially more memory efficient.  Use the
-# configurable HTTPS mirrors only for this build-time tool; the runtime stage
-# performs no package installation or network access.
+# configurable HTTPS mirrors for build tools and the explicit slim runtime
+# package inventory. No compiler/toolchain is copied into the final stage.
 RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
@@ -76,33 +76,76 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
 FROM scratch AS source-evidence-export
 COPY --from=source-evidence /tmp/source-evidence/ /
 
-FROM rust:1.95.0-bookworm AS runtime
+FROM debian:trixie-slim AS runtime
 
 ARG AI_PLATFORM_AGENT_RUNTIME_FORK_SHA
 ARG AI_PLATFORM_AGENT_RUNTIME_SCHEMA_SHA256
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+# Inventory and the image acceptance command live in runtime-image-dependencies.md.
+# Bookworm-built ELF binaries run against the newer glibc in Debian 13; ldd and
+# --version below fail this build if an actual library/loader dependency is lost.
+# Slim has no CA bundle before apt; bootstrap HTTPS trust from the build image,
+# then let the explicitly installed Debian 13 ca-certificates package maintain it.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends \
+        bash bubblewrap ca-certificates coreutils curl diffutils findutils \
+        gawk git grep gzip bzip2 xz-utils tar unzip patch \
+        openssh-client openssl passwd procps ripgrep sed util-linux \
+        libgcc-s1 libstdc++6 libssl3t64 zlib1g libzstd1 \
+    && rm -rf /var/lib/apt/lists/*
 
 LABEL org.opencontainers.image.title="AI Platform Agent Runtime" \
       org.opencontainers.image.source="https://github.com/openai/codex" \
       org.opencontainers.image.revision="${AI_PLATFORM_AGENT_RUNTIME_FORK_SHA}" \
       com.misaya.ai-platform.agent-runtime.schema-sha256="${AI_PLATFORM_AGENT_RUNTIME_SCHEMA_SHA256}" \
       com.misaya.ai-platform.agent-runtime.artifact="agent_runtime" \
-      com.misaya.ai-platform.agent-runtime.binary="ai-platform-agent-runtime"
+      com.misaya.ai-platform.agent-runtime.binary="ai-platform-agent-runtime" \
+      com.misaya.ai-platform.agent-runtime.runtime-base="debian13-slim" \
+      com.misaya.ai-platform.agent-runtime.toolchain="absent"
 
-RUN useradd --create-home --home-dir /var/lib/ai-platform-agent-runtime --uid 10001 agent-runtime \
+RUN groupadd --gid 10001 agent-runtime \
+    && useradd --create-home --home-dir /var/lib/ai-platform-agent-runtime \
+        --uid 10001 --gid 10001 --shell /bin/bash agent-runtime \
     && install -d -o agent-runtime -g agent-runtime /workspace /var/lib/ai-platform-agent-runtime/runtime-home
 
 COPY LICENSE NOTICE /opt/ai-platform-agent-runtime/
 COPY --from=builder /tmp/ai-platform-agent-runtime /usr/local/bin/ai-platform-agent-runtime
 COPY --chmod=0555 codex-rs/ai-platform-agent-runtime/container-entrypoint.sh /usr/local/bin/ai-platform-agent-runtime-entrypoint
+COPY --chmod=0555 codex-rs/ai-platform-agent-runtime/container-image-check.sh /usr/local/libexec/ai-platform-agent-runtime-image-check
+
+RUN ldd /usr/local/bin/ai-platform-agent-runtime > /opt/ai-platform-agent-runtime/runtime-elf-libraries.txt \
+    && ! grep -q 'not found' /opt/ai-platform-agent-runtime/runtime-elf-libraries.txt \
+    && /usr/local/bin/ai-platform-agent-runtime --version \
+    && dpkg-query -W -f='${binary:Package} ${Version}\n' \
+        > /opt/ai-platform-agent-runtime/runtime-packages.txt
 
 ENV AI_PLATFORM_RUNTIME_BIND=0.0.0.0:8094 \
     AI_PLATFORM_RUNTIME_WORKDIR=/workspace \
     AI_PLATFORM_AGENT_HOME=/var/lib/ai-platform-agent-runtime/runtime-home \
     CODEX_HOME=/var/lib/ai-platform-agent-runtime/runtime-home \
+    HOME=/var/lib/ai-platform-agent-runtime \
+    SHELL=/bin/bash \
     RUST_BACKTRACE=1
 
 USER 10001:10001
 WORKDIR /workspace
+# This offline gate runs as the final service identity and catches missing
+# tools, libraries, ownership and accidental toolchain leakage during build.
+RUN /usr/local/libexec/ai-platform-agent-runtime-image-check
 EXPOSE 8094
 
 ENTRYPOINT ["ai-platform-agent-runtime-entrypoint"]

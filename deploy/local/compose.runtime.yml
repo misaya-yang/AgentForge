@@ -52,7 +52,7 @@ services:
       AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: "/workspace"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: "ai_gateway_capability_worker"
+      POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}capability_worker"
       POSTGRES_PASSWORD: "${LOCAL_DB_CAPABILITY_WORKER_PASSWORD:?LOCAL_DB_CAPABILITY_WORKER_PASSWORD is required}"
       POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
       AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: "${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}"
@@ -74,7 +74,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - seccomp=unconfined
+      - seccomp=../security/capability-worker-seccomp.json
     init: true
 
   agent-runtime:
@@ -100,7 +100,7 @@ services:
       AI_PLATFORM_AGENT_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: "ai_gateway_runtime"
+      POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}runtime"
       POSTGRES_PASSWORD: "${LOCAL_DB_RUNTIME_PASSWORD:?LOCAL_DB_RUNTIME_PASSWORD is required}"
       POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
       AI_PLATFORM_RUNTIME_DB_POOL_MAX_SIZE: "${AI_PLATFORM_AGENT_RUNTIME_DB_POOL_MAX_SIZE:-10}"

@@ -87,7 +87,7 @@ HTTP fallback.
 The Docker build context must be the repository root, not this directory:
 
 ```bash
-docker build -f apps/knowledge-service/Dockerfile --target knowledge \
+docker build -f deploy/platform-native/Dockerfile --target knowledge \
   -t knowledge-service .
 docker run --rm --env-file /path/to/knowledge.env \
   -p 8092:8092 knowledge-service
@@ -145,3 +145,6 @@ checks are `make native-check` and the affected native test targets. The
 a deliberately selected live Qdrant when run with `--ignored`; it creates and
 cleans only disposable scope-tagged collections. Do not treat an ignored live
 test or successful compilation as live integration acceptance.
+
+Native image targets, dependency layers and size policy are documented in
+[Native images](../../docs/deployment/native-images.md).

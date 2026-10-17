@@ -1,0 +1,39 @@
+{
+  "source": "https://index.crates.io/se/rd/serde_yaml_ng",
+  "package": "serde_yaml_ng",
+  "version": "0.10.0",
+  "checksum": "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f",
+  "package_vcs_commit": "45bce7bd7efb754ffc9dc910f3d1bae7edd0adf4",
+  "repository": "https://github.com/acatton/serde-yaml-ng",
+  "repository_head": "3628102977f3ec9e02b95ef32fcec30b3df91390",
+  "repository_observed": {
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2025-09-14T22:35:44Z",
+    "updated_at": "2026-09-12T12:32:31Z"
+  },
+  "api_observed": [
+    "from_str",
+    "from_slice",
+    "from_reader",
+    "Deserializer",
+    "Value",
+    "Mapping",
+    "to_value",
+    "from_value",
+    "to_string",
+    "to_writer",
+    "Value::apply_merge"
+  ],
+  "maintenance_limit": "Repository is not archived; last source push is 2025-09-14. This is not a promise of ongoing updates or an advisory scan pass.",
+  "rejected_substitute": {
+    "package": "serde_yml",
+    "version": "0.0.13",
+    "reason": "Published README explicitly deprecates the crate and calls it a compatibility shim."
+  },
+  "alternate_not_drop_in": {
+    "package": "serde-saphyr",
+    "version": "2.0.0",
+    "reason": "Published API intentionally lacks serde_yaml Value/Mapping and has configurable scalar behavior; direct alias would break existing public call sites."
+  }
+}

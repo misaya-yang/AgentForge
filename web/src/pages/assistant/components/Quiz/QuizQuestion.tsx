@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QuizQuestionData } from "../../types";

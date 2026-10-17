@@ -1,0 +1,40 @@
+name: Knowledge evaluation and promotion
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+permissions:
+  contents: read
+concurrency:
+  group: knowledge-evaluation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  knowledge-evaluation:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-knowledge-ops
+      - name: Verify positive and negative promotion fixtures
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --test knowledge_promotion
+      - name: Build offline measurement gate
+        run: cargo build --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --bin knowledge-eval-gate
+      - name: Require measured quality for profile changes
+        shell: bash
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" == 0000000000000000000000000000000000000000 ]]; then
+            echo 'No trusted baseline revision available; quality promotion blocked.' >&2
+            exit 1
+          fi
+          scripts/checks/knowledge-profile-promotion.sh "$BASE_SHA"

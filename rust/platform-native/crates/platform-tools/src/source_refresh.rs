@@ -224,6 +224,119 @@ fn worker_sbom(
         json!({"bomFormat":"CycloneDX","specVersion":"1.5","serialNumber":format!("urn:uuid:{}",uuid::Uuid::from_bytes(bytes)),"version":1,"metadata":{"component":{"type":"application","bom-ref":refs[roots[0]],"name":"ai-platform-capability-worker","version":format!("{}+{}",text(source,"upstream_sha")?,&text(overlay,"sha256")?[..12]),"properties":[{"name":"ai-platform:overlay.sha256","value":overlay["sha256"]},{"name":"ai-platform:capability-schema.sha256","value":schema},{"name":"ai-platform:cargo-lock.sha256","value":lock}]}},"components":components,"dependencies":dependencies}),
     )
 }
+/// Refresh only the preimage inventory. All checks complete before mutation.
+/// Without an upstream checkout only an unchanged v2 inventory is permitted.
+fn refresh_preimages(
+    manifest: &mut Value,
+    source: &Value,
+    kernel: &Path,
+    checkout: Option<&Path>,
+) -> Result<()> {
+    require(
+        manifest["schema_version"] == "ai-platform/agent-runtime-overlay/v2",
+        "verified v2 overlay preimages required",
+    )?;
+    let sha = text(source, "upstream_sha")?;
+    let revision = text(source, "fork_sha")?;
+    require(hex(sha, 40) && hex(revision, 40), "invalid source revision")?;
+    require(
+        manifest["upstream_sha"] == sha && manifest["source_revision"] == revision,
+        "overlay revision differs from immutable source receipt; use source composition for revision changes",
+    )?;
+    let declared = manifest["upstream_blobs"]
+        .as_object()
+        .ok_or("verified v2 overlay preimages required")?;
+    for (relative, blob) in declared {
+        safe(kernel, relative)?;
+        require(
+            blob.is_null() || blob.as_str().is_some_and(|value| hex(value, 40)),
+            "invalid upstream preimage identity",
+        )?;
+    }
+    let actual: BTreeSet<_> = walk(kernel, &[], true)?
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    for relative in &actual {
+        safe(kernel, relative)?;
+    }
+    let Some(checkout) = checkout else {
+        require(
+            actual == declared.keys().cloned().collect(),
+            "overlay inventory changed; --source immutable upstream checkout is required",
+        )?;
+        return Ok(());
+    };
+    let checkout = checkout.canonicalize()?;
+    let git_text = |args: &[&str]| -> Result<String> {
+        Ok(String::from_utf8(git(&checkout, args)?)?.trim().to_owned())
+    };
+    require(
+        Path::new(&git_text(&["rev-parse", "--show-toplevel"])?).canonicalize()? == checkout,
+        "--source must identify the upstream checkout root",
+    )?;
+    require(
+        git_text(&["rev-parse", "HEAD"])? == sha
+            && git_text(&["rev-parse", &format!("{sha}^{{commit}}")])? == sha,
+        "upstream checkout revision differs from immutable source receipt",
+    )?;
+    require(
+        git_text(&["status", "--porcelain", "--untracked-files=all"])?.is_empty(),
+        "upstream checkout must be immutable and clean",
+    )?;
+    let mut tree = BTreeMap::new();
+    for row in git(
+        &checkout,
+        &["ls-tree", "-rz", "--full-tree", sha, "--", "codex-rs"],
+    )?
+    .split(|byte| *byte == 0)
+    .filter(|row| !row.is_empty())
+    {
+        let row = std::str::from_utf8(row)?;
+        let (meta, path) = row.split_once('\t').ok_or("malformed upstream Git tree")?;
+        let fields: Vec<_> = meta.split_whitespace().collect();
+        require(
+            fields.len() == 3 && fields[1] == "blob" && hex(fields[2], 40),
+            "unsupported upstream Git object",
+        )?;
+        let relative = path
+            .strip_prefix("codex-rs/")
+            .ok_or("unsafe upstream Git path")?;
+        require(
+            tree.insert(relative.to_owned(), json!(fields[2])).is_none(),
+            "duplicate upstream Git path",
+        )?;
+    }
+    require(!tree.is_empty(), "upstream codex-rs tree is missing")?;
+    // Validate every existing entry, including removals. A refresh cannot erase
+    // an incorrect classification or adopt a changed preimage as bookkeeping.
+    for (relative, previous) in declared {
+        let expected = tree.get(relative).unwrap_or(&Value::Null);
+        require(
+            previous == expected,
+            format!("overlay upstream preimage mismatch: {relative}"),
+        )?;
+    }
+    let mut updated = serde_json::Map::new();
+    for relative in actual {
+        if !tree.contains_key(&relative) {
+            require(
+                !tree.keys().any(|path| {
+                    path.starts_with(&format!("{relative}/"))
+                        || relative.starts_with(&format!("{path}/"))
+                }),
+                "overlay path conflicts with upstream file/directory",
+            )?;
+        }
+        updated.insert(
+            relative.clone(),
+            tree.get(&relative).cloned().unwrap_or(Value::Null),
+        );
+    }
+    manifest["upstream_blobs"] = Value::Object(updated);
+    Ok(())
+}
+
 pub fn overlay(args: &Args) -> Result<Value> {
     let root = args.root();
     let path = Path::new(args.get("--lock")?);
@@ -238,13 +351,31 @@ pub fn overlay(args: &Args) -> Result<Value> {
         receipt["schema_version"] == RECEIPT_SCHEMA,
         "unsupported receipt",
     )?;
+    for key in ["upstream_sha", "fork_sha", "git_tree_sha"] {
+        require(
+            lock["source"][key] == receipt["source"][key],
+            "overlay refresh cannot change source revision; lock and receipt differ",
+        )?;
+    }
+    let overlay_root = root.join("rust/agent-runtime-overlay");
+    let manifest_path = overlay_root.join("manifest.json");
+    let mut manifest = object(&manifest_path)?;
+    if manifest["schema_version"] == "ai-platform/agent-runtime-overlay/v2"
+        || args.values.contains_key("--source")
+    {
+        refresh_preimages(
+            &mut manifest,
+            &receipt["source"],
+            &overlay_root.join("kernel-rs"),
+            args.values.get("--source").map(Path::new),
+        )?;
+    }
     let requested = std::fs::canonicalize(args.get("--cargo-workspace")?)?;
     let cwd = if requested.is_file() {
         requested.parent().ok_or("missing workspace parent")?
     } else {
         &requested
     };
-    let overlay_root = root.join("rust/agent-runtime-overlay");
     for rel in [
         "Cargo.toml",
         "Cargo.lock",
@@ -282,8 +413,6 @@ pub fn overlay(args: &Args) -> Result<Value> {
     for key in ["upstream_sha", "fork_sha"] {
         require(hex(text(&source, key)?, 40), "invalid source SHA")?;
     }
-    let manifest_path = overlay_root.join("manifest.json");
-    let mut manifest = object(&manifest_path)?;
     for (k, v) in [
         ("upstream_sha", source["upstream_sha"].clone()),
         ("source_revision", source["fork_sha"].clone()),
@@ -736,3 +865,7 @@ pub fn composed(args: &Args) -> Result<Value> {
         json!({"result":"pass","output":output,"runtime_compiled":false,"worker_compiled":false,"docker_image_verified":false}),
     )
 }
+
+#[cfg(test)]
+#[path = "source_refresh_inventory_tests.rs"]
+mod inventory_tests;

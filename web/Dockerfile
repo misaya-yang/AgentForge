@@ -3,7 +3,7 @@
 # AI Gateway Frontend - Multi-stage Dockerfile
 # =============================================================================
 # Build: docker build -t ai-gateway-web:2.0.0 .
-# Run:   docker run -p 80:80 ai-gateway-web:2.0.0
+# Run:   docker run -p 8081:8080 ai-gateway-web:2.0.0
 #
 # 国内构建（使用镜像源）:
 #   docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com -t ai-gateway-web:2.0.0 .
@@ -13,7 +13,7 @@
 # Stage 1: Builder - Build the React application
 # -----------------------------------------------------------------------------
 ARG NODE_BASE_IMAGE=node:26.11.1-alpine3.24
-ARG NGINX_BASE_IMAGE=nginx:1.27-alpine
+ARG NGINX_BASE_IMAGE=nginxinc/nginx-unprivileged:1.30-alpine
 
 FROM ${NODE_BASE_IMAGE} AS builder
 
@@ -65,17 +65,20 @@ LABEL org.opencontainers.image.title="AI Gateway Web" \
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
+USER root
 RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
+ENV RUNTIME_CONFIG_OUTPUT_PATH=/tmp/runtime-config.js
+USER 101:101
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Expose port
-EXPOSE 80
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run nginx
 CMD ["nginx", "-g", "daemon off;"]

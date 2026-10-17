@@ -1248,25 +1248,79 @@ fn plan_value_for_active(candidate: &Candidate) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::source_tools::next_successor::historical_test_fixtures::{
+        HistoricalSourceFixture, verify_current_chain,
+    };
     fn repository_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../..")
             .canonicalize()
             .unwrap()
     }
-
     #[test]
-    fn active_022_verifies_the_exact_021_preimage_and_measured_extension() {
+    fn current_root_uses_its_complete_verified_source_chain() {
         let root = repository_root();
-        let (plan, verified) = verify_activated_source(&root).unwrap();
-        assert_eq!(verified.epoch, CANDIDATE_EPOCH);
-        assert_eq!(verified.changes.len(), CANDIDATE_EPOCH as usize);
-        assert_eq!(plan["candidate_epoch"], CANDIDATE_EPOCH);
+        let verified = verify_current_chain(&root);
+        assert!((22..=24).contains(&verified.epoch));
+        assert_eq!(verified.changes.len(), verified.epoch as usize);
+    }
+    #[test]
+    fn historical_022_verifies_exact_021_preimage_and_measured_extension() {
+        let fixture = HistoricalSourceFixture::new(22);
+        let root = fixture.root();
+        fixture.verify_inventory().unwrap();
+        let (plan_value, plan, plan_sha256) = load_plan(root).unwrap();
+        let epoch = manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap();
+        let manifest_value: Value =
+            serde_json::from_slice(&fs::read(root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap())
+                .unwrap();
+        let baseline_path = root.join(format!("database/baselines/{BASELINE}/manifest.json"));
+        let baseline = manifest::load_baseline_manifest(&baseline_path).unwrap();
+        let baseline_sha256 = manifest::file_sha256(&baseline_path).unwrap();
+        let lock_path = root.join(LOCK_ARCHIVE_RELATIVE);
         assert_eq!(
-            plan["approved_predecessor_package_lock_sha256"],
+            manifest::file_sha256(&lock_path).unwrap(),
             APPROVED_021_LOCK_SHA256
         );
-        assert_eq!(plan["fingerprint_status"], "not_measured");
+        let package_lock = serde_json::from_slice(&fs::read(lock_path).unwrap()).unwrap();
+        let candidate = Candidate {
+            plan: plan_value.clone(),
+            manifest_value,
+            epoch: epoch.clone(),
+            baseline,
+            baseline_sha256,
+            package_lock,
+            package_lock_sha256: APPROVED_021_LOCK_SHA256.into(),
+            plan_sha256,
+            proposal_sha256: plan.successor.change.sha256.clone(),
+            predecessor_measurement_sha256: plan
+                .approved_predecessor_measurement_receipt_sha256
+                .clone(),
+            predecessor_activation_sha256: plan
+                .approved_predecessor_activation_receipt_sha256
+                .clone(),
+        };
+        assert_eq!(epoch.epoch, 22);
+        assert_eq!(epoch.changes.len(), 22);
+        assert_eq!(plan_value["candidate_epoch"], 22);
+        assert_eq!(
+            plan_value["approved_predecessor_package_lock_sha256"],
+            APPROVED_021_LOCK_SHA256
+        );
+        assert_eq!(plan_value["fingerprint_status"], "not_measured");
+        let reference = verify_reference(&candidate, root, root).unwrap();
+        let marker = json!({"candidate_manifest_sha256":manifest::file_sha256(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()});
+        let receipt = verify_measurement_receipt(&candidate, &marker, root).unwrap();
+        assert_eq!(receipt["verification_ref_sha256"], reference);
+        let _ = fixture.assert_release_eligibility(verify_activated_source(root));
+        let path = root
+            .join("database")
+            .join(EPOCH_RELATIVE)
+            .join(NEXT_MEASUREMENT_FILE);
+        let mut tampered: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        tampered["candidate_epoch"] = json!(23);
+        fs::write(&path, serde_json::to_vec(&tampered).unwrap()).unwrap();
+        assert!(fixture.verify_inventory().is_err());
+        assert!(verify_measurement_receipt(&candidate, &marker, root).is_err());
     }
 }

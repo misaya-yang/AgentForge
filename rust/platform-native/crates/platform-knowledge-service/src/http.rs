@@ -159,7 +159,7 @@ pub(super) fn router(graph: KnowledgeGraph) -> Result<Router> {
         ))
         .layer(axum::middleware::from_fn_with_state(
             graph.request_governance,
-            ai_platform_gateway::request_governance::govern,
+            ai_platform_service_primitives::request_governance::govern,
         ))
         .layer(axum::middleware::from_fn(crate::tracing::inbound))
         .layer(axum::middleware::from_fn_with_state(graph.lifecycle, drain))

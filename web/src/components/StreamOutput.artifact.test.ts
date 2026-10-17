@@ -124,7 +124,7 @@ function host(language = "en-US") {
     const chat = load("../pages/assistant/components/ChatMessage.tsx", {
       react: componentReact, "react/jsx-runtime": { jsx, jsxs: jsx },
       "react-i18next": { useTranslation: () => ({ t }) },
-      "framer-motion": { motion: { div: "motion-div" } }, "lucide-react": {},
+      "motion/react": { motion: { div: "motion-div" } }, "lucide-react": {},
       "../thinkingPreview": {}, "@/lib/utils": { cn: () => "" }, "./ContextDisplay": {},
       "./CitationDisplay": {}, "./Quiz": {}, "./ActivityPill": {},
       "./rightPanelContext": { useRightPanel: () => ({}) },

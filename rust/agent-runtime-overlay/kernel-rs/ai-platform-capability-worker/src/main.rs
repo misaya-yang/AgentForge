@@ -1,3 +1,5 @@
+mod startup_admission;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -142,18 +144,22 @@ async fn main() -> anyhow::Result<()> {
             "internal token, lease signing secret, and capability proof secret must be at least 32 bytes"
         );
     }
+    let postgres_options = PgConnectOptions::new()
+        .host(&args.postgres_host)
+        .port(args.postgres_port)
+        .username(&args.postgres_user)
+        .password(&args.postgres_password)
+        .database(&args.postgres_database)
+        .options([
+            ("search_path", "pg_catalog,assistant"),
+            ("statement_timeout", "30000"),
+            ("idle_in_transaction_session_timeout", "15000"),
+        ]);
+    startup_admission::require_compatible_schema(&postgres_options).await?;
     let store = Arc::new(
-        PostgresExecutionStore::connect_with_options(
-            PgConnectOptions::new()
-                .host(&args.postgres_host)
-                .port(args.postgres_port)
-                .username(&args.postgres_user)
-                .password(&args.postgres_password)
-                .database(&args.postgres_database),
-            args.postgres_pool_max_size,
-        )
-        .await
-        .context("connect capability execution store")?,
+        PostgresExecutionStore::connect_with_options(postgres_options, args.postgres_pool_max_size)
+            .await
+            .context("connect capability execution store")?,
     );
     let read_http_client = reqwest::Client::builder()
         .no_proxy()
@@ -311,17 +317,26 @@ async fn main() -> anyhow::Result<()> {
     } else {
         state
     };
-    let state = match (&args.plugin_store, &args.plugin_trust, &args.plugin_activation) {
+    let state = match (
+        &args.plugin_store,
+        &args.plugin_trust,
+        &args.plugin_activation,
+    ) {
         (None, None, None) => state,
         (Some(root), Some(trust), Some(activation)) if !args.fixtures_enabled => {
             let policy = ai_platform_capability_worker::plugin_packs::TrustPolicy::load(trust)?;
             ai_platform_capability_worker::plugin_packs::verify_running_worker(&policy)?;
             let active = ai_platform_capability_worker::plugin_packs::load_current_activation(
-                root, &policy, activation, args.writes_enabled,
+                root,
+                &policy,
+                activation,
+                args.writes_enabled,
             )?;
             state.with_plugin_activation(active)?
         }
-        _ => anyhow::bail!("plugin store, trust and activation must be selected together without fixtures"),
+        _ => anyhow::bail!(
+            "plugin store, trust and activation must be selected together without fixtures"
+        ),
     };
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await

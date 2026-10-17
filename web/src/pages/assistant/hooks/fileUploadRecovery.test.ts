@@ -101,7 +101,7 @@ test("actual composer exposes removal for uploading chips and invokes the select
   const noop = () => {}; let removed = -1;
   const modules: Record<string, unknown> = {
     react: { useRef: () => ({ current: null }), useCallback: (fn: unknown) => fn, useEffect: noop }, "react/jsx-runtime": { jsx, jsxs: jsx },
-    "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: string) => fallback || key }) }, "framer-motion": { motion: named, AnimatePresence: "AnimatePresence", useReducedMotion: () => true }, "lucide-react": named,
+    "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: string) => fallback || key }) }, "motion/react": { motion: named, AnimatePresence: "AnimatePresence", useReducedMotion: () => true }, "lucide-react": named,
     "@/lib/utils": { cn: () => "" }, "@/api/files": { isImageFile: () => false, formatFileSize: () => "1 KB" },
     "../components/QuickActionsMenu": { QuickActionsMenu: "QuickActionsMenu" }, "../components/StyleSelector": { StyleSelector: "StyleSelector" },
   };

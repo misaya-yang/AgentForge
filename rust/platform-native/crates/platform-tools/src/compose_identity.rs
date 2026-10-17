@@ -223,6 +223,12 @@ pub fn matrix(root: &Path) -> Result<Value> {
                 command.env(key, value);
             }
         }
+        // Render-only fixture credentials. Public examples deliberately leave
+        // these unset so real deployments must generate distinct passwords.
+        // Nothing from the selected private env or ambient credentials is used.
+        for principal in ["MIGRATOR", "GATEWAY", "RUNTIME", "CAPABILITY_WORKER", "KNOWLEDGE_API", "KNOWLEDGE_WORKER"] {
+            command.env(format!("LOCAL_DB_{principal}_PASSWORD"), format!("public-render-fixture-{principal}"));
+        }
         command
             .args([
                 "compose",
@@ -254,6 +260,7 @@ pub fn matrix(root: &Path) -> Result<Value> {
         for mode in ["full", "compact", "scale"] {
             let config = render(mode, variant, None)?;
             check(&root, &config, mode, variant == "source_build")?;
+            crate::database_identity::check_compose(&config, "ai_gateway_")?;
             if variant != "fallback" {
                 for (_, service, image) in overrides {
                     require(

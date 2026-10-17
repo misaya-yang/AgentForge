@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-01-03T12:00:00.000Z",
+  "ordinal": 7,
+  "type": "response_item",
+  "payload": {
+    "type": "message",
+    "role": "user",
+    "content": [
+      {
+        "type": "input_text",
+        "text": "hello"
+      }
+    ]
+  }
+}

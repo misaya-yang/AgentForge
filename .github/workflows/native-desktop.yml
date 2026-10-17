@@ -38,7 +38,7 @@ jobs:
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-client-packaging
@@ -58,17 +58,22 @@ jobs:
       CARGO_BUILD_JOBS: '1'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_RELEASE_DEBUG: '0'
-      CARGO_TARGET_DIR: ${{ runner.temp }}/desktop-target
+      PACKAGE_TARGET: ${{ matrix.name }}
+      RUST_TARGET: ${{ matrix.rust_target }}
+      PACKAGE_BINARY: ${{ matrix.binary }}
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - name: Select external desktop target directory
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/desktop-target" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-client-packaging
-      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
+          toolchain: 1.99.0
           targets: ${{ matrix.rust_target }}
       - name: Install Linux native window dependencies
         if: runner.os == 'Linux'
@@ -78,7 +83,7 @@ jobs:
             pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev \
             libxinerama-dev libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev
       - name: Bind build to clean source identity and platform options
-        run: platform-client-packaging package-desktop --build-env --target '${{ matrix.name }}' >> "$GITHUB_ENV"
+        run: platform-client-packaging package-desktop --build-env --target "$PACKAGE_TARGET" >> "$GITHUB_ENV"
       - name: Record toolchain
         run: |
           rustc --version --verbose
@@ -88,15 +93,15 @@ jobs:
           cargo build --locked --release
           --manifest-path rust/platform-native/Cargo.toml
           -p ai-platform-desktop --bin ai-platform-desktop
-          --target '${{ matrix.rust_target }}'
+          --target "$RUST_TARGET"
       - name: Package and verify extracted offline executable identity
         run: >-
           platform-client-packaging package-desktop
-          --target '${{ matrix.name }}'
-          --binary "$CARGO_TARGET_DIR/${{ matrix.rust_target }}/release/${{ matrix.binary }}"
-          --output '${{ runner.temp }}/desktop-package'
+          --target "$PACKAGE_TARGET"
+          --binary "$CARGO_TARGET_DIR/$RUST_TARGET/release/$PACKAGE_BINARY"
+          --output "$RUNNER_TEMP/desktop-package"
       - name: Upload unsigned desktop candidates and receipts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ai-platform-desktop-${{ matrix.name }}
           path: ${{ runner.temp }}/desktop-package/*

@@ -350,3 +350,5 @@ mod argument_tests {
         assert!(args.validate(&[], 0).is_err());
     }
 }
+
+pub mod promotion;

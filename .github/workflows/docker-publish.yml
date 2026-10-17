@@ -1,15 +1,6 @@
-# =============================================================================
-# Docker Build & Push to GHCR
-# =============================================================================
-# Triggers on version tags (v*). Builds every shipped Dockerfile for amd64 and
-# arm64, then publishes matching immutable release tags:
-#   - ghcr.io/<owner>/ai-gateway
-#   - ghcr.io/<owner>/ai-gateway-web
-#   - ghcr.io/<owner>/ai-gateway-knowledge-service
-#   - ghcr.io/<owner>/ai-gateway-migrate
-#   - ghcr.io/<owner>/ai-gateway-code-interpreter
-# =============================================================================
-
+# Existing GHCR image repositories, semver/SHA tags and OCI config labels are kept.
+# Build each architecture natively and push only by digest; promote release tags
+# after both architecture-specific size gates pass and attestations survive merge.
 name: Docker Publish
 
 on:
@@ -22,69 +13,281 @@ env:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
+  image-size:
+    uses: ./.github/workflows/image-size.yml
+    with:
+      policy-only: true
+
+  supply-chain:
+    uses: ./.github/workflows/supply-chain.yml
+
   build-and-push:
-    runs-on: ubuntu-latest
+    needs: [image-size, supply-chain]
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ${{ matrix.host.runner }}
+    timeout-minutes: 60
     strategy:
+      fail-fast: false
+      max-parallel: 2
       matrix:
-        include:
-          - image: ai-gateway
+        host:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+        image:
+          - name: ai-gateway
             context: .
-            dockerfile: Dockerfile
-          - image: ai-gateway-web
+            dockerfile: deploy/platform-native/Dockerfile
+            target: runtime
+            budget: runtime
+          - name: ai-gateway-web
             context: ./web
             dockerfile: ./web/Dockerfile
-          - image: ai-gateway-knowledge-service
+            target: runtime
+            budget: frontend
+          - name: ai-gateway-knowledge-service
             context: .
-            dockerfile: ./apps/knowledge-service/Dockerfile
-          - image: ai-gateway-migrate
+            dockerfile: deploy/platform-native/Dockerfile
+            target: knowledge
+            budget: knowledge
+          - name: ai-gateway-migrate
             context: .
-            dockerfile: ./docker/migrate/Dockerfile
-          - image: ai-gateway-code-interpreter
+            dockerfile: deploy/platform-native/Dockerfile
+            target: migrate
+            budget: migrate
+          - name: ai-gateway-code-interpreter
             context: ./docker/code-interpreter
             dockerfile: ./docker/code-interpreter/Dockerfile
-
+            target: ''
+            budget: code-interpreter
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - name: Install pinned vulnerability scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.0
+      - name: Set up native Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+      - name: Resolve image repository
+        id: repository
+        env:
+          IMAGE: ${{ matrix.image.name }}
+        run: printf 'image=%s/%s/%s\n' "$REGISTRY" "${GITHUB_REPOSITORY_OWNER,,}" "$IMAGE" >> "$GITHUB_OUTPUT"
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          images: ${{ steps.repository.outputs.image }}
           tags: |
             type=semver,pattern={{version}}
             type=sha,format=long
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build native image and push by digest
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          target: ${{ matrix.image.target }}
+          platforms: ${{ matrix.host.platform }}
+          outputs: type=image,name=${{ steps.repository.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
           build-args: |
             APP_VERSION=${{ github.ref_name }}
             VCS_REF=${{ github.sha }}
           provenance: mode=max
           sbom: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=publish-${{ matrix.image.name }}-${{ matrix.host.arch }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.image.name }}-${{ matrix.host.arch }}
+      - name: Measure the exact pushed platform image
+        env:
+          IMAGE_NAME: ${{ steps.repository.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_TARGET: ${{ matrix.image.budget }}
+          IMAGE_PLATFORM: ${{ matrix.host.platform }}
+          IMAGE_ARCH: ${{ matrix.host.arch }}
+        run: |
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          image_ref="$IMAGE_NAME@$IMAGE_DIGEST"
+          # Pull the immutable digest, including its attestations; do not rebuild
+          # a second, potentially different image merely to measure it.
+          docker pull --platform "$IMAGE_PLATFORM" "$image_ref"
+          image_id="$(docker image inspect --format '{{.Id}}' "$image_ref")"
+          docker image inspect --format '[{"Id":{{json .Id}},"Size":{{json .Size}},"Os":{{json .Os}},"Architecture":{{json .Architecture}}}]' "$image_ref" > "$RUNNER_TEMP/image-inspect.json"
+          platform-tools image-size-check --repo-root . --target "$IMAGE_TARGET" --platform "$IMAGE_PLATFORM" --image-id "$image_id" --inspect "$RUNNER_TEMP/image-inspect.json" --evidence-out "$RUNNER_TEMP/image-size-receipt.json"
+          mkdir -p "$RUNNER_TEMP/release-digests"
+          jq -n --arg image "$IMAGE_NAME" --arg digest "$IMAGE_DIGEST" --arg platform "$IMAGE_PLATFORM" --arg revision "$GITHUB_SHA" --slurpfile size "$RUNNER_TEMP/image-size-receipt.json" '{image:$image,digest:$digest,platform:$platform,source_revision:$revision,size_receipt:$size[0]}' > "$RUNNER_TEMP/release-digests/$IMAGE_ARCH.json"
+      - name: Enforce critical vulnerability gate on pushed platform digest
+        env:
+          IMAGE_NAME: ${{ steps.repository.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_PLATFORM: ${{ matrix.host.platform }}
+          IMAGE_ARCH: ${{ matrix.host.arch }}
+        run: |
+          bash scripts/harness/scan_release_image.sh "$IMAGE_NAME@$IMAGE_DIGEST" "$IMAGE_PLATFORM" "$RUNNER_TEMP/critical-scan.json"
+          bash scripts/harness/scan_release_license.sh "$IMAGE_NAME@$IMAGE_DIGEST" "$IMAGE_PLATFORM" "$RUNNER_TEMP/license-admission.json"
+          file="$RUNNER_TEMP/release-digests/$IMAGE_ARCH.json"
+          jq --slurpfile scan "$RUNNER_TEMP/critical-scan.json" '. + {scan_receipt:$scan[0]}' "$file" > "$file.next"
+          mv "$file.next" "$file"
+      - name: Export only admitted digest and public size evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-digest-${{ matrix.image.name }}-${{ matrix.host.arch }}
+          path: ${{ runner.temp }}/release-digests/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  merge:
+    needs: build-and-push
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ai-gateway
+          - ai-gateway-web
+          - ai-gateway-knowledge-service
+          - ai-gateway-migrate
+          - ai-gateway-code-interpreter
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - name: Install pinned vulnerability scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.0
+      - name: Install pinned cosign
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        with:
+          cosign-release: v3.1.3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve image repository
+        id: repository
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: printf 'image=%s/%s/%s\n' "$REGISTRY" "${GITHUB_REPOSITORY_OWNER,,}" "$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Download exact admitted amd64 digest from this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-digest-${{ matrix.image }}-amd64
+          path: ${{ runner.temp }}/release-digests
+      - name: Download exact admitted arm64 digest from this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-digest-${{ matrix.image }}-arm64
+          path: ${{ runner.temp }}/release-digests
+      - name: Extract unchanged release tags
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ steps.repository.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+      - name: Validate admitted pair and merge with attestations
+        env:
+          IMAGE_NAME: ${{ steps.repository.outputs.image }}
+          META_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          digest_dir="$RUNNER_TEMP/release-digests"
+          test "$(find "$digest_dir" -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 2
+          policy_sha="$(sha256sum deploy/platform-native/image-size-budgets.json | cut -d ' ' -f 1)"
+          scan_policy_sha="$(sha256sum deploy/security/supply-chain-policy.json | cut -d ' ' -f 1)"
+          sources=()
+          for arch in amd64 arm64; do
+            file="$digest_dir/$arch.json"
+            jq -e --arg image "$IMAGE_NAME" --arg platform "linux/$arch" --arg revision "$GITHUB_SHA" --arg policy "$policy_sha" --arg scan_policy "$scan_policy_sha" '
+              .image == $image and .platform == $platform and .source_revision == $revision
+              and (.digest | test("^sha256:[0-9a-f]{64}$"))
+              and .size_receipt.result == "pass" and .size_receipt.platform == $platform
+              and .size_receipt.policy_sha256 == $policy
+              and (.size_receipt.measured_bytes > 0)
+              and (.size_receipt.measured_bytes <= .size_receipt.ceiling_bytes)
+              and .scan_receipt.result == "pass" and .scan_receipt.critical_count == 0
+              and .scan_receipt.platform == $platform
+              and .scan_receipt.image_ref == ($image + "@" + .digest)
+              and .scan_receipt.policy_sha256 == $scan_policy
+            ' "$file" > /dev/null
+            digest="$(jq -er '.digest' "$file")"
+            sources+=("$IMAGE_NAME@$digest")
+          done
+          test "${sources[0]}" != "${sources[1]}"
+          # A dry-run must preserve both real platforms and each platform's
+          # attestation descriptor. Unrecognized or missing descriptors fail.
+          docker buildx imagetools create --dry-run "${sources[@]}" > "$RUNNER_TEMP/merged-index.json"
+          jq -e '
+            . as $index
+            | [.manifests[] | select(.platform.os == "linux")] as $images
+            | [.manifests[] | select(.platform.os == "unknown" and .platform.architecture == "unknown" and .annotations["vnd.docker.reference.type"] == "attestation-manifest")] as $attestations
+            | .schemaVersion == 2
+              and ($images | length) == 2
+              and ([$images[].platform.architecture] | sort) == ["amd64", "arm64"]
+              and (.manifests | length) == (($images | length) + ($attestations | length))
+              and all($images[]; .digest as $digest | any($attestations[]; .annotations["vnd.docker.reference.digest"] == $digest))
+              and all($attestations[]; .annotations["vnd.docker.reference.digest"] as $digest | any($images[]; .digest == $digest))
+          ' "$RUNNER_TEMP/merged-index.json" > /dev/null
+          jq -e '.tags | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' <<< "$META_JSON" > /dev/null
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$META_JSON")
+          tag_args=()
+          for tag in "${tags[@]}"; do tag_args+=(--tag "$tag"); done
+          # Stage an immutable index before signing: release tags are assigned
+          # only after both fresh scans and keyless verification succeed.
+          candidate_ref="$IMAGE_NAME:pending-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker buildx imagetools create --tag "$candidate_ref" "${sources[@]}"
+          index_digest="$(docker buildx imagetools inspect "$candidate_ref" --format '{{json .Manifest}}' | jq -er '.digest')"
+          [[ "$index_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          signed_ref="$IMAGE_NAME@$index_digest"
+          predicate_type="$(jq -er '.predicate_type' deploy/security/supply-chain-policy.json)"
+          for arch in amd64 arm64; do
+            predicate="$RUNNER_TEMP/critical-scan-$arch.json"
+            bash scripts/harness/scan_release_image.sh "$signed_ref" "linux/$arch" "$predicate"
+            bash scripts/harness/scan_release_license.sh "$signed_ref" "linux/$arch" "$RUNNER_TEMP/license-admission-$arch.json"
+            cosign attest --yes --type "$predicate_type" --predicate "$predicate" "$signed_ref"
+          done
+          cosign sign --yes "$signed_ref"
+          platform-tools supply-chain verify-image --repo-root . --image-ref "$signed_ref" --evidence-out "$RUNNER_TEMP/signature-verification.json"
+          docker buildx imagetools create "${tag_args[@]}" "$signed_ref"
+          promoted_digest="$(docker buildx imagetools inspect "${tags[0]}" --format '{{json .Manifest}}' | jq -er '.digest')"
+          test "$promoted_digest" = "$index_digest"
+      - name: Upload public manifest evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-manifest-${{ matrix.image }}
+          path: |
+            ${{ runner.temp }}/merged-index.json
+            ${{ runner.temp }}/signature-verification.json
+            ${{ runner.temp }}/critical-scan-amd64.json
+            ${{ runner.temp }}/critical-scan-arm64.json
+          if-no-files-found: error

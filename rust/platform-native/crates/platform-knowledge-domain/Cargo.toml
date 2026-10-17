@@ -1,0 +1,43 @@
+[package]
+name = "ai-platform-knowledge-domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+ai-platform-service-primitives = { path = "../platform-service-primitives" }
+axum = { version = "0.8", features = ["multipart"] }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest.workspace = true
+tokio.workspace = true
+sha2 = "0.10"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+redis.workspace = true
+moka = { version = "=0.12.11", default-features = false, features = ["future"] }
+futures-util = { version = "0.3", features = ["sink"] }
+base64 = "0.22"
+regex = "1"
+jsonwebtoken = "9.3"
+libc = "0.2"
+unicode-normalization = "0.1"
+
+encoding_rs = "0.8"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+quick-xml = "0.41"
+scraper = "0.23"
+tiktoken-rs = "0.7"
+sha1 = "0.10"
+md-5 = "0.10"
+unicode-casefold = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+
+qdrant-client = { version = "=1.19.0", default-features = false, features = ["serde"] }
+
+tracing = "0.1"
+http-body = "1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

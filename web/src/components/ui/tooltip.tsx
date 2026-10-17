@@ -1,29 +1,22 @@
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
-
-import { cn } from "@/lib/utils"
-
-const TooltipProvider = TooltipPrimitive.Provider
-
-const Tooltip = TooltipPrimitive.Root
-
-const TooltipTrigger = TooltipPrimitive.Trigger
-
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Content
-    ref={ref}
-    sideOffset={sideOffset}
-    className={cn(
-      "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-      className
-    )}
-    {...props}
-  />
-))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
-
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
-
+import * as React from "react";
+import { Tooltip as AntTooltip } from "antd";
+import { elements } from "./composition";
+const DelayContext = React.createContext(700);
+function TooltipProvider({ children, delayDuration = 700 }: { children?: React.ReactNode; delayDuration?: number; skipDelayDuration?: number }) {
+  return <DelayContext.Provider value={delayDuration}>{children}</DelayContext.Provider>;
+}
+function TooltipTrigger(_props: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) { void _props; return null; }
+function TooltipContent(_props: React.HTMLAttributes<HTMLDivElement> & { side?: "top" | "bottom" | "left" | "right"; sideOffset?: number; align?: string }) { void _props; return null; }
+function Tooltip({ children, open, defaultOpen, onOpenChange, delayDuration }: { children?: React.ReactNode; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; delayDuration?: number }) {
+  const inheritedDelay = React.useContext(DelayContext);
+  const nodes = elements(children);
+  const trigger = nodes.find(node => node.type === TooltipTrigger)?.props as React.ComponentProps<typeof TooltipTrigger> | undefined;
+  const content = nodes.find(node => node.type === TooltipContent)?.props as React.ComponentProps<typeof TooltipContent> | undefined;
+  if (!trigger) return null;
+  const { asChild, children: triggerChildren, ...triggerProps } = trigger;
+  return <AntTooltip title={content?.children} placement={content?.side ?? "top"} open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}
+    mouseEnterDelay={(delayDuration ?? inheritedDelay) / 1000} classNames={{ root: content?.className }}>
+    {asChild ? triggerChildren : <button type="button" {...triggerProps}>{triggerChildren}</button>}
+  </AntTooltip>;
+}
+export { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent };

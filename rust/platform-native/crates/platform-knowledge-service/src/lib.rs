@@ -9,8 +9,8 @@ pub mod confluence;
 mod http;
 mod metrics;
 pub mod upload;
-pub use ai_platform_gateway::migration_host as host;
-pub use ai_platform_gateway::{
+pub use ai_platform_knowledge_domain::host;
+pub use ai_platform_knowledge_domain::{
     migration_content, migration_knowledge_ingest, migration_knowledge_query,
 };
 use application::KnowledgeApplication;
@@ -111,7 +111,7 @@ pub struct KnowledgeBackends {
     pub structured: ingest::structured::BackendRegistry,
 }
 pub struct KnowledgeGraph {
-    pub request_governance: ai_platform_gateway::request_governance::RequestGovernance,
+    pub request_governance: ai_platform_service_primitives::request_governance::RequestGovernance,
     pub release_identity: Arc<crate::host::release::ReleaseIdentity>,
     pub application: Option<KnowledgeApplication>,
     pub ingestion: Arc<ingest::IngestionService>,
@@ -565,7 +565,7 @@ impl KnowledgeGraph {
             crate::host::release::ReleaseIdentity::gateway(&Default::default());
         release_identity.service_id = "knowledge-service".into();
         Ok(Self {
-            request_governance: ai_platform_gateway::request_governance::RequestGovernance::new(
+            request_governance: ai_platform_service_primitives::request_governance::RequestGovernance::new(
                 config.request_governance,
             ),
             release_identity: Arc::new(release_identity),

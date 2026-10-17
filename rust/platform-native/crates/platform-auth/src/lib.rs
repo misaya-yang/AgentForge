@@ -1,6 +1,7 @@
 //! Authentication services and router factories. The Gateway owns process
 //! configuration and listener startup; durable PostgreSQL/Redis authority is
 //! required for protected requests.
+mod knowledge_actor_verifier;
 pub mod accounts;
 pub mod contract;
 pub mod http;

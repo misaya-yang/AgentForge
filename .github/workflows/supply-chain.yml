@@ -1,0 +1,63 @@
+name: Supply Chain Contracts
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - name: Verify vulnerability, signature and deployment rejection paths
+        run: |
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools supply_chain::tests
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test supply_chain_gate
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test publish_workflow
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test dependency_policy_gate
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test yaml_backend_compatibility
+      - name: Verify database service privilege boundaries
+        run: make database-identity-gate
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # official master; toolchain explicit
+        with:
+          toolchain: 1.99.0
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-deny@0.20.2
+      - name: Check all advisories licenses retired crates and dependency sources
+        run: cargo deny --manifest-path rust/platform-native/Cargo.toml --locked check --config deploy/security/deny.toml advisories bans licenses sources
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - name: Verify resolved maintained YAML alias and complete dependency graph
+        run: bash scripts/harness/check_dependency_policy.sh
+  workflow-lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          version: 1.31.1
+          inputs: .github/workflows
+          collect: workflows
+          online-audits: false
+          advanced-security: false
+          min-severity: medium

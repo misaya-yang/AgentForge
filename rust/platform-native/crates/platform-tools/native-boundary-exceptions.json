@@ -1,12 +1,4 @@
 {
   "schema": "ai-platform/native-boundary-exceptions/v1",
-  "entries": [
-    {
-      "from": "ai-platform-knowledge-service",
-      "to": "ai-platform-gateway",
-      "introduced": "2026-10-15",
-      "owner": "native-service-migration",
-      "reason": "The standalone Knowledge process reuses existing Rust domain library modules from the Gateway crate during the all-Rust migration. It does not invoke another running HTTP service in-process. This exact transitional crate edge avoids unrelated domain extraction while preserving behavior; the crates are not claimed to be fully decoupled. All other cross-context links remain prohibited."
-    }
-  ]
+  "entries": []
 }

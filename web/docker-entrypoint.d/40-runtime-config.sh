@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-OUTPUT_PATH="${RUNTIME_CONFIG_OUTPUT_PATH:-/usr/share/nginx/html/runtime-config.js}"
+OUTPUT_PATH="${RUNTIME_CONFIG_OUTPUT_PATH:-/tmp/runtime-config.js}"
 AUTH_EMAIL_DOMAIN="${VITE_AUTH_EMAIL_DOMAIN:-example.com}"
 SUPPORT_EMAIL="${VITE_SUPPORT_EMAIL:-admin@$AUTH_EMAIL_DOMAIN}"
 

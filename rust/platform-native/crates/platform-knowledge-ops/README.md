@@ -32,3 +32,11 @@ The legacy sparse migration is permanently retired. Without `--dry-run`, it refu
 BGE bakeoff uses the service's native verified-artifact loaders, with no automatic model downloads. Hosted DashScope/Cohere/Jina adapters require `--allow-live` and their environment keys. The identity baseline is mandatory. Every evaluation is report-only; errors disqualify an adapter. Chinese lexical comparison executes native Jieba, simple-run and bigram BM25. Learned sparse remains explicitly skipped offline, as in source. Native Jieba's dictionary/version can differ from a separately installed Python Jieba; reports must not imply bit-identical segmentation.
 
 Reports contain JSON metrics and Markdown summaries; Markdown presentation is native and is not byte-identical to the Python formatter. No command was run against live providers or databases during this migration phase.
+
+## Knowledge profile promotion
+
+The additional `knowledge-eval-gate` binary recomputes retrieval/parsing metrics from captured
+rankings/DocIR, pins dataset/evaluator/profile/baseline identities, rejects any case regression,
+and checks quarterly human/judge calibration. It never calls providers or activates profiles.
+Its fixture mode cannot authorize promotion. See the [evidence contract and exact commands](../../../../docs/plans/platform-upgrade-2026-10/knowledge-evaluation-promotion.md).
+Real quality baselines remain unestablished; the checked-in synthetic fixtures test gate behavior only.

@@ -18,7 +18,7 @@ async fn run() -> Result<()> {
     })?;
     if matches!(command.as_str(), "--help" | "-h") {
         println!(
-            "usage: database-authority {{migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections,initialize-local-credentials}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--no-adoption] [--reconciliation-evidence-out PATH]"
+            "usage: database-authority {{migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections,initialize-local-credentials,deployment-bootstrap}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--expected-admin NAME] [--no-adoption] [--reconciliation-evidence-out PATH]"
         );
         return Ok(());
     }
@@ -37,6 +37,7 @@ async fn run() -> Result<()> {
         "cutover",
         "verify-role-connections",
         "initialize-local-credentials",
+        "deployment-bootstrap",
     ]
     .contains(&command.as_str())
     {
@@ -45,6 +46,7 @@ async fn run() -> Result<()> {
     let mut baseline = DEFAULT_BASELINE_ID.to_owned();
     let mut principal = "gateway".to_string();
     let mut expected = None;
+    let mut expected_admin = None;
     let mut no_adoption = false;
     let mut evidence = None;
     while let Some(arg) = args.next() {
@@ -63,6 +65,11 @@ async fn run() -> Result<()> {
                 expected = Some(args.next().ok_or_else(|| {
                     AuthorityError::Refused("--expected-database requires a value".into())
                 })?)
+            }
+            "--expected-admin" => {
+                expected_admin = Some(args.next().ok_or_else(|| {
+                    AuthorityError::Refused("--expected-admin requires a value".into())
+                })?);
             }
             "--no-adoption" => no_adoption = true,
             "--reconciliation-evidence-out" => {
@@ -85,6 +92,22 @@ async fn run() -> Result<()> {
     {
         return Err(AuthorityError::Refused(
             "administrator setup requires --expected-database".into(),
+        ));
+    }
+    if command == "deployment-bootstrap" {
+        if expected.as_deref().is_none_or(str::is_empty)
+            || expected_admin.as_deref().is_none_or(str::is_empty)
+            || no_adoption
+            || evidence.is_some()
+            || std::env::var("AI_PLATFORM_LOCAL_DEV_CREDENTIALS").as_deref() == Ok("true")
+        {
+            return Err(AuthorityError::Refused(
+                "deployment-bootstrap requires --expected-database and --expected-admin, cannot use local credential opt-in or migration-only flags".into(),
+            ));
+        }
+    } else if expected_admin.is_some() {
+        return Err(AuthorityError::Refused(
+            "--expected-admin is only available for deployment-bootstrap".into(),
         ));
     }
     let prefix = credentials::role_prefix_from_env()?;
@@ -112,7 +135,8 @@ async fn run() -> Result<()> {
         | "provision-extensions"
         | "bootstrap-ledger-acl"
         | "prepare-cutover-ownership"
-        | "initialize-local-credentials" => "admin",
+        | "initialize-local-credentials"
+        | "deployment-bootstrap" => "admin",
         "startup-check" => principal.as_str(),
         _ => "migrator",
     };
@@ -120,6 +144,16 @@ async fn run() -> Result<()> {
         MigrationAuthority::new(credentials::dsn_for_principal(identity)?, paths, prefix)?;
     let outcome: Result<()> = async {
         match command.as_str() {
+            "deployment-bootstrap" => println!(
+                "{}",
+                credential_bootstrap::deployment_bootstrap(
+                    &authority,
+                    &baseline,
+                    expected.as_deref().unwrap(),
+                    expected_admin.as_deref().unwrap()
+                )
+                .await?
+            ),
             "initialize-local-credentials" => println!(
                 "{}",
                 credential_bootstrap::initialize(&authority, expected.as_deref().unwrap()).await?

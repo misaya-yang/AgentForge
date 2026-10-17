@@ -42,15 +42,16 @@ pub(super) async fn run_execution(
     capability_id: String,
     arguments: Value,
     descriptor: CapabilityDescriptorV2,
+    mut ticket: super::pools::ExecutionTicket,
 ) {
     let cancellation = state.register_cancellation(&execution_id).await.0;
-    let _slot = tokio::select! {
+    tokio::select! {
         _ = cancellation.notified() => {
             state.forget_cancellation(&execution_id).await;
             return;
         }
-        slot = state.execution_slots.acquire() => match slot {
-            Ok(slot) => slot,
+        slot = ticket.wait() => match slot {
+            Ok(()) => (),
             Err(_) => {
                 state.forget_cancellation(&execution_id).await;
                 return;

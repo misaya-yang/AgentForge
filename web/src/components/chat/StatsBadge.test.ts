@@ -12,7 +12,7 @@ function render(stats: NonNullable<ChatMessage["stats"]>, locale = "en-US") {
   const t = (key: string) => key.split(".").reduce((value, part) => value[part], dictionary);
   const modules: Record<string, unknown> = {
     "react/jsx-runtime": require("react/jsx-runtime"),
-    "framer-motion": { motion: { div: "div" } }, "react-i18next": { useTranslation: () => ({ t }) },
+    "motion/react": { motion: { div: "div" } }, "react-i18next": { useTranslation: () => ({ t }) },
     "lucide-react": { Clock: () => null, Zap: () => null, MessageSquare: () => null },
   };
   const exports: { StatsBadge?: (props: { stats: NonNullable<ChatMessage["stats"]> }) => React.ReactNode } = {};

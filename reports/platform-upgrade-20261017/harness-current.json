@@ -1,0 +1,26 @@
+{
+  "gate": "harness-check",
+  "tier": "L0",
+  "result": "pass",
+  "structural": {
+    "required_docs": 18,
+    "budgeted_files": 2,
+    "links_resolved": 127,
+    "workspace_files_scanned": 4876,
+    "errors": 0
+  },
+  "semantic": {
+    "make_targets_referenced": 56,
+    "gate_schemas_validated": 38,
+    "programs_inspected": 22,
+    "errors": 0
+  },
+  "errors": [],
+  "warnings": [
+    "program /Users/yang/projects/AgentForge/deploy/runbooks/r1-assistant-closure-2026-09-23 missing init.sh",
+    "program /Users/yang/projects/AgentForge/deploy/runbooks/kb-rag-ui-t5 has unknown schema",
+    "program /Users/yang/projects/AgentForge/deploy/runbooks/native-enterprise-upgrade has unknown schema",
+    "program /Users/yang/projects/AgentForge/deploy/runbooks/r3-agent-eval-2026-09-28 missing init.sh",
+    "program /Users/yang/projects/AgentForge/deploy/runbooks/r2-knowledge-lifecycle-2026-09-27 missing init.sh"
+  ]
+}

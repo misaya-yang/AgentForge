@@ -24,15 +24,27 @@ spec:
         {{- include "ai-gateway.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      securityContext:
+        fsGroup: 101
       containers:
         - name: frontend
           image: "{{ .Values.global.imageRegistry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
           volumeMounts:
+            - name: nginx-scratch
+              mountPath: /tmp
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
@@ -40,18 +52,22 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 80
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health
-              port: 80
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
       volumes:
+        - name: nginx-scratch
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
         - name: nginx-config
           configMap:
             name: {{ include "ai-gateway.fullname" . }}-frontend-nginx

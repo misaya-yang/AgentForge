@@ -201,6 +201,8 @@ pub enum StoreError {
     InvalidEvent,
     #[error("runtime_binding_unauthorized")]
     RuntimeBindingUnauthorized,
+    #[error("execution_capacity_exhausted")]
+    CapacityExhausted,
     #[error("execution_store_unavailable")]
     Internal,
 }
@@ -225,6 +227,16 @@ pub trait ExecutionStore: Send + Sync {
     ) -> Result<ReserveOutcome, StoreError> {
         self.reserve(execution).await
     }
+    /// Run admission only for a genuinely new reservation, while holding the
+    /// store's identity/owner locks. Capacity failure must leave no visible row.
+    /// Callers retain any acquired RAII ticket and drop it if commit fails.
+    async fn reserve_admitted_owned(
+        &self,
+        execution: NewExecution,
+        owner: Option<&str>,
+        fence: Option<i64>,
+        admit: &mut (dyn FnMut() -> Result<(), StoreError> + Send),
+    ) -> Result<ReserveOutcome, StoreError>;
     async fn get(
         &self,
         scope: &CapabilityScopeV2,
@@ -459,7 +471,10 @@ fn same_scope(record: &ExecutionRecord, scope: &CapabilityScopeV2) -> bool {
 fn same_reservation(record: &ExecutionRecord, requested: &NewExecution) -> bool {
     let left = &record.execution;
     let right = &requested.execution;
-    left.tenant_id == right.tenant_id
+    left.lease_id == right.lease_id
+        && record.approval_policy == requested.approval_policy
+        && record.approval_id == requested.approval_id
+        && left.tenant_id == right.tenant_id
         && left.user_id == right.user_id
         && left.session_id == right.session_id
         && left.run_id == right.run_id
@@ -636,6 +651,16 @@ impl ExecutionStore for MemoryStore {
     }
 
     async fn reserve(&self, requested: NewExecution) -> Result<ReserveOutcome, StoreError> {
+        self.reserve_admitted_owned(requested, None, None, &mut || Ok(())).await
+    }
+
+    async fn reserve_admitted_owned(
+        &self,
+        requested: NewExecution,
+        _owner: Option<&str>,
+        _fence: Option<i64>,
+        admit: &mut (dyn FnMut() -> Result<(), StoreError> + Send),
+    ) -> Result<ReserveOutcome, StoreError> {
         let mut state = self.state.lock().await;
         let existing = state.executions.values().find(|record| {
             (record.execution.run_id == requested.execution.run_id
@@ -655,6 +680,7 @@ impl ExecutionStore for MemoryStore {
                 created: false,
             });
         }
+        admit()?;
         let execution_id = requested.execution.execution_id.clone();
         let record = ExecutionRecord {
             execution: requested.execution,

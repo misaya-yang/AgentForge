@@ -119,6 +119,15 @@ pub(super) async fn recover_executions_loop(state: WorkerState) {
                 terminalize_rejected_recovery(&state, &record).await;
                 continue;
             }
+            let ticket = match state.execution_pools.admit(
+                super::pools::ExecutionClass::for_descriptor(&descriptor),
+                &record.execution.tenant_id,
+                super::pools::write_target(&descriptor, &record.execution.scope(), &record.resource_binding),
+            ) {
+                Ok(ticket) => ticket,
+                // Leave durable work unchanged; retry on the next recovery pass.
+                Err(_) => continue,
+            };
             let execution_id = record.execution.execution_id.clone();
             let (_, registered) = state.register_cancellation(&execution_id).await;
             if !registered {
@@ -132,6 +141,7 @@ pub(super) async fn recover_executions_loop(state: WorkerState) {
                     record.execution.capability_id,
                     record.arguments,
                     descriptor,
+                    ticket,
                 ),
             ));
         }

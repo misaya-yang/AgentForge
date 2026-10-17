@@ -32,18 +32,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command: ["/usr/local/bin/database-authority", "startup-check", "--principal", "knowledge_api"]
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
-            - name: AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN
-              value: {{ include "ai-gateway.postgresDSN" . | quote }}
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | nindent 12 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -66,23 +55,12 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ai-gateway.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "ai-gateway.fullname" . }}-secret
                   key: REDIS_PASSWORD
-            - name: KNOWLEDGE_DATABASE__DSN
-              value: {{ include "ai-gateway.postgresDSN" . | quote }}
+            {{- include "ai-gateway.roleDatabaseEnv" (dict "root" . "env" "KNOWLEDGE_DATABASE__DSN" "key" "KNOWLEDGE_API_DSN") | nindent 12 }}
             - name: KNOWLEDGE_REDIS__URL
               value: "redis://:$(REDIS_PASSWORD)@{{ include "ai-gateway.redisHost" . }}:{{ include "ai-gateway.redisPort" . }}/2"
             - name: KNOWLEDGE_QDRANT__URL

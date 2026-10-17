@@ -2,6 +2,7 @@ use ai_platform_migration_authority::{
     AuthorityError, Result,
     source_tools::measure_next_successor::{self, MeasureOptions as NextMeasureOptions},
     source_tools::measure_next_successor_022::{self, MeasureOptions as NextMeasure022Options},
+    source_tools::measure_next_successor_023::{self, MeasureOptions as NextMeasure023Options},
     source_tools::measure_successors::{self, MeasureOptions},
 };
 use std::path::PathBuf;
@@ -10,13 +11,18 @@ enum Measurement {
     Historical(MeasureOptions),
     Next(NextMeasureOptions),
     Next022(NextMeasure022Options),
+    Next023(NextMeasure023Options),
 }
 
 fn usage() -> &'static str {
-    "measure-schema-successors [--next-successor-021|--next-successor-022] --source-root <canonical-source> --preview-root <external-preview> [--preimage-root <preserved-reference-checkout>] --expected-database schema_successor_verify_<8-48-lowercase-suffix> --run-approved-isolated-measurements"
+    "measure-schema-successors [--next-successor-021|--next-successor-022|--next-successor-023] --source-root <canonical-source> --preview-root <external-preview> [--preimage-root <preserved-reference-checkout>] --expected-database schema_successor_verify_<8-48-lowercase-suffix> --run-approved-isolated-measurements"
 }
 
 fn parse_args() -> Result<Option<Measurement>> {
+    parse_args_from(std::env::args().skip(1))
+}
+
+fn parse_args_from(arguments: impl IntoIterator<Item = String>) -> Result<Option<Measurement>> {
     let mut source_root = None;
     let mut preview_root = None;
     let mut preimage_root = None;
@@ -24,7 +30,8 @@ fn parse_args() -> Result<Option<Measurement>> {
     let mut run_approved = false;
     let mut next_021 = false;
     let mut next_022 = false;
-    let mut args = std::env::args().skip(1);
+    let mut next_023 = false;
+    let mut args = arguments.into_iter();
     while let Some(argument) = args.next() {
         if matches!(argument.as_str(), "--help" | "-h") {
             return Ok(None);
@@ -52,6 +59,15 @@ fn parse_args() -> Result<Option<Measurement>> {
                 ));
             }
             next_022 = true;
+            continue;
+        }
+        if argument == "--next-successor-023" {
+            if next_023 {
+                return Err(AuthorityError::Refused(
+                    "duplicate --next-successor-023 flag".into(),
+                ));
+            }
+            next_023 = true;
             continue;
         }
         let value = args
@@ -82,12 +98,17 @@ fn parse_args() -> Result<Option<Measurement>> {
     );
     let expected_database = expected_database
         .ok_or_else(|| AuthorityError::Refused("--expected-database is required".into()))?;
-    if next_021 && next_022 {
+    if [next_021, next_022, next_023]
+        .into_iter()
+        .filter(|v| *v)
+        .count()
+        > 1
+    {
         return Err(AuthorityError::Refused(
             "choose only one successor extension flag".into(),
         ));
     }
-    if next_021 || next_022 {
+    if next_021 || next_022 || next_023 {
         if preimage_root.is_some() {
             return Err(AuthorityError::Refused(
                 "single-step successor measurement does not accept --preimage-root".into(),
@@ -95,6 +116,13 @@ fn parse_args() -> Result<Option<Measurement>> {
         }
         if next_021 {
             Ok(Some(Measurement::Next(NextMeasureOptions {
+                source_root,
+                preview_root,
+                expected_database,
+                run_approved,
+            })))
+        } else if next_023 {
+            Ok(Some(Measurement::Next023(NextMeasure023Options {
                 source_root,
                 preview_root,
                 expected_database,
@@ -154,9 +182,66 @@ async fn main() {
                 }
             }
         }
+        Ok(Some(Measurement::Next023(options))) => {
+            match measure_next_successor_023::run(options).await {
+                Ok(()) => println!(
+                    "measured successor change 023 only, verified the full epoch-23 prefix, and confirmed no-op replay"
+                ),
+                Err(error) => {
+                    eprintln!("measure-schema-successors: {error}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Err(error) => {
             eprintln!("measure-schema-successors: {error}; usage: {}", usage());
             std::process::exit(2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn arguments(extra: &[&str]) -> Vec<String> {
+        [
+            "--source-root",
+            "/source",
+            "--preview-root",
+            "/preview",
+            "--expected-database",
+            "schema_successor_verify_023_probe",
+            "--run-approved-isolated-measurements",
+        ]
+        .into_iter()
+        .chain(extra.iter().copied())
+        .map(str::to_owned)
+        .collect()
+    }
+    #[test]
+    fn selects_023_only_without_historical_preimage() {
+        match parse_args_from(arguments(&["--next-successor-023"])).unwrap() {
+            Some(Measurement::Next023(options)) => {
+                assert_eq!(options.source_root, PathBuf::from("/source"));
+                assert_eq!(
+                    options.expected_database,
+                    "schema_successor_verify_023_probe"
+                );
+                assert!(options.run_approved);
+            }
+            _ => panic!("023 must select the one-step runner"),
+        }
+    }
+    #[test]
+    fn rejects_023_duplicates_mixed_extensions_and_historical_preimage() {
+        for extra in [
+            vec!["--next-successor-023", "--next-successor-023"],
+            vec!["--next-successor-023", "--next-successor-022"],
+            vec!["--next-successor-023", "--next-successor-021"],
+            vec!["--next-successor-023", "--preimage-root", "/old-import"],
+        ] {
+            assert!(parse_args_from(arguments(&extra)).is_err());
+        }
+        assert!(parse_args_from(["--next-successor-023".to_owned()]).is_err());
     }
 }

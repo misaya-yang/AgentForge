@@ -1,0 +1,15 @@
+{
+  "schema_version": "ai-platform/image-size-budgets/v1",
+  "metric": "docker-image-inspect-size-bytes",
+  "targets": {
+    "runtime": 384,
+    "knowledge": 384,
+    "migrate": 192,
+    "sdk-worker": 384,
+    "local-node": 192,
+    "tools": 256,
+    "release": 192,
+    "frontend": 128,
+    "code-interpreter": 1024
+  }
+}
