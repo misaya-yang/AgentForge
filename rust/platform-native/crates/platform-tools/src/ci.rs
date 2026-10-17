@@ -222,11 +222,31 @@ fn wiring(root: &Path, gates: &serde_json::Map<String, Value>) -> Result<Vec<Str
     if !needs("release-ready", "gate-enforcement") {
         failures.push("release-ready must need gate-enforcement".into());
     }
-    if !jobs
-        .get("rust-changed-crate")
-        .is_some_and(|j| j["env"]["CARGO_BUILD_JOBS"] == "1")
+    let setup = |job: &str, hosted: bool| {
+        jobs.get(job).is_some_and(|j| {
+            j["steps"].as_array().is_some_and(|steps| {
+                steps.iter().any(|s| {
+                    s["uses"] == "./.github/actions/setup-native"
+                        && (!hosted
+                            || (s["with"]["capacity-profile"] == "hosted"
+                                && s["with"]["nextest"] == "true"))
+                })
+            })
+        })
+    };
+    if !setup("rust-changed-crate", true)
+        || jobs
+            .get("rust-changed-crate")
+            .is_some_and(|j| j["env"].get("CARGO_BUILD_JOBS").is_some())
     {
-        failures.push("rust-changed-crate must set CARGO_BUILD_JOBS string 1".into());
+        failures.push("rust-changed-crate must use bounded hosted setup-native with nextest and no job-level Cargo job override".into());
+    }
+    for job in ["gate-enforcement", "release-ready"] {
+        if !setup(job, false) {
+            failures.push(format!(
+                "CI job {job} must install native operational tools"
+            ));
+        }
     }
     Ok(failures)
 }

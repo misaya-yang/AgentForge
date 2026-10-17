@@ -548,7 +548,7 @@ gates:
     ci_job: frontend
   rust_changed_crate:
     make: rust-changed-crate-gate
-    purpose: In hosted CI, compose the lock-pinned upstream Git object with the current overlay, then test only changed Rust crates with the exact locked toolchain.
+    purpose: In hosted CI, compose the lock-pinned upstream Git object with the current overlay, then run nextest and enabled doctests for changed Rust crates with pinned tools, bounded capacity and a total gate budget.
     triggers: ["rust/**", "deploy/agent-runtime-source/lock.json", "rust/platform-native/crates/platform-tools/src/rust_gate.rs"]
     tier: L1
     required_on: [change, release]

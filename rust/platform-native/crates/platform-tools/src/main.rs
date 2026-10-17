@@ -5,6 +5,8 @@ mod build_ops;
 mod buildx_resource;
 mod candidates;
 mod ci;
+mod ci_capacity;
+mod ci_capacity_policy;
 mod compose_identity;
 mod docs_truth;
 mod embed;
@@ -368,6 +370,7 @@ fn run() -> Result<bool> {
  "buildx-resource-builder"=>buildx_resource::run(&args)?,
  "affected-gates"=>selection::run(&args)?,
  "ci-gate-enforcement"=>ci::run(&args)?,
+ "ci-capacity"=>ci_capacity::run(&args)?,
  "rust-changed-crate-gate"=>rust_gate::run(&args)?,
  "architecture-boundary"=>architecture::check(&root, args.values.get("--composed-workspace").map(Path::new))?,
  "python-inventory"=>architecture::python_inventory(&root,args.flag("--require-zero"))?,
@@ -456,6 +459,7 @@ mod tests {
         let base =
             std::env::temp_dir().join(format!("platform-resolve-test-{}", std::process::id()));
         std::fs::create_dir_all(base.join("actual/nested")).unwrap();
+        let base = base.canonicalize().unwrap();
         std::os::unix::fs::symlink("actual/nested", base.join("link")).unwrap();
         assert_eq!(
             resolve_path(base.join("link/../missing/../leaf").to_str().unwrap()).unwrap(),

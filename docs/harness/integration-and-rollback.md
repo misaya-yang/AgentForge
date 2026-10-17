@@ -110,7 +110,9 @@ parallelism:
   directory; Runtime/Worker retain the controlled Docker source workflow;
 - run Docker-contained Runtime/Worker image builds once in the final integration window, not in
   every package;
-- keep Cargo jobs at one inside the Docker builder and hosted CI, with a measured resource ceiling;
+- keep Cargo jobs at one inside the Docker builder and by default in hosted CI; the source-owned
+  `setup-native` action's explicit hosted capacity profile may select up to four on standard
+  GitHub Linux runners from observed CPU/memory, with no local or self-hosted exception;
 - stop application containers before a heavy build when that reduces peak memory and rollback is
   already prepared;
 - build Runtime and Capability Worker as one Agent Execution release unit even if their artifacts

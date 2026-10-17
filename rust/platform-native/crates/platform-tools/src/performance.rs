@@ -1,12 +1,12 @@
 //! Provider-free bounded fixed-GET measurement. Caller owns service lifecycle.
 //! The CLI exposes only the offline plan; measure_case requires an owned PID verifier.
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -15,11 +15,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 const MAX_BODY: usize = 64 * 1024;
 const MAX_HEADER: usize = 8 * 1024;
 fn check(ok: bool, message: &'static str) -> Result<()> {
-    if ok {
-        Ok(())
-    } else {
-        Err(message.into())
-    }
+    if ok { Ok(()) } else { Err(message.into()) }
 }
 #[derive(Clone)]
 pub struct ReadProfile {
@@ -718,10 +714,10 @@ mod tests {
     }
     #[test]
     fn framing_rejects_ambiguity_and_unsupported_status() {
-        assert!(parse_headers(
-            b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 1\r\n\r\n"
-        )
-        .is_err());
+        assert!(
+            parse_headers(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 1\r\n\r\n")
+                .is_err()
+        );
         assert!(parse_headers(b"HTTP/1.0 200 OK\r\n\r\n").is_err());
         assert!(parse_headers(b"HTTP/1.1 100 Continue\r\n\r\n").is_err());
         assert_eq!(
@@ -743,11 +739,13 @@ mod tests {
     }
     #[test]
     fn stale_pid_fails_before_http() {
-        assert!(ProcessIdentity {
-            pid: std::process::id(),
-            start_ticks: 0
-        }
-        .sample()
-        .is_err());
+        assert!(
+            ProcessIdentity {
+                pid: std::process::id(),
+                start_ticks: 0
+            }
+            .sample()
+            .is_err()
+        );
     }
 }

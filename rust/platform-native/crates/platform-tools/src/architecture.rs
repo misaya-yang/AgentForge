@@ -352,6 +352,8 @@ mod resolver_tests {
         std::fs::create_dir_all(root.join("rust/agent-runtime-overlay/kernel-rs/owned")).unwrap();
         std::fs::create_dir_all(composed.join("upstream")).unwrap();
         std::fs::create_dir_all(composed.join("owned")).unwrap();
+        let root = root.canonicalize().unwrap();
+        let composed = composed.canonicalize().unwrap();
         std::fs::write(
             composed.join("upstream/Cargo.toml"),
             "[package]\nname='ai-platform-gateway'\n",

@@ -83,6 +83,19 @@ incremental build output. This exception does not authorize deployment or establ
 local runtime acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
 not a replacement local acceptance command.
 
+`platform-tools ci-capacity` records detected CPU/memory and the selected build/test limits.
+The shared `setup-native` action defaults to one build job. Only its `capacity-profile: hosted`
+opt-in on standard GitHub-hosted Linux runners allows up to four jobs, bounded by detected CPUs
+and a 3 GiB/job budget after reserving 2 GiB. Self-hosted/local execution remains one job.
+The action pins sccache 0.18.0 and the changed-crate gate pins nextest 0.9.148. That gate uses
+nextest for the same selected packages with default filters ignored, then Cargo for enabled
+library doctests. Only nextest's
+explicit no-tests exit code falls back to the original complete Cargo test command; other
+failures remain failures. Assembly, metadata and test phases share a 55-minute gate budget,
+with progress receipts retained on failure; the enclosing CI job has its own 65-minute limit.
+Source composition and Cargo targets use external scratch directories. PR latency acceptance
+requires successful real PR runs; local policy tests and historical failed push runs do not count.
+
 Every target above accepts `ENV_FILE=/path/to/.env` when the real env file lives outside the repo.
 
 ## 2. Deployment

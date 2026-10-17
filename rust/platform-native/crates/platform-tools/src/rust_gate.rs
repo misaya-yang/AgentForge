@@ -1,11 +1,22 @@
 //! Hosted-only, lock-pinned changed-crate execution for native and composed workspaces.
 use crate::*;
-use std::{collections::BTreeSet, os::unix::fs::PermissionsExt, process::Command};
+use std::{
+    collections::BTreeSet,
+    os::unix::fs::PermissionsExt,
+    process::Command,
+    time::{Duration, Instant},
+};
 const OVERLAY: &str = "rust/agent-runtime-overlay/kernel-rs";
 const NATIVE: &str = "rust/platform-native";
 fn git(root: &Path, args: &[&str]) -> Result<String> {
-    let output = Command::new("git")
-        .args(["--no-replace-objects", "-C"])
+    let output = Command::new("timeout")
+        .args([
+            "--kill-after=10s",
+            "30s",
+            "git",
+            "--no-replace-objects",
+            "-C",
+        ])
         .arg(root)
         .args(args)
         .output()?;
@@ -92,7 +103,12 @@ fn plan(root: &Path, paths: &[String]) -> Result<BTreeMap<(String, String), Vec<
     }
     Ok(selected)
 }
-fn source_checkout(args: &Args, root: &Path, lock: &Value) -> Result<PathBuf> {
+fn remaining(deadline: Instant) -> Result<String> {
+    let seconds = deadline.saturating_duration_since(Instant::now()).as_secs();
+    require(seconds > 0, "Rust gate total 55-minute budget exhausted")?;
+    Ok(format!("{seconds}s"))
+}
+fn source_checkout(args: &Args, root: &Path, lock: &Value, deadline: Instant) -> Result<PathBuf> {
     let source = args
         .values
         .get("--source")
@@ -141,8 +157,14 @@ fn source_checkout(args: &Args, root: &Path, lock: &Value) -> Result<PathBuf> {
                 sha,
             ],
         ] {
-            let status = Command::new("git")
-                .args(["--no-replace-objects", "-C"])
+            let status = Command::new("timeout")
+                .args([
+                    "--kill-after=10s",
+                    &remaining(deadline)?,
+                    "git",
+                    "--no-replace-objects",
+                    "-C",
+                ])
                 .arg(&path)
                 .args(params)
                 .env("GIT_ASKPASS", "/bin/false")
@@ -176,7 +198,13 @@ fn source_checkout(args: &Args, root: &Path, lock: &Value) -> Result<PathBuf> {
     let _ = root;
     Ok(checkout)
 }
-fn compose(root: &Path, checkout: &Path, lock: &Value, destination: &Path) -> Result<PathBuf> {
+fn compose(
+    root: &Path,
+    checkout: &Path,
+    lock: &Value,
+    destination: &Path,
+    deadline: Instant,
+) -> Result<PathBuf> {
     let sha = lock["source"]["upstream_sha"]
         .as_str()
         .ok_or("missing upstream")?;
@@ -247,12 +275,19 @@ fn compose(root: &Path, checkout: &Path, lock: &Value, destination: &Path) -> Re
     std::fs::create_dir(destination)?;
     let mut links = vec![];
     for (relative, (mode, blob)) in &entries {
+        remaining(deadline)?;
         let path = safe(destination, relative)?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let output = Command::new("git")
-            .args(["--no-replace-objects", "-C"])
+        let output = Command::new("timeout")
+            .args([
+                "--kill-after=10s",
+                &remaining(deadline)?,
+                "git",
+                "--no-replace-objects",
+                "-C",
+            ])
             .arg(checkout)
             .args(["cat-file", "blob", blob])
             .output()?;
@@ -287,6 +322,7 @@ fn compose(root: &Path, checkout: &Path, lock: &Value, destination: &Path) -> Re
         std::os::unix::fs::symlink(target, path)?;
     }
     for relative in names {
+        remaining(deadline)?;
         let src = safe(&root.join(OVERLAY), &relative)?;
         let dst = safe(destination, &relative)?;
         if let Some(parent) = dst.parent() {
@@ -299,6 +335,131 @@ fn compose(root: &Path, checkout: &Path, lock: &Value, destination: &Path) -> Re
         "composed lock mismatch",
     )?;
     Ok(destination.join("Cargo.toml"))
+}
+fn cargo_selection(package: &str, manifest: &Path) -> Vec<String> {
+    let mut args = vec!["--locked".into()];
+    if package == "@workspace" {
+        args.push("--workspace".into());
+    } else {
+        args.extend(["-p".into(), package.into()]);
+    }
+    args.extend([
+        "--manifest-path".into(),
+        manifest.to_string_lossy().into_owned(),
+    ]);
+    args
+}
+fn commands(
+    package: &str,
+    manifest: &Path,
+    threads: usize,
+    doctests: bool,
+) -> Vec<(String, Vec<String>)> {
+    let selection = cargo_selection(package, manifest);
+    let mut nextest = vec![
+        "nextest".into(),
+        "run".into(),
+        "--no-fail-fast".into(),
+        "--ignore-default-filter".into(),
+        "--no-tests=fail".into(),
+        "--test-threads".into(),
+        threads.to_string(),
+    ];
+    nextest.extend(selection.clone());
+    let mut phases = vec![("nextest".into(), nextest)];
+    if doctests {
+        let mut docs = vec!["test".into(), "--doc".into()];
+        docs.extend(selection);
+        phases.push(("doctests".into(), docs));
+    }
+    phases
+}
+fn has_doctests(metadata: &Value, package: &str) -> Result<bool> {
+    let members = metadata["workspace_members"]
+        .as_array()
+        .ok_or("Cargo workspace members missing")?;
+    let packages = metadata["packages"]
+        .as_array()
+        .ok_or("Cargo metadata packages missing")?;
+    let selected: Vec<_> = packages
+        .iter()
+        .filter(|p| members.contains(&p["id"]) && (package == "@workspace" || p["name"] == package))
+        .collect();
+    require(
+        !selected.is_empty(),
+        "selected Cargo package missing from metadata",
+    )?;
+    Ok(selected.iter().any(|p| {
+        p["targets"].as_array().is_some_and(|targets| {
+            targets.iter().any(|t| {
+                t["doctest"] == true
+                    && t["kind"].as_array().is_some_and(|kinds| {
+                        kinds.iter().any(|k| {
+                            ["lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"]
+                                .contains(&k.as_str().unwrap_or(""))
+                        })
+                    })
+            })
+        })
+    }))
+}
+fn no_tests_fallback(code: Option<i32>) -> bool {
+    // nextest's documented NoTestsRun code, never a build/test/tool/timeout error.
+    code == Some(4)
+}
+fn execute_tests(
+    package: &str,
+    manifest: &Path,
+    threads: usize,
+    doctests: bool,
+    key: &str,
+    value: &mut Value,
+    evidence: &Path,
+    mut execute: impl FnMut(&[String]) -> Result<std::process::ExitStatus>,
+) -> Result<bool> {
+    let mut phases = commands(package, manifest, threads, doctests);
+    let mut package_passed = true;
+    let mut fallback = false;
+    for (phase, command) in &mut phases {
+        if fallback && phase == "doctests" {
+            // The exact original Cargo invocation below already includes doctests.
+            continue;
+        }
+        value["stage"] = json!(format!("{phase}:{key}"));
+        write_json(evidence, value)?;
+        let phase_started = Instant::now();
+        let status = execute(command)?;
+        let no_tests = phase == "nextest" && no_tests_fallback(status.code());
+        value["crates"][key]["phases"].as_array_mut().unwrap().push(json!({"phase":phase,"command":command,"status":if no_tests {"no-tests:requires-cargo-fallback"} else if status.code()==Some(124) {"timeout"} else if status.success(){"pass"}else{"fail"},"return_code":status.code(),"elapsed_seconds":phase_started.elapsed().as_secs_f64()}));
+        if no_tests {
+            fallback = true;
+            let mut original = vec!["test".to_owned()];
+            original.extend(cargo_selection(package, manifest));
+            value["stage"] = json!(format!("cargo-no-tests-fallback:{key}"));
+            write_json(evidence, value)?;
+            let fallback_started = Instant::now();
+            let fallback_status = execute(&original)?;
+            value["crates"][key]["phases"].as_array_mut().unwrap().push(json!({"phase":"cargo-no-tests-fallback","command":original,"status":if fallback_status.success(){"pass"}else{"fail"},"return_code":fallback_status.code(),"elapsed_seconds":fallback_started.elapsed().as_secs_f64()}));
+            package_passed &= fallback_status.success();
+            value["crates"][key]["doctests"] = json!("included-in-original-cargo-fallback");
+        } else {
+            package_passed &= status.success();
+            if phase == "doctests" {
+                value["crates"][key]["doctests"] =
+                    json!(if status.success() { "pass" } else { "fail" });
+            }
+        }
+        write_json(evidence, value)?;
+    }
+    Ok(package_passed)
+}
+struct Scratch(PathBuf);
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
 }
 pub fn run(args: &Args) -> Result<Value> {
     let root = args.root().canonicalize()?;
@@ -316,7 +477,10 @@ pub fn run(args: &Args) -> Result<Value> {
         return Ok(json!({"result":"pass","selftest":"rust-changed-crate-gate"}));
     }
     let base = args.get("--base")?;
-    let mut value = json!({"schema_version":"ai-platform/rust-changed-crate-gate/v2","gate":"rust-changed-crate-gate","tier":"L1","base":base,"executor_policy":"hosted-ci-only","crates":{}});
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(3300);
+    let mut value = json!({"schema_version":"ai-platform/rust-changed-crate-gate/v3","gate":"rust-changed-crate-gate","tier":"L1","base":base,"executor_policy":"hosted-ci-only","budget_seconds":3300,"result":"in-progress","stage":"preflight","crates":{}});
+    write_json(&evidence, &value)?;
     let execution = (|| -> Result<()> {
         require(
             hosted(),
@@ -329,6 +493,8 @@ pub fn run(args: &Args) -> Result<Value> {
             value["result"] = json!("not-applicable");
             return Ok(());
         }
+        let capacity = ci_capacity_policy::detect()?;
+        value["capacity"] = json!({"hosted":capacity.hosted,"cpus":capacity.cpus,"memory_mib":capacity.memory_mib,"cargo_build_jobs":capacity.build_jobs,"nextest_test_threads":capacity.test_threads});
         let lock_path = args
             .values
             .get("--lock")
@@ -376,7 +542,7 @@ pub fn run(args: &Args) -> Result<Value> {
                 regex::Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+$")?.is_match(&version),
                 "workspace toolchain must pin an exact numeric release",
             )?;
-            let mut observed = json!({"channel":version,"invocation":"rustup run","cargo_build_jobs":"1","cargo_incremental":"0"});
+            let mut observed = json!({"channel":version,"invocation":"rustup run","cargo_build_jobs":capacity.build_jobs,"cargo_incremental":"0"});
             for (tool, exe) in [("cargo", cargo), ("rustc", rustc)] {
                 let out = Command::new("timeout")
                     .args(["30", rustup, "run", &version, exe, "--version"])
@@ -393,18 +559,33 @@ pub fn run(args: &Args) -> Result<Value> {
                 )?;
                 observed[tool] = json!(actual);
             }
+            let nextest = Command::new("timeout")
+                .args(["30", rustup, "run", &version, cargo, "nextest", "--version"])
+                .output()?;
+            let nextest_version = String::from_utf8(nextest.stdout)?;
+            require(
+                nextest.status.success() && nextest_version.starts_with("cargo-nextest 0.9.148 "),
+                "pinned cargo-nextest 0.9.148 required",
+            )?;
+            observed["nextest"] = json!(nextest_version.trim());
             value["toolchains"][workspace] = observed;
             toolchains.insert(workspace.clone(), version);
         }
         value["authority"] = json!({"lock_sha256":digest(&lock_path)?,"upstream_sha":lock["source"]["upstream_sha"]});
-        let composed = root
-            .join("tmp")
-            .join(format!("rust-gate-composed-{}", std::process::id()));
+        let composed = Scratch(
+            std::env::temp_dir().join(format!("rust-gate-composed-{}", uuid::Uuid::new_v4())),
+        );
+        require(
+            !resolve_path(composed.0.to_str().ok_or("scratch path must be UTF8")?)?
+                .starts_with(&root),
+            "Rust gate scratch must be external",
+        )?;
         let mut overlay_manifest = None;
         if selected.keys().any(|(ws, _)| ws == OVERLAY) {
-            let checkout = source_checkout(args, &root, &lock)?;
-            std::fs::create_dir_all(composed.parent().unwrap())?;
-            overlay_manifest = Some(compose(&root, &checkout, &lock, &composed)?);
+            value["stage"] = json!("source-assembly");
+            write_json(&evidence, &value)?;
+            let checkout = source_checkout(args, &root, &lock, deadline)?;
+            overlay_manifest = Some(compose(&root, &checkout, &lock, &composed.0, deadline)?);
         }
         let mut passed = true;
         for ((workspace, package), paths) in selected {
@@ -413,39 +594,69 @@ pub fn run(args: &Args) -> Result<Value> {
             } else {
                 root.join(&workspace).join("Cargo.toml")
             };
-            let mut command = vec!["test".to_owned(), "--locked".into()];
-            if package == "@workspace" {
-                command.push("--workspace".into());
-            } else {
-                command.extend(["-p".into(), package.clone()]);
-            }
-            command.extend([
-                "--manifest-path".into(),
-                manifest.to_string_lossy().into_owned(),
-            ]);
             let version = toolchains
                 .get(&workspace)
                 .ok_or("workspace toolchain missing")?;
-            let status = Command::new("timeout")
-                .args(["--kill-after=10s", "3300s", rustup, "run", version, cargo])
-                .args(&command)
-                .current_dir(manifest.parent().unwrap())
-                .env("CARGO_BUILD_JOBS", "1")
-                .env("CARGO_INCREMENTAL", "0")
-                .status()?;
-            passed &= status.success();
-            value["crates"][format!("{workspace}:{package}")] = json!({"paths":paths,"command":command,"toolchain":version,"status":if status.code()==Some(124){"timeout"}else if status.success(){"pass"}else{"fail"},"return_code":status.code(),"cargo_build_jobs":"1"});
+            let base_command = || -> Result<Command> {
+                let mut command = Command::new("timeout");
+                command
+                    .args([
+                        "--kill-after=10s",
+                        &remaining(deadline)?,
+                        rustup,
+                        "run",
+                        version,
+                        cargo,
+                    ])
+                    .current_dir(manifest.parent().unwrap())
+                    .env("CARGO_BUILD_JOBS", capacity.build_jobs.to_string())
+                    .env("CARGO_INCREMENTAL", "0")
+                    .env("CARGO_PROFILE_DEV_DEBUG", "0")
+                    .env("CARGO_PROFILE_TEST_DEBUG", "0");
+                Ok(command)
+            };
+            let key = format!("{workspace}:{package}");
+            value["stage"] = json!(format!("metadata:{key}"));
+            write_json(&evidence, &value)?;
+            let metadata = base_command()?
+                .args([
+                    "metadata",
+                    "--locked",
+                    "--no-deps",
+                    "--format-version",
+                    "1",
+                    "--manifest-path",
+                ])
+                .arg(&manifest)
+                .output()?;
+            require(
+                metadata.status.success(),
+                "Cargo metadata failed; test populations cannot be determined",
+            )?;
+            let doctests = has_doctests(&serde_json::from_slice(&metadata.stdout)?, &package)?;
+            value["crates"][&key] = json!({"paths":paths,"toolchain":version,"cargo_build_jobs":capacity.build_jobs,"phases":[],"doctests":if doctests {"pending"} else {"not-applicable:no-enabled-library-doctests"},"status":"in-progress"});
+            let package_passed = execute_tests(
+                &package,
+                &manifest,
+                capacity.test_threads,
+                doctests,
+                &key,
+                &mut value,
+                &evidence,
+                |command| Ok(base_command()?.args(command).status()?),
+            )?;
+            passed &= package_passed;
+            value["crates"][&key]["status"] = json!(if package_passed { "pass" } else { "fail" });
+            write_json(&evidence, &value)?;
         }
         value["result"] = json!(if passed { "pass" } else { "fail" });
-        if composed.exists() {
-            std::fs::remove_dir_all(composed)?;
-        }
         Ok(())
     })();
     if let Err(error) = execution {
         value["result"] = json!("error");
         value["error"] = json!(error.to_string());
     }
+    value["elapsed_seconds"] = json!(started.elapsed().as_secs_f64());
     write_json(&evidence, &value)?;
     Ok(value)
 }
@@ -461,5 +672,116 @@ mod tests {
     #[test]
     fn unmapped_rust_fails_closed() {
         assert!(plan(Path::new("."), &["rust/unmapped/lib.rs".into()]).is_err());
+    }
+    #[test]
+    fn nextest_preserves_the_exact_selection_and_adds_separate_doctests() {
+        for package in ["ai-platform-tools", "@workspace"] {
+            let manifest = Path::new("/external/Cargo.toml");
+            let phases = commands(package, manifest, 2, true);
+            assert_eq!(phases.len(), 2);
+            assert_eq!(phases[0].0, "nextest");
+            assert_eq!(phases[1].0, "doctests");
+            for (_, command) in &phases {
+                assert!(command.ends_with(&cargo_selection(package, manifest)));
+                assert!(
+                    !command
+                        .iter()
+                        .any(|s| s.starts_with("--exclude") || s == "--lib" || s == "--skip")
+                );
+            }
+            assert!(phases[0].1.contains(&"--no-tests=fail".into()));
+            assert!(phases[0].1.contains(&"--ignore-default-filter".into()));
+            assert!(phases[1].1.starts_with(&["test".into(), "--doc".into()]));
+            assert_eq!(commands(package, manifest, 1, false).len(), 1);
+        }
+    }
+    #[test]
+    fn only_enabled_library_docs_in_selected_workspace_members_are_applicable() {
+        let metadata = json!({"workspace_members":["bin", "lib", "disabled"],"packages":[
+            {"id":"bin","name":"bin-package","targets":[{"kind":["bin"],"doctest":false}]},
+            {"id":"lib","name":"lib-package","targets":[{"kind":["lib"],"doctest":true}]},
+            {"id":"disabled","name":"disabled-package","targets":[{"kind":["lib"],"doctest":false}]},
+            {"id":"dependency","name":"external","targets":[{"kind":["lib"],"doctest":true}]}
+        ]});
+        assert!(has_doctests(&metadata, "@workspace").unwrap());
+        assert!(has_doctests(&metadata, "lib-package").unwrap());
+        assert!(!has_doctests(&metadata, "bin-package").unwrap());
+        assert!(!has_doctests(&metadata, "disabled-package").unwrap());
+        assert!(has_doctests(&metadata, "external").is_err());
+        assert!(has_doctests(&metadata, "missing").is_err());
+        assert!(has_doctests(&json!({}), "@workspace").is_err());
+    }
+    #[test]
+    fn test_build_tool_and_timeout_failures_never_trigger_no_tests_fallback() {
+        assert!(no_tests_fallback(Some(4)));
+        for code in [
+            None,
+            Some(0),
+            Some(1),
+            Some(100),
+            Some(101),
+            Some(124),
+            Some(127),
+        ] {
+            assert!(!no_tests_fallback(code));
+        }
+        assert!(remaining(Instant::now() - Duration::from_secs(1)).is_err());
+    }
+    #[test]
+    fn executed_doctest_and_nextest_failures_fail_the_package() {
+        use std::os::unix::process::ExitStatusExt;
+        for (codes, expected, expected_phases) in [
+            (vec![0, 0], true, vec!["nextest", "doctests"]),
+            (vec![0, 101], false, vec!["nextest", "doctests"]),
+            (vec![100, 0], false, vec!["nextest", "doctests"]),
+            (vec![4, 0], true, vec!["nextest", "cargo-no-tests-fallback"]),
+            (
+                vec![4, 101],
+                false,
+                vec!["nextest", "cargo-no-tests-fallback"],
+            ),
+        ] {
+            let scratch = Scratch(
+                std::env::temp_dir().join(format!("rust-gate-test-{}", uuid::Uuid::new_v4())),
+            );
+            let evidence = scratch.0.join("evidence.json");
+            let mut value = json!({"crates":{"fixture":{"phases":[]}}});
+            let mut codes = codes.into_iter();
+            let mut observed = vec![];
+            let passed = execute_tests(
+                "fixture-package",
+                Path::new("/external/Cargo.toml"),
+                1,
+                true,
+                "fixture",
+                &mut value,
+                &evidence,
+                |args| {
+                    observed.push(args.to_vec());
+                    Ok(std::process::ExitStatus::from_raw(
+                        codes.next().expect("unexpected extra command") << 8,
+                    ))
+                },
+            )
+            .unwrap();
+            assert_eq!(passed, expected);
+            assert!(codes.next().is_none());
+            let phases: Vec<_> = value["crates"]["fixture"]["phases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v["phase"].as_str().unwrap())
+                .collect();
+            assert_eq!(phases, expected_phases);
+            if expected_phases[1] == "cargo-no-tests-fallback" {
+                let mut original = vec!["test".into()];
+                original.extend(cargo_selection(
+                    "fixture-package",
+                    Path::new("/external/Cargo.toml"),
+                ));
+                assert_eq!(observed[1], original);
+            }
+            assert_eq!(object(&evidence).unwrap(), value);
+        }
     }
 }

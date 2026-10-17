@@ -484,7 +484,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 65
     env:
-      CARGO_BUILD_JOBS: "1"
       AI_PLATFORM_RUST_GATE_HOSTED_CI: "1"
     steps:
       - uses: actions/checkout@v4
@@ -494,8 +493,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95.0
 
       - uses: ./.github/actions/setup-native
-
-
+        with:
+          capacity-profile: hosted
+          packages: ai-platform-tools
+          nextest: 'true'
       - name: Run Rust gate fail-closed contract tests
         run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools rust_gate::tests
 
@@ -514,7 +515,7 @@ jobs:
           fi
           echo "base=$base" >> "$GITHUB_OUTPUT"
 
-      - name: Test changed Rust crates serially
+      - name: Test changed Rust crates and doctests
         env:
           AI_PLATFORM_RUST_GATE_FETCH_PUBLIC_SOURCE: ${{ runner.temp }}/ai-platform-rust-gate-source
         run: make rust-changed-crate-gate BASE_SHA="${{ steps.diff_base.outputs.base }}"
@@ -524,7 +525,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-changed-crate-gate-evidence
-          path: tmp/gate-evidence/rust-changed-crate-gate.json
+          path: |
+            tmp/gate-evidence/rust-changed-crate-gate.json
+            tmp/gate-evidence/ci-capacity.json
           if-no-files-found: warn
 
   gate-enforcement:
@@ -548,6 +551,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
 
       - name: Resolve diff base
         id: diff_base
@@ -603,6 +610,10 @@ jobs:
       - gate-enforcement
     steps:
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
 
       - name: Verify public release docs
         run: |

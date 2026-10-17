@@ -4,10 +4,10 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
   "status": "in_progress",
-  "last_updated": "2026-10-17T04:32:49.325062Z",
+  "last_updated": "2026-10-17T04:54:02.328358Z",
   "priority": "platform_upgrade_ph0_then_dependency_order",
   "active_phase": "platform_upgrade_ph0",
-  "next_action": "U-PE-03: freeze existing hosted CI failure/capacity readback, prepare bounded standard-runner sccache/nextest/job policy without new paid resources or publication. Complete actual POST/Redis/live Responses gates as soon as local environment is supplied/selected.",
+  "next_action": "Finish local U-PE-03 checkpoint, then UP-PH0-ACCEPT: initialize the single local project from private owner-provided key/workspace, provision native scoped roles and source-bound services, verify real Responses/Redis and Assistant/Knowledge/Local Node journeys. Keep U-PE-03 hosted PR cohort open; no paid resource, publication or production change authorized.",
   "constraints": [
     "All platform services and operational tools are Rust; optional Python user-code sandbox retained.",
     "Preserve existing changes, public contracts, tenant isolation and project volumes.",
@@ -132,6 +132,22 @@
       "failed": 0,
       "ignored": 0,
       "scope": "Five selected platform-tools targets; no native workspace or product acceptance claim."
+    },
+    "ci_capacity_candidate": {
+      "status": "direct_verified_hosted_acceptance_open",
+      "receipt": "reports/platform-upgrade-20261017/U-PE-03.json",
+      "distinct_cargo_tests_passed": 95,
+      "pinned_nextest_subset_passed": 8,
+      "hosted_candidate": "NOT_RUN",
+      "pr_p50": "NOT_MEASURED"
+    },
+    "local_environment_preparation": {
+      "status": "private_env_initialized",
+      "project": "agentforge-dev-7801d4a9a4",
+      "doctor": "PASS",
+      "provider_authentication": "Exact plain clipboard key matches saved value. Workspace Responses, embedding and independent curl/x-api-key Anthropic all401 InvalidApiKey. Key validity/workspace binding unresolved; no unchanged retry.",
+      "complete_runtime_acceptance": "NOT_RUN",
+      "private_values_in_git": false
     }
   },
   "blockers": [
@@ -161,21 +177,21 @@
     },
     {
       "id": "local-environment-unavailable",
-      "cause": "At activation .env.dev, Docker volumes and the historical Buildx builder are absent on this machine. Node v24.14.0/pnpm 10.33.0 differ from required 26.11.1/12.11.2.",
+      "cause": "Owner has now supplied a provider credential and Singapore workspace API Host. Private .env.dev was initialized with mode0600. Original local containers/volumes/builder remain absent; selected project identity is unchanged.",
       "affected_scope": "UP-PH0-ACCEPT live journeys and source-bound Runtime/Worker images",
-      "next_action": "Locate existing authorized private inputs and controlled upstream/cache without printing secrets; continue offline code/gates meanwhile. Do not create duplicate infrastructure or fabricate original data."
+      "next_action": "Continue same-project local acceptance setup and source-bound builds using existing Docker builders, preserving any newly created data. Provider workspace probes and complete runtime acceptance remain separately measured."
     },
     {
       "id": "responses-idempotency-observation",
-      "cause": "Read-only review confirmed native Responses aborts the idempotency claim after accepted start_turn on event-stream open/read failure or EOF; finish discards 5xx. Retry may submit a second turn.",
+      "cause": "Post-accept cache source fix is compiled and five helper tests pass; actual POST/Redis/live evidence is still open.",
       "affected_scope": "Non-streaming public /v1/responses retry safety; Ph0 acceptance",
-      "next_action": "Implement UP-PH0-RESPONSES after U-PE-02; preserve and prove cached observer failure semantics with exact route start count and real-store/live evidence."
+      "next_action": "Use the owner-selected local environment for counted production POST and real Redis regressions, then paired-service retry journey."
     },
     {
       "id": "clean-ci-native-inputs",
-      "cause": "Current main CI is failed. A native include_bytes watermark is absent from clean Git; architecture lacks composed upstream input; some gates lack installed tool binary; frontend route smoke also failed.",
+      "cause": "Watermark restored, missing final tool installation wired, focused formatting repaired. Remaining historical CI failures include composed upstream input, V8 artifact fetch and frontend route smoke; no new hosted candidate has run.",
       "affected_scope": "Ph0 native candidate/build and hosted CI acceptance",
-      "next_action": "First restore exact existing Git asset required by Gateway compilation, then repair each actual failing path without weakening tests; source-bound green hosted rerun remains required."
+      "next_action": "Continue repairing actual failed paths without weakening tests. Source-bound hosted candidate and real PR cohort need explicit publication approval when ready."
     }
   ],
   "history": {
@@ -190,9 +206,11 @@
     "database/migrations/2026_08_post_kb_v1/SUCCESSOR_022_ACTIVATION.json",
     "reports/platform-upgrade-20261017/U-PE-01.json",
     "reports/platform-upgrade-20261017/U-PE-02.json",
-    "reports/platform-upgrade-20261017/UP-PH0-RESPONSES.json"
+    "reports/platform-upgrade-20261017/UP-PH0-RESPONSES.json",
+    "reports/platform-upgrade-20261017/U-PE-03.json",
+    "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json"
   ],
-  "active_package": "U-PE-03",
+  "active_package": "UP-PH0-ACCEPT",
   "plan_adoption": {
     "domain_id": "platform-upgrade-2026-10",
     "source": "docs/plans/platform-upgrade-2026-10/README.md",
@@ -2115,17 +2133,18 @@
       "result": "Hosted CI capacity: runners, `sccache`, `nextest`, job parallelism",
       "priority": "P1",
       "phase": "Ph0",
-      "status": "in_progress",
+      "status": "direct_verified",
       "acceptance": "PR CI p50 measured, then ≤ 20 min",
       "activation_condition": "Required; review current code and freeze package boundaries before activation.",
       "depends_on": [],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "not_assessed",
-      "verification": "not_run",
+      "implementation": "bounded CI candidate implemented and integrated; hosted acceptance pending",
+      "verification": "95 related Cargo tests pass; pinned nextest selected8 pass; actual tool negative fixtures4 pass; actionlint/fmt/harness/enforcement pass",
       "evidence": [
-        "deploy/runbooks/native-enterprise-upgrade/U-PE-03.md"
+        "deploy/runbooks/native-enterprise-upgrade/U-PE-03.md",
+        "reports/platform-upgrade-20261017/U-PE-03.json"
       ],
-      "base_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+      "base_sha": "7c8a77f0440d8334e35018ac5ed0530aa2d4fbf2",
       "owned_paths": [
         ".github/actions/setup-native/action.yml",
         "rust/platform-native/crates/platform-tools/src/rust_gate.rs",
@@ -2133,7 +2152,14 @@
         "rust/platform-native/crates/platform-tools/src/main.rs",
         "rust/platform-native/crates/platform-tools/tests/ci_capacity.rs",
         "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs",
-        "docs/harness/commands.md"
+        "docs/harness/commands.md",
+        "rust/platform-native/crates/platform-tools/src/ci.rs",
+        "rust/platform-native/crates/platform-tools/src/ci_capacity_policy.rs",
+        "rust/platform-native/crates/platform-tools/src/ci_capacity_bootstrap.rs",
+        "rust/platform-native/crates/platform-tools/src/performance.rs",
+        "rust/platform-native/crates/platform-tools/src/harness.rs",
+        "docs/harness/integration-and-rollback.md",
+        "rust/platform-native/crates/platform-tools/src/architecture.rs"
       ],
       "integration_paths": [
         ".github/workflows/ci.yml",
@@ -2172,6 +2198,13 @@
       "stop_conditions": [
         "New paid capacity is required without owner authorization",
         "Test/skip population changes without preserving original obligations"
+      ],
+      "scope_note": "Shared std-only Rust capacity policy bootstraps the action before Cargo; hosted changed-crate opt-in only, other jobs and local builds remain one job. CI-only nextest retains separate Cargo doctests based on real metadata. Final enforcement/release jobs install their operational tools. Also repair the existing focused formatting gate in performance.rs/harness.rs with rustfmt-only changes; no behavior change. Full platform-tools units exposed two macOS temp-path fixture errors (/var aliases /private/var); canonicalize only those test fixture roots, preserve production containment and rejection assertions.",
+      "remaining_required": [
+        "Successful source-bound hosted candidate run on the existing standard runners; no dispatch or push has occurred.",
+        "Valid PR latency cohort: p50 <=20 minutes; failed push history and local tests are not acceptance.",
+        "Measure cache hits, observed job concurrency, cold final-tool setup, memory and gate outcomes.",
+        "Repair remaining observed clean CI failures: architecture composed source input, upstream V8 artifact fetch, frontend route smoke."
       ]
     },
     {
@@ -2504,7 +2537,84 @@
         "Real Redis replay and store-failure behavior",
         "Current paired Gateway/Runtime/Worker public retry journey"
       ],
-      "blocker": "Original local environment absent; user environment selection/input question pending. Authenticated route/real-store/live evidence must not be replaced with helper fixtures."
+      "blocker": "Private environment is initialized; source-bound local infra/services and actual POST/Redis/live gates still required."
+    },
+    {
+      "id": "UP-PH0-ACCEPT",
+      "phase": "Ph0",
+      "priority": "P0",
+      "status": "in_progress",
+      "source": "docs/plans/platform-upgrade-2026-10/README.md#6-phases-and-work-package-map",
+      "result": "Accept current source-bound native build through original Assistant, Knowledge and Local Node journeys and required fault/recovery gates.",
+      "base_sha": "7c8a77f0440d8334e35018ac5ed0530aa2d4fbf2",
+      "depends_on": [
+        {
+          "id": "U-PE-01",
+          "required_state": "direct_verified"
+        },
+        {
+          "id": "U-PE-02",
+          "required_state": "verified"
+        }
+      ],
+      "owned_paths": [
+        ".env.dev (ignored private input only)",
+        "scripts/new/setup-dev.sh",
+        "scripts/new/init-env.sh"
+      ],
+      "integration_paths": [
+        "deploy/local/**",
+        "scripts/new/common.sh",
+        "Makefile",
+        "deploy/runbooks/native-enterprise-upgrade/**",
+        "reports/platform-upgrade-20261017/**"
+      ],
+      "forbidden_paths": [
+        "database/baselines/**",
+        "historical receipts",
+        "production environments",
+        "additional Compose projects or Buildx builders"
+      ],
+      "must_preserve": [
+        "One project agentforge-dev-7801d4a9a4, all volumes/data and existing source modifications.",
+        "Native host builds one job, external targets, no debug/incremental. Runtime/Worker controlled Docker source workflow and paired source lock.",
+        "Scoped application database roles through native authority; never change fingerprints or bypass privilege guards.",
+        "Original API, tenant isolation, idempotency, failure and recovery contracts; zero unexpected skips.",
+        "No secrets or private captures in Git/output; no new paid resources or external publication without approval."
+      ],
+      "direct_gates": [
+        "make doctor with selected private environment",
+        "Affected source checks and real provider connectivity with synthetic inputs only; do not substitute for product journeys"
+      ],
+      "integration_gates": [
+        "Native frozen database verification and role-positive/negative contracts",
+        "Real Redis plus counted production Responses POST failure/retry cases",
+        "Current paired-service source/image identity and health readiness"
+      ],
+      "live_gates": [
+        "Original Assistant start/history/tool/approval/cancel/recovery journeys on accepted source",
+        "Knowledge ingest/versioned citations/current ACL and uncached vector retrieval",
+        "Local Node successor023 scoped TLS pairing/read-write/cancel/emergency-stop journeys",
+        "Applicable degraded-state and rollback journeys; record exact commands and identities"
+      ],
+      "skip_policy": "No required acceptance gate may skip; direct provider/compile/unit proof is not runtime acceptance.",
+      "rollback": "Preserve data; declare transition rollback class before any schema change; source/image rollback only within admitted schema/protocol window.",
+      "review": {
+        "mode": "independent read-only",
+        "threshold": "blocker/high"
+      },
+      "evidence": [
+        "deploy/runbooks/native-enterprise-upgrade/UP-PH0-ACCEPT.md",
+        "reports/platform-upgrade-20261017/UP-PH0-ACCEPT-preflight.json"
+      ],
+      "stop_conditions": [
+        "Unproven runtime ownership or source/image identity",
+        "New paid resource, production mutation or publication without approval",
+        "Data loss or weakened tenant/privilege/acceptance contract"
+      ],
+      "implementation": "private environment preparation in progress",
+      "verification": "doctor PASS; new complete runtime acceptance NOT_RUN",
+      "authorization_note": "Owner explicitly supplied clipboard credential and workspace API Host for local development and acceptance on 2026-10-17."
     }
   ]
 }

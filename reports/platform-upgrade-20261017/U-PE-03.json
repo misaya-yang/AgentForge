@@ -1,0 +1,156 @@
+{
+  "schema": "platform-upgrade/checkpoint-v1",
+  "package": "U-PE-03",
+  "observed_at": "2026-10-17T04:51:00.950257Z",
+  "source_base_sha": "7c8a77f0440d8334e35018ac5ed0530aa2d4fbf2",
+  "status": "DIRECT_VERIFIED_HOSTED_ACCEPTANCE_OPEN",
+  "implementation": [
+    "Pinned sccache 0.18.0 and nextest 0.9.148 installed by immutable action commits; default one-job action and opt-in standard hosted bounded policy.",
+    "Shared rustc-only Rust bootstrap detects CPUs/memory: max4 build jobs, reserve2GiB, 3GiB/job, max2 nextest threads. Native/local/self-hosted stays one job. Build command and gate children explicitly apply policy.",
+    "Changed packages use nextest with default filters ignored and no-tests failure; only exit4 falls back to original Cargo test. Enabled library doctests run separately, failure propagates.",
+    "One 55-minute monotonic gate budget covers source fetch/assembly, metadata and tests; phase receipts and external composed scratch.",
+    "Final enforcement and release-readiness jobs install required native tools. Existing two formatting failures and macOS temp-path fixtures repaired without changing production containment."
+  ],
+  "verification": {
+    "cargo_tests": {
+      "result": "PASS",
+      "distinct_tests": 95,
+      "failed": 0,
+      "ignored": 0,
+      "targets": {
+        "library": 5,
+        "platform-tools binary": 68,
+        "ci_capacity integration": 2,
+        "tools_migration_parity_ci integration": 20
+      },
+      "log_sha256": "6ffa615b3c772420b8e91f43cb3f7b3fa29baf974ca290886dfdb3477aca9dc7"
+    },
+    "final_cli_and_ci_rerun": {
+      "result": "PASS",
+      "tests": 22,
+      "log_sha256": "352be5d4c1e0fc6359505fc91f3d2fa0aa6b508009a60100b780d4d8753138a5"
+    },
+    "pinned_nextest": {
+      "version": "0.9.148",
+      "result": "PASS",
+      "selected_tests": 8,
+      "unselected_tests": 60,
+      "scope": "Capacity and Rust gate unit subset, not all nextest test population or hosted run"
+    },
+    "cargo_doctests": {
+      "result": "PASS",
+      "tests": 0,
+      "scope": "ai-platform-tools library has no doctests"
+    },
+    "actual_tool_negative_contracts": [
+      {
+        "case": "default-filter-cannot-hide-unit",
+        "command": [
+          "cargo",
+          "nextest",
+          "run",
+          "--locked",
+          "--no-tests=fail",
+          "--ignore-default-filter",
+          "--no-fail-fast",
+          "--test-threads",
+          "1"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "result": "pass",
+        "log_sha256": "e016f0e356a6a668f0446ebb0e61f795d8c57b337c6b05f68af651867034bfde"
+      },
+      {
+        "case": "failing-doctest",
+        "command": [
+          "cargo",
+          "test",
+          "--doc",
+          "--locked"
+        ],
+        "expected_exit": 101,
+        "actual_exit": 101,
+        "result": "pass",
+        "log_sha256": "9ae79b965539590ef2595ea86c00853575610c82f1aed9e2532a49d0cd53dc8c"
+      },
+      {
+        "case": "binary-no-tests",
+        "command": [
+          "cargo",
+          "nextest",
+          "run",
+          "--locked",
+          "--no-tests=fail",
+          "--ignore-default-filter",
+          "--test-threads",
+          "1"
+        ],
+        "expected_exit": 4,
+        "actual_exit": 4,
+        "result": "pass",
+        "log_sha256": "610589b98a26c2bd38a08e25e409d5934a3f05d3536caa1c89993a7bfe7b7742"
+      },
+      {
+        "case": "binary-original-cargo-fallback",
+        "command": [
+          "cargo",
+          "test",
+          "--locked"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "result": "pass",
+        "log_sha256": "6d58a3de2a13ee99c7b74103824b6b676713655e8ca1038b4b58b6fa12c0df2f"
+      }
+    ],
+    "actionlint": {
+      "version": "1.7.12",
+      "result": "PASS",
+      "workflow": ".github/workflows/ci.yml"
+    },
+    "format_gate": {
+      "result": "PASS",
+      "command": "cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools -p ai-platform-release -- --check"
+    },
+    "harness": "PASS, zero errors, five pre-existing program metadata warnings",
+    "ci_gate_enforcement_selftest": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "review": {
+    "mode": "independent read-only Luna reviewer",
+    "blocker_or_high_findings": 0,
+    "resolved_medium": "Action build now explicitly computes CARGO_BUILD_JOBS from the shared bootstrap; capacity receipt includes ambient values.",
+    "open_medium": "gate-enforcement cold tool installation/build must be measured against its 10-minute job deadline."
+  },
+  "remaining_required": [
+    "Successful source-bound hosted candidate run on the existing standard runners; no dispatch or push has occurred.",
+    "Valid PR latency cohort: p50 <=20 minutes; failed push history and local tests are not acceptance.",
+    "Measure cache hits, observed job concurrency, cold final-tool setup, memory and gate outcomes.",
+    "Repair remaining observed clean CI failures: architecture composed source input, upstream V8 artifact fetch, frontend route smoke."
+  ],
+  "not_run": [
+    "Hosted sccache use/cache hit measurement",
+    "Hosted complete changed-native/composed-overlay tests",
+    "Public CI publication/dispatch and PR cohort"
+  ],
+  "changed_source_sha256": {
+    ".github/actions/setup-native/action.yml": "90ad4910872b9d9f0b3b899325c50ecad58c1e903bae20911903fff06723d4d3",
+    ".github/workflows/ci.yml": "318d81e825718c4d93297ba04b04721b7a1a37c66cfdf574f04e675c056e6b3f",
+    "docs/harness/commands.md": "3aebc602ac78d763a4a364975c1c72d23a6f2264d1b3caaf8aaeac990a214b29",
+    "docs/harness/integration-and-rollback.md": "eb95b078756be7a8c0df3c57d680dcd84fd42d1992bcc0014695c650fede9164",
+    "harness.yml": "f6b193e21ceec3b6f64446d1693e3493c38f6021506f3199b7a55a41c2f6d1dc",
+    "rust/platform-native/crates/platform-tools/src/architecture.rs": "40a93783bfd27d2e3ecdccb94de174c08f04576402d547ee4fe6d14beec0283e",
+    "rust/platform-native/crates/platform-tools/src/ci.rs": "4fe0fc53788a8190f33f5a063bcd75d5145926d617c080f170e081eee68201dd",
+    "rust/platform-native/crates/platform-tools/src/ci_capacity.rs": "727b8c405caa24d48acb79af3734140e8504c5708e2126429c11854fdbb97f4b",
+    "rust/platform-native/crates/platform-tools/src/ci_capacity_bootstrap.rs": "f4fdeee245cf041fb578cfa5613555531c3607f5ab3bea5a083030438e20f047",
+    "rust/platform-native/crates/platform-tools/src/ci_capacity_policy.rs": "d8c8ec45903e6e7edba3037c9f1f8be3c799fb7ff5265ef825d9b1a84857d8bd",
+    "rust/platform-native/crates/platform-tools/src/harness.rs": "e7ba049c3f04b151851cf58cb8a0f981fc77f3fd7fcc2d78939d2f7977f69d11",
+    "rust/platform-native/crates/platform-tools/src/main.rs": "a8aa6c5da085886a74184cd220f4455fe054d5cb341bcb77ce38454726338ba1",
+    "rust/platform-native/crates/platform-tools/src/performance.rs": "d6e170fc89cd68607bd8791003e56e9db08724b3ff21b3f784080127abd276cc",
+    "rust/platform-native/crates/platform-tools/src/rust_gate.rs": "afb2042d69e01700ca204b3f5a8e6a273678f727adf4997c17dd29f02c75703f",
+    "rust/platform-native/crates/platform-tools/tests/ci_capacity.rs": "cfe3eaab7201f4a002a091426122d3684b9e17abfc7ad0edff39a54ef288a729",
+    "rust/platform-native/crates/platform-tools/tests/tools_migration_parity_ci.rs": "6f3011c3607086c32ce2422c5d17e3d73166eafe31bad7386d922b432bce0a7f"
+  },
+  "authorization": "Local implementation/checkpoint only; new paid resources, production changes and external publication require owner approval."
+}

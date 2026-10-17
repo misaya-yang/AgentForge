@@ -39,7 +39,7 @@ impl Drop for Fixture {
     }
 }
 fn workflow() -> Value {
-    json!({"jobs":{"frontend":{"steps":[{"run":"make frontend-gate"}]},"architecture-gates":{"steps":[{"uses":"actions/checkout@v4","with":{"fetch-depth":0}},{"run":"exit \"$failed\""}]},"compose-and-harness":{"steps":[{"run":"make ci-gate-enforcement-selftest"}]},"agent-runtime-contracts":{"steps":[{"run":"exit \"$failed\""}]},"gate-enforcement":{"if":"always()","needs":["frontend"],"steps":[{"run":"make ci-gate-enforcement\nmake affected-gates"}]},"release-ready":{"needs":["gate-enforcement"]},"rust-changed-crate":{"env":{"CARGO_BUILD_JOBS":"1"}}}})
+    json!({"jobs":{"frontend":{"steps":[{"run":"make frontend-gate"}]},"architecture-gates":{"steps":[{"uses":"actions/checkout@v4","with":{"fetch-depth":0}},{"run":"exit \"$failed\""}]},"compose-and-harness":{"steps":[{"run":"make ci-gate-enforcement-selftest"}]},"agent-runtime-contracts":{"steps":[{"run":"exit \"$failed\""}]},"gate-enforcement":{"if":"always()","needs":["frontend"],"steps":[{"uses":"./.github/actions/setup-native"},{"run":"make ci-gate-enforcement\nmake affected-gates"}]},"release-ready":{"needs":["gate-enforcement"],"steps":[{"uses":"./.github/actions/setup-native"}]},"rust-changed-crate":{"steps":[{"uses":"./.github/actions/setup-native","with":{"capacity-profile":"hosted","nextest":"true"}}]}}})
 }
 fn gates() -> Value {
     json!({"affected_gates":{"make":"affected-gates","required_on":["change","release"],"ci_job":"gate-enforcement","evidence":"selector.json"},"frontend":{"make":"frontend-gate","required_on":["change","release"],"ci_job":"frontend","evidence":"frontend.log"},"manual_live":{"required_on":["manual"],"ci_job":"manual","evidence":"live.log"}})
@@ -212,6 +212,41 @@ fn fetch_depth_belongs_to_architecture_checkout_step() {
             flow,
             false,
         );
+    }
+}
+#[test]
+fn hosted_capacity_and_operational_tools_are_required_in_the_owning_jobs() {
+    for broken in [
+        "capacity",
+        "nextest",
+        "override",
+        "final-tools",
+        "release-tools",
+    ] {
+        let mut w = workflow();
+        match broken {
+            "capacity" => {
+                w["jobs"]["rust-changed-crate"]["steps"][0]["with"]["capacity-profile"] =
+                    json!("single")
+            }
+            "nextest" => {
+                w["jobs"]["rust-changed-crate"]["steps"][0]["with"]["nextest"] = json!("false")
+            }
+            "override" => w["jobs"]["rust-changed-crate"]["env"] = json!({"CARGO_BUILD_JOBS":"32"}),
+            "final-tools" => {
+                w["jobs"]["gate-enforcement"]["steps"][0] = json!({"run":"echo setup-native"})
+            }
+            "release-tools" => w["jobs"]["release-ready"]["steps"] = json!([]),
+            _ => unreachable!(),
+        }
+        let v = enforce(
+            gates(),
+            selection(),
+            json!({"frontend":"success"}),
+            w,
+            false,
+        );
+        assert!(!v["failures"].as_array().unwrap().is_empty(), "{broken}");
     }
 }
 fn harness(gate: Value, run: &str) -> Fixture {
