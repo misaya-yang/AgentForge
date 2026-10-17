@@ -1,6 +1,6 @@
 {
   "schema": "agentforge/source-checkpoint/v1",
-  "observed_at": "2026-10-17T13:24:17.409817+00:00",
+  "observed_at": "2026-10-17T13:25:48.151328+00:00",
   "status": "source_checkpoint_verified_with_explicit_open_acceptance_gates",
   "scope": "Owner-authorized source checkpoint and ordinary Git push; continue tomorrow. Not full109-package or release/product acceptance.",
   "branch": "codex/platform-upgrade-2026-10",
@@ -355,6 +355,16 @@
     "Remaining required work packages; original candidate/on-demand activation conditions preserved"
   ],
   "resume": "Read sole loop-state.json and this receipt; verify clean checkout/remote identity, source28/main25 and current ce032 source-only lock. Resume original109-package dependencies and required gates without rebuilding a host server cache or starting stale Runtime images.",
-  "publication": "Final checks complete; owner-authorized ordinary commit/push follows. This is a source checkpoint with open release/product gates. The containing commit is the receipt identity; verify local/remote equality on resume.",
-  "goal_after_publication": "Pause at owner request; original109-package objective remains unchanged and incomplete."
+  "publication": {
+    "status": "implementation_checkpoint_pushed_and_remote_verified",
+    "implementation_commit": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+    "branch": "codex/platform-upgrade-2026-10",
+    "remote_ref": "refs/heads/codex/platform-upgrade-2026-10",
+    "remote_head_at_verification": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+    "local_head_at_verification": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+    "verified_at": "2026-10-17T13:25:48.151328+00:00",
+    "working_tree_clean_at_verification": true,
+    "scope": "Ordinary source branch push only; no PR, product release, production deploy or full goal completion. This following bookkeeping commit only records publication and owner pause."
+  },
+  "goal_after_publication": "Paused at owner request; original109-package objective remains unchanged and incomplete. Resume only when requested."
 }

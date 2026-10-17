@@ -4,7 +4,7 @@
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "paused",
   "status": "in_progress",
-  "last_updated": "2026-10-17T13:24:17.409817+00:00",
+  "last_updated": "2026-10-17T13:25:48.151328+00:00",
   "priority": "Owner requested commit/push of a stable end-of-day source checkpoint and continuation tomorrow. Stop goal work after publication; do not declare all109 packages or full release acceptance complete.",
   "active_phase": "platform_upgrade_ph0",
   "next_action": "On owner resume: verify clean checkout and remote checkpoint identity; read reports/platform-upgrade-20261017/end-of-day-checkpoint.json, source28/main25 and ce032 source-only lock with all4 OCI start permissions false. Continue required implementation by original dependencies/priorities; resolve strict dependency/license/skip-baseline and legacy live Docker run-phase gates; build/admit current paired images and perform prescribed real service/provider/browser/rollback acceptance when prerequisites hold. No host server cache rebuild, stale-image startup, acceptance weakening or new scope.",
@@ -1596,7 +1596,7 @@
       "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-openapi-r5.log"
     },
     "end_of_day_checkpoint": {
-      "status": "source_verified_publication_next_then_owner_pause",
+      "status": "paused_by_owner_after_verified_source_checkpoint_push",
       "receipt": "reports/platform-upgrade-20261017/end-of-day-checkpoint.json",
       "branch": "codex/platform-upgrade-2026-10",
       "selected_native_passed": 1027,
@@ -1611,7 +1611,17 @@
         "legacy live Docker runtime phase",
         "required remaining implementation and prescribed real acceptance"
       ],
-      "push": "ordinary branch publication authorized; final local/remote equality is checked after containing commit is created",
+      "push": {
+        "status": "implementation_checkpoint_pushed_and_remote_verified",
+        "implementation_commit": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+        "branch": "codex/platform-upgrade-2026-10",
+        "remote_ref": "refs/heads/codex/platform-upgrade-2026-10",
+        "remote_head_at_verification": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+        "local_head_at_verification": "6c7c49c454214ecdfb340d6e94859543243fbb8d",
+        "verified_at": "2026-10-17T13:25:48.151328+00:00",
+        "working_tree_clean_at_verification": true,
+        "scope": "Ordinary source branch push only; no PR, product release, production deploy or full goal completion. This following bookkeeping commit only records publication and owner pause."
+      },
       "staged_review": "1358 files; upstream vendor source/provenance preserved, first-party placeholders0, tracked secret matches0, forbidden paths0; no unstaged or untracked task files"
     },
     "restored_local_infrastructure": {
@@ -4551,5 +4561,5 @@
       "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds. Next source-build step: existing-builder-only selection with context/resource validation; serial Runtime/Worker builds must never create a new builder. Private native options may use current public example with external PDF/storage paths; no runtime acceptance until all services admitted."
     }
   ],
-  "execution_note": "Owner pause requested after checkpoint publication. Final Docker native all-target check PASS45.07s; selected native1027PASS/27ignored, frontend2127PASS/0skipped, controlled Runtime+Worker+contract287PASS/13ignored. Exact U-GW12/U-KN03 unfinished drafts removed from active source and external handoffs preserved. Four original infrastructure containers restored healthy/ready with identical ids/images/volumes; no business service startup, database migration or new provider action. Host duplicate intermediates freed18.12GiB; single daily Docker cache. Full package/live/security acceptance remains open; this is not goal completion."
+  "execution_note": "Owner pause requested after checkpoint publication. Final Docker native all-target check PASS45.07s; selected native1027PASS/27ignored, frontend2127PASS/0skipped, controlled Runtime+Worker+contract287PASS/13ignored. Exact U-GW12/U-KN03 unfinished drafts removed from active source and external handoffs preserved. Four original infrastructure containers restored healthy/ready with identical ids/images/volumes; no business service startup, database migration or new provider action. Host duplicate intermediates freed18.12GiB; single daily Docker cache. Full package/live/security acceptance remains open; this is not goal completion. Implementation checkpoint6c7c49c pushed to origin/codex/platform-upgrade-2026-10; remote/local exact SHA and clean tree verified. Following bookkeeping only records actual publication and pause."
 }
