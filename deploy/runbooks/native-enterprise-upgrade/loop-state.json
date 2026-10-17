@@ -2601,7 +2601,9 @@
         "scripts/harness/build_agent_capability_worker_image.sh",
         "deploy/agent-runtime-source/README.md",
         "rust/platform-native/crates/platform-tools/tests/buildx_existing.rs",
-        "deploy/agent-runtime-source/lock.json"
+        "deploy/agent-runtime-source/lock.json",
+        "scripts/rust/build-update.sh",
+        "scripts/rust/locks.sh"
       ],
       "integration_paths": [
         "deploy/local/**",
