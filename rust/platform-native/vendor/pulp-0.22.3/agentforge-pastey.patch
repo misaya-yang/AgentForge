@@ -1,0 +1,12 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -98,7 +98,8 @@
+ default-features = false
+ 
+ [dependencies.paste]
+-version = "1"
++package = "pastey"
++version = "=0.2.3"
+ 
+ [dependencies.pulp-macro]
+ version = "0.1.1"

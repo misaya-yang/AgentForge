@@ -1,0 +1,301 @@
+{
+  "schema": "agentforge/source-implementation-receipt/v1",
+  "requirement": "U-GW-05",
+  "created_at": "2026-10-17T09:55:56.193Z",
+  "status": "implemented_syntax_checked_not_compiled_or_accepted",
+  "scope": "Public inbound OpenAI Chat Completions/Embeddings/Models and Anthropic Messages with native streaming. Existing Responses and Knowledge private plane unchanged.",
+  "sources": [
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/README.md",
+      "sha256": "9b79bf0f9ed226f44821938e94ba1a0618e4a5f021dbe01258193a4bfa665ba1",
+      "lines": 113
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/codec.rs",
+      "sha256": "3f992e3aa54ea6e0394873df78d8659b11c54dfe8ce403964ac0a5b57a03078f",
+      "lines": 277
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+      "sha256": "554668497e02f4645a42c313051d0238d368a87a17ad2427cbb8304337091307",
+      "lines": 382
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/http.rs",
+      "sha256": "e180eb0decf311b19aa33b270618bb75bd6f0a1b4a3fef02c63214a9ab6f4ee0",
+      "lines": 304
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/meter.rs",
+      "sha256": "d3538a4fb3a0e8b202c4da4b190a5da77a57fec3aff01d913b613d7d994e901b",
+      "lines": 238
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/mod.rs",
+      "sha256": "11b87bddb55e73bc09bb42624f670ba0e837a990a4760c819c1e6ec50a4999d5",
+      "lines": 167
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/native.rs",
+      "sha256": "d3320ccb6d3269bb9ed9da53bb7cf3d232a94dd86067b069a5673bdde909ea20",
+      "lines": 451
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/raw_json.rs",
+      "sha256": "c0ce2e3bb04fbfe5b934232fb7d9a2f087ea99d671171897e324aa55d2dff6db",
+      "lines": 137
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+      "sha256": "c41eacb9df08ab14ca184d178c47cff3be726265f9db04baa14f5307fbea8310",
+      "lines": 237
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/llm_api/transport.rs",
+      "sha256": "c87b3975d0d4018d71d2f4a9ef96c0e38ed93d10555319b39100d2f08adb19e3",
+      "lines": 83
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/capabilities.rs",
+      "sha256": "3f4845ae133fe4f52a839a6eb2eae673c1e158a7b22597e608641b5bfcbd4000",
+      "scope": "Only append anthropic_messages and embeddings to existing allowed protocol set; frozen shared file"
+    }
+  ],
+  "official_protocol_materials": [
+    {
+      "url": "https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_chunk.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "6a7cf5c38f379433d05f175ef0601ad0c94bacf5c64168e7ebd44b14d41f22b3",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "71b254f0b41d740bbbbc1a94a5298fec7fc58a9fccf2acec1948c2a1f2b62f16",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/create_embedding_response.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "7a5a25314a25b5fc13361de3f77eecfdcd5c77e52c402955588957bffcebe13c",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/openai-python/main/src/openai/_streaming.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "4dfaf05e9da2e3d00b9ab9a41c3d8cb207b124b1cbeb85cd0b4db925bc3717ad",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/types/raw_message_delta_event.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "962c1474629ae4510079448f2d1ea0c8a42bb5ffa602830a3fe70eb4d106decf",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/types/message.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "cdf6b3feba97d806d76922253de41539cb36b2c87d911052d1412fd16b4f3da4",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/types/message_delta_usage.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "8ad15dff7eb7dee758ac8370a7ee9525a6e0cc32ac671c11e3e176aaf62d9b4e",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/types/usage.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "f764427ccd4a722ddb72ebedcbf4bc168e348de7657b565764d84b6110ed6ad1",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/lib/streaming/_messages.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "1a9901c6674af6cdbd1faa043986238d5112c6263834e501027e0fffd3fc9217",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/_client.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "097e39028e7a065da05ee0092fad74cee42f681f2d0fe31bfe6921f5db14476f",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/src/anthropic/_constants.py",
+      "retrieved_on": "2026-10-17",
+      "sha256": "296675734d7a260bb12d2c667686e09605bc68203f27c2013d85503f09d7ba2e",
+      "source_identity": "official SDK main response content; commit SHA not inferred"
+    }
+  ],
+  "implementation": {
+    "routes": [
+      "POST /v1/chat/completions",
+      "POST /v1/embeddings",
+      "POST /v1/messages",
+      "GET /v1/models",
+      "GET /v1/models/{model}"
+    ],
+    "production_chain": [
+      "LlmApi Axum handler",
+      "canonical AdmissionService current account/bound key verification",
+      "active tenant/user and existing service scope policy",
+      "tenant model registry exact unique selection + existing RoutingSnapshot.select",
+      "registered capability profile and native protocol binding",
+      "existing DispatchPreflight RBAC/validator/rate path",
+      "existing injected DispatchAdmission.acquire_for_request with real quota proof + CapacityResolver",
+      "frozen PgPriceBookService receipt",
+      "acknowledged DispatchLease.mark_dispatched before sole provider POST",
+      "native usage/terminal observer without response byte rewriting",
+      "Completed -> PgUsagePersistence raw write -> canonical cumulative quota/daily/hourly checkpoints via CheckpointSettlingPersistence",
+      "native success terminator delivery -> capacity release"
+    ],
+    "authorized_body_mutations": [
+      "resolved model alias only",
+      "missing native output cap from registered model ceiling",
+      "Chat stream_options.include_usage=true"
+    ],
+    "byte_integrity": "RawObject validates/rejects ambiguous top-level keys and patches only authorized top-level value spans. Equal values and other bytes remain unchanged. Unknown same-protocol body fields are retained.",
+    "unknown_effects": "No retry/redirect/proxy or local fake receipt. Cancellation, dropped response body, transport/error event, missing terminal/usage and unclassified non-2xx retain the existing durable PG token hold. Stream channel EOF before settled terminal produces a transport/body error. A successful response without actual usage fails closed.",
+    "accounting": "No new store or financial algorithm. Frozen price preparation and existing canonical persistence/stage receipts; invoke/stream request_type matches the Atomic admission reservation. Completed state alone never refunds tokens; canonical checkpoint required.",
+    "capability_change": "Existing capability schema allows native anthropic_messages/embeddings while retaining chat_completions/responses_v1. Same-protocol unsupported model kind/tools/strict schema/native search/parallel calls/streaming/input modalities fail closed.",
+    "tests_source_inventory": [
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "actual_handler_forwards_native_request_and_response_bytes_exactly",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "unsigned_requests_cannot_reach_provider_and_models_use_the_same_identity_gate",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "actual_stream_preserves_every_frame_and_commits_terminal_usage_once",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "missing_terminal_or_failed_transport_errors_the_body_and_retains_unknown_hold",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "dropped_stream_cancels_owned_work_and_persists_unknown_without_retry",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "rejected_http_without_usage_is_never_assumed_free_or_successful",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "embedding_and_anthropic_handlers_preserve_native_payloads_and_meter_actual_units",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "anthropic_handler_preserves_stream_and_uses_final_cumulative_usage",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs",
+        "name": "failed_accounting_cannot_expose_native_stream_success_terminator",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "native_protocol_profiles_extend_existing_wire_values_and_fail_closed",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "exact_same_protocol_bytes_and_unknown_cache_reasoning_fields_survive",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "authorized_model_and_stream_usage_mutations_patch_only_top_level_values",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "cross_tenant_ambiguity_access_and_key_restrictions_never_select_a_route",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "unsupported_tools_modalities_and_ambiguous_output_caps_fail_before_dispatch",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "official_sdk_bearer_keys_and_anthropic_keys_use_the_same_canonical_authority",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "openai_stream_requires_all_choices_done_and_real_terminal_usage",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "anthropic_cumulative_usage_replaces_counts_and_partitions_cache_once",
+        "execution": "not_run"
+      },
+      {
+        "path": "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs",
+        "name": "missing_negative_and_interrupted_usage_never_becomes_zero_or_success",
+        "execution": "not_run"
+      }
+    ]
+  },
+  "verification": {
+    "executed": [
+      {
+        "command": "/Users/yang/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin/rustfmt --edition 2024 --config skip_children=true --check rust/platform-native/crates/platform-gateway/src/llm_api/codec.rs rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/http.rs rust/platform-native/crates/platform-gateway/src/llm_api/meter.rs rust/platform-native/crates/platform-gateway/src/llm_api/mod.rs rust/platform-native/crates/platform-gateway/src/llm_api/native.rs rust/platform-native/crates/platform-gateway/src/llm_api/raw_json.rs rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/transport.rs",
+        "result": "PASS",
+        "limit": "Rust syntax/format parsing only; shared capabilities file intentionally frozen by primary"
+      },
+      {
+        "command": "Local Node explicit-file SHA256, trailing whitespace, per-file <=800 lines and unexecuted test source inventory",
+        "result": "PASS",
+        "test_source_count": 18
+      }
+    ],
+    "unrun": [
+      "Cargo check/test or Rust type checking",
+      "All new handler/codec/stream regression tests",
+      "PostgreSQL/Valkey integration and reservation/checkpoint fault injection",
+      "Official OpenAI and Anthropic SDK conformance against a running Gateway",
+      "Provider and browser acceptance",
+      "Final shared bootstrap/router integration"
+    ],
+    "required_next": [
+      "Primary adds pub mod llm_api and preserves CoreServices preflight/dispatch_admission clones",
+      "Primary binds existing registered service IDs under current tenant/key/RBAC policy, existing AdmissionService/ProviderService/pool and same AtomicDispatchAdmission",
+      "Primary serialized Rust1.99 Gateway/Foundation all-target build and tests",
+      "Real PG/Valkey acceptance: terminal usage settles exact original quote once; drop/error/unknown keeps hold; no duplicate provider POST on transport failures",
+      "Official SDK fixtures for each route, native request/response bytes, SSE chunk split boundaries and current account/key/model tenant restrictions"
+    ]
+  },
+  "integration": {
+    "constructor": "LlmApi::new(Arc<AdmissionService>, PgPool, Arc<DispatchPreflight>, Arc<dyn DispatchAdmission>, Arc<CapacityResolver>, Arc<dyn RuntimeProviderCredentials>, LlmBindings) -> LlmResult<LlmApi>",
+    "router": "router.merge(crate::llm_api::router(llm))",
+    "documentation": "rust/platform-native/crates/platform-gateway/src/llm_api/README.md",
+    "shared_files_not_edited": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "platform-gateway/src/lib.rs",
+      "migration_host/bootstrap/core.rs",
+      "other shared bootstrap",
+      "source locks",
+      "acceptance tests",
+      "loop-state.json"
+    ],
+    "related_UGW06": "Routing policy author informed of NativeBackend::prepare selection seam and trusted server Actor. Policy decision adapter remains owned by U-GW-06 author/primary; no alternate version/policy authority introduced."
+  }
+}

@@ -1,0 +1,30 @@
+# Only the short-lived migrator is selected. Updating hooks never removes the
+# application's persistent default-deny policy during pre-upgrade.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-migration-hook
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-20"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: migration
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+  - to:
+    - {{ toYaml .Values.data.postgres.peer | nindent 6 }}
+    ports: [{protocol: TCP, port: {{ .Values.data.postgres.port }}}]
+  - to:
+    - namespaceSelector:
+        matchLabels: {kubernetes.io/metadata.name: {{ .Values.network.dnsNamespace | quote }}}
+      podSelector:
+        matchLabels:
+{{ toYaml .Values.network.dnsLabels | indent 10 }}
+    ports:
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}

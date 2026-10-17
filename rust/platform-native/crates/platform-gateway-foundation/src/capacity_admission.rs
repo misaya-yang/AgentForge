@@ -123,8 +123,12 @@ impl RedisCapacityStore {
     pub fn new(connection: ConnectionManager) -> Self {
         Self {
             connection,
-            acquire: Script::new(CAPACITY_ACQUIRE_PAIR_LUA),
-            renew: Script::new(CAPACITY_RENEW_LUA),
+            acquire: Script::new(
+                r#"local clock=redis.call('TIME'); local now=tonumber(clock[1])*1000+math.floor(tonumber(clock[2])/1000); redis.call('ZREMRANGEBYSCORE',KEYS[1],'-inf',now); local n=redis.call('ZCARD',KEYS[1]); if n<tonumber(ARGV[5]) then redis.call('ZADD',KEYS[1],now+tonumber(ARGV[4]),ARGV[3]); redis.call('PEXPIRE',KEYS[1],ARGV[4]); end; return n"#,
+            ),
+            renew: Script::new(
+                r#"local clock=redis.call('TIME'); local now=tonumber(clock[1])*1000+math.floor(tonumber(clock[2])/1000); local score=redis.call('ZSCORE',KEYS[1],ARGV[3]); if not score or tonumber(score)<=now then return 0 end; redis.call('ZADD',KEYS[1],'XX',now+tonumber(ARGV[4]),ARGV[3]); redis.call('PEXPIRE',KEYS[1],ARGV[4]); return 1"#,
+            ),
             release: Script::new(CAPACITY_RELEASE_LUA),
         }
     }
@@ -132,18 +136,41 @@ impl RedisCapacityStore {
 impl CapacityStore for RedisCapacityStore {
     fn acquire<'a>(&'a self, request: &'a CapacityAcquire) -> CapacityStoreFuture<'a, (i64, i64)> {
         Box::pin(async move {
-            self.acquire
+            let shared: i64 = self
+                .acquire
                 .key(&request.pair.shared_key)
-                .key(&request.pair.tenant_key)
                 .arg(request.now_ms)
                 .arg(request.expires_at_ms)
                 .arg(&request.pair.member)
                 .arg(request.ttl_ms)
                 .arg(request.shared_limit)
+                .invoke_async(&mut self.connection.clone())
+                .await
+                .map_err(|_| CapacityStoreError::Unavailable)?;
+            if shared >= request.shared_limit {
+                return Ok((shared, -1));
+            }
+            let tenant: i64 = self
+                .acquire
+                .key(&request.pair.tenant_key)
+                .arg(request.now_ms)
+                .arg(request.expires_at_ms)
+                .arg(&request.pair.member)
+                .arg(request.ttl_ms)
                 .arg(request.tenant_limit)
                 .invoke_async(&mut self.connection.clone())
                 .await
-                .map_err(|_| CapacityStoreError::Unavailable)
+                .map_err(|_| CapacityStoreError::Unavailable)?;
+            if tenant >= request.tenant_limit {
+                let _: i64 = self
+                    .release
+                    .key(&request.pair.shared_key)
+                    .arg(&request.pair.member)
+                    .invoke_async(&mut self.connection.clone())
+                    .await
+                    .map_err(|_| CapacityStoreError::Unavailable)?;
+            }
+            Ok((shared, tenant))
         })
     }
     fn renew<'a>(
@@ -154,30 +181,35 @@ impl CapacityStore for RedisCapacityStore {
         ttl_ms: i64,
     ) -> CapacityStoreFuture<'a, bool> {
         Box::pin(async move {
-            let result: i64 = self
-                .renew
-                .key(&pair.shared_key)
-                .key(&pair.tenant_key)
-                .arg(now_ms)
-                .arg(expires_at_ms)
-                .arg(&pair.member)
-                .arg(ttl_ms)
-                .invoke_async(&mut self.connection.clone())
-                .await
-                .map_err(|_| CapacityStoreError::Unavailable)?;
-            Ok(result == 1)
+            for key in [&pair.shared_key, &pair.tenant_key] {
+                let result: i64 = self
+                    .renew
+                    .key(key)
+                    .arg(now_ms)
+                    .arg(expires_at_ms)
+                    .arg(&pair.member)
+                    .arg(ttl_ms)
+                    .invoke_async(&mut self.connection.clone())
+                    .await
+                    .map_err(|_| CapacityStoreError::Unavailable)?;
+                if result != 1 {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
         })
     }
     fn release<'a>(&'a self, pair: &'a CapacityPair) -> CapacityStoreFuture<'a, ()> {
         Box::pin(async move {
-            let _: i64 = self
-                .release
-                .key(&pair.shared_key)
-                .key(&pair.tenant_key)
-                .arg(&pair.member)
-                .invoke_async(&mut self.connection.clone())
-                .await
-                .map_err(|_| CapacityStoreError::Unavailable)?;
+            for key in [&pair.shared_key, &pair.tenant_key] {
+                let _: i64 = self
+                    .release
+                    .key(key)
+                    .arg(&pair.member)
+                    .invoke_async(&mut self.connection.clone())
+                    .await
+                    .map_err(|_| CapacityStoreError::Unavailable)?;
+            }
             Ok(())
         })
     }
@@ -345,6 +377,7 @@ struct ControllerInner {
     rejection_observer: OnceLock<Arc<dyn AdmissionRejectionObserver>>,
     options: AdmissionOptions,
     store: Option<Arc<dyn CapacityStore>>,
+    model_admission: OnceLock<Arc<atomic::model_plane::ModelPlaneAdmission>>,
     states: Mutex<Registry>,
     release_failures: AtomicU64,
     lost_leases: AtomicU64,
@@ -442,6 +475,7 @@ impl CapacityAdmissionController {
             inner: Arc::new(ControllerInner {
                 options,
                 store,
+                model_admission: OnceLock::new(),
                 rejection_observer: OnceLock::new(),
                 states: Mutex::new(Registry::default()),
                 release_failures: AtomicU64::new(0),
@@ -449,20 +483,49 @@ impl CapacityAdmissionController {
             }),
         })
     }
+    fn install_model_plane(
+        &self,
+        admission: Arc<atomic::model_plane::ModelPlaneAdmission>,
+    ) -> bool {
+        self.inner.model_admission.set(admission).is_ok()
+    }
+    pub fn model_plane_admission(&self) -> Option<Arc<atomic::model_plane::ModelPlaneAdmission>> {
+        self.inner.model_admission.get().cloned()
+    }
     pub fn set_rejection_observer(&self, observer: Arc<dyn AdmissionRejectionObserver>) -> bool {
         self.inner.rejection_observer.set(observer).is_ok()
     }
     pub fn shared_key(&self, budget_key: &str) -> String {
         format!(
-            "gateway:capacity:{}:global:{budget_key}",
-            self.inner.options.cluster_epoch
+            "gateway:capacity:{{{}}}:global:{}",
+            atomic::global_tag(&self.inner.options.cluster_epoch),
+            budget_key
         )
     }
     pub fn tenant_key(&self, tenant: &str, budget_key: &str) -> String {
         format!(
-            "gateway:tenant-capacity:{}:{tenant}:{budget_key}",
-            self.inner.options.cluster_epoch
+            "gateway:tenant-capacity:{{{}}}:{}:{}",
+            atomic::encode(tenant),
+            atomic::encode(&self.inner.options.cluster_epoch),
+            budget_key
         )
+    }
+    /// Same queues and local tenant fairness, with remote admission performed
+    /// by the aggregate Cluster-aware dispatcher rather than once per budget.
+    pub async fn acquire_local_only(
+        &self,
+        budgets: &[CapacityBudget],
+        request: &AdmissionRequest,
+    ) -> Result<CapacityLease, AdmissionError> {
+        let budgets: Vec<_> = budgets
+            .iter()
+            .cloned()
+            .map(|mut budget| {
+                budget.shared = false;
+                budget
+            })
+            .collect();
+        self.acquire(&budgets, request).await
     }
     pub fn tenant_limit_for(
         &self,
@@ -1063,3 +1126,6 @@ impl Drop for CapacityLease {
         self.start_release();
     }
 }
+
+#[path = "capacity_admission/atomic.rs"]
+pub mod atomic;

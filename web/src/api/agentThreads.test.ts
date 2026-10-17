@@ -182,3 +182,25 @@ test("selected provider reaches both real thread and turn requests without chang
   assert.equal(sent[1].body.model_id, "same");
   assert.equal(sent[1].body.provider_id, "second");
 });
+
+test("network flap after delivered tokens resumes the cursor, reports state and never starts a second turn", { timeout: 5_000 }, async t => {
+  const calls = startFixture(t);
+  t.mock.method(Math, "random", () => 0);
+  const first = response([event(1, "run_started"), event(2, "text_delta", { content: "A" })]);
+  const final = response([event(2, "text_delta", { content: "duplicate" }), event(3, "tool_call_result", { tool_call_id: "effect-1", result: "recorded" }), event(4, "text_delta", { content: "B" }), event(5, "run_finished")], true);
+  const cursors: string[] = []; const states: string[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    cursors.push(new URL(url, "http://fixture").searchParams.get("after_sequence")!);
+    if (cursors.length === 2) throw new TypeError("network disconnected");
+    assert.ok(cursors.length <= 3); return cursors.length === 1 ? first.response : final.response;
+  });
+  const received = [];
+  for await (const item of streamAgentRuntimeV2({ message: "hello", session_id: "session-1" }, t.signal, { onConnectionState: state => states.push(state) })) received.push(item);
+  assert.deepEqual(cursors, ["0", "2", "2"]);
+  assert.equal(received.filter(item => item.event_type === "text_delta").map(item => item.data).join(""), "AB");
+  assert.equal(received.filter(item => item.event_type === "run_finished").length, 1);
+  assert.equal(received.filter(item => item.event_type === "tool_call_result").length, 1);
+  assert.ok(states.includes("reconnecting")); assert.equal(states.at(-1), "server_terminal");
+  assert.equal(calls.filter(path => path.endsWith("/turns")).length, 1);
+  assert.equal(calls.filter(path => path.endsWith(":interrupt")).length, 0);
+});

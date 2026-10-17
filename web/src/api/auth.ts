@@ -20,8 +20,8 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
+  session_type: "cookie";
+  csrf_token: string;
   expires_in: number;
   user: LoginUser;
   force_password_change: boolean;
@@ -54,7 +54,8 @@ export interface CurrentUserResponse {
  * User login with email and password
  */
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  const response = await api.post<LoginResponse>("/api/v1/auth/login", data);
+  const response = await api.post<LoginResponse>("/api/auth/session", data);
+  if (response.data.session_type !== "cookie" || !response.data.csrf_token || !response.data.user?.user_id) throw new Error("Invalid Console session login");
   return response.data;
 }
 
@@ -62,20 +63,29 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
  * User logout
  */
 export async function logout(): Promise<void> {
-  await api.post("/api/v1/auth/logout");
+  await api.delete("/api/auth/session");
 }
 
 /**
  * Change user password
  */
 export async function changePassword(data: PasswordChangeRequest): Promise<void> {
-  await api.post("/api/v1/auth/change-password", data);
+  await api.post("/api/auth/session/password", data);
 }
 
 /**
  * Get current user information
  */
-export async function getCurrentUser(): Promise<CurrentUserResponse> {
-  const response = await api.get<CurrentUserResponse>("/api/v1/auth/me");
+export interface ConsoleSessionResponse {
+  user: CurrentUserResponse;
+  csrf_token: string;
+  expires_at: number;
+}
+export async function getConsoleSession(): Promise<ConsoleSessionResponse> {
+  const response = await api.get<ConsoleSessionResponse>("/api/auth/session");
+  if (!response.data.csrf_token || !response.data.user?.user_id) throw new Error("Invalid Console session bootstrap");
   return response.data;
+}
+export async function getCurrentUser(): Promise<CurrentUserResponse> {
+  return (await getConsoleSession()).user;
 }

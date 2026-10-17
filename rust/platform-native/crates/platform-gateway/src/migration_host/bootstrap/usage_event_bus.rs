@@ -8,12 +8,12 @@ use crate::{
     usage_recorder::{UsageEventPublisher, UsageFuture, UsageRecord, UsageRecorderError},
 };
 use redis::{
-    aio::MultiplexedConnection,
+    aio::ConnectionManager,
     streams::{StreamAutoClaimReply, StreamId, StreamReadReply},
 };
 use serde_json::{Value, json};
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     future::Future,
     pin::Pin,
     sync::{
@@ -52,14 +52,32 @@ impl UsageHandler for LoggingUsageHandler {
         })
     }
 }
+#[derive(Clone)]
+enum ConnectionSource {
+    Legacy(redis::Client),
+    Coordination(ai_platform_service_primitives::valkey::CoordConnection),
+}
+impl ConnectionSource {
+    async fn connect(&self) -> EventResult<ConnectionManager> {
+        match self {
+            Self::Legacy(client) => ConnectionManager::new(client.clone())
+                .await
+                .map_err(|_| EventError::Redis),
+            Self::Coordination(coord) => coord
+                .dedicated_manager()
+                .await
+                .map_err(|_| EventError::Redis),
+        }
+    }
+}
 pub struct UsageBusPublisher {
-    client: redis::Client,
-    connection: Mutex<Option<MultiplexedConnection>>,
+    source: ConnectionSource,
+    connection: Mutex<Option<ConnectionManager>>,
 }
 impl UsageBusPublisher {
-    fn new(client: redis::Client) -> Self {
+    fn new(source: ConnectionSource) -> Self {
         Self {
-            client,
+            source,
             connection: Mutex::new(None),
         }
     }
@@ -74,12 +92,7 @@ impl UsageBusPublisher {
         let result = async {
             let mut guard = self.connection.lock().await;
             if guard.is_none() {
-                *guard = Some(
-                    self.client
-                        .get_multiplexed_async_connection()
-                        .await
-                        .map_err(|_| EventError::Redis)?,
-                );
+                *guard = Some(self.source.connect().await?);
             }
             let connection = guard.as_mut().ok_or(EventError::Redis)?;
             let _: String = redis::cmd("XADD")
@@ -117,13 +130,29 @@ struct RunningConsumer {
 }
 pub struct UsageEventBus {
     pub publisher: Arc<UsageBusPublisher>,
-    client: redis::Client,
+    source: ConnectionSource,
     consumer_name: String,
     handler: Arc<dyn UsageHandler>,
     running: Mutex<Option<RunningConsumer>>,
     alive: Arc<AtomicBool>,
 }
 impl UsageEventBus {
+    /// Split mode cannot open a legacy URL outside the validated TLS/ACL boundary.
+    pub fn configured(
+        environment: &BTreeMap<String, String>,
+        coordination: Option<ai_platform_service_primitives::valkey::CoordConnection>,
+        consumer_name: String,
+    ) -> Result<Option<Arc<Self>>, BootstrapError> {
+        match configuration(environment, coordination.is_some())? {
+            BusConfiguration::Disabled => Ok(None),
+            BusConfiguration::Legacy(url) => Self::new(url, consumer_name).map(Some),
+            BusConfiguration::Coordination => Self::with_coordination(
+                coordination.ok_or(BootstrapError::Configuration("usage_event_coordination"))?,
+                consumer_name,
+            )
+            .map(Some),
+        }
+    }
     pub fn new(url: &str, consumer_name: String) -> Result<Arc<Self>, BootstrapError> {
         Self::with_handler(url, consumer_name, Arc::new(LoggingUsageHandler))
     }
@@ -137,9 +166,29 @@ impl UsageEventBus {
         }
         let client = redis::Client::open(url)
             .map_err(|_| BootstrapError::Configuration("EVENT_BUS_REDIS_URL"))?;
+        Self::from_source(ConnectionSource::Legacy(client), consumer_name, handler)
+    }
+    pub fn with_coordination(
+        connection: ai_platform_service_primitives::valkey::CoordConnection,
+        consumer_name: String,
+    ) -> Result<Arc<Self>, BootstrapError> {
+        Self::from_source(
+            ConnectionSource::Coordination(connection),
+            consumer_name,
+            Arc::new(LoggingUsageHandler),
+        )
+    }
+    fn from_source(
+        source: ConnectionSource,
+        consumer_name: String,
+        handler: Arc<dyn UsageHandler>,
+    ) -> Result<Arc<Self>, BootstrapError> {
+        if consumer_name.is_empty() {
+            return Err(BootstrapError::Configuration("usage_event_consumer_name"));
+        }
         Ok(Arc::new(Self {
-            publisher: Arc::new(UsageBusPublisher::new(client.clone())),
-            client,
+            publisher: Arc::new(UsageBusPublisher::new(source.clone())),
+            source,
             consumer_name,
             handler,
             running: Mutex::new(None),
@@ -230,7 +279,7 @@ impl UsageEventBus {
             ],
         )
     }
-    async fn ensure_group(connection: &mut MultiplexedConnection) -> EventResult<()> {
+    async fn ensure_group(connection: &mut ConnectionManager) -> EventResult<()> {
         let result: redis::RedisResult<String> = redis::cmd("XGROUP")
             .arg("CREATE")
             .arg(STREAM)
@@ -246,11 +295,7 @@ impl UsageEventBus {
         }
     }
     async fn consume(&self, stop: watch::Receiver<bool>) -> EventResult<()> {
-        let mut connection = self
-            .client
-            .get_multiplexed_async_connection()
-            .await
-            .map_err(|_| EventError::Redis)?;
+        let mut connection = self.source.connect().await?;
         Self::ensure_group(&mut connection).await?;
         let reclaimed = self.reclaim(&mut connection).await?;
         for message in reclaimed {
@@ -299,7 +344,7 @@ impl UsageEventBus {
         }
         Ok(())
     }
-    async fn reclaim(&self, connection: &mut MultiplexedConnection) -> EventResult<Vec<StreamId>> {
+    async fn reclaim(&self, connection: &mut ConnectionManager) -> EventResult<Vec<StreamId>> {
         let mut cursor = "0-0".to_owned();
         let mut seen = HashSet::new();
         let mut out = Vec::new();
@@ -338,7 +383,7 @@ impl UsageEventBus {
         }
         Ok(out)
     }
-    async fn finish(connection: &mut MultiplexedConnection, id: &str) -> EventResult<()> {
+    async fn finish(connection: &mut ConnectionManager, id: &str) -> EventResult<()> {
         let _: i64 = redis::cmd("XACK")
             .arg(STREAM)
             .arg(GROUP)
@@ -356,7 +401,7 @@ impl UsageEventBus {
     }
     async fn dlq(
         &self,
-        connection: &mut MultiplexedConnection,
+        connection: &mut ConnectionManager,
         id: &str,
         error: &str,
         attempts: i64,
@@ -386,7 +431,7 @@ impl UsageEventBus {
     }
     async fn handle_one(
         &self,
-        connection: &mut MultiplexedConnection,
+        connection: &mut ConnectionManager,
         message: StreamId,
     ) -> EventResult<()> {
         let raw = message
@@ -454,6 +499,79 @@ impl UsageEventBus {
             return Ok(());
         }
         Self::finish(connection, &message.id).await
+    }
+}
+
+enum BusConfiguration<'a> {
+    Disabled,
+    Legacy(&'a str),
+    Coordination,
+}
+fn configuration(
+    environment: &BTreeMap<String, String>,
+    split: bool,
+) -> Result<BusConfiguration<'_>, BootstrapError> {
+    let legacy = environment
+        .get("EVENT_BUS_REDIS_URL")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty());
+    if split && legacy.is_some() {
+        return Err(BootstrapError::Configuration("split_usage_bus_legacy_url"));
+    }
+    let enabled = match environment
+        .get("AI_PLATFORM_USAGE_EVENT_BUS_ENABLED")
+        .map(String::as_str)
+    {
+        None => legacy.is_some(),
+        Some("true" | "1") => true,
+        Some("false" | "0") => false,
+        _ => {
+            return Err(BootstrapError::Configuration(
+                "AI_PLATFORM_USAGE_EVENT_BUS_ENABLED",
+            ));
+        }
+    };
+    if !enabled {
+        return Ok(BusConfiguration::Disabled);
+    }
+    if split {
+        return Ok(BusConfiguration::Coordination);
+    }
+    Ok(BusConfiguration::Legacy(legacy.ok_or(
+        BootstrapError::Configuration("EVENT_BUS_REDIS_URL"),
+    )?))
+}
+
+#[cfg(test)]
+mod valkey_source_tests {
+    use super::*;
+    #[test]
+    fn split_bus_reuses_only_validated_coordination_and_rejects_legacy_urls() {
+        let mut env = BTreeMap::new();
+        assert!(matches!(
+            configuration(&env, true).unwrap(),
+            BusConfiguration::Disabled
+        ));
+        env.insert("AI_PLATFORM_USAGE_EVENT_BUS_ENABLED".into(), "true".into());
+        assert!(matches!(
+            configuration(&env, true).unwrap(),
+            BusConfiguration::Coordination
+        ));
+        assert!(configuration(&env, false).is_err());
+        env.insert(
+            "EVENT_BUS_REDIS_URL".into(),
+            "redis://localhost:6379/0".into(),
+        );
+        assert!(configuration(&env, true).is_err());
+        assert!(matches!(
+            configuration(&env, false).unwrap(),
+            BusConfiguration::Legacy(_)
+        ));
+        env.insert(
+            "AI_PLATFORM_USAGE_EVENT_BUS_ENABLED".into(),
+            "invalid".into(),
+        );
+        assert!(configuration(&env, false).is_err());
     }
 }
 /// Preserve source's two phases: malformed outer envelopes go to DLQ;

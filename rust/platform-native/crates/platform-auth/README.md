@@ -113,3 +113,8 @@ policy. In particular this introspection change does not grant external
 sessionless JWTs or missing-profile keys access to protected endpoints. The
 retained source's broader external-identity federation on those endpoints remains
 a separately documented policy difference pending its owning decision.
+
+The opt-in Console BFF, bounded Argon2id migration and EdDSA API-token rotation
+contract is documented in [BROWSER_AUTH.md](BROWSER_AUTH.md). The legacy bearer
+HTTP contract remains available; Console activation requires explicit HTTPS
+origins and key configuration, not a cookie-security downgrade.

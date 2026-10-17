@@ -316,7 +316,7 @@ pub fn materialize(
         json!({"changed_files":changed,"changed_lines":lines,"replacement_sha256":changed.iter().map(|p|(p,sha256(&candidate[p]))).collect::<BTreeMap<_,_>>()}),
     )
 }
-fn docker() -> tokio::process::Command {
+pub(crate) fn docker() -> tokio::process::Command {
     let mut command = tokio::process::Command::new("docker");
     command
         .env_clear()
@@ -326,7 +326,7 @@ fn docker() -> tokio::process::Command {
         .kill_on_drop(true);
     command
 }
-async fn inspect_image(contract: &Value) -> Result<String> {
+pub(crate) async fn inspect_image(contract: &Value) -> Result<String> {
     let image = text(&contract["sandbox_image_reference"], "sandbox image")?;
     if !regex::Regex::new(r"^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,255}$")?.is_match(image) {
         return Err("sandbox image malformed".into());

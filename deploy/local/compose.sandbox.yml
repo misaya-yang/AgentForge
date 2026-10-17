@@ -1,11 +1,7 @@
-# Optional, explicit Linux delegation for this project's capability Worker.
-# The host operator prepares this subtree; Compose never creates or delegates it.
+# Optional sandbox-specific limits. Merge with the same existing local project;
+# base/runtime already require the explicitly prepared sandbox-only delegation.
+# Never mount a cgroup subtree or Python interpreter into the control Worker.
 services:
-  agent-capability-worker:
-    volumes:
-      - type: bind
-        source: ${AGENT_CAPABILITY_WORKER_CGROUP_DELEGATION:?Select this Worker's predelegated cgroup subtree}
-        target: /sys/fs/cgroup/agentforge-sandbox
-        read_only: false
-        bind:
-          create_host_path: false
+  agent-python-sandbox:
+    mem_limit: "${AGENT_PYTHON_SANDBOX_MEMORY_LIMIT:-1536m}"
+    cpus: "${AGENT_PYTHON_SANDBOX_CPUS:-2.0}"

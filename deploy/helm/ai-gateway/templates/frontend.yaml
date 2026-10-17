@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-frontend
+  labels:
+{{ include "ai-gateway.labels" . | indent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: frontend
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 101
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: frontend
+      containers:
+      - name: frontend
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "frontend") | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+{{ include "ai-gateway.security" 101 | indent 10 }}
+        resources:
+{{ toYaml (index .Values.resources "frontend") | indent 10 }}
+        env:
+{{ include "ai-gateway.envMap" .Values.frontend.env | indent 8 }}
+        ports:
+        - {name: http, containerPort: 8080}
+        readinessProbe:
+          httpGet: {path: /health, port: http}
+          initialDelaySeconds: 5
+        livenessProbe:
+          httpGet: {path: /health, port: http}
+          initialDelaySeconds: 30
+        volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+        - {name: config, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf, readOnly: true}
+      volumes:
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 128Mi}
+      - name: config
+        configMap:
+          name: {{ include "ai-gateway.fullname" . }}-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-frontend
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: frontend
+  ports:
+  - {name: http, port: 8080, targetPort: http}

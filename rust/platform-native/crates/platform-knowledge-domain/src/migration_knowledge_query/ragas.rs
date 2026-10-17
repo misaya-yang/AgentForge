@@ -103,9 +103,8 @@ pub struct RagasEmbedding {
 }
 #[derive(Clone)]
 pub struct RagasService {
-    client: reqwest::Client,
+    actors:Option<super::actor::RuntimeActorClient>,
     pub config: Arc<RagasConfig>,
-    providers: Arc<BTreeMap<String, ProviderConfig>>,
     embedding: Option<RagasEmbedding>,
 }
 #[derive(Clone, Deserialize)]
@@ -117,6 +116,7 @@ pub struct JudgeSelector {
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RagasRequest {
+    pub actor_scope: Option<super::model_plane::ModelScope>,
     pub query: String,
     pub contexts: Vec<String>,
     pub answer: Option<String>,
@@ -136,10 +136,17 @@ pub struct MetricResult {
     pub metadata: Value,
 }
 impl RagasService {
+    pub fn with_actor_authority(mut self,actors:super::actor::RuntimeActorClient)->Self {self.actors=Some(actors);self}
+    async fn evaluate_scoped(&self,body:RagasRequest)->Result<(Vec<MetricResult>,String)> {
+        let scope=body.actor_scope.clone().ok_or(QueryError::Forbidden)?;
+        let actor=self.actors.as_ref().ok_or(QueryError::DependenciesFailed)?.resolve(&scope.actor.tenant_id,&scope.actor.user_id).await?;
+        if actor.anonymous() || actor.tenant_id!=scope.actor.tenant_id || actor.user_id!=scope.actor.user_id {return Err(QueryError::Forbidden);}
+        super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:scope.dataset_id,document_id:scope.document_id,execution_id:scope.execution_id},actor,self.evaluate_retrieval(body)).await
+    }
     pub fn new(
-        client: reqwest::Client,
-        config: RagasConfig,
-        providers: BTreeMap<String, ProviderConfig>,
+        _client: reqwest::Client,
+        mut config: RagasConfig,
+        _providers: BTreeMap<String, ProviderConfig>,
         embedding: Option<RagasEmbedding>,
     ) -> Result<Self> {
         if !config.allowed_providers.contains(&config.provider)
@@ -151,10 +158,10 @@ impl RagasService {
                 "invalid RAGAS default selection or request budgets",
             ));
         }
+        config.base_url=None;
         Ok(Self {
-            client,
+            actors:None,
             config: Arc::new(config),
-            providers: Arc::new(providers),
             embedding,
         })
     }
@@ -355,33 +362,9 @@ impl RagasService {
         contexts: &[String],
         prompt: &str,
     ) -> Result<(f64, String)> {
-        let config = self.providers.get(provider).cloned().unwrap_or_default();
-        let fallback = match provider {
-            "deepseek" => "https://api.deepseek.com/v1",
-            "gemini" => "https://generativelanguage.googleapis.com/v1beta/openai",
-            _ => "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        };
-        let base = self
-            .config
-            .base_url
-            .as_deref()
-            .or(config.base_url.as_deref())
-            .unwrap_or(fallback);
-        let mut request=self.client.post(format!("{}/chat/completions",base.trim_end_matches('/'))).timeout(self.config.timeout).json(&json!({"model":model,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":prompt}],"temperature":0.0,"max_tokens":512}));
-        if !config.api_key.is_empty() {
-            request = request.bearer_auth(&config.api_key)
-        }
-        let response = request
-            .send()
-            .await
-            .map_err(|_| QueryError::Provider(503))?;
-        if !response.status().is_success() {
-            return Err(QueryError::Provider(response.status().as_u16()));
-        }
-        let data: Value = response
-            .json()
-            .await
-            .map_err(|_| QueryError::InvalidProviderResponse)?;
+        let payload=json!({"model":model,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":prompt}],"temperature":0.0,"max_tokens":512});
+        let (status,data)=super::model_plane::execute(provider,model,"",super::model_plane::ModelPurpose::Judge,super::model_plane::ModelWire::ChatCompletions,payload,self.config.timeout).await?;
+        if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
         let content = data["choices"][0]["message"]["content"]
             .as_str()
             .ok_or(QueryError::InvalidProviderResponse)?;
@@ -589,7 +572,7 @@ async fn evaluate(
     }
     match tokio::time::timeout(
         service.config.request_timeout,
-        service.evaluate_retrieval(body),
+        service.evaluate_scoped(body),
     )
     .await
     {

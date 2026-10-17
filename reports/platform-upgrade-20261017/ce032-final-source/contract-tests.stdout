@@ -1,0 +1,39 @@
+
+running 29 tests
+test lease_v3::tests::rotation_overlap_revocation_unknown_key_and_purpose_are_enforced ... ok
+test lease_v3::tests::verifier_cannot_mint_or_strip_or_change_a_sealed_chain ... ok
+test lease_v3::tests::sdk_purpose_uses_genuine_run_without_codex_thread_and_cannot_cross_domains ... ok
+test private_transport::tests::gateway_runtime_worker_knowledge_round_trip_fixture ... ok
+test private_transport::tests::hops_and_wall_clock_rollback_cannot_renew_authority ... ok
+test private_transport::tests::malformed_partial_duplicate_and_expired_budgets_fail_closed ... ok
+test private_transport::tests::no_active_adapter_means_no_raw_incoming_trace_promotion ... ok
+test lease_v3::tests::child_holder_cannot_widen_ancestor_allowlist_or_expiry ... ok
+test private_transport::tests::post_unknown_outcome_never_retries_or_becomes_success ... ok
+test private_transport::tests::sse_has_bounded_liveness_without_command_total_timeout ... ok
+test private_transport::tests::untrusted_budget_never_extends_and_authenticated_budget_only_attenuates ... ok
+test private_transport::tests::trace_parser_rejects_duplicates_zero_ids_and_baggage ... ok
+test sandbox_job::tests::wire_cannot_carry_platform_lease_or_credentials ... ok
+test tests::canonical_hash_is_independent_of_object_key_order ... ok
+test tests::descriptor_binds_schema_hash_and_requires_stable_tags ... ok
+test tests::lease_signature_binds_scope_and_arguments ... ok
+test tests::safe_pattern_supports_bounded_quantifiers_but_rejects_unsafe_forms ... ok
+test sandbox_job::tests::scope_content_operation_and_expiry_are_signed ... ok
+test tests::schema_subset_accepts_nested_object_string_number_and_array ... ok
+test tests::schema_subset_rejects_ambiguous_composition_and_bounds_complexity ... ok
+test tests::schema_subset_rejects_unknown_keywords_and_unsupported_forms ... ok
+test tests::schema_subset_requires_unique_required_and_enum_values ... ok
+test tests::schema_subset_supports_annotations_and_composition ... ok
+test tests::schema_subset_validates_object_string_number_and_array_instances ... ok
+test tests::unknown_fields_fail_closed ... ok
+test tests::write_lease_requires_bound_approval ... ok
+test tests::signature_matches_the_python_cross_language_fixture ... ok
+test lease_v3::tests::sealed_call_binds_all_lease_fields_and_carries_no_attenuation_seed ... ok
+test lease_v3::tests::worker_public_snapshot_owner_context_and_delivered_proof_cannot_widen_authority ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

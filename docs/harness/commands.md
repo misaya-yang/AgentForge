@@ -42,12 +42,16 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 | Preflight the machine before anything else | `make doctor` |
 | Check living-document scripts, links, top-level CLI names and review dates (also included in harness) | `platform-tools docs-truth-check --repo-root .` |
 | Verify the pinned Agent Runtime source release unit | `make agent-runtime-source-contract` |
+| Verify the Runtime, capability Worker and Python Sandbox image release unit | `platform-tools source-lock verify-local-images --repo-root . --lock deploy/agent-runtime-source/lock.json --runtime-image <runtime> --worker-image <worker> --sandbox-image <sandbox>` |
+| Rebase the Codex kernel source and host seams | Follow [Codex upstream upgrades](codex-upstream-upgrade.md) using the existing native `source-candidate` / `source-lock` tools |
 | Verify the independent local-Runtime CLI | `make independent-cli-gate` |
 | Build the independent native CLI inside Docker | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-cli-build-local` |
 | Verify the pinned Rust Agent Runtime image | `make agent-runtime-contract` |
-| Verify the Agent PostgreSQL ThreadStore | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/path/to/fork make agent-thread-store-contract` |
+| Legacy Agent PostgreSQL ThreadStore (Docker live migration pending; do not execute locally yet) | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/path/to/fork make agent-thread-store-contract` |
 | Serial single-kernel release contract | `make agent-runtime-release-gate` |
 | Digest-pinned current→frozen→current rollback rehearsal | `make agent-runtime-rollback-rehearsal` |
+| Build the independent Python sandbox under the existing Rust build lock | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-python-sandbox-build-local` |
+| Build Runtime, control Worker, then sandbox serially (no deployment) | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork bash scripts/rust/build-update.sh --artifact all` |
 | Build the pinned App Server image inside Docker and probe initialize | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-source-build-local` |
 | Build the pinned Rust Agent Runtime image inside Docker | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-build-local` |
 | Smoke-test the Rust Runtime in an isolated Docker network | `AI_PLATFORM_AGENT_RUNTIME_IMAGE=... make agent-runtime-smoke` |
@@ -75,13 +79,27 @@ scoped Core original-turn recovery/suspension regressions inside that builder,
 using `AI_PLATFORM_AGENT_RUNTIME_SOURCE` for the clean pinned upstream. It is
 local Docker evidence, separate from the hosted CI gate.
 For these local Runtime acceptance targets, retain the Docker-builder convention;
-do not substitute host Cargo runs for their Docker evidence. For native services/tools,
-current `AGENTS.md` also authorizes pinned host Cargo/Rust
-compilation and targeted tests. Those runs must be serialized
-(`CARGO_BUILD_JOBS=1`), use an external `CARGO_TARGET_DIR`, and disable debug and
-incremental build output. This exception does not authorize deployment or establish
-local runtime acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
+do not substitute host Cargo runs for their Docker evidence. Native services/tools now use the shared Rust 1.99.0 Docker development entry:
+`make native-check`, `make native-test`, or `scripts/new/native-container.sh`
+for affected package/target commands. One Docker-managed cache holds the native
+registry and target; do not also build the server graph in a host Cargo target.
+Builds remain serialized with debug and incremental output disabled. Host Cargo
+is only for explicitly selected macOS clients/OS tests. A small std-only launcher
+bootstrap does not build the server dependency graph. These commands do not
+start business services or establish local runtime acceptance. `make rust-changed-crate-gate` remains a hosted-CI entrypoint,
 not a replacement local acceptance command.
+
+
+**Legacy live gates pending a separate Docker run phase:** `kb-migration-gate`,
+`kb-integration-smoke`, `test-isolation` (including the selected ignored Gateway boot), and
+`agent-thread-store-contract` retain their original explicit entrypoints and complete test
+scopes. They have **not** been migrated to the daily secret-free/network-none compiler role
+and were **not executed** in this checkpoint. Their retained legacy recipes are not host
+build authorization: do not run them on the host under the current Docker-only server policy.
+Runtime-only scoped secrets, fixture files, owned networking and required PG client tools
+must be connected in a separate container run phase before these live gates resume. Do not
+substitute the daily `native-container test` role, omit ignored tests, or count an unrun gate
+as acceptance. This limitation does not change the tested daily Docker check/test/build path.
 
 `platform-tools ci-capacity` records detected CPU/memory and the selected build/test limits.
 The shared `setup-native` action defaults to one build job. Only its `capacity-profile: hosted`
@@ -171,7 +189,7 @@ owned by the existing authority.
 
 After local setup, run the explicit live no-rotation and role-denial regression under the
 integration-runtime resource lock with `ENV_FILE` pointing to the selected `.env.dev`:
-`cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test local_credential_bootstrap -- --ignored`.
+run `cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test local_credential_bootstrap -- --ignored` **inside the explicit role-scoped integration container**. The daily secret-free compiler role does not receive this env file or a database network; the privileged container seam remains pending in the Docker-only workflow, so this live gate is not currently rerun by `native-container.sh test`.
 It requires all six credentials to exist, compares role catalog values privately in memory,
 rejects a mismatched password and source override, validates metadata-only admission, and
 checks denied direct ledger/password access and owner escalation. It never resets data.
@@ -179,12 +197,12 @@ checks denied direct ledger/password access and owner escalation. It never reset
 ## 5. Native tests and formatting
 
 Install source-built services and operational commands with
-`CARGO_TARGET_DIR=/absolute/external/build-directory make native-install`
+`make native-install` (Docker artifacts; host clients use their explicit platform workflow)
 in the approved build environment. Keep Cargo output outside the checkout.
 Scope tests to the package and target you changed:
 
 ```bash
-cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts
+scripts/new/native-container.sh test -p ai-platform-tools --test deployment_script_contracts
 cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools -- --check
 ```
 
@@ -243,6 +261,8 @@ changed paths and matching gates. Report exactly which checks ran and their tier
 | You changed | Gate |
 | --- | --- |
 | Harness files, docs contract | `make harness-check` |
+| Native Helm public-fixture lint/render and security contracts | `make helm-native-gate` (Helm required; local `HELM_EVIDENCE_DIR` may point outside the repository; no cluster operations) |
+| Split Valkey source TLS/ACL/durability and single-project deployment policy | `make valkey-deployment-gate` (offline only); `platform-tools valkey-image-check <digest-reference> <uid> <gid>` checks input shape; actual registry digest and UID/GID verification remain separate |
 | Agent Runtime source source/schema/SBOM/image lock | `make agent-runtime-source-contract` |
 | Agent Rust Runtime image identity | `make agent-runtime-contract` |
 | Agent Rust Runtime Docker lifecycle | `AI_PLATFORM_AGENT_RUNTIME_IMAGE=... make agent-runtime-smoke` |
@@ -251,21 +271,21 @@ changed paths and matching gates. Report exactly which checks ran and their tier
 | Agent Runtime tool side-effect safety | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-write-gate` |
 | Rust cutover offline/sub-evidence bundle (not a platform release gate) | `make agent-runtime-release-gate` |
 | Digest-pinned current→frozen→current rollback | `make agent-runtime-rollback-rehearsal` |
-| Agent ThreadStore fresh/idempotent/live contract | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/path/to/fork make agent-thread-store-contract` |
+| Legacy Agent ThreadStore fresh/idempotent/live contract (Docker live migration pending; do not execute locally yet) | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/path/to/fork make agent-thread-store-contract` |
 | Agent runtime compatibility surface | `make verify-assistant-runtime-dev` |
 | Eval / trace pipeline | `make eval-e1-gate`, then `make verify-eval-dev` for the wider branch gate |
 | Agent core / subagents | `make agent-eval-core-gate` |
 | Agent Studio | `make verify-agent-studio` |
-| Service boundaries, Agent API surface | `make architecture-boundary-gate` and `make core-boundary-gate` for their declared import/allowlist scopes; `make test-isolation` and API/runtime contract gates remain separate |
+| Service boundaries, Agent API surface | `make architecture-boundary-gate` and `make core-boundary-gate` for their declared import/allowlist scopes; `make test-isolation` is legacy/live with Docker run wiring pending (do not execute locally yet); API/runtime contract gates remain separate |
 | Native source-owned OpenAPI | `make verify-openapi-contract` (alias of the full native gate; missing independent candidate fails) |
 | Native full published OpenAPI | `make verify-native-openapi-contract NATIVE_OPENAPI_CANDIDATE=/path/to/independent-native-export.json` (missing candidate fails) |
 | RAG retrieval | `make rag-eval-fixture-contract` is fixture-only evidence; implementation/live quality require separate ARC-00 gates |
 | Knowledge service (native production-module tests) | `make kb-unit-gate` |
-| Native full-chain/ledger/roles, 97/112, lock serialization, crash rollback and 101 dump/restore (disposable Postgres and pg_dump/pg_restore) | `KB_MIGRATION_TEST_ALLOW_CREATE_DATABASE=1 KB_MIGRATION_TEST_ADMIN_DSN=<disposable-admin-dsn> make kb-migration-gate` |
+| Legacy native full-chain/ledger/roles, 97/112, lock/crash and 101 dump/restore (Docker live migration pending; do not execute locally yet) | `KB_MIGRATION_TEST_ALLOW_CREATE_DATABASE=1 KB_MIGRATION_TEST_ADMIN_DSN=<disposable-admin-dsn> make kb-migration-gate` |
 | KB development fixture structure / manifest hashes / seed drift (`tests/fixtures/eval/rag/golden/**`; not a release claim) | `make kb-golden-gate` |
 | KB T0 release evidence (200–400 reviewed cases, source mix, manifest/pointer/reviewed real-corpus baseline binding) | `make kb-release-evidence-gate` |
 | Project a golden JSONL into the versioned Postgres store (PRD T0-#2; `--dry-run` first) | `platform-knowledge-ops import-kb-eval-golden <jsonl> --dry-run` |
-| Qdrant integration smoke (explicit live gate; fails when the required stack is down) | `make kb-integration-smoke` |
+| Legacy Qdrant integration smoke (Docker live migration pending; do not execute locally yet) | `make kb-integration-smoke` |
 | Real-corpus retrieval baseline candidate (live KS; records distribution only, does not approve it) | `make kb-baseline-record KB_BASELINE_DATASET_ID=<id>` |
 | RAG eval fixtures / native `eval_rag` | `make rag-eval-fixture-contract` |
 | Deploy scripts, `.env.example`, Compose | `make validate-example-config` |
@@ -346,7 +366,7 @@ receipts describe the previous architecture and are not active export instructio
 Native handler/DTO source evidence and publication/profile data remain distinct.
 Historical mixed-baseline-versus-Python failures remain archived evidence, not a
 reason to suppress current native mismatches. Offline producer/comparator tests:
-`cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi`.
+`scripts/new/native-container.sh test -p ai-platform-openapi`.
 
 #### Response alternative diagnostics
 
@@ -369,7 +389,7 @@ constraints likewise supply no field-type proof. Nested object fields, array ite
 schema satisfiability are not a general compatibility proof. Existing required
 native-producer and runtime evidence requirements remain unchanged.
 
-Offline regressions: `cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi --test response_alternatives`. These diagnostics do not alter the SDK publication or native bodies.
+Offline regressions: `scripts/new/native-container.sh test -p ai-platform-openapi --test response_alternatives`. These diagnostics do not alter the SDK publication or native bodies.
 
 ### Bounded native source export (not the full native release gate)
 
@@ -390,7 +410,7 @@ validation (future timestamps, byte counts, normalized UUID uniqueness, cursor
 pairing and identity/revision binding) is explicit in native extensions.
 
 Build only in an approved Rust environment, following the runtime/build policy:
-`cargo build --locked --offline --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi`.
+`scripts/new/native-container.sh build -p ai-platform-openapi`.
 Keep the target directory outside the repository. Then run:
 
 ```bash
@@ -421,7 +441,7 @@ interpret unconstrained responses as support, or relabel this as CL-01–06/live
 acceptance. The complete published file is retained; Python/hybrid exports are
 archived migration evidence, not a runnable backend.
 
-Offline regressions: `cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi`. Native serde/export tests live in the lightweight
+Offline regressions: `scripts/new/native-container.sh test -p ai-platform-openapi`. Native serde/export tests live in the lightweight
 producer crate; Python private-export tests are archived implementation references. Compile the consuming Gateway library when changing shared DTOs.
 
 
@@ -469,3 +489,16 @@ requests, metadata, schemas, availability values and detail rows stay open.
 See [the Services contract boundary](../architecture/native-common-service-contract.md)
 for exact semantics and verification requirements. Existing whole-native gate
 failures, including authentication differences, are not suppressed.
+
+The control/sandbox image wrappers require public, independently verified exact
+base-image references: `CAPABILITY_RUST_BUILD_IMAGE` and
+`CAPABILITY_WORKER_RUNTIME_IMAGE`, plus `PYTHON_SANDBOX_IMAGE` for the sandbox.
+Each must end with `@sha256:<64 lowercase hex digits>`; no digest is invented or
+inferred from a mutable family tag. The integration owner selects/measures these
+pins before an authorized build. The sandbox context includes the tracked
+`deploy/agent-runtime-source/python/` directory as `python/` beside `codex-rs`,
+LICENSE and NOTICE. Both wrappers archive the pinned upstream, apply the verified
+overlay, validate source/overlay/schema/artifact/binary labels and record only the
+matching artifact (`capability_worker` or `python_sandbox`). Direct wrapper calls
+re-enter the existing shared build preflight/lock. No builder is created: an
+absent/incompatible existing builder fails closed.

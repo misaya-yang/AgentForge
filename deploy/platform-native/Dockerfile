@@ -11,6 +11,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN cargo chef prepare --recipe-path /recipe.json
 
@@ -21,6 +23,9 @@ FROM builder AS cook-base
 WORKDIR /source
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+# Workspace excludes keep patched crates outside the cargo-chef recipe. Copy the
+# complete patch sources so `cargo chef cook` can resolve the workspace patches.
+COPY rust/platform-native/vendor/ rust/platform-native/vendor/
 WORKDIR /source/rust/platform-native
 COPY --from=planner /recipe.json /recipe.json
 # Recipe changes invalidate dependency layers; application source changes do not.
@@ -36,6 +41,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -53,6 +60,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -70,6 +79,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -87,6 +98,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -104,6 +117,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -121,6 +136,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -138,6 +155,8 @@ COPY rust/platform-native/ rust/platform-native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
 COPY database/ database/
+COPY sdk/openapi/ sdk/openapi/
+COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
@@ -155,12 +174,36 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 
 # Debian 13 runtime; compiler and Cargo caches never enter shipped layers.
 FROM debian:trixie-slim AS native-base
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libssl3t64 \
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
+# Slim has no CA bundle before apt. Bootstrap trust from the Rust build image,
+# then install Debian's maintained bundle; never accept a partial index update.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends ca-certificates curl libssl3t64 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --uid 1000 --create-home gateway \
-    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sdk-worker \
-    && install -d -o 1000 -g 1000 /app/data /app/logs /app/agent-memory /app/uploads /app/data/pdf-scratch \
-    && install -d -m 0700 -o 10001 -g 10001 /var/lib/sdk-agent
+    && groupadd --gid 1000 gateway \
+    && useradd --uid 1000 --gid 1000 --create-home gateway \
+    && groupadd --gid 10001 sdk-worker \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin sdk-worker \
+    && install -d -o 1000 -g 1000 /app/data /app/data/images /app/data/files /app/logs /app/uploads /app/data/pdf-scratch \
+    && install -d -m 0700 -o 1000 -g 1000 /app/agent-memory \
+    && install -d -m 0700 -o 10001 -g 10001 /var/lib/sdk-agent \
+    && install -d -m 0755 /app/config /app/deploy/release /run/qdrant /run/sdk-worker /run/sdk-callback
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.revision="$VCS_REF" com.misaya.ai-platform.artifact="native-services"
 WORKDIR /app
@@ -170,7 +213,13 @@ USER 1000:1000
 # Keep that compatibility until the Gateway parser path is explicitly retired.
 FROM native-base AS parser-base
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils \
+# Inherit the bootstrapped/maintained CA and HTTPS sources from native-base.
+RUN apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 USER 1000:1000
 

@@ -4,6 +4,7 @@ mod contract;
 mod lifecycle;
 mod provider_config;
 mod supervisor;
+mod transport;
 use crate::bridge::Authority;
 use crate::contract::{Launch, MAX_BODY, PROTOCOL, Result, hash};
 use axum::{
@@ -367,15 +368,11 @@ async fn runs(State(app): State<Arc<App>>, request: Request) -> Response {
 }
 async fn run() -> Result<()> {
     let config = Config::load()?;
+    let transport = transport::Transport::load()?;
     if std::env::args().nth(1).as_deref() == Some("health") {
-        let client = reqwest::Client::builder()
-            .retry(reqwest::retry::never())
-            .no_proxy()
-            .timeout(Duration::from_secs(3))
-            .build()
-            .map_err(|_| "sdk_worker_not_ready")?;
+        let (client, health_url) = transport.health()?;
         let mut r = client
-            .get("http://127.0.0.1:8096/health/ready")
+            .get(health_url)
             .bearer_auth(config.token)
             .send()
             .await
@@ -402,7 +399,8 @@ async fn run() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
-    let authority = Authority::new(config.gateway.clone())?;
+    let gateway_ca = std::env::var("SDK_AGENT_GATEWAY_TLS_CA_FILE").ok().map(PathBuf::from);
+    let authority = Authority::new_with_ca(config.gateway.clone(), gateway_ca.as_deref())?;
     let (stop, _) = watch::channel(false);
     let app = Arc::new(App {
         config,
@@ -427,9 +425,7 @@ async fn run() -> Result<()> {
         .route("/v1/sessions", delete(delete_session))
         .route("/health/ready", get(ready))
         .with_state(app.clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8096")
-        .await
-        .map_err(|_| "sdk_worker_listen_failed")?;
+    let listener = transport.bind().await?;
     let shutdown = app.clone();
     use std::future::IntoFuture;
     let mut stopped = app.stop.subscribe();

@@ -18,10 +18,16 @@ export interface SSEFetchOptions extends RequestInit {
     initialDelayMs?: number;
     maxDelayMs?: number;
     isTerminal: (event: SSEEvent<unknown>) => boolean;
+    /** Protocol-owned reset may deliberately reuse an older retained cursor. */
+    isReset?: (event: SSEEvent<unknown>) => boolean;
   };
 }
 export class SSEIdleTimeoutError extends Error {
   constructor() { super("SSE idle budget exceeded; the server outcome is unknown"); this.name = "SSEIdleTimeoutError"; }
+}
+export class SSEInterruptedError extends Error {
+  readonly outcomeUnknown = true;
+  constructor(cause: unknown) { super("SSE connection interrupted; the server outcome is unknown", { cause }); this.name = "SSEInterruptedError"; }
 }
 export class SSERequestError extends Error {
   readonly status: number;
@@ -129,7 +135,10 @@ async function* readSseParts(url: string, init: SSEFetchOptions): AsyncGenerator
     }
     if (budget.signal.reason instanceof SSEIdleTimeoutError) throw budget.signal.reason;
   } catch (error) {
-    if (!init.signal?.aborted) notify(init, "unknown_outcome");
+    if (!init.signal?.aborted) {
+      notify(init, "unknown_outcome");
+      if (!(error instanceof SSERequestError) && !(error instanceof SSEIdleTimeoutError)) throw new SSEInterruptedError(error);
+    }
     throw error;
   } finally {
     budget.signal.removeEventListener("abort", cancel);
@@ -292,13 +301,17 @@ export async function* sseFetchEvents<T>(url: string, init: SSEFetchOptions): As
       for await (const part of readSseParts(url, { ...init, headers })) {
         const event = parseSseEventPart<T>(part, { preserveControlFrames: init.preserveControlFrames });
         if (!event) continue;
+        if (resume?.isReset?.(event)) seen.clear();
         if (resume && event.id && seen.has(event.id)) continue;
-        if (event.id) {
+        if (event.id !== undefined) {
           cursor = event.id;
-          seen.add(cursor);
-        } else if (resume) deliveredWithoutCursor = true;
+          if (cursor) seen.add(cursor);
+        }
+        if (resume && !event.id) deliveredWithoutCursor = true;
+        const terminal = resume?.isTerminal(event);
+        if (terminal) notify(init, "server_terminal");
         yield event;
-        if (resume?.isTerminal(event)) { notify(init, "server_terminal"); return; }
+        if (terminal) return;
       }
       if (!resume || init.signal?.aborted) return;
     } catch (error) {

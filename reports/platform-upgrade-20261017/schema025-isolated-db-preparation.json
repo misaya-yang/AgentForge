@@ -1,0 +1,18 @@
+{
+  "schema": "agentforge/schema025-isolated-db-preparation/v1",
+  "database": "schema_successor_verify_turn025",
+  "template": "gateway",
+  "results": [
+    {
+      "command": "provision-roles",
+      "exit_code": 0
+    },
+    {
+      "command": "verify",
+      "exit_code": 0
+    }
+  ],
+  "global_role_catalog_unchanged": true,
+  "global_role_memberships_unchanged": true,
+  "main_database_mutated": false
+}

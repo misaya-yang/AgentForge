@@ -5,6 +5,7 @@ mod contracts;
 mod core;
 mod data;
 mod facts;
+mod immutable_export;
 const ID: &str = "native-rust-v2";
 const KINDS: &[(&str, &str)] = &[
     ("service-topology", "service-topology.json"),
@@ -180,6 +181,13 @@ fn build(s: &Snapshot, kind: &str) -> Result<Value> {
     }
 }
 pub fn run(args: &Args) -> Result<Value> {
+    if let Some(operation) = args.values.get("--operation") {
+        require(
+            operation == "immutable-loc-export",
+            "unknown inventory operation",
+        )?;
+        return immutable_export::run(args);
+    }
     let root = args.root();
     let kind = args
         .values

@@ -10,6 +10,16 @@ mod native_public_contract;
 #[path = "../../platform-gateway/src/migration_host/knowledge_proxy/contract.rs"]
 mod knowledge_proxy_contract;
 use sha2::{Digest, Sha256};
+#[path = "stream_schema.rs"]
+pub mod stream_schema;
+#[path = "auth_browser_contract.rs"]
+mod auth_browser_contract;
+#[path = "../../platform-gateway/src/knowledge_model_plane/public_contract.rs"]
+mod knowledge_meter_contract;
+#[path = "../../platform-gateway/src/llm_api/public_contract.rs"]
+mod public_llm_contract;
+#[path = "../../platform-gateway/src/llm_api/guardrails/contract.rs"]
+mod guardrails_contract;
 #[path = "broad_contract.rs"]
 mod broad_contract;
 #[path = "provider_contract.rs"]
@@ -145,5 +155,12 @@ pub fn extend_document(mut document: serde_json::Value) -> serde_json::Value {
     provider_contract::extend_document(&mut document);
     skills_contract::extend_document(&mut document);
     broad_contract::extend_document(&mut document);
+    auth_browser_contract::extend_document(&mut document);
+    public_llm_contract::extend_document(&mut document);
+    guardrails_contract::extend(&mut document);
+    document["x-native-contract"]["common_source_sha256"]["../../platform-gateway/src/llm_api/public_contract.rs"] = serde_json::json!(format!("{:x}",Sha256::digest(include_bytes!("../../platform-gateway/src/llm_api/public_contract.rs"))));
+    knowledge_meter_contract::extend_document(&mut document);
+    document["x-native-contract"]["common_source_sha256"]["../../platform-gateway/src/knowledge_model_plane/public_contract.rs"] = serde_json::json!(format!("{:x}", Sha256::digest(include_bytes!("../../platform-gateway/src/knowledge_model_plane/public_contract.rs"))));
+    stream_schema::upgrade(&mut document);
     document
 }

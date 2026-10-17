@@ -1,6 +1,6 @@
 //! Opt-in route fixture for the production Responses handler.
 //!
-//! It clones the explicitly selected, owner-verified native epoch-24 database
+//! It clones the explicitly selected, owner-verified native source-locked database
 //! into one disposable loopback database. The production auth/session/control
 //! state uses scoped Gateway credentials; only the Runtime HTTP boundary is
 //! stubbed, with its database effect executed through the scoped Runtime role.
@@ -145,7 +145,7 @@ impl ProjectFixture {
         // Gateway's own admission guard then verify the exact source contract.
         credential_bootstrap::verify_local_target(&authority_paths, &role_prefix, &source_database)
             .await?;
-        verify_epoch_24(&template_dsn, &authority_paths, &role_prefix, "template").await?;
+        verify_current_epoch(&template_dsn, &authority_paths, &role_prefix, "template").await?;
         verify_gateway_admission(&gateway_dsn, &authority_paths, &role_prefix).await?;
 
         // CREATE DATABASE must run from a database other than its template.
@@ -198,7 +198,7 @@ impl ProjectFixture {
             let control_pool = connect_pool(&gateway_test_dsn, 2).await?;
             let runtime_pool = connect_pool(&runtime_test_dsn, 2).await?;
 
-            verify_epoch_24(
+            verify_current_epoch(
                 &template_test_dsn,
                 &authority_paths,
                 &role_prefix,
@@ -448,6 +448,7 @@ pub struct TestResponse {
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub body: Value,
+    pub raw_body: Vec<u8>,
 }
 
 pub async fn post_response(
@@ -478,18 +479,33 @@ pub async fn post_response(
         status,
         headers,
         body,
+        raw_body: bytes.to_vec(),
     })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeFailureMode {
+    CleanEof,
+    Open500,
+    ReadError,
 }
 
 pub struct RuntimeStub {
     pub url: String,
     pub turns: Arc<AtomicUsize>,
+    pub stream_opened: Arc<Notify>,
+    pub turn_started: Arc<Notify>,
+    run_id: Arc<Mutex<Option<String>>>,
+    requests: Arc<Mutex<Vec<String>>>,
     release: Option<oneshot::Sender<()>>,
     task: Option<JoinHandle<Result<()>>>,
 }
 
 impl RuntimeStub {
     pub async fn start(pool: PgPool) -> Result<Self> {
+        Self::start_with_mode(pool, RuntimeFailureMode::CleanEof).await
+    }
+    pub async fn start_with_mode(pool: PgPool, mode: RuntimeFailureMode) -> Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let address = listener.local_addr()?;
         let url = format!("http://{address}");
@@ -500,6 +516,12 @@ impl RuntimeStub {
         let task_turns = turns.clone();
         let task_run_id = run_id.clone();
         let task_pool = pool.clone();
+        let stream_opened = Arc::new(Notify::new());
+        let task_stream_opened = stream_opened.clone();
+        let turn_started = Arc::new(Notify::new());
+        let task_turn_started = turn_started.clone();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let task_requests = requests.clone();
         let task = tokio::spawn(async move {
             let mut release_rx = Some(release_rx);
             for _ in 0..4 {
@@ -511,6 +533,10 @@ impl RuntimeStub {
                     &task_run_id,
                     &task_turns,
                     &mut release_rx,
+                    mode,
+                    &task_stream_opened,
+                    &task_turn_started,
+                    &task_requests,
                 )
                 .await?
                 {
@@ -522,11 +548,28 @@ impl RuntimeStub {
         Ok(Self {
             url,
             turns,
+            stream_opened,
+            turn_started,
+            run_id,
+            requests,
             release: Some(release_tx),
             task: Some(task),
         })
     }
 
+    pub fn accepted_run_id(&self) -> Result<String> {
+        self.run_id
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+            .ok_or_else(|| "Runtime did not accept a turn".into())
+    }
+    pub fn request_paths(&self) -> Vec<String> {
+        self.requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
     pub fn release_event_stream(&mut self) {
         if let Some(release) = self.release.take() {
             let _ = release.send(());
@@ -558,9 +601,17 @@ async fn handle_runtime_request(
     run_id: &Arc<Mutex<Option<String>>>,
     turns: &Arc<AtomicUsize>,
     release_rx: &mut Option<oneshot::Receiver<()>>,
+    mode: RuntimeFailureMode,
+    stream_opened: &Notify,
+    turn_started: &Notify,
+    requests: &Mutex<Vec<String>>,
 ) -> Result<bool> {
     let (method, path, _headers, body) = read_request(&mut stream).await?;
     let path = path.split('?').next().unwrap_or(&path);
+    requests
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .push(format!("{method} {path}"));
     match (method.as_str(), path) {
         ("POST", "/internal/v1/threads") => {
             let payload: Value = serde_json::from_slice(&body)?;
@@ -616,9 +667,25 @@ async fn handle_runtime_request(
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(run.clone());
             turns.fetch_add(1, Ordering::SeqCst);
+            turn_started.notify_one();
             write_json(&mut stream, "200 OK", &json!({"turn":{"id":run}})).await?;
         }
         ("GET", path) if path.ends_with("/events") => {
+            stream_opened.notify_one();
+            if mode == RuntimeFailureMode::Open500 {
+                let receiver = release_rx
+                    .take()
+                    .ok_or("Runtime event stream was opened twice")?;
+                let _ = receiver.await;
+                write_json(
+                    &mut stream,
+                    "500 Internal Server Error",
+                    &json!({"error":"fixture SSE open failure"}),
+                )
+                .await?;
+                stream.shutdown().await?;
+                return Ok(true);
+            }
             let run = run_id
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -636,7 +703,13 @@ async fn handle_runtime_request(
                 .take()
                 .ok_or("Runtime event stream was opened twice")?;
             let _ = receiver.await;
-            stream.write_all(b"0\r\n\r\n").await?;
+            match mode {
+                RuntimeFailureMode::CleanEof => stream.write_all(b"0\r\n\r\n").await?,
+                // A partial declared chunk followed by TCP FIN is a real HTTP
+                // framing/read error, not a syntactically clean SSE EOF.
+                RuntimeFailureMode::ReadError => stream.write_all(b"40\r\ntruncated").await?,
+                RuntimeFailureMode::Open500 => unreachable!(),
+            }
             stream.shutdown().await?;
             return Ok(true);
         }
@@ -997,7 +1070,7 @@ async fn provision_cloned_database(
     Ok(())
 }
 
-async fn verify_epoch_24(
+async fn verify_current_epoch(
     dsn: &str,
     paths: &AuthorityPaths,
     role_prefix: &str,
@@ -1010,8 +1083,20 @@ async fn verify_epoch_24(
         .applied_changes(&mut connection, DEFAULT_BASELINE_ID)
         .await?;
     connection.close().await?;
-    if applied.len() != 24 || applied.keys().copied().ne(1..=24) {
-        return Err(format!("{label} is not the exact native epoch-24 database").into());
+    let epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
+        &paths
+            .migrations_root()
+            .join(DEFAULT_BASELINE_ID)
+            .join("manifest.yml"),
+    )?;
+    if epoch.epoch < 25
+        || applied.len() != epoch.changes.len()
+        || applied
+            .keys()
+            .copied()
+            .ne(epoch.changes.iter().map(|change| change.sequence))
+    {
+        return Err(format!("{label} is not the exact source-locked native database").into());
     }
     Ok(())
 }

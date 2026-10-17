@@ -29,10 +29,10 @@
     "responses-api"
   ],
   "author": "AI Gateway Maintainers",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/misaya-yang/AI--Platfform.git",
+    "url": "git+https://github.com/misaya-yang/AgentForge.git",
     "directory": "sdk/cli"
   },
   "engines": {

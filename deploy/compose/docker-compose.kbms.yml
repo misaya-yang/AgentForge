@@ -1,36 +1,112 @@
+x-service-hardening: &service-hardening
+  cap_drop: [ALL]
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  user: "1000:1000"
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+
 services:
   postgres:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=70,gid=70,mode=1777
+      - /var/run/postgresql:rw,noexec,nosuid,nodev,size=16m,uid=70,gid=70,mode=3775
+    networks:
+      - data-postgres
+    user: "70:70"
     image: postgres:16-alpine
     container_name: ai-gateway-kbms-postgres
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       POSTGRES_DB: "${POSTGRES_DB:-gateway}"
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     restart: unless-stopped
 
   redis:
+    <<: *service-hardening
+    networks:
+      - data-redis
+    user: "999:1000"
     image: redis:7-alpine
     container_name: ai-gateway-kbms-redis
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      REDIS_MAXMEMORY: "${REDIS_MAXMEMORY:-128mb}"
+    command: [/bin/sh, /opt/redis-entrypoint.sh]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
+      - ./scripts/new/redis-entrypoint.sh:/opt/redis-entrypoint.sh:ro
     restart: unless-stopped
 
   qdrant:
+    <<: *service-hardening
+    networks:
+      - data
+    user: "1000:1000"
     image: qdrant/qdrant:v1.18.2
     container_name: ai-gateway-kbms-qdrant
+    environment:
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:?Provision the Qdrant writer key}"
+      QDRANT__SERVICE__READ_ONLY_API_KEY: "${QDRANT_READ_ONLY_API_KEY:?Provision a distinct Qdrant read-only key}"
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /run/qdrant/tls.crt
+      QDRANT__TLS__KEY: /run/qdrant/tls.key
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/storage/snapshots
+      QDRANT__STORAGE__TEMP_PATH: /qdrant/storage/snapshots_temp
+      QDRANT_INIT_FILE_PATH: /qdrant/storage/.qdrant-initialized
     ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
+      - "127.0.0.1:${QDRANT_HTTP_PORT:-6333}:6333"
+      - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
       - qdrant-data:/qdrant/storage
+      - type: bind
+        source: "${QDRANT_TLS_CERT_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_TLS_KEY_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_CA_BUNDLE_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped
 
+    healthcheck:
+      test: ["CMD-SHELL", "bash -o pipefail -ec 'printf \"GET /healthz HTTP/1.1\\r\\nHost: qdrant\\r\\nConnection: close\\r\\n\\r\\n\" | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca-bundle.pem 2>/dev/null | grep -q \"healthz check passed\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+networks:
+  edge:
+    driver: bridge
+  app:
+    driver: bridge
+  data-postgres:
+    driver: bridge
+    internal: true
+  data-redis:
+    driver: bridge
+    internal: true
+  # Qdrant has its own store network: only Knowledge roles may join it.
+  data:
+    driver: bridge
+    internal: true
 volumes:
   pg-data:
   redis-data:

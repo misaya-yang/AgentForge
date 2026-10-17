@@ -1528,3 +1528,6 @@ const PYTHON_NON_PRINTABLE_RANGES: &[(u32, u32)] = &[
     (0xe01f0, 0x10ffff),
 ];
 // PYTHON_UNICODE_TABLES_END
+
+#[path = "cache_usage.rs"]
+pub mod cache;

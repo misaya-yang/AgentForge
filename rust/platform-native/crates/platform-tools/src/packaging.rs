@@ -282,7 +282,7 @@ fn extracted_smoke(
             entry.read_to_end(&mut bytes)?;
             require(
                 extracted
-                    .insert(entry.name().to_owned(), (bytes, mode))
+                    .insert(entry.name()?.into_owned(), (bytes, mode))
                     .is_none(),
                 "duplicate archive entry",
             )?;

@@ -1,0 +1,322 @@
+{
+  "schema": "agentforge/scoped-code-review/v1",
+  "requirement": "U-KN-model-plane-and-request-meter-independent-review",
+  "reviewed_at": "2026-10-17T09:22:03.360Z",
+  "method": "Independent static call-chain and negative-case review using engineering:code-review; local source changes only",
+  "verdict": "two_confirmed_high_impact_correctness_findings_fixed_in_source_pending_compilation_and_runtime_verification",
+  "severity_note": "Confirmed findings are release-blocking correctness/security boundary issues in this bounded scope; no broader repository audit or end-to-end acceptance is claimed.",
+  "critical_findings": [
+    {
+      "id": "KN-REVIEW-01",
+      "severity": "high",
+      "title": "Wrong-wire output caps and shadow aliases bypass the reserved generation ceiling",
+      "before": "validate_codec accepted the first numeric limit from any codec. A Gemini request with max_tokens=1 and generationConfig.maxOutputTokens=100 passed budget=10; raw payload dispatched unchanged. Chat n=2 with max_tokens=10 also passed budget=10 although the reservation covered only 10 generated tokens.",
+      "call_chain": [
+        "HTTP workload identity/raw-body signature and nonce",
+        "validate typed ModelCall and digest",
+        "reserve_row reserves budget.max_output_tokens",
+        "execute_events -> prepare -> validate_codec",
+        "dispatch sends unchanged JSON payload to selected registered vendor endpoint"
+      ],
+      "fix": "Production validate_codec now invokes a native wire-specific cap gate. It rejects missing native caps, conflicting/malformed/zero aliases, checked multiplication overflow and aggregate candidate/best-of output beyond the reservation.",
+      "paths": [
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs"
+      ],
+      "negative_tests": [
+        "each_generation_wire_requires_its_native_output_cap",
+        "shadow_caps_and_conflicting_aliases_cannot_bypass_the_reservation",
+        "malformed_and_zero_caps_do_not_fall_through_to_another_alias",
+        "candidate_count_must_fit_the_total_output_reservation"
+      ],
+      "test_status": "source_added_not_executed; tests invoke production validate_codec"
+    },
+    {
+      "id": "KN-REVIEW-02",
+      "severity": "high",
+      "title": "Mutable price routing or revoked output authority prevents durable observed spend from settling",
+      "before": "execute_events called authorize -> model_snapshot before reading the durable row. Price/route/model revision change yielded 409 before observation recovery. Actor/resource revocation likewise skipped frozen-price settlement. Receipt revisions also came from current process configuration rather than the saved pricing.",
+      "call_chain": [
+        "authenticated execute workload",
+        "validate call/digest",
+        "lookup scoped by tenant_id,user_id,call_id",
+        "existing_lease verifies durable digest; lease ID/token match",
+        "observation branch -> settle(saved row.pricing)",
+        "SQL quota row lock + call row lock; completed result suppresses duplicate raw insertion",
+        "canonical cumulative quota/daily/hourly stages in the same transaction",
+        "commit -> current actor/model/resource delivery authorization"
+      ],
+      "fix": "Separate current model/actor authorization from new-dispatch revision checks. Bind the saved lease before replay. Poll frozen-price settlement to completion before current output authorization; a denied actor/model/resource receives the authorization error and no output. New dispatch retains current authority, scope, live route revision, saved provider revision and CAS. Completed and unknown receipts now identify their frozen price-book revision. No unknown invocation redispatch was added.",
+      "paths": [
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs",
+        "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs"
+      ],
+      "negative_tests": [
+        "revoked_actor_model_or_resource_still_settles_but_never_delivers_output",
+        "settlement_failure_or_unknown_commit_cannot_deliver_output",
+        "authorized_delivery_keeps_original_frozen_receipt",
+        "receipt_revision_comes_from_each_frozen_meter_without_config_fallback"
+      ],
+      "test_status": "source_added_not_executed; async ordering and fail-closed helpers tested in source, full database replay not executed"
+    }
+  ],
+  "related_confirmed_finding_handed_to_owner": {
+    "title": "Gemini OCR producer omits its native generation cap",
+    "original_call_chain": "ingest/ocr.rs Gemini payload only contents -> model_plane::make_call max_output_tokens=0 -> Gateway generation cap required -> 422 before dispatch",
+    "disposition": "Reported to primary; primary assigned Knowledge author to add generationConfig.maxOutputTokens and producer regression. Not modified by this reviewer; this report does not claim that owner patch was tested."
+  },
+  "nonblocking_notes": [
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+      "observation": "The input-only usage parser accepts usageMetadata.totalTokenCount as input but only recognizes usage.total_tokens for its zero-output observation. A complete input-only response containing only totalTokenCount therefore remains unknown and retains its budget.",
+      "impact": "Conditional vendor response compatibility; this review did not establish that a currently registered provider emits that shape. It fails closed and does not create free usage or dispatch retries.",
+      "disposition": "Documented; not treated as a blocker or changed in this bounded critical-fix pass."
+    }
+  ],
+  "checked_invariants": [
+    "HTTP reserve and execute both verify exact raw body, method/path, audience, caller, tenant/user and signed one-use nonce before entering the plane.",
+    "Current actor authority is loaded from account/current RBAC state; body roles/tier cannot grant permission. Resource checks use signed Knowledge RPC and bind tenant/user/dataset/document/execution/generation.",
+    "All replay lookup dimensions and lease/digest/token bindings precede durable settlement; current authorization is still required before output delivery.",
+    "A never-dispatched reservation still requires current ACL/scope, original selected live model revision and the saved provider revision before capacity and committed dispatch CAS.",
+    "Reserved/dispatched/observed/unknown transitions and one committed CAS prevent duplicate provider POSTs. Unknown spend retains reservations; no retry, redirect or fallback was introduced.",
+    "Reserve SQL serializes actor quotas, duplicates and pending costs; settle SQL releases reservations, inserts raw usage and finalizes its receipt in the same caller transaction as canonical accounting stages.",
+    "Canonical cumulative checkpoints enforce frozen pricing and provider/model/user identity before calculating replay deltas. Repeated equal request units cannot charge the same request stage twice.",
+    "Legacy cost projection is 1e6 units/USD; one cent is 10000 legacy units and 10000000 nano-USD. Request quotes use integer half-even projection and exact nano-USD metadata; request-priced raw token columns remain NULL/N/A.",
+    "Exact settled plus pending nano-USD cost is compared under the same reservation quota lock, preventing repeated sub-cent request charges from bypassing the monthly monetary limit.",
+    "Proposal SQL is unnumbered and not admitted/deployed by this review. No migration, grant, schema fingerprint or acceptance bypass was performed."
+  ],
+  "source_changes": [
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs",
+    "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs"
+  ],
+  "source_changes_before": [
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+      "sha256": "fa036a72fb4b116170894dc307b5c0330a6e61563ab231efacb37edba6a582be"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+      "sha256": "f9c8ad9d876686c258ab5f36b8996943c1cd61d818459d62909828d1cd12b2b3"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+      "sha256": "f1ab5fc18b0837336d3b12dd94795698f39e8e03190f0519b676c5db23b5a4b8"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+      "sha256": "82dee6292ef0569b01982b3520b045c285323451e07026ed58d8c5f183ad217f"
+    }
+  ],
+  "source_changes_after": [
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+      "sha256": "0058cbdbd1dd760190858074f3d213a95d89b01264f5aa6051e44d78ba2b5e32"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+      "sha256": "928e0118bb448758ad493eaf03b07710dbd35d12da345c719f6b262fdc90904b"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+      "sha256": "b06c51a50fc279aee72312a629b488aeb413ef116f7ec8e89e9121f88b2db495"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+      "sha256": "822141440f9c023da0a4844544216f09bb1b801686a83bfbc5a0602a04246ffa"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs",
+      "sha256": "993f01fb340c8f49fd2c6eae14e0b7a496183fedb73e8e37ebf8ad576350079e"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs",
+      "sha256": "bbd35bc0b8f77b6ff44f6c14baa0c5c72ce1e6e6be42ec6b02f70355b6e47ee5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs",
+      "sha256": "75dae749cd14da8cd62be2822351ec5a773e59097e76a3337ede5bcae9002666"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs",
+      "sha256": "9b924c7089e955e8005bd7f409074591079cf5fce97c4dcbe1aade74dd3de9b4"
+    }
+  ],
+  "reviewed_sources": [
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+      "sha256": "0058cbdbd1dd760190858074f3d213a95d89b01264f5aa6051e44d78ba2b5e32"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+      "sha256": "928e0118bb448758ad493eaf03b07710dbd35d12da345c719f6b262fdc90904b"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+      "sha256": "b06c51a50fc279aee72312a629b488aeb413ef116f7ec8e89e9121f88b2db495"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+      "sha256": "822141440f9c023da0a4844544216f09bb1b801686a83bfbc5a0602a04246ffa"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs",
+      "sha256": "993f01fb340c8f49fd2c6eae14e0b7a496183fedb73e8e37ebf8ad576350079e"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs",
+      "sha256": "bbd35bc0b8f77b6ff44f6c14baa0c5c72ce1e6e6be42ec6b02f70355b6e47ee5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs",
+      "sha256": "75dae749cd14da8cd62be2822351ec5a773e59097e76a3337ede5bcae9002666"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs",
+      "sha256": "9b924c7089e955e8005bd7f409074591079cf5fce97c4dcbe1aade74dd3de9b4"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/http.rs",
+      "sha256": "affccb5542c91db8756d779ef70d96446bb0d3e7a46ca0ae3e8389b4e15a4228"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/scope.rs",
+      "sha256": "f3c63e8bc5c41f54281fb04402b48f9de2c0963890c9d5766ed8ab94d16862a8"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/tests.rs",
+      "sha256": "a7fa96808855d4e41c4f4ca34e9a8919b29270934bfdebbcdc07593bcd10b8df"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/postgres_tests.rs",
+      "sha256": "0ddffd372dcd072ac1a23c0f3ceb3d66723aad1cbdac2d0d6d44f6dcd9fd6415"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/request_meter.rs",
+      "sha256": "812fa409dd57dcd1beafd671527328cd909bd155e7b39ab8ec1287c699716415"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/request_meter_tests.rs",
+      "sha256": "ea6197abe1d35d511bdc8711ffd2910291eba93deae53bd00074147d85ba3b95"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/knowledge_model_accounting.rs",
+      "sha256": "a880a1e7e27c0bf664e3a4d979472d42600ebc7422d48125511ab3bb87f6f576"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/usage_stage_receipts.rs",
+      "sha256": "733a97ac697f391b3f94f9a3ffbef3f20345c2eb382bcecd9b1c1a6a300498bb"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/usage_recorder.rs",
+      "sha256": "fbebae1d3899da6bc072a5e0769dea2e8c594d6aeef59420d3febdaec8e5872d"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/usage_pricing.rs",
+      "sha256": "e175385246c35893b4ec6dbe173e2660d4921eb99bc1fa267c464ccb5ebaba9c"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/price_book.rs",
+      "sha256": "386e849e861bec4e073b3626a682838fcfe6184c1df9f6fb7efc77a50a4c6fa4"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/price_book_service.rs",
+      "sha256": "cd5e25a1b25f023c2ceab3c495e5852749395bb8b8ed2e9930d596edccc3b6c5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway-foundation/src/billing_store.rs",
+      "sha256": "3bc5307575b6b4cf9f84ce132351137c0c6fd7e1713ed27b7cccfecc3ee2ffd5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-service-primitives/src/knowledge_model.rs",
+      "sha256": "f66cf18718b3aadaf481591bfe45cc442c2e7d40f018dcb60060af5f8ccc2e51"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_query/model_plane.rs",
+      "sha256": "6f310a9a1742aae735ef24e6033b91c6babb77257a3028b844720362cfe46d4a"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/ocr.rs",
+      "sha256": "0d0f6184db3fe52241b62026781467a8e0993922233579105a82483d261329c2"
+    },
+    {
+      "path": "database/proposals/knowledge-model-plane.sql",
+      "sha256": "ff5900f75ba8ebb93b20926736651a5c99abd50a57fff7cb0236efcec1cc5ad2"
+    },
+    {
+      "path": "database/proposals/request-meter-v1.sql",
+      "sha256": "3a2ab7661a2ce25f00118c894746d8da58d084695eae62316d0f467a29788ae6"
+    }
+  ],
+  "verification": {
+    "executed": [
+      {
+        "command": "/Users/yang/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin/rustfmt --edition 2024 --config skip_children=true --check rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs",
+        "result": "PASS",
+        "scope": "Rust syntax/format parsing of the eight edited/new files; child traversal disabled to preserve shared files"
+      },
+      {
+        "command": "Node local explicit-path source SHA256, whitespace and <=800-line checks",
+        "result": "PASS",
+        "source_line_counts": [
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/mod.rs",
+            "lines": 368
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/authority.rs",
+            "lines": 344
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/identity.rs",
+            "lines": 199
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider.rs",
+            "lines": 608
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/provider_budget.rs",
+            "lines": 61
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/budget_tests.rs",
+            "lines": 111
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay.rs",
+            "lines": 43
+          },
+          {
+            "path": "rust/platform-native/crates/platform-gateway/src/knowledge_model_plane/replay_tests.rs",
+            "lines": 92
+          }
+        ],
+        "new_rust_lines": 307
+      }
+    ],
+    "unrun": [
+      "Cargo check/test and type checking",
+      "All eight new unit/async tests",
+      "Ignored dedicated PostgreSQL reserve/settle and request-meter tests",
+      "Concurrent real-DB observation replay after price publication/model revision change",
+      "Actor/resource revoke while observed spend is recovered and settled",
+      "Provider HTTP/browser/live acceptance"
+    ],
+    "next_owner_validation": [
+      "Primary serial native Gateway and Foundation affected-target compilation/tests under Rust 1.99.0",
+      "Authority-admitted dedicated DB: assert one raw usage row, one cumulative quota/daily/hourly mutation and frozen original book revision after changed route + repeated same lease replay",
+      "Revoke account/model/resource after recording observation: original spend still commits, returned output remains denied; new supplier call count stays unchanged",
+      "New dispatch with changed route/provider revision still rejects before supplier HTTP"
+    ]
+  }
+}

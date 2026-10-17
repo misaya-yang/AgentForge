@@ -502,6 +502,8 @@ mod tests {
             namespace: None,
             arguments: format!("{{\"value\":{value}}}"),
             encrypted_function_args: None,
+            encrypted_content: None,
+            status: None,
             call_id: "call-a".to_string(),
             internal_chat_message_metadata_passthrough: None,
         }))

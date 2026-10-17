@@ -1,0 +1,73 @@
+rule_files:
+- alert-rules.yml
+evaluation_interval: 30s
+tests:
+- name: healthy
+  interval: 1m
+  input_series:
+  - series: gateway_requests_total{status_code="200"}
+    values: 0+600x400
+  - series: gateway_requests_total{status_code="500"}
+    values: 0+0x400
+  - series: gateway_request_duration_ms_count
+    values: 0+600x400
+  - series: gateway_request_duration_ms_bucket{le="2500"}
+    values: 0+600x400
+  - series: up{job="gateway"}
+    values: 1+0x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: GatewayErrorBudgetBurnFast
+    exp_alerts: []
+- name: sustained errors
+  interval: 1m
+  input_series:
+  - series: gateway_requests_total{status_code="200"}
+    values: 0+480x400
+  - series: gateway_requests_total{status_code="500"}
+    values: 0+120x400
+  - series: gateway_request_duration_ms_count
+    values: 0+600x400
+  - series: gateway_request_duration_ms_bucket{le="2500"}
+    values: 0+600x400
+  - series: up{job="gateway"}
+    values: 1+0x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: GatewayErrorBudgetBurnFast
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        owner: gateway
+        slo: error
+      exp_annotations:
+        summary: Gateway error SLO budget burning (5m/1h)
+- name: idle traffic does not burn budget
+  interval: 1m
+  input_series:
+  - series: gateway_requests_total{status_code="200"}
+    values: 0+0x400
+  - series: gateway_requests_total{status_code="500"}
+    values: 0+0x400
+  - series: gateway_request_duration_ms_count
+    values: 0+0x400
+  - series: gateway_request_duration_ms_bucket{le="2500"}
+    values: 0+0x400
+  - series: up{job="gateway"}
+    values: 0+0x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: GatewayErrorBudgetBurnFast
+    exp_alerts: []
+- name: missing metrics fails visibly
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: GatewaySloTelemetryAbsent
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        owner: gateway
+      exp_annotations:
+        summary: Gateway SLO inputs missing; SLO cannot be evaluated

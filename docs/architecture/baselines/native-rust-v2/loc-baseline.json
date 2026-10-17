@@ -1,0 +1,2390 @@
+{
+  "base_git_sha": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "baseline_id": "native-rust-v2",
+  "generator": "platform-tools inventory-generate",
+  "methodology": [
+    "Counts read from immutable Git blobs, not working tree.",
+    "Version 2 measures native Rust source; historical Python ledger remains unchanged.",
+    "Test classification is by path; no claims that ignored/live tests passed."
+  ],
+  "oversized_rust": {
+    "by_unit": {
+      "ai-platform-agent-runtime": 5,
+      "ai-platform-capability-contract": 1,
+      "ai-platform-capability-worker": 7,
+      "ai-platform-office": 1,
+      "app-server": 6,
+      "app-server-client": 1,
+      "core": 10,
+      "ext": 1,
+      "platform-desktop": 2,
+      "platform-eval": 2,
+      "platform-gateway": 24,
+      "platform-gateway-foundation": 39,
+      "platform-gateway-integrations": 15,
+      "platform-knowledge-service": 3,
+      "platform-local-node": 2,
+      "platform-migration-authority": 6,
+      "platform-openapi": 1,
+      "platform-tools": 1,
+      "protocol": 1,
+      "tests": 133
+    },
+    "count": 261,
+    "files": [
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/tests/generated.rs",
+        "is_test": true,
+        "lines": 21247,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/map.rs",
+        "is_test": true,
+        "lines": 7030,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/gen/consts.rs",
+        "is_test": true,
+        "lines": 6567,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/thread_processor.rs",
+        "is_test": false,
+        "lines": 6457,
+        "unit": "app-server"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/protocol/src/protocol.rs",
+        "is_test": false,
+        "lines": 6443,
+        "unit": "protocol"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/apple/mod.rs",
+        "is_test": true,
+        "lines": 5575,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/tests/debug/gen.rs",
+        "is_test": true,
+        "lines": 5394,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/freebsdlike/freebsd/mod.rs",
+        "is_test": true,
+        "lines": 5346,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/mod.rs",
+        "is_test": false,
+        "lines": 5208,
+        "unit": "core"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/quiz_unicode.rs",
+        "is_test": false,
+        "lines": 5035,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/hurd/mod.rs",
+        "is_test": true,
+        "lines": 4777,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/gen/generic_const_mappings.rs",
+        "is_test": true,
+        "lines": 4758,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/raw.rs",
+        "is_test": true,
+        "lines": 4630,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/expr.rs",
+        "is_test": true,
+        "lines": 4249,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/fuchsia/mod.rs",
+        "is_test": true,
+        "lines": 4196,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/psp.rs",
+        "is_test": true,
+        "lines": 4131,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/visit.rs",
+        "is_test": true,
+        "lines": 4037,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/android/mod.rs",
+        "is_test": true,
+        "lines": 3996,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/fold.rs",
+        "is_test": true,
+        "lines": 3934,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/item.rs",
+        "is_test": true,
+        "lines": 3923,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/mod.rs",
+        "is_test": true,
+        "lines": 3837,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/visit_mut.rs",
+        "is_test": true,
+        "lines": 3824,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ext/guardian-v2/src/async_scorer/extension_tests.rs",
+        "is_test": false,
+        "lines": 3681,
+        "unit": "ext"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/private/de.rs",
+        "is_test": true,
+        "lines": 3501,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/debug.rs",
+        "is_test": true,
+        "lines": 3399,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/aix/mod.rs",
+        "is_test": true,
+        "lines": 3393,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/turn.rs",
+        "is_test": false,
+        "lines": 3216,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/table.rs",
+        "is_test": true,
+        "lines": 3197,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/de/impls.rs",
+        "is_test": true,
+        "lines": 3173,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/de/impls.rs",
+        "is_test": true,
+        "lines": 3173,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/nto/mod.rs",
+        "is_test": true,
+        "lines": 3098,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/set.rs",
+        "is_test": true,
+        "lines": 3089,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/solarish/mod.rs",
+        "is_test": true,
+        "lines": 3063,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/hash.rs",
+        "is_test": true,
+        "lines": 3040,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/thread_manager.rs",
+        "is_test": false,
+        "lines": 2880,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/uint.rs",
+        "is_test": true,
+        "lines": 2871,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/de.rs",
+        "is_test": true,
+        "lines": 2714,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/usage_admin_api.rs",
+        "is_test": false,
+        "lines": 2709,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/tests/test.rs",
+        "is_test": true,
+        "lines": 2651,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/mod.rs",
+        "is_test": true,
+        "lines": 2565,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/netbsdlike/netbsd/mod.rs",
+        "is_test": true,
+        "lines": 2503,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/vxworks/mod.rs",
+        "is_test": true,
+        "lines": 2494,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/eq.rs",
+        "is_test": true,
+        "lines": 2459,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server-client/src/lib.rs",
+        "is_test": false,
+        "lines": 2441,
+        "unit": "app-server-client"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/cygwin/mod.rs",
+        "is_test": true,
+        "lines": 2405,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/clone.rs",
+        "is_test": true,
+        "lines": 2394,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/de/mod.rs",
+        "is_test": true,
+        "lines": 2392,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/de/mod.rs",
+        "is_test": true,
+        "lines": 2392,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/mod.rs",
+        "is_test": true,
+        "lines": 2299,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/ser.rs",
+        "is_test": true,
+        "lines": 2285,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/quota_admin_api.rs",
+        "is_test": false,
+        "lines": 2226,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs",
+        "is_test": false,
+        "lines": 2191,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/netbsdlike/openbsd/mod.rs",
+        "is_test": true,
+        "lines": 2128,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/src/lib.rs",
+        "is_test": false,
+        "lines": 2065,
+        "unit": "ai-platform-office"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/ser/mod.rs",
+        "is_test": true,
+        "lines": 2010,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/ser/mod.rs",
+        "is_test": true,
+        "lines": 2010,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/control.rs",
+        "is_test": false,
+        "lines": 1992,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux_l4re_shared.rs",
+        "is_test": true,
+        "lines": 1985,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/haiku/mod.rs",
+        "is_test": true,
+        "lines": 1979,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/message_processor.rs",
+        "is_test": false,
+        "lines": 1971,
+        "unit": "app-server"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/freebsdlike/mod.rs",
+        "is_test": true,
+        "lines": 1962,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/session_history.rs",
+        "is_test": false,
+        "lines": 1921,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/de/value.rs",
+        "is_test": true,
+        "lines": 1895,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/de/value.rs",
+        "is_test": true,
+        "lines": 1895,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/lit.rs",
+        "is_test": true,
+        "lines": 1881,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/src/map.rs",
+        "is_test": true,
+        "lines": 1865,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/zmij/src/lib.rs",
+        "is_test": true,
+        "lines": 1857,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_derive/src/internals/attr.rs",
+        "is_test": true,
+        "lines": 1818,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/langgraph.rs",
+        "is_test": false,
+        "lines": 1806,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_local_node/transport.rs",
+        "is_test": false,
+        "lines": 1793,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/turn_processor.rs",
+        "is_test": false,
+        "lines": 1747,
+        "unit": "app-server"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/raw_entry.rs",
+        "is_test": true,
+        "lines": 1729,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/lib.rs",
+        "is_test": false,
+        "lines": 1728,
+        "unit": "ai-platform-capability-contract"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/tests/test_expr.rs",
+        "is_test": true,
+        "lines": 1721,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/metrics_admin_api.rs",
+        "is_test": false,
+        "lines": 1701,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/chunking.rs",
+        "is_test": false,
+        "lines": 1698,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api.rs",
+        "is_test": false,
+        "lines": 1693,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/model_admin_api.rs",
+        "is_test": false,
+        "lines": 1685,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/langgraph_service_validation.rs",
+        "is_test": false,
+        "lines": 1663,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_host/local_node_channel_store.rs",
+        "is_test": false,
+        "lines": 1651,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/tenant_policies_api.rs",
+        "is_test": false,
+        "lines": 1650,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/macros.rs",
+        "is_test": true,
+        "lines": 1638,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/lib.rs",
+        "is_test": false,
+        "lines": 1631,
+        "unit": "app-server"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/service.rs",
+        "is_test": false,
+        "lines": 1585,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/redox/mod.rs",
+        "is_test": true,
+        "lines": 1581,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/next_successor.rs",
+        "is_test": false,
+        "lines": 1579,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/agent/control/spawn.rs",
+        "is_test": false,
+        "lines": 1558,
+        "unit": "core"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/usage_parser.rs",
+        "is_test": false,
+        "lines": 1530,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/int.rs",
+        "is_test": true,
+        "lines": 1528,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/proc-macro2/src/lib.rs",
+        "is_test": true,
+        "lines": 1527,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/emscripten/mod.rs",
+        "is_test": true,
+        "lines": 1526,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/value/de.rs",
+        "is_test": true,
+        "lines": 1507,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/model.rs",
+        "is_test": false,
+        "lines": 1495,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/generics.rs",
+        "is_test": true,
+        "lines": 1490,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/freebsdlike/dragonfly/mod.rs",
+        "is_test": true,
+        "lines": 1483,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/src/set.rs",
+        "is_test": true,
+        "lines": 1472,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/quote/src/lib.rs",
+        "is_test": true,
+        "lines": 1471,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_content/storage.rs",
+        "is_test": false,
+        "lines": 1469,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/pdf_backend.rs",
+        "is_test": false,
+        "lines": 1469,
+        "unit": "platform-knowledge-service"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/successors.rs",
+        "is_test": false,
+        "lines": 1469,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_host/local_node_channel.rs",
+        "is_test": false,
+        "lines": 1451,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_behavior.rs",
+        "is_test": false,
+        "lines": 1432,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-desktop/src/migration_desktop/endpoints.rs",
+        "is_test": false,
+        "lines": 1420,
+        "unit": "platform-desktop"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/parse.rs",
+        "is_test": true,
+        "lines": 1420,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/lib.rs",
+        "is_test": false,
+        "lines": 1418,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/nto/neutrino.rs",
+        "is_test": true,
+        "lines": 1410,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/readonly_capabilities.rs",
+        "is_test": false,
+        "lines": 1408,
+        "unit": "ai-platform-agent-runtime"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/mcp_registry_api.rs",
+        "is_test": false,
+        "lines": 1395,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/haiku/native.rs",
+        "is_test": true,
+        "lines": 1390,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/private/ser.rs",
+        "is_test": true,
+        "lines": 1382,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/request_validation.rs",
+        "is_test": false,
+        "lines": 1380,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_derive/src/ser.rs",
+        "is_test": true,
+        "lines": 1369,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/x86_64/avx2/memchr.rs",
+        "is_test": true,
+        "lines": 1352,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/teeos/mod.rs",
+        "is_test": true,
+        "lines": 1348,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/ty.rs",
+        "is_test": true,
+        "lines": 1347,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/confluence.rs",
+        "is_test": false,
+        "lines": 1346,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-eval/src/producer.rs",
+        "is_test": false,
+        "lines": 1330,
+        "unit": "platform-eval"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/measure_successors.rs",
+        "is_test": false,
+        "lines": 1319,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/codex_thread.rs",
+        "is_test": false,
+        "lines": 1309,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/src/map/tests.rs",
+        "is_test": true,
+        "lines": 1298,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/compact_remote_v2.rs",
+        "is_test": false,
+        "lines": 1291,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/proc-macro2/src/fallback.rs",
+        "is_test": true,
+        "lines": 1279,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_adapters/langgraph.rs",
+        "is_test": false,
+        "lines": 1278,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/next_successor_022.rs",
+        "is_test": false,
+        "lines": 1272,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/in_process.rs",
+        "is_test": false,
+        "lines": 1269,
+        "unit": "app-server"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/mod.rs",
+        "is_test": true,
+        "lines": 1265,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/migration.rs",
+        "is_test": false,
+        "lines": 1258,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+        "is_test": false,
+        "lines": 1253,
+        "unit": "ai-platform-agent-runtime"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_content/skills.rs",
+        "is_test": false,
+        "lines": 1237,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/responses.rs",
+        "is_test": false,
+        "lines": 1236,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/connector_admin_api.rs",
+        "is_test": false,
+        "lines": 1234,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/store.rs",
+        "is_test": false,
+        "lines": 1233,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/generic/memchr.rs",
+        "is_test": true,
+        "lines": 1220,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/structured.rs",
+        "is_test": false,
+        "lines": 1213,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/wasi/mod.rs",
+        "is_test": true,
+        "lines": 1211,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/dashboard_api.rs",
+        "is_test": false,
+        "lines": 1207,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_execution.rs",
+        "is_test": false,
+        "lines": 1203,
+        "unit": "ai-platform-agent-runtime"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-openapi/src/broad_contract.rs",
+        "is_test": false,
+        "lines": 1200,
+        "unit": "platform-openapi"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/punctuated.rs",
+        "is_test": true,
+        "lines": 1200,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/routes.rs",
+        "is_test": false,
+        "lines": 1199,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+        "is_test": false,
+        "lines": 1196,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/map.rs",
+        "is_test": true,
+        "lines": 1189,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/knowledge.rs",
+        "is_test": false,
+        "lines": 1180,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/invocation_http.rs",
+        "is_test": false,
+        "lines": 1166,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/read.rs",
+        "is_test": true,
+        "lines": 1140,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/session_manager.rs",
+        "is_test": false,
+        "lines": 1136,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/local_node_broker.rs",
+        "is_test": false,
+        "lines": 1135,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/lib.rs",
+        "is_test": true,
+        "lines": 1132,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-desktop/src/migration_desktop/workflows/conversation.rs",
+        "is_test": false,
+        "lines": 1123,
+        "unit": "platform-desktop"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/service_config_api.rs",
+        "is_test": false,
+        "lines": 1118,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/metrics_redaction.rs",
+        "is_test": false,
+        "lines": 1114,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+        "is_test": false,
+        "lines": 1111,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/usage_recorder.rs",
+        "is_test": false,
+        "lines": 1111,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_api.rs",
+        "is_test": false,
+        "lines": 1107,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/token.rs",
+        "is_test": true,
+        "lines": 1103,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/proc-macro2/tests/test.rs",
+        "is_test": true,
+        "lines": 1093,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/parser.rs",
+        "is_test": false,
+        "lines": 1090,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/users_api.rs",
+        "is_test": false,
+        "lines": 1080,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/realtime_metrics.rs",
+        "is_test": false,
+        "lines": 1078,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/x86_64/sse2/memchr.rs",
+        "is_test": true,
+        "lines": 1077,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/mcp_registry_store.rs",
+        "is_test": false,
+        "lines": 1069,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs",
+        "is_test": false,
+        "lines": 1068,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/capacity_admission.rs",
+        "is_test": false,
+        "lines": 1065,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-local-node/src/runner.rs",
+        "is_test": false,
+        "lines": 1064,
+        "unit": "platform-local-node"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/next_successor_023.rs",
+        "is_test": false,
+        "lines": 1064,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_scoring.rs",
+        "is_test": false,
+        "lines": 1063,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/value/ser.rs",
+        "is_test": true,
+        "lines": 1063,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/http.rs",
+        "is_test": false,
+        "lines": 1062,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/src/set/tests.rs",
+        "is_test": true,
+        "lines": 1059,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_adapter.rs",
+        "is_test": false,
+        "lines": 1053,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/ser/impls.rs",
+        "is_test": true,
+        "lines": 1045,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/ser/impls.rs",
+        "is_test": true,
+        "lines": 1045,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/newlib/mod.rs",
+        "is_test": true,
+        "lines": 1042,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/value/mod.rs",
+        "is_test": true,
+        "lines": 1042,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/aarch64/neon/memchr.rs",
+        "is_test": true,
+        "lines": 1031,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/gen/op.rs",
+        "is_test": true,
+        "lines": 1030,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/memmem/searcher.rs",
+        "is_test": true,
+        "lines": 1028,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-migration-authority/src/source_tools/probe.rs",
+        "is_test": false,
+        "lines": 1026,
+        "unit": "platform-migration-authority"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_content/capabilities.rs",
+        "is_test": false,
+        "lines": 1025,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/all/memchr.rs",
+        "is_test": true,
+        "lines": 1022,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/release.rs",
+        "is_test": false,
+        "lines": 1020,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/wasm32/simd128/memchr.rs",
+        "is_test": true,
+        "lines": 1020,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/public.rs",
+        "is_test": false,
+        "lines": 1015,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/users_contract_tests.rs",
+        "is_test": false,
+        "lines": 1011,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/transparent_proxy.rs",
+        "is_test": false,
+        "lines": 1004,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/pat.rs",
+        "is_test": true,
+        "lines": 994,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/proc-macro2/src/parse.rs",
+        "is_test": true,
+        "lines": 991,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/task_manager.rs",
+        "is_test": false,
+        "lines": 987,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/proc-macro2/src/wrapper.rs",
+        "is_test": true,
+        "lines": 987,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_host/pdf_backend.rs",
+        "is_test": false,
+        "lines": 985,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/assistant_catalog.rs",
+        "is_test": false,
+        "lines": 984,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_content/images.rs",
+        "is_test": false,
+        "lines": 977,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_derive/src/de.rs",
+        "is_test": true,
+        "lines": 976,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/embedding.rs",
+        "is_test": false,
+        "lines": 975,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/path.rs",
+        "is_test": true,
+        "lines": 972,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/rate_config_api.rs",
+        "is_test": false,
+        "lines": 968,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store_contract_tests.rs",
+        "is_test": false,
+        "lines": 962,
+        "unit": "ai-platform-agent-runtime"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-tools/src/source.rs",
+        "is_test": false,
+        "lines": 962,
+        "unit": "platform-tools"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/x86/mod.rs",
+        "is_test": true,
+        "lines": 961,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/billing_scheduler.rs",
+        "is_test": false,
+        "lines": 957,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/foundation.rs",
+        "is_test": false,
+        "lines": 941,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/connector_user_service.rs",
+        "is_test": false,
+        "lines": 940,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/foundation_backends.rs",
+        "is_test": false,
+        "lines": 940,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/tests/common/eq.rs",
+        "is_test": true,
+        "lines": 939,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/mod.rs",
+        "is_test": true,
+        "lines": 935,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/dispatcher.rs",
+        "is_test": false,
+        "lines": 930,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_compat/eval_comparison.rs",
+        "is_test": false,
+        "lines": 924,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/handlers/mcp.rs",
+        "is_test": false,
+        "lines": 923,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/netbsdlike/mod.rs",
+        "is_test": true,
+        "lines": 921,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/powerpc64/mod.rs",
+        "is_test": true,
+        "lines": 919,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/python_code_execution.rs",
+        "is_test": false,
+        "lines": 917,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/registry.rs",
+        "is_test": false,
+        "lines": 915,
+        "unit": "core"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+        "is_test": false,
+        "lines": 914,
+        "unit": "ai-platform-agent-runtime"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_content/shares.rs",
+        "is_test": false,
+        "lines": 914,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/uclibc/arm/mod.rs",
+        "is_test": true,
+        "lines": 913,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/turn_input.rs",
+        "is_test": false,
+        "lines": 911,
+        "unit": "core"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/confluence/legacy_sync.rs",
+        "is_test": false,
+        "lines": 907,
+        "unit": "platform-knowledge-service"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/sessions_api.rs",
+        "is_test": false,
+        "lines": 906,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/images.rs",
+        "is_test": false,
+        "lines": 906,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/model_service.rs",
+        "is_test": false,
+        "lines": 904,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/rate_limits.rs",
+        "is_test": false,
+        "lines": 903,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/memchr.rs",
+        "is_test": true,
+        "lines": 903,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/external_write_capabilities.rs",
+        "is_test": false,
+        "lines": 897,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/services_api.rs",
+        "is_test": false,
+        "lines": 895,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/src/map/iter.rs",
+        "is_test": true,
+        "lines": 894,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/indexmap/tests/quick.rs",
+        "is_test": true,
+        "lines": 894,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/mcp_http.rs",
+        "is_test": false,
+        "lines": 893,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-knowledge-service/src/langgraph_tools.rs",
+        "is_test": false,
+        "lines": 889,
+        "unit": "platform-knowledge-service"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/lexical/math.rs",
+        "is_test": true,
+        "lines": 883,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/aarch64/mod.rs",
+        "is_test": true,
+        "lines": 882,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/solid/mod.rs",
+        "is_test": true,
+        "lines": 878,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/memchr/src/arch/all/twoway.rs",
+        "is_test": true,
+        "lines": 877,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/b32/mips/mod.rs",
+        "is_test": true,
+        "lines": 874,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/b32/x86/mod.rs",
+        "is_test": true,
+        "lines": 873,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/mips/mod.rs",
+        "is_test": true,
+        "lines": 862,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/compact.rs",
+        "is_test": false,
+        "lines": 861,
+        "unit": "core"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs",
+        "is_test": false,
+        "lines": 859,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/mod.rs",
+        "is_test": true,
+        "lines": 856,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/s390x.rs",
+        "is_test": true,
+        "lines": 855,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/billing_store.rs",
+        "is_test": false,
+        "lines": 844,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/tests/suite/v2/remote_thread_store.rs",
+        "is_test": true,
+        "lines": 842,
+        "unit": "app-server"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/quota_store.rs",
+        "is_test": false,
+        "lines": 842,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/attr.rs",
+        "is_test": true,
+        "lines": 841,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/arm/mod.rs",
+        "is_test": true,
+        "lines": 836,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/metrics_recorder.rs",
+        "is_test": false,
+        "lines": 833,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service.rs",
+        "is_test": false,
+        "lines": 832,
+        "unit": "ai-platform-capability-worker"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-local-node/tests/local_migration_parity_acceptance.rs",
+        "is_test": true,
+        "lines": 831,
+        "unit": "platform-local-node"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/riscv64/mod.rs",
+        "is_test": true,
+        "lines": 830,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/b32/arm/mod.rs",
+        "is_test": true,
+        "lines": 830,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/b32/powerpc.rs",
+        "is_test": true,
+        "lines": 830,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/raw.rs",
+        "is_test": true,
+        "lines": 827,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/musl/b64/x86_64/mod.rs",
+        "is_test": true,
+        "lines": 826,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-eval/src/coding_sandbox.rs",
+        "is_test": false,
+        "lines": 822,
+        "unit": "platform-eval"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/powerpc.rs",
+        "is_test": true,
+        "lines": 821,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/m68k/mod.rs",
+        "is_test": true,
+        "lines": 818,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/sparc64/mod.rs",
+        "is_test": true,
+        "lines": 816,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/number.rs",
+        "is_test": true,
+        "lines": 814,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/studio.rs",
+        "is_test": false,
+        "lines": 802,
+        "unit": "platform-gateway"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b64/mips64/mod.rs",
+        "is_test": true,
+        "lines": 802,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/gnu/b32/sparc/mod.rs",
+        "is_test": true,
+        "lines": 801,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/tests/test_derive_input.rs",
+        "is_test": true,
+        "lines": 801,
+        "unit": "tests"
+      }
+    ],
+    "production_count": 126,
+    "threshold_lines": 800
+  },
+  "oversized_typescript": {
+    "by_unit": {
+      "sdk": 3,
+      "web": 62
+    },
+    "count": 65,
+    "files": [
+      {
+        "file": "web/src/pages/assistant/hooks/useChatSession.ts",
+        "is_test": false,
+        "lines": 4106,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/chat-experience.spec.ts",
+        "is_test": true,
+        "lines": 3095,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/eval/index.tsx",
+        "is_test": false,
+        "lines": 2910,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DocumentsTab.tsx",
+        "is_test": false,
+        "lines": 2287,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/playground/hooks/usePlaygroundStream.ts",
+        "is_test": false,
+        "lines": 1839,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/ServiceConfigDialog.tsx",
+        "is_test": false,
+        "lines": 1832,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/index.tsx",
+        "is_test": false,
+        "lines": 1700,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/api/knowledge.ts",
+        "is_test": false,
+        "lines": 1698,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/SettingsTab.tsx",
+        "is_test": false,
+        "lines": 1624,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/eval-trace.spec.ts",
+        "is_test": true,
+        "lines": 1390,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/EmbeddingMigrationPanel.tsx",
+        "is_test": false,
+        "lines": 1367,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx",
+        "is_test": false,
+        "lines": 1356,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/components/Quiz/QuizCard.tsx",
+        "is_test": false,
+        "lines": 1028,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/types/knowledge.ts",
+        "is_test": false,
+        "lines": 1026,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/UserManagement.tsx",
+        "is_test": false,
+        "lines": 1025,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/api/assistant.ts",
+        "is_test": false,
+        "lines": 1017,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DatasetUploadDialog.tsx",
+        "is_test": false,
+        "lines": 1011,
+        "unit": "web"
+      },
+      {
+        "file": "sdk/cli/src/app.tsx",
+        "is_test": false,
+        "lines": 991,
+        "unit": "sdk"
+      },
+      {
+        "file": "web/src/api/eval.ts",
+        "is_test": false,
+        "lines": 984,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/agent-studio.spec.ts",
+        "is_test": true,
+        "lines": 977,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/ProviderStatusCard.tsx",
+        "is_test": false,
+        "lines": 969,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/Datasets.tsx",
+        "is_test": false,
+        "lines": 940,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/artifacts/ArtifactsPanel.tsx",
+        "is_test": false,
+        "lines": 923,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/types.ts",
+        "is_test": false,
+        "lines": 921,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/agent-publish.spec.ts",
+        "is_test": true,
+        "lines": 919,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/llm/ModelForm.tsx",
+        "is_test": false,
+        "lines": 912,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/DatasetCreate.tsx",
+        "is_test": false,
+        "lines": 861,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/knowledge-embedding-migration.spec.ts",
+        "is_test": true,
+        "lines": 860,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/UserEdit.tsx",
+        "is_test": false,
+        "lines": 807,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/knowledge-eval-cases.spec.ts",
+        "is_test": true,
+        "lines": 802,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/agents/AgentPreviewPanel.tsx",
+        "is_test": false,
+        "lines": 777,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/playground/hooks/usePlaygroundSessions.ts",
+        "is_test": false,
+        "lines": 743,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/QATab.tsx",
+        "is_test": false,
+        "lines": 735,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/hooks/useAgentTimeline.ts",
+        "is_test": false,
+        "lines": 718,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/components/buildTimeline.ts",
+        "is_test": false,
+        "lines": 715,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/agent/AgentTimeline.tsx",
+        "is_test": false,
+        "lines": 710,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/knowledge-rag-eval.spec.ts",
+        "is_test": true,
+        "lines": 700,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/agents/AgentStudioPage.tsx",
+        "is_test": false,
+        "lines": 695,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/agents/AgentReleasePanel.tsx",
+        "is_test": false,
+        "lines": 686,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/Services.tsx",
+        "is_test": false,
+        "lines": 678,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/playground/index.tsx",
+        "is_test": false,
+        "lines": 676,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/components/ChatMessage.tsx",
+        "is_test": false,
+        "lines": 670,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/assistant/local-os/useLocalOSControl.ts",
+        "is_test": false,
+        "lines": 666,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/dashboard/components/panels/RequestTracePanel.tsx",
+        "is_test": false,
+        "lines": 652,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/playground/hooks/sessionInitializationFlow.test.ts",
+        "is_test": true,
+        "lines": 651,
+        "unit": "web"
+      },
+      {
+        "file": "web/e2e/knowledge-document-lifecycle.spec.ts",
+        "is_test": true,
+        "lines": 643,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/lib/sse.ts",
+        "is_test": false,
+        "lines": 634,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/ConversationSidebar.tsx",
+        "is_test": false,
+        "lines": 617,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/playground/utils/langgraph.ts",
+        "is_test": false,
+        "lines": 603,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/features/chat/stream/reducer.ts",
+        "is_test": false,
+        "lines": 593,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/types/agents.ts",
+        "is_test": false,
+        "lines": 592,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/eval/traceDiagnosticJourney.test.ts",
+        "is_test": true,
+        "lines": 589,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/api/agents.ts",
+        "is_test": false,
+        "lines": 583,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/RetrievalTab.tsx",
+        "is_test": false,
+        "lines": 574,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/useDatasetUploadController.ts",
+        "is_test": false,
+        "lines": 565,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/dashboard/DashboardLayout.tsx",
+        "is_test": false,
+        "lines": 560,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/agent/ArtifactCard.tsx",
+        "is_test": false,
+        "lines": 556,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/Settings.tsx",
+        "is_test": false,
+        "lines": 551,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/settings/ConnectorsSettings.tsx",
+        "is_test": false,
+        "lines": 550,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/DocumentRow.tsx",
+        "is_test": false,
+        "lines": 546,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/components/StreamOutput.tsx",
+        "is_test": false,
+        "lines": 540,
+        "unit": "web"
+      },
+      {
+        "file": "web/src/pages/knowledge/detail/ChunkCard.tsx",
+        "is_test": false,
+        "lines": 536,
+        "unit": "web"
+      },
+      {
+        "file": "sdk/cli/src/native/launcher.ts",
+        "is_test": false,
+        "lines": 524,
+        "unit": "sdk"
+      },
+      {
+        "file": "sdk/cli/src/provider/chat_responses_proxy.test.ts",
+        "is_test": true,
+        "lines": 508,
+        "unit": "sdk"
+      },
+      {
+        "file": "web/src/pages/Login.tsx",
+        "is_test": false,
+        "lines": 504,
+        "unit": "web"
+      }
+    ],
+    "production_count": 54,
+    "threshold_lines": 500
+  },
+  "provenance": {
+    "schema_version": "ai-platform/native-source-provenance/v1",
+    "source_kind": "git-commit",
+    "source_tree": "d162313c1e70888561add80fac0058b28ef83219"
+  },
+  "rust_large_informational": {
+    "by_unit": {
+      "ai-platform-office": 1,
+      "app-server": 1,
+      "app-server-client": 1,
+      "core": 3,
+      "ext": 1,
+      "platform-gateway-foundation": 3,
+      "platform-gateway-integrations": 1,
+      "protocol": 1,
+      "tests": 44
+    },
+    "count": 56,
+    "files": [
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/tests/generated.rs",
+        "is_test": true,
+        "lines": 21247,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/map.rs",
+        "is_test": true,
+        "lines": 7030,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/gen/consts.rs",
+        "is_test": true,
+        "lines": 6567,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/thread_processor.rs",
+        "is_test": false,
+        "lines": 6457,
+        "unit": "app-server"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/protocol/src/protocol.rs",
+        "is_test": false,
+        "lines": 6443,
+        "unit": "protocol"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/apple/mod.rs",
+        "is_test": true,
+        "lines": 5575,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/tests/debug/gen.rs",
+        "is_test": true,
+        "lines": 5394,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/freebsdlike/freebsd/mod.rs",
+        "is_test": true,
+        "lines": 5346,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/mod.rs",
+        "is_test": false,
+        "lines": 5208,
+        "unit": "core"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/quiz_unicode.rs",
+        "is_test": false,
+        "lines": 5035,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/hurd/mod.rs",
+        "is_test": true,
+        "lines": 4777,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/gen/generic_const_mappings.rs",
+        "is_test": true,
+        "lines": 4758,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/raw.rs",
+        "is_test": true,
+        "lines": 4630,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/expr.rs",
+        "is_test": true,
+        "lines": 4249,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/fuchsia/mod.rs",
+        "is_test": true,
+        "lines": 4196,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/psp.rs",
+        "is_test": true,
+        "lines": 4131,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/visit.rs",
+        "is_test": true,
+        "lines": 4037,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/android/mod.rs",
+        "is_test": true,
+        "lines": 3996,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/fold.rs",
+        "is_test": true,
+        "lines": 3934,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/item.rs",
+        "is_test": true,
+        "lines": 3923,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/linux/mod.rs",
+        "is_test": true,
+        "lines": 3837,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/visit_mut.rs",
+        "is_test": true,
+        "lines": 3824,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ext/guardian-v2/src/async_scorer/extension_tests.rs",
+        "is_test": false,
+        "lines": 3681,
+        "unit": "ext"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/private/de.rs",
+        "is_test": true,
+        "lines": 3501,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/debug.rs",
+        "is_test": true,
+        "lines": 3399,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/aix/mod.rs",
+        "is_test": true,
+        "lines": 3393,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/session/turn.rs",
+        "is_test": false,
+        "lines": 3216,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/table.rs",
+        "is_test": true,
+        "lines": 3197,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/de/impls.rs",
+        "is_test": true,
+        "lines": 3173,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/de/impls.rs",
+        "is_test": true,
+        "lines": 3173,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/nto/mod.rs",
+        "is_test": true,
+        "lines": 3098,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/hashbrown/src/set.rs",
+        "is_test": true,
+        "lines": 3089,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/solarish/mod.rs",
+        "is_test": true,
+        "lines": 3063,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/hash.rs",
+        "is_test": true,
+        "lines": 3040,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/core/src/thread_manager.rs",
+        "is_test": false,
+        "lines": 2880,
+        "unit": "core"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/typenum/src/uint.rs",
+        "is_test": true,
+        "lines": 2871,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/de.rs",
+        "is_test": true,
+        "lines": 2714,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/usage_admin_api.rs",
+        "is_test": false,
+        "lines": 2709,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/tests/test.rs",
+        "is_test": true,
+        "lines": 2651,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/mod.rs",
+        "is_test": true,
+        "lines": 2565,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/netbsdlike/netbsd/mod.rs",
+        "is_test": true,
+        "lines": 2503,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/vxworks/mod.rs",
+        "is_test": true,
+        "lines": 2494,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/eq.rs",
+        "is_test": true,
+        "lines": 2459,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/app-server-client/src/lib.rs",
+        "is_test": false,
+        "lines": 2441,
+        "unit": "app-server-client"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/cygwin/mod.rs",
+        "is_test": true,
+        "lines": 2405,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/syn/src/gen/clone.rs",
+        "is_test": true,
+        "lines": 2394,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/de/mod.rs",
+        "is_test": true,
+        "lines": 2392,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/de/mod.rs",
+        "is_test": true,
+        "lines": 2392,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/linux_like/mod.rs",
+        "is_test": true,
+        "lines": 2299,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_json/src/ser.rs",
+        "is_test": true,
+        "lines": 2285,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-foundation/src/quota_admin_api.rs",
+        "is_test": false,
+        "lines": 2226,
+        "unit": "platform-gateway-foundation"
+      },
+      {
+        "file": "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs",
+        "is_test": false,
+        "lines": 2191,
+        "unit": "platform-gateway-integrations"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/libc/src/unix/bsd/netbsdlike/openbsd/mod.rs",
+        "is_test": true,
+        "lines": 2128,
+        "unit": "tests"
+      },
+      {
+        "file": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/src/lib.rs",
+        "is_test": false,
+        "lines": 2065,
+        "unit": "ai-platform-office"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde/src/core/ser/mod.rs",
+        "is_test": true,
+        "lines": 2010,
+        "unit": "tests"
+      },
+      {
+        "file": "tests/fixtures/eval/general_agent/coding_parallel_v2/repository/vendor/serde_core/src/ser/mod.rs",
+        "is_test": true,
+        "lines": 2010,
+        "unit": "tests"
+      }
+    ],
+    "production_count": 12,
+    "threshold_lines": 2000
+  },
+  "schema": "ai-gateway/baseline/loc-baseline/v2",
+  "source_language": "rust",
+  "thresholds": {
+    "policy": "Oversized files are no-growth; reviewed owner/reason/expiry required for exceptions.",
+    "rust_new_file_max": 800,
+    "typescript_new_file_max": 500
+  },
+  "totals": {
+    "rust": {
+      "files": 2102,
+      "lines": 841392
+    },
+    "rust_production": {
+      "files": 979,
+      "lines": 418111
+    },
+    "typescript": {
+      "files": 675,
+      "lines": 148701
+    },
+    "typescript_production": {
+      "files": 469,
+      "lines": 107349
+    }
+  }
+}

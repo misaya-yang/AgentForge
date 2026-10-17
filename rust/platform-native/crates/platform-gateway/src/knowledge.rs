@@ -2,6 +2,8 @@
 //!
 //! No environment, default endpoint, unsigned mode, public identity headers, or database
 //! access is used here. The production HTTP mount shares native user-context authority.
+#[path = "knowledge_model_plane/scope_rpc.rs"]
+mod model_scope_rpc;
 use ai_platform_auth::{
     api_keys::ApiKeyAuthority,
     service::{AuthService, Principal},

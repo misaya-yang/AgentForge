@@ -42,12 +42,13 @@ pub struct Principal {
     pub expires_at: u64,
 }
 pub struct AuthService {
-    accounts: PgAccounts,
-    sessions: RedisSessions,
-    codec: TokenCodec,
+    pub(crate) accounts: PgAccounts,
+    pub(crate) sessions: RedisSessions,
+    pub(crate) codec: TokenCodec,
     passwords: PasswordEngine,
     domain: String,
-    clock: fn() -> Result<u64, ServiceError>,
+    enterprise_policy_enabled: bool,
+    pub(crate) clock: fn() -> Result<u64, ServiceError>,
 }
 impl AuthService {
     pub fn new(
@@ -63,6 +64,7 @@ impl AuthService {
             codec,
             passwords,
             domain,
+            enterprise_policy_enabled: false,
             clock: || {
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -70,6 +72,18 @@ impl AuthService {
                     .map_err(|_| ServiceError::Unavailable)
             },
         }
+    }
+    /// Activate only with the measured enterprise schema. Every missing policy
+    /// or epoch authority is then a hard error, never a password-only fallback.
+    pub fn with_enterprise_policy_enabled(mut self, enabled: bool) -> Self {
+        self.enterprise_policy_enabled = enabled;
+        self
+    }
+    pub fn enterprise_policy_enabled(&self) -> bool {
+        self.enterprise_policy_enabled
+    }
+    pub(crate) fn password_engine(&self) -> PasswordEngine {
+        self.passwords.clone()
     }
     fn account_state(account: &Account, now: u64) -> Result<(), ServiceError> {
         if account
@@ -145,12 +159,27 @@ impl AuthService {
                 .map_err(|_| ServiceError::Unavailable)?;
             return Err(ServiceError::Disabled);
         }
-        let correct = self
+        let interactive_policy = if self.enterprise_policy_enabled {
+            let policy = crate::enterprise::policy::password_policy(
+                &self.accounts.pool,
+                &account.tenant_id,
+                &account.user_id,
+            )
+            .await
+            .map_err(enterprise_failure)?;
+            if policy.mfa_required {
+                return Err(ServiceError::Credentials);
+            }
+            Some(policy)
+        } else {
+            None
+        };
+        let verified = self
             .passwords
-            .verify(password, account.password_hash.clone().unwrap_or_default())
+            .verify_upgrade(password, account.password_hash.clone().unwrap_or_default())
             .await
             .map_err(|_| ServiceError::Unavailable)?;
-        if !correct {
+        if !verified.valid {
             match self
                 .accounts
                 .failed_password(
@@ -197,6 +226,38 @@ impl AuthService {
                     ServiceError::Unavailable
                 }
             })?;
+        if let Some(replacement) = verified.replacement {
+            self.accounts
+                .rehash_password(
+                    &account.user_id,
+                    &account.tenant_id,
+                    account
+                        .password_hash
+                        .as_deref()
+                        .ok_or(ServiceError::Credentials)?,
+                    &replacement,
+                )
+                .await
+                .map_err(|e| {
+                    if e == StoreError::Changed {
+                        ServiceError::Credentials
+                    } else {
+                        ServiceError::Unavailable
+                    }
+                })?;
+        }
+        if let Some(original) = &interactive_policy {
+            let current = crate::enterprise::policy::password_policy(
+                &self.accounts.pool,
+                &account.tenant_id,
+                &account.user_id,
+            )
+            .await
+            .map_err(enterprise_failure)?;
+            if current.mfa_required || current.auth_epoch != original.auth_epoch {
+                return Err(ServiceError::Credentials);
+            }
+        }
         let authority = self
             .accounts
             .legacy_authority(&account.user_id, &account.tenant_id)
@@ -237,10 +298,17 @@ impl AuthService {
             .codec
             .verify(&token, now)
             .map_err(|_| ServiceError::Unavailable)?;
-        let data = serde_json::json!({"user_id":account.user_id,"email":account.email,"roles":authority.roles,"tier":tier,"ip":audit.ip,"credential_revision":account.password_changed_at.map(|time| time.to_rfc3339())});
+        let mut data = serde_json::json!({"user_id":account.user_id,"email":account.email,"roles":authority.roles,"tier":tier,"ip":audit.ip,"credential_revision":account.password_changed_at.map(|time| time.to_rfc3339())});
+        if let Some(policy) = interactive_policy {
+            data["auth_epoch"] = serde_json::json!(policy.auth_epoch);
+        }
+        let ttl = issued
+            .exp
+            .checked_sub(now)
+            .ok_or(ServiceError::Unavailable)?;
         if self
             .sessions
-            .save(&issued.jti, &issued.user_id, &data, 10_800)
+            .save(&issued.jti, &issued.user_id, &data, ttl)
             .await
             .is_err()
         {
@@ -252,7 +320,7 @@ impl AuthService {
         Ok(LoginResponse {
             access_token: token,
             token_type: "bearer",
-            expires_in: 10_800,
+            expires_in: ttl,
             force_password_change: account.force_password_change,
             user: UserProfile {
                 user_id: account.user_id,
@@ -266,12 +334,34 @@ impl AuthService {
         })
     }
     /// Identity headers are never accepted. Grants come from current database authority.
+    /// Cryptographic projection for host observability only. Protected routes
+    /// must still call authenticate/current-authority admission.
+    pub fn verify_access_claims(&self, token: &str) -> Result<Claims, ServiceError> {
+        self.codec
+            .verify(token, (self.clock)()?)
+            .map_err(|_| ServiceError::Credentials)
+    }
     pub async fn authenticate(&self, token: &str) -> Result<Principal, ServiceError> {
         let now = (self.clock)()?;
         let claims = self
             .codec
             .verify(token, now)
             .map_err(|_| ServiceError::Credentials)?;
+        self.authenticate_claims(claims).await
+    }
+    pub(crate) async fn authenticate_claims(
+        &self,
+        claims: Claims,
+    ) -> Result<Principal, ServiceError> {
+        let now = (self.clock)()?;
+        if claims.exp <= now
+            || claims.iat > now
+            || claims.user_id != claims.sub
+            || claims.tenant_id.is_empty()
+            || uuid::Uuid::parse_str(&claims.jti).is_err()
+        {
+            return Err(ServiceError::Credentials);
+        }
         let session = self
             .sessions
             .record(&claims.jti)
@@ -304,6 +394,16 @@ impl AuthService {
             // Interoperable older session records lack a precise revision.
             // Same-second ambiguity fails closed and requires a fresh login.
             return Err(ServiceError::Credentials);
+        }
+        if self.enterprise_policy_enabled {
+            crate::enterprise::policy::verify_session_epoch(
+                &self.accounts.pool,
+                &claims.tenant_id,
+                &claims.sub,
+                session.get("auth_epoch"),
+            )
+            .await
+            .map_err(enterprise_failure)?;
         }
         if !self
             .accounts
@@ -391,5 +491,13 @@ impl AuthService {
             .audit_event(Some(&claims.user_id), None, AuditAction::Logout, audit)
             .await
             .map_err(|_| ServiceError::Unavailable)
+    }
+}
+
+fn enterprise_failure(error: crate::enterprise::EnterpriseError) -> ServiceError {
+    if matches!(error, crate::enterprise::EnterpriseError::Unavailable) {
+        ServiceError::Unavailable
+    } else {
+        ServiceError::Credentials
     }
 }

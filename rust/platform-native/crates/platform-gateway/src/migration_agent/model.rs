@@ -21,6 +21,8 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::sync::mpsc;
+#[path = "model_guarded_stream.rs"]
+mod guarded_stream;
 pub const LEASE_SCHEMA: &str = "agent-runtime-model-lease/v1";
 #[derive(Clone)]
 pub struct LeaseSigner {
@@ -28,7 +30,7 @@ pub struct LeaseSigner {
 }
 impl LeaseSigner {
     pub fn new(secret: String) -> Result<Self, AgentError> {
-        if secret.chars().count() < 16 {
+        if secret.chars().count() < 16 && !super::lease_authority::signing_enabled()? {
             return Err(AgentError::code(503, "RUNTIME_MODEL_LEASE_SECRET_INVALID"));
         }
         Ok(Self {
@@ -37,6 +39,9 @@ impl LeaseSigner {
     }
     pub fn sign(&self, claims: &Value) -> Result<String, AgentError> {
         validate_claims(claims)?;
+        if let Some(signature) = super::lease_authority::sign_claims("model-lease", claims)? {
+            return Ok(signature);
+        }
         let mut mac = Hmac::<Sha256>::new_from_slice(&self.secret)
             .map_err(|_| AgentError::code(503, "RUNTIME_MODEL_LEASE_SECRET_INVALID"))?;
         mac.update(spec::canonical(claims).as_bytes());
@@ -44,6 +49,20 @@ impl LeaseSigner {
     }
     pub fn verify(&self, signature: &str, claims: &Value) -> Result<(), AgentError> {
         validate_claims(claims)?;
+        if signature.starts_with(super::lease_authority::wire::ENVELOPE_PREFIX) {
+            return super::lease_authority::verify_claims(
+                "model-lease",
+                signature,
+                claims,
+                super::lease_authority::now_ms(),
+            );
+        }
+        if !super::lease_authority::legacy_admitted(super::lease_authority::now_ms()) {
+            return Err(AgentError::code(
+                401,
+                "RUNTIME_MODEL_LEASE_SIGNATURE_INVALID",
+            ));
+        }
         let s = signature
             .strip_prefix("v1:")
             .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
@@ -191,10 +210,16 @@ impl AgentModelPlane {
     async fn acquire_provider(
         &self,
         call: &AuthorizedCall,
-    ) -> Result<Option<Arc<crate::capacity_admission::CapacityLease>>, AgentError> {
+    ) -> Result<
+        Option<Arc<crate::capacity_admission::atomic::model_plane::ModelPlaneLease>>,
+        AgentError,
+    > {
         let (Some(admission), Some(resolver)) = (&self.admission, &self.capacity) else {
-            return Ok(None);
+            return Err(AgentError::code(503, "MODEL_ADMISSION_UNAVAILABLE"));
         };
+        let shared = admission
+            .model_plane_admission()
+            .ok_or_else(|| AgentError::code(503, "MODEL_ADMISSION_UNAVAILABLE"))?;
         let budgets = resolver
             .resolve(&crate::capacity::CapacityRequest {
                 tenant_id: call.scope.tenant_id.clone(),
@@ -207,21 +232,20 @@ impl AgentModelPlane {
                 service_config: Value::Null,
             })
             .map_err(|_| AgentError::code(503, "CAPACITY_UNAVAILABLE"))?;
-        let lease = admission
-            .acquire(
-                &budgets,
-                &crate::capacity_admission::AdmissionRequest {
-                    tenant_id: call.scope.tenant_id.clone(),
-                    user_id: call.scope.user_id.clone(),
-                    service_id: "agent-runtime-provider".into(),
-                    request_class: "stream".into(),
-                    request_id: call.call_id.clone(),
-                    ..Default::default()
+        let lease = shared
+            .acquire_assistant(
+                crate::capacity_admission::atomic::model_plane::ModelCallBinding {
+                    tenant: call.scope.tenant_id.clone(),
+                    user: call.scope.user_id.clone(),
+                    reservation_id: call.call_id.clone(),
+                    provider: call.provider_id.clone(),
+                    model: call.model_id.clone(),
                 },
+                &budgets,
             )
             .await
-            .map_err(|_| AgentError::code(429, "CAPACITY_REJECTED"))?;
-        Ok(Some(Arc::new(lease)))
+            .map_err(|_| AgentError::code(429, "MODEL_ADMISSION_REJECTED"))?;
+        Ok(Some(lease))
     }
     pub async fn authorize_and_reserve(
         &self,
@@ -266,6 +290,15 @@ impl AgentModelPlane {
                 503,
                 "RUNTIME_MODEL_SNAPSHOT_HASH_MISMATCH",
             ));
+        }
+        if let Some(pricing) = cache_pricing(snapshot) {
+            ai_platform_gateway_foundation::price_book::validate_token_snapshot(pricing)
+                .map_err(|_| AgentError::code(503, "RUNTIME_CACHE_PRICING_INVALID"))?;
+            let admitted:bool=sqlx::query_scalar("SELECT to_regprocedure('assistant.complete_assistant_runtime_model_call_v2(uuid,character varying,bigint,bigint,bigint,character varying,jsonb)') IS NOT NULL")
+                .fetch_one(&self.pool).await?;
+            if !admitted {
+                return Err(AgentError::code(503, "RUNTIME_CACHE_SCHEMA_NOT_ADMITTED"));
+            }
         }
         self.sources.require_conversation(&scope, false).await?;
         let input = estimate_tokens(&body["input"]);
@@ -396,6 +429,34 @@ impl AgentModelPlane {
             .await?;
         Ok(())
     }
+    async fn complete_call_versioned(
+        &self,
+        call: &AuthorizedCall,
+        input: i64,
+        output: i64,
+        provider_request: Option<&str>,
+        raw_usage: Value,
+    ) -> Result<(), AgentError> {
+        if cache_pricing(&call.snapshot).is_none() {
+            return self
+                .complete_call(call, input, output, provider_request)
+                .await;
+        }
+        let (cost, receipt) = cache_settlement(call, input, output, &raw_usage)?;
+        sqlx::query(
+            "SELECT assistant.complete_assistant_runtime_model_call_v2($1::uuid,$2,$3,$4,$5,$6,$7)",
+        )
+        .bind(&call.call_id)
+        .bind(&call.scope.tenant_id)
+        .bind(input)
+        .bind(output)
+        .bind(cost)
+        .bind(provider_request)
+        .bind(receipt)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
     pub async fn fail_call(
         &self,
         id: &str,
@@ -404,225 +465,6 @@ impl AgentModelPlane {
     ) -> Result<(), AgentError> {
         sqlx::query("UPDATE assistant_runtime_model_calls SET status=$2,error_code=$3,completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).bind(if dispatched{"unknown"}else{"failed"}).bind(code).execute(&self.pool).await?;
         Ok(())
-    }
-    pub async fn stream(
-        &self,
-        body: Value,
-        call: AuthorizedCall,
-    ) -> Result<ModelStream, AgentError> {
-        let mut timing = super::model_timing::TimingEvidence::new(&call);
-        let mut cleanup = CallCleanup {
-            plane: self.clone(),
-            id: call.call_id.clone(),
-            armed: true,
-            lease: None,
-        };
-        cleanup.lease = match self.acquire_provider(&call).await {
-            Ok(lease) => lease,
-            Err(error) => {
-                self.fail_call(&call.call_id, "capacity_rejected", false)
-                    .await?;
-                return Err(error);
-            }
-        };
-        let preflight = self.prepare(&body, &call).await;
-        let prepared = match preflight {
-            Ok(v) => v,
-            Err(e) => {
-                self.fail_call(&call.call_id, &e.to_string(), false).await?;
-                return Err(e);
-            }
-        };
-        sqlx::query("UPDATE assistant_runtime_model_calls SET status='dispatched',dispatched_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status='reserved'").bind(&call.call_id).execute(&self.pool).await?;
-        timing.wire = if prepared.native {
-            "responses_v1"
-        } else {
-            "chat_completions"
-        };
-        timing.dispatch();
-        let mut response = match self
-            .client
-            .post(prepared.url)
-            .headers(prepared.headers)
-            .json(&prepared.body)
-            .send()
-            .await
-        {
-            Ok(response) => response,
-            Err(_) => {
-                self.fail_call(&call.call_id, "provider_connection_interrupted", true)
-                    .await?;
-                return Err(AgentError::code(502, "RUNTIME_PROVIDER_TRANSPORT_ERROR"));
-            }
-        };
-        if !response.status().is_success() {
-            self.fail_call(
-                &call.call_id,
-                &format!("provider_http_{}", response.status().as_u16()),
-                true,
-            )
-            .await?;
-            return Err(AgentError::code(502, "RUNTIME_PROVIDER_REJECTED"));
-        }
-        let provider_request = response
-            .headers()
-            .get("x-request-id")
-            .and_then(|v| v.to_str().ok())
-            .map(str::to_owned);
-        let (tx, rx) = mpsc::channel(16);
-        let plane = self.clone();
-        let task = tokio::spawn(async move {
-            let capacity = cleanup.lease.clone();
-            let mut pending = Vec::new();
-            let mut native = super::model_projection::NativeValidator::new(
-                prepared.aliases.clone(),
-                prepared.allowed.clone(),
-                prepared.native_search,
-                text(&call.snapshot["capabilities"]["reasoning"], "visibility") == "stream",
-            );
-            let mut chat = super::model_projection::ChatProjector::new(
-                &call.model_id,
-                call.estimated_input_tokens,
-                prepared.aliases.clone(),
-                prepared.allowed.clone(),
-            );
-            let mut observed = ProviderFrames::default();
-            let work = async {
-                if !prepared.native {
-                    let frame = chat.created();
-                    observed.observe(&frame);
-                    if tx.send(Ok(frame)).await.is_err() {
-                        return Ok(());
-                    }
-                }
-                let mut chat_terminal = false;
-                while let Some(chunk) = response
-                    .chunk()
-                    .await
-                    .map_err(|_| AgentError::code(502, "RUNTIME_PROVIDER_TRANSPORT_ERROR"))?
-                {
-                    for part in chunk.chunks(64 * 1024) {
-                        pending.extend_from_slice(part);
-                        while let Some(pos) = pending.iter().position(|b| *b == b'\n') {
-                            let line: Vec<_> = pending.drain(..=pos).collect();
-                            if line.len() > 2 * 1024 * 1024 {
-                                return Err(AgentError::code(502, "RUNTIME_PROVIDER_FRAME_LIMIT"));
-                            }
-                            let line = std::str::from_utf8(&line)
-                                .map_err(|_| {
-                                    AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INVALID")
-                                })?
-                                .trim_end_matches(['\r', '\n']);
-                            let Some(payload) = line
-                                .strip_prefix("data:")
-                                .map(str::trim)
-                                .filter(|s| !s.is_empty())
-                            else {
-                                continue;
-                            };
-                            if prepared.native {
-                                if let Some(frame) = native.consume(payload)? {
-                                    timing.frame();
-                                    timing.projected(&frame);
-                                    observed.observe(&frame);
-                                    if tx.send(Ok(frame)).await.is_err() {
-                                        return Ok(());
-                                    }
-                                }
-                            } else if payload == "[DONE]" {
-                                chat_terminal = true;
-                            } else {
-                                let p: Value = serde_json::from_str(payload).map_err(|_| {
-                                    AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INVALID")
-                                })?;
-                                if p.is_object() {
-                                    timing.frame();
-                                }
-                                for frame in chat.consume(&p)? {
-                                    timing.projected(&frame);
-                                    observed.observe(&frame);
-                                    if tx.send(Ok(frame)).await.is_err() {
-                                        return Ok(());
-                                    }
-                                }
-                                if p["choices"].as_array().is_some_and(|a| {
-                                    a.iter().any(|v| !v["finish_reason"].is_null())
-                                }) {
-                                    chat_terminal = true;
-                                }
-                            }
-                        }
-                        if pending.len() > 2 * 1024 * 1024 {
-                            return Err(AgentError::code(502, "RUNTIME_PROVIDER_FRAME_LIMIT"));
-                        }
-                    }
-                }
-                if !pending.is_empty() {
-                    return Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INCOMPLETE"));
-                }
-                if prepared.native {
-                    let terminal = native.finish()?;
-                    plane
-                        .complete_call(
-                            &call,
-                            terminal.input,
-                            terminal.output,
-                            terminal
-                                .provider_request_id
-                                .as_deref()
-                                .or(provider_request.as_deref()),
-                        )
-                        .await?;
-                    cleanup.armed = false;
-                    let _ = tx.send(Ok(terminal.frame)).await;
-                    let _ = tx.send(Ok(Bytes::from_static(b"data: [DONE]\n\n"))).await;
-                } else {
-                    if !chat_terminal {
-                        return Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_INCOMPLETE"));
-                    }
-                    let (frames, input, output) = chat.complete()?;
-                    plane
-                        .complete_call(&call, input, output, provider_request.as_deref())
-                        .await?;
-                    cleanup.armed = false;
-                    for frame in frames {
-                        if tx.send(Ok(frame)).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-                Ok(())
-            };
-            let result: Result<(), AgentError> = if let Some(capacity) = capacity {
-                tokio::select! {result=work=>result,_=capacity.wait_lost()=>Err(AgentError::code(503,"CAPACITY_LEASE_LOST"))}
-            } else {
-                work.await
-            };
-            if let Err(error) = result {
-                let _ = plane
-                    .fail_call(&call.call_id, &error.to_string(), true)
-                    .await;
-                cleanup.armed = false;
-                if error.detail["code"] == "RUNTIME_PROVIDER_TRANSPORT_ERROR" && observed.next > 0 {
-                    let _ = tx.send(Ok(observed.failed())).await;
-                } else {
-                    let _ = tx.send(Err(error)).await;
-                }
-            }
-        });
-        let mut stream = ModelStream {
-            receiver: rx,
-            task,
-            first: None,
-        };
-        match stream.receiver.recv().await {
-            Some(Ok(first)) => {
-                stream.first = Some(first);
-                Ok(stream)
-            }
-            Some(Err(error)) => Err(error),
-            None => Err(AgentError::code(502, "RUNTIME_PROVIDER_STREAM_EMPTY")),
-        }
     }
     async fn prepare(&self, body: &Value, call: &AuthorizedCall) -> Result<Prepared, AgentError> {
         let provider = self
@@ -754,7 +596,7 @@ struct CallCleanup {
     plane: AgentModelPlane,
     id: String,
     armed: bool,
-    lease: Option<Arc<crate::capacity_admission::CapacityLease>>,
+    lease: Option<Arc<crate::capacity_admission::atomic::model_plane::ModelPlaneLease>>,
 }
 impl Drop for CallCleanup {
     fn drop(&mut self) {
@@ -1001,6 +843,14 @@ pub fn provider_body(
     ),
     AgentError,
 > {
+    // Cross-protocol cache markers have provider-specific semantics. Refuse
+    // translation when this adapter cannot preserve them instead of dropping.
+    if !native && has_cache_control(body) {
+        return Err(AgentError::code(
+            422,
+            "RUNTIME_CACHE_CONTROL_TRANSLATION_UNSUPPORTED",
+        ));
+    }
     let profile = &call.snapshot["capabilities"];
     let invalid = || AgentError::code(422, "RUNTIME_TOOL_SCHEMA_INVALID");
     let raw = body
@@ -1255,6 +1105,13 @@ pub fn provider_body(
     } else {
         json!({"model":call.model_id,"messages":responses_to_messages(&json!({"input":input,"instructions":body["instructions"]}))?,"stream":true,"stream_options":{"include_usage":true},"max_tokens":call.reserved_output_tokens})
     };
+    // Public OpenAI cache controls are valid on both supported wires and retain
+    // their original JSON values. Nested input cache_control remains untouched.
+    for key in ["prompt_cache_key", "prompt_cache_retention"] {
+        if let Some(value) = body.get(key) {
+            result[key] = value.clone();
+        }
+    }
     if native {
         if let Some(instructions) = body["instructions"].as_str().filter(|s| !s.is_empty()) {
             result["instructions"] = instructions.into();
@@ -1491,5 +1348,160 @@ async fn responses(State(plane): State<Arc<AgentModelPlane>>, request: Request) 
     match result {
         Ok(response) => response,
         Err(error) => error_response(error),
+    }
+}
+
+/// Explicit v2 only: the immutable snapshot owns all component prices. Unknown
+/// usage stays in the receipt; malformed counts or missing positive-cache terms
+/// fail before completion and never become a zero-cost success.
+fn cache_settlement(
+    call: &AuthorizedCall,
+    input: i64,
+    output: i64,
+    usage: &Value,
+) -> Result<(i64, Value), AgentError> {
+    use ai_platform_gateway_foundation::{
+        usage_parser::cache::CacheUsage,
+        usage_recorder::{UsageRecord, prepare_with_snapshot},
+    };
+    let mut record = UsageRecord::new(
+        &call.scope.tenant_id,
+        &call.scope.user_id,
+        &call.model_id,
+        chrono::Utc::now(),
+    );
+    record.provider = call.provider_id.clone();
+    record.request_id = call.call_id.clone();
+    record.input_tokens = input;
+    record.output_tokens = output;
+    record.metadata.insert(
+        "provider_cache_usage".into(),
+        serde_json::to_value(CacheUsage::observe(&call.provider_id, usage))
+            .map_err(|_| AgentError::code(502, "RUNTIME_CACHE_USAGE_INVALID"))?,
+    );
+    prepare_with_snapshot(
+        &mut record,
+        cache_pricing(&call.snapshot)
+            .ok_or_else(|| AgentError::code(503, "RUNTIME_CACHE_PRICING_INVALID"))?,
+    )
+    .map_err(|_| AgentError::code(502, "RUNTIME_CACHE_SETTLEMENT_INVALID"))?;
+    // Frozen UsageRecorder storage uses 1,000,000 units/USD: these
+    // historically named "microcents" are already microUSD. A second /100
+    // conversion would undercharge v2 Runtime calls by up to two orders.
+    // Preserve the recorder's component half-even rounding, then sum exactly.
+    let microusd = record
+        .input_cost_cents
+        .checked_add(record.output_cost_cents)
+        .ok_or_else(|| AgentError::code(502, "RUNTIME_CACHE_COST_OVERFLOW"))?;
+    Ok((
+        microusd,
+        json!({"schema":"agentforge.runtime-cache-settlement/v2","tenant_id":call.scope.tenant_id,"provider":call.provider_id,"model":call.model_id,"input_tokens":input,"output_tokens":output,"cost_microusd":microusd,"metadata":record.metadata}),
+    ))
+}
+
+fn cache_pricing(snapshot: &Value) -> Option<&Value> {
+    let pricing = &snapshot["pricing"];
+    if pricing.get("price_book_schema").is_some() {
+        Some(pricing)
+    } else if pricing["snapshot"].get("price_book_schema").is_some() {
+        Some(&pricing["snapshot"])
+    } else {
+        None
+    }
+}
+
+fn has_cache_control(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            map.contains_key("cache_control") || map.values().any(has_cache_control)
+        }
+        Value::Array(values) => values.iter().any(has_cache_control),
+        _ => false,
+    }
+}
+#[cfg(test)]
+mod cache_contract_tests {
+    use super::*;
+    #[test]
+    fn cache_settlement_uses_actual_legacy_microdollars_without_rescaling() {
+        use ai_platform_gateway_foundation::price_book::{
+            Component, EffectiveRange, PriceBook, PriceEntry, PriceKey, Unit, token_snapshot,
+        };
+        // The fixture is shared in meaning with the foundation settlement test:
+        // input=$.10/1K, cached=$.01/1K, output=$.20/1K. 20/80/10 tokens
+        // cost $.0048 = 4800 microUSD, not ceil(4800/100)=48.
+        // Raising input to $.10005 makes ordinary input cost $.002001;
+        // total 4801 microUSD must remain 4801, not ceil(4801/100)=49.
+        for (input_rate, expected) in [(100_000_000, 4800), (100_050_000, 4801)] {
+            let entry = |component, rate_nanos| PriceEntry {
+                key: PriceKey {
+                    book_version: "book".into(),
+                    provider: "p".into(),
+                    model: "m".into(),
+                    model_version: "revision".into(),
+                    component,
+                    currency: "USD".into(),
+                },
+                tenant: None,
+                effective: EffectiveRange {
+                    from_ms: 0,
+                    to_ms: None,
+                },
+                unit: Unit::Tokens,
+                units_per_rate: 1000,
+                rate_nanos,
+            };
+            let input = entry(Component::Input, input_rate);
+            let output = entry(Component::Output, 200_000_000);
+            let cached = entry(Component::CachedInput, 10_000_000);
+            let book = PriceBook::new(vec![input.clone(), output.clone(), cached.clone()], vec![])
+                .unwrap();
+            let mut pricing = token_snapshot(
+                &book.resolve("tenant", &input.key, 1).unwrap(),
+                &book.resolve("tenant", &output.key, 1).unwrap(),
+            )
+            .unwrap();
+            pricing["price_book_cached_input"] =
+                serde_json::to_value(book.resolve("tenant", &cached.key, 1).unwrap()).unwrap();
+            let call = AuthorizedCall {
+                call_id: "call".into(),
+                lease_id: "lease".into(),
+                run_id: "run".into(),
+                scope: Scope {
+                    tenant_id: "tenant".into(),
+                    user_id: "user".into(),
+                    session_id: "session".into(),
+                },
+                model_id: "m".into(),
+                provider_id: "p".into(),
+                provider_revision: "revision".into(),
+                snapshot: json!({"pricing":{"snapshot":pricing}}),
+                estimated_input_tokens: 100,
+                reserved_output_tokens: 10,
+            };
+            let (cost,receipt)=cache_settlement(&call,100,10,&json!({"input_tokens":100,"output_tokens":10,"input_tokens_details":{"cached_tokens":80}})).unwrap();
+            assert_eq!(cost, expected);
+            assert_eq!(receipt["cost_microusd"], expected);
+            assert_eq!(
+                receipt["metadata"]["cache_pricing_state"],
+                "reported_components"
+            );
+        }
+    }
+    #[test]
+    fn cache_pricing_requires_explicit_version_and_keeps_legacy() {
+        assert!(cache_pricing(&json!({"pricing":{"input_price_per_1k":1}})).is_none());
+        assert!(
+            cache_pricing(
+                &json!({"pricing":{"snapshot":{"price_book_schema":"agentforge.price_book/v2"}}})
+            )
+            .is_some()
+        );
+        assert!(has_cache_control(
+            &json!({"input":[{"content":[{"text":"x","cache_control":{"type":"ephemeral"}}]}]})
+        ));
+        assert!(!has_cache_control(
+            &json!({"prompt_cache_key":"public-key"})
+        ));
     }
 }

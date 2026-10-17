@@ -35,3 +35,9 @@ test("SSE parser opt-in preserves raw DONE without inventing a protocol event", 
   assert.equal(parseSseEventPart(": keep-alive", { preserveControlFrames: true }), null);
   assert.equal(parseSseEventPart("data:", { preserveControlFrames: true }), null);
 });
+
+
+test("SSE cursor reset is retained and NUL IDs are ignored", () => {
+  assert.deepEqual(parseSseEventPart('id:\ndata: {}'), { event: "", data: {}, id: "" });
+  assert.deepEqual(parseSseEventPart('id: unsafe\0cursor\ndata: {}'), { event: "", data: {} });
+});

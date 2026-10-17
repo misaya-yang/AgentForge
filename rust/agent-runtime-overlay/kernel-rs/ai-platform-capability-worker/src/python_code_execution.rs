@@ -81,7 +81,7 @@ const DANGEROUS_ATTRIBUTES: &[&str] = &[
     "__class__",
 ];
 
-#[derive(Debug, Error, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Error, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CodeExecutionError {
     #[error("code is empty")]
     EmptyCode,
@@ -223,6 +223,8 @@ pub struct LocalPythonSandboxConfig {
     pub workspace_root: PathBuf,
     /// An operator-delegated cgroup v2 subtree with memory/pids/cpu enabled.
     pub cgroup_root: PathBuf,
+    /// Server-derived immutable optional distribution roots; never tool args.
+    pub package_roots: Vec<PathBuf>,
     /// The image is expected to provide a network-isolated child namespace.
     /// If the kernel cannot create it, execution fails closed.
     pub require_network_isolation: bool,
@@ -234,6 +236,7 @@ impl Default for LocalPythonSandboxConfig {
             python_binary: PathBuf::from("/usr/local/bin/python3"),
             workspace_root: PathBuf::from("/workspace"),
             cgroup_root: PathBuf::from("/sys/fs/cgroup/agentforge-sandbox"),
+            package_roots: Vec::new(),
             require_network_isolation: true,
         }
     }
@@ -250,6 +253,14 @@ impl LocalPythonSandboxBroker {
             || !config.workspace_root.is_absolute()
             || !config.cgroup_root.is_absolute()
             || !config.require_network_isolation
+        {
+            return Err(CodeExecutionError::Configuration);
+        }
+        if config.package_roots.len() > 64
+            || config
+                .package_roots
+                .iter()
+                .any(|path| crate::python_package_policy::validate_package_root(path).is_err())
         {
             return Err(CodeExecutionError::Configuration);
         }
@@ -506,6 +517,8 @@ fn run_python_process(
     let workspace = create_workspace(&config.workspace_root)?;
     let started = Instant::now();
     let result = (|| {
+        fs::create_dir(workspace.join(".tmp")).map_err(|_| CodeExecutionError::ProcessStart)?;
+        fs::create_dir(workspace.join(".cache")).map_err(|_| CodeExecutionError::ProcessStart)?;
         fs::create_dir(workspace.join(".proc")).map_err(|_| CodeExecutionError::ProcessStart)?;
         fs::create_dir(workspace.join(".mask")).map_err(|_| CodeExecutionError::ProcessStart)?;
         fs::create_dir(workspace.join("output")).map_err(|_| CodeExecutionError::ProcessStart)?;
@@ -546,6 +559,9 @@ fn run_python_process(
             .arg("-I")
             .arg("-S")
             .arg("-B")
+            .arg("-c")
+            .arg("import sys,json,runpy; roots=json.loads(sys.argv[1]); script=sys.argv[2]; sys.path[:0]=roots; sys.argv=[script]; runpy.run_path(script,run_name='__main__')")
+            .arg(serde_json::to_string(&config.package_roots).map_err(|_| CodeExecutionError::Configuration)?)
             .arg(SCRIPT_NAME)
             .current_dir(&workspace)
             .env_clear()
@@ -553,6 +569,14 @@ fn run_python_process(
             .env("PYTHONNOUSERSITE", "1")
             .env("PYTHONUNBUFFERED", "1")
             .env("PYTHONDONTWRITEBYTECODE", "1")
+            .env("OPENBLAS_NUM_THREADS", "1")
+            .env("OMP_NUM_THREADS", "1")
+            .env("MKL_NUM_THREADS", "1")
+            .env("NUMEXPR_NUM_THREADS", "1")
+            .env("HOME", &workspace)
+            .env("XDG_CACHE_HOME", workspace.join(".cache"))
+            .env("MPLCONFIGDIR", workspace.join(".cache/matplotlib"))
+            .env("TMPDIR", workspace.join(".tmp"))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -561,6 +585,7 @@ fn run_python_process(
             &request.limits,
             &config.python_binary,
             &workspace,
+            &config.package_roots,
         )?;
         let mut child = command
             .spawn()
@@ -746,14 +771,15 @@ fn configure_child(
     limits: &PythonSandboxLimits,
     python_binary: &Path,
     workspace: &Path,
+    package_roots: &[PathBuf],
 ) -> Result<(), CodeExecutionError> {
     use std::os::unix::process::CommandExt;
     #[cfg(target_os = "linux")]
-    let policy = isolation::ChildPolicy::prepare(python_binary, workspace)
+    let policy = isolation::ChildPolicy::prepare(python_binary, workspace, package_roots)
         .map_err(|_| CodeExecutionError::IsolationUnavailable)?;
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (python_binary, workspace);
+        let _ = (python_binary, workspace, package_roots);
         return Err(CodeExecutionError::IsolationUnavailable);
     }
     let cpu_seconds = u64::from(limits.cpu_millis).div_ceil(1000).max(1);
@@ -822,6 +848,7 @@ fn configure_child(
     _limits: &PythonSandboxLimits,
     _python_binary: &Path,
     _workspace: &Path,
+    _package_roots: &[PathBuf],
 ) -> Result<(), CodeExecutionError> {
     Err(CodeExecutionError::IsolationUnavailable)
 }
@@ -891,3 +918,7 @@ mod tests {
 #[cfg(all(test, target_os = "linux"))]
 #[path = "python_escape_tests.rs"]
 mod escape_tests;
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "python_package_acceptance_tests.rs"]
+mod package_acceptance_tests;

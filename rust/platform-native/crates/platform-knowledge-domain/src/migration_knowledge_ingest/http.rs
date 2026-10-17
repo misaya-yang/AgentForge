@@ -21,48 +21,12 @@ pub struct WriteApiState {
     pub batches: DocumentBatchStore,
     pub maximum_upload_bytes: usize,
 }
-fn write_routes(state: WriteApiState) -> Router {
-    Router::new()
-        .route("/api/v1/knowledge/datasets",post(create_dataset))
-        .route("/api/v1/knowledge/datasets/{dataset_id}",axum::routing::put(update_dataset).delete(delete_dataset_confirmed))
-        .route("/api/v1/knowledge/datasets/{dataset_id}/archive",axum::routing::patch(archive_dataset))
-        .route("/api/v1/knowledge/datasets/{dataset_id}/permissions",get(list_permissions).post(grant_permission).delete(revoke_permission))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/status",axum::routing::patch(document_enabled))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/enable",post(document_enabled))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/archive",axum::routing::patch(document_archived))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/segments",post(create_segment))
-        .route("/api/v1/knowledge/{dataset_id}/segments/{segment_id}",axum::routing::put(update_segment).delete(delete_segment))
-        .route("/api/v1/knowledge/{dataset_id}/segments/{segment_id}/status",axum::routing::patch(segment_enabled))
-        .route("/api/v1/knowledge/{dataset_id}/segments/{segment_id}/enable",post(segment_enabled))
-        .route("/api/v1/knowledge/{dataset_id}/segments/batch/enable",post(segments_enabled))
-        .route("/api/v1/knowledge/{dataset_id}/documents",get(list_documents))
-        .route("/api/v1/knowledge/{dataset_id}/segments",get(list_segments))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/source",get(active_document_source))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/statistics",get(document_statistics))
-        .route("/api/v1/knowledge/{dataset_id}/documents/text",post(create_text))
-        .route("/api/v1/knowledge/{dataset_id}/documents/upload",post(upload))
-        .route("/api/v1/knowledge/{dataset_id}/documents/url",post(create_url))
-        .route("/api/v1/knowledge/{dataset_id}/documents/batch",post(create_batch))
-        .route("/api/v1/knowledge/preview",post(preview_generic))
-        .route("/api/v1/knowledge/{dataset_id}/chunk/preview",post(preview_chunks))
-        .route("/api/v1/knowledge/{dataset_id}/preview-chunks",post(preview_configured))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reindex",post(reindex))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reprocess",post(reprocess))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/retry",post(retry))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/recover",post(recover))
-        .route("/api/v1/knowledge/{dataset_id}/documents/batch-reindex",post(batch_reindex))
-        .route("/api/v1/knowledge/{dataset_id}/documents/batch-delete",post(batch_delete))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}",axum::routing::delete(delete_document).patch(update_document).get(get_document))
-        .route("/api/v1/knowledge/{dataset_id}/document-batches/{operation_id}",get(get_batch))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/versions",get(versions))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}/restore",post(restore_version))
-        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}",get(version))
-        .layer(DefaultBodyLimit::max(state.maximum_upload_bytes.clamp(1024*1024,48*1024*1024)+1024*1024))
-        .with_state(state.clone())
-        .merge(super::inspection_http::routes(state.clone()))
-        .merge(super::catalog_http::routes(state.clone()))
-        .merge(super::batch_upload::routes(state))
+async fn vector_job_status(State(s): State<WriteApiState>,Extension(actor): Extension<Actor>,Path((dataset,id)): Path<(String,String)>) -> super::Result<Json<Value>> {
+    Ok(Json(super::vector_jobs::status(&s.service.store.pool,&actor,&dataset,&id).await?))
 }
+#[path = "http_routes.rs"]
+mod write_router;
+use write_router::write_routes;
 async fn create_dataset(
     State(s): State<WriteApiState>,
     Extension(actor): Extension<Actor>,

@@ -1,6 +1,9 @@
 //! Concrete process-owned resources, from Container.initialize/shutdown.
 //! No schema bootstrap is performed by the application process.
 use super::lifecycle::HostError;
+use ai_platform_service_primitives::valkey::{
+    CacheAvailability, CoordConnection, SplitConfig, SplitConnections,
+};
 use redis::aio::ConnectionManager;
 use serde::Deserialize;
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -48,6 +51,10 @@ pub struct ConnectionResources {
     pub database: Option<PgPool>,
     pub independent_control: Option<PgPool>,
     pub redis: Option<ConnectionManager>,
+    /// In split mode all legacy session/rate/lease adapters alias coord only.
+    pub coordination: Option<CoordConnection>,
+    /// Optional acceleration; never supplied to a coordination adapter.
+    pub cache: Option<CacheAvailability>,
     pub database_enabled: bool,
     pub redis_enabled: bool,
 }
@@ -57,6 +64,13 @@ impl ConnectionResources {
     pub async fn connect(
         database: &DatabaseSettings,
         redis: &RedisSettings,
+    ) -> Result<Self, HostError> {
+        Self::connect_split(database, redis, None).await
+    }
+    pub async fn connect_split(
+        database: &DatabaseSettings,
+        redis: &RedisSettings,
+        split: Option<&SplitConfig>,
     ) -> Result<Self, HostError> {
         if database.auto_init
             || database.pool_max_size == 0
@@ -84,20 +98,32 @@ impl ConnectionResources {
         } else {
             None
         };
-        let redis_connection = if redis.enabled {
-            match redis::Client::open(redis.url.as_str()) {
+        let (redis_connection, coordination, cache) = if let Some(split) = split {
+            let connections = SplitConnections::connect(split)
+                .await
+                .map_err(|_| HostError::Configuration)?;
+            (
+                Some(connections.coord.coordination_manager()),
+                Some(connections.coord),
+                Some(connections.cache),
+            )
+        } else if redis.enabled {
+            let connection = match redis::Client::open(redis.url.as_str()) {
                 Ok(client) => ConnectionManager::new(client).await.ok(),
                 Err(_) => None,
-            }
+            };
+            (connection, None, None)
         } else {
-            None
+            (None, None, None)
         };
         Ok(Self {
             database: pool,
             independent_control: control,
             redis: redis_connection,
+            coordination,
+            cache,
             database_enabled: database.enabled,
-            redis_enabled: redis.enabled,
+            redis_enabled: split.is_some() || redis.enabled,
         })
     }
     pub async fn close(self) {

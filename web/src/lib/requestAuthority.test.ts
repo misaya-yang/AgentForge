@@ -10,18 +10,19 @@ import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axio
 function client() {
   let cleared = 0; let removed = 0; let storageThrows = false; let authThrows = false;
   const user = { user_id: "actor-a", roles: ["platform_admin"], permissions: ["role:create"], tier: "normal" };
-  const auth = createStore(() => ({ token: "synthetic-a" as string | null, user, isAuthenticated: true, clearAuth() { cleared++; auth.setState({ token: null, isAuthenticated: false }); } }));
-  const location = { pathname: "/users/roles", href: "" };
+  const auth = createStore(() => ({ token: "synthetic-a" as string | null, user, isAuthenticated: true, csrfToken: "synthetic-csrf", clearAuth() { cleared++; auth.setState({ token: null, isAuthenticated: false }); } }));
+  const location = { origin: "https://console.example", pathname: "/users/roles", href: "" };
   const storage = { getItem() { if (storageThrows) throw new Error("storage unavailable"); return null; }, removeItem() { removed++; } };
   const modules: Record<string, unknown> = { axios,
-    "@/config/runtime": { getApiBaseUrlConfig: () => "https://unused.invalid" },
+    "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
+    "@/config/runtime": { getApiBaseUrlConfig: () => "" },
     "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
     "@/store/useAuthStore": { useAuthStore: { getState() { if (authThrows) throw new Error("auth unavailable"); return auth.getState(); }, subscribe: auth.subscribe } },
   };
   function load(file: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
-      exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; }, localStorage: storage, sessionStorage: storage, window: { location }, Error, __hot: undefined,
+      exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; }, localStorage: storage, sessionStorage: storage, window: { location }, URL, Error, __hot: undefined,
     }); return exports;
   }
   modules["@/lib/sdkAuthorityScope"] = load("./sdkAuthorityScope.ts");
@@ -37,7 +38,7 @@ function client() {
 
 test("shared synchronous authentication binds initial identity before immediate replacement", async () => {
   const h = client(); const pending = h.api.post("/controlled", { role_name: "old_review" });
-  assert.equal(h.calls.length, 1); assert.equal(h.calls[0].headers.Authorization, "Bearer synthetic-a");
+  assert.equal(h.calls.length, 1); assert.equal(h.calls[0].headers.Authorization, undefined); assert.equal(h.calls[0].headers["X-CSRF-Token"], "synthetic-csrf"); assert.equal(h.calls[0].withCredentials, true);
   h.setState({ token: "synthetic-b", user: { ...h.state.user, user_id: "actor-b" } });
   h.fail401(); await assert.rejects(pending); assert.equal(h.cleared(), 0); assert.equal(h.removed(), 0); assert.equal(h.location.href, "");
 });
@@ -54,8 +55,33 @@ test("missing token preserves anonymous request semantics without a bearer", asy
   assert.equal(h.calls.length, 1); assert.equal(h.calls[0].headers.Authorization, undefined);
   h.fail401(); await assert.rejects(pending);
 });
-test("auth and missing-token storage exceptions fail closed before adapter dispatch", async () => {
-  for (const type of ["auth", "storage"]) { const h = client(); if (type === "auth") h.authFailure(); else { h.setState({ token: null }); h.storageFailure(); }
-    await assert.rejects(h.api.post("/controlled", { role_name: "never_sent" }), /unavailable/); assert.equal(h.calls.length, 0);
-  }
+test("auth lookup exceptions fail closed before adapter dispatch", async () => {
+  const h=client();h.authFailure();
+  await assert.rejects(h.api.post("/controlled",{role_name:"never_sent"}),/unavailable/);assert.equal(h.calls.length,0);
+});
+test("blocked Web Storage cannot prevent cookie authenticated requests", async () => {
+  const h=client();h.storageFailure(); const request=h.api.get("/controlled");
+  assert.equal(h.calls.length,1);assert.equal(h.calls[0].headers.Authorization,undefined);
+  h.fail401();await assert.rejects(request);assert.equal(h.cleared(),1);
+});
+
+test("central client refuses cross-origin cookie requests before adapter dispatch",async()=>{
+  const h=client();await assert.rejects(h.api.get("https://foreign.example/api/v1/items"),/same origin/);assert.equal(h.calls.length,0);
+});
+test("central client refuses writes without memory CSRF",async()=>{
+  const h=client();h.setState({csrfToken:""});await assert.rejects(h.api.post("/api/v1/items",{}),/CSRF bootstrap/);assert.equal(h.calls.length,0);
+});
+test("an explicit SDK bearer is preserved, omits cookies and cannot clear Console on 401",async()=>{
+  const h=client();const pending=h.api.get("/v1/models",{headers:{Authorization:"Bearer sdk-api-key"}});
+  assert.equal(h.calls[0].headers.Authorization,"Bearer sdk-api-key");assert.equal(h.calls[0].headers["X-CSRF-Token"],undefined);assert.equal(h.calls[0].withCredentials,false);
+  h.fail401();await assert.rejects(pending);assert.equal(h.cleared(),0);
+});
+
+test("same-origin relative API base remains supported in the cookie BFF client",async()=>{
+  const h=client();const pending=h.api.get("/api/v1/items",{baseURL:"/"});assert.equal(h.calls.length,1);assert.equal(h.calls[0].withCredentials,true);h.fail401();await assert.rejects(pending);
+});
+
+test("central client rejects old UI marker instead of substituting the new actor cookie",async()=>{
+  const h=client();h.setState({token:"console-session:new"});
+  await assert.rejects(h.api.post("/api/v1/items",{}, {headers:{Authorization:"Bearer console-session:old"}}),/session changed/);assert.equal(h.calls.length,0);
 });

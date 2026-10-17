@@ -49,6 +49,7 @@ pub(crate) struct ThreadExtensionDependencies {
 }
 
 pub(crate) fn thread_extensions(
+    config: &Config,
     dependencies: ThreadExtensionDependencies,
     host_extension_installer: Option<Arc<dyn AppServerExtensionInstaller>>,
 ) -> Arc<ExtensionRegistry<Config>> {
@@ -67,6 +68,12 @@ pub(crate) fn thread_extensions(
         turn_start_admission,
     } = dependencies;
     let mut builder = ExtensionRegistryBuilder::<Config>::with_event_sink(Arc::clone(&event_sink));
+    if config
+        .features
+        .enabled(codex_features::Feature::MultiEnvCopyFile)
+    {
+        codex_multi_env_copy_file::install(&mut builder);
+    }
     if let Some(admission) = turn_start_admission {
         builder.turn_start_admission(admission);
     }

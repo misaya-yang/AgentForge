@@ -10,6 +10,7 @@ pub struct Credential {
     pub device_id: String,
     secret: String,
     pub expires_at: f64,
+    request_proof_required: bool,
 }
 impl Credential {
     pub fn new(device_id: String, secret: String, expires_at: f64) -> Result<Self> {
@@ -25,6 +26,7 @@ impl Credential {
             device_id,
             secret,
             expires_at,
+            request_proof_required: false,
         })
     }
 }
@@ -47,6 +49,7 @@ pub struct ExchangeResponse {
 pub struct HttpsTransport {
     http: reqwest::Client,
     endpoint: Url,
+    device_signer: Option<std::sync::Arc<dyn PairingSigner>>,
 }
 impl HttpsTransport {
     pub fn new(endpoint: &str, timeout: Duration) -> Result<Self> {
@@ -83,15 +86,75 @@ impl HttpsTransport {
             builder
         };
         let http = builder.build().map_err(|_| Error::Transport)?;
-        Ok(Self { http, endpoint })
+        Ok(Self {
+            http,
+            endpoint,
+            device_signer: None,
+        })
+    }
+    pub fn with_device_signer(mut self, signer: std::sync::Arc<dyn PairingSigner>) -> Self {
+        self.device_signer = Some(signer);
+        self
     }
     pub async fn post(&self, payload: &Value, credential: Option<&Credential>) -> Result<Value> {
+        let body = serde_json::to_vec(payload).map_err(|_| Error::Protocol)?;
+        let proof = if let Some(c) = credential.filter(|c| c.request_proof_required) {
+            let signer = self
+                .device_signer
+                .as_ref()
+                .ok_or(Error::Denied("device possession signer required"))?;
+            let nonce = self.post_raw(&serde_json::to_vec(&serde_json::json!({
+                "protocol_version":PROTOCOL_VERSION,"kind":"request_nonce","device_id":c.device_id
+            })).map_err(|_| Error::Protocol)?, Some(c), None).await?;
+            let nonce_value = nonce
+                .get("nonce")
+                .and_then(Value::as_str)
+                .ok_or(Error::Protocol)?;
+            let issued = nonce
+                .get("issued_at")
+                .and_then(Value::as_u64)
+                .ok_or(Error::Protocol)?;
+            let expires = nonce
+                .get("expires_at")
+                .and_then(Value::as_u64)
+                .ok_or(Error::Protocol)?;
+            let proof = crate::signing::device_proof::DeviceRequestProof::issue(
+                signer.as_ref(),
+                &c.device_id,
+                "POST",
+                self.endpoint.as_str(),
+                &body,
+                c.secret.as_bytes(),
+                nonce_value,
+                issued,
+                expires,
+            )?;
+            use base64::Engine as _;
+            Some(
+                base64::engine::general_purpose::URL_SAFE_NO_PAD
+                    .encode(serde_json::to_vec(&proof).map_err(|_| Error::Protocol)?),
+            )
+        } else {
+            None
+        };
+        self.post_raw(&body, credential, proof.as_deref()).await
+    }
+    async fn post_raw(
+        &self,
+        body: &[u8],
+        credential: Option<&Credential>,
+        proof: Option<&str>,
+    ) -> Result<Value> {
         let mut request = self
             .http
             .post(self.endpoint.clone())
             .header("Accept", "application/json")
             .header("User-Agent", "AI-Platform-Local-Node/0.1")
-            .json(payload);
+            .header("Content-Type", "application/json")
+            .body(body.to_vec());
+        if let Some(proof) = proof {
+            request = request.header("X-Local-Node-Proof", proof);
+        }
         if let Some(c) = credential {
             if crate::now() >= c.expires_at {
                 return Err(Error::Denied("device credential expired"));
@@ -258,6 +321,8 @@ struct PairingResponse {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StoredCredential {
+    #[serde(default)]
+    request_proof_required: bool,
     protocol_version: String,
     device_id: String,
     credential: String,
@@ -340,6 +405,7 @@ impl HttpsTransport {
             "proof_public_key".into(),
             serde_json::json!(signer.public_key()),
         );
+        value["request_proof_version"] = serde_json::json!(1);
         let mut preproof = value.clone();
         preproof.as_object_mut().unwrap().remove("user_code");
         preproof["user_code_digest"] =
@@ -351,12 +417,14 @@ impl HttpsTransport {
         value["device_proof"] = serde_json::json!(proof);
         let response: PairingResponse =
             serde_json::from_value(self.post(&value, None).await?).map_err(|_| Error::Protocol)?;
-        let credential = verify_pairing_response(response, &request, platform_verifier)?;
+        let mut credential = verify_pairing_response(response, &request, platform_verifier)?;
+        credential.request_proof_required = true;
         let saved = serde_json::json!({
             "protocol_version":PROTOCOL_VERSION,
             "device_id":credential.device_id.as_str(),
             "credential":credential.secret.as_str(),
-            "expires_at":credential.expires_at
+            "expires_at":credential.expires_at,
+            "request_proof_required":true
         });
         store.store(reference, crate::canonical(&saved).as_bytes())?;
         Ok(credential)
@@ -380,9 +448,40 @@ pub fn load_credential(
     if response.expires_at <= crate::now() {
         return Ok(None);
     }
-    Ok(Some(Credential::new(
-        response.device_id,
-        response.credential,
-        response.expires_at,
-    )?))
+    let mut credential =
+        Credential::new(response.device_id, response.credential, response.expires_at)?;
+    credential.request_proof_required = response.request_proof_required;
+    Ok(Some(credential))
+}
+
+#[cfg(test)]
+mod possession_migration_tests {
+    use super::*;
+    #[test]
+    fn stored_v2_credentials_preserve_explicit_upgrade_state() {
+        let legacy = serde_json::json!({"protocol_version":PROTOCOL_VERSION,"device_id":"dev_test","credential":"test-only","expires_at":9999999999.0});
+        let parsed: StoredCredential = serde_json::from_value(legacy.clone()).unwrap();
+        assert!(!parsed.request_proof_required);
+        let mut upgraded = legacy;
+        upgraded["request_proof_required"] = Value::Bool(true);
+        let parsed: StoredCredential = serde_json::from_value(upgraded).unwrap();
+        assert!(parsed.request_proof_required);
+    }
+    #[tokio::test]
+    async fn upgraded_credential_requires_signer_before_any_network_access() {
+        let transport = HttpsTransport::new(
+            "https://invalid.example/api/v1/local-nodes/control",
+            Duration::from_secs(1),
+        )
+        .unwrap();
+        let mut credential =
+            Credential::new("dev_test".into(), "test-only".into(), crate::now() + 60.0).unwrap();
+        credential.request_proof_required = true;
+        assert!(matches!(
+            transport
+                .post(&serde_json::json!({"kind":"heartbeat"}), Some(&credential))
+                .await,
+            Err(Error::Denied("device possession signer required"))
+        ));
+    }
 }

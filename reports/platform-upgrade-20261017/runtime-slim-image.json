@@ -1,0 +1,28 @@
+{
+  "id": "sha256:51ba8952a57c632b5358128f42186f9c636f6d7d349122cd26922a401fe2bde9",
+  "bytes": 658854504,
+  "os": "linux",
+  "architecture": "arm64",
+  "user": "10001:10001",
+  "revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d+12fbb73aec9b",
+  "schema": "agentforge/runtime-slim-image/v1",
+  "observed_at": "2026-10-17T07:18:54.644342+00:00",
+  "status": "built_and_source_locked_development_candidate",
+  "source_epoch": 24,
+  "source_commit": "9edbc92df4c5eb24a003202dbeada81a1405ad3c",
+  "overlay_sha256": "12fbb73aec9b1a19ffb9f055b2d285e2bebbc7fb63d226ca7c2ab01ee7e59562",
+  "image": "ai-gateway-agent-runtime:local-092d3acd6bec-12fbb73aec9b",
+  "checks": {
+    "debian13": true,
+    "nonroot10001": true,
+    "required_tools": true,
+    "elf_dependencies": true,
+    "git_init_add_commit_clean": true,
+    "no_compiler": true,
+    "native_source_lock_artifact_check": true
+  },
+  "worker_pair": "not_built",
+  "vulnerability_scan": "not_run",
+  "product_acceptance": "not_accepted",
+  "next_epoch_25": "new paired images required after025 compiled admission refresh"
+}

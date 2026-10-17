@@ -931,7 +931,7 @@ pub(crate) fn verify_activated_measurement_provenance(
     Ok(())
 }
 
-/// Verifies the canonical epoch-20 chain after the explicit activation receipt is installed.
+/// Dispatches an activated canonical epoch to its strict successor verifier.
 /// The inactive preview path remains strict and continues to require the exact epoch-17 source.
 pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochManifest)> {
     let root = root.canonicalize()?;
@@ -941,6 +941,29 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join(BASELINE)
             .join("manifest.yml"),
     )?;
+    if current_manifest.epoch == crate::source_tools::next_successor_028::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_028::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_027::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_027::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_026::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_026::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_025::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_025::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_024::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH {
+        return crate::source_tools::next_successor_023::verify_activated_source(&root);
+    }
     if current_manifest.epoch == crate::source_tools::next_successor_022::CANDIDATE_EPOCH {
         return crate::source_tools::next_successor_022::verify_activated_source(&root);
     }
@@ -1427,7 +1450,21 @@ mod tests {
                 crate::source_tools::next_successor_022::CANDIDATE_EPOCH as usize
             );
             assert!(validate_with_preimage_root(&root, None).is_err());
-        } else if matches!(epoch.epoch, 23 | 24) {
+        } else if epoch.epoch == crate::source_tools::next_successor_027::CANDIDATE_EPOCH {
+            assert!(activated);
+            let (receipt, verified) = verify_activated_source(&root).unwrap();
+            assert_eq!(receipt["candidate_epoch"], epoch.epoch);
+            assert_eq!(verified.epoch, epoch.epoch);
+            assert_eq!(verified.changes.len(), epoch.epoch as usize);
+            assert!(validate_with_preimage_root(&root, None).is_err());
+        } else if epoch.epoch == crate::source_tools::next_successor_028::CANDIDATE_EPOCH {
+            assert!(activated);
+            let (receipt, verified) = verify_activated_source(&root).unwrap();
+            assert_eq!(receipt["candidate_epoch"], epoch.epoch);
+            assert_eq!(verified.epoch, epoch.epoch);
+            assert_eq!(verified.changes.len(), epoch.epoch as usize);
+            assert!(validate_with_preimage_root(&root, None).is_err());
+        } else if matches!(epoch.epoch, 23 | 24 | 25 | 26) {
             assert!(activated);
             let verified =
                 crate::source_tools::next_successor::historical_test_fixtures::verify_current_chain(

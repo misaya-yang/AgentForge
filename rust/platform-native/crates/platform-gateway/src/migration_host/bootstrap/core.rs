@@ -4,9 +4,10 @@ use crate::{
     capacity::CapacityResolver,
     capacity_admission::{
         AdmissionOptions, CapacityAdmissionController, CapacityStore, RedisCapacityStore,
+        atomic::AtomicDispatchAdmission,
     },
     dispatch_preflight::{DispatchPreflight, RateLimitEventRecorder},
-    dispatcher::DispatchExecutor,
+    dispatcher::{DispatchAdmission, DispatchExecutor},
     dispatcher_rate_limiter::{RateLimitConfig, RateLimiter},
     gateway_dispatcher::GatewayDispatcher,
     registry_health_monitor::{HealthMonitor, SystemHealthMonitorRuntime},
@@ -54,6 +55,8 @@ pub struct CoreServices {
     pub tasks: Arc<TaskManager>,
     pub task_storage: Arc<PgTaskStorage>,
     pub dispatcher: Arc<GatewayDispatcher>,
+    pub preflight: Arc<DispatchPreflight>,
+    pub dispatch_admission: Arc<dyn DispatchAdmission>,
     pub capacity: Arc<CapacityResolver>,
     pub admission: Arc<CapacityAdmissionController>,
     pub rate_limiter: Arc<RateLimiter>,
@@ -106,8 +109,8 @@ impl CoreServices {
             PgTaskStorage::new(pools.data.clone(), pools.control.clone())
                 .map_err(|_| BootstrapError::Construction("task_storage"))?,
         );
-        // Explicit rollout selection. Canonical17 keeps the existing memory
-        // path; durable mode never downgrades after a ledger/authority failure.
+        // The process selected this only after canonical admission. An explicit
+        // memory override remains available; ledger failures never downgrade.
         let queue = if config.durable_tasks {
             None
         } else {
@@ -137,7 +140,12 @@ impl CoreServices {
         };
         let tasks = Arc::new(manager.with_safe_callback_transport(backends.callbacks));
         let rbac = Arc::new(Rbac::new(config.roles));
-        let rate_limiter = Arc::new(RateLimiter::new(config.rate_limits));
+        let rates = config.rate_limits;
+        let rate_limiter = Arc::new(if redis.is_some() {
+            RateLimiter::deferred(rates.clone())
+        } else {
+            RateLimiter::new(rates.clone())
+        });
         let preflight = Arc::new(DispatchPreflight::new(
             registry.clone(),
             rbac.clone(),
@@ -145,7 +153,11 @@ impl CoreServices {
             backends.rate_events,
         ));
         let capacity = Arc::new(config.capacity);
-        let store = redis.map(|r| Arc::new(RedisCapacityStore::new(r)) as Arc<dyn CapacityStore>);
+        let store = redis
+            .clone()
+            .map(|r| Arc::new(RedisCapacityStore::new(r)) as Arc<dyn CapacityStore>);
+        let admission_epoch = config.admission.cluster_epoch.clone();
+        let admission_ttl = config.admission.lease_ttl_ms;
         let admission = Arc::new(
             CapacityAdmissionController::new(config.admission, store)
                 .map_err(|_| BootstrapError::Configuration("capacity_admission"))?,
@@ -155,14 +167,35 @@ impl CoreServices {
                 &crate::migration_host::metrics::global(),
             ),
         ));
+        let dispatch_admission: Arc<dyn DispatchAdmission> = match redis {
+            Some(redis) => {
+                let atomic = AtomicDispatchAdmission::new(
+                    (*admission).clone(),
+                    redis,
+                    pools.data.clone(),
+                    rates,
+                    admission_epoch,
+                    admission_ttl,
+                );
+                if !crate::capacity_admission::atomic::model_plane::ModelPlaneAdmission::install(
+                    &atomic,
+                    pools.data.clone(),
+                ) {
+                    return Err(BootstrapError::Construction("model_plane_admission"));
+                }
+                Arc::new(atomic)
+            }
+            None => admission.clone(),
+        };
+        if let Some(batch)=crate::task_batch_accounting::configure(pools.data.clone(),pools.control.clone(),preflight.clone(),operator_environment,dispatch_admission.clone(),capacity.clone()).map_err(|_|BootstrapError::Configuration("provider_batch_configuration"))?{tasks.configure_provider_batches(batch).map_err(|_|BootstrapError::Construction("provider_batch_requires_durable"))?;}
         let executor = Arc::new(DispatchExecutor::new(
-            admission.clone(),
+            dispatch_admission.clone(),
             (*capacity).clone(),
         ));
         let pricing = Arc::new(ScopedUsagePricing::with_postgres(pools.data.clone()));
         let sink = Arc::new(PricedUsageSink::new(usage.clone(), pricing.clone()));
         let dispatcher = Arc::new(GatewayDispatcher::new(
-            preflight,
+            preflight.clone(),
             executor,
             sessions.clone(),
             tasks.clone(),
@@ -196,6 +229,8 @@ impl CoreServices {
             tasks,
             task_storage,
             dispatcher,
+            preflight,
+            dispatch_admission,
             capacity,
             admission,
             rate_limiter,

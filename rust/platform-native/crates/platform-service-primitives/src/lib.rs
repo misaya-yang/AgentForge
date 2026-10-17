@@ -15,3 +15,5 @@ pub mod content;
 pub mod knowledge_types;
 pub mod knowledge_auth;
 pub mod pdf_ports;
+pub mod knowledge_model;
+pub mod valkey;

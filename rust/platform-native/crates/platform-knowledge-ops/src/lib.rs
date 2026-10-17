@@ -4,6 +4,7 @@ pub mod backfill;
 pub mod bakeoff;
 pub mod golden;
 pub mod lexical_shadow;
+pub mod model_session;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

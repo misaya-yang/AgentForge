@@ -17,6 +17,7 @@ pub enum CredentialAvailability {
     Resolved,
     Environment,
     Missing,
+    NotRequired,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CatalogProvider {

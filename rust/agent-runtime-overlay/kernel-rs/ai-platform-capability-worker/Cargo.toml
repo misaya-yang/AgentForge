@@ -24,6 +24,14 @@ path = "src/bin/python_supervisor.rs"
 name = "ai-platform-plugin-packs"
 path = "src/bin/plugin_packs.rs"
 
+[[bin]]
+name = "ai-platform-python-sandbox"
+path = "src/bin/ai-platform-python-sandbox.rs"
+
+[[bin]]
+name = "ai-platform-python-sandbox-health"
+path = "src/bin/ai-platform-python-sandbox-health.rs"
+
 [dependencies]
 ai-platform-capability-contract = { path = "../ai-platform-capability-contract" }
 ai-platform-office = { path = "../ai-platform-office" }
@@ -38,7 +46,7 @@ hex = { workspace = true }
 globset = { workspace = true }
 hmac = { workspace = true }
 libc = { workspace = true }
-reqwest = { workspace = true, features = ["json", "stream"] }
+reqwest = { workspace = true, features = ["blocking", "json", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -49,6 +57,9 @@ sqlx-sqlite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync"] }
 tracing = { workspace = true }
+opentelemetry = { workspace = true, features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { workspace = true, features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { workspace = true, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics", "logs"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 typst-assets = { workspace = true }
 uuid = { workspace = true, features = ["v7", "serde"] }

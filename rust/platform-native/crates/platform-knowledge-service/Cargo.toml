@@ -9,24 +9,24 @@ name = "platform-knowledge-service"
 path = "src/main.rs"
 
 [dependencies]
-ai-platform-rpc = { path = "../platform-rpc" }
+ai-platform-rpc = { version = "0.1.0", path = "../platform-rpc"  }
 tower = { version = "0.5", features = ["util"] }
 tokio-stream = { version = "0.1", features = ["net"] }
-ai-platform-knowledge-domain = { path = "../platform-knowledge-domain" }
-ai-platform-service-primitives = { path = "../platform-service-primitives" }
-ai-platform-migration-authority = { path = "../platform-migration-authority" }
-axum = { version = "0.8", features = ["multipart"] }
+ai-platform-knowledge-domain = { version = "0.1.0", path = "../platform-knowledge-domain"  }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
+ai-platform-migration-authority = { version = "0.1.0", path = "../platform-migration-authority"  }
+axum = { workspace = true, features = ["multipart"] }
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
 redis.workspace = true
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 http-body = "1"
 chrono = { version = "0.4", features = ["serde"] }
-scraper = "0.23"
-ego-tree = "0.10"
+scraper.workspace = true
+ego-tree.workspace = true
 regex = "1"
 libc = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
@@ -37,8 +37,9 @@ candle-transformers = { version = "0.11", default-features = false }
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 sha2 = "0.10"
 tracing = "0.1"
+ed25519-dalek.workspace = true
+hmac = "0.12"
 
 [dev-dependencies]
 base64 = "0.22"
-hmac = "0.12"
 tower = { version = "0.5", features = ["util"] }

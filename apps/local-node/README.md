@@ -49,34 +49,25 @@ in `apps/local-node/native/macos`. It provides:
   reads credentials, or exposes a server/listener.
 
 It does **not** expose an HTTP listener, install a daemon, inherit shell
-credentials, infer macOS Accessibility/Screen Recording permission, or select a
-native backend from the standalone CLI. A future packaged composition may wrap
-`LocalNodeRuntime`, but must preserve the boundary validators and action ledger.
+credentials or infer macOS Accessibility/Screen Recording permission. The native
+headless CLI now explicitly composes Keychain-backed Ed25519 device identity,
+pinned platform keys, an operator-selected TLS CA, granted filesystem roots and
+an optional native approval helper. Computer Use remains a separate, gated path.
+See [the current CLI/config instructions](../../rust/platform-native/crates/platform-local-node/README.md).
 
-The concrete native HTTPS transport supports HTTPS with system CA/hostname
-verification and refuses redirects. `wss://` is accepted by endpoint policy but
-remains unavailable until a WebSocket adapter is explicitly injected; there is
-no plaintext downgrade. Pairing requires an injected asymmetric device-proof
-signer and stores the opaque server credential only through an injected secure
-credential store. The native library supplies an explicitly constructed macOS `MacKeychainStore`,
-but does not automatically compose it with a production asymmetric pairing
-signer, so standalone doctor output remains `unavailable`. The
-separate approval-only Keychain signer does not satisfy those authorities. The
-insecure file store and HMAC signers used in tests cannot be selected implicitly
-in production.
+The concrete outbound adapter uses the exact HTTPS v2 endpoint
+`/api/v1/local-nodes/control`, verifies certificate chains and hostnames, disables
+redirects and POST retry, and verifies the platform's signed pairing response
+against the challenge and device identity. An explicitly supplied CA is the only
+trust root for that client. There is no insecure file-store or test-HMAC option
+in the production CLI. WSS still requires a separate explicit adapter.
 
-Run the non-starting diagnostic (exit status `2` means unavailable):
-
-```bash
-local-node doctor --endpoint https://control.example.test/local-node
-```
-
-The native `credentials::MacKeychainStore` implements `SecureCredentialStore`
-on macOS when explicitly injected by a trusted composition root. Missing
-storage has no plaintext fallback. Standalone diagnostics never open Keychain
-or pair a device. Approval signing, device identity and transport credentials
-remain separate authorities; a test-only HMAC signer cannot establish
-production pairing authority. Legacy plaintext identity material is rejected.
+Read-only `local-node doctor --config /path/to/local-node.json` never opens
+Keychain, pairs a device or starts networking. Pair/serve use the real native
+secure store; non-macOS platforms without a secure adapter fail closed. For
+write grants, serve requires the configured native approval helper and verifies
+its separate exact-intent, one-use signature before any write. Platform approval
+never substitutes for the local owner prompt.
 
 `ActionContext` is data, not authority. Every executable action binds tenant,
 user, device, session, run, agent identity and version, envelope version, tool name, operation,
@@ -193,3 +184,32 @@ not persisted or uploaded. The command reservation remains consumed, and
 reconnect/retransmission delivers the bounded receipt without re-execution.
 Storage or other outbox validation failures still propagate; they are not
 misreported as a result-budget failure.
+
+### Cross-platform vault integration (source implementation)
+
+`credentials::native_secure_store(service)` selects macOS Keychain, Windows
+Credential Manager with CurrentUser DPAPI sealing, or Linux Secret Service via
+root-owned `/usr/bin/secret-tool` and `/usr/bin/gdbus`. Linux requires an already
+running `org.freedesktop.secrets` session service; unavailable/locked vaults fail
+closed. No plaintext file fallback is provided. Windows credentials are scoped
+to the logged-in user; service namespaces are also authenticated by DPAPI entropy.
+Linux subprocesses and pipe reads have a ten-second limit; diagnostics never
+include client stderr or secret values. Secret values travel on stdin, not argv.
+
+CLI `secure_store` now calls `credentials::native_secure_store(service)` with
+separate identity and outbound namespaces. Unix serve injects the identity signer
+into the HTTPS transport. New pairings explicitly negotiate request-proof v1.
+
+`signing::device_proof::DeviceRequestProof::issue` implements a domain-separated
+Ed25519 possession proof binding the device, exact HTTPS target and method, body
+hash, credential hash, server nonce and a maximum 60-second window. Its explicit
+key class is `os-vault-software-ed25519`; these adapters do **not** claim a
+non-exportable TPM/Secure Enclave key. The current v2 pairing proof remains intact.
+Request-proof registration, nonce issuance/atomic consumption, and client transport
+are implemented in source. Activation requires the combined unnumbered SQL
+proposal in `docs/design/local-node-owner-emergency-stop.sql.proposal` through the
+canonical authority. Existing v2 credentials remain legacy until explicit
+re-pairing; new pairings require the successor. See the adjacent design document
+for exact transaction boundaries and the unrun real TLS/replay acceptance matrix.
+Hardware P-256 providers, tenant hardware-key policy, target-OS vault acceptance
+and end-to-end replay acceptance remain unfinished work.

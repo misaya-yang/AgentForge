@@ -5,10 +5,11 @@
  * can log in, see only the Playground menu, and are blocked from
  * all other console pages.
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 const AUTH_EMAIL_DOMAIN = process.env.E2E_AUTH_EMAIL_DOMAIN || "example.com";
-const MODEL_TESTER_PASSWORD = process.env.E2E_MODEL_TESTER_PASSWORD || "ModelTester-ChangeMe-2026!";
+const MODEL_TESTER_PASSWORD = process.env.E2E_MODEL_TESTER_PASSWORD;
+if (!MODEL_TESTER_PASSWORD) throw new Error("Existing model-tester accounts require explicit E2E_MODEL_TESTER_PASSWORD; no account provisioning or password guessing");
 const TEST_USERS = [
   { email: `model_tester_1@${AUTH_EMAIL_DOMAIN}`, password: MODEL_TESTER_PASSWORD },
   { email: `model_tester_2@${AUTH_EMAIL_DOMAIN}`, password: MODEL_TESTER_PASSWORD },
@@ -17,19 +18,19 @@ const TEST_USERS = [
   { email: `model_tester_5@${AUTH_EMAIL_DOMAIN}`, password: MODEL_TESTER_PASSWORD },
 ];
 
-async function login(page, email: string, password: string) {
+async function login(page: Page, email: string, password: string) {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   // The login form accepts either the full email or the local part.
   const username = email.replace(`@${AUTH_EMAIL_DOMAIN}`, "");
   await page.fill('input#email', username);
   await page.fill('input#password', password);
-  // `networkidle` can settle before the SPA has stored the token, so the next
+  // `networkidle` can settle before the cookie session bootstrap, so the next
   // navigation raced back to /login. Wait for the auth response and for the
   // route guard to actually let go of the login page instead.
   const [response] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
-        candidate.url().includes("/api/v1/auth/login") &&
+        candidate.url().includes("/api/auth/session") &&
         candidate.request().method() === "POST",
       { timeout: 30_000 }
     ),

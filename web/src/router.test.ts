@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { createRequire } from "node:module";
 import test from "node:test";
 import vm from "node:vm";
@@ -81,7 +82,8 @@ function fixture(initial: Partial<Session> = {}, enabled = true, namespaceReady:
       const source = readFileSync(new URL(`./${name.slice(2)}${extension}`, import.meta.url), "utf8");
       vm.runInNewContext(ts.transpileModule(source, { compilerOptions: {
         module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX,
-      } }).outputText, { exports, require: load });
+      } }).outputText, { exports, require: (specifier: string) => load(specifier.startsWith(".")
+        ? `@/${path.posix.normalize(path.posix.join(path.posix.dirname(name.slice(2)), specifier))}` : specifier) });
     }
     return exports;
   }

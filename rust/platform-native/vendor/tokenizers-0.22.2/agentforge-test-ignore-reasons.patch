@@ -1,0 +1,33 @@
+diff --git a/tests/documentation.rs b/tests/documentation.rs
+--- a/tests/documentation.rs
++++ b/tests/documentation.rs
+@@ -122,7 +122,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the Wikitext-103 train/test/valid corpus under data/wikitext-103-raw; those files are not bundled."]
+ fn quicktour_slow_train() -> tokenizers::Result<()> {
+     // START quicktour_init_tokenizer
+     use tokenizers::models::bpe::BPE;
+@@ -421,7 +421,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the Wikitext-103 corpus under data/wikitext-103-raw, which is not bundled, and performs a full 30,522-token WordPiece training run."]
+ fn train_pipeline_bert() -> tokenizers::Result<()> {
+     // START bert_setup_tokenizer
+     use tokenizers::models::wordpiece::WordPiece;
+diff --git a/tests/offsets.rs b/tests/offsets.rs
+--- a/tests/offsets.rs
++++ b/tests/offsets.rs
+@@ -136,7 +136,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Upstream-disabled ByteLevel pre-tokenized offset regression; upstream rationale undocumented. Retained for explicit runs."]
+ fn byte_level_pre_tokenized_sequence_with_trimming() {
+     let input = ["My", "name", "is", "Anthonino"];
+ 

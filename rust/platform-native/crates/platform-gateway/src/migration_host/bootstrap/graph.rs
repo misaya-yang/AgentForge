@@ -133,9 +133,10 @@ impl GatewayGraph {
         let security = Arc::new(foundation_backends::PgFoundationSecurityEvents::new(
             pools.data.clone(),
         ));
-        let quota = Arc::new(foundation_backends::NativeQuotaChecker::new(
-            &pools, security,
-        )?);
+        let quota = Arc::new(
+            foundation_backends::NativeQuotaChecker::new(&pools, security)?
+                .with_shared_rpm(redis.clone()),
+        );
         let langgraph_preparation = Arc::new(langgraph_preparation::LiveLangGraphPreparation::new(
             models.models.clone(),
             models.providers.clone(),

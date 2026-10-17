@@ -171,6 +171,89 @@ async fn ragas_injected_internal_secret_produces_bound_gateway_auth() {
     assert_eq!(parts[5].len(), 64);
 }
 const SECRET: &[u8] = b"fixture-signing-key-fixture-signing-key-fixture-signing-key";
+#[tokio::test]
+async fn ragas_scoped_actor_body_and_identity_headers_share_the_workload_signature() {
+    use hmac::{Hmac, Mac};
+    use sha2::{Digest, Sha256};
+    let s = server(
+        StatusCode::OK,
+        json!({"judge_model":"qwen-test","results":[good()]}),
+    )
+    .await;
+    let scope = serde_json::from_value(json!({"actor":{"tenant_id":"tenant-a","user_id":"member-a","user_tier":"normal","user_type":"user","roles":["user"],"is_authenticated":true},"dataset_id":null,"document_id":null,"execution_id":null})).unwrap();
+    kb(&s.base, Some(SECRET.to_vec()))
+        .evaluate_retrieval_scoped(&scope, "q", &["c".into()], None, None, None, None)
+        .await
+        .unwrap();
+    let calls = s.captured.lock().unwrap();
+    let (_, headers, body) = &calls[0];
+    assert_eq!(headers["x-user-id"], "member-a");
+    assert_eq!(headers["x-tenant-id"], "tenant-a");
+    assert_eq!(body["actor_scope"]["actor"]["user_id"], "member-a");
+    let parts = headers["x-gateway-secret"]
+        .to_str()
+        .unwrap()
+        .split(':')
+        .collect::<Vec<_>>();
+    let hash = format!("{:x}", Sha256::digest(serde_json::to_vec(body).unwrap()));
+    assert_eq!(parts[4], hash);
+    let identities = [
+        "x-tenant-id",
+        "x-user-id",
+        "x-user-roles",
+        "x-user-tier",
+        "x-user-type",
+    ]
+    .iter()
+    .map(|name| format!("{name}:{}", headers[*name].to_str().unwrap()))
+    .collect::<Vec<_>>()
+    .join("\n");
+    let canonical = [
+        "gateway",
+        "knowledge-service",
+        "POST",
+        "/api/v1/internal/eval/ragas",
+        "",
+        &hash,
+        &identities,
+        parts[2],
+        parts[3],
+        parts[1],
+    ]
+    .join("\n");
+    let mut mac = Hmac::<Sha256>::new_from_slice(SECRET).unwrap();
+    mac.update(canonical.as_bytes());
+    let actual = mac
+        .finalize()
+        .into_bytes()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
+    assert_eq!(parts[5], actual);
+}
+#[tokio::test]
+async fn ragas_scoped_call_rejects_missing_signer_and_anonymous_before_dispatch() {
+    let s = server(
+        StatusCode::OK,
+        json!({"judge_model":"qwen-test","results":[good()]}),
+    )
+    .await;
+    let mut scope: ai_platform_service_primitives::knowledge_model::ModelScope = serde_json::from_value(json!({"actor":{"tenant_id":"tenant-a","user_id":"member-a","is_authenticated":true},"dataset_id":null,"document_id":null,"execution_id":null})).unwrap();
+    assert!(
+        kb(&s.base, None)
+            .evaluate_retrieval_scoped(&scope, "q", &[], None, None, None, None)
+            .await
+            .is_err()
+    );
+    scope.actor.is_authenticated = false;
+    assert!(
+        kb(&s.base, Some(SECRET.to_vec()))
+            .evaluate_retrieval_scoped(&scope, "q", &[], None, None, None, None)
+            .await
+            .is_err()
+    );
+    assert!(s.captured.lock().unwrap().is_empty());
+}
 fn signer() -> Arc<EvalJwtSigner> {
     Arc::new(EvalJwtSigner::new(SECRET, Algorithm::HS256, None, None).unwrap())
 }

@@ -50,6 +50,7 @@ required_docs:
   - docs/harness/runtime-and-secrets.md
   - docs/harness/integration-and-rollback.md
   - docs/harness/repository-quality.md
+  - docs/harness/codex-upstream-upgrade.md
   - deploy/runbooks/open-source-env-readiness-todo.md
 
 # -- Instruction-file line budgets --------------------------------------------
@@ -128,6 +129,9 @@ commands:
   agent_capability_worker_build_local:
     make: agent-capability-worker-build-local
     purpose: Build the pinned Rust capability worker inside Docker with one Cargo job and resource guards; never invoke host Cargo.
+  agent_python_sandbox_build_local:
+    make: agent-python-sandbox-build-local
+    purpose: Build the independent credential-free Python sandbox with the existing builder, exact digest bases, source/schema admission and shared serial resource lock; never invoke host Cargo.
   agent_capability_worker_smoke:
     make: agent-capability-worker-smoke
     purpose: Verify signed leases, idempotency, scoped events, cancellation, and restart recovery.
@@ -253,6 +257,17 @@ gates:
     timeout: 5
     evidence: tmp/gate-evidence/architecture-boundary-gate.json
     ci_job: architecture-gates
+  helm_native:
+    make: helm-native-gate
+    purpose: Render public synthetic Helm fixtures and reject non-native identity, credentials, privileged containers and store ownership.
+    triggers: ["deploy/helm/**", "rust/platform-native/crates/platform-tools/src/main.rs"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/helm-native-contract.json
+    ci_job: compose-and-harness
   core_boundary:
     make: core-boundary-gate
     purpose: Rebuild the formal core/contracts inventory from its declared Git object, then enforce no-growth and compatibility boundaries.
@@ -264,6 +279,17 @@ gates:
     timeout: 5
     evidence: tmp/gate-evidence/core-boundary-gate.json
     ci_job: architecture-gates
+  valkey_deployment:
+    make: valkey-deployment-gate
+    purpose: Reject mixed coordination/cache ownership, insecure Valkey transport and unsafe durability or ACL deployment policy.
+    triggers: ["deploy/compose/valkey/**", "deploy/compose/docker-compose.valkey.yml", "rust/platform-native/crates/platform-service-primitives/src/valkey/**", "rust/platform-native/crates/platform-tools/src/valkey*.rs"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/valkey-deployment.json
+    ci_job: compose-and-harness
   single_instance_guard:
     make: single-instance-guard
     purpose: Reject Gateway/Agent Runtime replica, HPA, or rollout overlap while allowing manifest-declared stateless/worker scale.

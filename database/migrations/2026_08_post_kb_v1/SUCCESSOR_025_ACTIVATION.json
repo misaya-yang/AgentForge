@@ -1,0 +1,21 @@
+{
+  "schema": "ai-platform/canonical-fixed-successor-receipt/v1",
+  "status": "activated_source_chain",
+  "baseline_id": "2026_08_post_kb_v1",
+  "predecessor_epoch": 24,
+  "candidate_epoch": 25,
+  "database_actions": false,
+  "source_activation": true,
+  "source_plan_sha256": "386b8cfae06a6eabf5c7bb3b1e6dface03ed2c1765ea6d0292332085e6ff8921",
+  "approved_predecessor_package_lock_sha256": "624e5b9b833bcc1d5667fb93bb43c424a7c4d14f14171d4822e7ebbd22f50643",
+  "predecessor_manifest_sha256": "5f71e17c48675c8f86c300afff8f12a46386c1f63a486a95a9101a2d2646e17f",
+  "candidate_manifest_sha256": "a7e327f282f8a3e0b5535be32af0be2737df15a3037ca48ae10467e5e91c7489",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "candidate_sql_sha256": "ce6c2c8f0894c976107037dd2da2d7d59d2ef6af0c129a694e25cbb12602cc5d",
+  "predecessor_measurement_sha256": "b52ac313589b9a2a525c4b284e0747ee03b7ddd64bf64a18fba2a5b1a9ba420d",
+  "predecessor_activation_sha256": "f5a83d14dd0acb1ebfae8b95fb97863231b39701a0412c904afbe6e677036b5d",
+  "expected_database": "schema_successor_verify_turn025a",
+  "verification_ref_sha256": "37ba2afae9a71a7be02988b9d5188ada9220c13403accd5e1db59a018def8eaa",
+  "measurement_receipt_sha256": "5dc1f830822c4fda82480c61cbaa5f8e8b8cd84c57e2e86beaa0f9afccf4db3e",
+  "post_migration_noop": true
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "agentforge/candle-zip9-native-validation/v1",
+  "verified_at": "2026-10-17T10:48:18.523155+00:00",
+  "production_crate": "rust/platform-native/vendor/candle-core-0.11.0",
+  "upstream_version_retained": "0.11.0",
+  "upstream_source_receipt_sha256": "41616f32df137e5b62e9756e40d47d7045c7415e1e926827f65a17afffd1e4de",
+  "native_lock_sha256": "fb76bcd68b2166f947495d2fd8a756dc1854b3ea4ef5929d8ba5320d70b62e3a",
+  "zip_versions": [
+    "9.0.0"
+  ],
+  "retained_native_bge_embedding_rerank": true,
+  "actual_archive_tests": {
+    "downstream": 5,
+    "original_pickle": 3,
+    "original_serialization": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "test_execution": {
+    "kind": "native1.99 external test harness",
+    "cwd": "/Users/yang/.cache/agentforge-upgrade/candle-zip9-test-source-r1",
+    "production_library": "actual repository vendor path dependency; default-features=false matches Knowledge",
+    "upstream_tests": "Byte-identical copies, unchanged fixtures and assertions.",
+    "log": "/Users/yang/.cache/agentforge-upgrade/evidence/candle-zip9-archive-tests-r5.log",
+    "sha256": "ee52d952fea4f837b28d6e045b5f6fb9f6189a98d7f0aff8dca6b3389cf6c1c6"
+  },
+  "repairs": [
+    "ZIP9 name() Result<Cow<str>> propagated in NPZ and pickle.",
+    "Malformed UTF8 is valid CP437 fallback, so test now proves exact fallback and uses actually truncated directory metadata for two strict ZIP error assertions."
+  ],
+  "actual_all_targets_check": {
+    "gateway": 0,
+    "knowledge_service": 0,
+    "log_sha256": "375c6112eb446b7bfa96284b00593d1f1cdfea43db82a4186526cefae8cc6299"
+  },
+  "real_bge_model_inference": "not_run",
+  "cargo_deny": "failed; no exceptions;15 third-party license declarations need policy review; fxhash/paste/ttf-parser unmaintained; rsa0.9.10 Marvin advisory via OIDC",
+  "metadata_restore": "Exactly2 lock-checksummed missing crates,70940 bytes; no broad fetch."
+}

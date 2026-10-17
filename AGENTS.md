@@ -47,16 +47,21 @@ Use [the canonical catalog](docs/harness/commands.md), `Makefile` and `harness.y
 | --- | --- |
 | Machine preflight | `make doctor` |
 | Existing local environment | `make dev-status` / `make dev-start` |
-| Native compilation | `make native-check` with external `CARGO_TARGET_DIR` |
-| Native verification | Affected package/target, or `make native-test` when justified |
+| Native compilation | `make native-check` in the shared Docker development cache |
+| Native verification | Docker `scripts/new/native-container.sh test` for affected targets, or `make native-test` |
 | Harness contract | `make harness-check` |
 | Frontend | App/node TS checks, lint, tests and build from the command catalog |
 | Release config/runtime | `make validate-config` / `make validate` / `make status` |
 
 Native Rust is pinned to 1.99.0; Runtime/Worker to 1.95.0. Frontend uses Node 26.11.1 and
-pnpm 12.11.2. Native host builds are authorized with one Cargo job, no debug/incremental
-output and an external target directory. Runtime/Worker builds use the controlled Docker
-source workflow. Coordinate shared manifests, source locks and builds through the primary writer.
+pnpm 12.11.2. Native service builds and tests run in Docker with one Cargo job, no
+debug/incremental output, and one Docker-managed development cache. Do not maintain a
+second macOS Cargo target for server development. Runtime/Worker retain their Rust 1.95.0
+controlled Docker source workflow. Host builds are limited to explicitly selected macOS
+client/OS acceptance and small std-only launcher bootstraps; their cache is separate and
+bounded. Coordinate shared manifests, source locks and builds through the primary writer.
+Codex kernel rebases follow [the upstream upgrade procedure](docs/harness/codex-upstream-upgrade.md)
+and preserve platform host seams before source/image identities are refreshed.
 
 ## Working principles
 

@@ -16,6 +16,9 @@ impl IngestionService {
         version: i32,
         reason: Option<&str>,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::RestoreVersion { document:document.into(),version,reason:reason.map(str::to_owned) }).await;
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -30,6 +33,7 @@ impl IngestionService {
         if fresh["tenant_id"] != authoritative["tenant_id"] {
             return Err(IngestError::GenerationChanged);
         }
+        self.check_vector_job_generation(&authoritative)?;
         require_index_writable(&authoritative)?;
         let typed: Dataset = serde_json::from_value(authoritative.clone())?;
         let mut tx = lease.connection().begin().await?;

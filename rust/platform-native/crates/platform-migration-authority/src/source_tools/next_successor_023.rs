@@ -1056,7 +1056,7 @@ mod tests {
     fn current_root_uses_its_complete_verified_source_chain() {
         let root = repository_root();
         let verified = verify_current_chain(&root);
-        assert!((22..=24).contains(&verified.epoch));
+        assert!((22..=28).contains(&verified.epoch));
         assert_eq!(verified.changes.len(), verified.epoch as usize);
     }
     #[test]

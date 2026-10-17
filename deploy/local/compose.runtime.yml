@@ -29,8 +29,68 @@ x-container-proxy-env: &container-proxy-env
   all_proxy: "${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
   no_proxy: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1,postgres,redis,agent-runtime,agent-capability-worker},host.docker.internal"
 
+x-service-hardening: &service-hardening
+  cap_drop: [ALL]
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  user: "1000:1000"
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+
 services:
+  # Credential-free Python data plane. Only public verifier metadata crosses in.
+  agent-python-sandbox:
+    <<: *service-hardening
+    image: "${AGENT_PYTHON_SANDBOX_IMAGE:?Select the admitted independent sandbox image}"
+    user: "10001:10001"
+    entrypoint: ["ai-platform-python-sandbox"]
+    command:
+      - --public-key-id
+      - "${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}"
+      - --public-key-hex
+      - "${AGENT_SANDBOX_PUBLIC_KEY_HEX:?Select the purpose-specific Ed25519 public verifier}"
+      - --socket
+      - /run/agentforge-sandbox/control.sock
+      - --workspace-root
+      - /workspace
+      - --journal-root
+      - /var/lib/agentforge-sandbox/jobs
+      - --cgroup-root
+      - /sys/fs/cgroup/agentforge-sandbox
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=../security/capability-worker-seccomp.json
+    volumes:
+      - sandbox-control-socket:/run/agentforge-sandbox
+      - sandbox-private-workspaces:/workspace
+      - sandbox-private-journal:/var/lib/agentforge-sandbox/jobs
+      - type: bind
+        source: "${AGENT_CAPABILITY_SANDBOX_CGROUP_DELEGATION:?Select this sandbox's predelegated empty cgroup2 subtree}"
+        target: /sys/fs/cgroup/agentforge-sandbox
+        read_only: false
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "ai-platform-python-sandbox-health", "/run/agentforge-sandbox/control.sock"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    pids_limit: 256
+    mem_limit: "${AGENT_PYTHON_SANDBOX_MEMORY_LIMIT:-1536m}"
+    cpus: "${AGENT_PYTHON_SANDBOX_CPUS:-2.0}"
+    init: true
+    restart: unless-stopped
+
   agent-capability-worker:
+    <<: *service-hardening
+    networks:
+      - app
+      - data-postgres
+      - data-object-store
+    user: "10001:10001"
     image: "${AGENT_CAPABILITY_WORKER_IMAGE:?Set the root-selected local capability-worker image}"
     pull_policy: never
     expose:
@@ -49,7 +109,11 @@ services:
       # Override if the host Knowledge service uses a different port/origin.
       AI_PLATFORM_KNOWLEDGE_SERVICE_URL: "${AI_PLATFORM_KNOWLEDGE_SERVICE_URL:-http://host.docker.internal:8092}"
       AI_PLATFORM_GATEWAY_INTERNAL_URL: "http://host.docker.internal:8080"
+      # Office keeps its own workspace; Python executes only in the separate UDS service.
       AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: "/workspace"
+      AI_PLATFORM_SANDBOX_SOCKET: /run/agentforge-sandbox/control.sock
+      AI_PLATFORM_SANDBOX_KEY_ID: "${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}"
+      AI_PLATFORM_SANDBOX_SIGNING_KEY_FILE: /run/agentforge-sandbox-signing/signing.seed
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
       POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}capability_worker"
@@ -58,7 +122,16 @@ services:
       AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: "${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}"
     volumes:
       - agent-capability-workspaces:/workspace
+      - sandbox-control-socket:/run/agentforge-sandbox:ro
+      - type: bind
+        source: "${AGENT_SANDBOX_SIGNING_KEY_FILE:?Provision the purpose-specific control-only 32-byte seed}"
+        target: /run/agentforge-sandbox-signing/signing.seed
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
+      agent-python-sandbox:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     healthcheck:
@@ -74,10 +147,18 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - seccomp=../security/capability-worker-seccomp.json
     init: true
 
   agent-runtime:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=1777
+      - /workspace:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=0700
+    networks:
+      - app
+      - data-postgres
+      - data-object-store
+    user: "10001:10001"
     image: "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:?Build and select the local Runtime image}"
     pull_policy: never
     expose:
@@ -97,6 +178,7 @@ services:
       AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION: "${AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION:?AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION is required}"
       AI_PLATFORM_RUNTIME_BIND: "0.0.0.0:8094"
       AI_PLATFORM_RUNTIME_WORKDIR: "/workspace"
+      CODEX_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       AI_PLATFORM_AGENT_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
@@ -123,5 +205,8 @@ services:
     init: true
 
 volumes:
+  sandbox-control-socket: {}
+  sandbox-private-workspaces: {}
+  sandbox-private-journal: {}
   agent-runtime-home: {}
   agent-capability-workspaces: {}

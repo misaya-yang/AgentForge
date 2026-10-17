@@ -31,6 +31,20 @@ fn read(path: &Path) -> Result<Value> {
     require(v.is_object())?;
     Ok(v)
 }
+fn sdk_profile(environment: &Environment) -> bool {
+    let e = |k: &str| environment.get(k).map(String::as_str).unwrap_or("");
+    if e("SDK_AGENT_WORKER_TOKEN").len() < 32 {
+        return false;
+    }
+    match e("SDK_AGENT_WORKER_URL") {
+        "http://127.0.0.1:8096" => e("SDK_AGENT_WORKER_TLS_CA_FILE").is_empty(),
+        "https://sdk-agent-worker:8096" => {
+            let ca = e("SDK_AGENT_WORKER_TLS_CA_FILE");
+            !ca.is_empty() && Path::new(ca).is_absolute()
+        }
+        _ => false,
+    }
+}
 fn prepare(environment: Environment, native: Value) -> Result<Value> {
     let settings = resolve_settings(&environment)?;
     require(!serde_json::to_string(&native)?.contains('<'))?;
@@ -65,10 +79,7 @@ fn prepare(environment: Environment, native: Value) -> Result<Value> {
             .is_some_and(|s| !s.is_empty() && !s.contains('<')),
     )?;
     if environment.contains_key("SDK_AGENT_WORKER_URL") {
-        require(
-            e("SDK_AGENT_WORKER_URL") == "http://127.0.0.1:8096"
-                && !e("SDK_AGENT_WORKER_TOKEN").is_empty(),
-        )?;
+        require(sdk_profile(&environment))?;
     }
     require(
         native["local_channel"] == "disabled" && native["confluence_registration"] == "disabled",
@@ -142,6 +153,47 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sdk_profile_keeps_loopback_http_and_requires_exact_private_https_identity() {
+        let mut env = Environment::from([
+            ("SDK_AGENT_WORKER_TOKEN".into(), "a".repeat(32)),
+            (
+                "SDK_AGENT_WORKER_URL".into(),
+                "http://127.0.0.1:8096".into(),
+            ),
+        ]);
+        assert!(sdk_profile(&env));
+        env.insert(
+            "SDK_AGENT_WORKER_URL".into(),
+            "http://sdk-agent-worker:8096".into(),
+        );
+        assert!(!sdk_profile(&env));
+        env.insert(
+            "SDK_AGENT_WORKER_URL".into(),
+            "https://sdk-agent-worker:8096".into(),
+        );
+        assert!(!sdk_profile(&env));
+        env.insert(
+            "SDK_AGENT_WORKER_TLS_CA_FILE".into(),
+            "/run/sdk-worker/ca.pem".into(),
+        );
+        assert!(sdk_profile(&env));
+        for url in [
+            "https://other-worker:8096",
+            "https://sdk-agent-worker:8096/path",
+            "https://sdk-agent-worker:8096?key=1",
+            "http://127.0.0.1:8096",
+        ] {
+            env.insert("SDK_AGENT_WORKER_URL".into(), url.into());
+            assert!(!sdk_profile(&env));
+        }
+        env.insert(
+            "SDK_AGENT_WORKER_URL".into(),
+            "https://sdk-agent-worker:8096".into(),
+        );
+        env.insert("SDK_AGENT_WORKER_TLS_CA_FILE".into(), "relative.pem".into());
+        assert!(!sdk_profile(&env));
+    }
     #[test]
     fn objects_only() {
         let d = tempfile::tempdir().unwrap();

@@ -66,10 +66,14 @@ pub enum DispatchError {
     Capacity(CapacityError),
     Admission(AdmissionError),
     Cancelled,
-    CircuitOpen { service_id: String },
+    CircuitOpen {
+        service_id: String,
+    },
     UpstreamOutcomeUnknown,
     CleanupFailed,
-    AdapterBulkheadExhausted { service_id: String },
+    AdapterBulkheadExhausted {
+        service_id: String,
+    },
     AdapterOperationUnsupported,
     AdapterValidationFailed(&'static str),
     /// Only sanitized client-facing details may be placed in this variant.
@@ -252,9 +256,37 @@ impl DispatchService {
 /// Consuming release transfers ownership into a cancellation-safe cleanup task.
 /// Acquisition implementations must also clean up partial acquisitions if their
 /// returned future is cancelled before handing the lease to the dispatcher.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DispatchSettlement {
+    Completed,
+    NotDispatched,
+    Unknown,
+}
+fn settlement_for_error(error: &DispatchError) -> DispatchSettlement {
+    match error {
+        DispatchError::Adapter(AdapterFailure::ConnectError | AdapterFailure::PoolTimeout)
+        | DispatchError::AdapterBulkheadExhausted { .. }
+        | DispatchError::AdapterOperationUnsupported
+        | DispatchError::AdapterValidationFailed(_)
+        | DispatchError::AdapterValidationDetail(_) => DispatchSettlement::NotDispatched,
+        DispatchError::Adapter(AdapterFailure::HttpStatus(_)) => DispatchSettlement::Completed,
+        _ => DispatchSettlement::Unknown,
+    }
+}
 pub trait DispatchLease: Send + Sync + 'static {
     fn bind_owner(&self, cancellation: AdmissionCancellation) -> Result<(), DispatchError>;
     fn wait_lost(&self) -> DispatchFuture<'_, ()>;
+    /// Acknowledged durable admission transition before the first provider poll.
+    /// Existing non-token leases retain their original behavior.
+    fn quota_admission(&self) -> Option<crate::capacity_admission::atomic::AdmittedQuota> {
+        None
+    }
+    fn mark_dispatched(&self) -> DispatchFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
+    fn mark_completion(&self, _outcome: DispatchSettlement) -> DispatchFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
     fn release(self: Box<Self>) -> DispatchFuture<'static, ()>;
 }
 impl DispatchLease for CapacityLease {
@@ -275,6 +307,7 @@ impl DispatchLease for CapacityLease {
     }
 }
 pub trait DispatchAdmission: Send + Sync {
+    fn acquire_provider_batch<'a>(&'a self,_marker:&'a crate::provider_batch_lane::BatchAdmission,_context:&'a DispatchContext,_service:&'a DispatchService,_budgets:&'a [CapacityBudget],_request:&'a crate::protocol::UnifiedRequest,_logical_id:&'a str)->DispatchFuture<'a,Box<dyn DispatchLease>>{Box::pin(async{Err(DispatchError::CleanupFailed)})}
     fn acquire<'a>(
         &'a self,
         context: &'a DispatchContext,
@@ -282,6 +315,17 @@ pub trait DispatchAdmission: Send + Sync {
         request_class: &'a str,
         budgets: &'a [CapacityBudget],
     ) -> DispatchFuture<'a, Box<dyn DispatchLease>>;
+    fn acquire_for_request<'a>(
+        &'a self,
+        context: &'a DispatchContext,
+        service: &'a DispatchService,
+        request_class: &'a str,
+        budgets: &'a [CapacityBudget],
+        _request: Option<&'a crate::protocol::UnifiedRequest>,
+        _logical_id: &'a str,
+    ) -> DispatchFuture<'a, Box<dyn DispatchLease>> {
+        self.acquire(context, &service.service_id, request_class, budgets)
+    }
 }
 
 /// Exact native admission adapter; all existing budget headers/errors survive.
@@ -428,6 +472,8 @@ impl DispatchExecutor {
         context: &DispatchContext,
         service: &DispatchService,
         request_class: &str,
+        request: Option<&crate::protocol::UnifiedRequest>,
+        logical_id: &str,
     ) -> Result<LeaseOwner, DispatchError> {
         let budgets = self.capacity.resolve(&CapacityRequest {
             tenant_id: context.admission_tenant_id().into(),
@@ -441,7 +487,14 @@ impl DispatchExecutor {
         })?;
         let lease = self
             .admission
-            .acquire(context, &service.service_id, request_class, &budgets)
+            .acquire_for_request(
+                context,
+                service,
+                request_class,
+                &budgets,
+                request,
+                logical_id,
+            )
             .await?;
         Ok(LeaseOwner::new(lease))
     }
@@ -486,6 +539,7 @@ impl DispatchExecutor {
                 async move { work.await.map_err(DispatchError::Adapter) }
             },
             cancellation,
+            None,
         )
         .await
     }
@@ -516,6 +570,7 @@ impl DispatchExecutor {
         cancellation: AdmissionCancellation,
     ) -> Result<crate::protocol::UnifiedResponse, DispatchError> {
         let request = Arc::new(request);
+        let admission_request = request.clone();
         self.invoke_errors_with_cancel(
             context,
             service,
@@ -525,6 +580,7 @@ impl DispatchExecutor {
                 async move { adapter.invoke(&request).await.map_err(Into::into) }
             },
             cancellation,
+            Some(&admission_request),
         )
         .await
     }
@@ -534,17 +590,19 @@ impl DispatchExecutor {
         service: &DispatchService,
         mut operation: F,
         cancellation: AdmissionCancellation,
+        request: Option<&crate::protocol::UnifiedRequest>,
     ) -> Result<T, DispatchError>
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, DispatchError>>,
     {
         let circuit = self.circuit(service);
+        let logical_id = uuid::Uuid::new_v4().to_string();
         let attempts = async {
             for attempt in 0..service.policy.max_attempts() {
                 let lease = tokio::select! { biased;
                     _ = cancellation.cancelled() => return Err(DispatchError::Cancelled),
-                    lease = self.admit(context, service, "sync") => lease?,
+                    lease = self.admit(context, service, "sync", request, &logical_id) => lease?,
                 };
                 if let Err(error) = lease.inner().bind_owner(cancellation.clone()) {
                     lease.release().await?;
@@ -560,7 +618,9 @@ impl DispatchExecutor {
                         if service.policy.timeout.is_zero() {
                             return Err(service.policy.classify(AdapterFailure::OperationTimeout));
                         }
-                        match tokio::time::timeout(service.policy.timeout, operation()).await {
+                        lease.inner().mark_dispatched().await?;
+                        match tokio::time::timeout(service.policy.timeout,
+                            crate::capacity_admission::atomic::quota_scope(lease.inner().quota_admission(), operation())).await {
                             Ok(result) => result.map_err(|error| match error {
                                 DispatchError::Adapter(failure) => service.policy.classify(failure),
                                 error => error,
@@ -569,8 +629,16 @@ impl DispatchExecutor {
                         }
                     } => result,
                 };
+                // A finished provider response can settle only after its later
+                // canonical checkpoint. Transport ambiguity retains its hold.
+                let settlement = match &result {
+                    Ok(_) => DispatchSettlement::Completed,
+                    Err(error) => settlement_for_error(error),
+                };
+                let marked = lease.inner().mark_completion(settlement).await;
                 // Release is outside the adapter timeout and completes before retry.
                 lease.release().await?;
+                marked?;
                 if cancellation.is_cancelled() {
                     return Err(DispatchError::Cancelled);
                 }
@@ -659,9 +727,10 @@ impl DispatchExecutor {
         request: crate::protocol::UnifiedRequest,
         cancellation: AdmissionCancellation,
     ) -> Result<DispatchStream<crate::protocol::StreamChunk>, DispatchError> {
+        let logical_id = uuid::Uuid::new_v4().to_string();
         let lease = tokio::select! { biased;
             _ = cancellation.cancelled() => return Err(DispatchError::Cancelled),
-            lease = self.admit(context, service, "stream") => lease?,
+            lease = self.admit(context, service, "stream", Some(&request), &logical_id) => lease?,
         };
         if let Err(error) = lease.inner().bind_owner(cancellation.clone()) {
             lease.release().await?;
@@ -679,6 +748,7 @@ impl DispatchExecutor {
             status: StreamStatus::InProgress,
             defer_success_cleanup: false,
             producer_ended: false,
+            dispatch_started: false,
             cancellation,
         })
     }
@@ -695,7 +765,10 @@ impl DispatchExecutor {
         F: FnOnce() -> Box<dyn DispatchProducer<T>>,
     {
         self.check_stream_circuit(service).await?;
-        let lease = self.admit(context, service, "stream").await?;
+        let logical_id = uuid::Uuid::new_v4().to_string();
+        let lease = self
+            .admit(context, service, "stream", None, &logical_id)
+            .await?;
         let cancellation = AdmissionCancellation::default();
         if let Err(error) = lease.inner().bind_owner(cancellation.clone()) {
             lease.release().await?;
@@ -711,6 +784,7 @@ impl DispatchExecutor {
             status: StreamStatus::InProgress,
             defer_success_cleanup: false,
             producer_ended: false,
+            dispatch_started: false,
             cancellation,
         })
     }
@@ -819,6 +893,7 @@ pub struct DispatchStream<T: Send + 'static> {
     status: StreamStatus,
     defer_success_cleanup: bool,
     producer_ended: bool,
+    dispatch_started: bool,
     cancellation: AdmissionCancellation,
     runtime: tokio::runtime::Handle,
 }
@@ -871,13 +946,29 @@ impl<T: Send + 'static> DispatchStream<T> {
             }
             return Ok(None);
         }
+        if !self.dispatch_started && self.producer.is_some() {
+            let lease = self.lease.as_ref().expect("stream producer owns lease");
+            let started = tokio::select! { biased;
+                loss = lease.inner().wait_lost() => Err(loss.err().unwrap_or(DispatchError::CleanupFailed)),
+                _ = self.cancellation.cancelled() => Err(DispatchError::Cancelled),
+                result = lease.inner().mark_dispatched() => result,
+            };
+            if let Err(error) = started {
+                self.status = StreamStatus::Error;
+                self.terminal_error = Some(error.clone());
+                self.finish_cleanup().await?;
+                self.terminal_error = None;
+                return Err(error);
+            }
+            self.dispatch_started = true;
+        }
         let result = match self.producer.as_mut() {
             Some(producer) => {
                 let lease = self.lease.as_ref().expect("stream producer owns lease");
                 tokio::select! { biased;
                     loss = lease.inner().wait_lost() => Err(loss.err().unwrap_or(DispatchError::CleanupFailed)),
                     _ = self.cancellation.cancelled() => Err(DispatchError::Cancelled),
-                    chunk = producer.next() => chunk,
+                    chunk = crate::capacity_admission::atomic::quota_scope(lease.inner().quota_admission(), producer.next()) => chunk,
                 }
             }
             None => {
@@ -888,6 +979,19 @@ impl<T: Send + 'static> DispatchStream<T> {
         match result {
             Ok(Some(chunk)) => Ok(Some(chunk)),
             Ok(None) => {
+                if let Some(lease) = self.lease.as_ref() {
+                    if let Err(error) = lease
+                        .inner()
+                        .mark_completion(DispatchSettlement::Completed)
+                        .await
+                    {
+                        self.terminal_error = Some(error.clone());
+                        self.status = StreamStatus::Unknown;
+                        self.finish_cleanup().await?;
+                        self.terminal_error = None;
+                        return Err(error);
+                    }
+                }
                 self.status = StreamStatus::Success;
                 self.producer_ended = true;
                 if !self.defer_success_cleanup {
@@ -896,6 +1000,19 @@ impl<T: Send + 'static> DispatchStream<T> {
                 Ok(None)
             }
             Err(error) => {
+                if let Some(lease) = self.lease.as_ref() {
+                    let marked = lease
+                        .inner()
+                        .mark_completion(settlement_for_error(&error))
+                        .await;
+                    if marked.is_err() {
+                        self.terminal_error = Some(DispatchError::CleanupFailed);
+                        self.status = StreamStatus::Unknown;
+                        self.finish_cleanup().await?;
+                        self.terminal_error = None;
+                        return Err(DispatchError::CleanupFailed);
+                    }
+                }
                 self.terminal_error = Some(error.clone());
                 self.status = if matches!(
                     &error,
@@ -927,4 +1044,3 @@ impl<T: Send + 'static> Drop for DispatchStream<T> {
         self.begin_cleanup();
     }
 }
-

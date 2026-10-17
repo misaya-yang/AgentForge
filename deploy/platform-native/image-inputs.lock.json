@@ -4,7 +4,7 @@
   "files": {
     "rust-toolchain.toml": "2ad6f15416572b4836585087f1d4abc53b8fa2dbd616f8dacfaa587ed6714228",
     "rust/platform-native/Cargo.toml": "40271e826f392da87658a0510ffefc220f1a828c5f53e91b3fb56982ee472939",
-    "rust/platform-native/Cargo.lock": "e837226fe7a42f69b316f314162188786724894bfd9bb82ec7660fb1fa96e32a",
+    "rust/platform-native/Cargo.lock": "c85673c188fb5343a6db941ee5deb8da187eaf2b526420fb2516b56b46dfddea",
     "rust/platform-native/rust-toolchain.toml": "2ad6f15416572b4836585087f1d4abc53b8fa2dbd616f8dacfaa587ed6714228",
     "rust/platform-native/crates/platform-rpc/build.rs": "6f63811594a5fbe05dbc68fc5a4e10c895c66dd0c8395210750865fda88be5df",
     "rust/platform-native/crates/platform-rpc/proto/knowledge.proto": "d90a37fa650cbfd06eecb4a4d7f39747ef405db24787b1ce919cd11477dd3348",
@@ -18,7 +18,7 @@
     "rust/platform-native/crates/platform-openapi/Cargo.toml": "dbac46cd1f5a44dc64294e7576da96185ffd1a1658c48305dd183b996c493037",
     "rust/platform-native/crates/platform-desktop/Cargo.toml": "7ef25b0707fb65ddfce20b904b44f4378e0cbff39c182f721c6cf1545517694e",
     "rust/platform-native/crates/platform-release/Cargo.toml": "bf60a6d7cb88e6352534d483f32681db8d9524dbbec8d0535dec30c9820419f3",
-    "rust/platform-native/crates/platform-eval/Cargo.toml": "0fccc963231acd6520aab006c8c3820fba3914e9c7239cf9cf461fc0fffaa393",
+    "rust/platform-native/crates/platform-eval/Cargo.toml": "e7c6df21fa1d3e68a2288c1f15560e2c2e6ed2877f94a27fcd906cc925f1b711",
     "rust/platform-native/crates/platform-rpc/Cargo.toml": "ce55530e9a8d31f378692193e0f0cc77b8e966fc941ec51773c2fd9a87859829",
     "rust/platform-native/crates/platform-agent-plugins/Cargo.toml": "068bf884450a16bf0205aeaf40fd1d181086ecc12d23cd7311e9faaf7eb4d864",
     "rust/platform-native/crates/platform-gateway-integrations/Cargo.toml": "430535f20ae75d9f346a54d134dfa6762b037e63b7d5d9b9ef00f56c1176f4ba",

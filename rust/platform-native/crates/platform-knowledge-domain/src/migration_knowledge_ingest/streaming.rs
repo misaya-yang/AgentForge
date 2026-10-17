@@ -1,9 +1,11 @@
 //! Batch loader state and bounded scheduling for the canonical streaming PDF
 //! path. Real decoder/image bytes come from the explicit native backend.
 use super::{IngestError, Result, assets::AssetStorage};
+pub use ai_platform_service_primitives::pdf_ports::streaming::{
+    BatchResult, PageContent, PdfSource, StreamingPdfBackend,
+};
 use serde::{Deserialize, Serialize};
 use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
-pub use ai_platform_service_primitives::pdf_ports::streaming::{PdfSource,PageContent,BatchResult,StreamingPdfBackend};
 pub type BatchConsumer =
     Arc<dyn Fn(BatchResult) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + Sync>;
 #[derive(Clone)]
@@ -139,6 +141,7 @@ impl Drop for Spool {
 pub struct StreamedText {
     pub text: String,
     pub total_pages: usize,
+    pub native_ir: Option<super::parser::DocIR>,
 }
 impl super::IngestionService {
     /// Worker._process_large_file: source -> private disk spool -> bounded text
@@ -148,6 +151,7 @@ impl super::IngestionService {
         lease: &mut super::store::DocumentLease,
         dataset: &super::Dataset,
         document: &serde_json::Value,
+        retain_ir: bool,
     ) -> Result<StreamedText> {
         use std::io::{Read, Write};
         let id = super::string(document, "document_id");
@@ -182,6 +186,7 @@ impl super::IngestionService {
         let source = PdfSource::Path(source_path);
         let total = loader.get_page_count(&source).await?;
         let size = loader.batch_size.clamp(5, 50);
+        let mut native_pages = Vec::new();
         let mut chars = 0usize;
         let mut bytes = 0usize;
         std::fs::File::create(&text_path)?;
@@ -190,6 +195,7 @@ impl super::IngestionService {
             let pages = loader.load_page_range(&source, start + 1, end).await?;
             let mut parts = Vec::new();
             for page in pages {
+                let mut effective = page.text.clone();
                 if !page.text.trim().is_empty() {
                     parts.push(format!("[Page {}]\n{}", page.page_number, page.text));
                 } else if self.streaming_ocr_enabled {
@@ -203,9 +209,13 @@ impl super::IngestionService {
                         .await
                         .unwrap_or_default();
                         if !text.is_empty() {
+                            effective = text.clone();
                             parts.push(format!("[Page {}]\n{text}", page.page_number));
                         }
                     }
+                }
+                if retain_ir {
+                    native_pages.push(PageContent::new(page.page_number, effective, vec![]));
                 }
             }
             if !parts.is_empty() {
@@ -256,10 +266,24 @@ impl super::IngestionService {
                 "No text extracted from document".into(),
             ));
         }
+        let native_ir = if retain_ir {
+            let hash =
+                super::parsing_v2::integration::hash_source_file(&spool.root.join("source.bin"))?;
+            Some(super::parsing_v2::integration::streaming_ir(
+                super::string(document, "document_id"),
+                &hash,
+                super::string(document, "title"),
+                super::string(document, "mime_type"),
+                native_pages,
+            )?)
+        } else {
+            None
+        };
         drop(spool);
         Ok(StreamedText {
             text,
             total_pages: total,
+            native_ir,
         })
     }
 }

@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { buildAuthHeaders, loginThroughApi } from "./support/helpers";
+import { buildAuthHeaders, loginThroughConsole } from "./support/helpers";
+
+// API seeding gets an empty jar; the page establishes its own BFF cookie below.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 type CatalogModel = { id: string; name: string; provider: string };
 type ManagedModel = { model_id: string; provider_id: string; is_enabled: boolean };
@@ -8,21 +11,8 @@ const apiUrl = () => process.env.E2E_API_URL;
 
 async function openAuthenticatedAssistant(
   page: import("@playwright/test").Page,
-  request: import("@playwright/test").APIRequestContext,
 ) {
-  const { token, user } = await loginThroughApi(request);
-  await page.addInitScript(({ authPayload }) => {
-    localStorage.setItem("agent-gateway-auth", JSON.stringify(authPayload));
-    sessionStorage.removeItem("agent-gateway-auth");
-  }, {
-    authPayload: {
-      state: {
-        token, user, isAuthenticated: true,
-        forcePasswordChange: false, rememberMe: true,
-      },
-      version: 0,
-    },
-  });
+  await loginThroughConsole(page);
   await page.goto("/assistant");
 }
 
@@ -95,7 +85,7 @@ test("assistant selector shows only active configured models and defaults to Qwe
   expect(visible.some((model) => model.id === "qwen3.8-flash"),
     "Qwen 3.8 Flash must be active for the assistant default").toBeTruthy();
 
-  await openAuthenticatedAssistant(page, request);
+  await openAuthenticatedAssistant(page);
   await clearModelPreference(page);
   await startNewChat(page);
   const selector = page.getByRole("button", { name: /Qwen 3\.8 Flash/i });
@@ -112,10 +102,10 @@ test("assistant selector shows only active configured models and defaults to Qwe
   }
 });
 
-test("assistant keeps an explicit available model after refresh and New chat", async ({ page, request }) => {
+test("assistant keeps an explicit available model after refresh and New chat", async ({ page }) => {
   await mockAssistantCatalog(page);
 
-  await openAuthenticatedAssistant(page, request);
+  await openAuthenticatedAssistant(page);
   await clearModelPreference(page);
   await startNewChat(page);
   const flash = page.getByRole("button", { name: "Qwen 3.8 Flash" });
@@ -154,7 +144,7 @@ test("assistant restores a saved conversation model without changing the new-cha
   expect(message.ok()).toBeTruthy();
 
   await mockAssistantCatalog(page);
-  await openAuthenticatedAssistant(page, request);
+  await openAuthenticatedAssistant(page);
   await clearModelPreference(page);
   await startNewChat(page);
   await expect(page.getByRole("button", { name: "Qwen 3.8 Flash" })).toBeVisible();

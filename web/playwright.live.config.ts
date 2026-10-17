@@ -11,10 +11,10 @@ process.env.E2E_DOCKER_LIVE_STACK = "1";
  * live containers, e.g. postgres already bound to :5432). The live stack is
  * expected to be healthy before invoking:
  *
- *   E2E_EXISTING_ACCOUNT_ONLY=1 E2E_BASE_URL=http://localhost:8081 \
+ *   E2E_EXISTING_ACCOUNT_ONLY=1 E2E_BASE_URL=https://console.example.test \
  *     E2E_API_URL=http://localhost:8080 pnpm exec playwright test -c playwright.live.config.ts --workers=1
- * Account setup is read-only by default; E2E_PROVISION_ACCOUNTS=1 is only
- * for explicit initialization of a fresh isolated environment.
+ * Console setup is existing-account-only and requires trusted HTTPS plus active
+ * BFF origins/signing configuration. API initialization is a separate fixture.
  */
 export default {
   ...baseConfig,

@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-agent-runtime
+  labels:
+{{ include "ai-gateway.labels" . | indent 4 }}
+    app.kubernetes.io/component: agent-runtime
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: agent-runtime
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: agent-runtime
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: agent-runtime
+      initContainers:
+      - name: database-authority
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
+        command: ["/bin/sh", "-ec"]
+        args: ["mkdir -p /state/runtime-home; exec /usr/local/bin/database-authority startup-check --principal runtime"]
+        resources:
+{{ toYaml .Values.resources.migration | indent 10 }}
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        env:
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_RUNTIME_DSN" "key" "RUNTIME_DSN") | indent 8 }}
+        - name: AI_GATEWAY_ROLE_PREFIX
+          value: {{ .Values.databaseRoles.rolePrefix | quote }}
+        volumeMounts:
+        - {name: state, mountPath: /state}
+        - {name: tmp, mountPath: /tmp}
+      containers:
+      - name: agent-runtime
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "runtime") | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        resources:
+{{ toYaml (index .Values.resources "runtime") | indent 10 }}
+        env:
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_HOST" "secret" .Values.credentials.runtime "key" "POSTGRES_HOST") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PORT" "secret" .Values.credentials.runtime "key" "POSTGRES_PORT") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_USER" "secret" .Values.credentials.runtime "key" "POSTGRES_USER") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PASSWORD" "secret" .Values.credentials.runtime "key" "POSTGRES_PASSWORD") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_DB" "secret" .Values.credentials.runtime "key" "POSTGRES_DB") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN") | indent 8 }}
+        - name: AI_PLATFORM_LEASE_TRUST_MODE
+          value: "verify_only"
+        - name: AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE
+          value: "/run/lease/public.json"
+        - name: AI_PLATFORM_RUNTIME_BIND
+          value: "0.0.0.0:8094"
+        - name: AI_PLATFORM_AGENT_HOME
+          value: "/var/lib/ai-platform-agent-runtime/runtime-home"
+        - name: CODEX_HOME
+          value: "/var/lib/ai-platform-agent-runtime/runtime-home"
+        - name: AI_PLATFORM_RUNTIME_WORKDIR
+          value: "/workspace"
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_RUNTIME_DSN" "key" "RUNTIME_DSN") | indent 8 }}
+        - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+        - name: AI_PLATFORM_AGENT_RUNTIME_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+        - name: AI_PLATFORM_CAPABILITY_WORKER_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+        - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
+        - name: AI_PLATFORM_CAPABILITY_PLANE_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080/internal/v2/agent-capabilities
+        - name: AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080/internal/v1/agent-model-plane
+        - name: AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION
+          value: {{ .Values.gateway.nativeOptions.kernel_revision | quote }}
+        ports:
+        - {name: http, containerPort: 8094}
+        readinessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 5
+        livenessProbe:
+          httpGet: {path: /health/live, port: http}
+          initialDelaySeconds: 30
+        volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+        - {name: state, mountPath: /var/lib/ai-platform-agent-runtime}
+        - {name: workspace, mountPath: /workspace}
+        - {name: lease, mountPath: /run/lease, readOnly: true}
+      volumes:
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 128Mi}
+      - name: config
+        configMap:
+          name: {{ include "ai-gateway.fullname" . }}-config
+      - name: state
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.runtime.existingClaim | quote }}
+      - name: workspace
+        emptyDir: {sizeLimit: 128Mi}
+      - name: lease
+        configMap:
+          name: {{ .Values.lease.publicConfigMap | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-agent-runtime
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: agent-runtime
+  ports:
+  - {name: http, port: 8094, targetPort: http}

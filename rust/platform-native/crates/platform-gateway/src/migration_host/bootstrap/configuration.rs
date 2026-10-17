@@ -217,6 +217,7 @@ impl GatewayDocument {
                 watermark_png: watermark.to_vec(),
             },
             langgraph: super::content::LangGraphConfiguration {
+                coordination_only: false,
                 instances: p.langgraph_endpoints()?,
                 strategy: langgraph["load_balancer_strategy"]
                     .as_str()

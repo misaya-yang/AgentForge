@@ -144,7 +144,7 @@ impl Default for HostSettings {
             model_setup_mode: "ui".into(),
             health_check_interval: 30,
             task_worker_concurrency: 2,
-            task_delivery_mode: "memory".into(),
+            task_delivery_mode: "schema_admitted".into(),
             database: DatabaseSettings::default(),
             redis: RedisSettings::default(),
             authentication: AuthenticationSettings::default(),
@@ -171,10 +171,10 @@ impl HostSettings {
         if !matches!(settings.model_setup_mode.as_str(), "ui" | "environment") {
             return Err("model_setup_mode must be one of: ui, environment".into());
         }
-        if !matches!(settings.task_delivery_mode.as_str(), "memory" | "durable") {
-            return Err("task_delivery_mode must be one of: memory, durable".into());
+        if !matches!(settings.task_delivery_mode.as_str(), "memory" | "durable" | "schema_admitted") {
+            return Err("task_delivery_mode must be one of: memory, durable, schema_admitted".into());
         }
-        if settings.task_delivery_mode == "durable" && settings.task_worker_concurrency == 0 {
+        if settings.task_delivery_mode != "memory" && settings.task_worker_concurrency == 0 {
             return Err("durable tasks require positive task_worker_concurrency".into());
         }
         if environment
@@ -429,12 +429,12 @@ fn parse_host_env_leaf(path: &[&str], raw: &str) -> Result<Value, String> {
 mod task_delivery_mode_tests {
     use super::*;
     #[test]
-    fn task_delivery_mode_defaults_to_memory_and_requires_explicit_durable() {
+    fn task_delivery_mode_defaults_to_schema_admitted_and_preserves_explicit_durable() {
         assert_eq!(
             HostSettings::from_environment(&BTreeMap::new())
                 .unwrap()
                 .task_delivery_mode,
-            "memory"
+            "schema_admitted"
         );
         let env = BTreeMap::from([("GATEWAY_TASK_DELIVERY_MODE".into(), "durable".into())]);
         assert_eq!(

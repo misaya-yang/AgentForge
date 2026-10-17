@@ -17,9 +17,7 @@ uuid = { version = "1", features = ["v4"] }
 serde_yaml.workspace = true
 tempfile = "3"
 libc = "0.2"
-rustpython-parser = "0.4"
 hmac = "0.12"
-rustpython-ast = { version = "0.4", features = ["visitor"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip.workspace = true
 unicode-casefold = "0.2"
 getrandom = "0.3"

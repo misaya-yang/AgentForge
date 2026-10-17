@@ -607,7 +607,7 @@ impl ParserCascade {
         for (index, job) in jobs.iter().cloned().enumerate() {
             let cascade = self.clone();
             let sem = semaphore.clone();
-            pending.spawn(async move {
+            pending.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
                 let permit = sem
                     .acquire_owned()
                     .await
@@ -615,7 +615,7 @@ impl ParserCascade {
                 let result = cascade.parse_page(job).await;
                 drop(permit);
                 Ok::<_, IngestError>((index, result))
-            });
+            }));
         }
         let mut results = BTreeMap::new();
         while let Some(result) = pending.join_next().await {

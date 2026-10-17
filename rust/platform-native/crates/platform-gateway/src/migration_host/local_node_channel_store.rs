@@ -33,6 +33,15 @@ impl PostgresLocalNodeChannelRepository {
         Self { pool }
     }
 
+    async fn proof_scope(
+        tx: &mut Transaction<'_, Postgres>,
+        hash: &str,
+        device: &str,
+    ) -> Result<Value, ChannelStoreError> {
+        sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('channel_id',c.channel_id) FROM gateway.local_node_device_credentials c JOIN gateway.local_node_devices d ON (d.device_id,d.tenant_id,d.user_id)=(c.device_id,c.tenant_id,c.user_id) JOIN gateway.local_node_channels ch ON (ch.channel_id,ch.device_id,ch.tenant_id,ch.user_id)=(c.channel_id,c.device_id,c.tenant_id,c.user_id) WHERE c.credential_sha256=$1 AND c.device_id=$2 AND c.revoked_at IS NULL AND c.expires_at>now() AND d.revoked_at IS NULL AND d.status='online' AND ch.status='online' FOR UPDATE OF c,d,ch")
+            .bind(hash).bind(device).fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?.ok_or(ChannelStoreError::Rejected)
+    }
+
     async fn execution_source(&self, context: &WorkerContext) -> Result<Value, ChannelStoreError> {
         let execution_id = uuid_text(&context.execution_id)?;
         let run_id = uuid_text(&context.run_id)?;
@@ -163,6 +172,13 @@ impl PostgresLocalNodeChannelRepository {
         device_id: &str,
         channel_id: &str,
     ) -> Result<(), ChannelStoreError> {
+        if let Some(delivery_id) = control_ack_delivery(receipt)? {
+            let acknowledged:Option<Uuid>=sqlx::query_scalar(
+                "UPDATE gateway.local_node_control_commands c SET acknowledged_at=COALESCE(c.acknowledged_at,now()),acknowledged_channel_id=COALESCE(c.acknowledged_channel_id,$5) FROM gateway.local_node_control_deliveries d WHERE d.delivery_id=$1 AND d.command_id=c.command_id AND c.tenant_id=$2 AND c.user_id=$3 AND c.device_id=$4 AND c.kind='emergency_stop' RETURNING c.command_id")
+                .bind(delivery_id).bind(tenant_id).bind(user_id).bind(device_id).bind(channel_id)
+                .fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            return acknowledged.map(|_| ()).ok_or(ChannelStoreError::Rejected);
+        }
         let execution_id = receipt
             .action_id
             .as_deref()
@@ -301,6 +317,103 @@ impl PostgresLocalNodeChannelRepository {
 }
 
 impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
+    fn request_nonce<'a>(
+        &'a self,
+        credential_hash: &'a str,
+        device: &'a str,
+    ) -> ChannelFuture<'a, Value> {
+        Box::pin(async move {
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            let scope = Self::proof_scope(&mut tx, credential_hash, device).await?;
+            let registered: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM gateway.local_node_request_keys WHERE channel_id=$1)",
+            )
+            .bind(value_str(&scope, "channel_id")?)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| ChannelStoreError::Unavailable)?;
+            if !registered {
+                return Err(ChannelStoreError::Rejected);
+            }
+            let mut random = [0u8; 32];
+            ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut random)
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            let nonce = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(random);
+            // One outstanding challenge per credential. Repeated bearer requests
+            // cannot invalidate a device's still-live challenge.
+            let value=sqlx::query_scalar::<_,Value>("INSERT INTO gateway.local_node_request_nonces(credential_sha256,nonce,issued_at,expires_at) VALUES($1,$2,floor(extract(epoch from now()))::bigint,floor(extract(epoch from now()))::bigint+60) ON CONFLICT(credential_sha256) DO UPDATE SET nonce=CASE WHEN gateway.local_node_request_nonces.consumed_at IS NOT NULL OR gateway.local_node_request_nonces.expires_at<floor(extract(epoch from now()))::bigint THEN EXCLUDED.nonce ELSE gateway.local_node_request_nonces.nonce END,issued_at=CASE WHEN gateway.local_node_request_nonces.consumed_at IS NOT NULL OR gateway.local_node_request_nonces.expires_at<floor(extract(epoch from now()))::bigint THEN EXCLUDED.issued_at ELSE gateway.local_node_request_nonces.issued_at END,expires_at=CASE WHEN gateway.local_node_request_nonces.consumed_at IS NOT NULL OR gateway.local_node_request_nonces.expires_at<floor(extract(epoch from now()))::bigint THEN EXCLUDED.expires_at ELSE gateway.local_node_request_nonces.expires_at END,consumed_at=CASE WHEN gateway.local_node_request_nonces.consumed_at IS NOT NULL OR gateway.local_node_request_nonces.expires_at<floor(extract(epoch from now()))::bigint THEN NULL ELSE gateway.local_node_request_nonces.consumed_at END RETURNING jsonb_build_object('nonce',nonce,'issued_at',issued_at,'expires_at',expires_at)")
+                .bind(credential_hash).bind(nonce).fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            tx.commit()
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            Ok(value)
+        })
+    }
+    fn authorize_request<'a>(
+        &'a self,
+        credential_hash: &'a str,
+        device: &'a str,
+        target: &'a str,
+        body_hash: &'a str,
+        proof: Option<&'a super::local_node_channel::request_proof::RequestProof>,
+    ) -> ChannelFuture<'a, ()> {
+        Box::pin(async move {
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            let scope = Self::proof_scope(&mut tx, credential_hash, device).await?;
+            let ready:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_request_keys') IS NOT NULL AND to_regclass('gateway.local_node_request_nonces') IS NOT NULL")
+                .fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            let partial:bool=sqlx::query_scalar("SELECT (to_regclass('gateway.local_node_request_keys') IS NOT NULL) <> (to_regclass('gateway.local_node_request_nonces') IS NOT NULL)")
+                .fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            if partial {
+                return Err(ChannelStoreError::Unavailable);
+            }
+            if !ready {
+                return if proof.is_none() {
+                    Ok(())
+                } else {
+                    Err(ChannelStoreError::Unavailable)
+                };
+            }
+            let key = sqlx::query_scalar::<_, String>(
+                "SELECT public_key FROM gateway.local_node_request_keys WHERE channel_id=$1",
+            )
+            .bind(value_str(&scope, "channel_id")?)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| ChannelStoreError::Unavailable)?;
+            let Some(key) = key else {
+                return if proof.is_none() {
+                    Ok(())
+                } else {
+                    Err(ChannelStoreError::Rejected)
+                };
+            };
+            let proof = proof.ok_or(ChannelStoreError::Rejected)?;
+            let now: i64 = sqlx::query_scalar("SELECT floor(extract(epoch from now()))::bigint")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            proof.verify(&key, credential_hash, device, target, body_hash, now as u64)?;
+            let consumed=sqlx::query("UPDATE gateway.local_node_request_nonces SET consumed_at=now() WHERE credential_sha256=$1 AND nonce=$2 AND issued_at=$3 AND expires_at=$4 AND consumed_at IS NULL AND expires_at>=floor(extract(epoch from now()))::bigint")
+                .bind(credential_hash).bind(&proof.nonce).bind(i64::try_from(proof.issued_at).map_err(|_|ChannelStoreError::Rejected)?).bind(i64::try_from(proof.expires_at).map_err(|_|ChannelStoreError::Rejected)?)
+                .execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            if consumed.rows_affected() != 1 {
+                return Err(ChannelStoreError::Rejected);
+            }
+            tx.commit()
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            Ok(())
+        })
+    }
     fn schema_ready(&self) -> ChannelFuture<'_, bool> {
         Box::pin(async move {
             sqlx::query_scalar(
@@ -338,6 +451,30 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
                 .begin()
                 .await
                 .map_err(|_| ChannelStoreError::Unavailable)?;
+            // Lock before checking prior registrations: old/new challenge
+            // redemptions must not race into a downgrade of the same device.
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+                .bind(&request.device_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            let proof_schema:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_request_keys') IS NOT NULL AND to_regclass('gateway.local_node_request_nonces') IS NOT NULL")
+                .fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            let partial:bool=sqlx::query_scalar("SELECT (to_regclass('gateway.local_node_request_keys') IS NOT NULL) <> (to_regclass('gateway.local_node_request_nonces') IS NOT NULL)")
+                .fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            if partial {
+                return Err(ChannelStoreError::Unavailable);
+            }
+            if request.request_proof_version.is_some() && !proof_schema {
+                return Err(ChannelStoreError::Unavailable);
+            }
+            if proof_schema && request.request_proof_version.is_none() {
+                let existing:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM gateway.local_node_request_keys k JOIN gateway.local_node_channels ch USING(channel_id) WHERE ch.device_id=$1)")
+                    .bind(&request.device_id).fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                if existing {
+                    return Err(ChannelStoreError::Rejected);
+                }
+            }
             let challenge_owner = sqlx::query_scalar::<_, Value>(
                 "SELECT jsonb_build_object('tenant_id',tenant_id,'user_id',user_id) \
                  FROM gateway.local_node_pairing_challenges \
@@ -478,6 +615,10 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .execute(&mut *tx)
             .await
             .map_err(|_| ChannelStoreError::Conflict)?;
+            if request.request_proof_version == Some(1) {
+                sqlx::query("INSERT INTO gateway.local_node_request_keys(channel_id,public_key,key_class) VALUES($1,$2,'os-vault-software-ed25519')")
+                    .bind(channel_id).bind(&request.proof_public_key).execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            }
             tx.commit()
                 .await
                 .map_err(|_| ChannelStoreError::Unavailable)?;
@@ -625,20 +766,32 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .await
             .map_err(|_| ChannelStoreError::Unavailable)?;
             let now = now_seconds();
-            let controls = control_rows
+            let mut controls = control_rows
                 .into_iter()
-                .map(|(action_id, device_id, cancel_at)| PendingControl {
-                    kind: "cancel".into(),
-                    command_id: format!("cancel.{action_id}"),
-                    action_id: Some(action_id.clone()),
-                    device_id,
-                    issued_at: now,
-                    expires_at: now + 120.0,
-                    nonce: sha256(
-                        format!("local-node-cancel:{action_id}:{cancel_at:.6}").as_bytes(),
-                    ),
+                .map(|(action_id, device_id, cancel_at)| {
+                    pending_cancel(action_id, device_id, cancel_at, now)
                 })
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
+            // Optional until the reviewed owner-stop successor is activated.
+            // Existing pairing/claim behavior stays available on 023/024.
+            let owner_controls_ready:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_control_commands') IS NOT NULL AND to_regclass('gateway.local_node_control_deliveries') IS NOT NULL")
+                .fetch_one(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            if owner_controls_ready {
+                let pending=sqlx::query_as::<_,(String,String,f64,String)>(
+                    "SELECT command_id::text,device_id,extract(epoch from requested_at)::double precision,nonce_seed::text FROM gateway.local_node_control_commands WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 AND acknowledged_at IS NULL ORDER BY requested_at,command_id LIMIT 100 FOR UPDATE")
+                    .bind(tenant_id).bind(user_id).bind(device_id).fetch_all(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                if !pending.is_empty() {
+                    controls.clear();
+                    claims.clear();
+                    for (id, device, requested, seed) in pending {
+                        let control = pending_emergency(id.clone(), device, requested, &seed, now)?;
+                        sqlx::query("INSERT INTO gateway.local_node_control_deliveries(delivery_id,command_id,nonce,issued_at,expires_at) VALUES($1,$2::uuid,$3,$4,$5) ON CONFLICT(delivery_id) DO NOTHING")
+                            .bind(&control.command_id).bind(uuid_text(&id)?).bind(&control.nonce).bind(control.issued_at).bind(control.expires_at)
+                            .execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                        controls.push(control);
+                    }
+                }
+            }
             tx.commit()
                 .await
                 .map_err(|_| ChannelStoreError::Unavailable)?;
@@ -1508,9 +1661,159 @@ fn now_seconds() -> f64 {
         .map_or(0.0, |duration| duration.as_secs_f64())
 }
 
+fn control_ack_delivery(receipt: &CompanionReceipt) -> Result<Option<&str>, ChannelStoreError> {
+    if receipt.event_type != "control.acknowledged" {
+        return Ok(None);
+    }
+    if receipt.action_id.is_some()
+        || receipt.status.is_some()
+        || receipt.result.is_some()
+        || receipt.result_digest.is_some()
+        || receipt.error_code.is_some()
+        || receipt.summary.is_some()
+    {
+        return Err(ChannelStoreError::Rejected);
+    }
+    let delivery = receipt
+        .event_id
+        .strip_prefix("control.ack.")
+        .ok_or(ChannelStoreError::Rejected)?;
+    let parts: Vec<_> = delivery.split('.').collect();
+    if parts.len() != 3
+        || parts[0] != "emergency"
+        || Uuid::parse_str(parts[1]).is_err()
+        || parts[2].len() != 64
+        || !parts[2]
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(ChannelStoreError::Rejected);
+    }
+    Ok(Some(delivery))
+}
+
+fn pending_emergency(
+    id: String,
+    device_id: String,
+    requested: f64,
+    seed: &str,
+    now: f64,
+) -> Result<PendingControl, ChannelStoreError> {
+    if Uuid::parse_str(&id).is_err()
+        || seed.len() != 64
+        || !seed
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        || !requested.is_finite()
+        || !now.is_finite()
+        || requested <= 0.0
+        || requested > now
+    {
+        return Err(ChannelStoreError::Rejected);
+    }
+    let issued_at = requested.max((now / 60.0).floor() * 60.0);
+    let nonce = sha256(format!("owner-emergency:{id}:{seed}:{issued_at:.6}").as_bytes());
+    Ok(PendingControl {
+        kind: "emergency_stop".into(),
+        command_id: format!("emergency.{id}.{nonce}"),
+        action_id: None,
+        device_id,
+        issued_at,
+        expires_at: issued_at + 120.0,
+        nonce,
+    })
+}
+
+// A pending cancellation can be returned by several heartbeat polls. Keep
+// its signed payload stable within a renewal window; reusing a nonce/command
+// with fresh timestamps would correctly trip the companion's replay guard.
+fn pending_cancel(
+    action_id: String,
+    device_id: String,
+    cancel_at: f64,
+    now: f64,
+) -> Result<PendingControl, ChannelStoreError> {
+    if !cancel_at.is_finite() || !now.is_finite() || cancel_at <= 0.0 || cancel_at > now {
+        return Err(ChannelStoreError::Rejected);
+    }
+    let issued_at = cancel_at.max((now / 60.0).floor() * 60.0);
+    let nonce =
+        sha256(format!("local-node-cancel:{action_id}:{cancel_at:.6}:{issued_at:.6}").as_bytes());
+    Ok(PendingControl {
+        kind: "cancel".into(),
+        command_id: format!("cancel.{action_id}.{}", &nonce[..16]),
+        action_id: Some(action_id),
+        device_id,
+        issued_at,
+        expires_at: issued_at + 120.0,
+        nonce,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn owner_emergency_deliveries_are_stable_renewable_and_acknowledgments_are_typed() {
+        let id = Uuid::new_v4().to_string();
+        let seed = "a".repeat(64);
+        let first =
+            pending_emergency(id.clone(), "dev_fixture".into(), 1000.25, &seed, 1001.0).unwrap();
+        let repeat =
+            pending_emergency(id.clone(), "dev_fixture".into(), 1000.25, &seed, 1019.0).unwrap();
+        assert_eq!(first.command_id, repeat.command_id);
+        assert_eq!(first.nonce, repeat.nonce);
+        assert_eq!(first.issued_at, repeat.issued_at);
+        assert_eq!(first.expires_at, repeat.expires_at);
+        let renew = pending_emergency(id, "dev_fixture".into(), 1000.25, &seed, 1021.0).unwrap();
+        assert_ne!(first.command_id, renew.command_id);
+        assert_ne!(first.nonce, renew.nonce);
+        assert_eq!(first.kind, "emergency_stop");
+        assert!(first.action_id.is_none());
+        let mut receipt = CompanionReceipt {
+            sequence: 1,
+            event_id: format!("control.ack.{}", first.command_id),
+            action_id: None,
+            event_type: "control.acknowledged".into(),
+            status: None,
+            occurred_at: 1001.0,
+            result_digest: None,
+            error_code: None,
+            summary: None,
+            result: None,
+        };
+        assert_eq!(
+            control_ack_delivery(&receipt).unwrap(),
+            Some(first.command_id.as_str())
+        );
+        receipt.action_id = Some(Uuid::new_v4().to_string());
+        assert!(control_ack_delivery(&receipt).is_err());
+        receipt.action_id = None;
+        receipt.result = Some(json!({"untrusted":true}));
+        assert!(control_ack_delivery(&receipt).is_err());
+        receipt.result = None;
+        receipt.event_id = "control.ack.unknown".into();
+        assert!(control_ack_delivery(&receipt).is_err());
+    }
+
+    #[test]
+    fn repeated_cancel_polls_keep_exact_replay_identity_until_safe_renewal() {
+        let first = pending_cancel("action".into(), "device".into(), 1000.25, 1001.0).unwrap();
+        let repeat = pending_cancel("action".into(), "device".into(), 1000.25, 1019.0).unwrap();
+        assert_eq!(first.command_id, repeat.command_id);
+        assert_eq!(first.nonce, repeat.nonce);
+        assert_eq!(first.issued_at, repeat.issued_at);
+        assert_eq!(first.expires_at, repeat.expires_at);
+        let renewed = pending_cancel("action".into(), "device".into(), 1000.25, 1021.0).unwrap();
+        assert_ne!(first.command_id, renewed.command_id);
+        assert_ne!(first.nonce, renewed.nonce);
+        assert!(renewed.issued_at <= 1021.0 && renewed.expires_at > 1021.0);
+        assert!(renewed.expires_at - renewed.issued_at <= 600.0);
+        for cancel_at in [f64::NAN, f64::INFINITY, 0.0, 1022.0] {
+            assert!(pending_cancel("action".into(), "device".into(), cancel_at, 1021.0).is_err());
+        }
+    }
 
     #[test]
     fn advertised_file_operations_match_current_companion_contracts() {

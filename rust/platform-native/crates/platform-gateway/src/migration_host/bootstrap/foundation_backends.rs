@@ -885,6 +885,10 @@ impl NativeQuotaChecker {
             security,
         })
     }
+    pub fn with_shared_rpm(mut self, redis: redis::aio::ConnectionManager) -> Self {
+        self.rpm = Arc::new(crate::rate_limits::QuotaRpmLimiter::shared(redis));
+        self
+    }
     pub async fn check_quota(
         &self,
         tenant: &str,
@@ -896,13 +900,17 @@ impl NativeQuotaChecker {
         // Canonical _get_or_create_quota logs ordinary storage failure and
         // returns None; that branch intentionally means unrestricted.
         let loaded = self.store.get_or_create_quota_at(tenant, user, now).await;
-        let result = billing::check_quota(
-            loaded.as_ref().map(|row| &row.quota),
-            estimated_tokens,
-            now,
-            |limit| self.rpm.check(tenant, user, Some(limit)),
-        )
-        .map_err(|_| quota_admin_api::QuotaAdminError::Internal)?;
+        let result = self
+            .rpm
+            .check_quota_shared(
+                tenant,
+                user,
+                loaded.as_ref().map(|row| &row.quota),
+                estimated_tokens,
+                now,
+            )
+            .await
+            .map_err(|_| quota_admin_api::QuotaAdminError::Internal)?;
         if record_security_event
             && matches!(
                 result.status,

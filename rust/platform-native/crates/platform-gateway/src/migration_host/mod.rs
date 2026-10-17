@@ -8,6 +8,7 @@ pub(super) mod local_node_channel;
 pub(super) mod local_node_channel_store;
 pub(super) mod local_node_tls;
 pub mod native_public_contract;
+pub(super) mod sdk_callback_tls;
 pub use ai_platform_gateway_integrations::chatgpt_plan;
 pub mod content;
 pub mod context;
@@ -46,6 +47,7 @@ pub struct GatewayHost {
     pub drain: Arc<DrainState>,
     pub lifecycle: lifecycle::Lifecycle,
     local_node_https: Option<LocalNodeHttpsService>,
+    sdk_callback_https: Option<LocalNodeHttpsService>,
 }
 struct LocalNodeHttpsService {
     router: Router,
@@ -85,6 +87,7 @@ impl GatewayHost {
             drain,
             lifecycle,
             local_node_https: None,
+            sdk_callback_https: None,
         }
     }
     /// Full source middleware order. Endpoint routers perform authorization;
@@ -161,6 +164,7 @@ impl GatewayHost {
             drain,
             lifecycle,
             local_node_https: None,
+            sdk_callback_https: None,
         }
     }
     /// Attach the companion-only router to a dedicated TLS listener. Worker
@@ -172,6 +176,17 @@ impl GatewayHost {
     ) -> Self {
         self.local_node_https = Some(LocalNodeHttpsService {
             router,
+            configuration,
+        });
+        self
+    }
+    /// Reuse the assembled Router, including auth, tenant scope and middleware.
+    pub fn with_sdk_callback_https(
+        mut self,
+        configuration: local_node_tls::GatewayHttpsConfiguration,
+    ) -> Self {
+        self.sdk_callback_https = Some(LocalNodeHttpsService {
+            router: sdk_callback_tls::restrict(self.router.clone()),
             configuration,
         });
         self
@@ -200,7 +215,7 @@ impl GatewayHost {
         drain_timeout: std::time::Duration,
         cleanup_timeout: std::time::Duration,
     ) -> Result<(), lifecycle::HostError> {
-        if self.local_node_https.is_some() {
+        if self.local_node_https.is_some() || self.sdk_callback_https.is_some() {
             return self
                 .serve_with_local_node_https(address, shutdown, drain_timeout, cleanup_timeout)
                 .await;
@@ -275,13 +290,20 @@ impl GatewayHost {
                 return Err(lifecycle::HostError::Listener);
             }
         };
-        let https = self
+        let mut https_listeners = Vec::new();
+        for https in self
             .local_node_https
             .take()
-            .ok_or(lifecycle::HostError::Configuration)?;
-        let https_listener =
+            .into_iter()
+            .chain(self.sdk_callback_https.take())
+        {
             match local_node_tls::GatewayHttpsListener::bind(&https.configuration).await {
-                Ok(listener) => listener,
+                Ok(listener) => https_listeners.push((
+                    listener,
+                    https
+                        .router
+                        .layer(axum::middleware::from_fn(local_node_tls::mark_https)),
+                )),
                 Err(_) => {
                     let _ = tokio::time::timeout(
                         cleanup_timeout,
@@ -291,11 +313,8 @@ impl GatewayHost {
                     .await;
                     return Err(lifecycle::HostError::Listener);
                 }
-            };
-
-        let https_router = https
-            .router
-            .layer(axum::middleware::from_fn(local_node_tls::mark_https));
+            }
+        }
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
         let mut http_shutdown = shutdown_rx.clone();
         let http_drain = self.drain.clone();
@@ -309,31 +328,52 @@ impl GatewayHost {
             http_drain.begin_drain();
         })
         .into_future();
-        let mut https_shutdown = shutdown_rx;
-        let https_drain = self.drain.clone();
-        let https_serving = axum::serve(
-            https_listener,
-            https_router.into_make_service_with_connect_info::<local_node_tls::TlsPeerAddress>(),
-        )
-        .with_graceful_shutdown(async move {
-            wait_for_host_shutdown(&mut https_shutdown).await;
-            https_drain.begin_drain();
-        })
-        .into_future();
+        use futures_util::StreamExt;
+        let mut https_serving = futures_util::stream::FuturesUnordered::new();
+        for (https_listener, https_router) in https_listeners {
+            let mut https_shutdown = shutdown_rx.clone();
+            let https_drain = self.drain.clone();
+            https_serving.push(
+                axum::serve(
+                    https_listener,
+                    https_router
+                        .into_make_service_with_connect_info::<local_node_tls::TlsPeerAddress>(),
+                )
+                .with_graceful_shutdown(async move {
+                    wait_for_host_shutdown(&mut https_shutdown).await;
+                    https_drain.begin_drain();
+                })
+                .into_future(),
+            );
+        }
         tokio::pin!(http_serving);
-        tokio::pin!(https_serving);
         tokio::pin!(shutdown);
+        let mut http_done = false;
         let outcome = tokio::select! {
-            result = &mut http_serving => result.map_err(|_| lifecycle::HostError::Listener),
-            result = &mut https_serving => result.map_err(|_| lifecycle::HostError::Listener),
+            result = &mut http_serving => { http_done = true; result.map_err(|_| lifecycle::HostError::Listener) },
+            result = https_serving.next() => result.ok_or(lifecycle::HostError::Listener)?.map_err(|_| lifecycle::HostError::Listener),
             _ = &mut shutdown => Ok(()),
         };
         self.drain.begin_drain();
         let _ = shutdown_tx.send(true);
         let drain_result = tokio::time::timeout(drain_timeout, async {
-            let (http, https) = tokio::join!(&mut http_serving, &mut https_serving);
-            http.map_err(|_| lifecycle::HostError::Listener)?;
-            https.map_err(|_| lifecycle::HostError::Listener)?;
+            let http = async {
+                if !http_done {
+                    (&mut http_serving)
+                        .await
+                        .map_err(|_| lifecycle::HostError::Listener)?;
+                }
+                Ok::<(), lifecycle::HostError>(())
+            };
+            let https = async {
+                while let Some(result) = https_serving.next().await {
+                    result.map_err(|_| lifecycle::HostError::Listener)?;
+                }
+                Ok::<(), lifecycle::HostError>(())
+            };
+            let (http, https) = tokio::join!(http, https);
+            http?;
+            https?;
             Ok::<(), lifecycle::HostError>(())
         })
         .await
@@ -364,3 +404,4 @@ async fn wait_for_host_shutdown(receiver: &mut tokio::sync::watch::Receiver<bool
 pub mod openapi_document;
 
 pub mod credential_introspection;
+pub mod routing_policy_v1;

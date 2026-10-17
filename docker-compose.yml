@@ -23,6 +23,15 @@ x-container-proxy-env: &container-proxy-env
   all_proxy: "${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}"
   no_proxy: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1,postgres,redis,qdrant,gateway,frontend,knowledge-service,agent-runtime,agent-capability-worker}"
 
+x-service-hardening: &service-hardening
+  cap_drop: [ALL]
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  user: "1000:1000"
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+
 services:
   # ===========================================================================
   # Infrastructure Services
@@ -30,6 +39,11 @@ services:
 
   # PostgreSQL - Primary Database
   postgres:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=70,gid=70,mode=1777
+      - /var/run/postgresql:rw,noexec,nosuid,nodev,size=16m,uid=70,gid=70,mode=3775
+    user: "70:70"
     image: "${POSTGRES_IMAGE:-postgres:16-alpine}"
     container_name: ai-gateway-pg
     environment:
@@ -45,7 +59,7 @@ services:
       # Never mount schema.sql into docker-entrypoint-initdb.d: that bypasses
       # the authority ledger, fingerprints, roles and recovery contract.
     networks:
-      - ai-gateway-net
+      - data-postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gateway}"]
       interval: 10s
@@ -57,6 +71,8 @@ services:
 
   # Redis - Cache & Session Store
   redis:
+    <<: *service-hardening
+    user: "999:1000"
     image: "${REDIS_IMAGE:-redis:7-alpine}"
     container_name: ai-gateway-redis
     environment:
@@ -72,7 +88,7 @@ services:
       - ./scripts/new/redis-entrypoint.sh:/opt/ai-gateway/redis-entrypoint.sh:ro
       - redis-data:/data
     networks:
-      - ai-gateway-net
+      - data-redis
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
       interval: 10s
@@ -83,21 +99,46 @@ services:
 
   # Qdrant - Vector Database for Knowledge Base
   qdrant:
+    <<: *service-hardening
+    user: "1000:1000"
     image: "${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}"
     container_name: ai-gateway-qdrant
+    environment:
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:?Provision the Qdrant writer key}"
+      QDRANT__SERVICE__READ_ONLY_API_KEY: "${QDRANT_READ_ONLY_API_KEY:?Provision a distinct Qdrant read-only key}"
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /run/qdrant/tls.crt
+      QDRANT__TLS__KEY: /run/qdrant/tls.key
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/storage/snapshots
+      QDRANT__STORAGE__TEMP_PATH: /qdrant/storage/snapshots_temp
+      QDRANT_INIT_FILE_PATH: /qdrant/storage/.qdrant-initialized
     ports:
       - "127.0.0.1:${QDRANT_HTTP_PORT:-6333}:6333"
       - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
       - qdrant-data:/qdrant/storage
+      - type: bind
+        source: "${QDRANT_TLS_CERT_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_TLS_KEY_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_CA_BUNDLE_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
-      - ai-gateway-net
+      - data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/6333; printf \"GET /healthz HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"healthz check passed\" <&3'",
-        ]
+      test: ["CMD-SHELL", "bash -o pipefail -ec 'printf \"GET /healthz HTTP/1.1\r\nHost: qdrant\r\nConnection: close\r\n\r\n\" | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca-bundle.pem 2>/dev/null | grep -q \"healthz check passed\"'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -109,6 +150,7 @@ services:
   # Fresh databases receive canonical roles/extensions and absent SCRAM passwords;
   # existing scopes must already verify. Never repairs/replaces unknown databases.
   database-bootstrap:
+    <<: *service-hardening
     image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
     environment:
       AI_GATEWAY_ROLE_PREFIX: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}"
@@ -125,7 +167,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - ai-gateway-net
+      - data-postgres
     restart: "no"
 
   # ===========================================================================
@@ -135,6 +177,7 @@ services:
   # explicit so a stale image that lacks database.authority fails instead of
   # silently falling back to a historical per-service writer.
   migrate:
+    <<: *service-hardening
     image: "${MIGRATE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-migrate:2.0.0}"
     container_name: ai-gateway-migrate
     environment:
@@ -149,7 +192,7 @@ services:
       database-bootstrap:
         condition: service_completed_successfully
     networks:
-      - ai-gateway-net
+      - data-postgres
     restart: "no"
 
   # ===========================================================================
@@ -160,6 +203,8 @@ services:
   # operator opts in — prod sends to whatever OTLP endpoint
   # OTEL_EXPORTER_OTLP_ENDPOINT names.
   tempo:
+    <<: *service-hardening
+    user: "10001:10001"
     image: "${TEMPO_IMAGE:-grafana/tempo:2.5.0}"
     container_name: ai-gateway-tempo
     command: ["-config.file=/etc/tempo.yaml"]
@@ -170,7 +215,7 @@ services:
       - "127.0.0.1:3200:3200"   # Tempo HTTP query
       - "127.0.0.1:4317:4317"   # OTLP gRPC ingest
     networks:
-      - ai-gateway-net
+      - app
     restart: unless-stopped
     profiles:
       - tracing  # opt-in: `docker compose --profile tracing up -d tempo`
@@ -179,29 +224,28 @@ services:
   # Application Services
   # ===========================================================================
 
-  # One-shot volume permission initializer. Named volumes hide the permissions
-  # baked into the image, so this must run before the non-root gateway process.
+  # One-shot writable-directory check using the same non-root owner as Gateway.
+  # Existing volume ownership must already match; no privileged repair is hidden here.
   gateway-init:
-    image: "${POSTGRES_IMAGE:-postgres:16-alpine}"
+    <<: *service-hardening
+    image: "${GATEWAY_IMAGE:-ghcr.io/misaya-yang/ai-gateway:2.0.0}"
     container_name: ai-gateway-init
-    user: "0:0"
-    command: >
-      sh -ec
-      "mkdir -p /app/data/images /app/logs /app/agent-memory &&
-       chown -R 1000:1000 /app/data /app/logs /app/agent-memory &&
-       chmod 700 /app/agent-memory"
+    user: "1000:1000"
+    # Run as the application owner. Existing root-owned volumes need an explicit
+    # operator migration; never grant this job root/chown privileges.
+    command: ["sh", "-ec", "mkdir -p /app/data/images /app/logs /app/agent-memory && test -w /app/data && test -w /app/logs && test -w /app/agent-memory && chmod 700 /app/agent-memory"]
     volumes:
       - gateway-logs:/app/logs
       - gateway-data:/app/data
       # Keep the existing volume identity so pre-cutover memory remains
       # reachable for governed deletion; only the owning service/path changes.
       - assistant-memory-data:/app/agent-memory
-    networks:
-      - ai-gateway-net
+    network_mode: none
     restart: "no"
 
   # AI Gateway Backend
   gateway:
+    <<: *service-hardening
     image: "${GATEWAY_IMAGE:-ghcr.io/misaya-yang/ai-gateway:2.0.0}"
     container_name: ai-gateway-backend
     environment:
@@ -253,8 +297,8 @@ services:
       # Knowledge Base
       GATEWAY_KNOWLEDGE__ENABLED: "true"
       GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY: "${GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY:-2}"
-      GATEWAY_KNOWLEDGE__QDRANT__ENABLED: "true"
-      GATEWAY_KNOWLEDGE__QDRANT__URL: "http://qdrant:6333"
+      # Gateway routes retrieval through Knowledge; it does not own Qdrant.
+      GATEWAY_KNOWLEDGE__QDRANT__ENABLED: "false"
 
       # Embeddings API (DashScope / Gemini)
       GATEWAY_KNOWLEDGE__DASHSCOPE__API_KEY: "${DASHSCOPE_EMBEDDING_API_KEY:-${DASHSCOPE_API_KEY:-}}"
@@ -382,7 +426,12 @@ services:
       - assistant-memory-data:/app/agent-memory
       - "${AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH:-./deploy/release/compatibility-manifest.json}:/app/deploy/release/compatibility-manifest.json:ro"
     networks:
-      - ai-gateway-net
+      edge: {}
+      app:
+        aliases: [gateway-sdk-callback]
+      data-postgres: {}
+      data-redis: {}
+      data-object-store: {}
     depends_on:
       gateway-init:
         condition: service_completed_successfully
@@ -412,6 +461,7 @@ services:
 
   # AI Gateway Frontend (Web Console)
   frontend:
+    <<: *service-hardening
     image: "${FRONTEND_IMAGE:-ghcr.io/misaya-yang/ai-gateway-web:2.0.0}"
     container_name: ai-gateway-frontend
     user: "101:101"
@@ -420,7 +470,7 @@ services:
     security_opt: [no-new-privileges:true]
     pids_limit: 128
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m,uid=101,gid=101,mode=1770
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=101,gid=101,mode=1770
     environment:
       VITE_API_URL: "${VITE_API_URL:-}"
       VITE_API_BASE_URL: "${VITE_API_BASE_URL:-}"
@@ -432,7 +482,7 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-8081}:8080"
     networks:
-      - ai-gateway-net
+      - edge
     depends_on:
       gateway:
         condition: service_healthy
@@ -450,6 +500,7 @@ services:
 
   # Knowledge Base Service (KB CRUD + Retrieval)
   knowledge-service:
+    <<: *service-hardening
     image: "${KNOWLEDGE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0}"
     container_name: ai-gateway-knowledge-service
     environment: &knowledge-service-environment
@@ -468,7 +519,11 @@ services:
       KNOWLEDGE_DATABASE__DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_api:${LOCAL_DB_KNOWLEDGE_API_PASSWORD:?Run init-env for distinct service credentials}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dpg_catalog%2Cknowledge%2Cgateway%2Cassistant%2Cpublic%20-cstatement_timeout%3D30000%20-cidle_in_transaction_session_timeout%3D15000"
       KNOWLEDGE_REDIS__ENABLED: "true"
       KNOWLEDGE_REDIS__URL: "redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/2"
-      KNOWLEDGE_QDRANT__URL: "http://qdrant:6333"
+      KNOWLEDGE_QDRANT__URL: "https://qdrant:6333"
+      KNOWLEDGE_QDRANT__API_KEY: "${QDRANT_READ_ONLY_API_KEY:?Provision the distinct read-only Knowledge API key}"
+      KNOWLEDGE_QDRANT__PREFER_GRPC: "false"
+      KNOWLEDGE_QDRANT__TLS_CA_FILE: /run/qdrant/ca-bundle.pem
+      SSL_CERT_FILE: /run/qdrant/ca-bundle.pem
       KNOWLEDGE_QDRANT__BM25_V2_ENABLED: "${KB_BM25_V2_ENABLED:-false}"
       KNOWLEDGE_QDRANT__BM25_V2_CAPABILITY_TTL_SECONDS: "${KB_BM25_V2_CAPABILITY_TTL_SECONDS:-300}"
       KNOWLEDGE_QDRANT__BM25_V2_READINESS_TTL_SECONDS: "${KB_BM25_V2_READINESS_TTL_SECONDS:-5}"
@@ -554,11 +609,21 @@ services:
     command: []
     volumes:
       - kb-data:/app/data
+      - type: bind
+        source: "${QDRANT_CA_BUNDLE_FILE:?Provision a public CA bundle containing system roots and Qdrant CA}"
+        target: /run/qdrant/ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
       - "${AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH:-./deploy/release/compatibility-manifest.json}:/app/deploy/release/compatibility-manifest.json:ro"
     ports:
       - "127.0.0.1:${KNOWLEDGE_SERVICE_PORT:-8092}:8092"
     networks:
-      - ai-gateway-net
+      - app
+      - data-postgres
+      - data-redis
+      - data
+      - data-object-store
     depends_on:
       postgres:
         condition: service_healthy
@@ -581,18 +646,30 @@ services:
   # Knowledge durable ingestion worker. It shares the API image and database,
   # exposes health only, and discovers queued generations from PostgreSQL.
   knowledge-worker:
+    <<: *service-hardening
     image: "${KNOWLEDGE_IMAGE:-ghcr.io/misaya-yang/ai-gateway-knowledge-service:2.0.0}"
     environment:
       <<: *knowledge-service-environment
       KNOWLEDGE_RUNTIME_ROLE: "worker"
+      KNOWLEDGE_QDRANT__API_KEY: "${QDRANT_API_KEY:?Provision the Knowledge worker write key}"
       KNOWLEDGE_DATABASE__DSN: "postgresql://${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}knowledge_worker:${LOCAL_DB_KNOWLEDGE_WORKER_PASSWORD:?Run init-env for distinct service credentials}@postgres:5432/${POSTGRES_DB:-gateway}?options=-csearch_path%3Dpg_catalog%2Cknowledge%2Cgateway%2Cassistant%2Cpublic%20-cstatement_timeout%3D30000%20-cidle_in_transaction_session_timeout%3D15000"
     entrypoint: ["/usr/local/bin/platform-knowledge-service"]
     command: []
     volumes:
       - kb-data:/app/data
+      - type: bind
+        source: "${QDRANT_CA_BUNDLE_FILE:?Provision a public CA bundle containing system roots and Qdrant CA}"
+        target: /run/qdrant/ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
       - "${AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH:-./deploy/release/compatibility-manifest.json}:/app/deploy/release/compatibility-manifest.json:ro"
     networks:
-      - ai-gateway-net
+      - app
+      - data-postgres
+      - data-redis
+      - data
+      - data-object-store
     depends_on:
       postgres:
         condition: service_healthy
@@ -613,7 +690,54 @@ services:
     init: true
 
   # Rust capability worker. It owns durable tool execution but never a model loop.
+  # Credential-free Python data plane. Only public verifier metadata crosses in.
+  agent-python-sandbox:
+    <<: *service-hardening
+    image: "${AGENT_PYTHON_SANDBOX_IMAGE:?Select the admitted independent sandbox image}"
+    user: "10001:10001"
+    entrypoint: ["ai-platform-python-sandbox"]
+    command:
+      - --public-key-id
+      - "${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}"
+      - --public-key-hex
+      - "${AGENT_SANDBOX_PUBLIC_KEY_HEX:?Select the purpose-specific Ed25519 public verifier}"
+      - --socket
+      - /run/agentforge-sandbox/control.sock
+      - --workspace-root
+      - /workspace
+      - --journal-root
+      - /var/lib/agentforge-sandbox/jobs
+      - --cgroup-root
+      - /sys/fs/cgroup/agentforge-sandbox
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./deploy/security/capability-worker-seccomp.json
+    volumes:
+      - sandbox-control-socket:/run/agentforge-sandbox
+      - sandbox-private-workspaces:/workspace
+      - sandbox-private-journal:/var/lib/agentforge-sandbox/jobs
+      - type: bind
+        source: "${AGENT_CAPABILITY_SANDBOX_CGROUP_DELEGATION:?Select this sandbox's predelegated empty cgroup2 subtree}"
+        target: /sys/fs/cgroup/agentforge-sandbox
+        read_only: false
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "ai-platform-python-sandbox-health", "/run/agentforge-sandbox/control.sock"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    pids_limit: 256
+    mem_limit: "${AGENT_PYTHON_SANDBOX_MEMORY_LIMIT:-1536m}"
+    cpus: "${AGENT_PYTHON_SANDBOX_CPUS:-2.0}"
+    init: true
+    restart: unless-stopped
+
   agent-capability-worker:
+    <<: *service-hardening
+    user: "10001:10001"
     image: "${AGENT_CAPABILITY_WORKER_IMAGE:?Select the capability-worker image from the current source lock}"
     expose:
       - "8095"
@@ -628,7 +752,11 @@ services:
       AI_PLATFORM_OFFICE_FONT_PATHS: "${AI_PLATFORM_OFFICE_FONT_PATHS:-/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc}"
       AI_PLATFORM_KNOWLEDGE_SERVICE_URL: "${AI_PLATFORM_KNOWLEDGE_SERVICE_URL:-http://knowledge-service:8092}"
       AI_PLATFORM_GATEWAY_INTERNAL_URL: "${AI_PLATFORM_GATEWAY_INTERNAL_URL:-http://gateway:8080}"
+      # Office retains its workspace; Python executes only in the separate UDS service.
       AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: "/workspace"
+      AI_PLATFORM_SANDBOX_SOCKET: /run/agentforge-sandbox/control.sock
+      AI_PLATFORM_SANDBOX_KEY_ID: "${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}"
+      AI_PLATFORM_SANDBOX_SIGNING_KEY_FILE: /run/agentforge-sandbox-signing/signing.seed
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
       POSTGRES_USER: "${AI_GATEWAY_ROLE_PREFIX:-ai_gateway_}capability_worker"
@@ -637,9 +765,20 @@ services:
       AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: "${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}"
     volumes:
       - agent-capability-workspaces:/workspace
+      - sandbox-control-socket:/run/agentforge-sandbox:ro
+      - type: bind
+        source: "${AGENT_SANDBOX_SIGNING_KEY_FILE:?Provision the purpose-specific control-only 32-byte seed}"
+        target: /run/agentforge-sandbox-signing/signing.seed
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
-      - ai-gateway-net
+      - app
+      - data-postgres
+      - data-object-store
     depends_on:
+      agent-python-sandbox:
+        condition: service_healthy
       gateway-init:
         condition: service_completed_successfully
       postgres:
@@ -661,11 +800,15 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - seccomp=./deploy/security/capability-worker-seccomp.json
     init: true
 
   # Rust Agent Runtime. It is the sole Agent kernel for new and resumed turns.
   agent-runtime:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=1777
+      - /workspace:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=0700
+    user: "10001:10001"
     container_name: ai-gateway-agent-runtime
     image: "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:?Select the Runtime image from the current source lock}"
     expose:
@@ -683,6 +826,7 @@ services:
       AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION: "${AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION:-}"
       AI_PLATFORM_RUNTIME_BIND: "0.0.0.0:8094"
       AI_PLATFORM_RUNTIME_WORKDIR: "/workspace"
+      CODEX_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       AI_PLATFORM_AGENT_HOME: "/var/lib/ai-platform-agent-runtime/runtime-home"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
@@ -694,7 +838,9 @@ services:
     volumes:
       - agent-runtime-home:/var/lib/ai-platform-agent-runtime/runtime-home
     networks:
-      - ai-gateway-net
+      - app
+      - data-postgres
+      - data-object-store
     depends_on:
       postgres:
         condition: service_healthy
@@ -716,14 +862,31 @@ services:
 # Networks
 # =============================================================================
 networks:
-  ai-gateway-net:
+  edge:
     driver: bridge
-    name: ai-gateway-network
+  app:
+    driver: bridge
+  data-postgres:
+    driver: bridge
+    internal: true
+  data-redis:
+    driver: bridge
+    internal: true
+  data-object-store:
+    driver: bridge
+    internal: true
+  # Qdrant has its own store network: only Knowledge roles may join it.
+  data:
+    driver: bridge
+    internal: true
 
 # =============================================================================
 # Volumes
 # =============================================================================
 volumes:
+  sandbox-control-socket: {}
+  sandbox-private-workspaces: {}
+  sandbox-private-journal: {}
   pg-data: {}
   redis-data: {}
   qdrant-data: {}

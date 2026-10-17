@@ -56,13 +56,7 @@ fn projections_never_drop_native_operations_from_native_profile() {
         profiles::project(&f.published, "native", &f.ownership).unwrap(),
         f.published
     );
-    let legacy = profiles::project(&f.published, "python-hybrid", &f.ownership).unwrap();
-    assert!(legacy["paths"].get("/native").is_none());
-    assert!(
-        legacy["components"]["securitySchemes"]
-            .get("NativeBearer")
-            .is_none()
-    );
+    assert!(profiles::project(&f.published, "python-hybrid", &f.ownership).is_err());
     assert!(profiles::project(&f.published, "unknown", &f.ownership).is_err());
 }
 #[test]

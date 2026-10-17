@@ -3,8 +3,9 @@
  * No global setup — each test performs its own login.
  */
 import { defineConfig, devices } from "@playwright/test";
+import { requireHttpsConsoleOrigin } from "./e2e/support/bff-session.ts";
 
-const baseURL = process.env.E2E_BASE_URL!;
+const baseURL = requireHttpsConsoleOrigin(process.env.E2E_BASE_URL);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,7 +17,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL,
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: false,
     trace: "retain-on-first-failure",
     screenshot: "only-on-failure",
   },

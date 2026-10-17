@@ -1,0 +1,21 @@
+{
+  "schema": "agentforge/enterprise-identity/v1",
+  "rp_id": "console.example",
+  "rp_origin": "https://console.example",
+  "providers": [
+    {
+      "configuration": {
+        "id": "corporate",
+        "tenant_id": "REPLACE_WITH_EXISTING_TENANT_ID",
+        "issuer": "https://idp.example/realms/agentforge",
+        "client_id": "agentforge-console",
+        "redirect_url": "https://console.example/api/auth/enterprise/oidc/callback",
+        "return_url": "https://console.example/",
+        "endpoint_hosts": ["idp.example"],
+        "jit_verified_domains": [],
+        "accepted_mfa_acr": []
+      },
+      "client_secret_file": "/run/secrets/oidc-client-secret"
+    }
+  ]
+}

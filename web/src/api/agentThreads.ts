@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { sseFetch, waitForSseReconnect } from "@/lib/sse";
+import { sseFetch, waitForSseReconnect, type SSEConnectionState } from "@/lib/sse";
 import type { ChatRequest, StreamEvent } from "@/api/assistant";
 import {
   buildAgentTurnPayload,
@@ -142,6 +142,7 @@ export async function getAgentRuntimeV2RunSnapshot(
 export async function* streamAgentRuntimeV2(
   request: ChatRequest,
   signal?: AbortSignal,
+  options: { onConnectionState?: (state: SSEConnectionState) => void } = {},
 ): AsyncGenerator<StreamEvent, void, void> {
   const thread = await createAgentThread(request.session_id, request.model_id, request.provider_id);
   const started = await startAgentTurn(
@@ -151,6 +152,10 @@ export async function* streamAgentRuntimeV2(
   const turn = started?.turn as { id?: string; events_url?: string } | undefined;
   if (!turn?.events_url) throw new Error("V2 Agent Runtime did not return an events cursor");
   let reconnectAttempt = 0;
+  const connectionState = (state: SSEConnectionState) => {
+    try { options.onConnectionState?.(state === "connecting" && reconnectAttempt > 0 ? "reconnecting" : state); }
+    catch { /* UI observation must not affect a durable turn. */ }
+  };
   let terminal = false;
   let awaitingApproval = false;
   let afterSequence = afterSequenceFromEventsUrl(turn.events_url);
@@ -159,7 +164,7 @@ export async function* streamAgentRuntimeV2(
     while (!terminal && !signal?.aborted) {
       try {
         const stream = sseFetch<AgentV2Event>(withAfterSequence(turn.events_url, afterSequence), {
-          method: "GET", headers: { Accept: "text/event-stream" }, signal,
+          method: "GET", headers: { Accept: "text/event-stream" }, signal, onConnectionState: connectionState,
         });
         for await (const item of stream) {
           if (!Number.isSafeInteger(item.sequence) || item.sequence <= afterSequence) continue;
@@ -177,6 +182,7 @@ export async function* streamAgentRuntimeV2(
             if (projected.event_type === "approval_result") awaitingApproval = false;
             if (["run_finished", "run_error", "cancelled"].includes(projected.event_type)) {
               terminal = true;
+              connectionState("server_terminal");
               awaitingApproval = false;
             }
             yield projected;
@@ -187,7 +193,10 @@ export async function* streamAgentRuntimeV2(
         if (signal?.aborted) break;
         if (!shouldReconnectRuntimeV2Stream(error)) throw error;
       }
-      if (!terminal && !signal?.aborted) await waitForSseReconnect(signal, reconnectAttempt++);
+      if (!terminal && !signal?.aborted) {
+        connectionState("reconnecting");
+        await waitForSseReconnect(signal, reconnectAttempt++);
+      }
     }
   } finally {
     // A dropped transport reconnects above. An explicit caller abort is a real

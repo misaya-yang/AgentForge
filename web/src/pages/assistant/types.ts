@@ -258,6 +258,7 @@ export interface AssistantUiV2Flags {
 // =============================================================================
 
 export interface ChatMessage {
+  streamConnectionState?: import("@/lib/sse").SSEConnectionState;
   runtimeRunId?: string;
   id: string;
   role: "user" | "assistant" | "system" | "tool";

@@ -70,13 +70,14 @@ impl Fixture {
                 ("INTERNAL_IDEMPOTENCY_BACKEND".into(), "memory".into()),
                 ("KNOWLEDGE_RUNTIME_ROLE".into(), "api".into()),
                 ("GATEWAY_URL".into(), origin),
-                ("GATEWAY_ENCRYPTION_KEY".into(), "synthetic-key".into()),
+                ("KNOWLEDGE_CONNECTOR_ENCRYPTION_KEY".into(), "synthetic-key".into()),
             ]),
             std::path::PathBuf::from("/tmp/knowledge-confluence-parity"),
         )
         .unwrap();
         let graph = KnowledgeGraph::new(
             KnowledgeConnections {
+                model_plane:Some(crate::model_plane_identity::no_network_test_client()),
                 database: pool.clone(),
                 replay_redis: None,
                 idempotency_redis: None,

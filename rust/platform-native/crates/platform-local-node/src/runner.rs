@@ -670,9 +670,13 @@ fn control_with_remote(
     if !verifier.verify(&key, payload.as_bytes(), &signature) {
         return Err(Error::Denied("control signature"));
     }
-    if !replay.reserve(&command, &nonce, &crate::sha256(payload.as_bytes()))? {
+    let fresh = replay.reserve(&command, &nonce, &crate::sha256(payload.as_bytes()))?;
+    if !fresh && kind != "emergency_stop" {
         return Ok(false);
     }
+    // Reapplying an authenticated stop is safe and repairs a crash after nonce
+    // reservation but before the stop/outbox commit. Claims remain one-use.
+
     if let Some(id) = action {
         replay.cancel_action(&id)?;
         let active = inflight.contains_key(&id);
@@ -709,6 +713,33 @@ fn control_with_remote(
                 control.finish_action(&id);
             }
         }
+    }
+    let delivery_parts: Vec<_> = command.split('.').collect();
+    let durable_owner_stop = delivery_parts.len() == 3
+        && delivery_parts[0] == "emergency"
+        && uuid::Uuid::parse_str(delivery_parts[1]).is_ok()
+        && delivery_parts[2].len() == 64
+        && delivery_parts[2]
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    // Only the durable-owner extension emits the new action-less receipt.
+    // Existing signed v2 controls keep their previous receipt contract.
+    if kind == "emergency_stop" && durable_owner_stop {
+        outbox.append(
+            crate::outbox::Receipt {
+                sequence: 0,
+                event_id: format!("control.ack.{command}"),
+                action_id: None,
+                event_type: "control.acknowledged".into(),
+                status: None,
+                occurred_at: crate::now(),
+                result_digest: None,
+                error_code: None,
+                summary: None,
+                result: None,
+            },
+            false,
+        )?;
     }
     Ok(true)
 }

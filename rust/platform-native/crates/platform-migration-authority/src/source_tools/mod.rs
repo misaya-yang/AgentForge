@@ -20,3 +20,7 @@ pub mod next_successor_022;
 pub mod next_successor_023;
 
 pub mod next_successor_024;
+pub mod next_successor_025;
+pub mod next_successor_026;
+pub mod next_successor_027;
+pub mod next_successor_028;

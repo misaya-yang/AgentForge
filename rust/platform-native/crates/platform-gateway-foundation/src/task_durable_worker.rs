@@ -38,7 +38,8 @@ impl DurableCollaborators {
         envelope.roles = current_roles;
         let cancellation = AdmissionCancellation::default();
         let mut guard = CancelOnDrop(Some(cancellation.clone()));
-        let invoke = self.dispatcher.invoke(envelope, cancellation);
+        let mut batch_claim=claim.clone();batch_claim.envelope=envelope.clone();
+        let invoke=async{match self.delivery.dispatch_provider_batch(&batch_claim).await.map_err(|_|TaskError::StorageUnavailable)?{Some(outcome)=>Ok::<_,TaskWorkerError>(outcome),None=>Ok(classify_outcome(self.dispatcher.invoke(envelope,cancellation).await))}};
         tokio::pin!(invoke);
         let result = tokio::select! {
             // Poll the durable fence before the first invoke poll as well.
@@ -47,7 +48,7 @@ impl DurableCollaborators {
             result = &mut invoke => result,
         };
         guard.0 = None;
-        self.finish(&claim, classify_outcome(result)).await
+        self.finish(&claim, result?).await
     }
     async fn owns_claim(&self, claim: &DeliveryClaim) -> Result<bool, TaskWorkerError> {
         let observed = self.delivery.observe(&DeliveryIdentity::of(&claim.envelope)).await

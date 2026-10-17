@@ -3,6 +3,10 @@
 mod executor;
 mod fs;
 mod proof;
+pub(crate) mod transport;
+#[cfg(test)]
+#[path = "read_capabilities/transport_tests.rs"]
+mod transport_tests;
 mod web;
 mod working_memory;
 
@@ -21,7 +25,7 @@ use reqwest::{Client, Response, Url};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use self::web::{is_public_ip, resolved_peer_ip};
+use self::web::{is_public_ip, network_host, resolved_peer_ip};
 use crate::RuntimeConnectorBinding;
 
 const MAX_INTERNAL_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
@@ -225,31 +229,38 @@ impl ReadHttpAdapter for ReqwestReadHttpAdapter {
         headers: &[(String, String)],
         body: Value,
     ) -> Result<Value, ReadCapabilityError> {
-        for attempt in 0..2 {
-            let mut request = self.client.post(url.clone()).json(&body);
+        let (budget, headers) = transport::outbound(headers)?;
+        let policy =
+            ai_platform_capability_contract::private_transport::Edge::WorkerKnowledge.policy();
+        let total = policy
+            .total_timeout(&budget, std::time::Instant::now())
+            .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+        tokio::time::timeout(total, async {
+            let mut request = self.client.post(url).json(&body);
             for (name, value) in headers {
                 request = request.header(name, value);
             }
-            let response = match request.send().await {
-                Ok(response) => response,
-                Err(error) if attempt == 0 && error.is_timeout() => continue,
-                Err(_) => return Err(ReadCapabilityError::DownstreamUnavailable),
-            };
-            if response.status().is_server_error() && attempt == 0 {
-                continue;
-            }
+            let response = request
+                .send()
+                .await
+                .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
             if !response.status().is_success() {
                 return Err(ReadCapabilityError::DownstreamRejected);
             }
             let bytes = bounded_response(response, MAX_INTERNAL_RESPONSE_BYTES).await?;
-            return serde_json::from_slice(&bytes)
-                .map_err(|_| ReadCapabilityError::DownstreamRejected);
-        }
-        Err(ReadCapabilityError::DownstreamUnavailable)
+            let value = serde_json::from_slice(&bytes)
+                .map_err(|_| ReadCapabilityError::DownstreamRejected)?;
+            budget
+                .remaining(std::time::Instant::now())
+                .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+            Ok(value)
+        })
+        .await
+        .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?
     }
 
     async fn get_public(&self, url: Url) -> Result<PublicHttpResponse, ReadCapabilityError> {
-        let host = url.host_str().ok_or(ReadCapabilityError::SsrfBlocked)?;
+        let host = network_host(&url)?;
         let port = url
             .port_or_known_default()
             .ok_or(ReadCapabilityError::SsrfBlocked)?;

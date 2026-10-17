@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { waitForSseReconnect } from "@/lib/sse";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -23,18 +24,7 @@ import {
 import { refreshSelectedDocument, selectedDocumentQueryOptions } from "@/pages/knowledge/detail/selectedDocumentQuery";
 
 function waitForStreamReconnect(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      signal.removeEventListener("abort", finish);
-      resolve();
-    };
-    const timer = setTimeout(finish, ms);
-    signal.addEventListener("abort", finish, { once: true });
-  });
+  return waitForSseReconnect(signal, 0, ms, ms);
 }
 
 /**

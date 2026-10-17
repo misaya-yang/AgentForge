@@ -458,11 +458,11 @@ pub async fn verify_gateway(
     };
     let proof = signed.then(|| VerifiedGateway::new(auth.clone(), &parts, &bytes));
     let mut request = Request::from_parts(parts, Body::from(bytes));
-    request.extensions_mut().insert(identity);
+    request.extensions_mut().insert(identity.clone());
     if let Some(proof) = proof {
         request.extensions_mut().insert(proof);
     }
-    next.run(request).await
+    crate::knowledge_model::with_actor_scope(identity, next.run(request)).await
 }
 pub async fn verified_actor<V: JwtActorVerifier + ?Sized>(auth: &V, headers: &HeaderMap) -> Result<UserContext> {
     let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
@@ -489,8 +489,8 @@ pub async fn verify_jwt<V: JwtActorVerifier + ?Sized + 'static>(
 ) -> Response {
     match verified_actor(&auth, request.headers()).await {
         Ok(identity) => {
-            request.extensions_mut().insert(identity);
-            next.run(request).await
+            request.extensions_mut().insert(identity.clone());
+            crate::knowledge_model::with_actor_scope(identity, next.run(request)).await
         }
         Err(_) => (
             StatusCode::UNAUTHORIZED,

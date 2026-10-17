@@ -44,6 +44,7 @@ pub(super) async fn run_execution(
     descriptor: CapabilityDescriptorV2,
     mut ticket: super::pools::ExecutionTicket,
 ) {
+    let mut telemetry=crate::trace_context::telemetry_operation();
     let cancellation = state.register_cancellation(&execution_id).await.0;
     tokio::select! {
         _ = cancellation.notified() => {
@@ -259,7 +260,7 @@ pub(super) async fn run_execution(
                         .filter_map(Value::as_str)
                         .map(str::to_string)
                         .collect();
-                    executor
+                    crate::read_capabilities::transport::verified_record(&dispatch.record.resource_binding,timeout_ms,executor
                         .execute(
                             &capability_id,
                             &ReadCapabilityContext {
@@ -287,7 +288,7 @@ pub(super) async fn run_execution(
                             },
                             arguments,
                         )
-                        .await
+                        ).await
                         .map_err(|error| OperationError::Failed(error.to_string()))
                 } else {
                     Err(OperationError::Failed(
@@ -297,7 +298,7 @@ pub(super) async fn run_execution(
             }
             CapabilityEffect::Write => {
                 if capability_id == "execute_python_code" {
-                    let Some(executor) = &state.python_executor else {
+                    let Some(executor) = &state.remote_python_executor else {
                         return Err(OperationError::Failed("python_executor_unavailable".into()));
                     };
                     let lease = lease_for_record(&dispatch.record.execution);
@@ -711,7 +712,7 @@ pub(super) async fn run_execution(
     heartbeat.abort();
     let mut payload = BTreeMap::new();
     let mut status = match result {
-        Ok(result) => {
+        Ok(result) => { telemetry.success();
             payload.insert("result".to_string(), result);
             CapabilityExecutionStatus::Succeeded
         }

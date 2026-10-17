@@ -1,0 +1,5 @@
+apiVersion: v2
+name: agentforge-secrets
+description: Pre-provision external role-scoped Secrets before the native application migration hooks
+version: 2.0.0
+type: application

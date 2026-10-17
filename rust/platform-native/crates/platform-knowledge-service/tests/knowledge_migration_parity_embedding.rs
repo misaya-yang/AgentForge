@@ -1,5 +1,7 @@
 //! Real native embedding adapters against an isolated loopback provider.
 //! No provider SDK monkeypatch, database, external request, or model weights.
+#[path="common/model_plane_fixture.rs"]
+mod model_plane_fixture;
 use ai_platform_knowledge_service::migration_knowledge_query::{
     embedding::{EmbeddingManager, ProviderConfig},
     types::Dataset,
@@ -17,6 +19,7 @@ use std::{
     time::Duration,
 };
 struct Fixture {
+    plane:model_plane_fixture::Plane,
     endpoint: String,
     calls: Arc<Mutex<Vec<(String, Value)>>>,
     server: tokio::task::JoinHandle<()>,
@@ -26,7 +29,8 @@ impl Drop for Fixture {
         self.server.abort();
     }
 }
-async fn fixture(wrong_dimension: bool) -> Fixture {
+async fn fixture(wrong_dimension: bool) -> Fixture {fixture_with_key(wrong_dimension,"fixture-key").await}
+async fn fixture_with_key(wrong_dimension: bool,key:&str) -> Fixture {
     let calls = Arc::new(Mutex::new(Vec::new()));
     let state = (calls.clone(), wrong_dimension);
     let app=Router::new().fallback(|State((calls,wrong)):State<(Arc<Mutex<Vec<(String,Value)>>>,bool)>,headers:HeaderMap,Json(body):Json<Value>|async move {
@@ -44,14 +48,16 @@ async fn fixture(wrong_dimension: bool) -> Fixture {
     let server = tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
+    let plane=model_plane_fixture::Plane::new(endpoint.clone(),key.into()).await;
     Fixture {
+        plane,
         endpoint,
         calls,
         server,
     }
 }
-fn manager(f: &Fixture, provider: &str, key: &str) -> EmbeddingManager {
-    EmbeddingManager::new(
+fn manager(f: &Fixture, provider: &str, key: &str) -> ScopedManager {
+    let manager=EmbeddingManager::new(
         reqwest::Client::builder()
             .no_proxy()
             .retry(reqwest::retry::never())
@@ -67,7 +73,14 @@ fn manager(f: &Fixture, provider: &str, key: &str) -> EmbeddingManager {
                 timeout: Duration::from_secs(5),
             },
         )]),
-    )
+    );
+    ScopedManager{manager,client:f.plane.client.clone()}
+}
+struct ScopedManager {manager:EmbeddingManager,client:Arc<ai_platform_knowledge_service::migration_knowledge_query::model_plane::ModelPlaneClient>}
+impl ScopedManager {
+    async fn embed_query(&self,d:&Dataset,q:&str)->ai_platform_knowledge_service::migration_knowledge_query::types::Result<Vec<f64>> {model_plane_fixture::run(self.client.clone(),self.manager.embed_query(d,q)).await}
+    async fn embed_documents(&self,d:&Dataset,texts:&[String])->ai_platform_knowledge_service::migration_knowledge_query::types::Result<Vec<Vec<f64>>> {model_plane_fixture::run(self.client.clone(),self.manager.embed_documents(d,texts)).await}
+    async fn embed_images(&self,d:&Dataset,images:&[Vec<u8>])->ai_platform_knowledge_service::migration_knowledge_query::types::Result<Vec<Vec<f64>>> {model_plane_fixture::run(self.client.clone(),self.manager.embed_images(d,images)).await}
 }
 fn dataset(provider: &str, dimension: usize) -> Dataset {
     Dataset {
@@ -116,8 +129,8 @@ async fn query_and_document_text_types_do_not_share_cached_vectors() {
 }
 #[tokio::test]
 async fn endpoint_and_credential_instances_keep_each_request_identity() {
-    let a = fixture(false).await;
-    let b = fixture(false).await;
+    let a = fixture_with_key(false,"credential-a").await;
+    let b = fixture_with_key(false,"credential-b").await;
     let first = manager(&a, "dashscope", "credential-a");
     let second = manager(&b, "dashscope", "credential-b");
     assert_eq!(

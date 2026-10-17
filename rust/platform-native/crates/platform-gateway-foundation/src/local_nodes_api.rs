@@ -1,4 +1,4 @@
-//! Opt-in public Local Node control plane: ten operations exposed at two aliases.
+//! Opt-in public Local Node control plane, including confirmed owner stop and audit.
 //! Construction is inert. The host provides canonical identity, a real durable
 //! control plane, and (for completion) a trusted device-channel verifier. No
 //! capability/admin gate or successful fallback verifier is invented here.
@@ -137,6 +137,16 @@ pub const LOCAL_NODES_ROUTES: &[(&str, &str, &str)] = &[
     ("POST", "/{device_id}/grants", "grants.create"),
     ("DELETE", "/{device_id}/grants/{grant_id}", "grants.revoke"),
     ("GET", "/{device_id}/events", "events.list"),
+    (
+        "POST",
+        "/{device_id}/emergency-stop",
+        "device.emergency_stop",
+    ),
+    (
+        "GET",
+        "/{device_id}/controls/{command_id}",
+        "controls.status",
+    ),
 ];
 #[derive(Clone)]
 struct HttpState {
@@ -549,9 +559,12 @@ async fn handle(
         "pairing.create" => Some(LocalNodesBodyKind::Challenge),
         "pairing.complete" => Some(LocalNodesBodyKind::Completion),
         "grants.create" => Some(LocalNodesBodyKind::Grant),
+        "device.emergency_stop" => Some(LocalNodesBodyKind::EmergencyStop),
         _ => None,
     };
-    let status = if body_kind.is_some() {
+    let status = if operation == "device.emergency_stop" {
+        StatusCode::ACCEPTED
+    } else if body_kind.is_some() {
         StatusCode::CREATED
     } else {
         StatusCode::OK
@@ -604,6 +617,9 @@ async fn handle(
         }
         if let Some(id) = params.get("grant_id") {
             args["grant_id"] = json!(id);
+        }
+        if let Some(id) = params.get("command_id") {
+            args["command_id"] = json!(id);
         }
         if operation == "events.list" {
             args["after_sequence"] = json!(validate_after_sequence(

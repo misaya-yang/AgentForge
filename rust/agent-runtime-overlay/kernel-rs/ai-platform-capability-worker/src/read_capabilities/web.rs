@@ -6,6 +6,16 @@ use reqwest::Url;
 
 use super::ReadCapabilityError;
 
+/// URL serialization brackets IPv6 literals; IP parsing and socket resolution
+/// require the host itself. The URL parser has already validated the brackets.
+pub(super) fn network_host(url: &Url) -> Result<&str, ReadCapabilityError> {
+    let host = url.host_str().ok_or(ReadCapabilityError::SsrfBlocked)?;
+    Ok(host
+        .strip_prefix('[')
+        .and_then(|host| host.strip_suffix(']'))
+        .unwrap_or(host))
+}
+
 pub(super) async fn validated_public_url(value: &str) -> Result<Url, ReadCapabilityError> {
     let url = Url::parse(value).map_err(|_| ReadCapabilityError::SsrfBlocked)?;
     if !matches!(url.scheme(), "http" | "https")
@@ -15,7 +25,7 @@ pub(super) async fn validated_public_url(value: &str) -> Result<Url, ReadCapabil
     {
         return Err(ReadCapabilityError::SsrfBlocked);
     }
-    let host = url.host_str().ok_or(ReadCapabilityError::SsrfBlocked)?;
+    let host = network_host(&url)?;
     if host.eq_ignore_ascii_case("localhost") {
         return Err(ReadCapabilityError::SsrfBlocked);
     }
@@ -123,4 +133,71 @@ pub(super) fn strip_html(input: &str) -> String {
         }
     }
     output.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn private_ipv6_literals_are_ssrf_blocks_without_dns_resolution() {
+        for raw in [
+            "http://[::1]/a",
+            "http://[::]/a",
+            "http://[fd00::1]/a",
+            "http://[fe80::1]/a",
+            "http://[::ffff:127.0.0.1]/a",
+            "http://[::ffff:10.0.0.1]/a",
+            "http://[2002:0a00:0001::1]/a",
+            "http://[2001:db8::1]/a",
+        ] {
+            assert_eq!(
+                validated_public_url(raw).await.unwrap_err(),
+                ReadCapabilityError::SsrfBlocked,
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn public_ipv6_host_resolves_as_a_literal_and_preserves_the_port() {
+        let url = validated_public_url("https://[2606:4700:4700::1111]:8443/a")
+            .await
+            .unwrap();
+        let host = network_host(&url).unwrap();
+        assert_eq!(host, "2606:4700:4700::1111");
+        let port = url.port_or_known_default().unwrap();
+        assert_eq!(port, 8443);
+        // This is the production socket-resolution input. A numeric literal
+        // resolves locally; no external DNS or HTTP peer is involved.
+        let addresses = tokio::net::lookup_host((host, port))
+            .await
+            .unwrap()
+            .collect::<Vec<_>>();
+        assert_eq!(
+            addresses,
+            vec![std::net::SocketAddr::new(host.parse().unwrap(), port)],
+        );
+    }
+
+    #[tokio::test]
+    async fn ipv6_redirect_targets_reenter_the_same_ssrf_classification() {
+        let start = validated_public_url("http://1.1.1.1/start").await.unwrap();
+        for location in ["http://[::1]/private", "http://[::ffff:10.0.0.1]/private"] {
+            let target = start.join(location).unwrap();
+            assert_eq!(
+                validated_public_url(target.as_str()).await.unwrap_err(),
+                ReadCapabilityError::SsrfBlocked,
+            );
+        }
+    }
+
+    #[test]
+    fn domain_and_ipv4_host_inputs_keep_their_existing_network_form() {
+        for (raw, expected) in [
+            ("https://example.com/a", "example.com"),
+            ("http://1.1.1.1:8080/a", "1.1.1.1"),
+        ] {
+            assert_eq!(network_host(&Url::parse(raw).unwrap()).unwrap(), expected);
+        }
+    }
 }

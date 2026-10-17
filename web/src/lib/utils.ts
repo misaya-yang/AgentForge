@@ -141,6 +141,9 @@ export function buildHttpFailureError(prefix: string, status: number, responseTe
 }
 
 export function getPlaygroundErrorMessage(error: unknown, t: TFunction): string {
+  if (error instanceof Error && ["SSEIdleTimeoutError", "SSEInterruptedError"].includes(error.name)) {
+    return t("playground.errors.streamOutcomeUnknown");
+  }
   if (error instanceof Error && error.name === "AbortError") {
     return t("playground.errors.cancelled");
   }

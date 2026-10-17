@@ -72,6 +72,7 @@ impl SettingsProjection<'_> {
         let role = self.env("GATEWAY_AUTHENTICATION__API_KEY__STATIC_ROLE", "user");
         let role = role.trim();
         AuthConfiguration {
+            enterprise_policy_enabled: false,
             jwt_secret: a.jwt.secret.clone(),
             jwt_audience: a.jwt.audience.clone(),
             jwt_issuer: a.jwt.issuer.clone(),
@@ -90,6 +91,7 @@ impl SettingsProjection<'_> {
                 .trim()
                 .to_lowercase(),
             password_concurrency: 2,
+            access_keys: None,
         }
     }
     pub fn core(&self) -> Result<CoreConfiguration, BootstrapError> {

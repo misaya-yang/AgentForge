@@ -207,11 +207,17 @@ impl EvaluatorExecutor {
         }
         let (mut scores, mut labels, mut written, mut skipped, mut infrastructure) =
             (vec![], vec![], 0, 0, false);
+        let actor_scope = if kind == "ragas" {
+            Some(self.ragas_actor_scope(job).await?)
+        } else {
+            None
+        };
         for target in &targets {
             let context = LlmCompleteContext {
                 tenant_id: tenant.into(),
                 trace_family: family.into(),
                 trace_id: target["trace_id"].as_str().map(str::to_owned),
+                actor_scope: actor_scope.clone(),
                 ..Default::default()
             };
             let payloads = self.scorer.score_target(&evaluator, target, &context).await;

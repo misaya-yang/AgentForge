@@ -125,6 +125,9 @@
     "preview": "Preview"
   },
   "assistant": {
+    "streamReconnecting": "Reconnecting to the same run…",
+    "streamBackground": "Run continues; connection checks resume when this tab is visible.",
+    "streamUnknown": "Connection interrupted; the run outcome is unknown.",
     "artifactRecovery": {
       "restoreInterrupted": "Account access changed while restoring this conversation. Reopen it to check its saved history and files.",
       "loading": "Checking files…",
@@ -1319,6 +1322,7 @@
     "passwordLabel": "Password",
     "passwordPlaceholder": "Enter your password",
     "rememberMeDays": "Stay logged in for 30 days",
+    "cookieSessionLifetime": "Secure session: up to 3 hours",
     "loggingIn": "Signing in...",
     "loginButton": "Sign In",
     "enterpriseOnly": "Only @{{domain}} enterprise email",
@@ -1531,6 +1535,7 @@
     "deleteChat": "Delete chat",
     "disclaimer": "AI responses may be inaccurate",
     "errors": {
+      "streamOutcomeUnknown": "The stream was interrupted. The server outcome is unknown; this request was not repeated.",
       "incompleteStream": "The stream ended before a completion signal. This result is incomplete; upstream work may still be running.",
       "sessionCreationFailed": "Couldn't confirm the new conversation. Your previous conversation is unchanged.",
       "cancelled": "Request was cancelled.",

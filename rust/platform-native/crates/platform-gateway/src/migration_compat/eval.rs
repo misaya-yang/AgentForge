@@ -644,7 +644,7 @@ async fn http(State(state): State<EvalHttpState>, request: Request) -> Response 
             ("POST",["trace-feedback:preview"])=>service.preview_trace_feedback(&user,&body,&state.options).await?,
             ("GET",["knowledge","summary"])=>{let days=params.get("days").map(String::as_str).unwrap_or("7").parse::<i32>().ok().filter(|n|(1..=90).contains(n)).ok_or_else(||CompatError::new(422,"Invalid days"))?;service.kb_ragas_summary(&user.tenant_id,days,params.get("dataset_id").map(String::as_str)).await?},
             ("POST",["knowledge",dataset,"batch-score"])=>return Ok((StatusCode::ACCEPTED,Json(service.kb_ragas_batch(&user,dataset,&body,&state.options).await?)).into_response()),
-            ("POST",["knowledge","score-retrieval"])=>super::eval_knowledge::score_retrieval(&body,&state.options).await?,
+            ("POST",["knowledge","score-retrieval"])=>super::eval_knowledge::score_retrieval(&user,&body,&state.options).await?,
             ("GET",["experiment-runs:compare"])=>service.compare_experiment_runs(&user.tenant_id,params.get("baseline_run_id").ok_or_else(||CompatError::new(422,"baseline_run_id is required"))?,params.get("candidate_run_id").ok_or_else(||CompatError::new(422,"candidate_run_id is required"))?).await?.ok_or_else(||CompatError::new(404,"Experiment run not found"))?,
             ("POST",["experiments",command]) if command.ends_with(":promote-baseline")=>service.promote_baseline(&user,command.trim_end_matches(":promote-baseline"),text(&body,"run_id")).await?,
             ("POST",["gates:dry-run"])=>service.dry_run_gate(&user,&body).await?,

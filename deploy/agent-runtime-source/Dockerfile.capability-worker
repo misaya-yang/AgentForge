@@ -1,8 +1,12 @@
-FROM rust:1.95.0-bookworm AS builder
+ARG CAPABILITY_RUST_BUILD_IMAGE=rust:1.95.0-bookworm
+ARG CAPABILITY_WORKER_RUNTIME_IMAGE=debian:trixie-slim
+ARG PYTHON_SANDBOX_IMAGE=python:3.14-slim-trixie
+
+FROM ${CAPABILITY_RUST_BUILD_IMAGE} AS builder
 
 ARG CARGO_BUILD_JOBS=1
-ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
-ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
 
 RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
@@ -14,8 +18,11 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
                 "${source_file}"; \
         fi; \
     done \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends lld \
     && rm -rf /var/lib/apt/lists/* \
     && ld.lld --version
@@ -34,16 +41,21 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
         --bin ai-platform-capability-worker-health \
         --bin ai-platform-plugin-packs \
         --bin ai-platform-python-supervisor \
+        --bin ai-platform-python-sandbox \
+        --bin ai-platform-python-sandbox-health \
     && cp target/dev-small/ai-platform-capability-worker /tmp/ \
     && cp target/dev-small/ai-platform-capability-worker-health /tmp/ \
     && cp target/dev-small/ai-platform-plugin-packs /tmp/ \
-    && cp target/dev-small/ai-platform-python-supervisor /tmp/
+    && cp target/dev-small/ai-platform-python-supervisor /tmp/ \
+    && cp target/dev-small/ai-platform-python-sandbox /tmp/ \
+    && cp target/dev-small/ai-platform-python-sandbox-health /tmp/
 
-FROM python:3.11-slim-bookworm AS runtime
-
-ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
-ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
-
+# Rust-only control image: no Python, supervisor, sandbox daemon or compiler.
+FROM ${CAPABILITY_WORKER_RUNTIME_IMAGE} AS runtime
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
+# Explicit HTTPS CA bootstrap; apt may not silently accept a partial update.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
@@ -54,80 +66,45 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
                 "${source_file}"; \
         fi; \
     done \
-    && update_ok=0 \
-    && for attempt in 1 2 3 4 5 6 7 8; do \
-        if apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update; then \
-            update_ok=1; \
-            break; \
-        fi; \
-        rm -rf /var/lib/apt/lists/partial; \
-        if [ "${attempt}" = 3 ]; then \
-            for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
-                if [ -f "${source_file}" ]; then \
-                    sed -i \
-                        -e "s|${DEBIAN_SECURITY_MIRROR}|https://deb.debian.org/debian-security|g" \
-                        -e "s|${DEBIAN_MIRROR}|https://deb.debian.org/debian|g" \
-                        "${source_file}"; \
-                fi; \
-            done; \
-        fi; \
-        sleep "$((attempt * 2))"; \
-    done \
-    && [ "${update_ok}" = 1 ] \
-    && install_ok=0 \
-    && for attempt in 1 2 3 4 5 6; do \
-        if apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 \
-            install -y --no-install-recommends --fix-missing \
-            fonts-noto-cjk; then \
-            install_ok=1; \
-            break; \
-        fi; \
-        if [ "${attempt}" = 2 ]; then \
-            for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
-                if [ -f "${source_file}" ]; then \
-                    sed -i \
-                        -e "s|${DEBIAN_SECURITY_MIRROR}|https://deb.debian.org/debian-security|g" \
-                        -e "s|${DEBIAN_MIRROR}|https://deb.debian.org/debian|g" \
-                        "${source_file}"; \
-                fi; \
-            done; \
-            apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=60 update; \
-        fi; \
-        sleep "$((attempt * 2))"; \
-    done \
-    && [ "${install_ok}" = 1 ] \
+    && apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends ca-certificates libssl3t64 libgcc-s1 libstdc++6 fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 ARG AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION
 ARG AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256
 ARG AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256
-
-LABEL org.opencontainers.image.title="AI Platform Capability Worker" \
-      org.opencontainers.image.revision="${AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION}" \
+LABEL org.opencontainers.image.revision="${AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION}" \
       com.misaya.ai-platform.capability-worker.overlay-sha256="${AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256}" \
-      com.misaya.ai-platform.capability-worker.schema-sha256="${AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256}" \
+      com.misaya.ai-platform.capability-worker.schema-sha256="${AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256}"
+
+LABEL org.opencontainers.image.title="AI Platform Capability Control Worker" \
       com.misaya.ai-platform.capability-worker.artifact="capability_worker" \
       com.misaya.ai-platform.capability-worker.binary="ai-platform-capability-worker"
-
-RUN install -d -m 0700 -o 10001 -g 10001 /workspace
+RUN install -d -m 0700 -o 10001 -g 10001 /workspace /run/agentforge-sandbox
 COPY LICENSE NOTICE /opt/ai-platform-capability-worker/
 COPY --from=builder /tmp/ai-platform-capability-worker /usr/local/bin/
 COPY --from=builder /tmp/ai-platform-capability-worker-health /usr/local/bin/
 COPY --from=builder /tmp/ai-platform-plugin-packs /usr/local/bin/
-COPY --from=builder /tmp/ai-platform-python-supervisor /usr/local/bin/
-
+RUN for binary in /usr/local/bin/ai-platform-capability-worker /usr/local/bin/ai-platform-capability-worker-health /usr/local/bin/ai-platform-plugin-packs; do \
+        ldd "$binary" > /tmp/worker-ldd || exit 1; \
+        if grep -q 'not found' /tmp/worker-ldd; then cat /tmp/worker-ldd; exit 1; fi; \
+    done \
+    && rm /tmp/worker-ldd \
+    && test -s /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc \
+    && ! command -v python3 \
+    && ! command -v rustc \
+    && ! command -v cargo
 ENV AI_PLATFORM_CAPABILITY_WORKER_BIND=0.0.0.0:8095 \
     AI_PLATFORM_CAPABILITY_WORKER_HEALTH_ADDR=127.0.0.1:8095 \
     AI_PLATFORM_OFFICE_FONT_PATHS=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc \
-    PYTHONNOUSERSITE=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
     RUST_BACKTRACE=1
-
 USER 10001:10001
 WORKDIR /workspace
 EXPOSE 8095
-
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
     CMD ["ai-platform-capability-worker-health"]
 ENTRYPOINT ["ai-platform-capability-worker"]

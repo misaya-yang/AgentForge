@@ -1,0 +1,9 @@
+# OFFLINE FIXTURE ONLY: identifiers, with no credential values or real store.
+storeRef:
+  name: fixture-secret-store
+  kind: SecretStore
+secrets:
+  - name: fixture-role-dsns
+    keys:
+      - secretKey: GATEWAY_DSN
+        remoteKey: fixture/agentforge/gateway-dsn

@@ -1,0 +1,8 @@
+[Unit]
+Description=AgentForge four-minute recovery checkpoint candidate
+[Timer]
+OnBootSec=4m
+OnUnitActiveSec=4m
+Unit=recovery-checkpoint.service
+[Install]
+WantedBy=timers.target

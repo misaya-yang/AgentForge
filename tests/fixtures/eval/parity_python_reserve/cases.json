@@ -1,0 +1,290 @@
+[
+  {
+    "id": "original_bounded_native_contract",
+    "answer": {
+      "patched_source": "def reserve(stock, requested):\n    if requested < 0:\n        raise ValueError('negative')\n    if requested <= stock:\n        return {'accepted': True, 'remaining': stock-requested}\n    return {'accepted': False, 'remaining': stock}\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": true,
+    "reason": "passed"
+  },
+  {
+    "id": "unsafe_call_rejected",
+    "answer": {
+      "patched_source": "def reserve(a,b):\n return open('/etc/passwd')\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": false,
+    "reason": "patched_source_unsafe_call"
+  },
+  {
+    "id": "infinite_loop_bounded",
+    "answer": {
+      "patched_source": "def reserve(a,b):\n while True: pass\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": false,
+    "reason": "patched_source_runtime:ExecutionLimitError"
+  },
+  {
+    "id": "annotated",
+    "answer": {
+      "patched_source": "def reserve(stock: int, requested: int):\n    if requested < 0:\n        raise ValueError()\n    accepted = requested <= stock\n    return {'accepted': accepted, 'remaining': stock-requested if accepted else stock}\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": true,
+    "reason": "passed"
+  },
+  {
+    "id": "type_guarded",
+    "answer": {
+      "patched_source": "def reserve(stock: int, requested: int):\n    if not isinstance(requested, int):\n        raise TypeError('integer required')\n    if requested < 0:\n        raise ValueError()\n    accepted = requested <= stock\n    return {'accepted': accepted, 'remaining': stock-requested if accepted else stock}\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": true,
+    "reason": "passed"
+  },
+  {
+    "id": "top_level_import_rejected",
+    "answer": {
+      "patched_source": "import os\ndef reserve(stock: int, requested: int):\n    return {'accepted': True, 'remaining':0}"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": false,
+    "reason": "patched_source_must_define_one_function"
+  },
+  {
+    "id": "old_bug_rejected",
+    "answer": {
+      "patched_source": "def reserve(stock, requested):\n    if requested <= stock:\n        stock -= requested\n    return {'accepted': requested <= stock, 'remaining':stock}\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": false,
+    "reason": "reserve_case_failed:5:5"
+  },
+  {
+    "id": "missing_negative_error_rejected",
+    "answer": {
+      "patched_source": "def reserve(stock, requested):\n    accepted=requested<=stock\n    return {'accepted':accepted,'remaining':stock-requested if accepted else stock}\n"
+    },
+    "expected": {
+      "required_cases": [
+        [
+          5,
+          2,
+          true,
+          3
+        ],
+        [
+          5,
+          5,
+          true,
+          0
+        ],
+        [
+          5,
+          6,
+          false,
+          5
+        ],
+        [
+          0,
+          0,
+          true,
+          0
+        ]
+      ]
+    },
+    "passed": false,
+    "reason": "negative_request_not_rejected"
+  }
+]

@@ -1,0 +1,30 @@
+warning: field `key` is never read
+   --> ai-platform-capability-contract/src/lease_v3.rs:100:67
+    |
+100 | struct Effective {ceiling:Ceiling,ids:BTreeSet<String>,expiry:u64,key:String,call:Option<Value>,schema:Option<String>}
+    |        --------- field in this struct                             ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-capability-contract` (lib) generated 1 warning
+warning: unused import: `Span`
+ --> ai-platform-capability-worker/src/../../ai-platform-agent-runtime/src/telemetry.rs:6:9
+  |
+6 |         Span, SpanContext, SpanId, Status, TraceContextExt, TraceFlags, TraceId, TraceState, Tracer,
+  |         ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> ai-platform-capability-worker/src/local_node_broker.rs:1059:13
+     |
+1059 |         let mut req = request();
+     |             ----^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-capability-worker` (lib test) generated 2 warnings (run `cargo fix --lib -p ai-platform-capability-worker --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized] target(s) in 0.38s
+     Running unittests src/lib.rs (/cargo-target/debug/deps/ai_platform_capability_worker-80885e0780538c80)

@@ -1,0 +1,360 @@
+{
+  "schema": "agentforge/source-checkpoint/v1",
+  "observed_at": "2026-10-17T13:24:17.409817+00:00",
+  "status": "source_checkpoint_verified_with_explicit_open_acceptance_gates",
+  "scope": "Owner-authorized source checkpoint and ordinary Git push; continue tomorrow. Not full109-package or release/product acceptance.",
+  "branch": "codex/platform-upgrade-2026-10",
+  "base_sha": "9edbc92df4c5eb24a003202dbeada81a1405ad3c",
+  "commit_identity": "the commit containing this receipt; verify remote/local equality before resuming",
+  "source": {
+    "native_epoch": 28,
+    "main_owned_database_epoch_last_verified": 25,
+    "upstream_codex": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+    "candidate_sha256": "fafb3aac3c1efd485bc4cb53c85d7d7307967598fd56e859a9fd2dbf3f253442",
+    "source_unit_sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42",
+    "runtime_worker_oci_start_permissions": false
+  },
+  "environment": {
+    "daily_native_builds": "Docker Rust1.99,1 Cargo job,debug0,incremental0,explicit read-only public mounts,network none",
+    "runtime_worker_builds": "controlled Docker Rust1.95,existing desktop-linux builder",
+    "daily_native_volume": "agentforge-dev-7801d4a9a4_native-dev-cache",
+    "duplicate_host_intermediates_removed_gib": 18.124618530273438,
+    "operations_bootstrap_binaries_preserved": true,
+    "data_or_volumes_deleted": false,
+    "business_services_started": false,
+    "infra": {
+      "status": "original_four_running_ready",
+      "readiness": "postgres/redis/object-store Docker healthy;Qdrant /readyz HTTP200",
+      "receipt": {
+        "schema": "agentforge/owned-infra-restore/v1",
+        "observed_at": "2026-10-17T13:22:11.682748+00:00",
+        "project": "agentforge-dev-7801d4a9a4",
+        "operation": "restart original existing four infrastructure containers after controlled Docker Desktop shutdown; same ids/images/volumes",
+        "business_services_started": false,
+        "database_migration_or_credentials_changed": false,
+        "containers": [
+          {
+            "name": "agentforge-dev-7801d4a9a4-postgres-1",
+            "id": "05fc79323af983195f1123a68aa49cc34e5ec42ad8b081aa1091dd6b2468f821",
+            "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+            "service": "postgres",
+            "state_before": "exited",
+            "owner_verified": true,
+            "mounts": [
+              {
+                "type": "volume",
+                "name": "agentforge-dev-7801d4a9a4_postgres",
+                "destination": "/var/lib/postgresql/data"
+              }
+            ],
+            "state_after": "running",
+            "health": "healthy"
+          },
+          {
+            "name": "agentforge-dev-7801d4a9a4-redis-1",
+            "id": "74973a2db45f5aee1dcfc505f29635cc3d83883aa1e6cc2385ab03144e5bd948",
+            "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+            "service": "redis",
+            "state_before": "exited",
+            "owner_verified": true,
+            "mounts": [
+              {
+                "type": "volume",
+                "name": "agentforge-dev-7801d4a9a4_redis",
+                "destination": "/data"
+              },
+              {
+                "type": "bind",
+                "name": null,
+                "destination": "/opt/redis-entrypoint.sh"
+              }
+            ],
+            "state_after": "running",
+            "health": "healthy"
+          },
+          {
+            "name": "agentforge-dev-7801d4a9a4-qdrant-1",
+            "id": "4281ee92c58d4373e918f469ca63d71df42f5486dac19b9d3d0bbbdf5a333e6f",
+            "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c",
+            "service": "qdrant",
+            "state_before": "exited",
+            "owner_verified": true,
+            "mounts": [
+              {
+                "type": "volume",
+                "name": "agentforge-dev-7801d4a9a4_qdrant",
+                "destination": "/qdrant/storage"
+              }
+            ],
+            "state_after": "running",
+            "health": "not-configured",
+            "readiness_http_status": 200
+          },
+          {
+            "name": "agentforge-dev-7801d4a9a4-object-store-1",
+            "id": "1b61383b2287027f4435b41d7276e94fdae0a784dec7d40cd190db84e991ef0f",
+            "image_id": "sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+            "service": "object-store",
+            "state_before": "exited",
+            "owner_verified": true,
+            "mounts": [
+              {
+                "type": "volume",
+                "name": "agentforge-dev-7801d4a9a4_object-store",
+                "destination": "/data"
+              }
+            ],
+            "state_after": "running",
+            "health": "healthy"
+          }
+        ]
+      }
+    },
+    "filesystem_available_bytes": 28090875904
+  },
+  "verified": {
+    "native_core": {
+      "status": "PASS_actual_docker_tests",
+      "auth": {
+        "passed": 24,
+        "ignored": 0
+      },
+      "gateway": {
+        "passed": 277,
+        "ignored": 1
+      },
+      "foundation": {
+        "passed": 274,
+        "ignored": 3
+      },
+      "knowledge_domain": {
+        "passed": 93,
+        "ignored": 0
+      },
+      "knowledge_service": {
+        "passed": 60,
+        "ignored": 6
+      },
+      "total_passed": 728,
+      "ignored": 10,
+      "failed": 0,
+      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-native-libs-r3.log",
+      "scope_note": "The same command later failed in authority. These five completed package suites passed; the full r3 invocation is NOT a pass."
+    },
+    "authority_lib": {
+      "passed": 143,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-authority-openapi-r4.log",
+        "sha256": "7963df3b26cf8620e1d65fc01b7b62908d25e1960763ffd2249f4e7bbf91cfbb",
+        "bytes": 22044
+      },
+      "whole_invocation_note": "Authority library passed; later CLI failed. CLI fixes are verified separately."
+    },
+    "openapi_all_targets": {
+      "passed": 86,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-openapi-r5.log",
+        "sha256": "f8da410eb515e04bfff44ee666269e22b08697b28731432d99b08545e4099330",
+        "bytes": 10233
+      }
+    },
+    "recovery_pg_policy": {
+      "status": "PASS_actual_docker_tests",
+      "pg_major_rehearsal": {
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0
+      },
+      "recovery_backup": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-recovery-pg-tests-r1.log",
+      "real_data_backup_upgrade_restore": "NOT_RUN"
+    },
+    "web": {
+      "unit_tests": {
+        "passed": 2127,
+        "failed": 0,
+        "skipped": 0
+      },
+      "typecheck": "PASS app+node",
+      "build": "PASS external output; existing bundle budget PASS, no thresholds or exceptions changed",
+      "fix": "66 stale fixture failures corrected without production changes, assertion deletion or skips",
+      "browser_live": "NOT_RUN",
+      "logs": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-web-*-r2.log"
+    },
+    "runtime_worker_contract": {
+      "status": "source_only_promoted_from_actual_successful_r2",
+      "source_candidate_sha256": "fafb3aac3c1efd485bc4cb53c85d7d7307967598fd56e859a9fd2dbf3f253442",
+      "source_unit_sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42",
+      "overlay_files": 191,
+      "worker_all_targets_check": "PASS",
+      "runtime_all_targets_check": "PASS",
+      "worker_lib": {
+        "passed": 126,
+        "failed": 0,
+        "ignored": 8
+      },
+      "runtime_lib": {
+        "passed": 132,
+        "failed": 0,
+        "ignored": 5
+      },
+      "contract_tests": {
+        "passed": 29,
+        "failed": 0,
+        "ignored": 0,
+        "filtered": 0,
+        "all_original_13_present": true
+      },
+      "non_lib_44": "all-targets compiled; not executed this R2; historical all-target execution not reused",
+      "count_reconciliation": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/count-scope-reconciliation.json",
+      "schema_export": "PASS actual compiled protocol example",
+      "source_candidate_verify": "PASS191 files/9437 composed files",
+      "source_lock_refresh_validate_verify_overlay": "PASS",
+      "architecture_boundary": "PASS against real composed workspace",
+      "all_4_oci_candidate_start_permissions": false,
+      "r1_interruption_preserved": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/",
+      "evidence": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/",
+      "release_or_product_acceptance": false
+    },
+    "launcher_std_tests": 18,
+    "config_loader_tests": 9,
+    "harness": "PASS latest r2",
+    "workflow_self_references": "PASS latest r3",
+    "strict_staged_json_syntax": {
+      "passed": 144,
+      "failed": 0
+    },
+    "changed_shell_syntax": {
+      "passed": 4,
+      "failed": 0
+    },
+    "authority_bins_integration": {
+      "status": "PASS",
+      "passed": 52,
+      "failed": 0,
+      "ignored": 17,
+      "suites": 27,
+      "log": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-authority-cli-integration-r6.log",
+        "sha256": "7337fa4ac65a4940d9ec96f33a17954f3e3178b42d979e6dc5d93a4f66866f16",
+        "bytes": 16955
+      },
+      "ignored_note": "Actual database/credential/runtime tests require dedicated real environment; ignored is not passed."
+    },
+    "selected_native_total": {
+      "passed": 1027,
+      "failed": 0,
+      "ignored": 27,
+      "scope": "Five core library packages,authority library plus bins/integration,OpenAPI all-targets,and two recovery/PG CLI units. Not whole workspace test or live acceptance."
+    },
+    "native_workspace_all_targets": {
+      "status": "PASS",
+      "command": "make native-check",
+      "elapsed_seconds": 45.07,
+      "log": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-native-all-targets-r3.log",
+        "sha256": "d37bc6dd886449b4ee06ed4afb68423c4a417b7ca16ac4b62aa462ab1a7adc25",
+        "bytes": 48466
+      }
+    },
+    "source_gates": {
+      "harness": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-harness-r2.json",
+        "sha256": "3eec55c1d9304efdea8b874cc535f2ffb3a4d57de5ee249d32a224beae74fa10",
+        "bytes": 772
+      },
+      "workflow_self_references": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-workflow-lint-r3.json",
+        "sha256": "bf7ef64218e28440d08d15df18ba3d3ba658cacf38fc00fa03363780fef6a54c",
+        "bytes": 223
+      },
+      "architecture_boundary": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-architecture-r1.json",
+        "sha256": "a0141f650f3f99ef7637c8bd7cfa4329bdf4e221f570a513202b0ef40fa203cd",
+        "bytes": 1163
+      },
+      "native_dependency_policy_failed": {
+        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-dependency-policy-r1.jsonl",
+        "sha256": "bfe4240a1a27f4df775168132086df2db8e190bc888af5958fe997a5e724367d",
+        "bytes": 30524
+      }
+    },
+    "final_secret_and_staged_review": {
+      "files": 5762,
+      "matches": 0,
+      "forbidden_paths": 0,
+      "values_printed": false,
+      "scope": "Tracked public files identical to staged source; selected ignored local env credentials compared in memory only."
+    },
+    "diff_check": "PASS final staged and working-tree diff checks",
+    "added_first_party_rust_placeholders": 0
+  },
+  "actual_repairs": [
+    "PG rehearsal PathBuf inference compile failure",
+    "ARM fullfp16 code generation requires exact target-feature annotations on four SIMD helpers",
+    "Poppler/pdfinfo is an actual compiler-image test dependency; five PDF tests now pass",
+    "Current28 strict source-chain dispatch and stale current-source test bounds",
+    "Probe unit fixtures no longer need Git metadata; single historical inert public JSON remains exact SHA-pinned",
+    "66 frontend fixture failures repaired without production/assertion/skip changes",
+    "Default successor CLI now verifies exact activated028; historical021/022/023 prefix paths traverse the strict current chain, and current package/snapshot assertions match28; actual CLI+integration52 pass."
+  ],
+  "unfinished_drafts_withdrawn": [
+    {
+      "package": "U-GW-12",
+      "external_handoff": "/Users/yang/.cache/agentforge-upgrade/ugw12-handoff/"
+    },
+    {
+      "package": "U-KN-03",
+      "external_handoff": "/Users/yang/.cache/agentforge-upgrade/proposals/knowledge-heartbeat-draft/"
+    }
+  ],
+  "remaining_required_gates": {
+    "frozen_skip_baseline": "FAIL:47 new Rust and1 TS ignored marker beyond frozen baseline; no baseline or acceptance weakened",
+    "native_offline_dependency_policy": {
+      "status": "FAILED_policy_not_product_acceptance",
+      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-dependency-policy-r1.jsonl",
+      "metadata": "current_locked_offline_all_features_resolved_no_host_compilation",
+      "vulnerability_findings": 0,
+      "unmaintained_findings": [
+        "ttf-parser RUSTSEC-2026-0192"
+      ],
+      "license_errors": 15,
+      "bans_errors": 0,
+      "sources_errors": 0,
+      "policy_weakened": false,
+      "limits": "Offline advisory database snapshot; does not establish zero vulnerabilities or a complete security audit."
+    },
+    "format_scope": "Broad cargo fmt check of authority/release reports remaining formatting differences in authority diagnostic/examples and earlier source; changed final CLI files formatted. No formatter pass is claimed for the whole workspace.",
+    "legacy_live_entrypoints": {
+      "status": "pending_preserved_original_entrypoints_not_executed",
+      "targets": [
+        "kb-migration-gate",
+        "kb-integration-smoke",
+        "test-isolation",
+        "agent-thread-store-contract"
+      ],
+      "reason": "Daily compiler is intentionally network-none/secret-free. Runtime requires an independent constrained run phase, exact PG16 clients, scoped DSNs/network and current Qdrant API authentication; compiler must not receive private integration inputs.",
+      "regression_avoided": "Only incompatible new Makefile conversions restored to exact prior explicit recipes. No test assertions, frozen skip baseline, host-build rule or acceptance criteria weakened.",
+      "next": "Implement and verify compile-without-secrets plus constrained runtime using existing network and owned images; do not run legacy host builds."
+    }
+  },
+  "not_run": [
+    "Current paired Runtime/Worker OCI build and admission;44 non-lib Runtime/Worker tests compiled only in latest controlled export",
+    "Business service startup and full real-provider/browser/failure/recovery/tenant-isolation acceptance on current source",
+    "Real encrypted backup/PITR/RPO/RTO and isolated PG16->18 upgrade/rollback",
+    "Watch/restart and SDK engine runtime workflow",
+    "Complete current-image/security/distribution acceptance; offline dependency scan is not a zero-vulnerability guarantee",
+    "Remaining required work packages; original candidate/on-demand activation conditions preserved"
+  ],
+  "resume": "Read sole loop-state.json and this receipt; verify clean checkout/remote identity, source28/main25 and current ce032 source-only lock. Resume original109-package dependencies and required gates without rebuilding a host server cache or starting stale Runtime images.",
+  "publication": "Final checks complete; owner-authorized ordinary commit/push follows. This is a source checkpoint with open release/product gates. The containing commit is the receipt identity; verify local/remote equality on resume.",
+  "goal_after_publication": "Pause at owner request; original109-package objective remains unchanged and incomplete."
+}

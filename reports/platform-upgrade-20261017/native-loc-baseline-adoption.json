@@ -1,0 +1,14 @@
+{
+  "schema": "agentforge/native-loc-baseline-adoption/v1",
+  "source_revision": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "source_tree": "d162313c1e70888561add80fac0058b28ef83219",
+  "sha256": "6bb76d318bf93952b24eddcba45fca6c18d78499fbf0e4b6086de25bbbfa8f54",
+  "working_tree_counts_used": false,
+  "historical_python_baseline_modified": false,
+  "thresholds": {
+    "policy": "Oversized files are no-growth; reviewed owner/reason/expiry required for exceptions.",
+    "rust_new_file_max": 800,
+    "typescript_new_file_max": 500
+  },
+  "scope": "New Rust-native ledger from pre-upgrade immutable native source, not current-feature rebaseline; current growth still must be assessed."
+}

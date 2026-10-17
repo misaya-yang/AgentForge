@@ -1,15 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if (($#)); then
+    echo "ERROR: use scripts/rust/build-update.sh for artifact selection or --dry-run" >&2
+    exit 2
+fi
 
 source "$(dirname "${BASH_SOURCE[0]}")/repository_root.sh"
 repo_root="$(platform_repository_root)"
 cd "$repo_root"
+# Direct callers enter the same clean-tree/resource-lock preflight as make/all.
+if [[ "${AI_PLATFORM_RUST_BUILD_LOCK_HELD:-}" != "1" ]]; then
+    exec bash "$repo_root/scripts/rust/build-update.sh" --artifact worker
+fi
 source_root="${AI_PLATFORM_AGENT_RUNTIME_SOURCE:-}"
 overlay_root="$repo_root/rust/agent-runtime-overlay"
 build_memory="${AI_PLATFORM_CAPABILITY_WORKER_BUILD_MEMORY:-2g}"
 build_cpu_quota="${AI_PLATFORM_CAPABILITY_WORKER_BUILD_CPU_QUOTA:-100000}"
 cargo_jobs="${AI_PLATFORM_CAPABILITY_WORKER_CARGO_JOBS:-${CARGO_BUILD_JOBS:-1}}"
 minimum_host_free_percent="${AI_PLATFORM_CAPABILITY_WORKER_MIN_HOST_FREE_PERCENT:-20}"
+
+# Public base-image inputs must be measured/selected by the integration owner.
+# Mutable family tags in Dockerfiles are documentation, not release pins.
+: "${CAPABILITY_RUST_BUILD_IMAGE:?Select the verified Rust builder image by digest}"
+: "${CAPABILITY_WORKER_RUNTIME_IMAGE:?Select the verified control runtime image by digest}"
+for base_image in "$CAPABILITY_RUST_BUILD_IMAGE" "$CAPABILITY_WORKER_RUNTIME_IMAGE"; do
+    if [[ ! "$base_image" =~ ^[^[:space:]]+@sha256:[0-9a-f]{64}$ ]]; then
+        echo "ERROR: capability base images require exact sha256 digest references" >&2
+        exit 2
+    fi
+done
+if [[ "$cargo_jobs" != "1" || ! "$minimum_host_free_percent" =~ ^[1-9][0-9]?$ ]]; then
+    echo "ERROR: controlled builds require one Cargo job and a host-free threshold from 1 to 99 percent" >&2
+    exit 2
+fi
 
 if [[ -z "$source_root" || ! -e "$source_root/.git" ]]; then
     echo "ERROR: AI_PLATFORM_AGENT_RUNTIME_SOURCE must point to the controlled runtime source" >&2
@@ -44,6 +67,9 @@ platform-tools source-lock verify-overlay --repo-root "$repo_root" --source "$so
 
 git -C "$source_root" archive "$upstream_sha" | tar -x -C "$build_context"
 cp -Rp "$overlay_root/kernel-rs/." "$build_context/codex-rs/"
+# Keep a complete shared context; only the separate sandbox Dockerfile copies
+# these public lock/catalog inputs into its wheels/package stages.
+cp -Rp "$repo_root/deploy/agent-runtime-source/python" "$build_context/python"
 
 monitor_build_memory() {
     local build_pid="$1"
@@ -74,6 +100,10 @@ docker buildx build --builder "$resource_builder" --platform linux/arm64 --load 
     --build-arg "AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256=$overlay_sha" \
     --build-arg "AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256=$schema_sha" \
     --build-arg "CARGO_BUILD_JOBS=$cargo_jobs" \
+    --build-arg "CAPABILITY_RUST_BUILD_IMAGE=$CAPABILITY_RUST_BUILD_IMAGE" \
+    --build-arg "CAPABILITY_WORKER_RUNTIME_IMAGE=$CAPABILITY_WORKER_RUNTIME_IMAGE" \
+    --label "com.misaya.ai-platform.capability-worker.rust-build-image=$CAPABILITY_RUST_BUILD_IMAGE" \
+    --label "com.misaya.ai-platform.capability-worker.runtime-base-image=$CAPABILITY_WORKER_RUNTIME_IMAGE" \
     --tag "$image" \
     "$build_context" &
 build_pid="$!"
@@ -82,10 +112,12 @@ monitor_build_memory "$build_pid"
 image_revision="$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
 image_overlay="$(docker image inspect "$image" --format '{{index .Config.Labels "com.misaya.ai-platform.capability-worker.overlay-sha256"}}')"
 image_schema="$(docker image inspect "$image" --format '{{index .Config.Labels "com.misaya.ai-platform.capability-worker.schema-sha256"}}')"
+image_artifact="$(docker image inspect "$image" --format '{{index .Config.Labels "com.misaya.ai-platform.capability-worker.artifact"}}')"
 image_binary="$(docker image inspect "$image" --format '{{index .Config.Labels "com.misaya.ai-platform.capability-worker.binary"}}')"
 if [[ "$image_revision" != "$source_revision" \
     || "$image_overlay" != "$overlay_sha" \
     || "$image_schema" != "$schema_sha" \
+    || "$image_artifact" != "capability_worker" \
     || "$image_binary" != "ai-platform-capability-worker" ]]; then
     echo "ERROR: capability worker image labels do not match the source unit" >&2
     exit 1

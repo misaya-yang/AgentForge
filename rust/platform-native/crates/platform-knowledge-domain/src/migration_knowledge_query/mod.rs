@@ -4,6 +4,9 @@
 pub mod auth;
 pub mod config;
 pub mod embedding;
+pub mod model_plane;
+pub mod model_scope;
+mod model_plane_stream;
 
 pub mod index;
 pub mod lexical;
@@ -43,3 +46,7 @@ pub mod pipeline_metrics;
 
 pub mod actor;
 pub mod http;
+
+mod cache_identity;
+
+pub mod private_transport;

@@ -79,6 +79,7 @@ struct State {
 }
 pub struct RateLimiter {
     pub config: RateLimitConfig,
+    deferred: bool,
     /// Compatibility field only; Python does not enforce this bound.
     pub max_entries: usize,
     clock: Arc<dyn Fn() -> f64 + Send + Sync>,
@@ -100,6 +101,14 @@ impl RateLimiter {
         )
     }
 
+    /// Production dispatch consumes authenticated policy with capacity/token
+    /// admission. Only the process-local IP shield remains in preflight.
+    pub fn deferred(config: RateLimitConfig) -> Self {
+        let mut limiter = Self::new(config);
+        limiter.deferred = true;
+        limiter
+    }
+
     pub fn with_clock(
         config: RateLimitConfig,
         max_entries: usize,
@@ -108,6 +117,7 @@ impl RateLimiter {
         let last_cleanup = clock();
         Self {
             config,
+            deferred: false,
             max_entries,
             clock,
             state: Mutex::new(State {
@@ -166,6 +176,14 @@ impl RateLimiter {
         service: &ServiceRateLimits,
         client_ip: Option<&str>,
     ) -> Result<(), RateLimitExceeded> {
+        if self.deferred {
+            if let Some(ip) = client_ip.filter(|ip| !ip.is_empty())
+                && let Some(limit) = &self.config.ip_limits
+            {
+                self.check_key(format!("ip:{ip}"), limit).await?;
+            }
+            return Ok(());
+        }
         let mut checks: Vec<(String, &RateLimit)> = Vec::new();
         if let Some(limit) = &self.config.global_limit {
             checks.push(("global".into(), limit));
@@ -212,4 +230,3 @@ impl RateLimiter {
             .collect()
     }
 }
-

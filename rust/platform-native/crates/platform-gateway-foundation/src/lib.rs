@@ -153,3 +153,17 @@ pub mod request_governance;
 pub mod websocket_transport;
 
 pub mod event_envelope;
+
+pub mod knowledge_model_accounting;
+
+pub mod request_meter;
+pub mod routing_policy;
+
+pub mod task_rollout;
+pub mod provider_batch;
+pub mod provider_batch_store;
+
+pub mod provider_batch_lane;
+pub mod provider_batch_quota;
+
+pub mod provider_batch_settlement;

@@ -111,12 +111,27 @@ impl RuntimeError {
             codex_thread_store::ThreadStoreError::Unsupported { .. } => {
                 Self::bad_request("unsupported_thread_store_operation")
             }
+            // Classification only: retry scheduling belongs to the operation
+            // owner, even when the store knows this attempt did not commit.
+            codex_thread_store::ThreadStoreError::Retryable { .. } => {
+                Self::unavailable("thread_store_retryable")
+            }
+            // A write may already have committed. Keep this outside transient
+            // 5xx handling; reconcile durable state before any replay. This
+            // mapping never clears the store's sticky write-failure barrier.
+            codex_thread_store::ThreadStoreError::OutcomeUnknown { .. } => {
+                Self::conflict("thread_store_outcome_unknown")
+            }
             codex_thread_store::ThreadStoreError::Internal { .. } => {
                 Self::internal("thread_store_failure")
             }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "security_store_error_tests.rs"]
+mod store_error_tests;
 
 impl IntoResponse for RuntimeError {
     fn into_response(self) -> Response {

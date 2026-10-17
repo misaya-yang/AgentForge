@@ -59,3 +59,41 @@ only after the page probe; failed probe prevents readiness; local URLs verify
 with the existing expiry/HMAC checks; cloud URLs use the configured backend; and
 vision owner/generation/digest failures remain closed. Full migration regression
 and live document/provider acceptance remain separate release gates.
+
+### Split Valkey coordination and retrieval cache
+
+The process parses `AI_PLATFORM_VALKEY_*` through the shared typed `SplitConfig`.
+With no split variables the existing legacy coordination configuration remains.
+Any partial split configuration, unexpected split variable, incorrect service ACL
+username, or non-TLS endpoint is rejected; legacy Redis is never a split fallback.
+`KNOWLEDGE_RUNTIME_ROLE=worker` selects `knowledge-worker`; API/all selects
+`knowledge-api`. Supply both COORD and CACHE `ENDPOINT`, `USERNAME`,
+`PASSWORD_FILE`, `CA_FILE` plus `AI_PLATFORM_VALKEY_MODE=split`; endpoints use
+`rediss://host:port/0`. Shared validation requires controlled credential and CA
+files and verifies Valkey version, policy and authenticated user.
+
+In split mode replay/idempotency adapters receive only the coordination handle.
+Coordination connection failures fail startup. The optional result tier receives
+only `CacheConnection` through `KnowledgeBackends.result_cache`; cache transport,
+timeout or pressure failures produce an explicit warning and permit local-only
+cache operation. Cache authentication, ACL, policy and malformed-value failures
+fail the operation rather than becoming ordinary misses. There is no cache-to-
+coord fallback or extra daemon/pool.
+
+The bounded weighted Moka tier remains first. A miss may read the independently
+configured cache endpoint using a typed tenant/service-scoped Retrieval key. The
+existing full actor/ACL, dataset generation, model/profile and request fingerprint
+is retained (including model-plane revision scope). Every hit still passes current
+active IDs/hierarchy and ACL/publication-generation revalidation before return.
+Remote values are bounded to 1 MiB and carry schema, tenant, fingerprint, original
+admission timestamp and TTL. Their maximum lifetime is 300 seconds; shorter
+configured TTLs apply immediately, and promotion to Moka preserves original age
+so increasing TTL cannot resurrect expired entries. Invalid bindings fail closed.
+
+Source regression coverage includes pure API/worker split parsing without file or
+network I/O, partial configuration rejection, auth/policy versus outage error
+classification, remote tenant/ACL/generation binding, corrupted/oversized values,
+and original-TTL-preserving local promotion. Primary-writer verification targets:
+`cargo test -p ai-platform-knowledge-domain --lib` and
+`cargo test -p ai-platform-knowledge-service --all-targets`. Real split-instance
+ACL/availability verification remains a separate runtime acceptance step.

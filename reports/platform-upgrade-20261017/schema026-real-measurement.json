@@ -1,0 +1,42 @@
+{
+  "schema": "agentforge/schema026-real-measurement/v1",
+  "database": "schema_successor_verify_nativecontracts026",
+  "stages": [
+    {
+      "stage": "validate",
+      "exit_code": 0
+    },
+    {
+      "stage": "prepare",
+      "exit_code": 0
+    },
+    {
+      "stage": "verify-preview",
+      "exit_code": 0
+    },
+    {
+      "stage": "measure",
+      "exit_code": 0
+    },
+    {
+      "stage": "verify-measured",
+      "exit_code": 0
+    },
+    {
+      "stage": "bundle",
+      "exit_code": 0
+    }
+  ],
+  "source_activated": false,
+  "main_database_mutated": false,
+  "preview": "/Users/yang/.cache/agentforge-upgrade/schema026-preview-r2-20261017",
+  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema026-bundle-r2-20261017",
+  "database_actions": "native authority exact025->026 single-step only",
+  "initial_failure": {
+    "sqlstate": "42601",
+    "position": 8,
+    "root_cause": "Authority source generator prepended SELECT to two postconditions already containing SELECT; transaction rolled back.",
+    "repair": "Preserve full postcondition expressions and checks; new immutable external preview created; same isolatedDB had to prove exact25 prefix again."
+  },
+  "all_required_native_measurement_stages_passed": true
+}

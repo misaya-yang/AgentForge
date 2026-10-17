@@ -7,7 +7,8 @@ import ts from "typescript";
 import * as qaOutcome from "./qaStreamOutcome.ts";
 import { knowledgeCitation } from "./knowledgeCitation.ts";
 import { sdkAuthorityScope } from "../../../lib/sdkAuthorityScope.ts";
-import type { RetrieveHit } from "../../../types/knowledge.ts";
+import { DEFAULT_RETRIEVAL_CONFIG, type RetrieveHit } from "../../../types/knowledge.ts";
+import type { HitTestConsole } from "./useHitTestConsole.ts";
 import type { CitationSource } from "../../assistant/components/citationSource.ts";
 
 type Tree = { type: unknown; props: Record<string, unknown> };
@@ -17,6 +18,24 @@ const hit = (body = "saved paragraph", overrides: Partial<RetrieveHit> = {}): Re
   document_id: "document-A", segment_id: "segment-A", text: body, score: 0.75,
   source_version: 3, source_hash: hash(body), ...overrides,
 });
+// QATab receives this shared console from useHitTestConsole in production.
+// Keep its consumed fields typed instead of passing an invalid empty object.
+function qaHitTestFixture(): Pick<HitTestConsole,
+  "topK" | "setTopK" | "mode" | "setMode" | "denseWeight" | "setDenseWeight"
+  | "bm25Weight" | "setBm25Weight" | "fusionMethod" | "setFusionMethod"
+  | "rerank" | "setRerank" | "rerankModelOptions" | "rerankModelConfigStatus"
+  | "mmr" | "setMmr" | "markRetrievalConfigCustom"
+> {
+  return {
+    topK: DEFAULT_RETRIEVAL_CONFIG.top_k, setTopK: () => {},
+    mode: DEFAULT_RETRIEVAL_CONFIG.mode, setMode: () => {},
+    denseWeight: DEFAULT_RETRIEVAL_CONFIG.fusion.alpha, setDenseWeight: () => {},
+    bm25Weight: 1 - DEFAULT_RETRIEVAL_CONFIG.fusion.alpha, setBm25Weight: () => {},
+    fusionMethod: "weighted", setFusionMethod: () => {},
+    rerank: false, setRerank: () => {}, rerankModelOptions: [], rerankModelConfigStatus: "ready",
+    mmr: false, setMmr: () => {}, markRetrievalConfigCustom: () => {},
+  };
+}
 function all(tree: unknown, type: string): Tree[] {
   if (!tree || typeof tree !== "object") return [];
   const node = tree as Tree;
@@ -204,7 +223,7 @@ test("source button opens exact citation and close clears selection without a mu
 });
 
 test("QA source action uses the answered dataset and hides retired navigation receipts", async () => {
-  const props = { datasetId: "dataset-A", hitTest: {} };
+  const props = { datasetId: "dataset-A", hitTest: qaHitTestFixture() };
   const app = host("./QATab.tsx", "QATab", props);
   const input = all(app.render(), "Textarea")[0];
   (input.props.onChange as (event: unknown) => void)({ target: { value: "question" } });
@@ -323,7 +342,7 @@ async function qaReady(app: ReturnType<typeof host>) {
 
 test("QA empty/error streams dispatch once, expose interruption and reuse without submitting", async () => {
   for (const stream of [async function* () {}, async function* () { throw new Error("lost response"); yield; }, async function* () { yield { event: "error", data: { message: "untrusted raw message" } }; }]) {
-    const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: {} });
+    const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: qaHitTestFixture() });
     app.setStream(stream); const run = await qaReady(app); await run(); const tree = await app.flush();
     assert.equal(app.qa.calls, 1); assert.equal(app.qa.fallbackCalls, 0);
     assert.match(textOf(tree), /qaInterrupted/); assert.doesNotMatch(textOf(tree), /untrusted raw message/);
@@ -336,7 +355,7 @@ test("QA empty/error streams dispatch once, expose interruption and reuse withou
 
 test("QA partial failures keep text, do not populate success history and never replay", async () => {
   for (const end of ["eof", "error", "malformed"] as const) {
-    const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: {} });
+    const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: qaHitTestFixture() });
     app.setStream(async function* () {
       yield { event: "delta", data: { content: "partial answer" } };
       if (end === "error") throw new Error("lost transport");
@@ -351,7 +370,7 @@ test("QA partial failures keep text, do not populate success history and never r
 });
 
 test("QA valid empty terminal replaces provisional text without spinner or replay", async () => {
-  const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: {} });
+  const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", hitTest: qaHitTestFixture() });
   app.qa.response.answer = ""; app.qa.response.context_segments = [];
   app.setStream(async function* () { yield { event: "delta", data: { content: "provisional" } }; yield { event: "done", data: { result: app.qa.response } }; });
   await (await qaReady(app))(); const tree = await app.flush();
@@ -360,7 +379,7 @@ test("QA valid empty terminal replaces provisional text without spinner or repla
 });
 
 test("QA synchronous double submit uses one stream; navigation aborts and fences late result", async () => {
-  const gate = deferred<void>(); const props = { datasetId: "dataset-A", hitTest: {} };
+  const gate = deferred<void>(); const props = { datasetId: "dataset-A", hitTest: qaHitTestFixture() };
   const app = host("./QATab.tsx", "QATab", props);
   app.setStream(async function* () { await gate.promise; yield { event: "done", data: { result: app.qa.response } }; });
   const run = await qaReady(app); const pending = run(); await run(); assert.equal(app.qa.calls, 1);
@@ -372,7 +391,7 @@ test("QA synchronous double submit uses one stream; navigation aborts and fences
 test("QA revoked authority and unmount do not accept late service completion", async () => {
   for (const dispose of [false, true]) {
     let authorized = true; const identityScope = { isCurrent: () => authorized };
-    const gate = deferred<void>(); const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", identityScope, hitTest: {} });
+    const gate = deferred<void>(); const app = host("./QATab.tsx", "QATab", { datasetId: "dataset-A", identityScope, hitTest: qaHitTestFixture() });
     app.setStream(async function* () { await gate.promise; yield { event: "done", data: { result: app.qa.response } }; });
     const pending = (await qaReady(app))();
     if (dispose) { app.dispose(); assert.equal(app.qa.signals[0].aborted, true); } else authorized = false;

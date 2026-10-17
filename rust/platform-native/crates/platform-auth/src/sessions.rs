@@ -59,7 +59,9 @@ impl RedisSessions {
             .query_async(&mut self.connection.clone())
             .await
             .map_err(|_| StoreError::Unavailable)?;
-        payload.map(|value| serde_json::from_str(&value).map_err(|_| StoreError::Unavailable)).transpose()
+        payload
+            .map(|value| serde_json::from_str(&value).map_err(|_| StoreError::Unavailable))
+            .transpose()
     }
     pub async fn revoke(&self, jti: &str, user: &str) -> Result<(), StoreError> {
         if user.is_empty() {
@@ -83,3 +85,6 @@ impl RedisSessions {
 // MULTI/EXEC is not rollback-on-runtime-error. Any save error or timeout may have
 // partially written Redis. The service must never disclose a minted token after
 // save failure; a failed call does not prove absence of a token key.
+
+#[path = "browser_sessions.rs"]
+pub mod browser;

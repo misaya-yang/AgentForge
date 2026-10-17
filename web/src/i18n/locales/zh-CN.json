@@ -125,6 +125,9 @@
     "preview": "预览"
   },
   "assistant": {
+    "streamReconnecting": "正在重新连接同一次运行…",
+    "streamBackground": "运行仍在继续，返回此标签页后恢复连接检查。",
+    "streamUnknown": "连接已中断，运行结果尚不确定。",
     "artifactRecovery": {
       "restoreInterrupted": "恢复会话时账号访问状态发生变化。请重新打开此会话以检查已保存的历史和文件。",
       "loading": "正在读取文件…",
@@ -1319,6 +1322,7 @@
     "passwordLabel": "密码",
     "passwordPlaceholder": "请输入密码",
     "rememberMeDays": "30天内免登录",
+    "cookieSessionLifetime": "安全会话最多持续 3 小时",
     "loggingIn": "登录中...",
     "loginButton": "登录",
     "enterpriseOnly": "仅限 @{{domain}} 企业邮箱",
@@ -1531,6 +1535,7 @@
     "deleteChat": "删除对话",
     "disclaimer": "AI 回答可能不准确",
     "errors": {
+      "streamOutcomeUnknown": "流连接已中断，服务端运行结果尚不确定；没有重复提交该请求。",
       "incompleteStream": "流在收到完成信号前已结束。此结果不完整，上游任务可能仍在运行。",
       "sessionCreationFailed": "无法确认新会话是否创建成功，原会话未改变。",
       "cancelled": "请求已取消。",

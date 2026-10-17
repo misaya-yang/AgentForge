@@ -700,7 +700,7 @@ impl ServiceDefinition {
             circuit_breaker_enabled: self.circuit_breaker_enabled,
             failure_threshold: self.failure_threshold,
             recovery_timeout: Duration::from_secs(self.recovery_timeout.max(0) as u64),
-            capacity_config: json!({"service_config": self.service_config, "metadata": self.metadata, "concurrency_limit": self.concurrency_limit}),
+            capacity_config: json!({"service_config": self.service_config, "metadata": self.metadata, "concurrency_limit": self.concurrency_limit, "rate_limit": self.rate_limit}),
         }
     }
 }

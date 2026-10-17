@@ -1,0 +1,14 @@
+{
+  "schema_version": "python-tenant-package-policy/v1",
+  "catalog_sha256": "sha256:4d080ec548b410b7817c97b5ad3cbb47402a37522642fd690d488a89d10b328f",
+  "tenants": {
+    "example-tenant": [
+      "numpy",
+      "pandas",
+      "scipy",
+      "matplotlib",
+      "pillow",
+      "openpyxl"
+    ]
+  }
+}

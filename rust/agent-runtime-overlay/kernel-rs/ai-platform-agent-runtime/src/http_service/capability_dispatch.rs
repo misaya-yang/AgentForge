@@ -1,14 +1,12 @@
 //! Kernel event pump: projects server notifications into the durable event
 //! store and dispatches dynamic capability tool calls (read path inline,
 //! write path through approval + capability worker).
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
-
 use codex_app_server::in_process::InProcessServerEvent;
 use codex_app_server_protocol::JSONRPCErrorError;
 use codex_protocol::ThreadId;
@@ -17,14 +15,13 @@ use sha2::Digest;
 use sha2::Sha256;
 use sqlx::Row;
 use tokio::sync::Semaphore;
-use tokio::sync::broadcast;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use uuid::Uuid;
-
 use super::ReadonlyTurnBinding;
 use super::RuntimeBroadcastEvent;
+use super::event_hub::RuntimeEventHub;
 use super::TextProjectionState;
 use super::projection::persist_projected_events;
 use crate::AgentKernel;
@@ -45,7 +42,7 @@ pub(super) async fn route_kernel_events(
     mut kernel: AgentKernel,
     store: Arc<PostgresThreadStore>,
     approvals: ApprovalBroker,
-    events: broadcast::Sender<RuntimeBroadcastEvent>,
+    events: RuntimeEventHub,
     kernel_ready: Arc<AtomicBool>,
     readonly_by_turn: Arc<Mutex<HashMap<String, ReadonlyTurnBinding>>>,
     turn_cancellations: Arc<Mutex<HashMap<String, CancellationToken>>>,
@@ -242,7 +239,7 @@ pub(super) async fn handle_dynamic_tool_call(
     readonly_by_turn: &Arc<Mutex<HashMap<String, ReadonlyTurnBinding>>>,
     capability_client: &reqwest::Client,
     approvals: &ApprovalBroker,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
     cancel: &CancellationToken,
 ) -> Result<serde_json::Value, String> {
     let run_id = Uuid::parse_str(root_turn_id).map_err(|_| "dynamic_tool_turn_invalid")?;
@@ -302,7 +299,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
     readonly_by_turn: &Arc<Mutex<HashMap<String, ReadonlyTurnBinding>>>,
     capability_client: &reqwest::Client,
     approvals: &ApprovalBroker,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
     cancel: &CancellationToken,
 ) -> Result<serde_json::Value, String> {
     let thread_id = ThreadId::from_string(&params.thread_id)
@@ -327,6 +324,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
             return Err("dynamic_tool_binding_changed".to_string());
         }
         binding.trace_context = cached_binding.trace_context;
+        binding.transport_budget=super::transport_budget::intersect(&binding.transport_budget,&cached_binding.transport_budget)?;
     }
     let execution_params = execution_params(params, &identity, root_turn_id);
     let (capability_allowlist, expected_tool, descriptor, effect) =
@@ -411,7 +409,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
             .as_deref(),
     );
     let worker_url = std::env::var("AI_PLATFORM_CAPABILITY_WORKER_URL").ok();
-    let lease_secret = std::env::var("AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET").ok();
+    let lease_secret = super::lease_verification::capability_authority(store, &identity, root_turn_id).await.ok();
     if effect != CapabilityEffect::Read
         && (!worker_enabled
             || !worker_writes_enabled
@@ -420,7 +418,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
                 .is_none_or(|value| value.trim().is_empty())
             || lease_secret
                 .as_deref()
-                .is_none_or(|value| value.trim().is_empty()))
+                .is_none_or(|value| value.is_empty()))
     {
         persist_dynamic_terminal_receipt(
             params,
@@ -579,7 +577,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| "capability_worker_url_missing".to_string());
         let lease_secret = lease_secret
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !value.is_empty())
             .ok_or_else(|| "capability_worker_lease_secret_missing".to_string());
         match (worker_url, lease_secret) {
             (Ok(worker_url), Ok(lease_secret)) => {
@@ -591,6 +589,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
                 .map(|worker| {
                     worker
                         .with_execution_owner(owner.owner_id.to_string(), owner.fence)
+                        .with_transport_budget(binding.transport_budget.clone())
                         .with_trace_context(binding.trace_context.clone(), root_turn_id.to_string())
                 })
                 .map_err(|error| error.code().to_string());
@@ -605,7 +604,7 @@ pub(super) async fn handle_dynamic_tool_call_inner(
                             descriptor: descriptor.clone(),
                         },
                         &execution_params,
-                        lease_secret.as_bytes(),
+                        &lease_secret,
                         effect,
                         approval_id_string.as_deref(),
                         cancel,
@@ -853,7 +852,7 @@ async fn persist_capability_projection(
     thread_id: ThreadId,
     event: crate::AssistantTurnEventV1,
     store: &PostgresThreadStore,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
 ) -> Result<(), String> {
     let event_key = format!(
         "compat/capability/{}/{}/{}",
@@ -916,7 +915,7 @@ async fn load_readonly_turn_binding(
         r#"
         SELECT snapshot.snapshot_id,
                snapshot.capability_revision,
-               snapshot.snapshot
+               snapshot.snapshot, LEAST(lease.expires_at,COALESCE(snapshot.expires_at,lease.expires_at)) AS lease_expires_at
           FROM assistant_runtime_snapshots AS snapshot
           JOIN assistant_runtime_model_leases AS lease
             ON lease.snapshot_id = snapshot.snapshot_id
@@ -980,6 +979,7 @@ async fn load_readonly_turn_binding(
             .map_err(|_| "dynamic_tool_snapshot_invalid".to_string())?,
         payload,
         trace_context: crate::trace_context::InternalTraceContext::default(),
+        transport_budget: super::transport_budget::local(super::transport_budget::ADMISSION_CAP,Some(row.try_get::<chrono::DateTime<chrono::Utc>,_>("lease_expires_at").map_err(|_|"dynamic_tool_snapshot_invalid")?.timestamp_millis().max(0)as u64))?,
         created_at: Instant::now(),
     })
 }
@@ -988,7 +988,7 @@ async fn persist_approval_required(
     request: &codex_app_server_protocol::ServerRequest,
     approval_id: Uuid,
     store: &PostgresThreadStore,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
 ) {
     let Ok(raw) = serde_json::to_value(request) else {
         return;
@@ -1045,7 +1045,7 @@ async fn persist_dynamic_approval_required(
     effect: CapabilityEffect,
     identity: &PlatformThreadIdentity,
     store: &PostgresThreadStore,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
 ) -> Result<(), String> {
     let arguments_hash = ai_platform_capability_contract::canonical_json_hash(&params.arguments)
         .unwrap_or_else(|_| "sha256:invalid".to_string());

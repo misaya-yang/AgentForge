@@ -11,11 +11,12 @@ interface DataBackedRoutes {
 async function collectDataBackedRoutes(page: Page): Promise<DataBackedRoutes> {
   return page.evaluate(async () => {
     const routes: DataBackedRoutes = { protectedRoutes: [], publicRoutes: [] };
-    const rawAuth = window.localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth ? JSON.parse(rawAuth)?.state?.token : "";
-    if (!token) return routes;
-
-    const headers = { Authorization: `Bearer ${token}` };
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
+    const headers = { "X-CSRF-Token": csrfToken };
     const fetchJson = async (path: string): Promise<unknown> => {
       const response = await window.fetch(path, { headers });
       if (!response.ok) return null;

@@ -1,0 +1,70 @@
+# SYNTHETIC OFFLINE ONLY: nonexistent driver/secrets, fake digests and revisions.
+data:
+  objectStore:
+    bucket: fixture
+    enabled: true
+    endpoint: https://objectstore.state.svc:9000
+    existingSecret: fixture-artifact
+    peer:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: state
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgres
+    region: fixture
+images:
+  sdk:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+knowledgeWorker:
+  keda:
+    authenticationRef: fixture-scoped-trigger
+    enabled: true
+    query: SELECT 0
+network:
+  edgePeer:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: fixture-controller
+    podSelector:
+      matchLabels:
+        app: fixture-controller
+routing:
+  certificate:
+    enabled: true
+    issuerName: fixture-issuer
+  enabled: true
+  gatewayClassName: fixture-controller
+  hostnames:
+  - fixture.example.invalid
+  internalGrpc:
+    enabled: true
+    parentRef:
+      name: fixture-private
+      namespace: fixture
+      sectionName: grpc-private
+  parentRef:
+    name: fixture-gateway
+    namespace: fixture
+    sectionName: https
+  tlsSecretName: fixture-tls
+sandbox:
+  cgroupCSI:
+    driver: fixture.invalid
+  enabled: true
+  journalClaim: fixture-journal
+  nodeName: fixture-node
+  publicKeyHex: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  publicKeyId: fixture
+  runtimeClassName: fixture-runtime
+  seccompProfile: fixture-seccomp
+  signingSecret: fixture-control-seed
+  socketClaim: fixture-socket
+  socketFsGroupMutationDisabled: true
+  workspaceClaim: fixture-work
+sdkWorker:
+  callbackTLSSecret: fixture-callback-tls
+  credentialsSecret: fixture-sdk-token
+  enabled: true
+  existingClaim: fixture-sdk
+  workerTLSSecret: fixture-sdk-tls

@@ -25,6 +25,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+#[path="task_reconciliation_http.rs"]
+mod reconciliation_http;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc};
@@ -48,6 +50,8 @@ pub fn router_with_identity(
         .route(contract::TASKS, get(list_tasks))
         .route(contract::TASK, get(get_task).delete(cancel_task))
         .route(contract::RESULT, get(get_task_result))
+        .route("/api/v1/tasks/{task_id}/delivery", get(reconciliation_http::delivery_state))
+        .route("/api/v1/tasks/{task_id}/reconcile", axum::routing::post(reconciliation_http::reconcile_task))
         .with_state(TaskState {
             auth,
             manager,

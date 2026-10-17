@@ -13,12 +13,16 @@ pub(crate) struct InternalTraceContext {
 
 impl InternalTraceContext {
     pub(crate) fn from_headers(headers: &HeaderMap) -> Self {
+        let traceparent=header(headers,"traceparent").filter(|value|valid_traceparent(value));
+        let tracestate=traceparent.as_ref().and_then(|_|header(headers,"tracestate")).filter(|value|valid_tracestate(value));
         Self {
-            traceparent: header(headers, "traceparent").filter(|value| valid_traceparent(value)),
-            tracestate: header(headers, "tracestate").filter(|value| valid_tracestate(value)),
+            traceparent,
+            tracestate,
             request_id: header(headers, "x-request-id").filter(|value| valid_request_id(value)),
         }
     }
+
+    pub(crate) fn telemetry_operation(&self,kind:crate::telemetry::OperationKind)->crate::telemetry::Operation { crate::telemetry::Operation::start(self.traceparent.as_deref(),self.tracestate.as_deref(),kind) }
 
     pub(crate) fn apply(
         &self,
@@ -82,13 +86,15 @@ fn header(headers: &HeaderMap, name: &str) -> Option<String> {
 fn valid_traceparent(value: &str) -> bool {
     value.is_ascii()
         && value.len() == 55
+        && value.starts_with("00-")
+        && matches!(&value[53..],"00"|"01")
         && value.as_bytes()[2] == b'-'
         && value.as_bytes()[35] == b'-'
         && value.as_bytes()[52] == b'-'
         && value
             .bytes()
             .enumerate()
-            .all(|(index, byte)| matches!(index, 2 | 35 | 52) || byte.is_ascii_hexdigit())
+            .all(|(index, byte)| matches!(index, 2 | 35 | 52) || (byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
         && !value[..2].eq_ignore_ascii_case("ff")
         && value[3..35].bytes().any(|byte| byte != b'0')
         && value[36..52].bytes().any(|byte| byte != b'0')
@@ -96,6 +102,7 @@ fn valid_traceparent(value: &str) -> bool {
 
 fn valid_tracestate(value: &str) -> bool {
     !value.is_empty()
+        && value.parse::<opentelemetry::trace::TraceState>().is_ok()
         && value.len() <= MAX_TRACE_STATE
         && value
             .bytes()
@@ -186,5 +193,15 @@ mod tests {
         );
         let filtered = InternalTraceContext::from_headers(&headers);
         assert_eq!(filtered.request_id, None);
+    }
+}
+
+#[cfg(test)]mod otlp_context_tests{
+    use super::*;
+    #[test]fn rejects_noncanonical_parent_and_orphan_or_malformed_state(){
+        let mut headers=HeaderMap::new();headers.insert("tracestate","vendor=value".parse().unwrap());assert!(InternalTraceContext::from_headers(&headers).tracestate.is_none());
+        headers.insert("traceparent","00-0123456789abcdef0123456789abcdef-0123456789abcdef-01".parse().unwrap());assert!(InternalTraceContext::from_headers(&headers).tracestate.is_some());
+        headers.insert("tracestate","not-a-member".parse().unwrap());assert!(InternalTraceContext::from_headers(&headers).tracestate.is_none());
+        for parent in ["00-0123456789abcdef0123456789abcdef-0123456789abcdef-ff","00-0123456789ABCDEF0123456789abcdef-0123456789abcdef-01"]{assert!(!valid_traceparent(parent));}
     }
 }

@@ -9,12 +9,12 @@ use codex_protocol::ThreadId;
 use serde_json::json;
 use sha2::Digest;
 use sha2::Sha256;
-use tokio::sync::broadcast;
 use tracing::warn;
 use uuid::Uuid;
 
 use super::ReadonlyTurnBinding;
 use super::RuntimeBroadcastEvent;
+use super::event_hub::RuntimeEventHub;
 use super::TextProjectionState;
 use crate::PostgresThreadStore;
 use crate::SequencedAssistantTurnEventV1;
@@ -25,7 +25,7 @@ use crate::server_notification_thread_id;
 pub(super) async fn persist_projected_events(
     notification: &codex_app_server_protocol::ServerNotification,
     store: &PostgresThreadStore,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
     readonly_by_turn: &Arc<Mutex<HashMap<String, ReadonlyTurnBinding>>>,
     text_projection: &mut TextProjectionState,
 ) {
@@ -177,7 +177,7 @@ async fn publish_terminal_failure(
     kernel_thread_id: ThreadId,
     root_thread_id: ThreadId,
     store: &PostgresThreadStore,
-    events: &broadcast::Sender<RuntimeBroadcastEvent>,
+    events: &RuntimeEventHub,
 ) {
     let mut event = terminal_admission_failure_event(completed, context);
     event.timestamp = completed.turn.completed_at.unwrap_or_default() as f64;

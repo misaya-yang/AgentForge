@@ -1,0 +1,19 @@
+{
+  "schema": "agentforge/openapi32-native-validation/v1",
+  "status": "actual_all_targets_passed",
+  "passed": 86,
+  "failed": 0,
+  "ignored": 0,
+  "includes": "Actual native producer child process official OAS3.2 full JSONSchema/dynamicRef validation; stream metadata and unversioned breaking contracts",
+  "actual_prior_failures": [
+    "official resolver dynamicRef lexical resource bug; fixed absolute equivalent local refs while keeping all official resources unchanged",
+    "stream walker inserted absent content:null; fixed get_mut and added actual producer regression"
+  ],
+  "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/openapi32-tests-r4.log",
+  "sha256": "c56dc2354933dcb61dc146fa87dfbaa096f40a020bf444c0e5cedfe7a24ab1a1",
+  "not_run": [
+    "Every-PR protected released-baseline CI integration",
+    "Recorded production stream replay and generated SDK compatibility",
+    "Publication"
+  ]
+}

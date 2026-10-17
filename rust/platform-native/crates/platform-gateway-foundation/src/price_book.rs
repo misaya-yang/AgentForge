@@ -20,6 +20,11 @@ pub enum PriceBookError {
     Arithmetic,
     Storage,
     Decode,
+    NotActivated,
+    RevisionConflict,
+    Forbidden,
+    UnknownModel,
+    CommitUncertain,
 }
 impl fmt::Display for PriceBookError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,6 +43,7 @@ pub enum Component {
     Output,
     Reasoning,
     ToolCall,
+    Request,
     Image,
     Batch,
 }
@@ -395,7 +401,19 @@ pub fn validate_token_snapshot(value: &Value) -> Result<()> {
             .ok_or(PriceBookError::Decode)?,
     )
     .map_err(|_| PriceBookError::Decode)?;
-    if &token_snapshot(&input, &output)? != value {
+    let mut expected = token_snapshot(&input, &output)?;
+    for (field, component) in [
+        ("price_book_cached_input", Component::CachedInput),
+        ("price_book_cache_write", Component::CacheWrite),
+    ] {
+        if let Some(raw) = value.get(field) {
+            let receipt: PriceReceipt =
+                serde_json::from_value(raw.clone()).map_err(|_| PriceBookError::Decode)?;
+            validate_cache_term(&input, &receipt, component)?;
+            expected[field] = raw.clone();
+        }
+    }
+    if &expected != value {
         return Err(PriceBookError::InvalidReference);
     }
     Ok(())
@@ -429,10 +447,24 @@ impl crate::usage_recorder::UsageSnapshotResolver for PriceBookTokenResolver {
                 )
             };
             let result = select(Component::Input).and_then(|input| {
-                select(Component::Output).and_then(|output| token_snapshot(&input, &output))
+                let mut snapshot = token_snapshot(&input, &select(Component::Output)?)?;
+                for (field, component) in [
+                    ("price_book_cached_input", Component::CachedInput),
+                    ("price_book_cache_write", Component::CacheWrite),
+                ] {
+                    match select(component) {
+                        Ok(term) => {
+                            validate_cache_term(&input, &term, component)?;
+                            snapshot[field] =
+                                serde_json::to_value(term).map_err(|_| PriceBookError::Decode)?;
+                        }
+                        Err(PriceBookError::MissingPrice) => {}
+                        Err(error) => return Err(error),
+                    }
+                }
+                Ok(snapshot)
             });
-            result
-                .map_err(|e| crate::usage_recorder::UsageRecorderError::Collaborator(e.to_string()))
+            result.map_err(crate::usage_recorder::UsageRecorderError::from)
         })
     }
 }
@@ -445,7 +477,7 @@ pub async fn load_postgres(pool: &sqlx::PgPool, tenant: &str) -> Result<PriceBoo
         return Err(PriceBookError::InvalidTerms);
     }
     let rows = sqlx::query(
-        "SELECT reference,kind,payload FROM price_book_v2_terms WHERE tenant_id IS NULL OR tenant_id=$1",
+        "SELECT reference,kind,payload FROM gateway.price_book_v2_terms WHERE tenant_id IS NULL OR tenant_id=$1",
     )
     .bind(tenant)
     .fetch_all(pool)
@@ -497,7 +529,7 @@ pub async fn append_postgres(
     for entry in &book.entries {
         let payload = serde_json::to_value(entry).map_err(|_| PriceBookError::Decode)?;
         sqlx::query(
-            "INSERT INTO price_book_v2_terms(reference,kind,payload) VALUES ($1,'entry',$2)",
+            "INSERT INTO gateway.price_book_v2_terms(reference,kind,payload) VALUES ($1,'entry',$2)",
         )
         .bind(entry.reference()?)
         .bind(payload)
@@ -508,7 +540,7 @@ pub async fn append_postgres(
     for discount in &book.discounts {
         let payload = serde_json::to_value(discount).map_err(|_| PriceBookError::Decode)?;
         sqlx::query(
-            "INSERT INTO price_book_v2_terms(reference,kind,payload) VALUES ($1,'discount',$2)",
+            "INSERT INTO gateway.price_book_v2_terms(reference,kind,payload) VALUES ($1,'discount',$2)",
         )
         .bind(discount.reference()?)
         .bind(payload)
@@ -516,7 +548,9 @@ pub async fn append_postgres(
         .await
         .map_err(|_| PriceBookError::Storage)?;
     }
-    tx.commit().await.map_err(|_| PriceBookError::Storage)?;
+    tx.commit()
+        .await
+        .map_err(|_| PriceBookError::CommitUncertain)?;
     Ok(())
 }
 
@@ -696,7 +730,7 @@ pub async fn persist_legacy_import(
     let mut tx = pool.begin().await.map_err(|_| PriceBookError::Storage)?;
     for entry in &report.entries {
         sqlx::query(
-            "INSERT INTO price_book_v2_terms(reference,kind,payload) VALUES ($1,'entry',$2)",
+            "INSERT INTO gateway.price_book_v2_terms(reference,kind,payload) VALUES ($1,'entry',$2)",
         )
         .bind(entry.reference()?)
         .bind(serde_json::to_value(entry).map_err(|_| PriceBookError::Decode)?)
@@ -705,20 +739,22 @@ pub async fn persist_legacy_import(
         .map_err(|_| PriceBookError::Storage)?;
     }
     for row in &report.attributed {
-        sqlx::query("INSERT INTO price_book_v2_import_audit(import_id,source_id,disposition,provider_id,model_version,input_reference,output_reference) VALUES ($1::text::uuid,$2::text::uuid,'attributed',$3,$4,$5,$6)")
-            .bind(import_id).bind(&row.source_id).bind(&row.provider).bind(&row.model_version).bind(&row.input_reference).bind(&row.output_reference)
+        sqlx::query("INSERT INTO gateway.price_book_v2_import_audit(import_id,source_id,disposition,provider_id,model_version,book_version,input_reference,output_reference) VALUES ($1::text::uuid,$2::text::uuid,'attributed',$3,$4,$5,$6,$7)")
+            .bind(import_id).bind(&row.source_id).bind(&row.provider).bind(&row.model_version).bind(&row.book_version).bind(&row.input_reference).bind(&row.output_reference)
             .execute(&mut *tx).await.map_err(|_| PriceBookError::Storage)?;
     }
     for row in &report.quarantine {
-        sqlx::query("INSERT INTO price_book_v2_import_audit(import_id,source_id,disposition,reason) VALUES ($1::text::uuid,$2::text::uuid,'quarantined',$3)")
+        sqlx::query("INSERT INTO gateway.price_book_v2_import_audit(import_id,source_id,disposition,reason) VALUES ($1::text::uuid,$2::text::uuid,'quarantined',$3)")
             .bind(import_id).bind(&row.source_id).bind(row.reason)
             .execute(&mut *tx).await.map_err(|_| PriceBookError::Storage)?;
     }
     for source_id in &report.inactive {
-        sqlx::query("INSERT INTO price_book_v2_import_audit(import_id,source_id,disposition) VALUES ($1::text::uuid,$2::text::uuid,'inactive')")
+        sqlx::query("INSERT INTO gateway.price_book_v2_import_audit(import_id,source_id,disposition) VALUES ($1::text::uuid,$2::text::uuid,'inactive')")
             .bind(import_id).bind(source_id).execute(&mut *tx).await.map_err(|_| PriceBookError::Storage)?;
     }
-    tx.commit().await.map_err(|_| PriceBookError::Storage)?;
+    tx.commit()
+        .await
+        .map_err(|_| PriceBookError::CommitUncertain)?;
     Ok(())
 }
 
@@ -853,6 +889,51 @@ mod tests {
         );
     }
     #[test]
+    fn cache_components_partition_input_and_require_frozen_prices() {
+        // Rates are nanodollars per 1,000 tokens: $0.10 input, $0.20
+        // output, $0.01 cached input. The legacy *_cost_cents columns use
+        // 1,000,000 units/USD (microUSD), despite their historical name.
+        // 20 ordinary + 80 cached inputs: .10*20/1000 + .01*80/1000
+        // = $.0028 = 2,800 stored units; 10 outputs = $.002 = 2,000.
+        let input = entry("p", None, Component::Input, 100_000_000);
+        let output = entry("p", None, Component::Output, 200_000_000);
+        let cache = entry("p", None, Component::CachedInput, 10_000_000);
+        let book =
+            PriceBook::new(vec![input.clone(), output.clone(), cache.clone()], vec![]).unwrap();
+        let mut snapshot = token_snapshot(
+            &book.resolve("a", &input.key, 1).unwrap(),
+            &book.resolve("a", &output.key, 1).unwrap(),
+        )
+        .unwrap();
+        let mut record = crate::usage_recorder::UsageRecord::new("a", "u", "m", chrono::Utc::now());
+        record.model = input.key.model.clone();
+        record.provider = "p".into();
+        record.input_tokens = 100;
+        record.output_tokens = 10;
+        record.metadata.insert("provider_cache_usage".into(),serde_json::to_value(crate::usage_parser::cache::CacheUsage::observe("p",&serde_json::json!({"usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":80}}}))).unwrap());
+        assert!(crate::usage_recorder::prepare_with_snapshot(&mut record, &snapshot).is_err());
+        snapshot["price_book_cached_input"] =
+            serde_json::to_value(book.resolve("a", &cache.key, 1).unwrap()).unwrap();
+        crate::usage_recorder::prepare_with_snapshot(&mut record, &snapshot).unwrap();
+        assert_eq!(record.input_cost_cents, 2800);
+        assert_eq!(record.output_cost_cents, 2000);
+        let mut altered = snapshot.clone();
+        altered["price_book_cached_input"]["entry"]["rate_nanos"] = 0.into();
+        assert!(crate::usage_recorder::prepare_with_snapshot(&mut record, &altered).is_err());
+        // v1 continues to interpret all 100 input tokens at its original rate.
+        let mut legacy = snapshot.clone();
+        for key in [
+            "price_book_schema",
+            "price_book_input",
+            "price_book_output",
+            "price_book_cached_input",
+        ] {
+            legacy.as_object_mut().unwrap().remove(key);
+        }
+        // It still carries v2 status, so stripping the envelope fails closed.
+        assert!(crate::usage_recorder::prepare_with_snapshot(&mut record, &legacy).is_err());
+    }
+    #[test]
     fn token_envelope_preserves_legacy_costs_and_fails_tampering() {
         let input = entry("p", None, Component::Input, 1_000_000);
         let output = entry("p", None, Component::Output, 2_000_000);
@@ -954,4 +1035,28 @@ mod tests {
             Err(PriceBookError::Arithmetic)
         );
     }
+}
+
+#[path = "price_book_api.rs"]
+pub mod api;
+#[path = "price_book_service.rs"]
+pub mod service;
+
+/// Optional cache terms are frozen with the input/output publication. Never
+/// resolve missing cache prices against a newer book during settlement.
+pub fn validate_cache_term(
+    input: &PriceReceipt,
+    cache: &PriceReceipt,
+    component: Component,
+) -> Result<()> {
+    let mut key = input.entry.key.clone();
+    key.component = component;
+    cache.validate(&input.tenant, &key)?;
+    if cache.selected_at_ms != input.selected_at_ms
+        || cache.entry.unit != Unit::Tokens
+        || cache.entry.units_per_rate != 1000
+    {
+        return Err(PriceBookError::UnsupportedLegacyBridge);
+    }
+    Ok(())
 }

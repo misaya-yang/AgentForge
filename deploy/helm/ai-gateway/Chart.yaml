@@ -1,13 +1,7 @@
 apiVersion: v2
 name: ai-gateway
-description: AI Gateway - Unified API gateway with knowledge base, assistant, and proxy services
+description: Native Rust Gateway, Knowledge roles, Runtime and isolated capability execution
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
-keywords:
-  - ai
-  - gateway
-  - llm
-  - proxy
-maintainers:
-  - name: AI Gateway Maintainers
+version: 2.0.0
+appVersion: "2.0.0"
+keywords: [agentforge, rust, gateway]

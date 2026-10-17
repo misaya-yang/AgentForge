@@ -445,11 +445,30 @@ impl SpecialPublicationCoordinator {
     }
     pub async fn publish(
         &self,
+        plan: CandidatePlan,
+        dataset: &Dataset,
+        execution: &str,
+        expected_content: &str,
+        metadata_patch: &Value,
+    ) -> Result<Vec<String>> {
+        self.publish_with_docir(
+            plan,
+            dataset,
+            execution,
+            expected_content,
+            metadata_patch,
+            None,
+        )
+        .await
+    }
+    pub async fn publish_with_docir(
+        &self,
         mut plan: CandidatePlan,
         dataset: &Dataset,
         execution: &str,
         expected_content: &str,
         metadata_patch: &Value,
+        docir: Option<&super::parsing_v2::integration::Prepared>,
     ) -> Result<Vec<String>> {
         let ids = point_plan(&plan)?;
         let objects = object_plan(&plan)?;
@@ -462,6 +481,7 @@ impl SpecialPublicationCoordinator {
         if publication.recovered {
             return Err(fail("negative special publication requires recovery"));
         }
+        let docir_revision = publication.revision;
         let mut committed = false;
         let result=async{
             let old=self.service.indexer.vectors.document_point_ids_by_collection(dataset,&plan.document_id).await?;if ids.iter().any(|(name,ids)|ids.iter().any(|id|old.get(name).is_some_and(|v|v.contains(id)))){return Err(fail("special candidate would overwrite an old point"))}let mut collections=json!({});for name in ids.keys().chain(old.keys()).collect::<BTreeSet<_>>(){collections[name]=json!({"candidate_point_ids":ids.get(name).cloned().unwrap_or_default(),"old_point_ids":old.get(name).cloned().unwrap_or_default()})}
@@ -476,6 +496,12 @@ impl SpecialPublicationCoordinator {
                 if let Some(summary)=&plan.summary_row{sqlx::query("INSERT INTO knowledge.document_summaries (document_id,summary,keywords,topics,vector_id) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (document_id) DO UPDATE SET summary=EXCLUDED.summary,keywords=EXCLUDED.keywords,topics=EXCLUDED.topics,vector_id=EXCLUDED.vector_id,updated_at=NOW()").bind(&plan.document_id).bind(string(summary,"summary")).bind(&summary["keywords"]).bind(&summary["topics"]).bind(string(summary,"vector_id")).execute(&mut *tx).await?;}else{sqlx::query("DELETE FROM knowledge.document_summaries WHERE document_id=$1").bind(&plan.document_id).execute(&mut *tx).await?;}
                 if let Some(old)=old_source{if baseline{let mut old_meta=meta.clone();old_meta[SOURCE_MANIFEST_KEY]=old;let v=KnowledgeWriteStore::create_version(&mut tx,&plan.document_id,expected_content,if current_version==0{"created"}else{"updated"},Some(string(&current,"title")),&old_meta,None,None,false).await?;if integer(&v,"version_number")!=version_number-1{return Err(fail("old serving source snapshot changed"))}}else{set_version_manifest(&mut tx,&plan.document_id,current_version,&old).await?;}}
                 if !restore{let v=KnowledgeWriteStore::create_version(&mut tx,&plan.document_id,&plan.content,if current_version==0{"created"}else{"updated"},Some(string(&current,"title")),&patch,None,None,true).await?;if integer(&v,"version_number")!=version_number{return Err(fail("special candidate version changed"))}}else{set_version_manifest(&mut tx,&plan.document_id,version_number,&source).await?;for(number,from,to,text)in [(previous_version,"pending_before_restore","updated",expected_content),(version_number,"pending_restore","restored",plan.content.as_str())]{if sqlx::query("UPDATE knowledge.document_versions SET change_type=$4 WHERE document_id=$1 AND version_number=$2 AND change_type=$3 AND content=$5 RETURNING version_id").bind(&plan.document_id).bind(number as i32).bind(from).bind(to).bind(text).fetch_optional(&mut *tx).await?.is_none(){return Err(fail("special restore snapshots changed"))}}sqlx::query("UPDATE knowledge.documents SET current_version=$2,metadata=(COALESCE(metadata,'{}'::jsonb)-'_document_pending_restore_version')||jsonb_build_object('_document_restored_source_version',$3::integer) WHERE document_id=$1").bind(&plan.document_id).bind(version_number as i32).bind(version_number as i32).execute(&mut *tx).await?;}
+                if let Some(prepared)=docir {
+                    let published=prepared.finalize_for_content(&mut tx,&self.service.assets,docir_revision,&plan.content).await?;
+                    let mut rows=plan.segment_rows.clone();published.stamp_chunks(&mut rows)?;
+                    for row in &rows {if row.metadata.get("citation").is_some(){sqlx::query("UPDATE knowledge.segments SET metadata=$4::jsonb WHERE segment_id=$1 AND dataset_id=$2 AND document_id=$3").bind(&row.segment_id).bind(&row.dataset_id).bind(&row.document_id).bind(&row.metadata).execute(&mut *tx).await?;}}
+                    sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)||$3::jsonb WHERE document_id=$1 AND dataset_id=$2").bind(&plan.document_id).bind(&dataset.dataset_id).bind(&published.patch).execute(&mut *tx).await?;
+                }
                 sqlx::query("UPDATE knowledge.documents SET version_count=(SELECT COUNT(*) FROM knowledge.document_versions WHERE document_id=$1) WHERE document_id=$1").bind(&plan.document_id).execute(&mut *tx).await?;KnowledgeWriteStore::advance_special(&mut tx,execution,&plan.document_id,&dataset.dataset_id,&plan.generation_id,&plan.source_hash,Some(&hash),"points_written","committed",None,None).await?;tx.commit().await?;}
             committed=true;let owner=KnowledgeWriteStore::get_special(publication.connection(),execution).await?.ok_or_else(||fail("committed owner missing"))?;self.finish(dataset,&mut publication,&owner,true,false).await?;Ok(plan.segment_ids.clone())
         }.await;

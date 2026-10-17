@@ -1,3 +1,4 @@
+import { browserTraceparent } from "@/observability/browserTelemetry";
 import axios, { AxiosError } from "axios";
 import { getApiBaseUrlConfig } from "@/config/runtime";
 import { toast } from "@/hooks/use-toast";
@@ -18,7 +19,7 @@ const requestAuth = new WeakMap<object, { token: string | null; authority: strin
 // Match the authenticated read scope's synchronous authority invalidation boundary.
 let authGeneration = 0;
 const unsubscribeAuth = useAuthStore.subscribe((state, previous) => {
-  if (state.token !== previous.token || state.isAuthenticated !== previous.isAuthenticated
+  if (state.token !== previous.token || state.csrfToken !== previous.csrfToken || state.isAuthenticated !== previous.isAuthenticated
     || sdkAuthorityScope(state.user) !== sdkAuthorityScope(previous.user)) {
     authGeneration += 1;
   }
@@ -47,56 +48,50 @@ export function getApiBaseUrl(): string {
   return baseURL || window.location.origin;
 }
 
-/**
- * Get auth data from storage (checks both localStorage and sessionStorage)
- * localStorage is used when rememberMe=true, sessionStorage when rememberMe=false
- */
-export function getAuthToken(): string | null {
-  const storeToken = useAuthStore.getState().token;
-  if (storeToken) {
-    return storeToken;
-  }
-
-  // First check localStorage (for rememberMe=true)
-  let authStorage = localStorage.getItem(AUTH_STORAGE_KEY);
-
-  // If not in localStorage, check sessionStorage (for rememberMe=false)
-  if (!authStorage) {
-    authStorage = sessionStorage.getItem(AUTH_STORAGE_KEY);
-  }
-
-  if (authStorage) {
-    try {
-      const authState = JSON.parse(authStorage);
-      return authState?.state?.token || null;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  return null;
-}
-
-/**
- * Clear auth from both storages
- */
+/** Non-secret in-memory generation for existing UI/SSE ownership fences. */
+export function getAuthToken(): string | null { return useAuthStore.getState().token; }
 function clearAuthStorage(): void {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  for (const storage of [() => localStorage, () => sessionStorage]) {
+    try { storage().removeItem(AUTH_STORAGE_KEY); } catch { /* Cookie auth requires no Web Storage. */ }
+  }
 }
 
-// Request interceptor to add JWT token
+// Keep the synchronous snapshot boundary: immediate A→B→A replacements must
+// invalidate the original request before the transport adapter can dispatch.
 api.interceptors.request.use(
   (config) => {
-    const token = getAuthToken();
-    requestAuth.set(config, { token, authority: sdkAuthorityScope(useAuthStore.getState().user), generation: authGeneration });
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const identity = useAuthStore.getState();
+    const origin = window.location.origin;
+    if (origin && new URL(config.url ?? "", new URL(config.baseURL || "/", origin)).origin !== origin) {
+      throw new Error("Console BFF requests require the same origin");
+    }
+    const trace = browserTraceparent(config.url ?? "", config.baseURL);
+    if (trace && config.headers && !config.headers.has("traceparent")) config.headers.set("traceparent", trace);
+
+    // Never manufacture a bearer from browser state. Explicit API/SDK bearer
+    // headers remain supported; the UI-only session marker is never sent.
+    const authorization = String(config.headers.get("Authorization") ?? "");
+    if (authorization.startsWith("Bearer console-session:")) {
+      if (authorization !== `Bearer ${identity.token}`) throw new Error("Console session changed before request");
+      config.headers.delete("Authorization");
+    }
+    const sdkBearer = String(config.headers.get("Authorization") ?? "").startsWith("Bearer ");
+    config.withCredentials = !sdkBearer;
+    if (sdkBearer) {
+      requestAuth.delete(config);
+      // Same-origin XHR always sends ambient cookies. Select Fetch for an
+      // explicit SDK bearer so its credentials:"omit" can prevent mixed auth.
+      if (Array.isArray(config.adapter)) config.adapter = "fetch";
+      config.headers.delete("X-CSRF-Token");
+    } else {
+      requestAuth.set(config, { token: identity.token, authority: sdkAuthorityScope(identity.user), generation: authGeneration });
+    }
+    if (!["get", "head", "options"].includes((config.method ?? "get").toLowerCase()) && identity.isAuthenticated && !sdkBearer) {
+      if (!identity.csrfToken) throw new Error("Console session CSRF bootstrap required");
+      config.headers.set("X-CSRF-Token", identity.csrfToken);
     }
     return config;
   },
-  // Axios ignores a returned rejected Promise in its synchronous-interceptor path.
-  // Throw so failed auth/storage lookup stops before the transport adapter.
   (error) => { throw error; },
   { synchronous: true }
 );

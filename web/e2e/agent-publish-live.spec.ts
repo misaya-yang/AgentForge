@@ -15,13 +15,13 @@ interface LiveEvalDataset {
 
 async function ensureLiveEvalDataset(page: Page): Promise<LiveEvalDataset> {
   return page.evaluate(async (datasetName) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
     const headers = {
-      Authorization: `Bearer ${token}`,
+      "X-CSRF-Token": csrfToken,
       "content-type": "application/json",
     };
     const listResponse = await fetch("/api/v1/eval/datasets?limit=200&offset=0", { headers });
@@ -87,13 +87,13 @@ async function createAndCancelEvaluation(
   datasetId: string,
 ) {
   return page.evaluate(async ({ id, evalDatasetId }) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
     const headers = {
-      Authorization: `Bearer ${token}`,
+      "X-CSRF-Token": csrfToken,
       "content-type": "application/json",
     };
     const draftResponse = await fetch(`/api/v1/agents/${id}/draft`, { headers });
@@ -142,13 +142,13 @@ async function createAndCancelEvaluation(
 
 async function cleanupPriorLiveAgents(page: Page) {
   return page.evaluate(async () => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
     const headers = {
-      Authorization: `Bearer ${token}`,
+      "X-CSRF-Token": csrfToken,
       "content-type": "application/json",
     };
     const response = await fetch("/api/v1/agents?limit=100&search=AS06%20Live", { headers });
@@ -165,7 +165,7 @@ async function cleanupPriorLiveAgents(page: Page) {
       });
       await fetch(`/api/v1/agents/${agent.agent_id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { "X-CSRF-Token": csrfToken },
       });
     }
   });
@@ -173,13 +173,13 @@ async function cleanupPriorLiveAgents(page: Page) {
 
 async function releaseCleanup(page: Page, agentId: string) {
   return page.evaluate(async (id) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) return { archive: 0, remove: 0 };
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
     const headers = {
-      Authorization: `Bearer ${token}`,
+      "X-CSRF-Token": csrfToken,
       "content-type": "application/json",
     };
     const archive = await fetch(`/api/v1/agents/${id}/archive`, {
@@ -189,7 +189,7 @@ async function releaseCleanup(page: Page, agentId: string) {
     });
     const remove = await fetch(`/api/v1/agents/${id}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { "X-CSRF-Token": csrfToken },
     });
     return { archive: archive.status, remove: remove.status };
   }, agentId);
@@ -197,12 +197,12 @@ async function releaseCleanup(page: Page, agentId: string) {
 
 async function releaseSnapshot(page: Page, agentId: string) {
   return page.evaluate(async (id) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
-    const headers = { Authorization: `Bearer ${token}` };
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
+    const headers = { "X-CSRF-Token": csrfToken };
     const [publicationsResponse, eventsResponse, versionsResponse, evaluationsResponse] = await Promise.all([
       fetch(`/api/v1/agents/${id}/publications`, { headers }),
       fetch(`/api/v1/agents/${id}/publish-events`, { headers }),

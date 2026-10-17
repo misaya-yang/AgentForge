@@ -14,6 +14,7 @@ pub fn frame(kind: &str, event: &Value) -> Bytes {
 }
 pub struct Terminal {
     pub frame: Bytes,
+    pub raw_usage: Value,
     pub input: i64,
     pub output: i64,
     pub provider_request_id: Option<String>,
@@ -192,6 +193,7 @@ impl NativeValidator {
             .filter(|v| *v >= 0)
             .ok_or_else(|| AgentError::code(502, "RUNTIME_PROVIDER_USAGE_INVALID"))?;
         self.terminal = Some(Terminal {
+            raw_usage: usage.clone(),
             frame: frame(&kind, &event),
             input,
             output,
@@ -224,6 +226,7 @@ pub struct ChatProjector {
     added: BTreeSet<i64>,
     output: Vec<Value>,
     usage: Option<(i64, i64)>,
+    raw_usage: Option<Value>,
     aliases: BTreeMap<String, (String, String)>,
     allowed: BTreeSet<(Option<String>, String)>,
     argument_bytes: usize,
@@ -252,6 +255,7 @@ impl ChatProjector {
             added: BTreeSet::new(),
             output: Vec::new(),
             usage: None,
+            raw_usage: None,
             aliases,
             allowed,
             argument_bytes: 0,
@@ -461,6 +465,7 @@ impl ChatProjector {
         if let (Some(i), Some(o)) = (input, output) {
             if i >= 0 && o >= 0 {
                 self.usage = Some((i, o));
+                self.raw_usage = Some(usage.clone());
             }
         }
         let mut frames = Vec::new();
@@ -484,6 +489,9 @@ impl ChatProjector {
             }
         }
         Ok(frames)
+    }
+    pub fn raw_usage(&self) -> Value {
+        self.raw_usage.clone().unwrap_or(Value::Null)
     }
     pub fn complete(&mut self) -> Result<(Vec<Bytes>, i64, i64), AgentError> {
         let mut events = self.close_reasoning();
@@ -511,9 +519,41 @@ impl ChatProjector {
         let (input, output) = self
             .usage
             .unwrap_or((self.input, estimate_tokens(&json!(self.text))));
-        let usage = json!({"input_tokens":input,"output_tokens":output,"total_tokens":input+output,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}});
+        let mut usage = self.raw_usage.clone().unwrap_or_else(|| json!({}));
+        usage["input_tokens"] = input.into();
+        usage["output_tokens"] = output.into();
+        usage["total_tokens"] = (input + output).into();
+        if let Some(details) = usage.get("prompt_tokens_details").cloned() {
+            usage["input_tokens_details"] = details;
+        }
+        usage["cache_usage_state"] =
+            if usage["input_tokens_details"].get("cached_tokens").is_some() {
+                "reported"
+            } else {
+                "not_reported"
+            }
+            .into();
         events.push(self.event("response.completed",json!({"response":{"id":self.response,"object":"response","created_at":chrono::Utc::now().timestamp(),"status":"completed","error":null,"incomplete_details":null,"model":self.model,"output":self.output,"usage":usage}})));
         events.push(Bytes::from_static(b"data: [DONE]\n\n"));
         Ok((events, input, output))
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+    #[test]
+    fn chat_cache_details_and_vendor_fields_survive_projection() {
+        let mut p = ChatProjector::new("m", 1, BTreeMap::new(), BTreeSet::new());
+        p.consume(&json!({"choices":[{"delta":{"content":"ok"}}],"usage":{"prompt_tokens":100,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":80,"vendor_field":"kept"},"vendor_usage":7}})).unwrap();
+        let (frames, _, _) = p.complete().unwrap();
+        let completed = frames
+            .iter()
+            .map(|v| String::from_utf8_lossy(v))
+            .find(|v| v.contains("response.completed"))
+            .unwrap();
+        assert!(completed.contains("\"cached_tokens\":80"));
+        assert!(completed.contains("vendor_field"));
+        assert!(completed.contains("vendor_usage"));
     }
 }

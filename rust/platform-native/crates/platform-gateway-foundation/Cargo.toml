@@ -4,17 +4,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
-ai-platform-service-primitives = { path = "../platform-service-primitives" }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
+rustls.workspace = true
 webpki-roots = "1"
 opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
 opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "grpc-tonic", "tls-roots"] }
-ai-platform-auth = { path = "../platform-auth" }
-axum = { version = "0.8", features = ["multipart", "ws"] }
+ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
+axum = { workspace = true, features = ["multipart", "ws"] }
 serde.workspace = true
 serde_json.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest.workspace = true
 tokio.workspace = true
@@ -33,9 +33,9 @@ base64 = "0.22"
 regex = "1"
 jsonwebtoken = "9.3"
 encoding_rs = "0.8"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip.workspace = true
 quick-xml = "0.41"
-scraper = "0.23"
+scraper.workspace = true
 tiktoken-rs = "0.7"
 serde_yaml.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }

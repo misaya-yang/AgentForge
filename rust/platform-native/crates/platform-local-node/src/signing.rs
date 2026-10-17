@@ -138,3 +138,6 @@ mod tests {
         assert!(!verifier.verify("platform-test", payload, "not-a-signature"));
     }
 }
+
+#[path = "device_proof.rs"]
+pub mod device_proof;

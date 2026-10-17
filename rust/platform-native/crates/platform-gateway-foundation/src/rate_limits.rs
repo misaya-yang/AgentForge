@@ -13,7 +13,8 @@
 //! These legacy differences are intentional. Redis Cluster cross-slot support
 //! is not added: the Python keys have no shared hash tag either.
 //!
-//! Quota RPM remains process-local and tenant/user scoped. Persistent token,
+//! Production quota RPM uses bounded shared GCRA and fails closed on backend failure.
+//! The synchronous local RPM API remains for explicit compatibility callers. Persistent token,
 //! cost (ordinary cents), and daily-request counters remain PostgreSQL-owned.
 //! No connection creation, environment reads, HTTP wiring, quota resets,
 //! background cleanup, provider calls, or financial settlement happen here.
@@ -306,6 +307,9 @@ impl GatewayHotPathMetrics {
     }
     pub fn reset(&self) {
         self.redis_round_trips.store(0, Ordering::Relaxed);
+    }
+    pub(crate) fn record_admission_attempt(&self) {
+        self.redis_round_trips.fetch_add(1, Ordering::Relaxed);
     }
     fn record_success(&self) {
         self.redis_round_trips.fetch_add(1, Ordering::Relaxed);
@@ -803,14 +807,19 @@ pub fn scoped_policy_key(scope: &str, target: &str, context: &RateLimitContext) 
     )
 }
 
-/// QuotaService's independent, single-node RPM counter. No Redis key is invented.
+#[path = "rate_limits/quota_rpm.rs"]
+mod quota_rpm;
+
+/// Compatibility local counter; production checks use the shared asynchronous path.
 pub struct QuotaRpmLimiter {
+    shared: Option<ConnectionManager>,
     origin: Instant,
     requests: Mutex<HashMap<(String, String), VecDeque<f64>>>,
 }
 impl Default for QuotaRpmLimiter {
     fn default() -> Self {
         Self {
+            shared: None,
             origin: Instant::now(),
             requests: Mutex::new(HashMap::new()),
         }
@@ -840,6 +849,15 @@ impl QuotaRpmLimiter {
         let Some(limit) = normalize_limit(limit) else {
             return MinuteQuotaCheck::default();
         };
+        // A shared instance must never silently use a process-local fallback
+        // when a compatibility caller forgets to await check_shared.
+        if self.shared.is_some() {
+            return MinuteQuotaCheck {
+                allowed: false,
+                used: limit,
+                retry_after_seconds: 60,
+            };
+        }
         let mut requests = lock(&self.requests);
         let timestamps = requests.entry((tenant.into(), user.into())).or_default();
         while timestamps.front().is_some_and(|score| *score < now - 60.0) {

@@ -89,3 +89,43 @@ referrers, both platform scans and deployment verification are still required.
 No SLSA Build Level 3 claim follows from adding these gates. Full-plan cargo-deny,
 licence/SBOM decisions, pnpm audit/lockfile lint, Scorecard and VEX governance are
 separate unaccepted U-PE-13 work, not implied successes here.
+
+The SDK npm job now uses GitHub OIDC with `id-token: write` and has no publish-token
+fallback. Before an authorized publication, a package maintainer must configure
+npm's trusted publisher for `misaya-yang/AgentForge`, workflow `publish-sdk.yml`,
+and ensure the package repository URL matches that repository. This external
+registry configuration has not been inspected or changed. The local preflight
+rejects npm older than 11.5.1, mismatched repository metadata, wrong workflow or
+non-SDK-tag context; npm verifies the actual trusted-publisher configuration.
+Release Node caches are explicitly disabled using setup-node v6's documented
+`package-manager-cache: false`; Maven release cache is omitted. pnpm installation
+uses an official commit-pinned action and keeps version 12.11.2/frozen installs.
+
+GitHub.com's documented `$/` syntax pins all local action and reusable-workflow
+references to the running workflow commit. It is unsupported by GitHub Enterprise
+Server and by the current official actionlint 1.7.12 release. The repository's
+Rust `platform-tools workflow-lint self-ref` and its tests validate exact syntax,
+target kind, existence and symlink rejection. For local actionlint compatibility only, a temporary copy can translate
+these validated references to `./`; the actual checked-in workflows retain `$/`.
+An actionlint pass on that copy does not establish hosted execution of the new
+syntax. zizmor 1.31.1 scans the original files, including both composite actions.
+
+Official references verified for this migration:
+- https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsuses
+- https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_iduses
+- https://github.com/actions/setup-node/blob/249970729cb0ef3589644e2896645e5dc5ba9c38/action.yml
+- https://github.com/pnpm/action-setup/blob/b906affcce14559ad1aafd4ab0e942779e9f58b1/action.yml
+- https://docs.npmjs.com/trusted-publishers/
+
+The Rust gate can create an external compatibility copy after validating every
+workflow and rejecting symlinks throughout `.github`:
+
+```sh
+platform-tools workflow-lint self-ref --actionlint-copy "$RUNNER_TEMP/workflow-actionlint-copy"
+actionlint "$RUNNER_TEMP/workflow-actionlint-copy/.github/workflows/"*.yml
+```
+
+The output path must be absolute, external to the repository and absent. Existing
+destinations, invalid references and missing targets fail before copying; no
+checked-in file is normalized. The gate's operational implementation and tests
+are Rust; no Python interpreter is required.

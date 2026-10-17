@@ -13,6 +13,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use crate::trace_context::InternalTraceContext;
+use ai_platform_capability_contract::private_transport::{Budget,Edge};
 
 const MAX_RESPONSE_BYTES: usize = 1_048_576;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -54,6 +55,7 @@ pub struct CapabilityWorkerClient {
     trace_context: InternalTraceContext,
     run_id: Option<String>,
     execution_owner: Option<(String, i64)>,
+    transport_budget: Option<Budget>,
 }
 
 impl CapabilityWorkerClient {
@@ -76,8 +78,11 @@ impl CapabilityWorkerClient {
             trace_context: InternalTraceContext::default(),
             run_id: None,
             execution_owner: None,
+            transport_budget: None,
         })
     }
+
+    pub(crate) fn with_transport_budget(mut self,budget:Budget)->Self{self.transport_budget=Some(budget);self}
 
     pub(crate) fn with_execution_owner(mut self, owner: String, fence: i64) -> Self {
         self.execution_owner = Some((owner, fence));
@@ -212,6 +217,13 @@ impl CapabilityWorkerClient {
         body: Option<&T>,
         after_sequence: Option<u64>,
     ) -> Result<R, CapabilityWorkerError> {
+        let mut operation=(method==Method::POST && path=="executions").then(||self.trace_context.telemetry_operation(crate::telemetry::OperationKind::ExecuteTool));
+        let local=crate::http_service::transport_budget::local(REQUEST_TIMEOUT,None).map_err(|_|CapabilityWorkerError::Timeout)?;
+        // Existing receipt/status/event reads use independent route-only time.
+        // They carry unchanged scope/fence and cannot create/renew any execution.
+        let readback=existing_outcome_read(&method,path);
+        let parent=if readback{local}else if let Some(parent)=&self.transport_budget{crate::http_service::transport_budget::intersect(&local,parent).map_err(|_|CapabilityWorkerError::Timeout)?}else{local};
+        let budget=parent.child(Edge::RuntimeWorker.policy(),std::time::Instant::now()).map_err(|_|CapabilityWorkerError::Timeout)?;
         validate_scope(scope)?;
         let mut url = self
             .base_url
@@ -242,19 +254,21 @@ impl CapabilityWorkerClient {
         if let Some(body) = body {
             request = request.json(body);
         }
-        let response = tokio::time::timeout(REQUEST_TIMEOUT, request.send())
-            .await
-            .map_err(|_| CapabilityWorkerError::Timeout)?
-            .map_err(|_| CapabilityWorkerError::Unavailable)?;
-        if !response.status().is_success() {
-            return Err(if response.status() == StatusCode::REQUEST_TIMEOUT {
-                CapabilityWorkerError::Timeout
-            } else {
-                CapabilityWorkerError::Rejected(response.status().as_u16())
-            });
-        }
-        let bytes = bounded_bytes(response).await?;
-        serde_json::from_slice(&bytes).map_err(|_| CapabilityWorkerError::InvalidResponse)
+        let mut wire=vec![];budget.append(&mut wire,crate::http_service::transport_budget::wall_ms(),std::time::Instant::now()).map_err(|_|CapabilityWorkerError::Timeout)?;
+        let(client,request)=request.build_split();let mut request=request.map_err(|_|CapabilityWorkerError::InvalidRequest)?;
+        for(name,value)in wire{request.headers_mut().insert(reqwest::header::HeaderName::from_bytes(name.as_bytes()).map_err(|_|CapabilityWorkerError::InvalidRequest)?,reqwest::header::HeaderValue::from_str(&value).map_err(|_|CapabilityWorkerError::InvalidRequest)?);}
+        // Replacing avoids a duplicate traceparent when the per-call span is active.
+        if let Some(parent)=operation.as_ref().and_then(|o|o.traceparent()){request.headers_mut().insert("traceparent",reqwest::header::HeaderValue::from_str(&parent).map_err(|_|CapabilityWorkerError::InvalidRequest)?);}
+        let timeout=budget.remaining(std::time::Instant::now()).map_err(|_|CapabilityWorkerError::Timeout)?;*request.timeout_mut()=Some(timeout);
+        tokio::time::timeout(timeout,async{
+            let response=client.execute(request).await.map_err(|error|if error.is_timeout(){CapabilityWorkerError::Timeout}else{CapabilityWorkerError::Unavailable})?;
+            if !response.status().is_success(){return Err(if response.status()==StatusCode::REQUEST_TIMEOUT{CapabilityWorkerError::Timeout}else{CapabilityWorkerError::Rejected(response.status().as_u16())})}
+            let bytes=bounded_bytes(response).await?;
+            let result=serde_json::from_slice(&bytes).map_err(|_|CapabilityWorkerError::InvalidResponse);
+            budget.remaining(std::time::Instant::now()).map_err(|_|CapabilityWorkerError::Timeout)?;
+            if result.is_ok(){if let Some(operation)=operation.as_mut(){operation.success();}}
+            result
+        }).await.map_err(|_|CapabilityWorkerError::Timeout)?
     }
 }
 
@@ -263,6 +277,13 @@ struct WorkerHealthResponse {
     status: String,
     core_ready: bool,
     degraded: bool,
+}
+
+fn existing_outcome_read(method:&Method,path:&str)->bool{
+    if *method!=Method::GET{return false}
+    let Some(rest)=path.strip_prefix("executions/")else{return false};
+    let id=rest.strip_suffix("/events").unwrap_or(rest);
+    uuid::Uuid::parse_str(id).is_ok()
 }
 
 fn execution_id_from_path(path: &str) -> Option<&str> {
@@ -424,6 +445,7 @@ mod tests {
         });
 
         let client = Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .build()
             .expect("test client should build");
@@ -462,6 +484,7 @@ mod tests {
         let server = tokio::spawn(async move { axum::serve(listener, app).await });
         let client = CapabilityWorkerClient::new(
             Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .build()
                 .expect("test client should build"),
@@ -474,3 +497,7 @@ mod tests {
         server.abort();
     }
 }
+
+#[cfg(test)]
+#[path="capability_worker_budget_tests.rs"]
+mod budget_tests;

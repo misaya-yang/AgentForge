@@ -88,3 +88,47 @@ hard boundaries.
 Tests are native Cargo targets. Root coordinates their serialized build and
 execution; Linux results do not establish macOS Keychain, Accessibility, screen
 permission or GUI acceptance.
+
+## TLS/control acceptance wiring
+
+Gateway enables the v2 companion channel only when all of these explicit inputs
+are supplied to the native Gateway process:
+
+- `AI_PLATFORM_LOCAL_NODE_CHANNEL_ENABLED=true`
+- `AI_PLATFORM_LOCAL_NODE_PLATFORM_KEY_ID` and private `AI_PLATFORM_LOCAL_NODE_PLATFORM_SIGNING_SEED_B64`
+- absolute `AI_PLATFORM_LOCAL_NODE_TLS_CERT_PATH` and `AI_PLATFORM_LOCAL_NODE_TLS_KEY_PATH`
+- `AI_PLATFORM_LOCAL_NODE_TLS_LISTEN`, e.g. `127.0.0.1:18443` for owned-machine acceptance
+
+Use the corresponding public Ed25519 key in the operator config and a CA whose
+server certificate SAN matches the configured endpoint. Keep the private seed/key
+and credential values outside reports and argv. The companion control path is on
+this TLS listener; owner pairing/grant APIs and the independently authorized
+Worker describe/dispatch/status/cancel routes remain on the normal Gateway
+listener. An HTTPS proxy header never enables the plaintext companion endpoint.
+
+For the primary's serialized verification, run affected Gateway tests filtered by
+`local_node_channel` and `local_node_tls`, followed by native Local Node
+`runner_recovery` and `local_approval_prompt` targets. The TLS unit tests create
+an ephemeral external CA/leaf using the existing `openssl` CLI and exercise real
+TLS handshakes, including hostname refusal and a stalled unauthenticated TCP peer.
+They do not open Keychain, touch the desktop or establish real Gateway/DB acceptance.
+
+The heartbeat assembler now places signed emergency-stop/cancel commands before
+claims, retaining a bounded 100-command / 900 KiB response. Deferred claims remain
+in the server ledger. Pending cancel payloads are stable across repeated polls
+inside a renewal window; fresh command/nonce identities accompany renewed expiry,
+so delivery retries do not conflict with the durable companion replay guard.
+TLS handshakes run concurrently with a fixed 64-socket cap and individual deadlines;
+a single stalled handshake cannot hold the listener for its full timeout.
+
+`local_live_acceptance` remains its documented local-disk/process acceptance with
+explicit test-only signers. Do not relabel its receipt as real TLS/secure-store or
+owner-approved write evidence. Full acceptance still requires the real CLI pair
+and serve journey with Keychain, one-use challenge, owner and local write approval,
+remote cancel, emergency stop, reconnect receipts and readback. Source/unit tests
+alone certify none of those live results.
+
+The additive owner stop/audit API and durable companion ACK extension are
+implemented in [owner emergency stop](../../../../docs/design/local-node-owner-emergency-stop.md).
+Its unnumbered schema proposal requires reviewed authority activation; current
+024 refuses the new owner operation rather than constructing a fake execution.

@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { buildAuthHeaders, loginThroughApi } from "./support/helpers";
+import { buildAuthHeaders, loginThroughConsole } from "./support/helpers";
+
+// API seeding gets an empty jar; the page establishes its own BFF cookie below.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 function sessionButtonName(title: string): RegExp {
   return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s·|$)`);
@@ -38,44 +41,14 @@ async function seedAssistantSession(request: APIRequestContext) {
   return { sessionId, title };
 }
 
-async function installApiSession(page: import("@playwright/test").Page, request: APIRequestContext) {
-  const { token, user } = await loginThroughApi(request);
-  await page.addInitScript(
-    ({ authPayload }) => {
-      localStorage.setItem("agent-gateway-auth", JSON.stringify(authPayload));
-      sessionStorage.removeItem("agent-gateway-auth");
-    },
-    {
-      authPayload: {
-        state: {
-          token,
-          user,
-          isAuthenticated: true,
-          forcePasswordChange: false,
-          rememberMe: true,
-        },
-        version: 0,
-      },
-    }
-  );
-  await page.route(/\/api\/v1\//, async (route) => {
-    const requestUrl = new URL(route.request().url());
-    const response = await request.fetch(`${process.env.E2E_API_URL}${requestUrl.pathname}${requestUrl.search}`, {
-      headers: {
-        ...route.request().headers(),
-        authorization: `Bearer ${token}`,
-      },
-      method: route.request().method(),
-      data: route.request().postDataBuffer(),
-    });
-    await route.fulfill({ response });
-  });
+async function installApiSession(page: import("@playwright/test").Page) {
+  await loginThroughConsole(page);
 }
 
 test("assistant restores seeded history and keeps sidebar toggle functional", async ({ page, request }) => {
   const { title } = await seedAssistantSession(request);
 
-  await installApiSession(page, request);
+  await installApiSession(page);
   await page.goto("/assistant");
   const sessionButton = page.getByRole("button", { name: sessionButtonName(title) });
   if (!(await sessionButton.isVisible())) {
@@ -99,7 +72,7 @@ test("assistant restores seeded history in the mobile history sheet", async ({ p
   await page.setViewportSize({ width: 390, height: 844 });
   const { title } = await seedAssistantSession(request);
 
-  await installApiSession(page, request);
+  await installApiSession(page);
   await page.goto("/assistant");
   await historyToggle(page, "show").click();
   const historySheet = page.getByRole("dialog", { name: /history|历史/i });
@@ -151,7 +124,7 @@ test("assistant outcome history survives reload and reopen without starting a ru
     expect(assistant.ok()).toBeTruthy();
   }
 
-  await installApiSession(page, request);
+  await installApiSession(page);
   let turnStarts = 0;
   page.on("request", (outgoing) => {
     if (outgoing.method() === "POST" && /\/api\/v2\/agent\/threads(?:\/[^/]+\/turns)?$/.test(outgoing.url())) {
@@ -197,7 +170,7 @@ test("assistant session rename, search, and confirmed removal stay consistent", 
   const { sessionId, title } = await seedAssistantSession(request);
   const renamed = `${title}-renamed`;
   const headers = await buildAuthHeaders(request);
-  await installApiSession(page, request);
+  await installApiSession(page);
   let turnStarts = 0;
   page.on("request", (outgoing) => {
     if (outgoing.method() === "POST" && /\/api\/v2\/agent\/threads\/[^/]+\/turns$/.test(outgoing.url())) {
@@ -252,7 +225,7 @@ test("a preadmission failure keeps its retry draft out of a fresh chat", async (
   test.setTimeout(60_000);
   const headers = await buildAuthHeaders(request);
   const prompt = `R1_PREADMISSION_RETRY_${Date.now()}`;
-  await installApiSession(page, request);
+  await installApiSession(page);
   let turnStarts = 0;
   await page.route(/\/api\/v2\/agent\/threads\/[^/]+\/turns$/, async (route) => {
     turnStarts += 1;
@@ -295,7 +268,7 @@ test("an unknown image outcome stays unknown after reload without retrying", asy
   test.setTimeout(60_000);
   const headers = await buildAuthHeaders(request);
   const taskId = "imt_aaaaaaaaaaaaaaaaaaaa";
-  await installApiSession(page, request);
+  await installApiSession(page);
   let imageRequests = 0;
   await page.route(/\/api\/v1\/assistant\/generate-image$/, async (route) => {
     imageRequests += 1;
@@ -344,7 +317,7 @@ test("an unknown image outcome stays unknown after reload without retrying", asy
 test("an image result cannot overwrite a different conversation after navigation", async ({ page, request }) => {
   test.setTimeout(60_000);
   const headers = await buildAuthHeaders(request);
-  await installApiSession(page, request);
+  await installApiSession(page);
   let releaseImage: (() => void) | undefined;
   const imageGate = new Promise<void>((resolve) => { releaseImage = resolve; });
   let imageRequests = 0;
@@ -401,7 +374,7 @@ for (const failure of [
   test(`R1 controlled ${failure.status} retains the selected upload and an actionable draft`, async ({ page, request }, info) => {
     test.setTimeout(55_000);
     const headers = await buildAuthHeaders(request);
-    await installApiSession(page, request);
+    await installApiSession(page);
     let starts = 0, uploads = 0;
     let sessionId: string | undefined;
     page.on("request", r => { if (r.method() === "POST" && r.url().endsWith("/files/upload")) uploads += 1; });

@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-agent-capability-worker
+  labels:
+{{ include "ai-gateway.labels" . | indent 4 }}
+    app.kubernetes.io/component: agent-capability-worker
+spec:
+  replicas: {{ .Values.capabilityWorker.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: agent-capability-worker
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: agent-capability-worker
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: agent-capability-worker
+{{- if .Values.sandbox.enabled }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ .Values.sandbox.nodeName | quote }}
+{{- end }}
+      initContainers:
+      - name: database-authority
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
+        command: ["/bin/sh", "-ec"]
+        args: ["mkdir -p /state/runtime-home; exec /usr/local/bin/database-authority startup-check --principal capability_worker"]
+        resources:
+{{ toYaml .Values.resources.migration | indent 10 }}
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        env:
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN" "key" "CAPABILITY_WORKER_DSN") | indent 8 }}
+        - name: AI_GATEWAY_ROLE_PREFIX
+          value: {{ .Values.databaseRoles.rolePrefix | quote }}
+        volumeMounts:
+        - {name: state, mountPath: /state}
+        - {name: tmp, mountPath: /tmp}
+{{- if .Values.sandbox.enabled }}
+      - name: sandbox-signing-key
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "control") | quote }}
+        command: ["/bin/sh", "-ec", "umask 077; cp /input/signing.seed /output/signing.seed; chmod 400 /output/signing.seed; test $(wc -c < /output/signing.seed) -eq 32"]
+        resources:
+{{ toYaml .Values.resources.migration | indent 10 }}
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        env:
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN" "key" "CAPABILITY_WORKER_DSN") | indent 8 }}
+        volumeMounts:
+        - {name: signing-input, mountPath: /input, readOnly: true}
+        - {name: signing-key, mountPath: /output}
+{{- end }}
+      containers:
+      - name: agent-capability-worker
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "control") | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        resources:
+{{ toYaml (index .Values.resources "control") | indent 10 }}
+        env:
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_HOST" "secret" .Values.credentials.control "key" "POSTGRES_HOST") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PORT" "secret" .Values.credentials.control "key" "POSTGRES_PORT") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_USER" "secret" .Values.credentials.control "key" "POSTGRES_USER") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PASSWORD" "secret" .Values.credentials.control "key" "POSTGRES_PASSWORD") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_DB" "secret" .Values.credentials.control "key" "POSTGRES_DB") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.control "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.control "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
+        - name: AI_PLATFORM_LEASE_TRUST_MODE
+          value: "verify_only"
+        - name: AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE
+          value: "/run/lease/public.json"
+        - name: AI_PLATFORM_CAPABILITY_WORKER_BIND
+          value: "0.0.0.0:8095"
+        - name: AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT
+          value: "/workspace"
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN" "key" "CAPABILITY_WORKER_DSN") | indent 8 }}
+        - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+        - name: AI_PLATFORM_AGENT_RUNTIME_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+        - name: AI_PLATFORM_CAPABILITY_WORKER_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+        - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
+{{- if .Values.sandbox.enabled }}
+        - {name: AI_PLATFORM_SANDBOX_SOCKET, value: /run/agentforge-sandbox/control.sock}
+        - name: AI_PLATFORM_SANDBOX_KEY_ID
+          value: {{ .Values.sandbox.publicKeyId | quote }}
+        - {name: AI_PLATFORM_SANDBOX_SIGNING_KEY_FILE, value: /run/signing/signing.seed}
+{{- end }}
+        ports:
+        - {name: http, containerPort: 8095}
+        readinessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 5
+        livenessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 30
+        volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+        - {name: state, mountPath: /workspace}
+        - {name: lease, mountPath: /run/lease, readOnly: true}
+{{- if .Values.sandbox.enabled }}
+        - {name: socket, mountPath: /run/agentforge-sandbox, readOnly: true}
+        - {name: signing-key, mountPath: /run/signing, readOnly: true}
+{{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 128Mi}
+      - name: config
+        configMap:
+          name: {{ include "ai-gateway.fullname" . }}-config
+      - name: state
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.control.existingClaim | quote }}
+      - name: lease
+        configMap:
+          name: {{ .Values.lease.publicConfigMap | quote }}
+{{- if .Values.sandbox.enabled }}
+      - name: socket
+        persistentVolumeClaim: {claimName: {{ .Values.sandbox.socketClaim | quote }}}
+      - name: signing-input
+        secret:
+          secretName: {{ .Values.sandbox.signingSecret | quote }}
+          defaultMode: 0440
+      - name: signing-key
+        emptyDir: {medium: Memory, sizeLimit: 1Mi}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-agent-capability-worker
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: agent-capability-worker
+  ports:
+  - {name: http, port: 8095, targetPort: http}

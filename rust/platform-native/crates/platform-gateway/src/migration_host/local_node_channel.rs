@@ -1,5 +1,7 @@
 //! Native Local Node companion channel. This feature is opt-in and fails closed
 //! unless the operator supplies its signing/TLS keys and the credential schema.
+#[path = "local_node_request_proof.rs"]
+pub(super) mod request_proof;
 use axum::{
     Json, Router,
     body::to_bytes,
@@ -164,6 +166,8 @@ pub struct PairingRedeemRequest {
     pub proof_algorithm: String,
     pub proof_public_key: String,
     pub device_proof: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_proof_version: Option<u32>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -298,6 +302,19 @@ pub struct HeartbeatResult {
 /// Local Node execution ledger. Implementations must never return plaintext
 /// credentials or accept model-supplied channel/grant selectors.
 pub trait LocalNodeChannelRepository: Send + Sync {
+    fn request_nonce<'a>(
+        &'a self,
+        credential_hash: &'a str,
+        device: &'a str,
+    ) -> ChannelFuture<'a, Value>;
+    fn authorize_request<'a>(
+        &'a self,
+        credential_hash: &'a str,
+        device: &'a str,
+        target: &'a str,
+        body_hash: &'a str,
+        proof: Option<&'a request_proof::RequestProof>,
+    ) -> ChannelFuture<'a, ()>;
     fn schema_ready(&self) -> ChannelFuture<'_, bool>;
     fn pair<'a>(
         &'a self,
@@ -484,6 +501,12 @@ async fn companion_post(
     {
         return error_response(StatusCode::UNSUPPORTED_MEDIA_TYPE, "JSON_REQUIRED");
     }
+    let target = match headers.get("host").and_then(|v| v.to_str().ok()) {
+        Some(host) if !host.contains(['/', '@', '#', '?']) => {
+            format!("https://{host}{}", request.uri())
+        }
+        _ => return error_response(StatusCode::BAD_REQUEST, "HOST_REQUIRED"),
+    };
     let bytes = match to_bytes(request.into_body(), MAX_COMPANION_BODY).await {
         Ok(bytes) => bytes,
         Err(_) => return error_response(StatusCode::PAYLOAD_TOO_LARGE, "BODY_TOO_LARGE"),
@@ -491,6 +514,58 @@ async fn companion_post(
     let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
         return error_response(StatusCode::BAD_REQUEST, "INVALID_JSON");
     };
+    if matches!(
+        value.get("kind").and_then(Value::as_str),
+        Some("heartbeat" | "request_nonce")
+    ) {
+        let Some(token) = device_credential(&headers) else {
+            return error_response(StatusCode::UNAUTHORIZED, "DEVICE_CREDENTIAL_REQUIRED");
+        };
+        let Some(device) = value.get("device_id").and_then(Value::as_str) else {
+            return error_response(StatusCode::BAD_REQUEST, "DEVICE_REQUIRED");
+        };
+        let hash = sha256(token.as_bytes());
+        if value["kind"] == "request_nonce" {
+            if value["protocol_version"] != PROTOCOL_V2
+                || value.as_object().is_none_or(|o| o.len() != 3)
+            {
+                return error_response(StatusCode::BAD_REQUEST, "NONCE_BODY_INVALID");
+            }
+            if !state
+                .rate_limit
+                .allow(format!("nonce:{hash}"), 60, Duration::from_secs(60))
+            {
+                return error_response(StatusCode::TOO_MANY_REQUESTS, "NONCE_RATE_LIMITED");
+            }
+            return match state.repository.request_nonce(&hash, device).await {
+                Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+                Err(_) => error_response(StatusCode::UNAUTHORIZED, "NONCE_REJECTED"),
+            };
+        }
+        let proof = match headers.get("x-local-node-proof") {
+            None => None,
+            Some(header) => {
+                let decoded = header
+                    .to_str()
+                    .ok()
+                    .filter(|s| s.len() <= 16384)
+                    .and_then(|s| URL_SAFE_NO_PAD.decode(s).ok())
+                    .and_then(|v| serde_json::from_slice::<request_proof::RequestProof>(&v).ok());
+                let Some(decoded) = decoded else {
+                    return error_response(StatusCode::UNAUTHORIZED, "REQUEST_PROOF_INVALID");
+                };
+                Some(decoded)
+            }
+        };
+        if state
+            .repository
+            .authorize_request(&hash, device, &target, &sha256(&bytes), proof.as_ref())
+            .await
+            .is_err()
+        {
+            return error_response(StatusCode::UNAUTHORIZED, "REQUEST_PROOF_REJECTED");
+        }
+    }
     match value.get("kind").and_then(Value::as_str) {
         Some("pairing_redeem") => {
             if !state
@@ -613,57 +688,51 @@ async fn exchange_heartbeat(
             ChannelStoreError::Conflict => (StatusCode::CONFLICT, "HEARTBEAT_SEQUENCE_CONFLICT"),
             ChannelStoreError::Rejected => (StatusCode::UNAUTHORIZED, "DEVICE_CREDENTIAL_REJECTED"),
         })?;
-    if result.claims.len() + result.controls.len() > MAX_COMMANDS {
-        return Err((StatusCode::SERVICE_UNAVAILABLE, "COMMAND_BATCH_UNAVAILABLE"));
+    bounded_heartbeat_response(&state.signer, result)
+        .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "COMMAND_BATCH_UNAVAILABLE"))
+}
+
+/// Controls consume the count/byte budget before ordinary work. A full claim
+/// queue must never turn remote cancellation into a 503 or starve an emergency
+/// stop. Omitted claims remain durable in the repository for later polls.
+fn bounded_heartbeat_response(
+    signer: &PlatformSigner,
+    mut result: HeartbeatResult,
+) -> Result<Value, ChannelStoreError> {
+    if result.claims.len() > MAX_COMMANDS || result.controls.len() > MAX_COMMANDS {
+        return Err(ChannelStoreError::Rejected);
     }
-    let accepted_through_sequence = result.accepted_through_sequence;
-    let mut commands = Vec::with_capacity(result.claims.len() + result.controls.len());
-    for claim in result.claims {
-        let command = sign_claim_command(&state.signer, claim).map_err(|_| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "COMMAND_SIGNING_UNAVAILABLE",
-            )
-        })?;
-        commands.push(command);
-        if canonical_json(&json!({
+    let accepted = result.accepted_through_sequence;
+    let mut commands = Vec::with_capacity(MAX_COMMANDS);
+    let response = |commands: &Vec<Value>| {
+        json!({
             "protocol_version":PROTOCOL_V2,
-            "accepted_through_sequence":accepted_through_sequence,
+            "accepted_through_sequence":accepted,
             "commands":commands,
-        }))
-        .len()
-            > MAX_COMPANION_RESPONSE
-        {
-            commands.pop();
-            break;
-        }
-    }
+        })
+    };
+    // Stable ordering retains FIFO among controls of the same class.
+    result
+        .controls
+        .sort_by_key(|control| control.kind != "emergency_stop");
     for control in result.controls {
-        let command = sign_control_command(&state.signer, control).map_err(|_| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "COMMAND_SIGNING_UNAVAILABLE",
-            )
-        })?;
-        commands.push(command);
-        if canonical_json(&json!({
-            "protocol_version":PROTOCOL_V2,
-            "accepted_through_sequence":accepted_through_sequence,
-            "commands":commands,
-        }))
-        .len()
-            > MAX_COMPANION_RESPONSE
-        {
+        commands.push(sign_control_command(signer, control)?);
+        if canonical_json(&response(&commands)).len() > MAX_COMPANION_RESPONSE {
+            // Never silently drop a stop request and proceed with claims.
+            return Err(ChannelStoreError::Rejected);
+        }
+    }
+    for claim in result.claims {
+        if commands.len() == MAX_COMMANDS {
+            break;
+        }
+        commands.push(sign_claim_command(signer, claim)?);
+        if canonical_json(&response(&commands)).len() > MAX_COMPANION_RESPONSE {
             commands.pop();
             break;
         }
     }
-    let response = json!({
-        "protocol_version": PROTOCOL_V2,
-        "accepted_through_sequence": accepted_through_sequence,
-        "commands": commands,
-    });
-    Ok(response)
+    Ok(response(&commands))
 }
 
 async fn worker_describe(
@@ -901,7 +970,17 @@ fn sign_control_command(
     if !["cancel", "emergency_stop"].contains(&command.kind.as_str())
         || !valid_text(&command.command_id, 512)
         || !valid_text(&command.device_id, 255)
+        || !valid_text(&command.nonce, 128)
+        || match command.kind.as_str() {
+            "cancel" => !command
+                .action_id
+                .as_deref()
+                .is_some_and(|id| valid_text(id, 255)),
+            "emergency_stop" => command.action_id.is_some(),
+            _ => true,
+        }
         || !command.issued_at.is_finite()
+        || command.issued_at <= 0.0
         || !command.expires_at.is_finite()
         || command.expires_at <= command.issued_at
         || command.expires_at - command.issued_at > 600.0
@@ -980,7 +1059,8 @@ fn validate_pairing(request: &PairingRedeemRequest) -> Result<(), StatusCode> {
     let bounded = |value: &str, max: usize| {
         !value.is_empty() && value.chars().count() <= max && !value.chars().any(|c| c < ' ')
     };
-    if request.protocol_version != PROTOCOL_V2
+    if request.request_proof_version.is_some_and(|v| v != 1)
+        || request.protocol_version != PROTOCOL_V2
         || request.kind != "pairing_redeem"
         || uuid::Uuid::parse_str(&request.challenge_id).is_err()
         || !bounded(&request.user_code, 64)
@@ -1234,6 +1314,135 @@ mod tests {
         }
     }
 
+    fn batch_signer() -> PlatformSigner {
+        PlatformSigner::from_config(&LocalNodeChannelConfig {
+            platform_key_id: "batch-test-key".into(),
+            platform_signing_seed_b64: URL_SAFE_NO_PAD.encode([7u8; 32]),
+            tls_certificate_path: "unused".into(),
+            tls_private_key_path: "unused".into(),
+            tls_listen_address: "127.0.0.1:8443".parse().unwrap(),
+        })
+        .unwrap()
+    }
+    fn control_fixture(kind: &str, index: usize) -> PendingControl {
+        PendingControl {
+            kind: kind.into(),
+            command_id: format!("control-{index}"),
+            action_id: (kind == "cancel").then(|| format!("action-{index}")),
+            device_id: "device-fixture".into(),
+            issued_at: 1000.0,
+            expires_at: 1120.0,
+            nonce: format!("{index:064x}"),
+        }
+    }
+    fn claim_fixture(index: usize, bytes: usize) -> PendingClaim {
+        let args = json!({"content":"x".repeat(bytes)});
+        PendingClaim {
+            command_id: format!("claim-{index}"),
+            action: json!({"action_id":format!("action-{index}"),"operation":"file.read","resource_refs":[],
+                "arguments_digest":digest_value(&args)}),
+            normalized_arguments: args,
+        }
+    }
+    #[test]
+    fn full_claim_queue_cannot_reject_or_starve_signed_controls() {
+        let signer = batch_signer();
+        let response = bounded_heartbeat_response(
+            &signer,
+            HeartbeatResult {
+                accepted_through_sequence: 42,
+                claims: (0..100).map(|i| claim_fixture(i, 1)).collect(),
+                controls: vec![
+                    control_fixture("cancel", 0),
+                    control_fixture("emergency_stop", 1),
+                ],
+            },
+        )
+        .unwrap();
+        let commands = response["commands"].as_array().unwrap();
+        assert_eq!(commands.len(), 100);
+        assert_eq!(commands[0]["kind"], "emergency_stop");
+        assert_eq!(commands[1]["kind"], "cancel");
+        assert_eq!(response["accepted_through_sequence"], 42);
+        let key = URL_SAFE_NO_PAD.decode(signer.public_key_b64()).unwrap();
+        for command in &commands[..2] {
+            let mut payload = command.clone();
+            let signature = URL_SAFE_NO_PAD
+                .decode(
+                    payload
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("platform_signature")
+                        .unwrap()
+                        .as_str()
+                        .unwrap(),
+                )
+                .unwrap();
+            UnparsedPublicKey::new(&ED25519, &key)
+                .verify(canonical_json(&payload).as_bytes(), &signature)
+                .unwrap();
+        }
+    }
+    #[test]
+    fn large_claims_use_only_remaining_budget_after_stop_commands() {
+        let response = bounded_heartbeat_response(
+            &batch_signer(),
+            HeartbeatResult {
+                accepted_through_sequence: 7,
+                claims: vec![claim_fixture(0, 600 * 1024), claim_fixture(1, 600 * 1024)],
+                controls: vec![control_fixture("cancel", 0)],
+            },
+        )
+        .unwrap();
+        assert_eq!(response["commands"].as_array().unwrap().len(), 2);
+        assert_eq!(response["commands"][0]["kind"], "cancel");
+        assert!(canonical_json(&response).len() <= MAX_COMPANION_RESPONSE);
+        let response = bounded_heartbeat_response(
+            &batch_signer(),
+            HeartbeatResult {
+                accepted_through_sequence: 7,
+                claims: vec![claim_fixture(0, MAX_COMPANION_RESPONSE)],
+                controls: vec![control_fixture("emergency_stop", 1)],
+            },
+        )
+        .unwrap();
+        assert_eq!(response["commands"].as_array().unwrap().len(), 1);
+        assert_eq!(response["commands"][0]["kind"], "emergency_stop");
+    }
+    #[test]
+    fn control_only_full_batch_is_valid_but_invalid_controls_fail_closed() {
+        let result = bounded_heartbeat_response(
+            &batch_signer(),
+            HeartbeatResult {
+                accepted_through_sequence: 0,
+                claims: (0..100).map(|i| claim_fixture(i, 1)).collect(),
+                controls: (0..100).map(|i| control_fixture("cancel", i)).collect(),
+            },
+        )
+        .unwrap();
+        assert_eq!(result["commands"].as_array().unwrap().len(), 100);
+        assert!(
+            result["commands"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|c| c["kind"] == "cancel")
+        );
+        let mut invalid = control_fixture("cancel", 0);
+        invalid.action_id = None;
+        assert!(
+            bounded_heartbeat_response(
+                &batch_signer(),
+                HeartbeatResult {
+                    accepted_through_sequence: 0,
+                    claims: vec![],
+                    controls: vec![invalid],
+                }
+            )
+            .is_err()
+        );
+    }
+
     #[test]
     fn worker_dispatch_requires_hash_of_full_operation_and_arguments() {
         let arguments = json!({
@@ -1333,6 +1542,7 @@ mod tests {
             capability_claims: vec!["file.read".into()],
             permission_snapshot_digest: "a".repeat(64),
             proof_algorithm: "ed25519".into(),
+            request_proof_version: None,
             proof_public_key: URL_SAFE_NO_PAD.encode([1u8; 32]),
             device_proof: URL_SAFE_NO_PAD.encode([2u8; 64]),
         };

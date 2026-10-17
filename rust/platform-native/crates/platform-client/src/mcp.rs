@@ -1,5 +1,8 @@
 //! Explicitly configured MCP transports and namespaced tool management.
 use crate::Error;
+#[path="../../platform-gateway-foundation/src/mcp_http/revision.rs"]
+mod revision;
+pub use revision::Revision;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, process::Stdio, time::Duration};
@@ -40,9 +43,12 @@ pub struct McpClient {
     pub tools: Vec<Tool>,
     transport: Transport,
     next_id: u64,
+    revision:Revision,
 }
 impl McpClient {
-    pub async fn connect(name: String, config: TransportConfig) -> Result<Self, Error> {
+    pub async fn connect(name:String,config:TransportConfig)->Result<Self,Error>{Self::connect_with_revision(name,config,"2025-11-25").await}
+    pub async fn connect_with_revision(name: String, config: TransportConfig,version:&str) -> Result<Self, Error> {
+        let revision=Revision::parse(version).map_err(Error::Contract)?;
         if name.is_empty() || name.contains("__") {
             return Err(Error::Request);
         }
@@ -99,16 +105,20 @@ impl McpClient {
             tools: Vec::new(),
             transport,
             next_id: 0,
+            revision,
         };
+        if revision.modern(){let result=client.request("server/discover",json!({})).await?;revision.validate_discovery(&result).map_err(Error::Contract)?;}else{
         let init=client.request("initialize",json!({"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"clientInfo":{"name":"ai-gateway-sdk","version":"1.0.0"}})).await?;
         if init["protocolVersion"] != "2025-11-25" {
             return Err(Error::Contract("MCP protocol version mismatch"));
         }
         client.notify("notifications/initialized").await?;
+        }
         let listing = client.request("tools/list", json!({})).await?;
         let tools = listing["tools"].as_array().ok_or(Error::Response)?;
         client.tools = tools
             .iter()
+            .filter(|v|!revision.modern()||revision::tool_headers(&v["inputSchema"],&json!({})).is_ok())
             .map(|v| {
                 Ok(Tool {
                     name: v["name"].as_str().ok_or(Error::Response)?.into(),
@@ -120,8 +130,10 @@ impl McpClient {
             .collect::<Result<_, Error>>()?;
         Ok(client)
     }
-    async fn exchange(&mut self, payload: Value, notification: bool) -> Result<Value, Error> {
+    async fn exchange(&mut self, mut payload: Value, notification: bool) -> Result<Value, Error> {
         let expected = payload.get("id").and_then(Value::as_u64);
+        let mut headers=self.revision.decorate(&mut payload).map_err(Error::Contract)?;
+        if self.revision.modern()&&payload["method"]=="tools/call"{let tool=self.tools.iter().find(|t|Some(t.name.as_str())==payload["params"]["name"].as_str()).ok_or(Error::Request)?;headers.extend(revision::tool_headers(&tool.input_schema,&payload["params"]["arguments"]).map_err(Error::Contract)?);}
         match &mut self.transport {
             Transport::Stdio { input, output, .. } => {
                 let mut encoded = serde_json::to_vec(&payload).map_err(|_| Error::Request)?;
@@ -180,22 +192,23 @@ impl McpClient {
                 let mut request = client
                     .post(url.clone())
                     .header("Accept", "application/json, text/event-stream")
-                    .header("MCP-Protocol-Version", "2025-11-25")
+                    .headers(headers)
                     .json(&payload);
                 if let Some(key) = api_key {
                     request = request.bearer_auth(key.as_str())
                 }
-                if let Some(id) = session.as_ref() {
+                if let Some(id) = session.as_ref().filter(|_|!self.revision.modern()) {
                     request = request.header("Mcp-Session-Id", id)
                 }
                 let mut response = request.send().await.map_err(|_| Error::Transport)?;
-                if !response.status().is_success() {
+                if !response.status().is_success()&&!(self.revision.modern()&&response.status().as_u16()==400) {
                     return Err(Error::Status(response.status().as_u16()));
                 }
+                self.revision.check_session(response.headers()).map_err(Error::Contract)?;
                 if let Some(id) = response
                     .headers()
                     .get("Mcp-Session-Id")
-                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.to_str().ok()).filter(|_|!self.revision.modern())
                 {
                     if id.len() > 512 {
                         return Err(Error::Response);
@@ -252,11 +265,12 @@ impl McpClient {
             .await?;
         if value["jsonrpc"] != "2.0"
             || value["id"].as_u64() != Some(id)
-            || value.get("error").is_some()
         {
             return Err(Error::Response);
         }
-        value.get("result").cloned().ok_or(Error::Response)
+        if let Some(code)=revision::classify_error(&value){return Err(Error::Contract(code))}
+        if value.get("error").is_some(){return Err(Error::Response)}
+        let result=value.get("result").cloned().ok_or(Error::Response)?;self.revision.validate_result(&result).map_err(Error::Contract)?;Ok(result)
     }
     async fn notify(&mut self, method: &str) -> Result<(), Error> {
         self.exchange(json!({"jsonrpc":"2.0","method":method,"params":{}}), true)
@@ -326,3 +340,7 @@ impl McpManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path="mcp_revision_tests.rs"]
+mod revision_transport_tests;

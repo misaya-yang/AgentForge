@@ -89,6 +89,8 @@ struct Session {
     endpoint: reqwest::Url,
     credential: Option<String>,
     session: Mutex<Option<String>>,
+    revision:crate::mcp_http::revision::Revision,
+    oauth_resource:Option<String>,
     limit: usize,
     timeout: Duration,
     semaphore: Semaphore,
@@ -116,6 +118,7 @@ impl Session {
         {
             return Err(error("MCP_OAUTH_AUDIENCE_MISMATCH"));
         }
+        if config.revision.modern()&&config.auth_method=="oauth"&&config.oauth_resource!=config.oauth_audience{return Err(error("MCP_OAUTH_RESOURCE_MISMATCH"))}
         if !matches!(
             config.auth_method.as_str(),
             "none" | "bearer" | "oauth" | "api_key"
@@ -160,16 +163,20 @@ impl Session {
             .read_timeout(config.timeout)
             .build()
             .map_err(|_| error("MCP_UPSTREAM_UNAVAILABLE"))?;
+        if config.auth_method=="oauth"&&(config.revision.modern()||config.oauth_metadata_url.is_some()){crate::mcp_http::oauth::fetch(&client,&endpoint,config.oauth_metadata_url.as_deref(),config.oauth_resource.as_deref().ok_or_else(||error("MCP_OAUTH_RESOURCE_MISMATCH"))?,config.timeout).await.map_err(error)?;}
         let session = Self {
             client,
             endpoint,
             credential,
             session: Mutex::new(None),
+            revision:config.revision,
+            oauth_resource:if config.auth_method=="oauth"{config.oauth_resource.clone()}else{None},
             limit: config.response_limit_bytes,
             timeout: config.timeout,
             semaphore: Semaphore::new(config.max_concurrency),
             circuit: super::mcp_circuit::McpCircuit::new(),
         };
+        if session.revision.modern(){let result=session.rpc("server/discover",json!({})).await?;session.revision.validate_discovery(&result).map_err(error)?;}else{
         let initialized=session.rpc("initialize",json!({"protocolVersion":MCP_PROTOCOL_VERSION,"capabilities":{"tools":{"listChanged":true}},"clientInfo":{"name":"ai-gateway","version":"1.0.0"}})).await?;
         if text(&initialized, "protocolVersion") != MCP_PROTOCOL_VERSION {
             return Err(error("MCP_PROTOCOL_VERSION_MISMATCH"));
@@ -177,21 +184,24 @@ impl Session {
         session
             .send(
                 json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
-                true,
+                true, Default::default(),
             )
             .await?;
+        }
         Ok(session)
     }
     async fn send(
         &self,
-        payload: Value,
+        mut payload: Value,
         notification: bool,
+        extra:reqwest::header::HeaderMap,
     ) -> Result<(String, Vec<u8>), CompatError> {
+        let headers=self.revision.decorate(&mut payload).map_err(error)?;
         let mut request = self
             .client
             .post(self.endpoint.clone())
             .header("accept", "application/json, text/event-stream")
-            .header("mcp-protocol-version", MCP_PROTOCOL_VERSION)
+.headers(headers).headers(extra)
             .json(&payload);
         if let Some(credential) = &self.credential {
             request = request.bearer_auth(credential);
@@ -200,7 +210,7 @@ impl Session {
             .session
             .lock()
             .unwrap_or_else(|p| p.into_inner())
-            .clone()
+            .clone().filter(|_|!self.revision.modern())
         {
             request = request.header("mcp-session-id", session);
         }
@@ -212,6 +222,7 @@ impl Session {
             })
         })?;
         let status = response.status().as_u16();
+        if status==401{if let Some(resource)=&self.oauth_resource{let challenge=response.headers().get("www-authenticate").and_then(|h|h.to_str().ok()).map(crate::mcp_http::oauth::challenge_url).transpose().map_err(error)?.flatten();crate::mcp_http::oauth::fetch(&self.client,&self.endpoint,challenge.as_deref(),resource,self.timeout).await.map_err(error)?;return Err(error("MCP_OAUTH_REAUTHORIZATION_REQUIRED"));}}
         if (300..400).contains(&status) {
             return Err(error("MCP_REDIRECT_BLOCKED"));
         }
@@ -219,10 +230,12 @@ impl Session {
             return Err(error("MCP_UPSTREAM_UNAVAILABLE"));
         }
         if (notification && !matches!(status, 200 | 202 | 204))
-            || (!notification && !(200..300).contains(&status))
+            || (!notification && !(200..300).contains(&status)&&!(self.revision.modern()&&status==400))
         {
             return Err(error("MCP_UPSTREAM_REJECTED"));
         }
+        self.revision.check_session(response.headers()).map_err(error)?;
+        if !self.revision.modern(){
         if response.headers().get_all("mcp-session-id").iter().count() > 1 {
             return Err(error("MCP_SESSION_INVALID"));
         }
@@ -241,6 +254,7 @@ impl Session {
                 return Err(error("MCP_SESSION_CONFUSION_BLOCKED"));
             }
             *session = Some(received.into());
+        }
         }
         if response
             .content_length()
@@ -268,20 +282,21 @@ impl Session {
         }
         Ok((content_type, bytes))
     }
-    async fn rpc(&self, method: &str, params: Value) -> Result<Value, CompatError> {
+    async fn rpc(&self,method:&str,params:Value)->Result<Value,CompatError>{self.rpc_headers(method,params,Default::default()).await}
+    async fn rpc_headers(&self, method: &str, params: Value,extra:reqwest::header::HeaderMap) -> Result<Value, CompatError> {
         let id = uuid::Uuid::new_v4().to_string();
         let (content_type, bytes) = self
             .send(
                 json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}),
-                false,
+                false,extra,
             )
             .await?;
-        decode_jsonrpc_response(&content_type, &bytes, &id).map_err(|e| match e {
-            crate::mcp_registry_store::McpError::Broker(code) => error(&code),
-            _ => error("MCP_RESPONSE_INVALID"),
-        })
+        if self.revision.modern(){let parsed=crate::mcp_http::decode_response_payload(&content_type,&bytes).map_err(|_|error("MCP_RESPONSE_INVALID"))?;if parsed["jsonrpc"]!="2.0"||parsed["id"].as_str()!=Some(id.as_str()){return Err(error("MCP_RESPONSE_INVALID"))}if let Some(code)=crate::mcp_http::revision::classify_error(&parsed){return Err(error(code))}}
+        let result=decode_jsonrpc_response(&content_type,&bytes,&id).map_err(|e|match e{crate::mcp_registry_store::McpError::Broker(code)=>error(&code),_=>error("MCP_RESPONSE_INVALID")})?;
+        self.revision.validate_result(&result).map_err(error)?;Ok(result)
     }
-    async fn call_tool(&self, name: &str, arguments: &Value) -> Result<Value, CompatError> {
+
+    async fn call_tool(&self, name: &str, arguments: &Value,schema:&Value) -> Result<Value, CompatError> {
         let mut circuit = None;
         let result = tokio::time::timeout(self.timeout, async {
             let _permit = self
@@ -290,8 +305,9 @@ impl Session {
                 .await
                 .map_err(|_| error("MCP_NOT_CONNECTED"))?;
             circuit = Some(self.circuit.acquire()?);
+            let headers=if self.revision.modern(){crate::mcp_http::revision::tool_headers(schema,arguments).map_err(error)?}else{Default::default()};
             let mut result = self
-                .rpc("tools/call", json!({"name":name,"arguments":arguments}))
+                .rpc_headers("tools/call", json!({"name":name,"arguments":arguments}),headers)
                 .await?;
             let content = result
                 .get("content")
@@ -470,7 +486,7 @@ impl McpInvocationBroker {
         if uuid::Uuid::parse_str(&payload.connection_id).is_err() {
             return Err(deny("MCP_CAPABILITY_UNAVAILABLE"));
         }
-        let item=sqlx::query_scalar::<_,Value>(r#"SELECT to_jsonb(bound) FROM (SELECT t.tool_id,t.server_id,t.upstream_name,t.runtime_name,s.schema_version,s.schema_hash,s.description,s.input_schema,s.risk_level,s.read_only,srv.base_url,srv.auth_method,srv.oauth_resource,srv.oauth_audience,srv.allowed_origins,srv.timeout_ms,srv.max_concurrency,srv.response_limit_bytes,srv.health_status,srv.circuit_state,srv.circuit_open_until,srv.updated_at AS server_updated_at,c.connection_id,c.principal_type,c.owner_user_id,c.secret_ref,c.scopes,c.audience,c.expires_at,c.updated_at AS credential_updated_at,(srv.circuit_state='open' AND (srv.circuit_open_until IS NULL OR srv.circuit_open_until>NOW())) AS circuit_blocked FROM mcp_tools t JOIN mcp_tool_snapshots s ON s.tenant_id=t.tenant_id AND s.snapshot_id=t.current_snapshot_id JOIN mcp_servers srv ON srv.tenant_id=t.tenant_id AND srv.server_id=t.server_id JOIN mcp_connections c ON c.tenant_id=t.tenant_id AND c.server_id=t.server_id WHERE t.tenant_id=$1 AND t.runtime_name=$2 AND s.schema_hash=$3 AND c.connection_id=$4::uuid AND c.principal_type=$5 AND t.enabled=TRUE AND srv.enabled=TRUE AND srv.deleted_at IS NULL AND c.enabled=TRUE AND c.revoked_at IS NULL AND (c.expires_at IS NULL OR c.expires_at>NOW())) bound"#).bind(tenant).bind(&payload.runtime_name).bind(payload.schema_hash.trim_start_matches("sha256:")).bind(&payload.connection_id).bind(&payload.principal_type).fetch_optional(&self.pool).await?.ok_or_else(||deny("MCP_CAPABILITY_UNAVAILABLE"))?;
+        let item=sqlx::query_scalar::<_,Value>(r#"SELECT to_jsonb(bound) FROM (SELECT t.tool_id,t.server_id,t.upstream_name,t.runtime_name,s.schema_version,s.schema_hash,s.description,s.input_schema,s.risk_level,s.read_only,srv.base_url,srv.transport,srv.auth_method,srv.oauth_metadata_url,srv.oauth_resource,srv.oauth_audience,srv.allowed_origins,srv.timeout_ms,srv.max_concurrency,srv.response_limit_bytes,srv.health_status,srv.circuit_state,srv.circuit_open_until,srv.updated_at AS server_updated_at,c.connection_id,c.principal_type,c.owner_user_id,c.secret_ref,c.scopes,c.audience,c.expires_at,c.updated_at AS credential_updated_at,(srv.circuit_state='open' AND (srv.circuit_open_until IS NULL OR srv.circuit_open_until>NOW())) AS circuit_blocked FROM mcp_tools t JOIN mcp_tool_snapshots s ON s.tenant_id=t.tenant_id AND s.snapshot_id=t.current_snapshot_id JOIN mcp_servers srv ON srv.tenant_id=t.tenant_id AND srv.server_id=t.server_id JOIN mcp_connections c ON c.tenant_id=t.tenant_id AND c.server_id=t.server_id WHERE t.tenant_id=$1 AND t.runtime_name=$2 AND s.schema_hash=$3 AND c.connection_id=$4::uuid AND c.principal_type=$5 AND t.enabled=TRUE AND srv.enabled=TRUE AND srv.deleted_at IS NULL AND c.enabled=TRUE AND c.revoked_at IS NULL AND (c.expires_at IS NULL OR c.expires_at>NOW())) bound"#).bind(tenant).bind(&payload.runtime_name).bind(payload.schema_hash.trim_start_matches("sha256:")).bind(&payload.connection_id).bind(&payload.principal_type).fetch_optional(&self.pool).await?.ok_or_else(||deny("MCP_CAPABILITY_UNAVAILABLE"))?;
         if text(&item, "risk_level") != payload.risk_level {
             return Err(deny("MCP_RISK_CHANGED"));
         }
@@ -521,7 +537,7 @@ impl McpInvocationBroker {
                 } else {
                     upstream
                 },
-                &payload.arguments,
+                &payload.arguments,&item["input_schema"],
             )
             .await?;
         Ok(

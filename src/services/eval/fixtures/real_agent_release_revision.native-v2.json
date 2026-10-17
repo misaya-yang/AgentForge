@@ -6,13 +6,13 @@
   "reason": "Explicit implementation-language migration: Rust coding fixture, host validator and receipt verifier with new source identities; historical Python-v1 receipts are not reusable.",
   "manifest": {
     "path": "src/services/eval/fixtures/real_agent_release_manifest.native-v2.json",
-    "file_sha256": "d3706f1ada016612972d2e04ebe62ca7733a2018744babbe9b6cc684033e2d93",
-    "canonical_sha256": "52341a05477c37ffe93fa4a77f2343cbd4691745bd7b14a5bde642005c0d6f16"
+    "file_sha256": "7cc608ec43470174e54c4112936ff8764775276a1bb9af77e91f3b7c4f6f77c7",
+    "canonical_sha256": "29b359ff5940604b71cdb98e2a37cdbda3bb57bb3075ac00bce05ded246db82e"
   },
   "coding_host_test_policy": {
     "path": "src/services/eval/fixtures/coding_host_test_policy.native-v2.json",
-    "file_sha256": "5c39c8f771fcf16111863f1280236afdabef39b5e2bf36c39218d98306104d84",
-    "canonical_sha256": "0df1548680eb2de61efb7e8e5f12e51b4d38c8081358e861eb0ae49e45093ee4"
+    "file_sha256": "f9fb5fb141ca59b7ce6fa4eec10a3437d98db7bc87e9c7e1dd8d55f57eb812d5",
+    "canonical_sha256": "3084cccb5ddb5903db6960fd4a3d7007f15816b4d2cf169c6f8e085165ac5cc0"
   },
   "coding_scenario_contract_sha256": "ed3e58cef6dd97848d62e46cb2c97ebfe6d3e4c36f53b3595384f6c8bc9c078d",
   "source_artifacts": [
@@ -38,7 +38,7 @@
     },
     {
       "path": "rust/platform-native/crates/platform-eval/src/coding_sandbox.rs",
-      "file_sha256": "91056b82aef757938fb67751db33ed12e722c0b410716366f29908bd5323104a"
+      "file_sha256": "9c5f0e633bdc8b238df7e9c82b9e03cf985c0b9b36b5bbc4d874c5bdeabe91b4"
     },
     {
       "path": "rust/platform-native/crates/platform-eval/src/coding_receipt.rs",
@@ -89,5 +89,21 @@
     "noncoding_contracts_unchanged": true,
     "judge_thresholds_changed": false
   },
-  "validation_status": "metadata-bound; native integrity tests pending; no candidate sandbox execution or live release acceptance claimed"
+  "validation_status": "metadata-bound; native integrity tests pending; no candidate sandbox execution or live release acceptance claimed",
+  "source_policy_refresh": {
+    "reason": "coding_sandbox.rs now uses the CPython-compatible scorer; regenerate source policy bindings from coding_receipt::validator_policy. No measured trial, scorer semantics, validator contract, acceptance threshold or historical receipt changed.",
+    "previous_manifest_canonical_sha256": "52341a05477c37ffe93fa4a77f2343cbd4691745bd7b14a5bde642005c0d6f16",
+    "source_changes": {
+      "verifier_executable_sha256": {
+        "previous": "91056b82aef757938fb67751db33ed12e722c0b410716366f29908bd5323104a",
+        "current": "9c5f0e633bdc8b238df7e9c82b9e03cf985c0b9b36b5bbc4d874c5bdeabe91b4"
+      }
+    },
+    "historical_receipts_reusable": false,
+    "verification": "source hashes and canonical manifest provenance checked locally; native strict release test awaits primary rerun",
+    "numeric_encoding_repair": {
+      "reason": "Restore original JSON float25.0 from finite() policy; hand-constructed integer25 was not equal to generated typed policy. Numeric threshold unchanged.",
+      "previous_manifest_canonical_sha256": "489b2e29ee85c1d1f6e875e40a1ed01559fd5d4bc273a3e10391253a4e992d32"
+    }
+  }
 }

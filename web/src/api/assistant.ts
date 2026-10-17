@@ -1,3 +1,4 @@
+import type { SSEConnectionState } from "@/lib/sse";
 import type { SdkApprovalBinding } from "@/features/chat/stream/sdkApprovalBinding";
 /**
  * Assistant API client.
@@ -615,10 +616,11 @@ export async function getConfig(options?: { signal?: AbortSignal }): Promise<Ass
  */
 export async function* chatStream(
   request: ChatRequest,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: { onConnectionState?: (state: SSEConnectionState) => void } = {},
 ): AsyncGenerator<StreamEvent, void, void> {
   const { streamAgentRuntimeV2 } = await import("@/api/agentThreads");
-  yield* streamAgentRuntimeV2(request, signal);
+  yield* streamAgentRuntimeV2(request, signal, options);
 }
 
 /**

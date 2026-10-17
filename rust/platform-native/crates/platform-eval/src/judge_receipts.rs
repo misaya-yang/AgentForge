@@ -22,7 +22,7 @@ pub const REPORT_SCHEMA: &str = "real-agent-release-judge-report/v1";
 pub const JUDGE_SCHEMA: &str = "real-agent-deepseek-judge/v1";
 pub const PROMPT_VERSION: &str = "real-agent-release-judge-prompt/v1";
 pub const MANIFEST_DIGEST: &str =
-    "52341a05477c37ffe93fa4a77f2343cbd4691745bd7b14a5bde642005c0d6f16";
+    "29b359ff5940604b71cdb98e2a37cdbda3bb57bb3075ac00bce05ded246db82e";
 pub const DIMENSIONS: [(&str, i64, i64); 6] = [
     ("task_outcome", 35, 90),
     ("delegation_quality", 20, 90),

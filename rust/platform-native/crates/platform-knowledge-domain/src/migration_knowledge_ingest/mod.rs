@@ -27,6 +27,7 @@ pub mod legacy_images;
 pub mod metadata;
 pub mod ocr;
 pub mod parser;
+pub mod parsing_v2;
 pub mod pdf_splitter;
 pub mod progress;
 pub mod publication;
@@ -43,6 +44,8 @@ pub mod summary;
 pub mod version_reads;
 pub mod versions;
 pub mod vision;
+pub mod vector_jobs;
+mod model_plane_worker;
 pub mod vlm;
 pub mod worker;
 

@@ -1,0 +1,26 @@
+# PUBLIC TEMPLATE ONLY. Install an operator-populated 0600 external file.
+# This is a whole-cluster physical backup, including the authority ledger/roles.
+[global]
+repo1-type=s3
+repo1-path=/pgbackrest
+repo1-s3-endpoint=127.0.0.1
+repo1-storage-port=19000
+repo1-storage-verify-tls=y
+repo1-storage-ca-file=/etc/agentforge-recovery/storage-ca.pem
+repo1-s3-uri-style=path
+repo1-s3-bucket=agentforge-backup
+repo1-s3-region=us-east-1
+repo1-s3-key=REPLACE_FROM_EXTERNAL_SECRET
+repo1-s3-key-secret=REPLACE_FROM_EXTERNAL_SECRET
+repo1-cipher-type=aes-256-cbc
+repo1-cipher-pass=REPLACE_WITH_AT_LEAST_32_RANDOM_SECRET_CHARACTERS
+repo1-retention-full=2
+archive-async=n
+process-max=1
+compress-type=gz
+log-level-file=off
+
+[agentforge]
+pg1-path=/var/lib/postgresql/data
+pg1-port=5432
+pg1-user=postgres

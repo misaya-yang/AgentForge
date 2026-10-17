@@ -4,11 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
-ai-platform-service-primitives = { path = "../platform-service-primitives" }
-axum = { version = "0.8", features = ["multipart"] }
+ai-platform-capability-contract = { version = "0.0.0", path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract" }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
+axum = { workspace = true, features = ["multipart"] }
 serde.workspace = true
 serde_json.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest.workspace = true
 tokio.workspace = true
@@ -25,9 +26,9 @@ libc = "0.2"
 unicode-normalization = "0.1"
 
 encoding_rs = "0.8"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip.workspace = true
 quick-xml = "0.41"
-scraper = "0.23"
+scraper.workspace = true
 tiktoken-rs = "0.7"
 sha1 = "0.10"
 md-5 = "0.10"

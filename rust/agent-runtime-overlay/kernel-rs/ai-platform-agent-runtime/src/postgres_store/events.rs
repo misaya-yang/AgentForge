@@ -442,6 +442,7 @@ impl PostgresThreadStore {
         .fetch_one(&mut **transaction)
         .await
         .map_err(store_error)?;
+        Self::notify_v1_event_in_transaction(transaction, scope.root_thread_id, sequence).await?;
         Ok(SequencedAssistantTurnEventV1 { sequence, event: event.clone() })
     }
 

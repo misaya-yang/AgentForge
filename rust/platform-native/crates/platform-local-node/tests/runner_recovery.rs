@@ -416,6 +416,9 @@ fn signed_emergency_stop() -> Value {
 }
 
 async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) {
+    let emergency = control_command["command_id"]
+        .as_str()
+        .is_some_and(|id| id.starts_with("emergency."));
     let temp = TempDir::new();
     let started = Arc::new(tokio::sync::Notify::new());
     let (stop_sender, stop_receiver) = tokio::sync::watch::channel(false);
@@ -474,8 +477,21 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
     assert!(!state.side_effect.load(Ordering::SeqCst));
     let outbox = Outbox::open(&temp.0.join("outbox.sqlite")).unwrap();
     let receipts = outbox.pending(10).unwrap();
-    assert_eq!(receipts.len(), 1);
-    assert_eq!(receipts[0].status.as_deref(), Some("cancelled"));
+    let terminals: Vec<_> = receipts
+        .iter()
+        .filter(|r| r.status.as_deref() == Some("cancelled"))
+        .collect();
+    assert_eq!(terminals.len(), 1);
+    let acknowledgments: Vec<_> = receipts
+        .iter()
+        .filter(|r| r.event_type == "control.acknowledged")
+        .collect();
+    assert_eq!(acknowledgments.len(), usize::from(emergency));
+    assert_eq!(receipts.len(), 1 + usize::from(emergency));
+    if emergency {
+        assert!(acknowledgments[0].action_id.is_none());
+        assert!(acknowledgments[0].result.is_none());
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -486,4 +502,129 @@ async fn run_forever_polls_remote_cancel_while_fifo_dispatch_is_waiting_and_join
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn run_forever_polls_emergency_stop_while_fifo_dispatch_is_waiting_and_joins_it() {
     assert_runner_control_cancels_pending_dispatch(signed_emergency_stop()).await;
+}
+
+#[derive(Default)]
+struct IdleEmergency(AtomicUsize);
+impl RemoteControl for IdleEmergency {
+    fn cancel(&self, _: &str) -> ai_platform_local_node::Result<Outcome> {
+        unreachable!()
+    }
+    fn emergency_stop(&self) -> ai_platform_local_node::Result<Vec<(String, Outcome)>> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Ok(vec![])
+    }
+    fn is_cancelled(&self, _: &str) -> bool {
+        true
+    }
+    fn completion_override(&self, _: &str) -> ai_platform_local_node::Result<Option<Outcome>> {
+        Ok(None)
+    }
+    fn finish_action(&self, _: &str) {}
+}
+struct IdleDispatcher(Arc<IdleEmergency>);
+impl Dispatcher for IdleDispatcher {
+    fn dispatch(&mut self, _: &Action, _: &Value) -> ai_platform_local_node::Result<Outcome> {
+        panic!("stop must not dispatch an action")
+    }
+}
+impl ControlledDispatcher for IdleDispatcher {
+    fn connect(&mut self) -> ai_platform_local_node::Result<()> {
+        Ok(())
+    }
+    fn cancel(&mut self, _: &str) -> ai_platform_local_node::Result<Outcome> {
+        unreachable!()
+    }
+    fn emergency_stop(&mut self) -> ai_platform_local_node::Result<Vec<String>> {
+        Ok(vec![])
+    }
+    fn disconnect(&mut self) -> ai_platform_local_node::Result<Vec<String>> {
+        Ok(vec![])
+    }
+    fn remote_control(&self) -> Arc<dyn RemoteControl> {
+        self.0.clone()
+    }
+}
+#[test]
+fn idle_emergency_ack_is_durable_idempotent_and_repairs_reserved_before_stop_crash() {
+    let temp = TempDir::new();
+    let (mut replay, mut outbox) = opened_state(&temp);
+    let remote = Arc::new(IdleEmergency::default());
+    let mut dispatcher = IdleDispatcher(remote.clone());
+    let mut command = signed_emergency_stop();
+    command["command_id"] = json!(format!(
+        "emergency.{}.{}",
+        uuid::Uuid::new_v4(),
+        "a".repeat(64)
+    ));
+    command
+        .as_object_mut()
+        .unwrap()
+        .remove("platform_signature");
+    let signature = sign(ai_platform_local_node::canonical(&command).as_bytes());
+    command["platform_signature"] = json!(signature);
+    let mut payload = command.clone();
+    payload
+        .as_object_mut()
+        .unwrap()
+        .remove("platform_signature");
+    replay
+        .reserve(
+            command["command_id"].as_str().unwrap(),
+            command["nonce"].as_str().unwrap(),
+            &ai_platform_local_node::sha256(ai_platform_local_node::canonical(&payload).as_bytes()),
+        )
+        .unwrap();
+    for _ in 0..2 {
+        assert!(
+            ai_platform_local_node::runner::control(
+                "device-fixture",
+                command.clone(),
+                &Trusted,
+                &mut replay,
+                &mut outbox,
+                &mut dispatcher
+            )
+            .unwrap()
+        );
+    }
+    assert_eq!(remote.0.load(Ordering::SeqCst), 2);
+    let receipts = outbox.pending(10).unwrap();
+    assert_eq!(receipts.len(), 1);
+    assert_eq!(receipts[0].event_type, "control.acknowledged");
+    assert!(
+        receipts[0].action_id.is_none()
+            && receipts[0].status.is_none()
+            && receipts[0].result.is_none()
+    );
+    drop(outbox);
+    assert_eq!(
+        Outbox::open(&temp.0.join("outbox.sqlite"))
+            .unwrap()
+            .pending(10)
+            .unwrap()
+            .len(),
+        1
+    );
+    let mut changed = command.clone();
+    changed["nonce"] = json!("changed");
+    changed
+        .as_object_mut()
+        .unwrap()
+        .remove("platform_signature");
+    let changed_signature = sign(ai_platform_local_node::canonical(&changed).as_bytes());
+    changed["platform_signature"] = json!(changed_signature);
+    let mut outbox = Outbox::open(&temp.0.join("outbox.sqlite")).unwrap();
+    assert!(
+        ai_platform_local_node::runner::control(
+            "device-fixture",
+            changed,
+            &Trusted,
+            &mut replay,
+            &mut outbox,
+            &mut dispatcher
+        )
+        .is_err()
+    );
+    assert_eq!(remote.0.load(Ordering::SeqCst), 2);
 }

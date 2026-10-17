@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
 import axios, { AxiosError, AxiosHeaders, type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
+import { createTelemetryClient } from "../observability/telemetryCore.ts";
 import { sdkAuthorityScope } from "./sdkAuthorityScope.ts";
 
 // Real production Axios interceptors and adapter dispatch; synthetic transport
@@ -14,7 +15,7 @@ function deferred<T>() {
   const promise = new Promise<T>(done => { resolve = done; });
   return { promise, resolve };
 }
-function host(token: string | null = "synthetic-token-A", userId: string | undefined = "user-A") {
+function host(token: string | null = "synthetic-token-A", userId: string | undefined = "user-A", trace: (url: string, base?: string) => string | undefined = () => undefined) {
   const storage = () => {
     const values = new Map<string, string>();
     return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
@@ -27,15 +28,17 @@ function host(token: string | null = "synthetic-token-A", userId: string | undef
     user: { user_id: string; roles: string[]; permissions: string[]; tier: string; display_name?: string } | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    csrfToken: string | null;
     clearAuth: () => void;
   }>()(set => ({
     token, user: userId ? { user_id: userId, roles: ["admin"], permissions: [], tier: "normal" } : null,
-    isAuthenticated: Boolean(token && userId), isLoading: false,
+    isAuthenticated: Boolean(token && userId), isLoading: false, csrfToken: "synthetic-csrf",
     clearAuth() { clears++; set({ token: null, user: null, isAuthenticated: false }); },
   }));
   let dispose: (() => void) | undefined;
   const modules: Record<string, unknown> = {
     axios: { ...axios, default: axios, AxiosError },
+    "@/observability/browserTelemetry": { browserTraceparent: trace },
     "@/config/runtime": { getApiBaseUrlConfig: () => "" },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
     "@/hooks/use-toast": { toast: { warning: () => {} } }, "@/i18n": { default: { t: (key: string) => key } },
@@ -71,7 +74,9 @@ function host(token: string | null = "synthetic-token-A", userId: string | undef
 for (const mode of ["different-user", "refreshed-token", "same-token-different-user"] as const) {
   test(`old PUT 401 cannot clear a ${mode} authentication scope`, async () => {
     const h = host(); const request = h.pending401(); const config = await request.entered;
-    assert.equal(config.headers.Authorization, "Bearer synthetic-token-A");
+    assert.equal(config.headers.Authorization, undefined);
+    assert.equal(config.headers["X-CSRF-Token"], "synthetic-csrf");
+    assert.equal(config.withCredentials, true);
     if (mode !== "same-token-different-user") h.setState({ token: "synthetic-token-B" });
     if (mode !== "refreshed-token") h.setState({ user: { user_id: "user-B", roles: ["admin"], permissions: [], tier: "normal" }, isAuthenticated: true });
     h.seed(h.state.token!); const before = h.local.getItem("agent-gateway-auth");
@@ -103,13 +108,13 @@ test("an unauthenticated old request cannot erase a login completed while it wai
   h.setState({ token: "synthetic-token-B" }); h.setState({ user: { user_id: "user-B", roles: ["admin"], permissions: [], tier: "normal" }, isAuthenticated: true }); h.seed("synthetic-token-B");
   await request.reject(); assert.equal(h.clears, 0); assert.equal(h.state.token, "synthetic-token-B");
 });
-test("storage fallback credentials are captured and fenced on replacement", async () => {
+test("legacy storage credentials are never sent or treated as a replacement session", async () => {
   const h = host(null, undefined); h.seed("synthetic-fallback-A"); const request = h.pending401("get");
-  assert.equal((await request.entered).headers.Authorization, "Bearer synthetic-fallback-A");
+  assert.equal((await request.entered).headers.Authorization, undefined);
   h.seed("synthetic-fallback-B"); await request.reject();
-  assert.equal(h.clears, 0); assert.ok(h.local.getItem("agent-gateway-auth")?.includes("synthetic-fallback-B"));
+  assert.equal(h.clears, 1); assert.equal(h.local.getItem("agent-gateway-auth"), null);
 });
-test("current storage fallback 401 still clears expired persisted authentication", async () => {
+test("a current anonymous 401 removes leftover persisted legacy authentication", async () => {
   const h = host(null, undefined); h.seed("synthetic-fallback-A"); const request = h.pending401("get");
   await request.entered; await request.reject(); assert.equal(h.clears, 1); assert.equal(h.local.getItem("agent-gateway-auth"), null);
 });
@@ -199,7 +204,8 @@ test("an explicit Axios retry acquires the new request generation", async () => 
   let retryError: AxiosError | undefined;
   const result = await h.api.request({ ...initialConfig, adapter: async config => {
     assert.notEqual(config, initialConfig);
-    assert.equal(config.headers.Authorization, "Bearer synthetic-token-B");
+    assert.equal(config.headers.Authorization, undefined);
+    assert.equal(config.headers["X-CSRF-Token"], "synthetic-csrf");
     retryError = new AxiosError("synthetic retry unauthorized", "ERR_BAD_REQUEST", config, undefined,
       { status: 401, statusText: "Unauthorized", config, headers: new AxiosHeaders(), data: {} });
     throw retryError;
@@ -224,3 +230,16 @@ for (const ownership of ["missing", "cloned"] as const) {
     assert.equal(h.session.getItem("agent-gateway-auth"), persisted);
   });
 }
+
+
+test("real Axios dispatch propagates a sampled trace only to same-origin API URLs", async () => {
+  const client = createTelemetryClient({ origin: "https://console.example", authority: () => ({ key: "scope-a", token: "synthetic-token-A", authenticated: true }), fetch: async () => new Response(JSON.stringify({ enabled: true, sampled: true, sessionId: "0123456789abcdef0123456789abcdef", sampleRate: 0.01, ttlSeconds: 900 })) });
+  await client.configure();
+  const h = host("synthetic-token-A", "user-A", url => client.traceparent(url));
+  const request = async (url: string, headers?: Record<string, string>) => h.api.get(url, { headers, adapter: async config => ({ config, status: 200, statusText: "OK", headers: new AxiosHeaders(), data: config.headers.toJSON() }) });
+  assert.match((await request("/api/v1/services?query=PRIVATE")).data.traceparent, /^00-0123456789abcdef0123456789abcdef-[a-f0-9]{16}-01$/);
+  assert.equal((await request("https://outside.example/api/v1/services")).data.traceparent, undefined);
+  assert.equal((await request("/api/v1/services", { traceparent: "existing-context" })).data.traceparent, "existing-context");
+  client.reset(); assert.equal((await request("/api/v1/services")).data.traceparent, undefined);
+  h.dispose();
+});

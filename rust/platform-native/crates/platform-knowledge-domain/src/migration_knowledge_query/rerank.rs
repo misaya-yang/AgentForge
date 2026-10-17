@@ -29,7 +29,6 @@ struct ProviderHealth {
 pub struct Reranker {
     pub dashscope_base_url: Option<String>,
     local_backend: Option<Arc<dyn LocalRerankBackend>>,
-    client: Client,
     providers: Arc<BTreeMap<String, RerankProviderConfig>>,
     cache: Arc<Mutex<VecDeque<(String, Vec<RerankResult>)>>>,
     health: Arc<Mutex<ProviderHealth>>,
@@ -37,11 +36,11 @@ pub struct Reranker {
     pub timeout: Duration,
 }
 impl Reranker {
-    pub fn new(client: Client, providers: BTreeMap<String, RerankProviderConfig>) -> Self {
+    pub fn new(_client: Client, mut providers: BTreeMap<String, RerankProviderConfig>) -> Self {
+        for config in providers.values_mut() {config.api_key.clear();config.endpoint.clear();}
         Self {
             dashscope_base_url: None,
             local_backend: None,
-            client,
             providers: Arc::new(providers),
             cache: Arc::new(Mutex::new(VecDeque::new())),
             health: Arc::new(Mutex::new(ProviderHealth::default())),
@@ -65,34 +64,9 @@ impl Reranker {
             return self.rerank_local(&p, model, query, documents, top_n).await;
         }
         let model = normalize_model(&p, model);
-        let config = self.providers.get(&p).ok_or_else(|| {
-            QueryError::Validation(format!(
-                "server-owned {p} rerank credentials are unavailable"
-            ))
-        })?;
-        let endpoint = if p == "dashscope" {
-            resolve_dashscope_endpoint(
-                &model,
-                &config.endpoint,
-                self.dashscope_base_url.as_deref().unwrap_or(""),
-            )?
-        } else {
-            config.endpoint.clone()
-        };
-        if config.api_key.is_empty() || endpoint.is_empty() {
-            return Err(QueryError::Validation(
-                "server-owned rerank endpoint and credentials are required".into(),
-            ));
-        }
-        let schema = if config.request_schema == "auto" {
-            if endpoint.trim_end_matches('/').ends_with("/reranks") {
-                "flat"
-            } else {
-                "legacy"
-            }
-        } else {
-            &config.request_schema
-        };
+        let default=RerankProviderConfig{api_key:String::new(),endpoint:String::new(),request_schema:"auto".into(),instruct:None};
+        let config=self.providers.get(&p).unwrap_or(&default);
+        let schema=if config.request_schema=="auto" {if p!="dashscope" || model.starts_with("qwen3") {"flat"} else {"legacy"}} else {&config.request_schema};
         if !["flat", "legacy"].contains(&schema) {
             return Err(QueryError::Validation(
                 "DashScope rerank request_schema must be auto|legacy|flat".into(),
@@ -105,13 +79,7 @@ impl Reranker {
                 "rerank instruct is not supported by this model".into(),
             ));
         }
-        let profile = format!(
-            "{}:{}:{}:{:x}",
-            endpoint.trim_end_matches('/').to_lowercase(),
-            schema,
-            config.instruct.as_deref().unwrap_or(""),
-            Sha256::digest(config.api_key.as_bytes())
-        );
+        let profile=format!("gateway:v1:{}:{}:{}",super::model_plane::cache_scope_identity(),schema,config.instruct.as_deref().unwrap_or(""));
         let key = format!(
             "{:x}",
             Sha256::digest(
@@ -172,38 +140,13 @@ impl Reranker {
                 payload["parameters"]["instruct"] = json!(instruct)
             }
         }
-        let response = match self
-            .client
-            .post(&endpoint)
-            .timeout(self.timeout)
-            .bearer_auth(&config.api_key)
-            .json(&payload)
-            .send()
-            .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                let status = if e.is_timeout() { 408 } else { 503 };
-                self.fail(&health_key, status, Duration::from_secs(30))
-                    .await;
-                return Err(QueryError::Provider(status));
-            }
-        };
-        if !response.status().is_success() {
-            let code = response.status().as_u16();
-            let permanent = [400, 401, 403, 404, 405, 410, 422].contains(&code);
-            self.fail(
-                &health_key,
-                code,
-                Duration::from_secs(if permanent { 300 } else { 30 }),
-            )
-            .await;
+        let wire=if p=="dashscope" && schema=="legacy" {super::model_plane::ModelWire::DashscopeRerank} else {super::model_plane::ModelWire::Rerank};
+        let (code,data)=super::model_plane::execute(&p,&model,"",super::model_plane::ModelPurpose::Rerank,wire,payload,self.timeout).await?;
+        if !(200..300).contains(&code) {
+            let permanent=[400,401,403,404,405,410,422].contains(&code);
+            self.fail(&health_key,code,Duration::from_secs(if permanent{300}else{30})).await;
             return Err(QueryError::Provider(code));
         }
-        let data: Value = response
-            .json()
-            .await
-            .map_err(|_| QueryError::InvalidProviderResponse)?;
         self.health
             .lock()
             .await
@@ -324,24 +267,19 @@ pub trait LocalRerankBackend: Send + Sync {
 /// local model service endpoint; the client cannot select an endpoint or key.
 #[derive(Clone)]
 pub struct HttpLocalRerankBackend {
-    client: Client,
-    endpoint: reqwest::Url,
-    api_key: Option<String>,
     pub timeout: Duration,
     pub device: String,
     pub use_fp16: bool,
 }
 impl HttpLocalRerankBackend {
-    pub fn new(client: Client, endpoint: reqwest::Url, api_key: Option<String>) -> Result<Self> {
+    pub fn gateway()->Self {Self{timeout:Duration::from_secs(30),device:"cpu".into(),use_fp16:true}}
+    pub fn new(_client: Client, endpoint: reqwest::Url, _api_key: Option<String>) -> Result<Self> {
         if !["http", "https"].contains(&endpoint.scheme()) || endpoint.host_str().is_none() {
             return Err(QueryError::Validation(
                 "invalid local inference endpoint".into(),
             ));
         }
         Ok(Self {
-            client,
-            endpoint,
-            api_key,
             timeout: Duration::from_secs(30),
             device: "cpu".into(),
             use_fp16: true,
@@ -349,18 +287,7 @@ impl HttpLocalRerankBackend {
     }
 }
 impl LocalRerankBackend for HttpLocalRerankBackend {
-    fn identity(&self) -> String {
-        format!(
-            "{:x}",
-            Sha256::digest(format!(
-                "{}:{}:{}:{}",
-                self.endpoint,
-                self.api_key.as_deref().unwrap_or(""),
-                self.device,
-                self.use_fp16
-            ))
-        )
-    }
+    fn identity(&self)->String {format!("gateway-local-rerank:{}:{}",self.device,self.use_fp16)}
     fn scores<'a>(
         &'a self,
         provider: &'a str,
@@ -371,25 +298,8 @@ impl LocalRerankBackend for HttpLocalRerankBackend {
         Box::pin(async move {
             let pairs: Vec<_> = documents.iter().map(|d| json!([query, d])).collect();
             let payload = json!({"provider":provider,"model":model,"pairs":pairs,"normalize":provider=="bge","device":self.device,"use_fp16":self.use_fp16});
-            let mut request = self
-                .client
-                .post(self.endpoint.clone())
-                .timeout(self.timeout)
-                .json(&payload);
-            if let Some(key) = &self.api_key {
-                request = request.bearer_auth(key)
-            }
-            let response = request
-                .send()
-                .await
-                .map_err(|_| QueryError::Provider(503))?;
-            if !response.status().is_success() {
-                return Err(QueryError::Provider(response.status().as_u16()));
-            }
-            let v: Value = response
-                .json()
-                .await
-                .map_err(|_| QueryError::InvalidProviderResponse)?;
+            let (status,v)=super::model_plane::execute(provider,model,"",super::model_plane::ModelPurpose::Rerank,super::model_plane::ModelWire::PairScores,payload,self.timeout).await?;
+            if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
             let scores = if let Some(n) = v["scores"].as_f64() {
                 vec![n]
             } else {
@@ -429,7 +339,7 @@ impl Reranker {
         let key = format!(
             "{:x}",
             Sha256::digest(
-                json!([provider, model, backend.identity(), query, documents, top_n]).to_string()
+                json!([provider, model, backend.identity(), super::model_plane::cache_scope_identity(), query, documents, top_n]).to_string()
             )
         );
         {

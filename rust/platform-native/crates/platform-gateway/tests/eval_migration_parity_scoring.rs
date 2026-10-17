@@ -326,13 +326,22 @@ async fn ragas(e: &Value, t: &Value, response: Value) -> (Vec<Value>, Vec<Value>
     let base = format!("http://{}", listener.local_addr().unwrap());
     let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let client = Arc::new(
-        KbRagasClient::new(&base, None, "fixture-key".into(), Duration::from_secs(3)).unwrap(),
+        KbRagasClient::new(
+            &base,
+            Some(b"fixture-workload-secret".to_vec()),
+            "fixture-key".into(),
+            Duration::from_secs(3),
+        )
+        .unwrap(),
     );
     let results = EvalScorer {
         llm: None,
         ragas: Some(client),
     }
-    .score_target(e, t, &LlmCompleteContext::default())
+    .score_target(e, t, &LlmCompleteContext {
+        actor_scope: Some(serde_json::from_value(json!({"actor":{"tenant_id":"tenant-a","user_id":"eval-owner","is_authenticated":true},"dataset_id":null,"document_id":null,"execution_id":null})).unwrap()),
+        ..Default::default()
+    })
     .await;
     task.abort();
     let captured = calls.lock().unwrap().clone();

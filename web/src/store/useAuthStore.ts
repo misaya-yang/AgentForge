@@ -1,10 +1,11 @@
 import { clearUploadRecoverySession } from "@/lib/knowledgeUploadRecovery";
 import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { CONSOLE_SESSION_PREFIX, createConsoleFetch } from "@/lib/consoleSessionTransport";
 
 export interface User {
   user_id: string;
+  tenant_id?: string;
   email: string | null;
   display_name: string | null;
   department: string | null;  // 部门 - 由管理员分配
@@ -17,17 +18,19 @@ export type SessionValidationState = "idle" | "checking" | "validated";
 
 export interface AuthState {
   // State
+  /** Non-secret, memory-only session generation; never a bearer token. */
   token: string | null;
+  csrfToken: string | null;
   user: User | null;
   isAuthenticated: boolean;
   forcePasswordChange: boolean;
   isLoading: boolean;
-  rememberMe: boolean;  // 30天免登录
+  rememberMe: boolean;  // UI preference; cookie lifetime is owned by the server
   hydrated: boolean;
   sessionValidation: SessionValidationState;
 
   // Actions
-  setAuth: (token: string, user: User, forcePasswordChange: boolean, rememberMe?: boolean) => void;
+  setAuth: (csrfToken: string, user: User, forcePasswordChange: boolean, rememberMe?: boolean) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
   updateUser: (user: Partial<User>) => void;
@@ -44,15 +47,11 @@ export interface AuthState {
 
 const STORAGE_KEY = "agent-gateway-auth";
 
-type PersistedAuthState = Pick<
-  AuthState,
-  "token" | "user" | "isAuthenticated" | "forcePasswordChange" | "rememberMe"
->;
-
 function normalizeUser(user: User | Partial<User> | null | undefined): User | null {
   if (!user) return null;
   return {
     user_id: String(user.user_id || ""),
+    ...(typeof user.tenant_id === "string" ? { tenant_id: user.tenant_id } : {}),
     email: user.email ?? null,
     display_name: user.display_name ?? null,
     department: user.department ?? null,
@@ -62,224 +61,130 @@ function normalizeUser(user: User | Partial<User> | null | undefined): User | nu
   };
 }
 
-// Custom storage that switches between localStorage and sessionStorage
-const createDynamicStorage = () => {
-  return {
-    getItem: (name: string): string | null => {
-      try {
-        // First try localStorage (for rememberMe=true)
-        const localData = localStorage.getItem(name);
-        if (localData) {
-          // Validate JSON structure
-          const parsed = JSON.parse(localData);
-          if (parsed && typeof parsed === "object") {
-            return localData;
-          }
-          // Invalid data, clear it
-          localStorage.removeItem(name);
-        }
-        // Then try sessionStorage (for rememberMe=false)
-        const sessionData = sessionStorage.getItem(name);
-        if (sessionData) {
-          // Validate JSON structure
-          const parsed = JSON.parse(sessionData);
-          if (parsed && typeof parsed === "object") {
-            return sessionData;
-          }
-          // Invalid data, clear it
-          sessionStorage.removeItem(name);
-        }
-      } catch {
-        // Clear corrupted data on parse error
-        localStorage.removeItem(name);
-        sessionStorage.removeItem(name);
-      }
-      return null;
-    },
-    setItem: (name: string, value: string): void => {
-      // Parse the value to check rememberMe flag
-      try {
-        const parsed = JSON.parse(value);
-        const rememberMe = parsed?.state?.rememberMe ?? false;
+// Retire legacy persisted bearer credentials; never hydrate them into memory.
+export function clearLegacyAuthStorage(): void {
+  for (const storage of [() => localStorage, () => sessionStorage]) {
+    try { storage().removeItem(STORAGE_KEY); } catch { /* Cookie sessions work without Web Storage. */ }
+  }
+}
+clearLegacyAuthStorage();
+let sessionSerial = 0;
+let authGeneration = 0;
+export function consoleAuthGeneration(): number { return authGeneration; }
 
-        if (rememberMe) {
-          // Use localStorage for persistent storage
-          localStorage.setItem(name, value);
-          // Clear from sessionStorage if it exists
-          sessionStorage.removeItem(name);
-        } else {
-          // Use sessionStorage for session-only storage
-          sessionStorage.setItem(name, value);
-          // Clear from localStorage if it exists
-          localStorage.removeItem(name);
-        }
-      } catch {
-        // Fallback to sessionStorage
-        sessionStorage.setItem(name, value);
-      }
-    },
-    removeItem: (name: string): void => {
-      // Clear from both storages
-      localStorage.removeItem(name);
-      sessionStorage.removeItem(name);
-    },
-  };
-};
+export const useAuthStore = create<AuthState>()((set, get) => ({
+  // Initial state
+  token: null,
+  csrfToken: null,
+  user: null,
+  isAuthenticated: false,
+  forcePasswordChange: false,
+  isLoading: false,
+  rememberMe: false,
+  hydrated: true,
+  sessionValidation: "idle",
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
+  // Set authentication data after successful login
+  setAuth: (csrfToken, user, forcePasswordChange, rememberMe = false) => {
+    if (!csrfToken || !user?.user_id) throw new Error("Invalid Console session bootstrap");
+    set({
+      token: `${CONSOLE_SESSION_PREFIX}${++sessionSerial}`,
+      csrfToken,
+      user: normalizeUser(user),
+      isAuthenticated: true,
+      forcePasswordChange,
+      isLoading: false,
+      rememberMe,
+      sessionValidation: "validated",
+    });
+  },
+
+  // Clear authentication data on logout
+  clearAuth: () => {
+    authGeneration++; // Also retire pending bootstrap when already anonymous.
+    // Clear from both storages
+    clearLegacyAuthStorage();
+    try {
+      const stale: string[] = [];
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && (key === "assistant.lastModelId.v1" || key.startsWith("assistant.lastModelId.v1:")
+          || key === "setup-banner-dismissed" || key.startsWith("setup-banner-dismissed:"))) {
+          stale.push(key);
+        }
+      }
+      stale.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // Storage unavailable — auth is still cleared below.
+    }
+    set({
       token: null,
+      csrfToken: null,
       user: null,
       isAuthenticated: false,
       forcePasswordChange: false,
       isLoading: false,
       rememberMe: false,
-      hydrated: false,
-      sessionValidation: "idle",
+      sessionValidation: "validated",
+    });
+  },
 
-      // Set authentication data after successful login
-      setAuth: (token, user, forcePasswordChange, rememberMe = false) =>
-        set({
-          token,
-          user: normalizeUser(user),
-          isAuthenticated: true,
-          forcePasswordChange,
-          isLoading: false,
-          rememberMe,
-          sessionValidation: "validated",
-        }),
+  // Set loading state
+  setLoading: (loading) => set({ isLoading: loading }),
 
-      // Clear authentication data on logout
-      clearAuth: () => {
-        // Clear from both storages
-        localStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(STORAGE_KEY);
-        try {
-          const stale: string[] = [];
-          for (let i = 0; i < localStorage.length; i += 1) {
-            const key = localStorage.key(i);
-            if (
-              key &&
-              (key === "assistant.lastModelId.v1" ||
-                key.startsWith("assistant.lastModelId.v1:") ||
-                key === "setup-banner-dismissed" ||
-                key.startsWith("setup-banner-dismissed:"))
-            ) {
-              stale.push(key);
-            }
-          }
-          stale.forEach((key) => localStorage.removeItem(key));
-        } catch {
-          // Storage unavailable — auth is still cleared below.
-        }
-        set({
-          token: null,
-          user: null,
-          isAuthenticated: false,
-          forcePasswordChange: false,
-          isLoading: false,
-          rememberMe: false,
-          sessionValidation: "validated",
-        });
-      },
+  // Update user data
+  updateUser: (userData) =>
+    set((state) => ({
+      user: normalizeUser(state.user ? { ...state.user, ...userData } : null),
+    })),
 
-      // Set loading state
-      setLoading: (loading) => set({ isLoading: loading }),
+  // Update force password change flag
+  setForcePasswordChange: (force) => set({ forcePasswordChange: force }),
+  setHydrated: (hydrated) => set({ hydrated }),
+  setSessionValidation: (sessionValidation) => set({ sessionValidation }),
 
-      // Update user data
-      updateUser: (userData) =>
-        set((state) => ({
-          user: normalizeUser(state.user ? { ...state.user, ...userData } : null),
-        })),
+  // Check if user has a specific permission
+  hasPermission: (permission: string) => {
+    const { user } = get();
+    if (!user) return false;
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
 
-      // Update force password change flag
-      setForcePasswordChange: (force) => set({ forcePasswordChange: force }),
-      setHydrated: (hydrated) => set({ hydrated }),
-      setSessionValidation: (sessionValidation) => set({ sessionValidation }),
+    // Admin wildcard permission
+    if (permissions.includes("admin:*")) return true;
 
-      // Check if user has a specific permission
-      hasPermission: (permission: string) => {
-        const { user } = get();
-        if (!user) return false;
-        const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    // Direct permission check
+    if (permissions.includes(permission)) return true;
 
-        // Admin wildcard permission
-        if (permissions.includes("admin:*")) return true;
-
-        // Direct permission check
-        if (permissions.includes(permission)) return true;
-
-        // Wildcard permission matching (e.g., "console:*" matches "console:dashboard:view")
-        const parts = permission.split(":");
-        for (let i = parts.length - 1; i > 0; i--) {
-          const wildcardPerm = parts.slice(0, i).join(":") + ":*";
-          if (permissions.includes(wildcardPerm)) return true;
-        }
-
-        return false;
-      },
-
-      // Check if user has a specific role
-      hasRole: (role: string) => {
-        const { user } = get();
-        if (!user) return false;
-        const roles = Array.isArray(user.roles) ? user.roles : [];
-        return roles.includes(role);
-      },
-
-      // Check if user has any of the specified permissions
-      hasAnyPermission: (permissions: string[]) => {
-        const { hasPermission } = get();
-        return permissions.some((p) => hasPermission(p));
-      },
-
-      // Check if user has all specified permissions
-      hasAllPermissions: (permissions: string[]) => {
-        const { hasPermission } = get();
-        return permissions.every((p) => hasPermission(p));
-      },
-    }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(() => createDynamicStorage()),
-      partialize: (state): PersistedAuthState => ({
-        token: state.token,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        forcePasswordChange: state.forcePasswordChange,
-        rememberMe: state.rememberMe,
-      }),
-      // Normalize data when loading from storage to handle old/corrupted data
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<PersistedAuthState> | undefined;
-        if (!persisted) return currentState;
-
-        const token =
-          typeof persisted.token === "string" && persisted.token.length > 0
-            ? persisted.token
-            : null;
-        const user = normalizeUser(persisted.user);
-        const isAuthenticated = Boolean(token && persisted.isAuthenticated && user);
-
-        return {
-          ...currentState,
-          token,
-          user,
-          isAuthenticated,
-          forcePasswordChange: Boolean(token && persisted.forcePasswordChange),
-          rememberMe: Boolean(persisted.rememberMe),
-          hydrated: true,
-          sessionValidation: token ? "idle" : "validated",
-        };
-      },
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true);
-      },
+    // Wildcard permission matching (e.g., "console:*" matches "console:dashboard:view")
+    const parts = permission.split(":");
+    for (let i = parts.length - 1; i > 0; i--) {
+      const wildcardPerm = parts.slice(0, i).join(":") + ":*";
+      if (permissions.includes(wildcardPerm)) return true;
     }
-  )
-);
+
+    return false;
+  },
+
+  // Check if user has a specific role
+  hasRole: (role: string) => {
+    const { user } = get();
+    if (!user) return false;
+    const roles = Array.isArray(user.roles) ? user.roles : [];
+    return roles.includes(role);
+  },
+
+  // Check if user has any of the specified permissions
+  hasAnyPermission: (permissions: string[]) => {
+    const { hasPermission } = get();
+    return permissions.some((p) => hasPermission(p));
+  },
+
+  // Check if user has all specified permissions
+  hasAllPermissions: (permissions: string[]) => {
+    const { hasPermission } = get();
+    return permissions.every((p) => hasPermission(p));
+  },
+}));
 
 // Helper hook for common permission checks
 export const usePermission = (permission: string) => {
@@ -299,8 +204,23 @@ export const useIsAdmin = () => {
 // Upload recovery metadata belongs to one login/authority session. This observer
 // is global so leaving the Knowledge route cannot bypass logout cleanup.
 useAuthStore.subscribe((state, previous) => {
-  if (state.token !== previous.token || state.isAuthenticated !== previous.isAuthenticated
+  if (state.token !== previous.token || state.csrfToken !== previous.csrfToken || state.isAuthenticated !== previous.isAuthenticated
     || sdkAuthorityScope(state.user) !== sdkAuthorityScope(previous.user)) {
+    authGeneration++;
     clearUploadRecoverySession();
   }
 });
+
+// Legacy raw-fetch callers keep the non-secret marker as their UI ownership key.
+// The shared transport removes it from headers and supplies cookie + CSRF instead.
+if (typeof window !== "undefined" && typeof window.fetch === "function") {
+  const originalFetch = window.fetch;
+  const wrapped = createConsoleFetch(originalFetch.bind(window), window.location.origin,
+    () => ({ ...useAuthStore.getState(), generation: authGeneration }),
+    () => {
+      useAuthStore.getState().clearAuth();
+      if (!window.location.pathname.includes("/login")) window.location.href = "/login";
+    });
+  window.fetch = wrapped;
+  if (import.meta.hot) import.meta.hot.dispose(() => { if (window.fetch === wrapped) window.fetch = originalFetch; });
+}

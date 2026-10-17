@@ -2,6 +2,10 @@
 //! capability worker. This crate contains no transport, storage, provider, or
 //! Agent-loop implementation.
 
+pub mod sandbox_job;
+pub mod lease_v3;
+pub mod private_transport;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
@@ -392,7 +396,7 @@ impl RuntimeCapabilityLeaseV1 {
         {
             return Err(ContractError::Expired);
         }
-        if !bounded_text(&self.nonce, 128) || self.nonce.len() < 16 || !sha256(&self.signature) {
+        if !bounded_text(&self.nonce, 128) || self.nonce.len() < 16 || !(sha256(&self.signature) || (self.signature.starts_with(lease_v3::CAPABILITY_PREFIX) && self.signature.len() <= lease_v3::MAX_WIRE_BYTES + lease_v3::CAPABILITY_PREFIX.len())) {
             return Err(ContractError::InvalidField("lease_proof"));
         }
         match self.effect {

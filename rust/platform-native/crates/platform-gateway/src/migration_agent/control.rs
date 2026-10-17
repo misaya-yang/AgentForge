@@ -8,6 +8,8 @@ use super::{
     threads::{AgentThreadStore, RuntimeThread},
 };
 use crate::migration_host::context;
+#[path="control_transport.rs"]
+mod control_transport;
 use crate::{
     capacity::{CapacityRequest, CapacityResolver},
     capacity_admission::{AdmissionRequest, CapacityAdmissionController, CapacityLease},
@@ -435,7 +437,7 @@ impl RuntimeControlPlane {
         let guard = lock.lock().await;
         let result=async{if let Some(t)=self.threads.get_for_session(scope).await?{return self.bind_fingerprint(scope,t,&fingerprint,true).await;}let mut start=json!({"model":model,"modelProvider":"ai-platform-gateway","cwd":"/workspace","approvalPolicy":"on-request","sandbox":"read-only","config":contract::runtime_model_config(&self.options.model_plane_base_url,model,native_search),"dynamicTools":contract::dynamic_tools(&thread_readonly)?});if let Some(instructions)=instructions{start["baseInstructions"]=CORE_ASSISTANT_PROMPT.into();start["developerInstructions"]=if instructions.trim().is_empty(){GENERIC_AGENT_INSTRUCTIONS}else{instructions}.into();}
     let body=json!({"tenantId":scope.tenant_id,"userId":scope.user_id,"sessionId":scope.session_id,"start":start,"toolPolicy":contract::tool_policy(if generic{&thread_readonly}else{&selected},native_search||generic,true,generic)?});
-    let response=self.client.post(self.endpoint("/internal/v1/threads")).headers(self.headers(scope,None)?).json(&body).send().await.map_err(|_|AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED"))?;
+    let response=control_transport::send_json(self.client.post(self.endpoint("/internal/v1/threads")).headers(self.headers(scope,None)?).json(&body),Duration::from_secs(300),"AI_PLATFORM_AGENT_RUNTIME_THREAD_CREATE_FAILED").await?;
     if !response.status().is_success() {
         return failed_thread_create(self.threads.get_for_session(scope).await?, &fingerprint);
     }
@@ -1350,13 +1352,53 @@ impl RuntimeControlPlane {
         snapshot["eval_fingerprint"] = json!({"system_prompt_hash":spec::hash(&snapshot["instructions"]),"tool_schema_hash":spec::hash(&json!(contract::dynamic_tools(&readonly)?))});
         let expires = chrono::Utc::now()
             + chrono::Duration::seconds(self.options.lease_ttl_seconds.clamp(30, 3600));
-        sqlx::query("SELECT issue_assistant_runtime_turn($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,'agent-runtime-snapshot/v1',$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)").bind(&snapshot_id).bind(&lease_id).bind(&run).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(text(&assignment,"kernel_revision")).bind(&snapshot).bind(spec::hash(&snapshot)).bind(revision).bind(text(&reasoning,"effective_option")).bind("agent-runtime-model-lease/v1").bind(provider_id).bind(&request.model_id).bind(provider_revision).bind(&nonce).bind(calls).bind((context_window*calls).min(10000000)).bind((output*calls).min(1000000)).bind(self.options.max_cost_microusd.max(1)).bind(expires).bind(&request.message).execute(&self.pool).await?;
+        let capability_ceiling = super::lease_authority::issue_ceiling(
+            &scope, &run, &snapshot_id, &thread.runtime_thread_id, revision as u64,
+            &readonly, expires.timestamp_millis().max(0) as u64,
+        )?;
+        if let Some(ceiling) = &capability_ceiling {
+            snapshot["capability_ceiling"] = serde_json::to_value(&ceiling.root)
+                .map_err(|_| AgentError::code(503, "GATEWAY_CAPABILITY_CEILING_INVALID"))?;
+        }
+        // The frozen function takes int4; calls is already clamped to1..=128.
+        let mut authority_transaction = self.pool.begin().await?;
+        sqlx::query("SELECT issue_assistant_runtime_turn($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,'agent-runtime-snapshot/v1',$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)").bind(&snapshot_id).bind(&lease_id).bind(&run).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(text(&assignment,"kernel_revision")).bind(&snapshot).bind(spec::hash(&snapshot)).bind(revision).bind(text(&reasoning,"effective_option")).bind("agent-runtime-model-lease/v1").bind(provider_id).bind(&request.model_id).bind(provider_revision).bind(&nonce).bind(calls as i32).bind((context_window*calls).min(10000000)).bind((output*calls).min(1000000)).bind(self.options.max_cost_microusd.max(1)).bind(expires).bind(&request.message).execute(&mut *authority_transaction)
+            .await
+            .map_err(|error| {
+                let sqlstate = error
+                    .as_database_error()
+                    .and_then(|database| database.code())
+                    .map(|code| code.into_owned())
+                    .filter(|code| {
+                        code.len() == 5
+                            && code
+                                .bytes()
+                                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+                    })
+                    .unwrap_or_else(|| "unavailable".to_owned());
+                tracing::warn!(
+                    target: "ai_platform_gateway::agent_runtime_turn_persistence",
+                    phase = "issue_assistant_runtime_turn",
+                    sqlstate = %sqlstate,
+                    "Gateway turn persistence boundary failed"
+                );
+                AgentError::code(503, "AGENT_STORAGE_UNAVAILABLE")
+            })?;
+        if let Some(ceiling) = &capability_ceiling {
+            // This authority-only store is deliberately separate from snapshot
+            // and execution context, both readable by the verify-only Worker.
+            sqlx::query("INSERT INTO assistant_runtime_capability_witnesses(run_id,tenant_id,user_id,session_id,snapshot_id,token) VALUES($1::uuid,$2,$3,$4,$5::uuid,$6)")
+                .bind(&run).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id)
+                .bind(&snapshot_id).bind(serde_json::to_value(ceiling).map_err(|_|AgentError::code(503,"GATEWAY_CAPABILITY_CEILING_INVALID"))?)
+                .execute(&mut *authority_transaction).await?;
+        }
+        authority_transaction.commit().await?;
         let lease:Value=sqlx::query_scalar("SELECT to_jsonb(l)||jsonb_build_object('issued_at_ms',floor(extract(epoch from issued_at)*1000)::bigint,'expires_at_ms',floor(extract(epoch from expires_at)*1000)::bigint) FROM assistant_runtime_model_leases l WHERE lease_id=$1::uuid").bind(&lease_id).fetch_optional(&self.pool).await?.ok_or_else(||AgentError::code(503,"AI_PLATFORM_AGENT_RUNTIME_LEASE_ISSUE_FAILED"))?;
         let signature = self.signer.sign(&super::model::lease_claims(&lease)?)?;
         let effort = reasoning["canonical_effort"]
             .as_str()
             .filter(|e| ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"].contains(e));
-        let body = json!({"runId":run,"snapshotId":snapshot_id,"leaseId":lease_id,"leaseSignature":signature,"message":request.message,"images":request.image_inputs,"model":request.model_id,"effort":effort,"capabilityRevision":revision,"readonly":contract::turn_prompt_readonly(&readonly),"platformConfig":config});
+        let body = json!({"capabilityCeiling":capability_ceiling.as_ref().map(|token|&token.root),"runId":run,"snapshotId":snapshot_id,"leaseId":lease_id,"leaseSignature":signature,"message":request.message,"images":request.image_inputs,"model":request.model_id,"effort":effort,"capabilityRevision":revision,"readonly":contract::turn_prompt_readonly(&readonly),"platformConfig":config});
         let pending = AgentTurn {
             runtime_thread_id: thread.runtime_thread_id.clone(),
             run_id: run.clone(),
@@ -1376,17 +1418,7 @@ impl RuntimeControlPlane {
                 .await
                 .insert(run.clone(), lease.clone());
         }
-        let response = self
-            .client
-            .post(self.endpoint(&format!(
-                "/internal/v1/threads/{}/turns",
-                thread.runtime_thread_id
-            )))
-            .headers(self.headers(&scope, Some(&run))?)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_TURN_START_FAILED"))?;
+        let response = control_transport::send_json(self.client.post(self.endpoint(&format!("/internal/v1/threads/{}/turns",thread.runtime_thread_id))).headers(self.headers(&scope,Some(&run))?).json(&body),Duration::from_secs(300),"AI_PLATFORM_AGENT_RUNTIME_TURN_START_FAILED").await?;
         if !response.status().is_success() {
             self.fail_run(&run, &snapshot_id, "agent_turn_start_rejected")
                 .await?;

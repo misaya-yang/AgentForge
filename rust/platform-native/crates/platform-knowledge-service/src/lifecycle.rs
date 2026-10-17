@@ -29,6 +29,7 @@ pub struct KnowledgeLifecycle {
     pub(crate) client: Client,
     pub drain: Arc<DrainState>,
     role: RuntimeRole,
+    qdrant_client: Client,
     qdrant_origin: Url,
     qdrant_key: Option<String>,
     qdrant_startup_timeout: Duration,
@@ -39,6 +40,7 @@ pub struct KnowledgeLifecycle {
     migration_runner: Mutex<Option<MigrationRunner>>,
     transition: Mutex<()>,
     started: AtomicBool,
+    model_plane:Option<Arc<query::model_plane::ModelPlaneClient>>,
     local_semantic: Option<query::embedding::EmbeddingManager>,
     pdf_parser: Option<ingest::parser::DocumentParser>,
     pdf_ready: AtomicBool,
@@ -48,6 +50,7 @@ impl KnowledgeLifecycle {
         connections: KnowledgeConnections,
         role: RuntimeRole,
         client: Client,
+        qdrant_client: Client,
         qdrant_origin: Url,
         qdrant_key: Option<String>,
         qdrant_startup_timeout: Duration,
@@ -61,12 +64,15 @@ impl KnowledgeLifecycle {
             .parser
             .supports_pdf()
             .then(|| ingestion.parser.clone());
+        let ingestion_plane=ingestion.model_plane.clone();
+        let ingestion_actors=ingestion.vector_job_actor_authority.clone();
         Self {
             confluence: std::sync::RwLock::new(None),
             pool: connections.database,
             client,
             drain,
             role,
+            qdrant_client,
             qdrant_origin,
             qdrant_key,
             qdrant_startup_timeout,
@@ -82,16 +88,18 @@ impl KnowledgeLifecycle {
                 Arc::new(query::migration_jobs::MigrationWorker::new(
                     migrations,
                     uuid::Uuid::new_v4().to_string(),
-                ))
+                ).with_model_plane(ingestion_plane,ingestion_actors))
             }),
             migration_runner: Mutex::new(None),
             transition: Mutex::new(()),
             started: AtomicBool::new(false),
+            model_plane:None,
             local_semantic,
             pdf_parser,
             pdf_ready: AtomicBool::new(false),
         }
     }
+    pub fn with_model_plane(mut self,client:Arc<query::model_plane::ModelPlaneClient>)->Self {self.model_plane=Some(client);self}
     async fn qdrant_ready(&self, timeout: Duration) -> bool {
         let mut url = self.qdrant_origin.clone();
         let Ok(mut path) = url.path_segments_mut() else {
@@ -99,7 +107,7 @@ impl KnowledgeLifecycle {
         };
         path.pop_if_empty().push("collections");
         drop(path);
-        let mut request = self.client.get(url).timeout(timeout);
+        let mut request = self.qdrant_client.get(url).timeout(timeout);
         if let Some(key) = &self.qdrant_key {
             request = request.header("api-key", key);
         }
@@ -200,6 +208,7 @@ impl KnowledgeLifecycle {
         if !self.qdrant_ready(self.qdrant_startup_timeout).await {
             return Err(KnowledgeError::Startup("qdrant"));
         }
+        if let Some(client)=&self.model_plane {if !client.ready(Duration::from_secs(5)).await {return Err(KnowledgeError::Startup("gateway_model_plane"));}}
         if let Some(embeddings) = &self.local_semantic {
             if !matches!(
                 tokio::time::timeout(
@@ -280,6 +289,7 @@ impl KnowledgeLifecycle {
             );
             core["local_semantic_model"] = json!(status(available));
         }
+        if let Some(client)=&self.model_plane {core["model_plane"]=json!(status(client.ready(timeout).await));}
         let pdf_ready = self.pdf_ready.load(Ordering::Acquire);
         if self.pdf_parser.is_some() {
             core["pdf_text"] = json!(status(pdf_ready));

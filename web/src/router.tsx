@@ -46,6 +46,7 @@ const ServicesPage = lazyNamed(() => import("@/pages/Services"), "ServicesPage")
 const PlaygroundPage = lazyNamed(() => import("@/pages/playground"), "PlaygroundPage");
 const TasksPage = lazyNamed(() => import("@/pages/tasks"), "TasksPage");
 const SettingsPage = lazyNamed(() => import("@/pages/Settings"), "SettingsPage");
+const GuardrailsSettingsPage = lazyNamed(() => import("@/pages/settings/GuardrailsSettings"), "GuardrailsSettingsPage");
 const TenantGovernanceSettingsPage = lazyNamed(() => import("@/pages/settings/TenantGovernanceSettings"), "TenantGovernanceSettingsPage");
 const RoleManagementPage = lazyNamed(() => import("@/pages/settings/RoleManagement"), "RoleManagementPage");
 const KnowledgeApiKeysPage = lazyNamed(() => import("@/pages/settings/KnowledgeApiKeys"), "KnowledgeApiKeysPage");
@@ -202,6 +203,7 @@ export function AppRouter() {
             }
           />
           <Route path="/users/roles" element={<ProtectedRoute requiredPermission="role:list"><RoleManagementPage /></ProtectedRoute>} />
+          <Route path="/settings/guardrails" element={<ProtectedRoute requiredPermission="console:settings:view"><GuardrailsSettingsPage /></ProtectedRoute>} />
           <Route path="/settings/governance" element={<ProtectedRoute requiredPermission="console:settings:view"><TenantGovernanceSettingsPage /></ProtectedRoute>} />
           <Route path="/settings/knowledge-api-keys" element={<ProtectedRoute requiredPermission="console:settings:view"><KnowledgeApiKeysPage /></ProtectedRoute>} />
           <Route path="/settings/plugins" element={<ProtectedRoute requiredPermission="console:settings:view"><PluginsSettingsPage /></ProtectedRoute>} />

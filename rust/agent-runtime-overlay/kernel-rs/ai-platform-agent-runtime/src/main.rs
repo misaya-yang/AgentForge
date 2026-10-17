@@ -85,6 +85,7 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .try_init()
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let telemetry = ai_platform_agent_runtime::telemetry::init("ai-platform-agent-runtime").await.map_err(anyhow::Error::msg)?;
     let args = Args::parse();
     prepare_isolated_agent_home(&args.agent_home)?;
     if !args.runtime_workdir.is_absolute() {
@@ -188,6 +189,8 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
     stop_accepting.cancel();
     runtime.shutdown().await;
     let _ = tokio::time::timeout(std::time::Duration::from_secs(2), &mut server).await;
+    ai_platform_agent_runtime::drain_turn_telemetry();
+    if let Some(telemetry) = telemetry { telemetry.shutdown().await; }
     result?;
     Ok(())
 }

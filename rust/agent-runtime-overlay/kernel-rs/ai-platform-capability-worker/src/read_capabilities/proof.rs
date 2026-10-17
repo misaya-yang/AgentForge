@@ -35,10 +35,16 @@ pub(super) fn sign_capability_proof(
     if secret.len() < MIN_PROOF_SECRET_BYTES || input.now == 0 || input.nonce.is_empty() {
         return Err(ReadCapabilityError::Configuration);
     }
-    let expires_at = input
+    let mut expires_at = input
         .now
         .checked_add(CAPABILITY_PROOF_TTL_SECONDS)
         .ok_or(ReadCapabilityError::Configuration)?;
+    if let Some(verified_expiry) = super::transport::proof_expiry_seconds()? {
+        expires_at = expires_at.min(verified_expiry);
+    }
+    if expires_at <= input.now {
+        return Err(ReadCapabilityError::Scope);
+    }
     let body_sha256 = canonical_json_hash(input.body)
         .map_err(|_| ReadCapabilityError::Configuration)?
         .strip_prefix("sha256:")

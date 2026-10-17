@@ -1,0 +1,26 @@
+{
+  "schema": "agentforge/schema027-v2-factory-validation/v1",
+  "status": "actual_tests_passed",
+  "tests": {
+    "authority_lib": 130,
+    "migration_lint_bin": 15,
+    "schema027_cli": 2
+  },
+  "passed": 147,
+  "failed": 0,
+  "ignored": 0,
+  "source_epoch": 26,
+  "main_database_epoch": 25,
+  "overlay_snapshots": "Restored exact epoch26 native export after source rollback; unchanged snapshot identity test passes.",
+  "previous_attempts": [
+    "r1 actual129passed1snapshot-failed because overlays still27v1; exact measured26 export restored, no test changed",
+    "r2 locked failure after authorized jsonschema manifest addition; offline resolved current lock, no broad update"
+  ],
+  "limitations": [
+    "027v2 actual isolated measurement pending",
+    "028 contraction implementation pending",
+    "N-1 application rehearsal not run"
+  ],
+  "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/schema027-v2-tests-r3.log",
+  "raw_log_sha256": "47d90fd41a32e1143a91500ed69a3c38e2655e1bbb07e2b662552dcd99451eb7"
+}

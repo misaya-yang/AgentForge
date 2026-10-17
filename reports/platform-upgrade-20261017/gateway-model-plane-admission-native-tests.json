@@ -1,0 +1,77 @@
+{
+  "schema": "agentforge/native-target-tests/v1",
+  "observed_at": "2026-10-17T09:36:53.828609+00:00",
+  "status": "executed_tests_passed",
+  "toolchain": "Rust1.99.0",
+  "jobs": 1,
+  "debug": false,
+  "incremental": false,
+  "command": "cargo +1.99.0 test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway-foundation -p ai-platform-gateway --lib --test eval_migration_parity_clients --test eval_migration_parity_scoring --test dispatch_admission_boundary",
+  "log_sha256": "c556a8f8999fa929f21cbe65cd9fdfdfac315240de0569262ba52efac0357c98",
+  "suites": [
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway-b4894088e9bb17e9)",
+      "passed": 229,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/eval_migration_parity_clients.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_clients-93734b7ede31353e)",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/eval_migration_parity_scoring.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_scoring-982c3a91ecde8127)",
+      "passed": 17,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway_foundation-4c655876f2f73033)",
+      "passed": 239,
+      "failed": 0,
+      "ignored": 3,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/dispatch_admission_boundary.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/dispatch_admission_boundary-bfeb6c8b829b593c)",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    }
+  ],
+  "results": {
+    "passed": 502,
+    "failed": 0,
+    "ignored": 4,
+    "filtered_out": 0
+  },
+  "ignored_tests": [
+    "test knowledge_model_plane::postgres_tests::concurrent_reservation_replay_conflict_and_dispatch_fence ... ignored, requires authority-admitted proposal and dedicated disposable PostgreSQL test database",
+    "test capacity_admission::atomic::tests::live_atomic_admission_concurrency_isolation_rejection_and_expiry ... ignored, requires AI_PLATFORM_ADMISSION_TEST_REDIS_URL for isolated loopback Valkey",
+    "test quota_store::reservations::tests::live_durable_token_intents_serialize_tenants_and_never_expire_dispatched_work ... ignored, requires isolated canonical proposal DB and scoped Gateway-role DSN",
+    "test request_meter::tests::real_existing_raw_writer_summary_and_cache_reader_accept_request_facts ... ignored, requires both model-plane/request-meter successors in dedicated PostgreSQL test database"
+  ],
+  "validated_behaviors": [
+    "Gateway concrete Knowledge model plane and exact request-meter budget/replay regressions",
+    "RAGAS actual signed actor/body interface and compatibility scoring",
+    "Ed25519 credential introspection with revocation and strict invalid-key rejection",
+    "Foundation atomic GCRA/token admission and concrete pre-provider durable dispatch boundary"
+  ],
+  "repairs": [
+    "Redis1.7 ConnectionInfo accessor addr() in loopback-only integration fixture",
+    "Retain original missing RAGAS client error while distinguishing absent verified actor"
+  ],
+  "not_run": [
+    "Real Valkey/PG integration tests explicitly ignored",
+    "Full native workspace all-target compilation after unfinished enterprise and Valkey modules are mounted",
+    "Public official-SDK and real paired-service journeys",
+    "Schema activation and production acceptance"
+  ],
+  "product_acceptance": false
+}

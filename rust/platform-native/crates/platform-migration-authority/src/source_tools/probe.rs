@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, PgConnection, Row};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt,
     path::{Path, PathBuf},
 };
@@ -192,10 +192,10 @@ pub fn source_contract_with_preimage_root(
         .join(BASELINE)
         .join("manifest.yml");
     let epoch = manifest::load_epoch_manifest(&epoch_path)?;
-    require(epoch.epoch == 20)?;
     if source_root == candidate_root {
+        require((20..=28).contains(&epoch.epoch))?;
         successors::verify_activated_source(&source_root)?;
-    } else {
+    } else if epoch.epoch == 20 {
         let measured = candidate_root.join("SUCCESSOR_MEASUREMENT.json").is_file();
         if measured {
             successors::verify_measured_preview_with_preimage_root(
@@ -210,6 +210,41 @@ pub fn source_contract_with_preimage_root(
                 preimage_root,
             )?;
         }
+    } else if epoch.epoch == 26 {
+        let measured = candidate_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join("SUCCESSOR_026_MEASUREMENT.json")
+            .is_file();
+        crate::source_tools::next_successor_026::verify_preview(
+            &source_root,
+            &candidate_root,
+            measured,
+        )?;
+    } else if epoch.epoch == 27 {
+        let measured = candidate_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join("SUCCESSOR_027_MEASUREMENT.json")
+            .is_file();
+        crate::source_tools::next_successor_027::verify_preview(
+            &source_root,
+            &candidate_root,
+            measured,
+        )?;
+    } else if epoch.epoch == 28 {
+        let measured = candidate_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join("SUCCESSOR_028_MEASUREMENT.json")
+            .is_file();
+        crate::source_tools::next_successor_028::verify_preview(
+            &source_root,
+            &candidate_root,
+            measured,
+        )?;
+    } else {
+        return Err(fail());
     }
     let path = candidate_root
         .join("database/baselines")
@@ -232,7 +267,7 @@ pub fn source_contract_with_preimage_root(
         json!(manifest::file_sha256(&path)?),
     );
     Ok(
-        json!({"baseline_id":BASELINE,"epoch":20,"baseline":marker,"changes":epoch.changes.iter().map(|c|json!({"baseline_id":BASELINE,"sequence":c.sequence,"name":c.name,"checksum_sha256":c.sha256})).collect::<Vec<_>>(),"production_requeue_sha256":format!("{:x}",Sha256::digest(production_requeue(&source_root)?.as_bytes()))}),
+        json!({"baseline_id":BASELINE,"epoch":epoch.epoch,"baseline":marker,"changes":epoch.changes.iter().map(|c|json!({"baseline_id":BASELINE,"sequence":c.sequence,"name":c.name,"checksum_sha256":c.sha256})).collect::<Vec<_>>(),"production_requeue_sha256":format!("{:x}",Sha256::digest(production_requeue(&source_root)?.as_bytes()))}),
     )
 }
 pub fn check_destination(o: &ProbeOptions) -> Result<()> {
@@ -348,7 +383,7 @@ async fn matrix(
                 .await?;
         require(
             value["schema_version"] == "ai-platform/schema-admission-snapshot/v1"
-                && value["epoch"] == 20
+                && value["epoch"] == identity["epoch"]
                 && value["changes"] == identity["changes"]
                 && value["baselines"] == json!([identity["baseline"]])
                 && value["has_attempts"] == false
@@ -475,7 +510,7 @@ async fn durable(conn: &mut PgConnection) -> Result<Value> {
         json!({"gateway_ledger_insert_claim_fence_terminal":"passed","all_rows_rolled_back":true,"native_ledger_code_execution":false}),
     )
 }
-async fn shadow(conn: &mut PgConnection, o: &ProbeOptions) -> Result<Value> {
+async fn shadow(conn: &mut PgConnection, o: &ProbeOptions, identity: &Value) -> Result<Value> {
     if !boolean(
         conn,
         "SELECT has_database_privilege(current_user,current_database(),'TEMP')",
@@ -507,7 +542,7 @@ async fn shadow(conn: &mut PgConnection, o: &ProbeOptions) -> Result<Value> {
             sqlx::query_scalar("SELECT gateway.platform_schema_admission_snapshot_v1()")
                 .fetch_one(&mut *conn)
                 .await?;
-        require(snapshot["epoch"] == 20)?;
+        require(snapshot["epoch"] == identity["epoch"])?;
         let doc = id();
         add_document(conn, o, &doc, None, "running", false).await?;
         query(
@@ -557,15 +592,46 @@ pub async fn run(o: ProbeOptions) -> std::result::Result<Value, ProbeError> {
         None,
     )?;
     if canonical_source_root != canonical_candidate_root {
-        contextual(
-            successors::verify_measured_preview_with_preimage_root(
-                source_root,
-                &o.root,
-                o.preimage_root.as_deref(),
+        let candidate_epoch = contextual(
+            manifest::load_epoch_manifest(
+                &o.root
+                    .join("database/migrations")
+                    .join(BASELINE)
+                    .join("manifest.yml"),
             ),
             "source_validation",
             None,
-        )?;
+        )?
+        .epoch;
+        if candidate_epoch == 26 {
+            contextual(
+                crate::source_tools::next_successor_026::verify_preview(source_root, &o.root, true),
+                "source_validation",
+                None,
+            )?;
+        } else if candidate_epoch == 27 {
+            contextual(
+                crate::source_tools::next_successor_027::verify_preview(source_root, &o.root, true),
+                "source_validation",
+                None,
+            )?;
+        } else if candidate_epoch == 28 {
+            contextual(
+                crate::source_tools::next_successor_028::verify_preview(source_root, &o.root, true),
+                "source_validation",
+                None,
+            )?;
+        } else {
+            contextual(
+                successors::verify_measured_preview_with_preimage_root(
+                    source_root,
+                    &o.root,
+                    o.preimage_root.as_deref(),
+                ),
+                "source_validation",
+                None,
+            )?;
+        }
     }
     contextual(check_destination(&o), "argument_validation", None)?;
     let paths = AuthorityPaths {
@@ -576,13 +642,14 @@ pub async fn run(o: ProbeOptions) -> std::result::Result<Value, ProbeError> {
         "source_validation",
         None,
     )?;
-    let changes = contextual(
+    let epoch_manifest = contextual(
         manifest::load_epoch_manifest(&paths.epoch_dir(BASELINE).join("manifest.yml")),
         "source_validation",
         None,
-    )?
-    .changes;
-    for epoch in [18, 19, 20] {
+    )?;
+    let current_epoch = epoch_manifest.epoch;
+    let changes = epoch_manifest.changes;
+    for epoch in BTreeSet::from([18, 19, 20, current_epoch]) {
         let applied = changes
             .iter()
             .filter(|c| c.sequence <= epoch)
@@ -632,7 +699,7 @@ pub async fn run(o: ProbeOptions) -> std::result::Result<Value, ProbeError> {
             "principal_connection",
             Some("knowledge_api"),
         )?;
-        let result = shadow(&mut fresh, &o).await;
+        let result = shadow(&mut fresh, &o, &identity).await;
         contextual(
             fresh.close().await.map_err(AuthorityError::from),
             "connection_close",
@@ -657,6 +724,28 @@ pub async fn run(o: ProbeOptions) -> std::result::Result<Value, ProbeError> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    const LEDGER_ACL_PREIMAGE_PATH: &str = "database/authority/ledger_acl.py";
+    const LEDGER_ACL_PREIMAGE_SHA256: &str =
+        "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc";
+    const LEDGER_ACL_PREIMAGE_FIXTURE: &str = include_str!("test_fixtures/ledger_acl_preimage_v1.json");
+
+    fn pinned_ledger_acl_preimage() -> Vec<u8> {
+        let fixture: Value = serde_json::from_str(LEDGER_ACL_PREIMAGE_FIXTURE)
+            .expect("pinned ledger ACL fixture must be valid JSON");
+        assert_eq!(fixture["schema"], "agentforge/test-pinned-preimage/v1");
+        assert_eq!(fixture["path"], LEDGER_ACL_PREIMAGE_PATH);
+        assert_eq!(fixture["sha256"], LEDGER_ACL_PREIMAGE_SHA256);
+        let bytes = fixture["content"]
+            .as_str()
+            .expect("pinned ledger ACL fixture content must be UTF-8")
+            .as_bytes();
+        assert_eq!(
+            format!("{:x}", Sha256::digest(bytes)),
+            LEDGER_ACL_PREIMAGE_SHA256
+        );
+        bytes.to_vec()
+    }
 
     struct Scratch(PathBuf);
     impl Scratch {
@@ -688,12 +777,24 @@ mod tests {
                 .join(BASELINE)
                 .join("manifest.yml");
             let current_epoch = manifest::load_epoch_manifest(&epoch_path).unwrap();
-            assert!(matches!(current_epoch.epoch, 17 | 20 | 21 | 22 | 23 | 24));
-            if current_epoch.epoch == 24 {
-                let receipt = crate::source_tools::next_successor_024::verify_activated_source(&current).unwrap();
+            assert!(matches!(
+                current_epoch.epoch,
+                17 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28
+            ));
+            if current_epoch.epoch == 25 {
+                let receipt =
+                    crate::source_tools::next_successor_025::verify_activated_source(&current)
+                        .unwrap();
+                assert_eq!(receipt["candidate_epoch"], current_epoch.epoch);
+            } else if current_epoch.epoch == 24 {
+                let receipt =
+                    crate::source_tools::next_successor_024::verify_activated_source(&current)
+                        .unwrap();
                 assert_eq!(receipt["candidate_epoch"], current_epoch.epoch);
             } else if current_epoch.epoch == 23 {
-                let (_, verified_epoch) = crate::source_tools::next_successor_023::verify_activated_source(&current).unwrap();
+                let (_, verified_epoch) =
+                    crate::source_tools::next_successor_023::verify_activated_source(&current)
+                        .unwrap();
                 assert_eq!(verified_epoch.epoch, current_epoch.epoch);
             } else if current_epoch.epoch != 17 {
                 let (_, verified_epoch) = successors::verify_activated_source(&current).unwrap();
@@ -800,28 +901,18 @@ mod tests {
                 br#"{"unit_fixture":true,"historical_import_verified":false}"#,
             )
             .unwrap();
-            // Only the one missing frozen preimage is recovered, from real
-            // readable repository history into an external temporary fixture.
-            // No retired service/backup tree is restored in the repository.
+            // Materialize the single hash-pinned historical fixture outside
+            // the checkout. No Git metadata or retired service tree is needed.
             let preimage_root = scratch.0.join("historical-preimage-fixture");
-            let preimage = preimage_root.join("database/authority/ledger_acl.py");
+            let preimage = preimage_root.join(LEDGER_ACL_PREIMAGE_PATH);
             std::fs::create_dir_all(preimage.parent().unwrap()).unwrap();
-            let historical = std::process::Command::new("git")
-                .arg("-C")
-                .arg(&current)
-                .args(["show", "22d9ce0^:database/authority/ledger_acl.py"])
-                .output()
-                .expect("historical Git preimage must be readable for this unit fixture");
-            assert!(
-                historical.status.success(),
-                "required historical ledger ACL Git preimage is unavailable"
-            );
+            // Inert public fixture only: this retired source is hashed, copied
+            // into the synthetic preimage root, and never imported or executed.
+            std::fs::write(&preimage, pinned_ledger_acl_preimage()).unwrap();
             assert_eq!(
-                format!("{:x}", Sha256::digest(&historical.stdout)),
-                "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc",
-                "unit fixture must use the real frozen ledger ACL preimage"
+                manifest::file_sha256(&preimage).unwrap(),
+                LEDGER_ACL_PREIMAGE_SHA256
             );
-            std::fs::write(&preimage, historical.stdout).unwrap();
             import["target"] = json!(canonical_fixture);
             import["previous_checkout"] = json!(preimage_root.canonicalize().unwrap());
             import["source_archive"] = json!(archive.canonicalize().unwrap());

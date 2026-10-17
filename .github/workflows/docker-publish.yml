@@ -16,12 +16,12 @@ permissions:
 
 jobs:
   image-size:
-    uses: ./.github/workflows/image-size.yml
+    uses: $/.github/workflows/image-size.yml
     with:
       policy-only: true
 
   supply-chain:
-    uses: ./.github/workflows/supply-chain.yml
+    uses: $/.github/workflows/supply-chain.yml
 
   build-and-push:
     needs: [image-size, supply-chain]
@@ -72,7 +72,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Install pinned vulnerability scanner
@@ -176,7 +176,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Install pinned vulnerability scanner

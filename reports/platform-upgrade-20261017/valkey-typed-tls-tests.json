@@ -1,0 +1,30 @@
+{
+  "schema": "agentforge/valkey-typed-policy-tests/v1",
+  "observed_at": "2026-10-17T10:04:53.681695+00:00",
+  "results": {
+    "passed": 31,
+    "failed": 0,
+    "ignored": 2,
+    "filtered_out": 0
+  },
+  "command": "Rust1.99 cargo test -p ai-platform-service-primitives --lib",
+  "new_typed_tls_error_chain_tests": 7,
+  "log_sha256": "275866acba1897d2ebea234e9abbb7639c81c1168d6b4aac431bbb820262d666",
+  "source_sha256": {
+    "rust/platform-native/crates/platform-service-primitives/src/valkey.rs": "352b2fbed9fc5386a8343c8e9424c41ba24a4aab6f921add62609e71864d1cef",
+    "rust/platform-native/crates/platform-service-primitives/Cargo.toml": "da69b98b0c6613115bb19d072218913624019c1bb3a3462b796b2bad65277b62",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/policy.rs": "9b2ab510aadda5654a34a5f5c85117ceec04f1d0e3d5c4c965f1024801549c8c",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/real_tests.rs": "89ab394cfefaf0c6e7035e06a771c6eba7aaa0c5e1d1ed0a6c9f4befc0c7d229",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/config.rs": "503f92ee48027a797e90c21d2312abbb4bb55d9311491ab194a138803ede0200",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/transport.rs": "7f4b61080e66cb20b7cc77a457aac9a5d68dae5cb206f14aa04afefa1a82dd6e",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/tls_errors.rs": "cdef9f0473e1a5c6757e3ff579c9f205dd1d9bd598716f40152ebae3bb8f18fd",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/tests.rs": "4e2df1672d2dd7ee71f58dab4c54402a03da395b5dfcfe9db382ecfb13acd284",
+    "rust/platform-native/crates/platform-service-primitives/src/valkey/acl.rs": "25a9c8b28873dfc118f9e0b30f032d539fd86a12f77b68e4f891fcc54febb9ec"
+  },
+  "verified": "Type-based traversal of actual Redis Arc/IO/rustls errors; never message substring classification",
+  "not_run": [
+    "Real TLS/CA/SAN/authentication handshake matrix",
+    "Live Valkey9 memory pressure/AOF/ACL/outage journeys"
+  ],
+  "product_acceptance": false
+}

@@ -38,7 +38,7 @@ impl AdapterFactory for NativeSdkFactory {
         let timeout=if ai_platform_gateway_foundation::sdk_capabilities::selected(&snapshot).map_err(|_|bad())?.is_empty(){310}else{1830};
         let mut private = snapshot;
         private.connector_config = json!({"base_url":worker_config.base_url(),"max_connections":16,"stream_timeout":timeout});
-        Ok(Arc::new(NativeSdkAdapter { http: HttpTransport::new(ServiceHandle::new(private))?,
+        Ok(Arc::new(NativeSdkAdapter { http: HttpTransport::new_with_builder(ServiceHandle::new(private), worker_config.client_builder())?,
             framework:self.framework, agent, headers, service, capabilities:self.capabilities.clone(), read_grants:self.read_grants.clone(), session_pool }))
     }
 }

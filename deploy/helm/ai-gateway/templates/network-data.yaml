@@ -1,0 +1,59 @@
+{{- range $store, $owners := dict "postgres" (list "gateway" "knowledge" "knowledge-worker" "agent-runtime" "agent-capability-worker" "migration") "valkey" (list "gateway" "knowledge" "knowledge-worker") "qdrant" (list "knowledge" "knowledge-worker") "objectStore" (list "gateway" "knowledge" "knowledge-worker" "agent-runtime" "agent-capability-worker") }}
+{{- $data := index $.Values.data $store }}
+{{- if or (ne $store "objectStore") $data.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-{{ $store | lower }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+    matchExpressions:
+    - key: app.kubernetes.io/component
+      operator: In
+      values: {{ $owners | toJson }}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - {{ toYaml $data.peer | nindent 6 }}
+    ports: [{protocol: TCP, port: {{ $data.port }}}]
+{{- end }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-providers
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+    - {key: app.kubernetes.io/component, operator: In, values: [gateway, knowledge, knowledge-worker, agent-runtime, agent-capability-worker, sdk]}
+  policyTypes: [Egress]
+  egress:
+{{- range .Values.network.providerCIDRs }}
+  - to: [{ipBlock: {cidr: {{ . | quote }}}}]
+    ports: [{protocol: TCP, port: 443}]
+{{- else }}
+    []
+{{- end }}
+{{- if .Values.routing.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-edge
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: frontend
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - {{ toYaml .Values.network.edgePeer | nindent 6 }}
+    ports: [{protocol: TCP, port: 8080}]
+{{- end }}

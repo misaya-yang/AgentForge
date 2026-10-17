@@ -4,7 +4,7 @@ use super::{
     langgraph_body,
 };
 use crate::{
-    billing::{OverageStrategy, check_quota},
+    billing::OverageStrategy,
     model_failover::{ResolvedRuntimeSnapshot, build_runtime_model_override_config},
     quota_store::PgQuotaStore,
     rate_limits::{
@@ -234,13 +234,17 @@ impl LangGraphGovernance {
                         crate::migration_host::bootstrap::langgraph_preparation::payload_tokens(
                             payload,
                         );
-                    let check = check_quota(
-                        stored.as_ref().map(|s| &s.quota),
-                        estimated,
-                        chrono::Utc::now(),
-                        |limit| self.rpm.check(&user.tenant_id, &user.user_id, Some(limit)),
-                    )
-                    .map_err(|_| CompatError::new(503, "QUOTA_CHECK_UNAVAILABLE"))?;
+                    let check = self
+                        .rpm
+                        .check_quota_shared(
+                            &user.tenant_id,
+                            &user.user_id,
+                            stored.as_ref().map(|s| &s.quota),
+                            estimated,
+                            chrono::Utc::now(),
+                        )
+                        .await
+                        .map_err(|_| CompatError::new(503, "QUOTA_CHECK_UNAVAILABLE"))?;
                     if matches!(
                         check.status,
                         crate::billing::QuotaStatus::Exceeded
@@ -371,6 +375,7 @@ pub struct LangGraphClient {
     token: String,
     rr: AtomicUsize,
     redis: Option<ConnectionManager>,
+    cache_redis: Option<ConnectionManager>,
     cache: Mutex<HashMap<String, (Instant, Value)>>,
     pub governance: LangGraphGovernance,
     pub usage: Option<Arc<UsageRecorder>>,
@@ -398,6 +403,7 @@ impl LangGraphClient {
             strategy: "round_robin".into(),
             token,
             rr: AtomicUsize::new(0),
+            cache_redis: redis.clone(),
             redis,
             cache: Mutex::new(HashMap::new()),
             governance,
@@ -407,6 +413,29 @@ impl LangGraphClient {
             limiter: None,
             rate_config: MultiDimensionConfig::default(),
         })
+    }
+    /// Coordination retains the existing quota authority; disposable result
+    /// caches must never use the no-eviction coordination connection.
+    pub fn with_coordination_only(mut self) -> Self {
+        self.cache_redis = None;
+        self
+    }
+    fn cache_value(&self, key: String, value: Value) {
+        // Bound the legacy local acceleration independently of Redis eviction.
+        if serde_json::to_vec(&value).is_ok_and(|bytes| bytes.len() <= 1_048_576) {
+            let mut cache = self.cache.lock().unwrap_or_else(|p| p.into_inner());
+            cache.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(300));
+            if cache.len() >= 128 && !cache.contains_key(&key) {
+                if let Some(oldest) = cache
+                    .iter()
+                    .min_by_key(|(_, (at, _))| *at)
+                    .map(|(key, _)| key.clone())
+                {
+                    cache.remove(&oldest);
+                }
+            }
+            cache.insert(key, (Instant::now(), value));
+        }
     }
     fn select(&self) -> Result<Arc<LangGraphInstance>, CompatError> {
         let healthy: Vec<_> = self
@@ -549,14 +578,11 @@ impl LangGraphClient {
                 return Some(value.clone());
             }
         }
-        if let Some(mut redis) = self.redis.clone() {
+        if let Some(mut redis) = self.cache_redis.clone() {
             if let Ok(Some(raw)) = redis.get::<_, Option<String>>(redis_key).await {
                 if let Ok(value) = serde_json::from_str::<Value>(&raw) {
                     if python_truthy(&value) {
-                        self.cache
-                            .lock()
-                            .unwrap_or_else(|p| p.into_inner())
-                            .insert(key.into(), (Instant::now(), value.clone()));
+                        self.cache_value(key.into(), value.clone());
                         return Some(value);
                     }
                 }
@@ -565,11 +591,8 @@ impl LangGraphClient {
         None
     }
     async fn save_cache(&self, key: String, redis_key: String, value: &Value, ttl: u64) {
-        self.cache
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .insert(key, (Instant::now(), value.clone()));
-        if let Some(mut redis) = self.redis.clone() {
+        self.cache_value(key, value.clone());
+        if let Some(mut redis) = self.cache_redis.clone() {
             let _: Result<(), _> = redis.set_ex(redis_key, value.to_string(), ttl).await;
         }
     }
@@ -578,7 +601,7 @@ impl LangGraphClient {
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .remove(&format!("thread:{id}:{}", user.user_id));
-        if let Some(mut redis) = self.redis.clone() {
+        if let Some(mut redis) = self.cache_redis.clone() {
             let _: Result<usize, _> = redis.del(format!("lg:thread:{id}")).await;
         }
     }

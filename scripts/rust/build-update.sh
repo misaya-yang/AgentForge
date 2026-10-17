@@ -9,7 +9,7 @@ dry_run=false
 
 usage() {
     cat <<'EOF'
-Usage: scripts/rust/build-update.sh [--artifact runtime|worker|app-server|all] [--dry-run]
+Usage: scripts/rust/build-update.sh [--artifact runtime|worker|sandbox|app-server|all] [--dry-run]
 
 Runs the existing Docker-contained Rust image build entrypoints under the shared
 rust-build lock. Cargo executes only inside Docker multi-stage builders. This
@@ -41,7 +41,7 @@ while (($#)); do
 done
 
 case "$artifact" in
-    runtime|worker|app-server|all) ;;
+    runtime|worker|sandbox|app-server|all) ;;
     *)
         echo "ERROR: unsupported artifact: $artifact" >&2
         exit 2
@@ -65,12 +65,14 @@ if [[ "${AI_PLATFORM_RUST_BUILD_LOCK_HELD:-}" != "1" ]]; then
         CARGO_BUILD_JOBS=1 \
         AI_PLATFORM_AGENT_RUNTIME_CARGO_JOBS=1 \
         AI_PLATFORM_CAPABILITY_WORKER_CARGO_JOBS=1 \
+        AI_PLATFORM_PYTHON_SANDBOX_CARGO_JOBS=1 \
         "$script_dir/build-update.sh" "${original_args[@]}"
 fi
 
 export CARGO_BUILD_JOBS=1
 export AI_PLATFORM_AGENT_RUNTIME_CARGO_JOBS=1
 export AI_PLATFORM_CAPABILITY_WORKER_CARGO_JOBS=1
+export AI_PLATFORM_PYTHON_SANDBOX_CARGO_JOBS=1
 
 fail() {
     echo "ERROR: $*" >&2
@@ -179,6 +181,11 @@ case "$artifact" in
         dockerfiles+=("$repo_root/deploy/agent-runtime-source/Dockerfile.capability-worker")
         identity_artifacts+=("capability_worker")
         ;;
+    sandbox)
+        build_scripts+=("$repo_root/scripts/harness/build_agent_python_sandbox_image.sh")
+        dockerfiles+=("$repo_root/deploy/agent-runtime-source/Dockerfile.python-sandbox")
+        identity_artifacts+=("python_sandbox")
+        ;;
     app-server)
         build_scripts+=("$repo_root/scripts/harness/build_agent_runtime_source_image.sh")
         dockerfiles+=("$repo_root/deploy/agent-runtime-source/Dockerfile")
@@ -188,14 +195,28 @@ case "$artifact" in
         build_scripts+=(
             "$repo_root/scripts/harness/build_agent_runtime_image.sh"
             "$repo_root/scripts/harness/build_agent_capability_worker_image.sh"
+            "$repo_root/scripts/harness/build_agent_python_sandbox_image.sh"
         )
         dockerfiles+=(
             "$repo_root/deploy/agent-runtime-source/Dockerfile.runtime"
             "$repo_root/deploy/agent-runtime-source/Dockerfile.capability-worker"
+            "$repo_root/deploy/agent-runtime-source/Dockerfile.python-sandbox"
         )
-        identity_artifacts+=("agent_runtime" "capability_worker")
+        identity_artifacts+=("agent_runtime" "capability_worker" "python_sandbox")
         ;;
 esac
+
+# Fail before any long Runtime build when later control/sandbox pins are absent.
+declare -a base_image_inputs=()
+case "$artifact" in
+    worker) base_image_inputs+=(CAPABILITY_RUST_BUILD_IMAGE CAPABILITY_WORKER_RUNTIME_IMAGE) ;;
+    sandbox|all) base_image_inputs+=(CAPABILITY_RUST_BUILD_IMAGE CAPABILITY_WORKER_RUNTIME_IMAGE PYTHON_SANDBOX_IMAGE) ;;
+esac
+for input_name in ${base_image_inputs[@]+"${base_image_inputs[@]}"}; do
+    base_image_value="${!input_name:-}"
+    [[ "$base_image_value" =~ ^[^[:space:]]+@sha256:[0-9a-f]{64}$ ]] || fail \
+        "$input_name must select an independently verified exact digest reference"
+done
 
 for path in "${build_scripts[@]}" "${dockerfiles[@]}"; do
     [[ -f "$path" ]] || fail "required build path is missing: $path"

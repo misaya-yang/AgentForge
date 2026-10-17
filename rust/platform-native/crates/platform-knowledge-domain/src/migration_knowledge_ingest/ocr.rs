@@ -34,13 +34,7 @@ use super::{
 };
 use base64::Engine;
 use serde_json::{Value, json};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 pub fn media_type(bytes: &[u8]) -> &'static str {
     if bytes.starts_with(b"\xff\xd8") {
@@ -85,9 +79,7 @@ impl OcrConfig {
 #[derive(Clone)]
 pub struct VlmOcrService {
     pub config: OcrConfig,
-    client: reqwest::Client,
     semaphore: Arc<Semaphore>,
-    key: Arc<AtomicUsize>,
 }
 impl VlmOcrService {
     pub fn new(mut config: OcrConfig) -> Result<Self> {
@@ -107,17 +99,9 @@ impl VlmOcrService {
         if !["gemini", "dashscope", "siliconflow"].contains(&config.provider.as_str()) {
             return Err(IngestError::Validation("unknown OCR provider".into()));
         }
-        config.api_keys = config
-            .api_keys
-            .iter()
-            .map(|k| k.trim().to_owned())
-            .filter(|k| !k.is_empty())
-            .collect();
-        if config.api_keys.is_empty() {
-            return Err(IngestError::Validation(
-                "at least one API key is required for OCR".into(),
-            ));
-        }
+        // Credentials and vendor endpoints belong only to the Gateway registry.
+        config.api_keys.clear();
+        config.endpoint.clear();
         if config.provider == "dashscope"
             && (![
                 "text_recognition",
@@ -137,82 +121,32 @@ impl VlmOcrService {
                 "DashScope OCR task or pixel/token bounds are invalid".into(),
             ));
         }
-        let url = reqwest::Url::parse(&config.endpoint)
-            .map_err(|_| IngestError::Validation("OCR endpoint invalid".into()))?;
-        if !["http", "https"].contains(&url.scheme()) || url.host_str().is_none() {
-            return Err(IngestError::Validation("OCR endpoint invalid".into()));
-        }
-        if config.provider == "dashscope" {
-            let mut root = config.endpoint.trim_end_matches('/').to_owned();
-            for suffix in ["/compatible-mode/v1", "/api/v1"] {
-                if root.ends_with(suffix) {
-                    root.truncate(root.len() - suffix.len());
-                    break;
-                }
-            }
-            if !root.ends_with("/services/aigc/multimodal-generation/generation") {
-                root.push_str("/api/v1/services/aigc/multimodal-generation/generation")
-            }
-            config.endpoint = root;
-        }
-        config.concurrency = if config.provider == "siliconflow" {
-            5 * config.api_keys.len()
-        } else {
-            config.concurrency.max(1)
-        };
+        config.concurrency = config.concurrency.max(1);
         config.max_retries = config.max_retries.max(1);
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(if config.provider == "siliconflow" {
-                Duration::from_secs(120)
-            } else {
-                config.timeout.max(Duration::from_secs(1))
-            })
-            .pool_max_idle_per_host(25)
-            .build()
-            .map_err(|_| IngestError::Index("OCR transport unavailable".into()))?;
         Ok(Self {
             semaphore: Arc::new(Semaphore::new(config.concurrency)),
             config,
-            client,
-            key: Arc::new(AtomicUsize::new(0)),
         })
     }
     async fn post(&self, payload: &Value, gemini: bool) -> Result<(u16, Value)> {
-        let key = &self.config.api_keys
-            [self.key.fetch_add(1, Ordering::Relaxed) % self.config.api_keys.len()];
-        let mut request = self.client.post(&self.config.endpoint).json(payload);
-        request = if gemini {
-            request.header("x-goog-api-key", key)
+        use crate::migration_knowledge_query::model_plane::{self, ModelPurpose, ModelWire};
+        let wire = if gemini {
+            ModelWire::GeminiGenerateContent
+        } else if self.config.provider == "dashscope" {
+            ModelWire::DashscopeVision
         } else {
-            request.bearer_auth(key)
+            ModelWire::ChatCompletions
         };
-        let mut response = request
-            .send()
-            .await
-            .map_err(|_| IngestError::Index("OCR provider unavailable".into()))?;
-        let status = response.status().as_u16();
-        let mut bytes = vec![];
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| IngestError::Index("OCR response failed".into()))?
-        {
-            if bytes.len() + chunk.len() > 8 * 1024 * 1024 {
-                return Err(IngestError::Index("OCR response exceeds budget".into()));
-            }
-            bytes.extend_from_slice(&chunk)
-        }
-        if status >= 400 {
-            return Ok((status, Value::Null));
-        }
-        Ok((
-            status,
-            serde_json::from_slice(&bytes)
-                .map_err(|_| IngestError::Index("OCR API returned invalid JSON".into()))?,
-        ))
+        Ok(model_plane::execute(
+            &self.config.provider,
+            &self.config.model,
+            "",
+            ModelPurpose::Ocr,
+            wire,
+            payload.clone(),
+            self.config.timeout,
+        )
+        .await?)
     }
     async fn call(&self, bytes: &[u8]) -> Result<String> {
         let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
@@ -232,7 +166,7 @@ impl VlmOcrService {
                 Ok(dashscope_text(&result))
             }
             "gemini" => {
-                let payload = json!({"contents":[{"role":"user","parts":[{"inlineData":{"mimeType":media_type(bytes),"data":b64}},{"text":OCR_PROMPT}]}]});
+                let payload = gemini_ocr_payload(bytes, &b64, self.config.max_tokens);
                 let (status, result) = self.post(&payload, true).await?;
                 if status >= 400 {
                     return Err(IngestError::Index(format!(
@@ -272,6 +206,7 @@ impl VlmOcrService {
                                 .trim()
                                 .into());
                         }
+                        Err(error) => return Err(error),
                         _ => {
                             if attempt + 1 < self.config.max_retries {
                                 tokio::time::sleep(Duration::from_secs(
@@ -306,7 +241,9 @@ impl VlmOcrService {
         let mut tasks = tokio::task::JoinSet::new();
         for (i, bytes) in images.iter().cloned().enumerate() {
             let service = self.clone();
-            tasks.spawn(async move { (i, service.ocr_image(&bytes).await) });
+            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(
+                async move { (i, service.ocr_image(&bytes).await) },
+            ));
         }
         let mut values = vec![String::new(); images.len()];
         while let Some(Ok((i, text))) = tasks.join_next().await {
@@ -384,4 +321,25 @@ pub async fn ocr_image_auto(
     tokio::task::spawn_blocking(move || parser.ocr_image_bytes(&bytes, true))
         .await
         .map_err(|_| IngestError::Parser("OCR task failed".into()))?
+}
+
+fn gemini_ocr_payload(bytes: &[u8], b64: &str, max_tokens: usize) -> Value {
+    json!({"contents":[{"role":"user","parts":[{"inlineData":{"mimeType":media_type(bytes),"data":b64}},{"text":OCR_PROMPT}]}],"generationConfig":{"maxOutputTokens":max_tokens}})
+}
+#[cfg(test)]
+mod gemini_payload_tests {
+    use super::*;
+    #[test]
+    fn actual_gemini_ocr_payload_carries_configured_native_output_cap() {
+        for cap in [1, 257, 8192] {
+            let payload = gemini_ocr_payload(b"image", "aW1hZ2U=", cap);
+            assert_eq!(payload["generationConfig"]["maxOutputTokens"], json!(cap));
+            assert_eq!(
+                payload["contents"][0]["parts"][0]["inlineData"]["data"],
+                "aW1hZ2U="
+            );
+            assert_eq!(payload["contents"][0]["parts"][1]["text"], OCR_PROMPT);
+            assert!(payload.get("max_tokens").is_none());
+        }
+    }
 }

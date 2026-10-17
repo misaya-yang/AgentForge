@@ -20,6 +20,7 @@ pub struct ActivePublicationContext {
 }
 #[derive(Clone)]
 pub struct LexicalLifecycle {
+    job_fence: Option<Value>,
     pub store: QueryStore,
     pub vectors: QdrantStore,
     pub barrier_wait: Duration,
@@ -38,8 +39,19 @@ fn digest_entries(mut entries: Vec<(String, String)>) -> Result<Value> {
     )
 }
 impl LexicalLifecycle {
+    pub(crate) fn with_job_fence(mut self, row: Value) -> Self { self.job_fence = Some(row); self }
+    async fn check_job_fence(&self, id: &str) -> Result<()> {
+        if let Some(row) = &self.job_fence {
+            let current = serde_json::to_value(self.store.dataset(id).await?)
+                .map_err(|_| QueryError::DependenciesFailed)?;
+            crate::migration_knowledge_ingest::vector_jobs::check_expected(row, &current)
+                .map_err(|_| QueryError::GenerationChanged)?;
+        }
+        Ok(())
+    }
     pub fn new(pool: PgPool, vectors: QdrantStore) -> Self {
         Self {
+            job_fence: None,
             store: QueryStore::new(pool),
             vectors,
             barrier_wait: Duration::from_secs(5),
@@ -406,6 +418,7 @@ impl LexicalLifecycle {
             );
         }
         let lease = self.barrier(id).await?;
+        self.check_job_fence(id).await?;
         self.ensure_recover(&d).await?;
         let a = self.authority(&d).await?;
         let revision = a["content_revision"].as_i64().ok_or(QueryError::Database)?;
@@ -475,6 +488,7 @@ impl LexicalLifecycle {
             );
         }
         let lease = self.barrier(id).await?;
+        self.check_job_fence(id).await?;
         let old = self.ensure_recover(&d).await?;
         let a = self.authority(&d).await?;
         let revision = a["content_revision"].as_i64().ok_or(QueryError::Database)?;

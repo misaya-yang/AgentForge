@@ -46,16 +46,16 @@ interface BrowserGetResult<T> {
 
 async function authenticatedGet<T>(page: Page, path: string): Promise<BrowserGetResult<T>> {
   return page.evaluate(async (requestPath) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
 
     const response = await fetch(requestPath, {
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${token}`,
+        "X-CSRF-Token": csrfToken,
       },
     });
     const text = await response.text();

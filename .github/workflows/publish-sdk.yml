@@ -16,15 +16,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-native
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: $/.github/actions/setup-native
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.11.1'
+          package-manager-cache: false
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '17'
-          cache: maven
       - name: Install Maven
         run: sudo apt-get update && sudo apt-get install --yes maven
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
       - name: Verify and package Rust client
         run: |
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client
@@ -62,17 +62,23 @@ jobs:
 
   publish-cli:
     name: Publish ai-gateway-cli Linux x64 package to npm
+    permissions:
+      contents: read
+      id-token: write
     needs: verify-sse-contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-native
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: $/.github/actions/setup-native
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.11.1'
+          package-manager-cache: false
           registry-url: 'https://registry.npmjs.org'
+      - name: Validate npm OIDC client and package repository prerequisites
+        run: node .github/scripts/check-npm-trusted-publisher.mjs
       - name: Install & Build
         run: |
           cd sdk/cli
@@ -100,11 +106,10 @@ jobs:
           npm pack --dry-run
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           AI_GATEWAY_CLI_PACKAGE_TARGETS: linux-x64
         run: |
           cd sdk/cli
-          npm publish --access public
+          npm publish --access public --provenance
 
 
   platformctl-matrix:
@@ -118,7 +123,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-client-packaging
+      - uses: $/.github/actions/setup-client-packaging
       - id: targets
         name: Read the canonical platformctl target manifest
         run: echo "matrix=$(platform-client-packaging package-platformctl --matrix)" >> "$GITHUB_OUTPUT"
@@ -146,7 +151,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-client-packaging
+      - uses: $/.github/actions/setup-client-packaging
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
           toolchain: 1.99.0

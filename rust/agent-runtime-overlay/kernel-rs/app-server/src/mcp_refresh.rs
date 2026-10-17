@@ -477,6 +477,7 @@ enabled = false
                 SessionSource::Exec,
                 Arc::clone(&environment_manager),
                 thread_extensions(
+                    &good_config,
                     ThreadExtensionDependencies {
                         event_sink: Arc::new(NoopExtensionEventSink),
                         auth_manager: auth_manager.clone(),

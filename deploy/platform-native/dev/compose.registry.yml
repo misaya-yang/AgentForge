@@ -1,0 +1,10 @@
+# Explicit public, extracted and checksummed Cargo directory-source. No host target/config/credentials.
+services:
+  native-build:
+    volumes:
+      - type: bind
+        source: ${NATIVE_PUBLIC_REGISTRY_SOURCE:?explicit launcher option required}
+        target: /af-public-registry
+        read_only: true
+        bind:
+          create_host_path: false

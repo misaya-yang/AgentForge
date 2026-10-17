@@ -29,6 +29,7 @@ pub struct LangGraphConfiguration {
     pub strategy: String,
     pub token: String,
     pub governance: LangGraphGovernance,
+    pub coordination_only: bool,
 }
 pub struct ContentBackends {
     /// Must implement the source PDF text extraction, never a fake empty parse.
@@ -83,6 +84,9 @@ impl ContentGraph {
             config.langgraph.governance,
         )
         .map_err(|_| BootstrapError::Construction("langgraph"))?;
+        if config.langgraph.coordination_only {
+            langgraph = langgraph.with_coordination_only();
+        }
         langgraph.strategy = config.langgraph.strategy;
         langgraph.usage = Some(observability.usage.clone());
         langgraph.pricing = Some(core.pricing.clone());

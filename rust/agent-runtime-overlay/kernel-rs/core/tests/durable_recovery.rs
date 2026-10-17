@@ -18,6 +18,15 @@ use std::time::Duration;
 
 #[tokio::test]
 async fn recover_turn_preserves_model_lease_metadata_and_replacement_owner() {
+    assert_recovery_metadata(false).await;
+}
+
+#[tokio::test]
+async fn recover_turn_applies_metadata_patch_without_losing_lease_fields() {
+    assert_recovery_metadata(true).await;
+}
+
+async fn assert_recovery_metadata(use_patch: bool) {
     let server = responses::start_mock_server().await;
     let response_mock =
         responses::mount_sse_once(&server, responses::sse_completed("recovered")).await;
@@ -42,19 +51,38 @@ async fn recover_turn_preserves_model_lease_metadata_and_replacement_owner() {
         ),
         ("ai_platform_scope_sha256".to_string(), "a".repeat(64)),
     ]);
-    assert_eq!(
+    let request = RecoverTurnRequest {
+        turn_id: turn_id.to_string(),
+        thread_settings: Default::default(),
+        trace: None,
+        cyber_access_program: None,
+    };
+    let submission = if use_patch {
+        let mut replacement = metadata.clone();
+        replacement.insert("ai_platform_execution_owner".into(), "old-owner".into());
+        replacement.insert("ai_platform_execution_fence".into(), "1".into());
         test.codex
-            .recover_turn_with_metadata_if_idle(
-                RecoverTurnRequest {
-                    turn_id: turn_id.to_string(),
-                    thread_settings: Default::default(),
-                    trace: None,
-                    cyber_access_program: None,
+            .recover_turn_with_metadata_update_if_idle(
+                request,
+                codex_protocol::turn_input::ResponsesApiClientMetadataUpdate {
+                    replacement: Some(replacement),
+                    patch: Some(std::collections::HashMap::from([
+                        (
+                            "ai_platform_execution_owner".into(),
+                            "replacement-owner".into(),
+                        ),
+                        ("ai_platform_execution_fence".into(), "2".into()),
+                    ])),
                 },
-                Some(metadata.clone())
             )
             .await
-            .expect("recover"),
+    } else {
+        test.codex
+            .recover_turn_with_metadata_if_idle(request, Some(metadata.clone()))
+            .await
+    };
+    assert_eq!(
+        submission.expect("recover"),
         StartIfIdleSubmission::Started {
             turn_id: turn_id.to_string(),
             root_turn_id: turn_id.to_string(),
@@ -135,7 +163,8 @@ async fn root_turn_suspension_preserves_unfinished_turn_history() {
     let codex_core::TurnInputSubmission::Started {
         turn_id,
         root_turn_id,
-    } = submitted else {
+    } = submitted
+    else {
         panic!("expected a started root turn");
     };
     assert_eq!(root_turn_id, turn_id);

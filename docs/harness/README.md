@@ -21,6 +21,7 @@
 | 5 | [`runtime-and-secrets.md`](runtime-and-secrets.md) | Mandatory before any Docker, deploy, or E2E action. |
 | 5b | [`integration-and-rollback.md`](integration-and-rollback.md) | Singleton-runtime ownership, verification ladder, integration and rollback. |
 | 5c | [`repository-quality.md`](repository-quality.md) | Dead code/docs/tests, dependency, size and browser-evidence lifecycle. |
+| 5d | [`codex-upstream-upgrade.md`](codex-upstream-upgrade.md) | Immutable Codex source replay, host compatibility and verification. |
 | 6 | [`docs/README.md`](../README.md) | Index of everything else: designs, plans, runbooks, reports. |
 
 For a restored archive or local Codex continuation, use the existing
@@ -88,8 +89,9 @@ conflict before changing code.
 It runs in CI as part of the *Compose and Harness* job. Static imports and core ownership have their
 own `architecture-boundary-gate` and `core-boundary-gate`; affected-gate selection and CI enforcement
 also exist. The structural check alone does not prove their results, program lifecycle semantics,
-or non-zero collection without unexpected skips. The active `agent-platform-vnext` phase-one program
-owns the remaining exception, lifecycle and evidence conformance work.
+or non-zero collection without unexpected skips. The current execution authority is
+[`native-enterprise-upgrade/loop-state.json`](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json);
+historical program receipts do not establish current acceptance.
 When the structural check fails, fix the harness — do not raise the budget.
 
 ## When to change the harness

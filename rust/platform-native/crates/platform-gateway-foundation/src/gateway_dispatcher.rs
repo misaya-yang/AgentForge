@@ -555,6 +555,7 @@ pub fn usage_event(
         // Provider-reported cost is audit evidence only. Existing pricing receipt,
         // deduplication, aggregate and quota accounting remain the sole charge path.
     }
+    record.metadata.insert("provider_cache_usage".into(), serde_json::to_value(usage_parser::cache::CacheUsage::observe(&record.provider, payload)).expect("cache observation serializes"));
     record.input_tokens = tokens.input_tokens;
     record.output_tokens = tokens.output_tokens;
     record.latency_ms = duration_ms.max(0);

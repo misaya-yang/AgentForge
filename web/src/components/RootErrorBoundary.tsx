@@ -1,3 +1,4 @@
+import { reportBrowserError } from "@/observability/browserTelemetry";
 import { Component, type ReactNode } from "react";
 
 type Props = { children: ReactNode };
@@ -23,9 +24,9 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack?: string }) {
-    // Console only — no remote telemetry here to avoid a second failure
-    // path when the user is already having a bad time.
-    console.error("[RootErrorBoundary]", error, info);
+    reportBrowserError(error, "RenderError");
+    // The sampled reporter serializes no error messages or component stacks.
+    console.error("[RootErrorBoundary]", "Render failed");
     this.setState({ error, info: info.componentStack ?? null });
   }
 

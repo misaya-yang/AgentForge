@@ -30,9 +30,10 @@ layout is:
 ```
 
 `integration-runtime` exclusively covers Docker mutation/hot-update, DB migration, live E2E,
-browser auth state and paid-provider execution. `rust-build` covers Docker-contained Runtime/Worker
-image builds only; native host Cargo follows the scoped exception in `runtime-and-secrets.md`. On a low-memory host the two
-locks are mutually exclusive; hosted Rust CI is a different host/resource.
+browser auth state and paid-provider execution. `rust-build` covers native Docker
+check/test/build and controlled Runtime/Worker image builds. Daily server work
+uses one Docker cache without a second host Cargo target. On a low-memory host
+the two locks are mutually exclusive; hosted Rust CI is a different host/resource.
 
 The owner receipt contains:
 
@@ -73,7 +74,7 @@ Run the cheapest trustworthy layer first. A higher layer never repairs a lower-l
 | Layer | Environment | Required evidence | Skip rule |
 | --- | --- | --- | --- |
 | L0 static | No services | format/lint, real TypeScript file count, import boundaries, migration/checksum lint, Compose render | No skip for changed language |
-| L1 domain | Local process with native Rust host/hosted checks per the current toolchain policy | changed-domain unit/contract tests, in-process OpenAPI, affected native Rust changed-crate tests, Web Node tests | Only declared platform-specific tests |
+| L1 domain | Native Rust Docker/hosted checks; host only for explicit macOS client/OS cases | changed-domain unit/contract tests, in-process OpenAPI, affected native Rust changed-crate tests, Web Node tests | Only declared platform-specific tests |
 | L2 isolated integration | Prefer hosted CI disposable PG/Redis/Qdrant; local containers require `integration-runtime` lease | fresh/upgrade DB, service contracts, concurrency, restart and failure paths | Required package scenarios may not skip |
 | L3 release runtime | Singleton Docker + browser + configured provider | actual source/image SHA, UI journeys, paid-provider path, degraded states, current→frozen→current | Zero unexpected skips |
 
@@ -106,8 +107,9 @@ The default development machine is low-memory. Integration must optimize for com
 parallelism:
 
 - prefer prebuilt, revision-pinned Runtime and Capability Worker images;
-- native host builds use Rust 1.99.0, one job, no debug/incremental output and an external target
-  directory; Runtime/Worker retain the controlled Docker source workflow;
+- native builds use Rust 1.99.0 in the shared Docker development cache, one job,
+  no debug/incremental output; Runtime/Worker retain the controlled Docker source
+  workflow; do not also build the server dependency graph on the host;
 - run Docker-contained Runtime/Worker image builds once in the final integration window, not in
   every package;
 - keep Cargo jobs at one inside the Docker builder and by default in hosted CI; the source-owned

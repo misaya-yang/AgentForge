@@ -290,7 +290,7 @@ pub fn safe_zip_members(raw: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Content
     let mut total = 0;
     for i in 0..archive.len() {
         let info = archive.by_index(i).map_err(|_| bad())?;
-        let name = info.name().replace('\\', "/");
+        let name = info.name().map_err(|_| bad())?.replace('\\', "/");
         let parts: Vec<_> = name.split('/').collect();
         if name.is_empty()
             || name.starts_with('/')
@@ -318,7 +318,7 @@ pub fn safe_zip_members(raw: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Content
         if bytes.len() as u64 != info.size() {
             return Err(bad());
         }
-        result.insert(info.name().replace('\\', "/"), bytes);
+        result.insert(info.name().map_err(|_| bad())?.replace('\\', "/"), bytes);
     }
     Ok(result)
 }
@@ -587,5 +587,66 @@ mod shared_pdf_port_identity_tests {
         let gateway:Box<dyn PdfAttachmentParser>=Box::new(UnavailablePdfAttachmentParser);
         let shared:Box<dyn ai_platform_gateway_integrations::migration_content::attachments::PdfAttachmentParser>=gateway;
         let error:ai_platform_gateway_integrations::migration_content::ContentError=shared.extract_strict(b"not-pdf",1).unwrap_err();assert_eq!(error.status,422);assert_eq!(error.detail,"PDF cannot be safely parsed: strict pypdf backend is unavailable");
+    }
+}
+
+#[cfg(test)]
+mod zip9_safety_tests {
+    use super::*;
+    use std::io::Write;
+    fn archive(name: &str, data: &[u8], method: zip::CompressionMethod) -> Vec<u8> {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer
+            .start_file(
+                name,
+                zip::write::SimpleFileOptions::default().compression_method(method),
+            )
+            .unwrap();
+        writer.write_all(data).unwrap();
+        writer.finish().unwrap().into_inner()
+    }
+    #[test]
+    fn manual_member_validation_survives_zip9() {
+        let bytes = archive(
+            "word/document.xml",
+            b"<doc/>",
+            zip::CompressionMethod::Stored,
+        );
+        assert_eq!(
+            safe_zip_members(&bytes).unwrap()["word/document.xml"],
+            b"<doc/>"
+        );
+        for name in ["../outside.xml", "/absolute.xml", "a/./b.xml", "a//b.xml"] {
+            assert!(
+                safe_zip_members(&archive(name, b"x", zip::CompressionMethod::Stored)).is_err()
+            );
+        }
+        let bomb = archive(
+            "large.xml",
+            &vec![b'x'; 100_000],
+            zip::CompressionMethod::Deflated,
+        );
+        assert!(safe_zip_members(&bomb).is_err());
+    }
+    #[test]
+    fn corrupted_member_still_fails_crc_verification() {
+        let mut bytes = archive("member.xml", b"fixture", zip::CompressionMethod::Stored);
+        // Local header is 30 bytes followed by the ten-byte member name.
+        let name_len = u16::from_le_bytes([bytes[26], bytes[27]]) as usize;
+        let extra_len = u16::from_le_bytes([bytes[28], bytes[29]]) as usize;
+        bytes[30 + name_len + extra_len] ^= 1;
+        assert!(safe_zip_members(&bytes).is_err());
+    }
+    #[test]
+    fn symlink_is_rejected_without_extraction() {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer
+            .add_symlink(
+                "word/document.xml",
+                "../../outside",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        assert!(safe_zip_members(&writer.finish().unwrap().into_inner()).is_err());
     }
 }

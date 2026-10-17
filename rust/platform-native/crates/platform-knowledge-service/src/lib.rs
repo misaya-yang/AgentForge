@@ -16,6 +16,7 @@ pub use ai_platform_knowledge_domain::{
 use application::KnowledgeApplication;
 pub mod langgraph_tools;
 pub mod lifecycle;
+pub mod model_plane_identity;
 pub mod native_contract;
 pub mod native_cross_encoder;
 pub mod native_rerank;
@@ -64,6 +65,7 @@ pub(crate) fn endpoint(value: &str, name: &'static str) -> Result<reqwest::Url> 
 /// Connections must belong to this Knowledge process. stop() closes its DB pool;
 /// Redis handles are shared only within this process and are released on drop.
 pub struct KnowledgeConnections {
+    pub model_plane: Option<Arc<query::model_plane::ModelPlaneClient>>,
     pub database: PgPool,
     pub replay_redis: Option<ConnectionManager>,
     pub idempotency_redis: Option<ConnectionManager>,
@@ -106,6 +108,7 @@ impl PdfBackends {
 /// remain optional real inputs. None leaves that feature explicitly unavailable.
 #[derive(Default)]
 pub struct KnowledgeBackends {
+    pub result_cache: Option<ai_platform_service_primitives::valkey::CacheConnection>,
     pub pdf: PdfBackends,
     pub image_fetch: Option<Arc<dyn crate::migration_content::images::ImageReferenceFetch>>,
     pub structured: ingest::structured::BackendRegistry,
@@ -171,6 +174,7 @@ impl KnowledgeGraph {
                 &config.authentication.environment,
                 replay,
             )
+            .map(|mut auth| {auth.allowed_path_prefixes.push(ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH.into());auth})
             .map_err(|_| KnowledgeError::Configuration("gateway_signature"))?,
         );
         let idem_store: Arc<dyn idempotency::IdempotencyStore> =
@@ -210,10 +214,16 @@ impl KnowledgeGraph {
             .build()
             .map_err(|_| KnowledgeError::Construction("http_client"))?;
         let qdrant_origin = endpoint(&config.qdrant.url, "qdrant_origin")?;
-        let mut vectors = query::qdrant::QdrantStore::new(
-            client.clone(),
+        let vector_role = if config.role == settings::RuntimeRole::Api {
+            query::qdrant::QdrantRole::ApiReadOnly
+        } else {
+            query::qdrant::QdrantRole::WorkerWrite
+        };
+        let mut vectors = query::qdrant::QdrantStore::for_role(
             qdrant_origin.clone(),
             config.qdrant.api_key.clone(),
+            vector_role,
+            config.qdrant.tls_ca_file.as_deref(),
         )
         .map_err(|_| KnowledgeError::Construction("qdrant"))?;
         vectors.max_retries = config.qdrant.max_retries;
@@ -231,61 +241,23 @@ impl KnowledgeGraph {
             config.qdrant.bm25_v2_capability_ttl_seconds,
             "bm25_capability_ttl",
         )?;
-        let providers = config.embeddings.providers(&config.provider_keys)?;
-        let mut embeddings = query::embedding::EmbeddingManager::new(
-            client.clone(),
-            Some(connections.database.clone()),
-            config.embeddings.encryption_key.clone(),
-            providers.clone(),
-        );
-        embeddings.document_batch_size = config.embeddings.batch_size.max(1);
-        if let Some(endpoint) = &config.embeddings.local_semantic_endpoint {
-            if config.embeddings.provider != "local_semantic"
-                || config.embeddings.model != query::embedding::LOCAL_SEMANTIC_MODEL
-                || config.embeddings.dimension != query::embedding::LOCAL_SEMANTIC_DIMENSION
-                || !config.embeddings.api_key.is_empty()
-            {
-                return Err(KnowledgeError::Configuration("local_semantic_profile"));
-            }
-            embeddings = embeddings
-                .with_local_semantic(
-                    endpoint,
-                    settings::seconds(config.embeddings.timeout_seconds, "local_semantic_timeout")?,
-                )
-                .map_err(|_| KnowledgeError::Construction("local_semantic"))?;
-        } else if config.embeddings.provider == "local_semantic" {
-            return Err(KnowledgeError::Configuration("local_semantic_endpoint"));
+        let model_plane=connections.model_plane.clone().ok_or(KnowledgeError::Configuration("knowledge_model_plane_required"))?;
+        let mut embeddings=query::embedding::EmbeddingManager::new(client.clone(),None,String::new(),Default::default());
+        embeddings.document_batch_size=config.embeddings.batch_size.max(1);
+        if config.embeddings.local_semantic_enabled {
+            embeddings=embeddings.with_gateway_local_semantic(settings::seconds(config.embeddings.timeout_seconds,"local_semantic_timeout")?).map_err(|_|KnowledgeError::Configuration("local_semantic_profile"))?;
         }
         let store = query::store::QueryStore::new(connections.database.clone());
         let mut reranker = query::rerank::Reranker::new(client.clone(), config.rerank_providers);
         reranker.dashscope_base_url = config.dashscope_rerank_region;
-        if let Some(endpoint_url) = config.local_rerank_endpoint {
-            let local = query::rerank::HttpLocalRerankBackend::new(
-                client.clone(),
-                endpoint(&endpoint_url, "local_rerank_endpoint")?,
-                config.local_rerank_api_key,
-            )
-            .map_err(|_| KnowledgeError::Construction("local_rerank"))?;
-            reranker = reranker.with_local_backend(Arc::new(local));
-        } else {
-            let local = native_rerank::NativeLocalReranker {
-                cross_encoder: native_cross_encoder::NativeCrossEncoder::new(
-                    config.native_cross_encoder_directory,
-                )
-                .map_err(|_| KnowledgeError::Construction("native_cross_encoder"))?,
-                m3: native_rerank::NativeBgeReranker::new(config.native_bge_directory)
-                    .map_err(|_| KnowledgeError::Construction("native_bge_rerank"))?,
-                large: native_rerank::NativeBgeReranker::large(config.native_bge_large_directory)
-                    .map_err(|_| KnowledgeError::Construction("native_bge_large_rerank"))?,
-            };
-            reranker = reranker.with_local_backend(Arc::new(local));
-        }
+        reranker=reranker.with_local_backend(Arc::new(query::rerank::HttpLocalRerankBackend::gateway()));
         let mut retrieval = query::service::RetrievalService::new(
             store.clone(),
             vectors.clone(),
             embeddings.clone(),
             Some(reranker),
         );
+        retrieval= retrieval.with_shared_result_cache(backends.result_cache.take());
         retrieval.cache_ttl = settings::seconds(
             config.processing.retrieval_cache_ttl_seconds,
             "retrieval_cache_ttl",
@@ -312,7 +284,7 @@ impl KnowledgeGraph {
             config.processing.document_worker_concurrency,
         )
         .map_err(|_| KnowledgeError::Construction("ingestion"))?;
-        if config.embeddings.local_semantic_endpoint.is_some() {
+        if config.embeddings.local_semantic_enabled {
             ingestion.dataset_defaults = Some(ingest::service::DatasetDefaults {
                 embedding_provider: "local_semantic".into(),
                 embedding_model: query::embedding::LOCAL_SEMANTIC_MODEL.into(),
@@ -374,15 +346,39 @@ impl KnowledgeGraph {
         }
         if let Some(summary) = config.summary {
             ingestion.summary = Some(
-                ingest::summary::SummaryGenerator::new(
-                    summary.endpoint,
-                    summary.model,
-                    summary.authorization,
-                )
+                ingest::summary::SummaryGenerator::for_model(summary.provider,summary.model)
                 .map_err(|_| KnowledgeError::Construction("summary"))?,
             );
         }
+        let mut actor_signer = query::auth::GatewayAuth::new(
+            config.authentication.internal_token.trim().into(),
+            match &config.authentication.outbound_key_id {
+                Some(key) => std::collections::BTreeMap::from([(
+                    key.clone(),
+                    config
+                        .authentication
+                        .keyring
+                        .get(key)
+                        .cloned()
+                        .ok_or(KnowledgeError::Configuration("active_signing_key"))?,
+                )]),
+                None => config.authentication.keyring,
+            },
+            "v2".into(),
+            service_auth.replay.clone(),
+        )
+        .map_err(|_| KnowledgeError::Configuration("actor_signer"))?;
+        actor_signer.caller_service = "knowledge-service".into();
+        actor_signer.audience = "gateway".into();
+        actor_signer.allowed_path_prefixes = vec![query::actor::ACTOR_PATH.into()];
+        let actors = query::actor::RuntimeActorClient::new(
+            endpoint(&config.authentication.gateway_origin, "gateway_origin")?,
+            Arc::new(actor_signer),
+        )
+        .map_err(|_| KnowledgeError::Construction("runtime_actor_client"))?;
+        ingestion.vector_job_actor_authority = Some(actors.clone());
         ingestion.confluence_sources_enabled = config.confluence_enabled && config.role.api();
+        ingestion.model_plane=Some(model_plane.clone());
         let ingestion = Arc::new(ingestion);
         let migrations = Arc::new(query::migration::EmbeddingMigration::new(
             connections.database.clone(),
@@ -393,6 +389,7 @@ impl KnowledgeGraph {
             connections,
             config.role,
             client,
+            vectors.health_http_client(),
             qdrant_origin,
             config.qdrant.api_key,
             vectors.timeout,
@@ -400,12 +397,8 @@ impl KnowledgeGraph {
             config.processing.worker,
             migrations.clone(),
             Arc::new(DrainState::default()),
-            config
-                .embeddings
-                .local_semantic_endpoint
-                .as_ref()
-                .map(|_| embeddings.clone()),
-        ));
+            None,
+        ).with_model_plane(model_plane.clone()));
         let application = if config.role.api() {
             let qa = config
                 .qa
@@ -420,39 +413,8 @@ impl KnowledgeGraph {
                     Ok(Arc::new(service))
                 })
                 .transpose()?;
-            let mut judge_embeddings = query::embedding::EmbeddingManager::new(
-                lifecycle.client.clone(),
-                None,
-                String::new(),
-                std::collections::BTreeMap::from([(
-                    config.embeddings.provider.clone(),
-                    config.embeddings.judge_provider()?,
-                )]),
-            );
-            if let Some(endpoint) = &config.embeddings.local_semantic_endpoint {
-                judge_embeddings = judge_embeddings
-                    .with_local_semantic(
-                        endpoint,
-                        settings::seconds(
-                            config.embeddings.timeout_seconds,
-                            "local_semantic_timeout",
-                        )?,
-                    )
-                    .map_err(|_| KnowledgeError::Construction("local_semantic_judge_embedding"))?;
-            }
-            let judge_providers = ["dashscope", "gemini", "deepseek"]
-                .into_iter()
-                .map(|provider| {
-                    (
-                        provider.to_owned(),
-                        query::embedding::ProviderConfig {
-                            api_key: config.provider_keys.qa_key(provider),
-                            base_url: None,
-                            timeout: config.ragas.timeout,
-                        },
-                    )
-                })
-                .collect();
+            let judge_embeddings=embeddings.clone();
+            let judge_providers=std::collections::BTreeMap::new();
             let ragas = Arc::new(
                 query::ragas::RagasService::new(
                     lifecycle.client.clone(),
@@ -465,39 +427,14 @@ impl KnowledgeGraph {
                         dimension: Some(config.embeddings.dimension),
                     }),
                 )
-                .map_err(|_| KnowledgeError::Construction("ragas"))?,
+                .map_err(|_| KnowledgeError::Construction("ragas"))?.with_actor_authority(actors.clone()),
             );
-            let mut actor_signer = query::auth::GatewayAuth::new(
-                config.authentication.internal_token.trim().into(),
-                match &config.authentication.outbound_key_id {
-                    Some(key) => std::collections::BTreeMap::from([(
-                        key.clone(),
-                        config
-                            .authentication
-                            .keyring
-                            .get(key)
-                            .cloned()
-                            .ok_or(KnowledgeError::Configuration("active_signing_key"))?,
-                    )]),
-                    None => config.authentication.keyring,
-                },
-                "v2".into(),
-                service_auth.replay.clone(),
-            )
-            .map_err(|_| KnowledgeError::Configuration("actor_signer"))?;
-            actor_signer.caller_service = "knowledge-service".into();
-            actor_signer.audience = "gateway".into();
-            actor_signer.allowed_path_prefixes = vec![query::actor::ACTOR_PATH.into()];
-            let actors = query::actor::RuntimeActorClient::new(
-                endpoint(&config.authentication.gateway_origin, "gateway_origin")?,
-                Arc::new(actor_signer),
-            )
-            .map_err(|_| KnowledgeError::Construction("runtime_actor_client"))?;
+
             let sources = Arc::new(
                 confluence::Sources::new(
                     lifecycle.pool.clone(),
                     actors.clone(),
-                    config.embeddings.encryption_key.clone(),
+                    config.connector_encryption_key.clone(),
                     ingestion.clone(),
                     config.confluence_enabled,
                     settings::seconds(config.confluence_request_timeout, "confluence_timeout")?,
@@ -511,6 +448,8 @@ impl KnowledgeGraph {
                 .map_err(|_| KnowledgeError::Construction("confluence_lifecycle"))? =
                 Some(sources.clone());
             Some(KnowledgeApplication {
+                model_plane:model_plane.clone(),
+                model_scope:Arc::new(query::model_scope::ModelScopeAuthority{store:store.clone(),actors:ingestion.vector_job_actor_authority.clone().ok_or(KnowledgeError::Construction("model_scope_actor"))?}),
                 upload: crate::upload::UploadState {
                     service: ingestion.clone(),
                     backend: backends.pdf.split,

@@ -16,55 +16,15 @@ pub struct ImageDescription {
 }
 #[derive(Clone)]
 pub struct VlmService {
-    client: reqwest::Client,
-    api_key: Arc<String>,
     pub model: String,
     pub endpoint: String,
     pub max_retries: usize,
     pub timeout: Duration,
 }
 impl VlmService {
-    pub fn new(
-        api_key: String,
-        model: String,
-        base_url: Option<&str>,
-        timeout: Duration,
-        max_retries: usize,
-    ) -> Result<Self> {
-        if api_key.is_empty() {
-            return Err(IngestError::Validation(
-                "DashScope API key is required for VLM service".into(),
-            ));
-        }
-        let mut endpoint = base_url
-            .unwrap_or("https://dashscope.aliyuncs.com/api/v1")
-            .trim_end_matches('/')
-            .to_owned();
-        if !endpoint.ends_with("/services/aigc/multimodal-generation/generation") {
-            endpoint.push_str("/services/aigc/multimodal-generation/generation")
-        }
-        let url = reqwest::Url::parse(&endpoint)
-            .map_err(|_| IngestError::Validation("invalid VLM endpoint".into()))?;
-        if !["http", "https"].contains(&url.scheme())
-            || !url.username().is_empty()
-            || url.password().is_some()
-        {
-            return Err(IngestError::Validation("invalid VLM endpoint".into()));
-        }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(timeout)
-            .build()
-            .map_err(|_| IngestError::Index("VLM client construction failed".into()))?;
-        Ok(Self {
-            client,
-            api_key: Arc::new(api_key),
-            model,
-            endpoint,
-            max_retries,
-            timeout,
-        })
+    pub fn new(_api_key:String,model:String,_base_url:Option<&str>,timeout:Duration,max_retries:usize)->Result<Self> {
+        if model.trim().is_empty() || timeout.is_zero() {return Err(IngestError::Validation("VLM model and deadline are required".into()));}
+        Ok(Self{model,endpoint:String::new(),max_retries,timeout})
     }
     pub fn detect_media_type(bytes: &[u8]) -> &'static str {
         if bytes.len() < 8 {
@@ -106,55 +66,8 @@ impl VlmService {
         let mime = Self::detect_media_type(bytes);
         let uri = format!("data:{mime};base64,{}", STANDARD.encode(bytes));
         let payload = json!({"model":self.model,"input":{"messages":[{"role":"user","content":[{"image":uri},{"text":prompt}]}]},"parameters":{"max_tokens":max_tokens}});
-        let mut last = "no attempts".to_owned();
-        for attempt in 0..self.max_retries {
-            // Canonical provider/response VLMError is terminal; only transport failures retry.
-            let response = self
-                .client
-                .post(&self.endpoint)
-                .bearer_auth(self.api_key.as_str())
-                .json(&payload)
-                .send()
-                .await;
-            let mut response = match response {
-                Ok(r) => r,
-                Err(_) => {
-                    last = "transport error".into();
-                    if attempt + 1 < self.max_retries {
-                        tokio::time::sleep(Duration::from_secs(((attempt + 1) * 2) as u64)).await;
-                    }
-                    continue;
-                }
-            };
-            let status = response.status().as_u16();
-            let mut body = Vec::new();
-            let mut transport_error = false;
-            loop {
-                match response.chunk().await {
-                    Ok(Some(chunk)) => {
-                        if body.len() + chunk.len() > 8 * 1024 * 1024 {
-                            return Err(IngestError::Index(
-                                "VLM response exceeds byte limit".into(),
-                            ));
-                        }
-                        body.extend_from_slice(&chunk)
-                    }
-                    Ok(None) => break,
-                    Err(_) => {
-                        transport_error = true;
-                        break;
-                    }
-                }
-            }
-            if transport_error {
-                last = "response transport error".into();
-                if attempt + 1 < self.max_retries {
-                    tokio::time::sleep(Duration::from_secs(((attempt + 1) * 2) as u64)).await
-                }
-                continue;
-            }
-            let value: Value = serde_json::from_slice(&body)
-                .map_err(|_| IngestError::Index("VLM response is not JSON".into()))?;
+        use crate::migration_knowledge_query::model_plane::{self,ModelPurpose,ModelWire};
+        let (status,value)=model_plane::execute("dashscope",&self.model,"",ModelPurpose::Vision,ModelWire::DashscopeVision,payload,self.timeout).await?;
             if status >= 400 || value["status_code"].as_u64().is_some_and(|n| n >= 400) {
                 return Err(IngestError::Index(format!(
                     "VLM API error: {status} {} {}",
@@ -188,11 +101,6 @@ impl VlmService {
                 tokens_used: value["usage"]["total_tokens"].as_i64().unwrap_or(0),
                 metadata: json!({"image_type":image_type,"media_type":mime,"image_size":bytes.len()}),
             });
-        }
-        Err(IngestError::Index(format!(
-            "VLM API call failed after {} attempts: {last}",
-            self.max_retries
-        )))
     }
     pub async fn describe_images_batch(
         &self,
@@ -229,7 +137,7 @@ impl VlmService {
                 .cloned()
                 .unwrap_or("general".into());
             let context = contexts.and_then(|p| p.get(index)).cloned();
-            tasks.spawn(async move {
+            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
                 let _permit = semaphore
                     .acquire_owned()
                     .await
@@ -238,7 +146,7 @@ impl VlmService {
                     .describe_image(&bytes, prompt.as_deref(), &kind, context.as_deref(), 1500)
                     .await;
                 Ok::<_, IngestError>((index, result))
-            });
+            }));
         }
         let mut ordered = std::collections::BTreeMap::new();
         while let Some(result) = tasks.join_next().await {

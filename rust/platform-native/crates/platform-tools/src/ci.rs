@@ -226,10 +226,12 @@ fn wiring(root: &Path, gates: &serde_json::Map<String, Value>) -> Result<Vec<Str
         jobs.get(job).is_some_and(|j| {
             j["steps"].as_array().is_some_and(|steps| {
                 steps.iter().any(|s| {
-                    s["uses"] == "./.github/actions/setup-native"
-                        && (!hosted
-                            || (s["with"]["capacity-profile"] == "hosted"
-                                && s["with"]["nextest"] == "true"))
+                    matches!(
+                        s["uses"].as_str(),
+                        Some("./.github/actions/setup-native" | "$/.github/actions/setup-native")
+                    ) && (!hosted
+                        || (s["with"]["capacity-profile"] == "hosted"
+                            && s["with"]["nextest"] == "true"))
                 })
             })
         })

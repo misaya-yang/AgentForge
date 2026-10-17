@@ -10,7 +10,9 @@ fn run() -> Result<()> {
     run_with_args(std::env::args().skip(1))
 }
 fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
-    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../..")
+        .canonicalize()?;
     let mut output = None;
     let mut preview = None;
     let mut activation_bundle_output = None;
@@ -165,7 +167,16 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if active_epoch.epoch == 22 {
+            if matches!(active_epoch.epoch, 23 | 24 | 25 | 26 | 27 | 28) {
+                let (chain, _) = successors::verify_activated_source(&root)?;
+                serde_json::json!({
+                    "status":"historical_021_prefix_verified_through_current",
+                    "canonical_epoch":active_epoch.epoch,
+                    "candidate_epoch":21,
+                    "database_actions":false,
+                    "verified_chain":chain
+                })
+            } else if active_epoch.epoch == 22 {
                 let (plan, manifest) = ai_platform_migration_authority::source_tools::next_successor_022::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"historic_021_prefix_verified_through_022",
@@ -266,7 +277,16 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if active_epoch.epoch == 22 {
+            if matches!(active_epoch.epoch, 23 | 24 | 25 | 26 | 27 | 28) {
+                let (chain, _) = successors::verify_activated_source(&root)?;
+                serde_json::json!({
+                    "status":"historical_022_prefix_verified_through_current",
+                    "canonical_epoch":active_epoch.epoch,
+                    "candidate_epoch":22,
+                    "database_actions":false,
+                    "verified_chain":chain
+                })
+            } else if active_epoch.epoch == 22 {
                 let (plan, manifest) = ai_platform_migration_authority::source_tools::next_successor_022::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"activated_022_source_chain_verified",
@@ -354,7 +374,16 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if active_epoch.epoch == 23 {
+            if matches!(active_epoch.epoch, 24 | 25 | 26 | 27 | 28) {
+                let (chain, _) = successors::verify_activated_source(&root)?;
+                serde_json::json!({
+                    "status":"historical_023_prefix_verified_through_current",
+                    "canonical_epoch":active_epoch.epoch,
+                    "candidate_epoch":23,
+                    "database_actions":false,
+                    "verified_chain":chain
+                })
+            } else if active_epoch.epoch == 23 {
                 let (plan, manifest) = ai_platform_migration_authority::source_tools::next_successor_023::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"activated_023_source_chain_verified",
@@ -383,7 +412,11 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             "preview and activation bundle options require a successor extension flag".into(),
         ));
     }
-    let activated = successors::activation_receipt_present(&root)?;
+    let active_manifest = ai_platform_migration_authority::manifest::load_epoch_manifest(
+        &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
+    )?;
+    let activated =
+        matches!(active_manifest.epoch, 27 | 28) || successors::activation_receipt_present(&root)?;
     let result = if activated {
         if output.is_some() {
             return Err(AuthorityError::Refused(
@@ -391,20 +424,40 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
                     .into(),
             ));
         }
-        let active_manifest = ai_platform_migration_authority::manifest::load_epoch_manifest(
-            &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
-        )?;
-        let (plan, manifest) = if active_manifest.epoch == 23 {
+        let (plan, manifest) = if active_manifest.epoch == 28 {
+            (
+                ai_platform_migration_authority::source_tools::next_successor_028::verify_activated_source(&root)?,
+                active_manifest,
+            )
+        } else if active_manifest.epoch == 27 {
+            (
+                ai_platform_migration_authority::source_tools::next_successor_027::verify_activated_source(&root)?,
+                active_manifest,
+            )
+        } else if active_manifest.epoch == 23 {
             ai_platform_migration_authority::source_tools::next_successor_023::verify_activated_source(&root)?
         } else {
             successors::verify_activated_source(&root)?
         };
-        let plan_path = if manifest.epoch == 23 {
-            "docs/design/canonical-schema-successor-023.json"
+        let plan_sha256 = if matches!(manifest.epoch, 27 | 28) {
+            plan["source_plan_sha256"]
+                .as_str()
+                .ok_or_else(|| {
+                    AuthorityError::Refused(format!(
+                        "{} activation omits its source plan digest",
+                        manifest.epoch
+                    ))
+                })?
+                .to_owned()
         } else {
-            "docs/design/canonical-schema-successors.json"
+            let plan_path = if manifest.epoch == 23 {
+                "docs/design/canonical-schema-successor-023.json"
+            } else {
+                "docs/design/canonical-schema-successors.json"
+            };
+            ai_platform_migration_authority::manifest::file_sha256(&root.join(plan_path))?
         };
-        serde_json::json!({"status":"activated_source_chain_verified","canonical_epoch":manifest.epoch,"successor_plan_sha256":ai_platform_migration_authority::manifest::file_sha256(&root.join(plan_path))?,"predecessor_epoch":plan["predecessor_epoch"],"database_actions":false})
+        serde_json::json!({"status":"activated_source_chain_verified","canonical_epoch":manifest.epoch,"successor_plan_sha256":plan_sha256,"predecessor_epoch":plan["predecessor_epoch"],"database_actions":false})
     } else if let Some(output) = output {
         successors::materialize_with_preimage_root(&root, &output, preimage_root.as_deref())?
     } else {
@@ -420,8 +473,49 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
-    fn reviewed_023_source_check_dispatches_to_the_single_step_module() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    fn canonical_028_source_check_uses_its_027_activation_receipt() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../..")
+            .canonicalize()
+            .unwrap();
+        let manifest = ai_platform_migration_authority::manifest::load_epoch_manifest(
+            &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
+        )
+        .unwrap();
+        assert_eq!(manifest.epoch, 28);
+        let receipt = ai_platform_migration_authority::source_tools::next_successor_028::verify_activated_source(&root)
+            .unwrap();
+        assert_eq!(receipt["candidate_epoch"], 28);
+        assert_eq!(receipt["predecessor_epoch"], 27);
+        let predecessor_activation_path =
+            root.join("database/migrations/2026_08_post_kb_v1/SUCCESSOR_027_ACTIVATION.json");
+        let predecessor_activation_sha256 =
+            ai_platform_migration_authority::manifest::file_sha256(&predecessor_activation_path)
+                .unwrap();
+        assert_eq!(
+            receipt["predecessor_activation_sha256"].as_str(),
+            Some(predecessor_activation_sha256.as_str())
+        );
+        assert_eq!(
+            Some(predecessor_activation_sha256.as_str()),
+            ai_platform_migration_authority::source_tools::next_successor_028::APPROVED_027_ACTIVATION_SHA256
+        );
+        let predecessor_activation: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&predecessor_activation_path).unwrap()).unwrap();
+        assert_eq!(
+            predecessor_activation["source_plan_sha256"].as_str(),
+            ai_platform_migration_authority::source_tools::next_successor_028::APPROVED_027_SOURCE_PLAN_SHA256
+        );
+        assert!(receipt["source_plan_sha256"].as_str().is_some());
+        run_with_args(["--root".to_owned(), root.to_string_lossy().into_owned()]).unwrap();
+    }
+
+    #[test]
+    fn reviewed_023_source_check_dispatches_through_the_current_028_prefix() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../..")
+            .canonicalize()
+            .unwrap();
         run_with_args([
             "--next-successor-023".to_owned(),
             "--root".to_owned(),

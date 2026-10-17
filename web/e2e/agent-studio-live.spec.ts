@@ -10,14 +10,14 @@ const liveDisabledEnabled = process.env.E2E_LIVE_AGENT_STUDIO_DISABLED === "1";
 
 async function deleteCreatedAgent(page: Page, agentId: string): Promise<void> {
   const responseStatus = await page.evaluate(async (id) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) return 0;
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
     const response = await fetch(`/api/v1/agents/${id}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { "X-CSRF-Token": csrfToken },
     });
     return response.status;
   }, agentId);
@@ -26,12 +26,12 @@ async function deleteCreatedAgent(page: Page, agentId: string): Promise<void> {
 
 async function readPreviewFacts(page: Page, agentId: string, sessionId: string, runId: string) {
   return page.evaluate(async ({ agentId: id, sessionId: sid, runId: rid }) => {
-    const rawAuth = localStorage.getItem("agent-gateway-auth");
-    const token = rawAuth
-      ? (JSON.parse(rawAuth) as { state?: { token?: string } }).state?.token
-      : undefined;
-    if (!token) throw new Error("Missing authenticated live browser token");
-    const headers = { Authorization: `Bearer ${token}` };
+    if (location.protocol !== "https:") throw new Error("Live Console requires trusted HTTPS BFF");
+    const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) throw new Error(`BFF bootstrap failed (${sessionResponse.status})`);
+    const { csrf_token: csrfToken } = await sessionResponse.json() as { csrf_token: string };
+    if (!csrfToken) throw new Error("BFF CSRF bootstrap missing; bearer fallback forbidden");
+    const headers = { "X-CSRF-Token": csrfToken };
     const [pinResponse, runResponse, historyResponse] = await Promise.all([
       fetch(`/api/v1/agents/${id}/preview/sessions/${sid}`, { headers }),
       fetch(`/api/v1/assistant/runs/${rid}`, { headers }),

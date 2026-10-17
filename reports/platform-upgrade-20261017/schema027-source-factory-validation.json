@@ -1,0 +1,37 @@
+{
+  "schema": "agentforge/schema027-source-factory-validation/v1",
+  "verified_at": "2026-10-17T10:51:49.381593+00:00",
+  "actual_tests": {
+    "authority_library": 127,
+    "cli": 2,
+    "failed": 0,
+    "ignored": 0
+  },
+  "prepare_exit_code": 0,
+  "verify_preview_exit_code": 0,
+  "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
+  "source_plan_sha256": "e10f1c538e8336beea48364069775dc89b979ce7a00b7d8640fac2d900dba5ef",
+  "canonical_source_epoch": 26,
+  "main_database_epoch": 25,
+  "database_actions": false,
+  "measurement": "not_run",
+  "source_activation": false,
+  "new_proposals_in_dependency_order": [
+    "request-meter-v1",
+    "knowledge-model-plane",
+    "dispatch-token-reservations",
+    "enterprise-identity",
+    "routing-policy"
+  ],
+  "additional_source_integrity": "Activated verification reconstructs exact26 archived preimage and verifies complete measured inputs/lock; no pin bypass. Canonical26 cannot be relabelled as activated27.",
+  "remaining": [
+    "Real isolated exact26->27 native measurement and strict complete fingerprint/ACL review.",
+    "Review bundle then explicit27 compiled pins, historical dispatch/test views and native-generated overlay snapshots.",
+    "Main database activation and business service acceptance after code/review complete."
+  ],
+  "logs_sha256": {
+    "schema027-source-factory-tests-r3.log": "e41f7eefc948d6e92d1701da06f4126ab2b36d1cbd78fa22931806396d3c2910",
+    "schema027-prepare-r1.json": "c3c844659137359c6cae59a846ce832a2e806d0d59ccc813993ed8f3bdb5f83a",
+    "schema027-verify-preview-r1.json": "9c5cb8a0de345117a59ef630c4b72a8e7b3e41f6611ec6a0f0b3eb4c2967275f"
+  }
+}

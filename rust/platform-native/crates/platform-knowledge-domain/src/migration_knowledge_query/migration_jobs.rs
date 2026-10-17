@@ -266,6 +266,8 @@ impl Drop for RequeueOnCancel {
 }
 #[derive(Clone)]
 pub struct MigrationWorker {
+    model_plane:Option<Arc<super::model_plane::ModelPlaneClient>>,
+    actors:Option<super::actor::RuntimeActorClient>,
     pub service: Arc<EmbeddingMigration>,
     pub worker_id: String,
     pub lease_seconds: u64,
@@ -275,6 +277,7 @@ pub struct MigrationWorker {
 impl MigrationWorker {
     pub fn new(service: Arc<EmbeddingMigration>, worker_id: String) -> Self {
         Self {
+            model_plane:None,actors:None,
             service,
             worker_id,
             lease_seconds: 120,
@@ -282,7 +285,16 @@ impl MigrationWorker {
             poll_interval: Duration::from_secs(1),
         }
     }
-    async fn execute(&self, j: &Value) -> MResult<Value> {
+    pub fn with_model_plane(mut self,client:Option<Arc<super::model_plane::ModelPlaneClient>>,actors:Option<super::actor::RuntimeActorClient>)->Self {self.model_plane=client;self.actors=actors;self}
+    async fn execute(&self,j:&Value)->MResult<Value> {
+        let Some(client)=self.model_plane.clone() else {return self.execute_inner(j).await;};
+        let actors=self.actors.as_ref().ok_or(MigrationError::conflict("migration model actor authority is unavailable"))?;
+        let dataset=self.service.query.dataset(text(j,"dataset_id")).await?;
+        let actor=actors.resolve(&dataset.tenant_id,text(j,"requested_by")).await?;
+        self.service.query.require_dataset_access(&actor,&dataset.dataset_id,"owner").await?;
+        super::model_plane::run_scoped(client,super::model_plane::ModelResource{dataset_id:Some(dataset.dataset_id),document_id:None,execution_id:Some(text(j,"job_id").into())},actor,self.execute_inner(j)).await
+    }
+    async fn execute_inner(&self, j: &Value) -> MResult<Value> {
         let id = text(j, "migration_id");
         let job = text(j, "job_id");
         let action = text(j, "action");

@@ -178,6 +178,13 @@ async fn cutover(
         });
     }
     let p = p.map(|p| p.0).unwrap_or_default();
+    if s.service.vectors.is_read_only() {
+        let mut result = crate::migration_knowledge_ingest::vector_jobs::submit(&s.service.store.pool, &u, &id,
+            crate::migration_knowledge_ingest::vector_jobs::Mutation::LexicalCutover { manifest: manifest(&p)?.map(str::to_owned) })
+            .await.map_err(|e| MigrationError { status: match e { crate::migration_knowledge_ingest::IngestError::Permission => 403, crate::migration_knowledge_ingest::IngestError::NotFound => 404, crate::migration_knowledge_ingest::IngestError::Database => 503, _ => 409 }, message: e.to_string() })?;
+        result["scope"] = json!("test_tenant_only");
+        return Ok(blocked(result));
+    }
     let mut result = s
         .service
         .cutover(&id, true, manifest(&p)?)
@@ -205,9 +212,15 @@ async fn rollback(
         .require_dataset_access(&u, &id, "owner")
         .await?;
     operator(&u)?;
+    let keep_shadow = p.map(|p| p.keep_shadow_writes).unwrap_or(true);
+    if s.service.vectors.is_read_only() {
+        return Ok(Json(crate::migration_knowledge_ingest::vector_jobs::submit(&s.service.store.pool, &u, &id,
+            crate::migration_knowledge_ingest::vector_jobs::Mutation::LexicalRollback { keep_shadow })
+            .await.map_err(|e| MigrationError { status: match e { crate::migration_knowledge_ingest::IngestError::Permission => 403, crate::migration_knowledge_ingest::IngestError::NotFound => 404, crate::migration_knowledge_ingest::IngestError::Database => 503, _ => 409 }, message: e.to_string() })?));
+    }
     Ok(Json(
         s.service
-            .rollback(&id, true, p.map(|p| p.keep_shadow_writes).unwrap_or(true))
+            .rollback(&id, true, keep_shadow)
             .await
             .map_err(mapped)?,
     ))

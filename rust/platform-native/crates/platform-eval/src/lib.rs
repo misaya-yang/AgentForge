@@ -105,3 +105,5 @@ mod tests {
 pub mod runtime_contract;
 
 pub mod judge_receipts;
+
+pub mod python_work_product;

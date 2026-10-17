@@ -12,33 +12,20 @@ impl Fixture {
         Self(path)
     }
     fn source(&self) -> PathBuf {
-        let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../..")
-            .canonicalize()
-            .unwrap();
+        let predecessor = crate::source_tools::next_successor::historical_test_fixtures::HistoricalSourceFixture::new(23);
         let source = self.0.join("source");
         fs::create_dir(&source).unwrap();
-        safe::copy_tree(&repository.join("database"), &source.join("database")).unwrap();
+        safe::copy_tree(
+            &predecessor.root().join("database"),
+            &source.join("database"),
+        )
+        .unwrap();
         fs::create_dir(source.join("docs")).unwrap();
-        safe::copy_tree(&repository.join("docs/design"), &source.join("docs/design")).unwrap();
-        let epoch = manifest::load_epoch_manifest(&source.join(MANIFEST)).unwrap();
-        if epoch.epoch == CANDIDATE_EPOCH {
-            // Restore only reviewed real023 archived bytes, never fabricate a
-            // predecessor hash/receipt after primary advances canonical source.
-            fs::write(
-                source.join(LOCK),
-                fs::read(source.join(ARCHIVED_LOCK)).unwrap(),
-            )
-            .unwrap();
-            fs::write(
-                source.join(MANIFEST),
-                fs::read(source.join(ARCHIVED_MANIFEST)).unwrap(),
-            )
-            .unwrap();
-            for name in [SQL, REFERENCE, MEASUREMENT, ACTIVATION] {
-                fs::remove_file(epoch_file(&source, name)).unwrap();
-            }
-        }
+        safe::copy_tree(
+            &predecessor.root().join("docs/design"),
+            &source.join("docs/design"),
+        )
+        .unwrap();
         assert_eq!(
             manifest::file_sha256(&source.join(LOCK)).unwrap(),
             APPROVED_023_LOCK_SHA256

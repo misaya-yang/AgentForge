@@ -1,0 +1,13 @@
+warning: field `key` is never read
+   --> ai-platform-capability-contract/src/lease_v3.rs:100:67
+    |
+100 | struct Effective {ceiling:Ceiling,ids:BTreeSet<String>,expiry:u64,key:String,call:Option<Value>,schema:Option<String>}
+    |        --------- field in this struct                             ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ai-platform-capability-contract` (lib) generated 1 warning
+warning: `ai-platform-capability-contract` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized] target(s) in 0.59s
+     Running unittests src/lib.rs (/cargo-target/debug/deps/ai_platform_capability_contract-b184a3bbc3094f5a)
+   Doc-tests ai_platform_capability_contract

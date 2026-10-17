@@ -4,17 +4,20 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
-ai-platform-rpc = { path = "../platform-rpc" }
+ai-platform-capability-contract = { version = "0.0.0", path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract" }
+ed25519-dalek.workspace = true
+ai-platform-rpc = { version = "0.1.0", path = "../platform-rpc"  }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
 tracing = "0.1"
-ai-platform-migration-authority = { path = "../platform-migration-authority" }
+ai-platform-migration-authority = { version = "0.1.0", path = "../platform-migration-authority"  }
 url = "2"
-ai-platform-config-loader = { path = "../platform-config-loader" }
-ai-platform-gateway-foundation = { path = "../platform-gateway-foundation" }
-ai-platform-auth = { path = "../platform-auth" }
-axum = { version = "0.8", features = ["multipart"] }
+ai-platform-config-loader = { version = "0.1.0", path = "../platform-config-loader"  }
+ai-platform-gateway-foundation = { version = "0.1.0", path = "../platform-gateway-foundation"  }
+ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
+axum = { workspace = true, features = ["multipart"] }
 serde.workspace = true
 serde_json.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest.workspace = true
 tokio.workspace = true
@@ -31,16 +34,16 @@ tokio-tungstenite.workspace = true
 fernet = { version = "=0.2.2", default-features = false, features = ["rustcrypto", "fernet_danger_timestamps"] }
 base64 = "0.22"
 ring = "=0.17.14"
-rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
-tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"] }
+rustls.workspace = true
+tokio-rustls.workspace = true
 dotenvy = "0.15"
 # Canonical migration parsers, local SQLite ledger, and host middleware.
 regex = "1"
 jsonwebtoken = "9.3"
 encoding_rs = "0.8"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip.workspace = true
 quick-xml = "0.41"
-scraper = "0.23"
+scraper.workspace = true
 tiktoken-rs = "0.7"
 serde_yaml.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -54,7 +57,7 @@ md-5 = "0.10"
 unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 
-ai-platform-gateway-integrations = { path = "../platform-gateway-integrations" }
+ai-platform-gateway-integrations = { version = "0.1.0", path = "../platform-gateway-integrations"  }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

@@ -102,7 +102,7 @@ async function createApiKey(body: ApiKeyBody) {
 
 export function SettingsPage() {
   const canGovern = useAuthStore(state => canAdministerTenantPolicies(state.user));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
 
@@ -219,6 +219,7 @@ export function SettingsPage() {
           </div>
         </div>
 
+        <Link to="/settings/guardrails" className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary hover:underline">{(i18n.resolvedLanguage ?? i18n.language).startsWith("zh") ? "护栏策略" : "Guardrails"}</Link>
         {canGovern && <Link to="/settings/governance" className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/5 hover:underline">{t("tenantGovernance.title")}</Link>}
         <Link to="/settings/knowledge-api-keys" className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary hover:underline">{t("knowledgeKeys.title")}</Link>
         <Link to="/settings/plugins" className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/5 hover:underline">{t("pluginRegistry.title")}</Link>

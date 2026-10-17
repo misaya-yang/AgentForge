@@ -1,16 +1,17 @@
 import { useEffect } from "react";
-import { getCurrentUser } from "@/api/auth";
-import { useAuthStore, type User } from "@/store/useAuthStore";
+import { getConsoleSession, type CurrentUserResponse } from "@/api/auth";
+import { useAuthStore, consoleAuthGeneration, type User } from "@/store/useAuthStore";
 
-function normalizeCurrentUser(user: Awaited<ReturnType<typeof getCurrentUser>>): User {
+function normalizeCurrentUser(user: CurrentUserResponse): User {
   return {
     user_id: user.user_id,
+    tenant_id: user.tenant_id,
     email: user.email,
     display_name: user.display_name,
     department: user.department,
     roles: Array.isArray(user.roles) ? user.roles : [],
     permissions:
-      Array.isArray(user.effective_permissions) && user.effective_permissions.length > 0
+      Array.isArray(user.effective_permissions)
         ? user.effective_permissions
         : Array.isArray(user.permissions)
           ? user.permissions
@@ -30,36 +31,25 @@ export function useAuthSessionGuard() {
   useEffect(() => {
     if (!hydrated) return;
 
-    if (!token || !isAuthenticated) {
-      if (sessionValidation !== "validated") {
-        setSessionValidation("validated");
-      }
+    if (sessionValidation !== "idle" || useAuthStore.getState().sessionValidation !== "idle") {
       return;
     }
 
-    if (sessionValidation !== "idle") {
-      return;
-    }
-
+    const generation = consoleAuthGeneration();
     setSessionValidation("checking");
 
-    void getCurrentUser()
-      .then((currentUser) => {
+    void getConsoleSession()
+      .then(({user: currentUser, csrf_token}) => {
         const latestState = useAuthStore.getState();
-        if (latestState.token !== token || !latestState.isAuthenticated) {
+        if (consoleAuthGeneration() !== generation || latestState.token !== token || latestState.isAuthenticated !== isAuthenticated) {
           return;
         }
 
-        useAuthStore.setState({
-          user: normalizeCurrentUser(currentUser),
-          isAuthenticated: true,
-          forcePasswordChange: Boolean(currentUser.force_password_change),
-          sessionValidation: "validated",
-        });
+        latestState.setAuth(csrf_token, normalizeCurrentUser(currentUser), Boolean(currentUser.force_password_change), latestState.rememberMe);
       })
       .catch(() => {
         const latestState = useAuthStore.getState();
-        if (latestState.token !== token || !latestState.isAuthenticated) {
+        if (consoleAuthGeneration() !== generation || latestState.token !== token || latestState.isAuthenticated !== isAuthenticated) {
           return;
         }
         clearAuth();

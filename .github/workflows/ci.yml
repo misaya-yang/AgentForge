@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
 
       - name: Verify Knowledge Service image lock
@@ -55,13 +55,29 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
       - name: Verify harness contract
         run: make harness-check
 
       - name: Verify database service privilege boundaries
         run: make database-identity-gate
+
+      - name: Install checksum-pinned Helm
+        env:
+          HELM_ARCHIVE_SHA256: 0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --max-time 120 \
+            https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz --output "$RUNNER_TEMP/helm.tar.gz"
+          printf '%s  %s\n' "$HELM_ARCHIVE_SHA256" "$RUNNER_TEMP/helm.tar.gz" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/helm.tar.gz" -C "$RUNNER_TEMP" linux-amd64/helm
+          printf '%s\n' "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Verify native Helm render contracts
+        run: make helm-native-gate
+
+      - name: Verify split Valkey source policy
+        run: make valkey-deployment-gate
 
       - name: Verify CI gate enforcement wiring and negative cases
         run: make ci-gate-enforcement-selftest
@@ -97,13 +113,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "26.11.1"
 
-      - name: Enable pnpm
-        run: |
-          npm install --global pnpm@12.11.2 --allow-scripts=pnpm
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 12.11.2
+          run_install: false
 
       - name: Install frontend dependencies
         run: pnpm -C web install --frozen-lockfile
@@ -147,17 +164,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "26.11.1"
 
 
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 12.11.2
+          run_install: false
+
       - name: Install frontend dependencies for the eval branch gate
-        run: |
-          npm install --global pnpm@12.11.2 --allow-scripts=pnpm
-          pnpm -C web install --frozen-lockfile
+        run: pnpm -C web install --frozen-lockfile
 
       - name: Run deterministic Agent and RAG Eval E1 fixture contracts
         run: |
@@ -229,7 +249,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
 
       - name: Install PostgreSQL dump/restore client
@@ -275,7 +295,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
 
       # The single-kernel contract includes the real ThreadStore migration
@@ -350,9 +370,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "26.11.1"
 
@@ -382,7 +402,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "26.11.1"
           cache: npm
@@ -414,7 +434,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
 
       - name: Run static import boundary gate
@@ -488,7 +508,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
 
 
       - name: Run offline Gateway units
@@ -519,7 +539,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
           toolchain: 1.95.0
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
         with:
           capacity-profile: hosted
           packages: ai-platform-tools
@@ -545,7 +565,8 @@ jobs:
       - name: Test changed Rust crates and doctests
         env:
           AI_PLATFORM_RUST_GATE_FETCH_PUBLIC_SOURCE: ${{ runner.temp }}/ai-platform-rust-gate-source
-        run: make rust-changed-crate-gate BASE_SHA="${{ steps.diff_base.outputs.base }}"
+          BASE_SHA: ${{ steps.diff_base.outputs.base }}
+        run: make rust-changed-crate-gate BASE_SHA="$BASE_SHA"
 
       - name: Upload Rust gate evidence
         if: always()
@@ -580,7 +601,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
         with:
           packages: ai-platform-tools
 
@@ -602,7 +623,9 @@ jobs:
       - name: Select gates for the diff
         id: affected_gates
         continue-on-error: true
-        run: make affected-gates BASE_SHA="${{ steps.diff_base.outputs.base }}"
+        env:
+          BASE_SHA: ${{ steps.diff_base.outputs.base }}
+        run: make affected-gates BASE_SHA="$BASE_SHA"
 
       - name: Require every selected CI result
         if: always()
@@ -641,7 +664,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-native
+      - uses: $/.github/actions/setup-native
         with:
           packages: ai-platform-tools
 

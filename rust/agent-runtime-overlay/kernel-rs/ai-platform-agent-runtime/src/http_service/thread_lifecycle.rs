@@ -25,6 +25,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use super::RuntimeHttpState;
+use crate::PostgresThreadStore;
 use super::security::RuntimeError;
 use super::security::SESSION_HEADER;
 use super::security::TENANT_HEADER;
@@ -171,11 +172,16 @@ pub(super) async fn interrupt_turn(
         let mut event_bytes = [0u8; 16];
         event_bytes.copy_from_slice(&digest[..16]);
         let event_id = Uuid::from_bytes(event_bytes);
-        sqlx::query("SELECT append_assistant_runtime_item($1,$1,$2,$3,$4,$5,$6,$7,NULL,'compat/v1/cancelled','assistant_turn_event_v1','cancelled',$8,$9)")
+        let sequence = sqlx::query_scalar::<_, i64>("SELECT append_assistant_runtime_item($1,$1,$2,$3,$4,$5,$6,$7,NULL,'compat/v1/cancelled','assistant_turn_event_v1','cancelled',$8,$9)")
             .bind(Uuid::parse_str(&thread_id.to_string()).map_err(|_| RuntimeError::bad_request("invalid_thread_id"))?)
             .bind(required_header(&headers,TENANT_HEADER)?).bind(required_header(&headers,USER_HEADER)?).bind(required_header(&headers,SESSION_HEADER)?)
             .bind(event_id).bind(event_key).bind(&turn_id).bind(payload).bind(payload_hash)
-            .execute(&mut *transaction).await.map_err(|_| RuntimeError::unavailable("runtime_cancel_receipt_unavailable"))?;
+            .fetch_one(&mut *transaction).await.map_err(|_| RuntimeError::unavailable("runtime_cancel_receipt_unavailable"))?;
+        PostgresThreadStore::notify_v1_event_in_transaction(
+            &mut transaction,
+            Uuid::parse_str(&thread_id.to_string()).map_err(|_| RuntimeError::bad_request("invalid_thread_id"))?,
+            sequence,
+        ).await.map_err(RuntimeError::from_store)?;
     }
     transaction
         .commit()

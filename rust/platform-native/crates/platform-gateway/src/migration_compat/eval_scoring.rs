@@ -669,7 +669,7 @@ impl EvalScorer {
     ) -> Vec<Value> {
         match text(evaluator, "evaluator_type") {
             "span" => self.span_scores(evaluator, target, context).await,
-            "ragas" => self.ragas_scores(evaluator, target).await,
+            "ragas" => self.ragas_scores(evaluator, target, context).await,
             kind => {
                 let mut payload = match kind {
                     "rule" => score_rules(evaluator, target),
@@ -760,7 +760,7 @@ impl EvalScorer {
         }
         payloads
     }
-    async fn ragas_scores(&self, evaluator: &Value, target: &Value) -> Vec<Value> {
+    async fn ragas_scores(&self, evaluator: &Value, target: &Value, context: &LlmCompleteContext) -> Vec<Value> {
         let config = &evaluator["filter_config"];
         let configured = if array(&config["metrics"]).is_empty() {
             &evaluator["metadata"]["metrics"]
@@ -873,9 +873,10 @@ impl EvalScorer {
                         .get("llm_config")
                         .filter(|v| v.is_object())
                 });
-            let result = if let Some(client) = &self.ragas {
+            let result = if let (Some(client), Some(scope)) = (&self.ragas, &context.actor_scope) {
                 client
-                    .evaluate_retrieval(
+                    .evaluate_retrieval_scoped(
+                        scope,
                         &sample.question,
                         &sample.contexts,
                         sample.answer.as_deref(),
@@ -885,8 +886,10 @@ impl EvalScorer {
                     )
                     .await
                     .map_err(|e| format!("KB RAGAS evaluation failed: {e}"))
-            } else {
+            } else if self.ragas.is_none() {
                 Err("KB RAGAS client is not configured; manual review is required.".into())
+            } else {
+                Err("KB RAGAS verified actor is unavailable; manual review is required.".into())
             };
             match result {
                 Err(error) => {

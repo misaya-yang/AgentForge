@@ -1,0 +1,25 @@
+{
+  "schema": "agentforge/browser-observability-fixture/v1",
+  "status": "passed",
+  "passed": 2,
+  "failed": 0,
+  "elapsed_seconds": 2.0,
+  "workers": 1,
+  "viewports": [
+    "1280x720",
+    "390x844"
+  ],
+  "checks": [
+    "actual DOM button interaction",
+    "authenticated same-origin telemetry",
+    "sampled trace and API span",
+    "PII canary exclusion",
+    "no external HTTP",
+    "source frame allowlist",
+    "zero browser console/page errors"
+  ],
+  "private_env_read": false,
+  "actual_backend": false,
+  "actual_OTel_or_p75_dashboards_verified": false,
+  "product_accepted": false
+}

@@ -1,0 +1,12 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -198,7 +198,8 @@
+ default-features = false
+ 
+ [dependencies.paste]
+-version = "1.0.14"
++package = "pastey"
++version = "=0.2.3"
+ 
+ [dependencies.rand]
+ version = "0.9"

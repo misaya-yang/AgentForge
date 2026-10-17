@@ -29,9 +29,9 @@ fn load(root: &Path) -> Result<(Policy, String)> {
         "retired parser policy may not be omitted",
     )?;
     require(
-        p.yaml_package == "serde_yaml_ng"
+        p.yaml_package == "serde_norway"
             && p.yaml_alias == "serde_yaml"
-            && p.yaml_version == "0.10.0"
+            && p.yaml_version == "0.9.42"
             && p.yaml_members.len() == 7,
         "unreviewed YAML replacement policy",
     )?;

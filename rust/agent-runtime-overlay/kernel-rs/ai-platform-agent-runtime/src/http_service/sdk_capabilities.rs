@@ -167,9 +167,11 @@ pub(super) async fn execute_sdk_capability(
     let mut tx = state.store.pool.begin().await.map_err(invalid_row)?;
     // Lock order is always run -> SDK authority -> invocation -> approval.
     authority.assert(&mut tx, true).await?;
-    let row = sqlx::query("SELECT snapshot_id,capability_revision,snapshot,snapshot_sha256 FROM assistant.assistant_sdk_runs WHERE run_id=$1 AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND engine IN ('openai_agents','claude_agent_sdk')")
+    let row = sqlx::query("SELECT snapshot_id,capability_revision,snapshot,snapshot_sha256,expires_at FROM assistant.assistant_sdk_runs WHERE run_id=$1 AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND engine IN ('openai_agents','claude_agent_sdk')")
         .bind(run_id).bind(&authority.scope.tenant_id).bind(&authority.scope.user_id)
         .bind(&authority.scope.session_id).fetch_one(&mut *tx).await.map_err(invalid_row)?;
+    let verified_expiry:DateTime<Utc>=row.try_get("expires_at").map_err(invalid_row)?;
+    let transport_budget=super::transport_budget::admit_authenticated(&headers,super::transport_budget::ADMISSION_CAP,Some(verified_expiry.timestamp_millis().max(0)as u64)).map_err(|_|RuntimeError::bad_request("runtime_transport_budget_invalid"))?;
     let snapshot: Value = row.try_get("snapshot").map_err(invalid_row)?;
     let stored_hash: String = row.try_get("snapshot_sha256").map_err(invalid_row)?;
     if canonical_json_hash(&snapshot)
@@ -279,13 +281,13 @@ pub(super) async fn execute_sdk_capability(
     }
     let worker_url = std::env::var("AI_PLATFORM_CAPABILITY_WORKER_URL")
         .map_err(|_| RuntimeError::unavailable("sdk_capability_worker_not_ready"))?;
-    let secret = std::env::var("AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET")
-        .ok().filter(|value| value.len() >= 32)
-        .ok_or_else(|| RuntimeError::unavailable("sdk_capability_worker_not_ready"))?;
+    let secret = super::lease_verification::sdk_capability_authority(&mut tx,&authority.scope,run_id,snapshot_id,authority.owner_id,authority.fence).await
+        .map_err(|_| RuntimeError::unavailable("sdk_capability_worker_not_ready"))?;
     let worker = CapabilityWorkerClient::new(state.capability_client.clone(), &worker_url,
         state.internal_token.to_string())
         .map_err(|_| RuntimeError::unavailable("sdk_capability_worker_not_ready"))?
         .with_execution_owner(authority.owner_id.to_string(), authority.fence)
+        .with_transport_budget(transport_budget)
         .with_trace_context(crate::trace_context::InternalTraceContext::from_headers(&headers), run_id.to_string());
     authority.assert(&mut tx, true).await?;
     sqlx::query("UPDATE assistant.assistant_sdk_tool_calls SET dispatch_started_at=COALESCE(dispatch_started_at,clock_timestamp()),execution_id=COALESCE(execution_id,$3) WHERE run_id=$1 AND tool_call_id=$2")
@@ -301,7 +303,7 @@ pub(super) async fn execute_sdk_capability(
     // Worker reservation and dispatch atomically recheck the same owner/fence.
     // Dropping this HTTP future leaves the durable invocation/Worker receipt.
     let outcome = execute_capability_call_with_existing(&worker, &call, &binding,
-        secret.as_bytes(), effect, approval_string.as_deref(), &CancellationToken::new(),
+        &secret, effect, approval_string.as_deref(), &CancellationToken::new(),
         existing_string.as_deref()).await;
     let mut tx = state.store.pool.begin().await.map_err(invalid_row)?;
     authority.assert(&mut tx, false).await?;

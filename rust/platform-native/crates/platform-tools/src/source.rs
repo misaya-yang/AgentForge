@@ -6,11 +6,10 @@ use std::{
 };
 const LOCK_SCHEMA: &str = "ai-platform/agent-runtime-source-lock/v2";
 const RECEIPT_SCHEMA: &str = "ai-platform/agent-runtime-source-receipt/v1";
-const ARTIFACTS: &[(&str, &str)] = &[
-    ("app_server", "codex-app-server"),
-    ("agent_runtime", "ai-platform-agent-runtime"),
-    ("capability_worker", "ai-platform-capability-worker"),
-];
+#[path = "source_images.rs"]
+mod images;
+use images::ARTIFACTS;
+pub use images::{record_image, verify_images};
 fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
     v[key]
         .as_str()
@@ -78,7 +77,6 @@ pub fn validate_lock(
     let source = &lock["source"];
     let build = &lock["build"];
     let license = &lock["license"];
-    let oci = &lock["oci"];
     for name in ["upstream_sha", "fork_sha"] {
         require(hex(text(source, name)?, 40), "source SHA shape invalid")?;
     }
@@ -226,70 +224,9 @@ pub fn validate_lock(
             && receipt["license"]["upstream_notice_sha256"] == license["upstream_notice_sha256"],
         "upstream license receipt mismatch",
     )?;
-    let artifacts = oci["artifacts"]
-        .as_object()
-        .ok_or("OCI artifacts missing")?;
-    require(
-        artifacts.len() == ARTIFACTS.len()
-            && ARTIFACTS.iter().all(|(a, _)| artifacts.contains_key(*a)),
-        "OCI artifact inventory mismatch",
-    )?;
-    let mut runnable = BTreeSet::new();
-    for &(id, binary) in ARTIFACTS {
-        let artifact = &artifacts[id];
-        require(artifact["binary"] == binary, "OCI binary mismatch")?;
-        text(artifact, "protocol")?;
-        require(
-            artifact["platforms"]
-                .as_array()
-                .is_some_and(|a| a.iter().all(|s| s.as_str().is_some_and(|s| !s.is_empty()))),
-            "OCI platforms invalid",
-        )?;
-        if artifact["candidate_start_allowed"] != true {
-            require(
-                artifact["image_digest"].is_null() && artifact["image_ref"].is_null(),
-                "unlocked artifact carries image identity",
-            )?;
-            continue;
-        }
-        let digest = text(artifact, "image_digest")?;
-        require(
-            digest.strip_prefix("sha256:").is_some_and(|s| hex(s, 64)),
-            "image digest must be immutable",
-        )?;
-        let image = text(artifact, "image_ref")?;
-        require(
-            match state {
-                "local_image_locked" => image == format!("local-image://{digest}"),
-                "published" => image.ends_with(&format!("@{digest}")),
-                _ => false,
-            },
-            "runnable artifact release identity invalid",
-        )?;
-        runnable.insert(id);
-    }
-    require(
-        if state == "local_source_locked" {
-            runnable.is_empty()
-        } else {
-            !runnable.is_empty()
-        },
-        "release state disagrees with runnable artifacts",
-    )?;
-    if let Some(required) = required.or(if require_runnable {
-        Some("app_server")
-    } else {
-        None
-    }) {
-        require(
-            runnable.contains(required),
-            "required artifact not locked runnable",
-        )?;
-    }
-    Ok(
-        json!({"result":"pass","source_lock":"validated","release_state":state,"runnable_artifacts":runnable}),
-    )
+    images::validate_artifacts(&lock, require_runnable, required)
 }
+
 fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
     let out = Command::new("git")
         .arg("-C")
@@ -305,6 +242,8 @@ fn inventory(root: &Path) -> Result<BTreeSet<String>> {
         .map(|p| p.to_string_lossy().into_owned())
         .collect())
 }
+#[path = "source_test_inventory.rs"]
+mod test_inventory;
 fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
     require(
         unit["schema"] == "ai-platform/runtime-source-unit/v1",
@@ -430,11 +369,7 @@ fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
             "compiler command mismatch",
         )?;
     }
-    require(
-        receipt["contract_unit_tests"]["passed"] == 13
-            && receipt["contract_unit_tests"]["failed"] == 0,
-        "contract test scope mismatch",
-    )?;
+    test_inventory::verify(package, unit, &receipt)?;
     let metadata = object(&package.join("evidence/resolved-metadata.json"))?;
     let members = metadata["workspace_members"]
         .as_array()
@@ -680,199 +615,6 @@ mod tests {
         assert!(!hex(&"A".repeat(64), 64));
         assert!(!hex("../", 40));
     }
-    #[test]
-    fn image_source_labels_and_immutable_identity_are_required() {
-        let lock = json!({"source":{"upstream_sha":"a".repeat(40)},"build":{"overlay_sha256":"b".repeat(64),"capability_worker_schema_sha256":"c".repeat(64)}});
-        let binary = ARTIFACTS
-            .iter()
-            .find(|(id, _)| *id == "capability_worker")
-            .unwrap()
-            .1;
-        let mut info = json!({"Id":format!("sha256:{}","d".repeat(64)),"Os":"linux","Architecture":"amd64","Config":{"Labels":{
-            "org.opencontainers.image.revision":format!("{}+{}","a".repeat(40),"b".repeat(12)),
-            "com.misaya.ai-platform.capability-worker.schema-sha256":"c".repeat(64),
-            "com.misaya.ai-platform.capability-worker.overlay-sha256":"b".repeat(64),
-            "com.misaya.ai-platform.capability-worker.artifact":"capability_worker",
-            "com.misaya.ai-platform.capability-worker.binary":binary
-        }}});
-        assert_eq!(
-            checked_image(&lock, "capability_worker", &info).unwrap().1,
-            "linux/amd64"
-        );
-        info["Id"] = json!("mutable:tag");
-        assert!(checked_image(&lock, "capability_worker", &info).is_err());
-        info["Id"] = json!(format!("sha256:{}", "d".repeat(64)));
-        info["Config"]["Labels"]["com.misaya.ai-platform.capability-worker.overlay-sha256"] =
-            json!("wrong");
-        assert!(checked_image(&lock, "capability_worker", &info).is_err());
-    }
-}
-fn checked_image(lock: &Value, id: &str, info: &Value) -> Result<(String, String)> {
-    let binary = ARTIFACTS
-        .iter()
-        .find(|(key, _)| *key == id)
-        .map(|(_, v)| *v)
-        .ok_or("unknown OCI artifact")?;
-    let build = &lock["build"];
-    let source = &lock["source"];
-    let labels = &info["Config"]["Labels"];
-    let revision = if let Some(sha) = build["overlay_sha256"].as_str() {
-        format!(
-            "{}+{}",
-            text(source, "upstream_sha")?,
-            &sha[..sha.len().min(12)]
-        )
-    } else {
-        text(source, "fork_sha")?.into()
-    };
-    let family = if id == "capability_worker" {
-        "capability-worker"
-    } else {
-        "agent-runtime"
-    };
-    let prefix = format!("com.misaya.ai-platform.{family}");
-    require(
-        labels["org.opencontainers.image.revision"] == revision
-            && labels[format!("{prefix}.schema-sha256")]
-                == build[if id == "capability_worker" {
-                    "capability_worker_schema_sha256"
-                } else {
-                    "app_server_schema_sha256"
-                }]
-            && labels[format!("{prefix}.artifact")] == id
-            && labels[format!("{prefix}.binary")] == binary,
-        "Docker labels differ from locked source identity",
-    )?;
-    if id == "capability_worker" && !build["overlay_sha256"].is_null() {
-        require(
-            labels[format!("{prefix}.overlay-sha256")] == build["overlay_sha256"],
-            "Docker overlay label mismatch",
-        )?;
-    }
-    let digest = text(info, "Id")?;
-    require(
-        digest.strip_prefix("sha256:").is_some_and(|s| hex(s, 64)),
-        "Docker image Id is not immutable",
-    )?;
-    Ok((
-        digest.into(),
-        format!("{}/{}", text(info, "Os")?, text(info, "Architecture")?),
-    ))
-}
-pub fn verify_images(args: &Args) -> Result<Value> {
-    let root = args.root();
-    let path = Path::new(args.get("--lock")?);
-    for id in ["agent_runtime", "capability_worker"] {
-        validate_lock(&root, path, false, Some(id))?;
-    }
-    let lock = object(path)?;
-    let upstream = text(&lock["source"], "upstream_sha")?;
-    let overlay = lock["build"]["overlay_sha256"].as_str().unwrap_or("");
-    let suffix = format!(
-        "local-{}-{}",
-        &upstream[..upstream.len().min(12)],
-        &overlay[..overlay.len().min(12)]
-    );
-    let mut platforms = BTreeSet::new();
-    for (id, option, image_prefix) in [
-        (
-            "agent_runtime",
-            "--runtime-image",
-            "ai-gateway-agent-runtime",
-        ),
-        (
-            "capability_worker",
-            "--worker-image",
-            "ai-gateway-agent-capability-worker",
-        ),
-    ] {
-        let image = args
-            .values
-            .get(option)
-            .cloned()
-            .unwrap_or_else(|| format!("{image_prefix}:{suffix}"));
-        let output = Command::new("docker")
-            .args(["image", "inspect", &image])
-            .current_dir(&root)
-            .output()?;
-        require(output.status.success(), "Docker image inspection failed")?;
-        let result: Value = serde_json::from_slice(&output.stdout)?;
-        let values = result
-            .as_array()
-            .filter(|v| v.len() == 1)
-            .ok_or("unexpected Docker inspect shape")?;
-        let info = &values[0];
-        let (digest, platform) = checked_image(&lock, id, info)?;
-        let artifact = &lock["oci"]["artifacts"][id];
-        if lock["release_state"] == "published" {
-            require(
-                info["RepoDigests"]
-                    .as_array()
-                    .is_some_and(|a| a.contains(&artifact["image_ref"])),
-                "registry digest differs from lock",
-            )?;
-        } else {
-            require(
-                artifact["image_digest"] == digest,
-                "local image digest differs from lock",
-            )?;
-        }
-        require(
-            artifact["platforms"]
-                .as_array()
-                .is_some_and(|a| a.contains(&json!(platform))),
-            "Docker platform differs from lock",
-        )?;
-        platforms.insert(platform);
-    }
-    require(
-        platforms.len() == 1,
-        "Runtime and capability worker platform mismatch",
-    )?;
-    Ok(json!({"result":"pass","release_unit":"validated","platforms":platforms}))
-}
-
-pub fn record_image(args: &Args) -> Result<Value> {
-    let root = args.root();
-    let path = Path::new(args.get("--lock")?);
-    let artifact = args.get("--artifact")?;
-    require(
-        ARTIFACTS.iter().any(|(id, _)| *id == artifact),
-        "unknown OCI artifact",
-    )?;
-    validate_lock(&root, path, false, None)?;
-    let mut lock = object(path)?;
-    let output = Command::new("docker")
-        .args(["image", "inspect", args.get("--image")?])
-        .current_dir(&root)
-        .output()?;
-    require(output.status.success(), "Docker image inspection failed")?;
-    let info = strict_json(&output.stdout)?;
-    let info = info
-        .as_array()
-        .filter(|a| a.len() == 1)
-        .and_then(|a| a.first())
-        .ok_or("unexpected Docker inspection shape")?;
-    let (digest, platform) = checked_image(&lock, artifact, info)?;
-    let value = &mut lock["oci"]["artifacts"][artifact];
-    value["candidate_start_allowed"] = json!(true);
-    value["image_ref"] = json!(format!("local-image://{digest}"));
-    value["image_digest"] = json!(digest);
-    value["platforms"] = json!([platform]);
-    lock["release_state"] = json!("local_image_locked");
-    let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4().simple()));
-    let mut file = std::fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&temporary)?;
-    use std::io::Write;
-    lock.sort_all_objects();
-    file.write_all(format!("{}\n", serde_json::to_string_pretty(&lock)?).as_bytes())?;
-    file.sync_all()?;
-    std::fs::rename(&temporary, path)?;
-    std::fs::File::open(path.parent().unwrap_or(Path::new(".")))?.sync_all()?;
-    validate_lock(&root, path, false, Some(artifact))?;
-    Ok(json!({"result":"pass","artifact":artifact,"release_state":"local_image_locked"}))
 }
 pub fn verify_overlay(args: &Args) -> Result<Value> {
     let root = args.root();

@@ -1,0 +1,45 @@
+suite: native release contracts
+values:
+  - values-render.yaml
+templates:
+  - gateway.yaml
+  - knowledge.yaml
+  - knowledge-worker.yaml
+  - agent-runtime.yaml
+  - agent-capability-worker.yaml
+  - frontend.yaml
+  - migration.yaml
+  - sandbox.yaml
+tests:
+  - it: pins Gateway and keeps native binary command
+    template: gateway.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: '@sha256:[a-f0-9]{64}$'
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [/usr/local/bin/gateway, --config-env]
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+  - it: migrations are native pre-install hooks
+    template: migration.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-install,pre-upgrade
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [/usr/local/bin/database-authority, migrate]
+  - it: optional Python data plane is absent by default
+    template: sandbox.yaml
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: rejects extra Gateway owners
+    template: gateway.yaml
+    set:
+      gateway.replicaCount: 2
+    asserts:
+      - failedTemplate: {}

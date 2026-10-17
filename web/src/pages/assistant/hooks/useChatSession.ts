@@ -1921,7 +1921,12 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         local_node_grant_ids: localNodeEnabled ? localNodeBinding?.grantIds : undefined,
         resume_run_id: resumeRunId,
         resume_approval_id: resumeApprovalId,
-      }, streamAbortController.signal),
+      }, streamAbortController.signal, {
+        onConnectionState: (streamConnectionState) => {
+          if (!isCurrentStream() || streamAbortController.signal.aborted) return;
+          setMessages(previous => previous.map(message => message.id === assistantMessage.id ? { ...message, streamConnectionState } : message));
+        },
+      }),
       });
 
       for await (const event of stream) {

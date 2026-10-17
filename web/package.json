@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "AI Gateway Web Console - Frontend for AI Service Gateway",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

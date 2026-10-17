@@ -1,0 +1,303 @@
+{
+  "schema": "agentforge/knowledge-docir-v2-native-tests/v1",
+  "observed_at": "2026-10-17T10:24:05.428317+00:00",
+  "toolchain": "Rust1.99.0",
+  "jobs": 1,
+  "all_targets_check": "PASS domain/service/ops --all-targets r2",
+  "test_command": "cargo test --locked -p ai-platform-knowledge-domain -p ai-platform-knowledge-service -p ai-platform-knowledge-ops --all-targets",
+  "results": {
+    "passed": 290,
+    "failed": 0,
+    "ignored": 8,
+    "filtered_out": 0
+  },
+  "suites": [
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_domain-c87f13193962bed4)",
+      "passed": 91,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/capability_wire.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/capability_wire-01f5c3487375785e)",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/qa_provider_stream.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/qa_provider_stream-a7a72e69e01e5793)",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_ops-c26001f7aabcc6de)",
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/knowledge-eval-gate.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_eval_gate-0c948eb1c1f8d704)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_ops-24037603db1a30da)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_promotion.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_promotion-9ed8b5bac7e6f329)",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_service-3f0af8ce3ec8990f)",
+      "passed": 63,
+      "failed": 0,
+      "ignored": 6,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_service-07b9c584178e4249)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/agent_studio_knowledge_capability.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/agent_studio_knowledge_capability-66aa04e89baa231f)",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_assets.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_assets-1006f43d93ec187f)",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_config.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_config-213d8360c29eab68)",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_display.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_display-2f72d8788f0f4835)",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_embedding.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_embedding-7d12ce6f32f39f79)",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_eval.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_eval-a46d55364dae5248)",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_metrics.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_metrics-9603857f896f9c8d)",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_mmr.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_mmr-cb5e846870965960)",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_multilingual.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_multilingual-6b33c598d021da0a)",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_parsing.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_parsing-041a0cf9c2cba34b)",
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_process.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_process-396c1a1e18f761bb)",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_query_settings.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_query_settings-e9639565261576c5)",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_rerank.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_rerank-d1b40ed82942da3d)",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_retrieval.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_retrieval-d231d031c5b26f56)",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_migration_parity_tools.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_tools-acb8de1586ab5cb3)",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/knowledge_tool_future_layout.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_tool_future_layout-60af493ef6751347)",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/local_embedding_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/local_embedding_contract-810664e85060db0c)",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/process_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/process_contract-525b42636f4c85ef)",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/qdrant_integration_smoke.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/qdrant_integration_smoke-ae5c063fe7a61ca3)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 2,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/rerank_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/rerank_contract-eb3942551ed51fd0)",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    }
+  ],
+  "source_sha256": {
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/batch_sql.rs": "3f561e1888077dc3710837caf29808879c8ea32c40cf92b835d198ec870fab09",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/chunk_manager.rs": "dc5e7f66b1a555deec3bf856e7c7f2ab1421da86b2862544bc27c6e065054a81",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/legacy_images.rs": "0bbaf96a5fceea3289ba27c619f95893867d43fd9e49d9db4bdd53d46e9d74e6",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/artifact_sql.rs": "21278a1d2efd91c71784d27ccf25669930cc387f5b20b7ee89cf2053731242a5",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/hierarchy.rs": "b0332ae756713d69ad14a6b303d7ec4595a610b65f68cc6a4feab1d0a151b993",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/service_standard.rs": "4f766118f65a9e1704621063ba262c31319ea6b409a0822cf990331e2b7e14a1",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/diagnostics.rs": "6ff9cade206496338fbbc1d53bd8f9108187f89de9c172297175ba06b018e7fe",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/document_reads.rs": "1ce181d7a9d659fbe182fbc81b07d9840a8c63b6ab6973fb98ea7be4e129860f",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2.rs": "0edc2e06b242c76e68c25e65c5aa84e2798c81123a3756bd02a51cd7af82fe04",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/special_store.rs": "e3d5f5f940061a2da6a537ae3230ef57cf5358c366a20e9e92ef4b0724c53a74",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/version_reads.rs": "e4e4cfe231d455d2a104472bb50ef6a691520f5fdc2ffd49d7e1fb3506d3bf9c",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/batch_upload.rs": "fa742359233af2dfb774f9093ada35eb5d5c5f3387b3b1901c45180393daf2fa",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/metadata.rs": "0f97f0802623594ebedb44ae796c2d916b946c2c24e7a4755f7f13978ccb310d",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/vision.rs": "9d6650459f4bf2c3edc7755a551096baf4e4165e32ab43c4730aaa325ab1f7db",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/dataset_reads.rs": "8e80050a1bc85f08dd1055c7978951c5842340123245d3e9adc1f564677d6e05",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/store.rs": "8d7e51cb5c634bbd56d78935caa0edd83052b478ef4645dd435e1bb268c7d747",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/request_validation.rs": "68fe3b34d79468a50dee119dc09d3caefad18406860b9c332c2ffecd3ecbd8b3",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/worker.rs": "fc30a07cc4021b68b6f970909dc3c090bd185b7d57292cd429937223cf45f73e",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/reextraction.rs": "f605e5920a075c8e7dd5defeb2caaffdfe452fd4d28fbbf9e1431f060e91d705",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/vector_jobs.rs": "b7517df5941ac8ba745528ff763ddd8cb876e031709681bb2fcbbe1239527e55",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/chunking.rs": "714d1e0d644ed6bc93e436bc3f390b3a08ad40f007c14d2ff8df899774ec2038",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/iso_datetime.rs": "a8b223c7488e3b8cfc42707e2d1e639d260e629505c1da2fb5e7eaeefc77f242",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/detection.rs": "33c146dad178ca6b9cddf615e9aea1f98da08f90fcc52687b409b6a6788c73da",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/docx.rs": "1beae04f5fcce723bfa1175f3bd7b61f55773b3cdda209265b9f4d34aaf1ff05",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/service.rs": "b81281e30dcffea59c8ba936aaecde80b220a9cbd9bed6451ecc52c757677638",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/special.rs": "f56e0d9834de02c74945547d598b4d8733ca86453e52ada4ba58474f6c5ef8ed",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/knowledge_migration_parity_schema.rs": "a4f2df6ded2def53ed07a0bf4f93999756062825f01e0ffeb2d6608c487beb93",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/display_url.rs": "1a4d6d7dacc16a074601df72976ec44fb8e28fa7fc42645b31c5b71d40086c4b",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/mod.rs": "17ea2e300666d473b25414bb32d0592ae1d3c66e3c379a8847a5b53a45e898d3",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/inspection_http.rs": "c5b95e7385034fcb8e6414748370dc9bb27a143b0589a10c25dd17f5b94b49b7",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/document_writes.rs": "70a891b3dd9f1441ba83380d39f4a0086a0d5ae33f83f4f055fa6bf511b60dc2",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/model_plane_worker.rs": "4cd1fade951c1c82cacfb467d4be9ae4f1876707c41f8874c9af5578aa09e62b",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/service_construction.rs": "82d1920699043f63d0ad51042445b84f48211a428ca4580d36c9a7c2141d9598",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/progress.rs": "51bb150e939d037638809798673141c7b5fe3f4eead6563b444c11f4a2cd73df",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/sql.rs": "19080c22574e0f3f9e406522ef238297807a0b1c58aeb5cb5bc9db9d5893635a",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/admission.rs": "3fc3271be6cce31213725752a3ac2b06ae730211963f275c6c9a7c3f2709c18a",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/store_text_publication.rs": "e3eb324f003cf77892ea6498fa78cea09b99091ec56462c1016b3c14c8c9de4a",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/versions.rs": "8e6ae987febcf854108cf387bfd412a6990e3d223ad2fc09478837aaa1853f56",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/batches.rs": "ff294b1ed20a44b93e0ae26311e5d7d8c09db75cd78d0f6b4d354417d87dba50",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/streaming.rs": "a3c48d322ae755a51c8dc77078f0e2b80335898232b9706b87b6775dc99da702",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/structured.rs": "1a76c833c8180a02b61ba36f84d6aec6b0a206fce275b9acd06eac516cb0333b",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/images.rs": "dda2f46914838a3b74667354fc0b80a8f6c2370e5f380062ca3aa1922a4a4689",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/publication.rs": "e1114dc3ff29c86dd8327601f8ef9c9d862f73316401f85de3a4cb85ac0b8f97",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/catalog_http.rs": "bce86af4aeab621ff0a58e23dd1fb6151a35c73d541e4589a7dc85482b81e8ba",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/http.rs": "482069bb23f1b6684cfba018f94356cbb3d34c09661d3a830d4545d8c1038116",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/assets.rs": "eac618c177c6eed04fd85d5465bd27b8ab29cf4aec16a9abec8a17ba322452d9",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/pdf_splitter.rs": "84eb3533517d0d6df05687621bd93942333d7c204e8fd8ec4191c6eadd4973a2",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/dataset_writes.rs": "5e9a6729346ae4766ebae40a2196236c20430d4ec50e08e797084f192b0fff57",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parser.rs": "14842f41e8d4ccf350870812d342bfe3c98d9ac08d1a8636a9592fcf07d8cf36",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/vlm.rs": "133e042acc1d3c9bfdb87caab8a489a0337ba9a498449a89d876a1155ea0079a",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/ocr.rs": "0d0f6184db3fe52241b62026781467a8e0993922233579105a82483d261329c2",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/http_routes.rs": "d5064501e30b8e5c0abd89cabc699990636394db52427369b36867b93cf569a5",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/summary.rs": "d4809d83c2735da8a01b95e4acda03fe29db104402a5a2a2bea64e2a9d413fb4",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/explicit_layout.rs": "f314badc249e2ab6bc8242ed7d79aa151985d68fbead7f837b72294b961e08ca",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/vision_integration.rs": "e2cfbbe0ebf81d609f5572158c6d39b864d792d2f7f6af6d6b191bc344b03647",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/schema.rs": "ee7c3df8a57fd430b6cd478881e73c9f77e9453c6ae173611f5be1ed004c774b",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/tests.rs": "0342ab50600a56c73cc15450c1b252200b1476be9574732dc02a90aea9f13d16",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/integration.rs": "21d6af21b9e5326d57b3ba25678c4299e7d10b6cc29e35bd17a5518c449e9f40",
+    "rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_ingest/parsing_v2/integration_tests.rs": "73e2c17a81022e07643ba54abbb6ef40fbc06fc01cea39287fe1d61f80e7e975",
+    "rust/platform-native/crates/platform-knowledge-domain/tests/qa_provider_stream.rs": "af578535dddd819721525bede2b9d3c80d48fb5073f95eec3d65809ade2dcc8c",
+    "rust/platform-native/crates/platform-knowledge-domain/tests/capability_wire.rs": "a49cba564e71d0b311c271e003f2c0ec55fbbb55dca6435e4864e59d8a981e1d"
+  },
+  "test_log_sha256": "fae8a012aa14f98ea2db435c9da27d27d807cf82bf24a6e6059f3abe5ef795c1",
+  "check_log_sha256": "57eb24dc12b534c055e90777d9db8c6c8b3ed96c2ada933c05e183bcaec0abf8",
+  "repairs": [
+    "Restored original hierarchy caller and passed actual prepared DocV2 into scanned publication; standard caller retains its prepared reference",
+    "New fixture obeys all existing chunk/min/max size minima50; ordinary splitter demonstrably divides same large bodies while new v2 preserves exact full table/formula and original citations"
+  ],
+  "verified": [
+    "Typed native/layout DocV2 schema, coordinates, tables/formulas and version/generation bindings",
+    "Explicit operator layout routing uses real raster and optional measurements without fake ratios",
+    "Actual atomic chunking behavior versus existing normal splitter",
+    "Retained original QA-provider-stream shared fixtures moved to owning Knowledge crate",
+    "Existing service process/query/RPC/parser/model caller contracts executed"
+  ],
+  "not_run": [
+    "Actual DB publication/rollback and object-store fences on current services",
+    "Real Gateway model layout/provider journey",
+    "CER/TEDS/reading-order quality promotion",
+    "Live Qdrant/native weight acceptance tests explicitly ignored"
+  ],
+  "schema_or_services_mutated": false,
+  "product_acceptance": false
+}

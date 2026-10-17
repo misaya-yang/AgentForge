@@ -25,6 +25,15 @@ impl<'a> Connected<IncomingStream<'a, GatewayHttpsListener>> for TlsPeerAddress 
 }
 
 pub async fn mark_https(mut request: Request<Body>, next: Next) -> Response {
+    if let Some(axum::extract::ConnectInfo(TlsPeerAddress(address))) = request
+        .extensions()
+        .get::<axum::extract::ConnectInfo<TlsPeerAddress>>()
+        .copied()
+    {
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(address));
+    }
     request.extensions_mut().insert(HttpsRequest);
     next.run(request).await
 }
@@ -39,6 +48,7 @@ pub struct GatewayHttpsConfiguration {
 pub struct GatewayHttpsListener {
     tcp: TcpListener,
     tls: TlsAcceptor,
+    handshakes: tokio::task::JoinSet<io::Result<(TlsStream<TcpStream>, SocketAddr)>>,
 }
 
 impl GatewayHttpsListener {
@@ -70,6 +80,7 @@ impl GatewayHttpsListener {
         Ok(Self {
             tcp,
             tls: TlsAcceptor::from(Arc::new(server)),
+            handshakes: tokio::task::JoinSet::new(),
         })
     }
 }
@@ -80,16 +91,26 @@ impl Listener for GatewayHttpsListener {
 
     async fn accept(&mut self) -> (Self::Io, Self::Addr) {
         loop {
-            let (stream, address) = match self.tcp.accept().await {
-                Ok(value) => value,
-                Err(_) => {
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-                    continue;
+            // A silent TCP peer must not serialize every companion handshake.
+            // Tasks and sockets stay bounded and are aborted when this listener
+            // drops; each handshake retains the existing ten-second deadline.
+            tokio::select! {
+                accepted = self.tcp.accept(), if self.handshakes.len() < 64 => {
+                    match accepted {
+                        Ok((stream,address)) => {
+                            let tls=self.tls.clone();
+                            self.handshakes.spawn(async move {
+                                let stream=tokio::time::timeout(Duration::from_secs(10), tls.accept(stream))
+                                    .await.map_err(|_|io::Error::new(io::ErrorKind::TimedOut,"TLS handshake timed out"))??;
+                                Ok((stream,address))
+                            });
+                        }
+                        Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
+                    }
                 }
-            };
-            match tokio::time::timeout(Duration::from_secs(10), self.tls.accept(stream)).await {
-                Ok(Ok(stream)) => return (stream, address),
-                Ok(Err(_)) | Err(_) => continue,
+                completed = self.handshakes.join_next(), if !self.handshakes.is_empty() => {
+                    if let Some(Ok(Ok(connection)))=completed { return connection; }
+                }
             }
         }
     }
@@ -98,3 +119,7 @@ impl Listener for GatewayHttpsListener {
         self.tcp.local_addr()
     }
 }
+
+#[cfg(test)]
+#[path = "local_node_tls_tests.rs"]
+mod tests;

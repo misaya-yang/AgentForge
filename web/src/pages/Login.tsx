@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { getAllowedEmailDomain, getSupportEmail } from "@/config/runtime";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,7 +107,6 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const returnPath = getSafeReturnPath(location.state);
   const hasFullEmail = email.trim().includes("@");
 
@@ -119,7 +117,7 @@ export function LoginPage() {
       if (!trimmed) { setError(t("login.errors.emailRequired")); setLoading(false); return; }
       const normalized = trimmed.includes("@") ? trimmed.toLowerCase() : `${trimmed.toLowerCase()}@${allowedDomain}`;
       const res = await login({ email: normalized, password });
-      setAuth(res.access_token, res.user, res.force_password_change, rememberMe);
+      setAuth(res.csrf_token, res.user, res.force_password_change);
       if (res.force_password_change) {
         setShowPasswordChange(true);
       } else {
@@ -431,20 +429,9 @@ export function LoginPage() {
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
+              {/* Server-owned cookie lifetime & password recovery */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
-                <label
-                  htmlFor="remember-me"
-                  className="flex cursor-pointer items-center gap-2 text-zinc-400 hover:text-zinc-200 transition-colors"
-                >
-                  <Checkbox
-                    id="remember-me"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked === true)}
-                    className="border-white/20 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  {t("login.rememberMeDays")}
-                </label>
+                <span className="text-zinc-400">{t("login.cookieSessionLifetime")}</span>
                 <button
                   type="button"
                   onClick={handleForgotPassword}

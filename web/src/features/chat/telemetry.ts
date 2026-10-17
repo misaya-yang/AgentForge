@@ -1,4 +1,4 @@
-import { getTelemetryEndpoint } from "@/config/runtime";
+import { recordChatPerformance } from "@/observability/browserTelemetry";
 
 type ChatSurface = "assistant" | "playground";
 type StreamOutcome = "completed" | "cancelled" | "failed";
@@ -79,18 +79,11 @@ function emitTelemetry(event: string, payload: Record<string, unknown>) {
     })
   );
 
-  const endpoint = getTelemetryEndpoint();
-  if (endpoint && typeof navigator.sendBeacon === "function") {
-    try {
-      navigator.sendBeacon(endpoint, JSON.stringify(envelope));
-    } catch {
-      // Ignore transport issues in UI path
-    }
-  }
+  recordChatPerformance(event, payload);
 
   if (import.meta.env.DEV) {
     // Keep this visible while tuning interaction budgets in dev.
-    console.debug("[telemetry]", envelope);
+    console.debug("[telemetry]", event);
   }
 }
 

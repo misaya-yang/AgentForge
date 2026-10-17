@@ -264,9 +264,10 @@ pub(crate) async fn execute_capability_call_with_existing(
         nonce,
         signature: String::new(),
     };
-    lease
-        .sign(secret)
-        .map_err(|_| CapabilityExecutionError::LeaseSigningFailed)?;
+    if !crate::http_service::lease_verification::authorize_call(secret, &mut lease, &descriptor.schema_hash, now)
+        .map_err(|_| CapabilityExecutionError::LeaseSigningFailed)? {
+        lease.sign(secret).map_err(|_| CapabilityExecutionError::LeaseSigningFailed)?;
+    }
     lease
         .validate(now)
         .map_err(|_| CapabilityExecutionError::LeaseSigningFailed)?;

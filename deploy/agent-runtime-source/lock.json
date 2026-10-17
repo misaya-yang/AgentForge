@@ -1,29 +1,29 @@
 {
   "build": {
-    "app_server_schema_file_count": 1060,
-    "app_server_schema_sha256": "0e8f4bcb6abd17e538e875e0dbe77dbc1e521015bab7f44dfebae4d6e072d49f",
+    "app_server_schema_file_count": 1066,
+    "app_server_schema_sha256": "01cf60668fd3c8be4391017eee99dd785f5a42cb357384648ba2ddfdafcea9fd",
     "capability_worker_sbom": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
-    "capability_worker_sbom_sha256": "2f86fc087c57343a1f8844b67ec1d05d224f43a8a09c277573952bebbe182474",
+    "capability_worker_sbom_sha256": "1e3475fc58c8a431225eebd35ebf4a18cdfecaae6e3bb6f8d2f3be090d622959",
     "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
     "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-    "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
+    "cargo_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf",
     "local_image_profile": "dev-small",
-    "overlay_cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
-    "overlay_file_count": 163,
+    "overlay_cargo_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf",
+    "overlay_file_count": 191,
     "overlay_manifest": "rust/agent-runtime-overlay/manifest.json",
     "overlay_manifest_schema": "ai-platform/agent-runtime-overlay/v2",
-    "overlay_manifest_sha256": "8fed1e8ad5a54c5dcfe1b6f21980a90cba395fb7c286ebf2ff1b30ac145d1a95",
-    "overlay_sha256": "12fbb73aec9b1a19ffb9f055b2d285e2bebbc7fb63d226ca7c2ab01ee7e59562",
+    "overlay_manifest_sha256": "92ba4f22ecb5c9f692fca9626ce45379ea48e5cc20259c6e731073ddf671db26",
+    "overlay_sha256": "35426299b5a14649435c721bac477b1fbd51705d4f45d5ae5b7e468e96f84dac",
     "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "sbom": "deploy/agent-runtime-source/sbom.cdx.json",
-    "sbom_sha256": "f610826098ad48732cbf9bb5c09c77e7551b6d020ae5ac23958501bafbddec5e",
+    "sbom_sha256": "c7c313b881e1d94a1ef58b798208b01fd5983f8bffda24d0bb49088fc5c912d7",
     "source_receipt": "deploy/agent-runtime-source/source-receipt.json",
-    "source_receipt_sha256": "42ddb57dd4f638871542aa610ea59951b687b0a6164d6d201adadd0ed59f5df7"
+    "source_receipt_sha256": "7d3d8d8a028f1764c408151a875985d94a3d616c0162dcc3703b70a19e1056bb"
   },
   "license": {
     "notice": "deploy/agent-runtime-source/NOTICE.md",
-    "notice_sha256": "65241445b88c862168ff9d62efc216ff869ce939b284e8850aa6b335849deb2a",
+    "notice_sha256": "14f2cbe1f4bf314e5111d0ad219a5649beb04421cfd6a5c5a3daedb028b3432e",
     "spdx": "Apache-2.0",
     "upstream_license_sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
     "upstream_notice_sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
@@ -59,6 +59,16 @@
           "linux/arm64"
         ],
         "protocol": "ai-platform-capability-contract/v2"
+      },
+      "python_sandbox": {
+        "binary": "ai-platform-python-sandbox",
+        "candidate_start_allowed": false,
+        "image_digest": null,
+        "image_ref": null,
+        "platforms": [
+          "linux/arm64"
+        ],
+        "protocol": "sandbox-job/v1"
       }
     }
   },
@@ -67,9 +77,9 @@
   "source": {
     "branch": "",
     "fork_repository": "local://AI--Platfform-codex-harness-composed-source",
-    "fork_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
-    "git_tree_sha": "572cdecd45cd985f0ad80b63d8b86ffcb345f47a",
-    "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "fork_sha": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+    "git_tree_sha": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc",
+    "upstream_sha": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
     "upstream_url": "https://github.com/openai/codex.git"
   }
 }

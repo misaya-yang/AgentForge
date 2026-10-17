@@ -1,0 +1,21 @@
+{
+  "schema": "agentforge/gateway-guardrails-native-validation/v1",
+  "status": "actual_gateway_lib_passed",
+  "passed": 276,
+  "failed": 0,
+  "ignored": 1,
+  "scope": "Frozen MCP and Guardrails across new LLM API, original Responses and Runtime private model plane; includes unknown effects, accounting and tenant regression cases.",
+  "fixes": [
+    "Stream schema pure module is nested/reexported so shared Gateway live document and offline library both resolve it",
+    "LlmError constructor pub(crate) permits internal Responses guard rejection preserving same wire shape"
+  ],
+  "source_binding_boundary": "Before subsequent U-GW11 task-layer edits; not a blanket current-worktree pass",
+  "not_run": [
+    "Actual tenant DB policy/audit commits and provider/browser enforcement",
+    "Latency/throughput under concurrent real service load",
+    "Runtime/Worker latest source Docker tests",
+    "All-target compilation after all latest source edits"
+  ],
+  "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/gateway-guardrails-mcp-tests-r2.log",
+  "sha256": "48e6e8404ddafddd71b53de547350ea389d23e884885c3140ae1ada859aba9bf"
+}

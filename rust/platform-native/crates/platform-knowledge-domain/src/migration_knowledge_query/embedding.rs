@@ -1,13 +1,12 @@
 use super::{
     config::server_owned_config,
-    types::{Dataset, QueryError, Result},
+    types::{Dataset, QueryError, Result, UserContext},
 };
-use crate::{provider_cipher::NativeProviderCipher, provider_service::ProviderCipher};
 use base64::Engine;
 use reqwest::Client;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use std::{
     collections::BTreeMap,
     sync::Arc,
@@ -21,21 +20,28 @@ fn query_embedding_key(
     dataset: &Dataset,
     resolved: &ResolvedEmbedding,
     query: &str,
+    actor_scope: Option<&str>,
 ) -> Result<Option<String>> {
     let version = dataset
         .embedding_model_version
         .as_deref()
         .filter(|v| !v.trim().is_empty())
-        .or_else(|| (resolved.provider == "local").then_some("native-hash-384/v1"));
+        .or_else(|| (resolved.provider == "local").then_some("native-hash-384/v1"))
+        // Legacy operator API keeps its process-local configuration cache. Actual
+        // actor-serving calls require a pinned remote model revision.
+        .or_else(|| actor_scope.is_none().then_some("legacy-operator-unversioned/v1"));
     let Some(version) = version else {
         return Ok(None);
     };
-    let identity = json!({"contract":"query-embedding-cache/v2", "tenant":dataset.tenant_id,
-        "dataset":dataset.dataset_id,"generation":dataset.content_revision,"collection":dataset.collection_name,
+    let identity = json!({"contract":"query-embedding-cache/v3", "tenant":dataset.tenant_id,
+        "dataset":dataset.dataset_id,"generation":dataset.generation()?,"collection":dataset.collection_name,
+        "acl_scope":actor_scope.unwrap_or("isolated-operator-api/v1"),
         "provider":resolved.provider,"model":resolved.model,"model_version":version,
         "dimension":resolved.dimension,"endpoint":resolved.endpoint,"profile":dataset.embedding_config,
         "credential":format!("{:x}",Sha256::digest(resolved.api_key.as_bytes())),
-        "text_type":"query","text":query});
+        "model_plane_scope":super::model_plane::cache_scope_identity(),
+        "text_type":"query","normalized_text":super::cache_identity::normalize_text(query),
+        "exact_input_sha256":super::cache_identity::input_hash(query)});
     Ok(Some(format!(
         "{:x}",
         Sha256::digest(
@@ -61,6 +67,23 @@ impl QueryEmbeddingCache {
             max_bytes,
         }
     }
+    async fn get_or_try_insert<F>(&self, key: String, load: F) -> Result<Vec<f64>>
+    where
+        F: std::future::Future<Output = Result<Vec<f64>>> + Send,
+    {
+        if self.max_bytes == 0 { return load.await; }
+        self.entries
+            .try_get_with(key, async {
+                let value = load.await?;
+                if value.is_empty() || value.iter().any(|v| !v.is_finite()) {
+                    return Err(QueryError::InvalidProviderResponse);
+                }
+                Ok::<_, QueryError>(Arc::new(value))
+            })
+            .await
+            .map(|v| v.as_ref().clone())
+            .map_err(|e| e.as_ref().clone())
+    }
     async fn get(&self, key: &str) -> Option<Vec<f64>> {
         self.entries.get(key).await.map(|v| v.as_ref().clone())
     }
@@ -76,9 +99,9 @@ impl QueryEmbeddingCache {
         self.entries.insert(key, Arc::new(value)).await;
     }
 }
-fn embedding_weight(key: &str, value: &[f64]) -> u64 {
+fn embedding_weight(key: &str, value: &Vec<f64>) -> u64 {
     key.len()
-        .saturating_add(value.len().saturating_mul(std::mem::size_of::<f64>()))
+        .saturating_add(value.capacity().saturating_mul(std::mem::size_of::<f64>()))
         .saturating_add(128) as u64
 }
 
@@ -101,29 +124,25 @@ impl Default for ProviderConfig {
 #[derive(Clone)]
 pub struct EmbeddingManager {
     pub document_batch_size: usize,
-    client: Client,
-    pool: Option<PgPool>,
-    encryption_key: Arc<String>,
-    defaults: Arc<BTreeMap<String, ProviderConfig>>,
     query_cache: QueryEmbeddingCache,
     local_semantic: Option<Arc<LocalSemanticRuntime>>,
 }
 impl EmbeddingManager {
     pub fn new(
-        client: Client,
-        pool: Option<PgPool>,
-        encryption_key: String,
-        defaults: BTreeMap<String, ProviderConfig>,
+        _client: Client,
+        _pool: Option<PgPool>,
+        _encryption_key: String,
+        _defaults: BTreeMap<String, ProviderConfig>,
     ) -> Self {
         Self {
             document_batch_size: 100,
-            client,
-            pool,
-            encryption_key: Arc::new(encryption_key),
-            defaults: Arc::new(defaults),
             query_cache: QueryEmbeddingCache::new(32 * 1024 * 1024),
             local_semantic: None,
         }
+    }
+    pub fn with_gateway_local_semantic(mut self,timeout:Duration)->Result<Self> {
+        if timeout.is_zero() {return Err(QueryError::Validation("local semantic timeout must be positive".into()));}
+        self.local_semantic=Some(Arc::new(LocalSemanticRuntime{timeout}));Ok(self)
     }
     /// Configure only the explicit local_semantic identity; regular provider
     /// credentials and tenant overrides retain their existing behavior.
@@ -133,19 +152,10 @@ impl EmbeddingManager {
                 "local semantic timeout must be positive".into(),
             ));
         }
-        let endpoint = local_semantic_endpoint(base_url)?;
-        let client = Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .retry(reqwest::retry::never())
-            .connect_timeout(Duration::from_secs(5))
-            .build()
-            .map_err(|_| QueryError::Validation("local semantic HTTP client unavailable".into()))?;
-        self.local_semantic = Some(Arc::new(LocalSemanticRuntime {
-            client,
-            endpoint,
-            timeout,
-        }));
+        // Legacy argument is validated but never retained or contacted. The
+        // endpoint is registered centrally as the Gateway local_semantic provider.
+        local_semantic_endpoint(base_url)?;
+        self.local_semantic = Some(Arc::new(LocalSemanticRuntime { timeout }));
         Ok(self)
     }
     /// A startup probe includes actual inference; subsequent health probes check
@@ -182,7 +192,9 @@ impl EmbeddingManager {
             ));
         }
         // Deliberately do not consult tenant_credential for this operator-pinned identity.
-        Ok(runtime.configuration())
+        let mut config=runtime.configuration();
+        config.model_revision=dataset.embedding_model_version.as_deref().or_else(||dataset.embedding_config["model_version"].as_str()).unwrap_or("").into();
+        Ok(config)
     }
     pub async fn resolve(&self, dataset: &Dataset) -> Result<ResolvedEmbedding> {
         server_owned_config(&dataset.embedding_config)?;
@@ -210,18 +222,6 @@ impl EmbeddingManager {
             .filter(|x| !x.trim().is_empty())
             .unwrap_or(default_model)
             .to_owned();
-        let mut config = self.defaults.get(&provider).cloned().unwrap_or_default();
-        if let Some(tenant) = self
-            .tenant_credential(&dataset.tenant_id, &provider)
-            .await?
-        {
-            if !tenant.api_key.is_empty() {
-                config.api_key = tenant.api_key
-            }
-            if tenant.base_url.is_some() {
-                config.base_url = tenant.base_url
-            }
-        }
         let dimension = dataset
             .embedding_dimension
             .filter(|d| *d > 0)
@@ -231,142 +231,60 @@ impl EmbeddingManager {
                     .map(|d| d as usize)
             })
             .unwrap_or_else(|| infer_dimension(&provider, &model));
-        let endpoint = match provider.as_str() {
-            "local" => String::new(),
-            "gemini" => config
-                .base_url
-                .clone()
-                .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta/models".into())
-                .trim_end_matches('/')
-                .into(),
-            "dashscope" | "dashscope_multimodal" | "unified_multimodal" => normalize_dashscope(
-                config
-                    .base_url
-                    .as_deref()
-                    .unwrap_or("https://dashscope.aliyuncs.com/api/v1"),
-            ),
-            "siliconflow" => embeddings_endpoint(
-                config
-                    .base_url
-                    .as_deref()
-                    .unwrap_or("https://api.siliconflow.cn/v1"),
-            ),
-            "openai_compatible" => {
-                let url = config
-                    .base_url
-                    .as_deref()
-                    .filter(|s| !s.trim().is_empty())
-                    .ok_or_else(|| {
-                        QueryError::Validation(
-                            "openai_compatible embedding provider requires a server-owned base URL"
-                                .into(),
-                        )
-                    })?;
-                if config.api_key.trim().is_empty() {
-                    config.api_key = "unused".into()
-                }
-                embeddings_endpoint(url)
-            }
-            _ => {
-                return Err(QueryError::Validation(format!(
-                    "Unsupported embedding provider: {provider}"
-                )));
-            }
-        };
-        if provider != "local" && config.api_key.trim().is_empty() {
-            return Err(QueryError::Validation(format!(
-                "server-owned {provider} embedding credentials are unavailable"
-            )));
+        if !["local","gemini","dashscope","dashscope_multimodal","unified_multimodal","siliconflow","openai_compatible"].contains(&provider.as_str()) {
+            return Err(QueryError::Validation(format!("Unsupported embedding provider: {provider}")));
         }
+        let endpoint = if provider == "local" { String::new() } else { "gateway:model-plane/v1".into() };
         Ok(ResolvedEmbedding {
+            model_revision: dataset.embedding_model_version.as_deref().or_else(||dataset.embedding_config["model_version"].as_str()).unwrap_or("").into(),
             provider,
             model,
             dimension,
             endpoint,
-            api_key: config.api_key,
-            timeout: config.timeout,
+            api_key: String::new(),
+            timeout: Duration::from_secs(30),
         })
     }
-    async fn tenant_credential(
-        &self,
-        tenant: &str,
-        provider: &str,
-    ) -> Result<Option<ProviderConfig>> {
-        let family = match provider {
-            "dashscope" | "dashscope_multimodal" => "dashscope",
-            "gemini" => "gemini",
-            "siliconflow" => "siliconflow",
-            _ => return Ok(None),
-        };
-        let Some(pool) = &self.pool else {
-            return Ok(None);
-        };
-        if tenant.trim().is_empty() {
-            return Ok(None);
-        }
-        let rows=match sqlx::query("SELECT provider_id,api_type,base_url,api_key_encrypted FROM llm_providers WHERE tenant_id=$1 AND is_enabled=true ORDER BY updated_at DESC,provider_id ASC").bind(tenant.trim()).fetch_all(pool).await{Ok(r)=>r,Err(_)=>return Ok(None)};
-        for row in rows {
-            let id: String = row.try_get("provider_id").unwrap_or_default();
-            let api: String = row.try_get("api_type").unwrap_or_default();
-            let base: String = row
-                .try_get::<Option<String>, _>("base_url")
-                .unwrap_or_default()
-                .unwrap_or_default();
-            if provider_family(&id, &api, &base) != Some(family) {
-                continue;
-            }
-            let stored: String = row
-                .try_get::<Option<String>, _>("api_key_encrypted")
-                .unwrap_or_default()
-                .unwrap_or_default();
-            if stored.trim().is_empty() {
-                return Ok(None);
-            }
-            let key = NativeProviderCipher
-                .decrypt(stored.trim(), &self.encryption_key)
-                .map_err(|_| {
-                    QueryError::Validation(
-                        "tenant embedding credential could not be decrypted".into(),
-                    )
-                })?;
-            if key.is_empty() || key.starts_with("enc:") {
-                return Err(QueryError::Validation(
-                    "tenant embedding credential could not be decrypted".into(),
-                ));
-            }
-            return Ok(Some(ProviderConfig {
-                api_key: key,
-                base_url: if base.trim().is_empty() {
-                    None
-                } else {
-                    Some(base)
-                },
-                timeout: Duration::from_secs(30),
-            }));
-        }
-        Ok(None)
-    }
+    /// Compatibility API for operator-owned calls. Its namespace is isolated from
+    /// actor-serving entries; current request paths use embed_query_for_actor.
     pub async fn embed_query(&self, dataset: &Dataset, query: &str) -> Result<Vec<f64>> {
-        let resolved = self.resolve(dataset).await?;
-        let key = query_embedding_key(dataset, &resolved, query)?;
-        if let Some(key) = &key {
-            if let Some(vector) = self.query_cache.get(key).await {
-                return Ok(vector);
-            }
-        }
-        let vectors = self
-            .embed_resolved(&resolved, &[query.to_owned()], "query")
-            .await?;
-        let result = vectors
-            .into_iter()
-            .next()
-            .ok_or(QueryError::InvalidProviderResponse)?;
-        if let Some(key) = key {
-            self.query_cache.set(key, result.clone()).await;
-        }
-        Ok(result)
+        self.embed_query_scoped(dataset, query, None).await
     }
-
+    pub async fn embed_query_for_actor(
+        &self,
+        dataset: &Dataset,
+        query: &str,
+        user: &UserContext,
+    ) -> Result<Vec<f64>> {
+        let scope = super::cache_identity::acl_scope_hash(user);
+        super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(dataset.dataset_id.clone()),document_id:None,execution_id:None},user.clone(),self.embed_query_scoped(dataset, query, Some(&scope))).await
+    }
+    async fn embed_query_scoped(
+        &self,
+        dataset: &Dataset,
+        query: &str,
+        scope: Option<&str>,
+    ) -> Result<Vec<f64>> {
+        let resolved = self.resolve(dataset).await?;
+        let key = query_embedding_key(dataset, &resolved, query, scope)?;
+        let load = async {
+            let vectors = self
+                .embed_resolved(&resolved, &[query.to_owned()], "query")
+                .await?;
+            let result = vectors
+                .into_iter()
+                .next()
+                .ok_or(QueryError::InvalidProviderResponse)?;
+            if result.len() != resolved.dimension || result.iter().any(|v| !v.is_finite()) {
+                return Err(QueryError::InvalidProviderResponse);
+            }
+            Ok(result)
+        };
+        match key {
+            Some(key) => self.query_cache.get_or_try_insert(key, load).await,
+            None => load.await,
+        }
+    }
     pub async fn embed_documents(
         &self,
         dataset: &Dataset,
@@ -545,62 +463,19 @@ impl EmbeddingManager {
         validate_vectors(&vectors, 1, c.dimension)?;
         Ok(vectors.remove(0))
     }
-    async fn request(&self, c: &ResolvedEmbedding, url: &str, payload: &Value) -> Result<Value> {
-        let dash = c.provider.starts_with("dashscope") || c.provider == "unified_multimodal";
-        let attempts = if dash { 5 } else { 3 };
-        let deadline = Instant::now() + c.timeout;
-        let mut last = QueryError::Provider(503);
-        for attempt in 0..attempts {
-            let timeout = if dash {
-                deadline.saturating_duration_since(Instant::now())
-            } else {
-                c.timeout
-            };
-            if timeout.is_zero() {
-                return Err(QueryError::Provider(408));
-            }
-            let mut request = self.client.post(url).timeout(timeout).json(payload);
-            if c.provider == "gemini" {
-                request = request.query(&[("key", &c.api_key)])
-            } else {
-                request = request.bearer_auth(&c.api_key)
-            }
-            match request.send().await {
-                Ok(response) => {
-                    let code = response.status().as_u16();
-                    if response.status().is_success() {
-                        return response
-                            .json()
-                            .await
-                            .map_err(|_| QueryError::InvalidProviderResponse);
-                    }
-                    last = QueryError::Provider(code);
-                    let retryable = match c.provider.as_str() {
-                        "gemini" => [429, 500, 503].contains(&code),
-                        "dashscope" => [429, 500, 502, 503, 504].contains(&code),
-                        _ => [429, 500, 502, 503].contains(&code),
-                    };
-                    if !retryable {
-                        return Err(last);
-                    }
-                }
-                Err(e) => last = QueryError::Provider(if e.is_timeout() { 408 } else { 503 }),
-            }
-            if attempt + 1 < attempts {
-                let delay =
-                    Duration::from_secs_f64((if dash { 0.5 } else { 1.0 }) * 2f64.powi(attempt));
-                let delay = if dash {
-                    delay.min(deadline.saturating_duration_since(Instant::now()))
-                } else {
-                    delay
-                };
-                tokio::time::sleep(delay).await
-            }
-        }
-        Err(last)
+    async fn request(&self, c: &ResolvedEmbedding, _url: &str, payload: &Value) -> Result<Value> {
+        use super::model_plane::{self,ModelPurpose,ModelWire};
+        let wire=match c.provider.as_str() {"gemini"=>ModelWire::GeminiEmbedding,"dashscope"=>ModelWire::DashscopeEmbedding,p if p.ends_with("multimodal")=>ModelWire::DashscopeMultimodal,_=>ModelWire::Embeddings};
+        let kind=payload["parameters"]["text_type"].as_str().or_else(||payload["requests"][0]["taskType"].as_str()).unwrap_or("document");
+        let purpose=if ["query","RETRIEVAL_QUERY"].contains(&kind) {ModelPurpose::QueryEmbedding} else if ["similarity","SEMANTIC_SIMILARITY"].contains(&kind) {ModelPurpose::SimilarityEmbedding} else {ModelPurpose::DocumentEmbedding};
+        let (status,output)=model_plane::execute(&c.provider,&c.model,&c.model_revision,purpose,wire,payload.clone(),c.timeout).await?;
+        if !(200..300).contains(&status) { return Err(QueryError::Provider(status)); }
+        Ok(output)
     }
+
 }
 pub struct ResolvedEmbedding {
+    pub model_revision: String,
     pub provider: String,
     pub model: String,
     pub dimension: usize,
@@ -928,110 +803,25 @@ pub fn local_semantic_endpoint(value: &str) -> Result<reqwest::Url> {
     Ok(url)
 }
 
-struct LocalSemanticRuntime {
-    client: Client,
-    endpoint: reqwest::Url,
-    timeout: Duration,
-}
+struct LocalSemanticRuntime { timeout: Duration }
 impl LocalSemanticRuntime {
     fn configuration(&self) -> ResolvedEmbedding {
-        ResolvedEmbedding {
-            provider: "local_semantic".into(),
-            model: LOCAL_SEMANTIC_MODEL.into(),
-            dimension: LOCAL_SEMANTIC_DIMENSION,
-            endpoint: self.endpoint.to_string(),
-            api_key: String::new(),
-            timeout: self.timeout,
-        }
+        ResolvedEmbedding {model_revision:String::new(),provider:"local_semantic".into(),model:LOCAL_SEMANTIC_MODEL.into(),dimension:LOCAL_SEMANTIC_DIMENSION,endpoint:"gateway:model-plane/v1".into(),api_key:String::new(),timeout:self.timeout}
     }
-    async fn embed(
-        &self,
-        config: &ResolvedEmbedding,
-        texts: &[String],
-        kind: &str,
-    ) -> Result<Vec<Vec<f64>>> {
-        if config.provider != "local_semantic"
-            || config.model != LOCAL_SEMANTIC_MODEL
-            || config.dimension != LOCAL_SEMANTIC_DIMENSION
-            || config.endpoint != self.endpoint.as_str()
-            || !config.api_key.is_empty()
-        {
-            return Err(QueryError::Validation(
-                "local semantic model profile mismatch".into(),
-            ));
-        }
-        let inputs: Vec<String> = texts.iter().map(|text| {
-            if kind == "query" {
-                format!("Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:{text}")
-            } else { text.clone() }
-        }).collect();
-        let response = self
-            .client
-            .post(self.endpoint.clone())
-            .timeout(self.timeout)
-            .json(&json!({"model":LOCAL_SEMANTIC_MODEL,"input":inputs,"encoding_format":"float"}))
-            .send()
-            .await
-            .map_err(|_| QueryError::Provider(503))?;
-        if !response.status().is_success() {
-            return Err(QueryError::Provider(response.status().as_u16()));
-        }
-        let value: Value = response
-            .json()
-            .await
-            .map_err(|_| QueryError::InvalidProviderResponse)?;
-        let vectors = parse_vectors(&value, "openai_compatible")?;
-        validate_vectors(&vectors, texts.len(), LOCAL_SEMANTIC_DIMENSION)?;
-        if vectors
-            .iter()
-            .any(|vector| vector.iter().all(|value| *value == 0.))
-        {
-            return Err(QueryError::InvalidProviderResponse);
-        }
+    async fn embed(&self,config:&ResolvedEmbedding,texts:&[String],kind:&str)->Result<Vec<Vec<f64>>> {
+        if config.provider!="local_semantic" || config.model!=LOCAL_SEMANTIC_MODEL || config.dimension!=LOCAL_SEMANTIC_DIMENSION || !config.api_key.is_empty() { return Err(QueryError::Validation("local semantic model profile mismatch".into())); }
+        let inputs:Vec<String>=texts.iter().map(|text|if kind=="query" {format!("Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:{text}")} else {text.clone()}).collect();
+        use super::model_plane::{self,ModelPurpose,ModelWire};
+        let purpose=if ["query","RETRIEVAL_QUERY"].contains(&kind) {ModelPurpose::QueryEmbedding} else if ["similarity","SEMANTIC_SIMILARITY"].contains(&kind) {ModelPurpose::SimilarityEmbedding} else {ModelPurpose::DocumentEmbedding};
+        let (status,value)=model_plane::execute("local_semantic",LOCAL_SEMANTIC_MODEL,&config.model_revision,purpose,ModelWire::Embeddings,json!({"model":LOCAL_SEMANTIC_MODEL,"input":inputs,"encoding_format":"float"}),self.timeout).await?;
+        if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
+        let vectors=parse_vectors(&value,"openai_compatible")?;validate_vectors(&vectors,texts.len(),LOCAL_SEMANTIC_DIMENSION)?;
+        if vectors.iter().any(|vector|vector.iter().all(|value|*value==0.)) {return Err(QueryError::InvalidProviderResponse)}
         Ok(vectors)
     }
-    async fn probe(&self, inference: bool) -> Result<()> {
-        let mut url = self.endpoint.clone();
-        url.set_path("/health");
-        let response = self
-            .client
-            .get(url.clone())
-            .timeout(self.timeout)
-            .send()
-            .await
-            .map_err(|_| QueryError::Provider(503))?;
-        if !response.status().is_success() {
-            return Err(QueryError::Provider(response.status().as_u16()));
-        }
-        url.set_path("/info");
-        let response = self
-            .client
-            .get(url)
-            .timeout(self.timeout)
-            .send()
-            .await
-            .map_err(|_| QueryError::Provider(503))?;
-        if !response.status().is_success() {
-            return Err(QueryError::Provider(response.status().as_u16()));
-        }
-        let info: Value = response
-            .json()
-            .await
-            .map_err(|_| QueryError::InvalidProviderResponse)?;
-        if info["model_id"].as_str() != Some(LOCAL_SEMANTIC_MODEL) {
-            return Err(QueryError::Validation(
-                "local semantic server model identity mismatch".into(),
-            ));
-        }
-        if inference {
-            self.embed(
-                &self.configuration(),
-                &["Semantic embedding model readiness".into()],
-                "document",
-            )
-            .await?;
-        }
-        Ok(())
+    async fn probe(&self,_inference:bool)->Result<()> {
+        // Readiness is an actual leased inference, never a fake healthy response.
+        self.embed(&self.configuration(), &["Semantic embedding model readiness".into()], "document").await.map(|_|())
     }
 }
 
@@ -1049,6 +839,7 @@ mod query_embedding_cache_v2_tests {
     }
     fn resolved() -> ResolvedEmbedding {
         ResolvedEmbedding {
+            model_revision: "test-revision".into(),
             provider: "openai_compatible".into(),
             model: "embedding".into(),
             dimension: 2,
@@ -1058,7 +849,121 @@ mod query_embedding_cache_v2_tests {
         }
     }
     fn key(d: &Dataset, r: &ResolvedEmbedding, q: &str) -> String {
-        query_embedding_key(d, r, q).unwrap().unwrap()
+        query_embedding_key(d, r, q, Some("actor-fixture")).unwrap().unwrap()
+    }
+    #[tokio::test]
+    async fn concurrent_identical_queries_coalesce_and_provider_errors_are_not_cached() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let cache = QueryEmbeddingCache::new(1024 * 1024);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let ready = Arc::new(tokio::sync::Barrier::new(25));
+        let started = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        let mut tasks = tokio::task::JoinSet::new();
+        for _ in 0..24 {
+            let (cache, calls, ready, started, release) = (
+                cache.clone(),
+                calls.clone(),
+                ready.clone(),
+                started.clone(),
+                release.clone(),
+            );
+            tasks.spawn(async move {
+                ready.wait().await;
+                cache
+                    .get_or_try_insert("same-scoped-key".into(), async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        started.notify_one();
+                        release.notified().await;
+                        Ok(vec![0.1, 0.2])
+                    })
+                    .await
+                    .unwrap()
+            });
+        }
+        ready.wait().await;
+        started.notified().await;
+        release.notify_one();
+        while let Some(result) = tasks.join_next().await {
+            assert_eq!(result.unwrap(), vec![0.1, 0.2]);
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert!(
+            cache
+                .get_or_try_insert("error-key".into(), async { Err(QueryError::Provider(503)) })
+                .await
+                .is_err()
+        );
+        assert!(cache.get("error-key").await.is_none());
+        assert_eq!(
+            cache
+                .get_or_try_insert("error-key".into(), async { Ok(vec![0.4, 0.5]) })
+                .await
+                .unwrap(),
+            vec![0.4, 0.5]
+        );
+    }
+    #[tokio::test]
+    async fn actual_embedding_api_uses_actor_acl_and_generation_keys_without_provider_io() {
+        let manager = EmbeddingManager::new(Client::new(), None, String::new(), BTreeMap::new());
+        let d = Dataset {
+            dataset_id: "local".into(),
+            tenant_id: "t".into(),
+            content_revision: Some(1),
+            embedding_provider: Some("local".into()),
+            embedding_model: Some("hash-384".into()),
+            embedding_dimension: Some(8),
+            ..Default::default()
+        };
+        let user: UserContext =
+            serde_json::from_value(json!({"user_id":"u","tenant_id":"t","roles":["viewer"]}))
+                .unwrap();
+        let resolved = manager.resolve(&d).await.unwrap();
+        async fn actor_key(d:&Dataset,resolved:&ResolvedEmbedding,user:&UserContext)->String {
+            let scope=super::super::cache_identity::acl_scope_hash(user);
+            super::super::model_plane::run_current(super::super::model_plane::ModelResource{dataset_id:Some(d.dataset_id.clone()),document_id:None,execution_id:None},user.clone(),async {
+                query_embedding_key(d,resolved,"same query",Some(&scope)).unwrap().unwrap()
+            }).await
+        }
+        let k=actor_key(&d,&resolved,&user).await;
+        let mut first = manager
+            .embed_query_for_actor(&d, "same query", &user)
+            .await
+            .unwrap();
+        assert!(manager.query_cache.get(&k).await.is_some());
+        let original = first.clone();
+        first[0] = 99.0;
+        assert_eq!(
+            manager
+                .embed_query_for_actor(&d, "same query", &user)
+                .await
+                .unwrap(),
+            original
+        );
+        let mut other = user.clone();
+        other.roles.push("admin".into());
+        let other_key=actor_key(&d,&resolved,&other).await;
+        assert!(manager.query_cache.get(&other_key).await.is_none());
+        manager
+            .embed_query_for_actor(&d, "same query", &other)
+            .await
+            .unwrap();
+        assert!(manager.query_cache.get(&other_key).await.is_some());
+        let mut published = d.clone();
+        published.content_revision = Some(2);
+        let new_key=actor_key(&published,&resolved,&user).await;
+        assert!(manager.query_cache.get(&new_key).await.is_none());
+        manager
+            .embed_query_for_actor(&published, "same query", &user)
+            .await
+            .unwrap();
+        assert!(manager.query_cache.get(&new_key).await.is_some());
+        assert_ne!(
+            k,
+            query_embedding_key(&d, &resolved, "same query", None)
+                .unwrap()
+                .unwrap()
+        );
     }
     #[test]
     fn embedding_identity_separates_model_version_dimension_endpoint_credential_tenant_and_generation()
@@ -1089,7 +994,7 @@ mod query_embedding_cache_v2_tests {
         assert!(!original.contains("synthetic-key") && !original.contains("query"));
         let mut alias = d;
         alias.embedding_model_version = None;
-        assert!(query_embedding_key(&alias, &r, "query").unwrap().is_none());
+        assert!(query_embedding_key(&alias, &r, "query", Some("actor-fixture")).unwrap().is_none());
     }
     #[tokio::test]
     async fn cached_vectors_cannot_cross_identity_and_caller_mutation_is_detached() {

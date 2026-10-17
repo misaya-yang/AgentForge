@@ -1,0 +1,44 @@
+suite: optional isolated native transports
+values:
+  - values-render.yaml
+  - values-features.yaml
+templates:
+  - sandbox.yaml
+  - sdk.yaml
+  - knowledge.yaml
+  - gateway.yaml
+tests:
+  - it: sandbox has public arguments and no credentials or ports
+    template: sandbox.yaml
+    asserts:
+      - notExists: {path: 'spec.template.spec.containers[0].env'}
+      - notExists: {path: 'spec.template.spec.containers[0].ports'}
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 10001
+  - it: SDK serves TLS with the native SDK binary
+    template: sdk.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [/usr/local/bin/sdk-agent-worker]
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: SDK_AGENT_WORKER_TLS_CERT_FILE, value: /run/sdk-worker/tls.crt}
+  - it: Knowledge uses its own workload key memory volume
+    template: knowledge.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: knowledge-model-private, emptyDir: {medium: Memory, sizeLimit: 1Mi}}
+      - equal:
+          path: spec.template.spec.initContainers[0].args[0]
+          value: mkdir -p /state/files /state/pdf-scratch; exec /usr/local/bin/database-authority startup-check --principal knowledge_api

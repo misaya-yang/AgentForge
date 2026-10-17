@@ -30,10 +30,10 @@ impl Fixture {
         for name in p["yaml_members"].as_array().unwrap() {
             let id = format!("member:{}", name.as_str().unwrap());
             members.push(id.clone());
-            packages.push(json!({"name":name,"id":id,"version":"0.1.0","source":null,"dependencies":[{"name":"serde_yaml_ng","rename":"serde_yaml","req":"=0.10.0"}]}));
+            packages.push(json!({"name":name,"id":id,"version":"0.1.0","source":null,"dependencies":[{"name":"serde_norway","rename":"serde_yaml","req":"=0.9.42"}]}));
             nodes.push(json!({"id":id,"dependencies":["yaml"]}));
         }
-        packages.push(json!({"name":"serde_yaml_ng","id":"yaml","version":"0.10.0","source":"registry+https://github.com/rust-lang/crates.io-index","dependencies":[]}));
+        packages.push(json!({"name":"serde_norway","id":"yaml","version":"0.9.42","source":"registry+https://github.com/rust-lang/crates.io-index","dependencies":[]}));
         nodes.push(json!({"id":"yaml","dependencies":[]}));
         json!({"version":1,"workspace_members":members,"packages":packages,"resolve":{"nodes":nodes}})
     }

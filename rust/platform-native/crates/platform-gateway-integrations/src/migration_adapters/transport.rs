@@ -22,6 +22,13 @@ pub struct HttpResponse {
 }
 impl HttpTransport {
     pub fn new(service: ServiceHandle) -> Result<Self, RegistryError> {
+        Self::new_with_builder(service, Client::builder())
+    }
+    // Only native SDK construction supplies its captured operator-owned trust.
+    pub(super) fn new_with_builder(
+        service: ServiceHandle,
+        builder: reqwest::ClientBuilder,
+    ) -> Result<Self, RegistryError> {
         if service.snapshot().connector_type != TransportType::Http {
             return Err(RegistryError::AdapterConstructionFailed);
         }
@@ -40,7 +47,7 @@ impl HttpTransport {
                 .map_err(|_| bad()),
             }
         };
-        let mut builder = Client::builder()
+        let mut builder = builder
             .redirect(reqwest::redirect::Policy::none())
             .retry(reqwest::retry::never());
         // Reqwest's ordinary negotiation enables HTTP/2 through TLS ALPN when
@@ -269,7 +276,12 @@ impl LineBuffer {
     fn with_limit(max_line_bytes: usize) -> Self {
         // Only protocol-owned constants (or smaller test budgets) are admitted.
         assert!((1..=MAX_STREAM_LINE_BYTES).contains(&max_line_bytes));
-        Self { bytes: Vec::new(), consumed: 0, scanned: 0, max_line_bytes }
+        Self {
+            bytes: Vec::new(),
+            consumed: 0,
+            scanned: 0,
+            max_line_bytes,
+        }
     }
     fn clear(&mut self) {
         // A terminal producer must not retain its largest allocation.
@@ -292,8 +304,12 @@ impl LineBuffer {
         if self.bytes.len() + count > self.bytes.capacity() {
             // Keep geometric growth without requesting Vec's next doubled
             // capacity beyond the protocol ceiling. Allocator overhead is separate.
-            let capacity = self.bytes.capacity().saturating_mul(2)
-                .max(self.bytes.len() + count).min(self.max_line_bytes + 2);
+            let capacity = self
+                .bytes
+                .capacity()
+                .saturating_mul(2)
+                .max(self.bytes.len() + count)
+                .min(self.max_line_bytes + 2);
             self.bytes.reserve_exact(capacity - self.bytes.len());
         }
         self.bytes.extend_from_slice(&bytes[..count]);

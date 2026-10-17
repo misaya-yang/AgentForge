@@ -15,6 +15,11 @@ use std::{
     time::Duration,
 };
 
+fn retired_model_setting(key:&str)->bool {
+    (["LLM_API_KEY","DEEPSEEK_API_KEY","DEEPSEEK_KEY","GEMINI_API_KEY","GOOGLE_API_KEY","DASHSCOPE_API_KEY","ALIYUN_KEY","VERTEX_EMBEDDING_API_KEY","COHERE_API_KEY","GATEWAY_ENCRYPTION_KEY","LLM_BASE_URL","KNOWLEDGE_MULTIMODAL__API_KEY","KNOWLEDGE_OCR__VLM_API_KEYS","KNOWLEDGE_OCR__VLM_BASE_URL","KNOWLEDGE_NATIVE__LOCAL_RERANK_API_KEY","KNOWLEDGE_NATIVE__LOCAL_RERANK_ENDPOINT","KNOWLEDGE_NATIVE__LOCAL_SEMANTIC_ENDPOINT","KNOWLEDGE_RAGAS_EVAL__BASE_URL"].contains(&key))
+    || (key.starts_with("DASHSCOPE_")&&(key.ends_with("API_KEY")||key.ends_with("BASE_URL")))
+    || (key.starts_with("KNOWLEDGE_EMBEDDINGS__")&&(key.ends_with("API_KEY")||key.ends_with("BASE_URL")))
+}
 pub struct ProcessSettings {
     pub release_identity: Arc<crate::host::release::ReleaseIdentity>,
     pub configuration: KnowledgeConfiguration,
@@ -25,6 +30,7 @@ pub struct ProcessSettings {
     pub database_min: u32,
     pub database_max: u32,
     pub redis_url: String,
+    pub valkey: Option<ai_platform_service_primitives::valkey::SplitConfig>,
     pub poppler: Option<PopplerPdfConfig>,
     pub capability_gaps: Vec<&'static str>,
 }
@@ -105,11 +111,14 @@ impl ProcessSettings {
         let values = std::env::vars_os()
             .filter_map(|(key, value)| {
                 let key = key.into_string().ok()?.to_uppercase();
-                if key.starts_with("KNOWLEDGE_")
+                if key.starts_with("KNOWLEDGE_") || key.starts_with("AI_PLATFORM_VALKEY_")
                     || [
                         "ENVIRONMENT",
                         "REDIS_URL",
                         "GATEWAY_URL",
+                        "LLM_MODEL",
+                        "DASHSCOPE_RERANK_REQUEST_SCHEMA",
+                        "DASHSCOPE_RERANK_INSTRUCT",
                         "GATEWAY_ENCRYPTION_KEY",
                         "AI_PLATFORM_INTERNAL_TOKEN",
                         "AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH",
@@ -121,20 +130,12 @@ impl ProcessSettings {
                     .contains(&key.as_str())
                     || [
                         "INTERNAL_",
-                        "LLM_",
-                        "DEEPSEEK_",
-                        "GEMINI_",
-                        "GOOGLE_",
-                        "DASHSCOPE_",
-                        "VERTEX_",
-                        "COHERE_",
                         "KB_",
-                        "ALIYUN_",
                     ]
                     .iter()
                     .any(|p| key.starts_with(p))
                 {
-                    Some((key, value.into_string().ok()?))
+                    if retired_model_setting(&key) {None} else {Some((key, value.into_string().ok()?))}
                 } else {
                     None
                 }
@@ -149,6 +150,7 @@ impl ProcessSettings {
         if !working_directory.is_absolute() {
             return Err(KnowledgeError::Configuration("working_directory"));
         }
+        if values.iter().any(|(key,value)|!value.trim().is_empty()&&retired_model_setting(&key.to_uppercase())) {return Err(KnowledgeError::Configuration("knowledge_models_require_gateway"));}
         let e = Values(
             values
                 .into_iter()
@@ -204,7 +206,7 @@ impl ProcessSettings {
         let mut qdrant = QdrantSettings::default();
         let mut embeddings = EmbeddingSettings::default();
         embeddings.batch_size = e.number("KNOWLEDGE_EMBEDDINGS__BATCH_SIZE", 50)?;
-        let mut provider_keys = ProviderKeys::default();
+        let provider_keys = ProviderKeys;
         let mut ocr = OcrSettings::default();
         let mut storage = StorageSettings::default();
         let mut processing = ProcessingSettings::default();
@@ -214,6 +216,7 @@ impl ProcessSettings {
         qdrant.url = e.text("KNOWLEDGE_QDRANT__URL", &qdrant.url);
         qdrant.prefer_grpc = e.flag("KNOWLEDGE_QDRANT__PREFER_GRPC", false)?;
         qdrant.api_key = e.optional("KNOWLEDGE_QDRANT__API_KEY");
+        qdrant.tls_ca_file = e.optional("KNOWLEDGE_QDRANT__TLS_CA_FILE").map(PathBuf::from);
         qdrant.timeout_seconds =
             e.number("KNOWLEDGE_QDRANT__TIMEOUT_SECONDS", qdrant.timeout_seconds)?;
         qdrant.bm25_v2_capability_ttl_seconds = e.number(
@@ -224,32 +227,6 @@ impl ProcessSettings {
             e.flag("KNOWLEDGE_QDRANT__BM25_V2_ENABLED", qdrant.bm25_v2_enabled)?;
         embeddings.provider = e.text("KNOWLEDGE_EMBEDDINGS__PROVIDER", &embeddings.provider);
         embeddings.model = e.text("KNOWLEDGE_EMBEDDINGS__MODEL", &embeddings.model);
-        embeddings.api_key = e.text("KNOWLEDGE_EMBEDDINGS__API_KEY", &embeddings.api_key);
-        embeddings.google_api_key = e.text(
-            "KNOWLEDGE_EMBEDDINGS__GOOGLE_API_KEY",
-            &embeddings.google_api_key,
-        );
-        embeddings.dashscope_api_key = e.text(
-            "KNOWLEDGE_EMBEDDINGS__DASHSCOPE_API_KEY",
-            &embeddings.dashscope_api_key,
-        );
-        embeddings.siliconflow_api_key = e.text(
-            "KNOWLEDGE_EMBEDDINGS__SILICONFLOW_API_KEY",
-            &embeddings.siliconflow_api_key,
-        );
-        embeddings.siliconflow_base_url = e.text(
-            "KNOWLEDGE_EMBEDDINGS__SILICONFLOW_BASE_URL",
-            &embeddings.siliconflow_base_url,
-        );
-        embeddings.openai_compatible_api_key = e.text(
-            "KNOWLEDGE_EMBEDDINGS__OPENAI_COMPATIBLE_API_KEY",
-            &embeddings.openai_compatible_api_key,
-        );
-        embeddings.openai_compatible_base_url = e.text(
-            "KNOWLEDGE_EMBEDDINGS__OPENAI_COMPATIBLE_BASE_URL",
-            &embeddings.openai_compatible_base_url,
-        );
-        embeddings.base_url = e.optional("KNOWLEDGE_EMBEDDINGS__BASE_URL");
         embeddings.dimension = e.number("KNOWLEDGE_EMBEDDINGS__DIMENSION", embeddings.dimension)?;
         embeddings.timeout_seconds = e.number(
             "KNOWLEDGE_EMBEDDINGS__TIMEOUT_SECONDS",
@@ -285,7 +262,6 @@ impl ProcessSettings {
         )?;
         ragas.provider = e.text("KNOWLEDGE_RAGAS_EVAL__PROVIDER", &ragas.provider);
         ragas.model = e.text("KNOWLEDGE_RAGAS_EVAL__MODEL", &ragas.model);
-        ragas.base_url = e.optional("KNOWLEDGE_RAGAS_EVAL__BASE_URL");
         ragas.max_contexts = e.number("KNOWLEDGE_RAGAS_EVAL__MAX_CONTEXTS", ragas.max_contexts)?;
         ragas.max_context_chars = e.number(
             "KNOWLEDGE_RAGAS_EVAL__MAX_CONTEXT_CHARS",
@@ -299,7 +275,6 @@ impl ProcessSettings {
         ragas.enabled = e.flag("KNOWLEDGE_RAGAS_EVAL__ENABLED", ragas.enabled)?;
         ocr.provider = e.text("KNOWLEDGE_OCR__VLM_PROVIDER", &ocr.provider);
         ocr.model = e.text("KNOWLEDGE_OCR__VLM_MODEL", &ocr.model);
-        ocr.api_keys = e.text("KNOWLEDGE_OCR__VLM_API_KEYS", &ocr.api_keys);
         ocr.task = e.text("KNOWLEDGE_OCR__VLM_TASK", &ocr.task);
         ocr.concurrency = e.number("KNOWLEDGE_OCR__VLM_CONCURRENCY", ocr.concurrency)?;
         ocr.timeout_seconds =
@@ -307,36 +282,11 @@ impl ProcessSettings {
         ocr.min_pixels = e.number("KNOWLEDGE_OCR__VLM_MIN_PIXELS", ocr.min_pixels)?;
         ocr.max_pixels = e.number("KNOWLEDGE_OCR__VLM_MAX_PIXELS", ocr.max_pixels)?;
         ocr.max_tokens = e.number("KNOWLEDGE_OCR__VLM_MAX_TOKENS", ocr.max_tokens)?;
-        ocr.base_url = e.optional("KNOWLEDGE_OCR__VLM_BASE_URL");
         ocr.enable_rotate = e.flag("KNOWLEDGE_OCR__VLM_ENABLE_ROTATE", true)?;
         qdrant.bm25_v2_cutover_test_tenants =
             e.text("KNOWLEDGE_QDRANT__BM25_V2_CUTOVER_TEST_TENANTS", "");
         qdrant.interactive_deadline_seconds =
             e.number("KNOWLEDGE_QDRANT_INTERACTIVE_DEADLINE_SECONDS", 3.)?;
-        embeddings.encryption_key = e.text("GATEWAY_ENCRYPTION_KEY", "");
-        embeddings.multimodal_api_key = e.text("KNOWLEDGE_MULTIMODAL__API_KEY", "");
-        provider_keys.llm_api_key = e.text("LLM_API_KEY", "");
-        provider_keys.deepseek_api_key = e.text("DEEPSEEK_API_KEY", "");
-        provider_keys.deepseek_key = e.text("DEEPSEEK_KEY", "");
-        provider_keys.gemini_api_key = e.text("GEMINI_API_KEY", "");
-        provider_keys.google_api_key = e.text("GOOGLE_API_KEY", "");
-        provider_keys.dashscope_api_key = e.text("DASHSCOPE_API_KEY", "");
-        provider_keys.aliyun_key = e.text("ALIYUN_KEY", "");
-        provider_keys.vertex_embedding_api_key = e.text("VERTEX_EMBEDDING_API_KEY", "");
-        provider_keys.google_embedding_backend = e.text("GOOGLE_EMBEDDING_BACKEND", "");
-        // Existing native endpoint normalization consumes the explicitly resolved
-        // task URLs; preserve regional configured roots instead of guessing keys.
-        let endpoint_resolver =
-            ai_platform_service_primitives::provider_endpoints::ChatEndpointResolver::new(&e.0);
-        let embedding_endpoint = endpoint_resolver.resolve_dashscope(
-            ai_platform_service_primitives::provider_endpoints::EndpointDomain::Embedding,
-        );
-        let ocr_endpoint = endpoint_resolver
-            .resolve_dashscope(ai_platform_service_primitives::provider_endpoints::EndpointDomain::Ocr);
-        provider_keys.dashscope_embedding_api_key = embedding_endpoint.api_key;
-        provider_keys.dashscope_embedding_base_url = embedding_endpoint.base_url;
-        provider_keys.dashscope_ocr_api_key = ocr_endpoint.api_key;
-        provider_keys.dashscope_ocr_base_url = ocr_endpoint.base_url;
         storage.local_base_path = e
             .text("KNOWLEDGE_STORAGE__LOCAL_BASE_PATH", "./data/files")
             .into();
@@ -389,7 +339,6 @@ impl ProcessSettings {
             .collect();
         let mut qa = QaSettings::default();
         qa.model = e.text("LLM_MODEL", "gemini-2.0-flash");
-        qa.base_url = e.text("LLM_BASE_URL", "");
         qa.allowed_models = BTreeSet::from([qa.model.clone()]);
         let scratch = working_directory
             .join(e.text("KNOWLEDGE_NATIVE__SCRATCH_ROOT", "data/knowledge-scratch"));
@@ -435,28 +384,19 @@ impl ProcessSettings {
         gaps.push("other_local_rerank_models_require_explicit_backend");
         let mut rerank_providers = BTreeMap::new();
         {
-            let endpoint = e.text("DASHSCOPE_RERANK_BASE_URL", "");
+            let endpoint = String::new();
             rerank_providers.insert(
                 "dashscope".into(),
                 query::rerank::RerankProviderConfig {
-                    api_key: provider_keys.dashscope_api_key.clone(),
+                    api_key: String::new(),
                     endpoint,
                     request_schema: e.text("DASHSCOPE_RERANK_REQUEST_SCHEMA", "auto"),
                     instruct: e.optional("DASHSCOPE_RERANK_INSTRUCT"),
                 },
             );
         }
-        if let Some(key) = e.optional("COHERE_API_KEY") {
-            rerank_providers.insert(
-                "cohere".into(),
-                query::rerank::RerankProviderConfig {
-                    api_key: key,
-                    endpoint: "https://api.cohere.com/v2/rerank".into(),
-                    request_schema: "flat".into(),
-                    instruct: None,
-                },
-            );
-        }
+        rerank_providers.insert("cohere".into(),query::rerank::RerankProviderConfig{api_key:String::new(),endpoint:String::new(),request_schema:"flat".into(),instruct:None});
+        let valkey=ai_platform_service_primitives::valkey::SplitConfig::from_values(&e.0,if RuntimeRole::parse(&e.text("KNOWLEDGE_RUNTIME_ROLE","all"))?.api(){ai_platform_service_primitives::valkey::ServiceIdentity::KnowledgeApi}else{ai_platform_service_primitives::valkey::ServiceIdentity::KnowledgeWorker}).map_err(|_|KnowledgeError::Configuration("valkey_split"))?;
         let redis_url = e
             .optional("INTERNAL_COMM_REDIS_URL")
             .or_else(|| e.optional("REDIS_URL"))
@@ -483,19 +423,10 @@ impl ProcessSettings {
                         ));
                     }
                 }
-                if !embeddings.api_key.is_empty() {
-                    return Err(KnowledgeError::Configuration("local_semantic_is_keyless"));
-                }
-                let endpoint = e.text(
-                    "KNOWLEDGE_NATIVE__LOCAL_SEMANTIC_ENDPOINT",
-                    "http://127.0.0.1:8093/v1",
-                );
-                query::embedding::local_semantic_endpoint(&endpoint)
-                    .map_err(|_| KnowledgeError::Configuration("local_semantic_endpoint"))?;
                 embeddings.provider = "local_semantic".into();
                 embeddings.model = query::embedding::LOCAL_SEMANTIC_MODEL.into();
                 embeddings.dimension = query::embedding::LOCAL_SEMANTIC_DIMENSION;
-                embeddings.local_semantic_endpoint = Some(endpoint);
+                embeddings.local_semantic_enabled = true;
             }
             _ => return Err(KnowledgeError::Configuration("embedding_profile")),
         }
@@ -532,6 +463,13 @@ impl ProcessSettings {
             }
         };
         let configuration = KnowledgeConfiguration {
+            model_plane:crate::model_plane_identity::ModelPlaneSettings{
+                origin:e.text("KNOWLEDGE_MODEL_PLANE__URL",&authentication.gateway_origin),
+                workload_key_file:e.optional("KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE").map(PathBuf::from),
+                gateway_public_keys_file:e.optional("KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE").map(PathBuf::from),
+                model_revisions:serde_json::from_str(&e.text("KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS","{}")).map_err(|_|KnowledgeError::Configuration("knowledge_model_revisions"))?,
+            },
+            connector_encryption_key:e.text("KNOWLEDGE_CONNECTOR_ENCRYPTION_KEY",""),
             request_governance:
                 ai_platform_service_primitives::request_governance::RequestGovernanceConfig::new(
                     e.number("KNOWLEDGE_HTTP__MAX_CONCURRENT_REQUESTS", 1024)?,
@@ -602,7 +540,6 @@ impl ProcessSettings {
             dashscope_rerank_region: e.optional("DASHSCOPE_BASE_URL"),
             rerank_providers,
             local_rerank_endpoint: e.optional("KNOWLEDGE_NATIVE__LOCAL_RERANK_ENDPOINT"),
-            local_rerank_api_key: e.optional("KNOWLEDGE_NATIVE__LOCAL_RERANK_API_KEY"),
             summary: None,
             cors_origins: e.list(
                 "KNOWLEDGE_CORS__ALLOW_ORIGINS",
@@ -639,6 +576,7 @@ impl ProcessSettings {
             database_min,
             database_max,
             redis_url,
+            valkey,
             poppler,
             capability_gaps: gaps,
         })
@@ -669,7 +607,15 @@ impl ProcessSettings {
             self.configuration.authentication.idempotency_backend,
             ReplayBackend::Redis
         );
-        let redis = if replay || idem {
+        let redis = if let Some(config)=&self.valkey {
+            use ai_platform_service_primitives::valkey::{SplitConnections,CacheAvailability};
+            let split=SplitConnections::connect(config).await.map_err(|_|KnowledgeError::Startup("valkey_split"))?;
+            match split.cache {
+                CacheAvailability::Ready(cache)=>backends.result_cache=Some(cache),
+                CacheAvailability::Unavailable(error)=>tracing::warn!(error=%error,"optional Knowledge result cache unavailable"),
+            }
+            Some(split.coord.coordination_manager())
+        } else if replay || idem {
             let client = redis::Client::open(self.redis_url.as_str())
                 .map_err(|_| KnowledgeError::Configuration("internal_redis_url"))?;
             Some(
@@ -686,6 +632,7 @@ impl ProcessSettings {
         };
         let graph = KnowledgeGraph::new(
             KnowledgeConnections {
+                model_plane:Some(self.configuration.model_plane.construct()?),
                 database: pool.clone(),
                 replay_redis: if replay { redis.clone() } else { None },
                 idempotency_redis: if idem { redis } else { None },
@@ -703,5 +650,39 @@ impl ProcessSettings {
                 Err(error)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod valkey_split_tests {
+    use super::*;
+    use ai_platform_service_primitives::valkey::ServiceIdentity;
+    fn values(role:&str)->BTreeMap<String,String> {
+        BTreeMap::from([("ENVIRONMENT".into(),"test".into()),("AI_PLATFORM_INTERNAL_TOKEN".into(),"offline-signing-material".into()),("AI_PLATFORM_CAPABILITY_PROOF_SECRET".into(),"offline-proof-material".into()),("INTERNAL_COMM_STATE_BACKEND".into(),"memory".into()),("INTERNAL_IDEMPOTENCY_BACKEND".into(),"memory".into()),("KNOWLEDGE_RUNTIME_ROLE".into(),role.into())])
+    }
+    fn split(role:&str)->BTreeMap<String,String> {
+        let mut values=values(role);let service=if role=="worker"{ServiceIdentity::KnowledgeWorker}else{ServiceIdentity::KnowledgeApi};
+        values.insert("AI_PLATFORM_VALKEY_MODE".into(),"split".into());
+        for (kind,port) in [("COORD",6380),("CACHE",6381)] {
+            for (suffix,value) in [("ENDPOINT",format!("rediss://valkey-{}.internal:{port}/0",kind.to_lowercase())),("USERNAME",format!("{}-{}",service.name(),kind.to_lowercase())),("PASSWORD_FILE",format!("/nonexistent/{}.password",kind.to_lowercase())),("CA_FILE","/nonexistent/ca.pem".into())] {
+                values.insert(format!("AI_PLATFORM_VALKEY_{kind}_{suffix}"),value);
+            }
+        }
+        values
+    }
+    #[test]
+    fn pure_split_parse_selects_api_or_worker_without_opening_files() {
+        for role in ["api","worker"] {
+            let settings=ProcessSettings::from_values(split(role),PathBuf::from("/tmp")).unwrap();
+            let config=settings.valkey.unwrap();let service=if role=="api"{ServiceIdentity::KnowledgeApi}else{ServiceIdentity::KnowledgeWorker};
+            assert_eq!(config.coord().service(),service);assert_eq!(config.cache().service(),service);
+        }
+    }
+    #[test]
+    fn partial_split_never_falls_back_to_legacy_redis() {
+        let mut partial=values("api");partial.insert("REDIS_URL".into(),"redis://localhost".into());partial.insert("AI_PLATFORM_VALKEY_MODE".into(),"split".into());
+        assert!(ProcessSettings::from_values(partial,PathBuf::from("/tmp")).is_err());
+        let mut wrong=split("api");wrong.insert("AI_PLATFORM_VALKEY_CACHE_USERNAME".into(),"knowledge-worker-cache".into());
+        assert!(ProcessSettings::from_values(wrong,PathBuf::from("/tmp")).is_err());
     }
 }

@@ -3,6 +3,10 @@
 mod native_contract;
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|a| ["produce", "validate", "breaking"].contains(&a.as_str())) {
+        let produced = (args[0] == "produce").then(|| ai_platform_openapi::document::extend_document(native_contract::document()));
+        return std::process::ExitCode::from(ai_platform_openapi::release::run(&args, produced));
+    }
     if args.first().map(String::as_str) == Some("arc01") {
         let doc = ai_platform_openapi::document::extend_document(native_contract::document());
         return std::process::ExitCode::from(ai_platform_openapi::arc01::run(&args[1..], &doc));

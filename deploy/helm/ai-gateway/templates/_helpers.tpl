@@ -1,158 +1,64 @@
-{{/*
-Expand the name of the chart.
-*/}}
-{{- define "ai-gateway.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Create a default fully qualified app name.
-*/}}
 {{- define "ai-gateway.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Common labels
-*/}}
+{{- default (printf "%s-%s" .Release.Name .Chart.Name) .Values.fullnameOverride | trunc 18 | trimSuffix "-" -}}
+{{- end -}}
 {{- define "ai-gateway.labels" -}}
-helm.sh/chart: {{ include "ai-gateway.name" . }}-{{ .Chart.Version | replace "+" "_" }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: ai-gateway
-{{- end }}
-
-{{/*
-Selector labels for a component
-*/}}
-{{- define "ai-gateway.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "ai-gateway.name" . }}
+app.kubernetes.io/name: ai-gateway
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
-PostgreSQL host - internal or external
-*/}}
-{{- define "ai-gateway.postgresHost" -}}
-{{- if .Values.postgresql.enabled }}
-{{- printf "%s-postgresql" (include "ai-gateway.fullname" .) }}
-{{- else }}
-{{- .Values.externalDatabase.host }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL port
-*/}}
-{{- define "ai-gateway.postgresPort" -}}
-{{- if .Values.postgresql.enabled }}
-{{- "5432" }}
-{{- else }}
-{{- .Values.externalDatabase.port | toString }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL database name
-*/}}
-{{- define "ai-gateway.postgresDatabase" -}}
-{{- if .Values.postgresql.enabled }}
-{{- "gateway" }}
-{{- else }}
-{{- .Values.externalDatabase.database }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL user
-*/}}
-{{- define "ai-gateway.postgresUser" -}}
-{{- if .Values.postgresql.enabled }}
-{{- "postgres" }}
-{{- else }}
-{{- .Values.externalDatabase.user }}
-{{- end }}
-{{- end }}
-
-{{/*
-Redis host - internal or external
-*/}}
-{{- define "ai-gateway.redisHost" -}}
-{{- if .Values.redis.enabled }}
-{{- printf "%s-redis" (include "ai-gateway.fullname" .) }}
-{{- else }}
-{{- .Values.externalRedis.host }}
-{{- end }}
-{{- end }}
-
-{{/*
-Redis port
-*/}}
-{{- define "ai-gateway.redisPort" -}}
-{{- if .Values.redis.enabled }}
-{{- "6379" }}
-{{- else }}
-{{- .Values.externalRedis.port | toString }}
-{{- end }}
-{{- end }}
-
-{{/*
-Qdrant URL - internal or external
-*/}}
-{{- define "ai-gateway.qdrantUrl" -}}
-{{- if .Values.qdrant.enabled }}
-{{- printf "http://%s-qdrant:6333" (include "ai-gateway.fullname" .) }}
-{{- else }}
-{{- .Values.externalQdrant.url }}
-{{- end }}
-{{- end }}
-
-{{/*
-Full Redis URL
-*/}}
-{{- define "ai-gateway.redisURL" -}}
-redis://:$(REDIS_PASSWORD)@{{ include "ai-gateway.redisHost" . }}:{{ include "ai-gateway.redisPort" . }}/0
-{{- end }}
-
-{{/*
-Knowledge Service URL (internal)
-*/}}
-{{- define "ai-gateway.knowledgeServiceUrl" -}}
-{{- if .Values.knowledgeService.enabled }}
-{{- printf "http://%s-knowledge:8092" (include "ai-gateway.fullname" .) }}
-{{- end }}
-{{- end }}
-
-{{/*
-LangGraph instance URLs — comma-separated list of all enabled agent service URLs.
-Used by the gateway to discover and proxy LangGraph agents.
-*/}}
-{{- define "ai-gateway.langgraphInstanceURLs" -}}
-{{- $urls := list }}
-{{- if .Values.langgraph.enabled }}
-{{- range $name, $agent := .Values.langgraph.agents }}
-{{- if $agent.enabled }}
-{{- $urls = append $urls (printf "http://%s-langgraph-%s:%s" (include "ai-gateway.fullname" $) $name ($agent.port | toString)) }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- join "," $urls }}
-{{- end }}
-
-{{/* Complete, URL-encoded DSNs reside in a separately provisioned Secret.
-Application pods receive exactly their own key; never bootstrap credentials. */}}
-{{- define "ai-gateway.roleDatabaseEnv" -}}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: agentforge
+{{- end -}}
+{{- define "ai-gateway.image" -}}
+{{- $image := index .root.Values.images .unit -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $image.digest) -}}{{ fail (printf "images.%s.digest must be an admitted sha256 digest" .unit) }}{{- end -}}
+{{- printf "%s@%s" $image.repository $image.digest -}}
+{{- end -}}
+{{- define "ai-gateway.security" -}}
+runAsNonRoot: true
+runAsUser: {{ . }}
+runAsGroup: {{ . }}
+readOnlyRootFilesystem: true
+allowPrivilegeEscalation: false
+capabilities:
+  drop: [ALL]
+{{- end -}}
+{{- define "ai-gateway.secretEnv" -}}
 - name: {{ .env }}
   valueFrom:
     secretKeyRef:
-      name: {{ required "databaseRoles.existingSecret is required; bootstrap credentials cannot serve applications" .root.Values.databaseRoles.existingSecret }}
+      name: {{ required (printf "Secret reference required for %s" .env) .secret }}
       key: {{ .key }}
-{{- end }}
+{{- end -}}
+{{- define "ai-gateway.roleEnv" -}}
+{{- include "ai-gateway.secretEnv" (dict "env" .env "secret" .root.Values.databaseRoles.existingSecret "key" .key) -}}
+{{- end -}}
+{{- define "ai-gateway.envMap" -}}
+{{- range $key, $value := . }}
+- name: {{ $key }}
+  value: {{ $value | toString | quote }}
+{{- end -}}
+{{- end -}}
+{{- define "ai-gateway.validate" -}}
+{{- range $unit := list "gateway" "agentRuntime" "capabilityWorker" -}}
+{{- $config := index $.Values $unit -}}
+{{- if or (ne (int $config.replicaCount) 1) $config.autoscaling.enabled (ne (int $config.autoscaling.minReplicas) 1) (ne (int $config.autoscaling.maxReplicas) 1) -}}{{ fail (printf "%s requires one process owner; autoscaling is not admitted" $unit) }}{{- end -}}
+{{- end -}}
+{{- $_ := required "databaseRoles.existingSecret must already exist before migration hooks" .Values.databaseRoles.existingSecret -}}
+{{- $_ := required "Gateway kernel_revision must be reviewed" .Values.gateway.nativeOptions.kernel_revision -}}
+{{- range $key, $credential := .Values.credentials -}}{{- $_ := required (printf "credentials.%s Secret must already exist" $key) $credential -}}{{- end -}}
+{{- range $key, $volume := .Values.persistence -}}{{- $_ := required (printf "persistence.%s existingClaim required" $key) $volume.existingClaim -}}{{- end -}}
+{{- range $key := list "postgres" "valkey" "qdrant" -}}
+{{- $peer := (index $.Values.data $key).peer -}}
+{{- if or (empty (dig "namespaceSelector" "matchLabels" (dict) $peer)) (empty (dig "podSelector" "matchLabels" (dict) $peer)) -}}{{ fail (printf "data.%s requires explicit operator namespace/pod selectors" $key) }}{{- end -}}
+{{- end -}}
+{{- if not (hasPrefix "https://" .Values.data.qdrant.url) -}}{{ fail "Qdrant requires verified HTTPS" }}{{- end -}}
+{{- $_ := required "Qdrant client Secret required" .Values.data.qdrant.existingSecret -}}
+{{- $_ := required "Complete system+Qdrant CA ConfigMap required" .Values.data.qdrant.caConfigMap -}}
+{{- $_ := required "Gateway-only signing Secret required" .Values.lease.gatewayPrivateSecret -}}
+{{- $_ := required "Consumer public verifier ConfigMap required" .Values.lease.publicConfigMap -}}
+{{- $_ := required "Kubernetes DNS resolver address required for frontend" .Values.network.dnsResolver -}}
+{{- if .Values.sandbox.enabled -}}
+{{- range $key := list "nodeName" "runtimeClassName" "seccompProfile" "socketClaim" "workspaceClaim" "journalClaim" "signingSecret" "publicKeyId" -}}{{- $_ := required (printf "sandbox.%s required" $key) (index $.Values.sandbox $key) -}}{{- end -}}
+{{- if not (regexMatch "^[0-9a-f]{64}$" .Values.sandbox.publicKeyHex) }}{{ fail "sandbox requires public Ed25519 hex only" }}{{ end -}}
+{{- if or (not .Values.sandbox.socketFsGroupMutationDisabled) (empty .Values.sandbox.cgroupCSI.driver) -}}{{ fail "sandbox requires prepared node-local socket CSI/PVC with fsGroup mutation disabled and delegated cgroup CSI" }}{{ end -}}
+{{- end -}}
+{{- end -}}

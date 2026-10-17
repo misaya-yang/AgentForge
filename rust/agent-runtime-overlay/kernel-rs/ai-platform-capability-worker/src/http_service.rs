@@ -56,6 +56,9 @@ pub struct WorkerState {
     pub external_write_executor: Option<Arc<ExternalWriteExecutor>>,
     pub office_executor: Option<Arc<OfficeCapabilityExecutor>>,
     pub python_executor: Option<Arc<LocalPythonSandboxBroker>>,
+    /// The control process never launches user code. Only this independent,
+    /// credential-free Unix-socket service is eligible for Python dispatch.
+    pub remote_python_executor: Option<Arc<crate::sandbox_transport::RemoteSandboxBroker>>,
     pub python_artifact_store: Option<Arc<dyn PythonArtifactStore>>,
     pub attachment_executor: Option<Arc<AttachmentCapabilityBroker>>,
     pub local_node_broker: Option<Arc<LocalNodeBroker>>,
@@ -97,6 +100,7 @@ impl WorkerState {
             external_write_executor: None,
             office_executor: None,
             python_executor: None,
+            remote_python_executor: None,
             python_artifact_store: None,
             attachment_executor: None,
             local_node_broker: None,
@@ -156,6 +160,11 @@ impl WorkerState {
         self
     }
 
+    pub fn with_remote_python_executor(mut self, executor: Arc<crate::sandbox_transport::RemoteSandboxBroker>) -> Self {
+        self.remote_python_executor = Some(executor);
+        self
+    }
+
     pub fn with_python_artifact_store(mut self, store: Arc<dyn PythonArtifactStore>) -> Self {
         self.python_artifact_store = Some(store);
         self
@@ -194,7 +203,7 @@ impl WorkerState {
             "generate_quiz" => self.quiz_executor.is_some(),
             "confluence_write" | "generate_image" => self.external_write_executor.is_some(),
             "mcp_docgen__generate_document" => self.office_executor.is_some(),
-            "execute_python_code" => self.python_executor.is_some() && self.python_artifact_store.is_some(),
+            "execute_python_code" => (self.remote_python_executor.is_some() || self.python_executor.is_some()) && self.python_artifact_store.is_some(),
             // The current default LocalNode transport is explicitly unavailable;
             // a future real transport must supply an authoritative readiness seam.
             _ => false,
@@ -460,7 +469,12 @@ struct WorkerHealthResponse {
 
 async fn health(State(state): State<WorkerState>) -> impl IntoResponse {
     let store_ready = state.store.ready().await.is_ok();
-    let capabilities = worker_capability_health(&state);
+    let mut capabilities = worker_capability_health(&state);
+    if let Some(executor) = &state.remote_python_executor
+        && state.capability_registry.contains_key("execute_python_code")
+    {
+        capabilities.insert("python", if executor.ready().await { "healthy" } else { "unavailable" });
+    }
     let degraded = capabilities.values().any(|value| *value == "unavailable");
     let response = WorkerHealthResponse {
         status: if store_ready { "ready" } else { "not_ready" },
@@ -555,7 +569,7 @@ fn worker_capability_health(state: &WorkerState) -> BTreeMap<&'static str, &'sta
             advertised(
                 state,
                 &["execute_python_code"],
-                state.python_executor.as_ref().is_some_and(|executor| executor.isolation_available())
+                state.remote_python_executor.as_ref().is_some_and(|executor| executor.configured())
                     && state.python_artifact_store.is_some(),
             ),
         ),

@@ -3,11 +3,14 @@ use super::{
     common::{CompatError, hex, text},
     eval::normalize_ragas_results,
 };
+use ai_platform_service_primitives::knowledge_model::ModelScope;
 use hmac::{Hmac, Mac};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Duration};
+#[path = "eval_ragas_actor.rs"]
+pub(crate) mod ragas_actor;
 
 pub struct EvalJwtSigner {
     key: EncodingKey,
@@ -84,6 +87,7 @@ pub struct LlmCompleteContext {
     pub trace_id: Option<String>,
     pub provider_id: Option<String>,
     pub model_ref: Option<Value>,
+    pub actor_scope: Option<ModelScope>,
 }
 pub struct EvalGatewayLlmClient {
     pub enabled: bool,
@@ -118,7 +122,8 @@ impl EvalGatewayLlmClient {
     ) -> Result<Self, CompatError> {
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder().retry(reqwest::retry::never())
+            http: reqwest::Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
@@ -208,7 +213,8 @@ impl KbRagasClient {
         }
         Ok(Self {
             base: configured_origin(base)?,
-            http: reqwest::Client::builder().retry(reqwest::retry::never())
+            http: reqwest::Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
@@ -226,6 +232,51 @@ impl KbRagasClient {
         metrics: Option<&[String]>,
         ground_truth: Option<&str>,
         llm_config: Option<&Value>,
+    ) -> Result<Value, CompatError> {
+        self.evaluate_retrieval_inner(
+            query,
+            contexts,
+            answer,
+            metrics,
+            ground_truth,
+            llm_config,
+            None,
+        )
+        .await
+    }
+    pub async fn evaluate_retrieval_scoped(
+        &self,
+        scope: &ModelScope,
+        query: &str,
+        contexts: &[String],
+        answer: Option<&str>,
+        metrics: Option<&[String]>,
+        ground_truth: Option<&str>,
+        llm_config: Option<&Value>,
+    ) -> Result<Value, CompatError> {
+        if self.secret.is_none() {
+            return Err(CompatError::new(503, "KB signer unavailable"));
+        }
+        self.evaluate_retrieval_inner(
+            query,
+            contexts,
+            answer,
+            metrics,
+            ground_truth,
+            llm_config,
+            Some(scope),
+        )
+        .await
+    }
+    async fn evaluate_retrieval_inner(
+        &self,
+        query: &str,
+        contexts: &[String],
+        answer: Option<&str>,
+        metrics: Option<&[String]>,
+        ground_truth: Option<&str>,
+        llm_config: Option<&Value>,
+        scope: Option<&ModelScope>,
     ) -> Result<Value, CompatError> {
         let selector = if let Some(config) = llm_config.filter(|v| !v.is_null()) {
             let map = config.as_object().ok_or_else(|| {
@@ -252,7 +303,22 @@ impl KbRagasClient {
         } else {
             Value::Null
         };
-        let body=serde_json::to_vec(&json!({"query":query,"contexts":contexts,"answer":answer,"metrics":metrics,"ground_truth":ground_truth,"llm_config":selector})).map_err(|_|CompatError::new(422,"Invalid RAGAS payload"))?;
+        let identities = scope
+            .map(ragas_actor::identity_headers)
+            .transpose()?
+            .unwrap_or_default();
+        let canonical_identity = identities
+            .iter()
+            .map(|(name, value)| format!("{name}:{value}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut payload = json!({"query":query,"contexts":contexts,"answer":answer,"metrics":metrics,"ground_truth":ground_truth,"llm_config":selector});
+        if let Some(scope) = scope {
+            payload["actor_scope"] = serde_json::to_value(scope)
+                .map_err(|_| CompatError::new(422, "Invalid RAGAS actor"))?;
+        }
+        let body = serde_json::to_vec(&payload)
+            .map_err(|_| CompatError::new(422, "Invalid RAGAS payload"))?;
         let path = "/api/v1/internal/eval/ragas";
         let mut url = self.base.clone();
         url.set_path(&format!("{}{}", url.path().trim_end_matches('/'), path));
@@ -260,6 +326,9 @@ impl KbRagasClient {
             .http
             .post(url)
             .header("content-type", "application/json");
+        for (name, value) in identities {
+            request = request.header(name, value);
+        }
         if let Some(secret) = &self.secret {
             let id = uuid::Uuid::new_v4().simple().to_string();
             let timestamp = chrono::Utc::now().timestamp_millis().to_string();
@@ -271,7 +340,7 @@ impl KbRagasClient {
                 path,
                 "",
                 &hash,
-                "",
+                &canonical_identity,
                 &id,
                 &timestamp,
                 &self.key_id,

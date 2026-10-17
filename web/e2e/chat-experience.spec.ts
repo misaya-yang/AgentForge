@@ -76,6 +76,51 @@ test("R1 controlled stream disconnect reconnects to the same turn without duplic
   expect({ threadCreates, turnStarts, interrupts }).toEqual({ threadCreates: 1, turnStarts: 1, interrupts: 0 });
 });
 
+test("U-WEB-05 network flap resumes an already-started turn without duplicate text or another start", async ({ page }) => {
+  await seedClientPrefs(page, { locale: "en-US" });
+  await installClientAuth(page, { user_id: "web05-flap", email: "web05@example.com", display_name: "Stream recovery" });
+  await installAssistantHarness(page, async route => { await route.abort("connectionreset"); });
+  let starts = 0, interrupts = 0, reads = 0;
+  let release!: () => void;
+  const reconnectGate = new Promise<void>(resolve => { release = resolve; });
+  const cursors: string[] = [];
+  await page.route("**/api/v2/agent/threads/*/turns", async route => {
+    starts++;
+    await route.fulfill(jsonResponse({ turn: { id: "e2e-turn", events_url: "/api/v2/agent/threads/e2e-runtime-thread/events?turn_id=e2e-turn" } }));
+  });
+  await page.route("**/api/v2/agent/threads/*/turns/*", async route => {
+    if (route.request().url().includes(":interrupt")) interrupts++;
+    await route.fulfill(jsonResponse({ status: "accepted" }));
+  });
+  const firstFrames = [
+    { event_type: "run_started", data: { run_id: "e2e-turn", thread_id: "e2e-runtime-thread" } },
+    { event_type: "text_delta", data: "FLAP_ALPHA " },
+  ];
+  await page.route("**/api/v2/agent/threads/*/events**", async route => {
+    reads++;
+    cursors.push(new URL(route.request().url()).searchParams.get("after_sequence") ?? "missing");
+    if (reads === 2) { await route.abort("connectionreset"); return; }
+    if (reads >= 3) await reconnectGate;
+    const frames = reads === 1 ? firstFrames : [...firstFrames,
+      { event_type: "text_delta", data: "FLAP_OMEGA" },
+      { event_type: "run_finished", data: { status: "succeeded" } },
+    ];
+    await route.fulfill({ status: 200, contentType: "text/event-stream", body: wrapAssistantSseAsAgentV2(toSseBody(frames)) });
+  });
+  await ensureAuthenticatedPage(page, "/assistant");
+  await page.locator(`#${ASSISTANT_COMPOSER_ID}`).fill("Recover this same turn after a network flap");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => reads).toBe(3);
+  await expect(page.locator('[data-stream-connection="reconnecting"]')).toBeVisible();
+  release();
+  const log = page.getByRole("log", { name: "Assistant conversation log" });
+  await expect(log).toContainText("FLAP_ALPHA FLAP_OMEGA");
+  await expect(log.getByText("FLAP_ALPHA FLAP_OMEGA", { exact: true })).toHaveCount(1);
+  await expect(page.locator('[data-stream-connection="reconnecting"]')).toHaveCount(0);
+  expect(cursors).toEqual(["0", "2", "2"]);
+  expect({ starts, interrupts, reads }).toEqual({ starts: 1, interrupts: 0, reads: 3 });
+});
+
 // Controlled activity input, not a real provider/Worker throughput claim.
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
   test(`R1 controlled 1000 activity events remain unique, scrollable and stoppable at ${viewport.width}px`, async ({ page }, testInfo) => {

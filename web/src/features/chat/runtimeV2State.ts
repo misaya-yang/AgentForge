@@ -365,8 +365,8 @@ export function isExpectedApprovalRejection(
 export function afterSequenceFromEventsUrl(url: string): number {
   const query = url.split("#", 1)[0]?.split("?", 2)[1] ?? "";
   const raw = new URLSearchParams(query).get("after_sequence");
-  const parsed = raw == null ? 0 : Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  const parsed = raw != null && /^\d+$/.test(raw) ? Number(raw) : 0;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export function withAfterSequence(url: string, afterSequence: number): string {
@@ -376,7 +376,7 @@ export function withAfterSequence(url: string, afterSequence: number): string {
   const queryIndex = withoutHash.indexOf("?");
   const path = queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
   const params = new URLSearchParams(queryIndex >= 0 ? withoutHash.slice(queryIndex + 1) : "");
-  params.set("after_sequence", String(Math.max(0, Math.trunc(afterSequence))));
+  params.set("after_sequence", String(Number.isSafeInteger(afterSequence) && afterSequence >= 0 ? afterSequence : 0));
   return `${path}?${params.toString()}${hash}`;
 }
 

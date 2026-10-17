@@ -1,17 +1,44 @@
 {
   "schema": "ai-gateway/service-topology/v1",
-  "revision": "arc06-2026-08-v1",
+  "revision": "platform-upgrade-20261017-sandbox",
   "default_mode": "full",
   "groups": [
-    {"id": "gateway-control", "display_name": "Gateway Control"},
-    {"id": "agent-execution", "display_name": "Agent Execution"},
-    {"id": "knowledge", "display_name": "Knowledge"},
-    {"id": "infrastructure", "display_name": "Infrastructure"}
+    {
+      "id": "gateway-control",
+      "display_name": "Gateway Control"
+    },
+    {
+      "id": "agent-execution",
+      "display_name": "Agent Execution"
+    },
+    {
+      "id": "knowledge",
+      "display_name": "Knowledge"
+    },
+    {
+      "id": "infrastructure",
+      "display_name": "Infrastructure"
+    }
   ],
   "compose_modes": {
-    "compact": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.compact.yml"]},
-    "full": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.full.yml"]},
-    "scale": {"files": ["docker-compose.yml", "deploy/compose/docker-compose.scale.yml"]}
+    "compact": {
+      "files": [
+        "docker-compose.yml",
+        "deploy/compose/docker-compose.compact.yml"
+      ]
+    },
+    "full": {
+      "files": [
+        "docker-compose.yml",
+        "deploy/compose/docker-compose.full.yml"
+      ]
+    },
+    "scale": {
+      "files": [
+        "docker-compose.yml",
+        "deploy/compose/docker-compose.scale.yml"
+      ]
+    }
   },
   "services": [
     {
@@ -21,13 +48,34 @@
       "process_role": "Static administrator and user console",
       "lifecycle": "long-running",
       "exposure": "public",
-      "required_deps": ["gateway"],
+      "required_deps": [
+        "gateway"
+      ],
       "optional_deps": [],
       "state_owner": "none",
       "scale_support": "stateless",
-      "health_contract": {"kind": "http", "source_key": "frontend"},
-      "image_artifact": {"version_env": "FRONTEND_IMAGE", "default_version": "2.0.0"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "http",
+        "source_key": "frontend"
+      },
+      "image_artifact": {
+        "version_env": "FRONTEND_IMAGE",
+        "default_version": "2.0.0"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "gateway",
@@ -36,13 +84,39 @@
       "process_role": "Public API, authentication, routing and control plane",
       "lifecycle": "long-running",
       "exposure": "public",
-      "required_deps": ["postgres", "redis", "agent-runtime"],
-      "optional_deps": ["knowledge-service", "agent-capability-worker"],
+      "required_deps": [
+        "postgres",
+        "redis",
+        "agent-runtime"
+      ],
+      "optional_deps": [
+        "knowledge-service",
+        "agent-capability-worker"
+      ],
       "state_owner": "gateway and assistant control state",
       "scale_support": "single-instance",
-      "health_contract": {"kind": "gateway", "source_key": "gateway_core"},
-      "image_artifact": {"version_env": "GATEWAY_IMAGE", "default_version": "2.0.0"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "gateway",
+        "source_key": "gateway_core"
+      },
+      "image_artifact": {
+        "version_env": "GATEWAY_IMAGE",
+        "default_version": "2.0.0"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "gateway-init",
@@ -55,9 +129,28 @@
       "optional_deps": [],
       "state_owner": "none",
       "scale_support": "one-shot",
-      "health_contract": {"kind": "completion", "source_key": "gateway-init"},
-      "image_artifact": {"version_env": "POSTGRES_IMAGE", "default_version": "16"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "completion",
+        "source_key": "gateway-init"
+      },
+      "image_artifact": {
+        "version_env": "POSTGRES_IMAGE",
+        "default_version": "16"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "agent-runtime",
@@ -66,13 +159,37 @@
       "process_role": "Rust Thread, Turn and Item execution kernel",
       "lifecycle": "long-running",
       "exposure": "private",
-      "required_deps": ["postgres", "gateway"],
-      "optional_deps": ["agent-capability-worker"],
+      "required_deps": [
+        "postgres",
+        "gateway"
+      ],
+      "optional_deps": [
+        "agent-capability-worker"
+      ],
       "state_owner": "runtime threads, items, snapshots and leases",
       "scale_support": "single-instance",
-      "health_contract": {"kind": "gateway-dependency", "source_key": "agent_runtime"},
-      "image_artifact": {"version_env": "AI_PLATFORM_AGENT_RUNTIME_IMAGE", "default_version": "candidate"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "agent_runtime"
+      },
+      "image_artifact": {
+        "version_env": "AI_PLATFORM_AGENT_RUNTIME_IMAGE",
+        "default_version": "candidate"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "agent-capability-worker",
@@ -81,13 +198,74 @@
       "process_role": "Durable capability and tool execution worker",
       "lifecycle": "long-running",
       "exposure": "private",
-      "required_deps": ["postgres", "agent-runtime"],
-      "optional_deps": ["knowledge-service", "gateway"],
+      "required_deps": [
+        "postgres",
+        "agent-runtime"
+      ],
+      "optional_deps": [
+        "knowledge-service",
+        "gateway"
+      ],
       "state_owner": "capability execution and event ledger",
       "scale_support": "worker",
-      "health_contract": {"kind": "gateway-dependency", "source_key": "capability_worker"},
-      "image_artifact": {"version_env": "AGENT_CAPABILITY_WORKER_IMAGE", "default_version": "candidate"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 2}}
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "capability_worker"
+      },
+      "image_artifact": {
+        "version_env": "AGENT_CAPABILITY_WORKER_IMAGE",
+        "default_version": "candidate"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 2
+        }
+      }
+    },
+    {
+      "service_id": "agent-python-sandbox",
+      "display_name": "Python User-code Sandbox",
+      "bounded_context": "agent-execution",
+      "process_role": "Credential-free UDS-only execution supervisor paired with its control worker",
+      "lifecycle": "long-running",
+      "exposure": "private",
+      "required_deps": [],
+      "optional_deps": [
+        "agent-capability-worker"
+      ],
+      "state_owner": "Per-domain user-code workspace and execution journal; no platform datastore authority",
+      "scale_support": "per-host",
+      "health_contract": {
+        "kind": "worker",
+        "source_key": "agent_python_sandbox"
+      },
+      "image_artifact": {
+        "version_env": "AGENT_PYTHON_SANDBOX_IMAGE",
+        "default_version": "candidate"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "local-node",
@@ -96,13 +274,34 @@
       "process_role": "User-hosted local capability daemon",
       "lifecycle": "external",
       "exposure": "host-local",
-      "required_deps": ["gateway"],
+      "required_deps": [
+        "gateway"
+      ],
       "optional_deps": [],
       "state_owner": "user-host local ledger",
       "scale_support": "per-host",
-      "health_contract": {"kind": "external", "source_key": "local-node"},
-      "image_artifact": {"version_env": null, "default_version": "external"},
-      "modes": {"compact": {"present": false, "replicas": 0}, "full": {"present": false, "replicas": 0}, "scale": {"present": false, "replicas": 0}}
+      "health_contract": {
+        "kind": "external",
+        "source_key": "local-node"
+      },
+      "image_artifact": {
+        "version_env": null,
+        "default_version": "external"
+      },
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": false,
+          "replicas": 0
+        },
+        "scale": {
+          "present": false,
+          "replicas": 0
+        }
+      }
     },
     {
       "service_id": "knowledge-service",
@@ -111,13 +310,40 @@
       "process_role": "Knowledge CRUD and retrieval API",
       "lifecycle": "long-running",
       "exposure": "gateway-proxied",
-      "required_deps": ["postgres", "qdrant"],
-      "optional_deps": ["redis"],
+      "required_deps": [
+        "postgres",
+        "qdrant"
+      ],
+      "optional_deps": [
+        "redis"
+      ],
       "state_owner": "knowledge relational and vector state",
       "scale_support": "stateless",
-      "health_contract": {"kind": "gateway-dependency", "source_key": "knowledge_service"},
-      "image_artifact": {"version_env": "KNOWLEDGE_IMAGE", "default_version": "2.0.0"},
-      "modes": {"compact": {"present": true, "replicas": 1, "runtime_role": "all"}, "full": {"present": true, "replicas": 1, "runtime_role": "api"}, "scale": {"present": true, "replicas": 1, "runtime_role": "api"}}
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "knowledge_service"
+      },
+      "image_artifact": {
+        "version_env": "KNOWLEDGE_IMAGE",
+        "default_version": "2.0.0"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "all"
+        },
+        "full": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "api"
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "api"
+        }
+      }
     },
     {
       "service_id": "knowledge-worker",
@@ -126,13 +352,39 @@
       "process_role": "Durable ingestion and indexing worker",
       "lifecycle": "long-running",
       "exposure": "private",
-      "required_deps": ["postgres", "qdrant"],
-      "optional_deps": ["redis"],
+      "required_deps": [
+        "postgres",
+        "qdrant"
+      ],
+      "optional_deps": [
+        "redis"
+      ],
       "state_owner": "knowledge durable job claims",
       "scale_support": "worker",
-      "health_contract": {"kind": "worker", "source_key": "knowledge_worker"},
-      "image_artifact": {"version_env": "KNOWLEDGE_IMAGE", "default_version": "2.0.0"},
-      "modes": {"compact": {"present": false, "replicas": 0}, "full": {"present": true, "replicas": 1, "runtime_role": "worker"}, "scale": {"present": true, "replicas": 2, "runtime_role": "worker"}}
+      "health_contract": {
+        "kind": "worker",
+        "source_key": "knowledge_worker"
+      },
+      "image_artifact": {
+        "version_env": "KNOWLEDGE_IMAGE",
+        "default_version": "2.0.0"
+      },
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "worker"
+        },
+        "scale": {
+          "present": true,
+          "replicas": 2,
+          "runtime_role": "worker"
+        }
+      }
     },
     {
       "service_id": "database-bootstrap",
@@ -218,9 +470,28 @@
       "optional_deps": [],
       "state_owner": "all relational domains",
       "scale_support": "stateful",
-      "health_contract": {"kind": "gateway-dependency", "source_key": "database"},
-      "image_artifact": {"version_env": "POSTGRES_IMAGE", "default_version": "16"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "database"
+      },
+      "image_artifact": {
+        "version_env": "POSTGRES_IMAGE",
+        "default_version": "16"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "redis",
@@ -233,9 +504,28 @@
       "optional_deps": [],
       "state_owner": "non-authoritative cache and coordination state",
       "scale_support": "stateful",
-      "health_contract": {"kind": "gateway-dependency", "source_key": "redis"},
-      "image_artifact": {"version_env": "REDIS_IMAGE", "default_version": "7"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "redis"
+      },
+      "image_artifact": {
+        "version_env": "REDIS_IMAGE",
+        "default_version": "7"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "qdrant",
@@ -248,9 +538,28 @@
       "optional_deps": [],
       "state_owner": "knowledge vector collections",
       "scale_support": "stateful",
-      "health_contract": {"kind": "dependency", "source_key": "qdrant"},
-      "image_artifact": {"version_env": "QDRANT_IMAGE", "default_version": "1.18.2"},
-      "modes": {"compact": {"present": true, "replicas": 1}, "full": {"present": true, "replicas": 1}, "scale": {"present": true, "replicas": 1}}
+      "health_contract": {
+        "kind": "dependency",
+        "source_key": "qdrant"
+      },
+      "image_artifact": {
+        "version_env": "QDRANT_IMAGE",
+        "default_version": "1.18.2"
+      },
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      }
     },
     {
       "service_id": "tempo",
@@ -260,12 +569,34 @@
       "lifecycle": "optional",
       "exposure": "private",
       "required_deps": [],
-      "optional_deps": ["gateway", "knowledge-service"],
+      "optional_deps": [
+        "gateway",
+        "knowledge-service"
+      ],
       "state_owner": "trace retention",
       "scale_support": "stateful",
-      "health_contract": {"kind": "optional", "source_key": "tempo"},
-      "image_artifact": {"version_env": "TEMPO_IMAGE", "default_version": "2.5.0"},
-      "modes": {"compact": {"present": false, "replicas": 0}, "full": {"present": false, "replicas": 0}, "scale": {"present": false, "replicas": 0}}
+      "health_contract": {
+        "kind": "optional",
+        "source_key": "tempo"
+      },
+      "image_artifact": {
+        "version_env": "TEMPO_IMAGE",
+        "default_version": "2.5.0"
+      },
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": false,
+          "replicas": 0
+        },
+        "scale": {
+          "present": false,
+          "replicas": 0
+        }
+      }
     }
   ]
 }

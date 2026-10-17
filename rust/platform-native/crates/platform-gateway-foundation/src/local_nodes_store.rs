@@ -254,9 +254,22 @@ impl PgLocalNodesControlPlane {
         let resource = optional_text(&args, "resource_ref");
         let session = optional_text(&args, "session_id");
         let row: Value = self.operations.acquire().await.map_err(pg_error)?.execute(move |connection| Box::pin(async move {
+            sqlx::query_scalar::<_,String>("SELECT device_id FROM gateway.local_node_devices WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND revoked_at IS NULL FOR UPDATE")
+                .bind(&device_id).bind(&owner.tenant_id).bind(&owner.user_id).fetch_one(&mut *connection).await?;
+            let controls_ready:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_control_commands') IS NOT NULL").fetch_one(&mut *connection).await?;
+            if controls_ready {
+                let stopping:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM gateway.local_node_control_commands WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 AND acknowledged_at IS NULL)")
+                    .bind(&owner.tenant_id).bind(&owner.user_id).bind(&device_id).fetch_one(&mut *connection).await?;
+                if stopping { return Ok(json!({"emergency_stop_pending":true})); }
+            }
             sqlx::query_scalar("WITH inserted AS (INSERT INTO local_node_grants(grant_id,tenant_id,user_id,device_id,kind,display_name,capabilities,resource_ref,session_id,revision,status) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,1,'active') RETURNING *) SELECT to_jsonb(g) || jsonb_build_object('capabilities',g.capabilities::text) FROM inserted g")
                 .bind(grant_id).bind(owner.tenant_id).bind(owner.user_id).bind(device_id).bind(kind).bind(display).bind(capabilities).bind(resource).bind(session).fetch_one(connection).await
         })).await.map_err(pg_error)?;
+        if row["emergency_stop_pending"] == true {
+            return Err(LocalNodesError::repository(
+                "owner emergency stop is awaiting device acknowledgment",
+            ));
+        }
         Ok(json!({"grant":source_row(row)}))
     }
     async fn revoke_grant(
@@ -277,6 +290,98 @@ impl PgLocalNodesControlPlane {
             })?);
         row["revoked"] = json!(true);
         Ok(row)
+    }
+    async fn emergency_stop(
+        &self,
+        owner: &LocalNodesIdentity,
+        args: Value,
+    ) -> Result<Value, LocalNodesError> {
+        owner_required(owner)?;
+        let device_id = text_arg(&args, "device_id", "");
+        self.device(owner, &device_id).await?;
+        if args["confirmation"] != "stop-all-local-actions" {
+            return Err(LocalNodesError::detail(
+                422,
+                "explicit emergency-stop confirmation required",
+            ));
+        }
+        let request_id = parse_uuid(&text_arg(&args, "idempotency_key", ""), "idempotency")?;
+        let command_id = Uuid::new_v4().to_string();
+        let mut entropy = [0u8; 32];
+        self.random.fill(&mut entropy)?;
+        let nonce_seed = entropy
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        let intent=format!("{:x}",Sha256::digest(serde_json::to_vec(&json!({
+            "device_id":device_id,"kind":"emergency_stop","confirmation":"stop-all-local-actions","idempotency_key":request_id,
+        })).map_err(|_|LocalNodesError::Internal)?));
+        let owner = owner.clone();
+        let response:Value=self.operations.acquire().await.map_err(pg_error)?.execute(move|connection|Box::pin(async move {
+            let ready:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_control_commands') IS NOT NULL AND to_regclass('gateway.local_node_control_deliveries') IS NOT NULL")
+                .fetch_one(&mut *connection).await?;
+            if !ready {return Ok(json!({"schema_unavailable":true}));}
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text,0))")
+                .bind(format!("local-node-stop:{}:{}:{}",owner.tenant_id,owner.user_id,request_id))
+                .execute(&mut *connection).await?;
+            // Serialize with heartbeat and grant creation on the owner/device row.
+            sqlx::query_scalar::<_,String>("SELECT device_id FROM gateway.local_node_devices WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND revoked_at IS NULL FOR UPDATE")
+                .bind(&device_id).bind(&owner.tenant_id).bind(&owner.user_id).fetch_one(&mut *connection).await?;
+            let existing:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('command_id',command_id,'device_id',device_id,'intent_sha256',intent_sha256,'acknowledged',acknowledged_at IS NOT NULL) FROM gateway.local_node_control_commands WHERE tenant_id=$1 AND user_id=$2 AND idempotency_key=$3::text::uuid")
+                .bind(&owner.tenant_id).bind(&owner.user_id).bind(&request_id).fetch_optional(&mut *connection).await?;
+            if let Some(existing)=existing {
+                if existing["device_id"] != device_id || existing["intent_sha256"] != intent {return Ok(json!({"intent_conflict":true}));}
+                return Ok(json!({"command_id":existing["command_id"],"device_id":device_id,"status":if existing["acknowledged"]==true{"acknowledged"}else{"pending"},"replayed":true}));
+            }
+            sqlx::query("INSERT INTO gateway.local_node_control_commands(command_id,tenant_id,user_id,device_id,idempotency_key,kind,intent_sha256,nonce_seed) VALUES($1::text::uuid,$2,$3,$4,$5::text::uuid,'emergency_stop',$6,$7)")
+                .bind(&command_id).bind(&owner.tenant_id).bind(&owner.user_id).bind(&device_id).bind(&request_id).bind(&intent).bind(nonce_seed).execute(&mut *connection).await?;
+            sqlx::query("UPDATE gateway.local_node_grants SET status='revoked',revoked_at=now(),revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 AND status='active'")
+                .bind(&owner.tenant_id).bind(&owner.user_id).bind(&device_id).execute(&mut *connection).await?;
+            sqlx::query("UPDATE gateway.local_node_executions SET cancel_requested_at=COALESCE(cancel_requested_at,now()),updated_at=now() WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 AND status NOT IN ('succeeded','failed','cancelled','timeout','side_effect_unknown')")
+                .bind(&owner.tenant_id).bind(&owner.user_id).bind(&device_id).execute(&mut *connection).await?;
+            Ok(json!({"command_id":command_id,"device_id":device_id,"status":"pending","replayed":false}))
+        })).await.map_err(pg_error)?;
+        if response["schema_unavailable"] == true {
+            return Err(LocalNodesError::detail(
+                503,
+                "durable Local Node control schema is not activated",
+            ));
+        }
+        if response["intent_conflict"] == true {
+            return Err(LocalNodesError::repository(
+                "idempotency key is bound to another stop intent",
+            ));
+        }
+        Ok(response)
+    }
+    async fn control_status(
+        &self,
+        owner: &LocalNodesIdentity,
+        args: Value,
+    ) -> Result<Value, LocalNodesError> {
+        owner_required(owner)?;
+        let device_id = text_arg(&args, "device_id", "");
+        self.device(owner, &device_id).await?;
+        let id = parse_uuid(&text_arg(&args, "command_id", ""), "command")?;
+        let owner = owner.clone();
+        let row:Option<Value>=self.operations.acquire().await.map_err(pg_error)?.execute(move|connection|Box::pin(async move {
+            let ready:bool=sqlx::query_scalar("SELECT to_regclass('gateway.local_node_control_commands') IS NOT NULL").fetch_one(&mut *connection).await?;
+            if !ready {return Ok(Some(json!({"schema_unavailable":true})));}
+            sqlx::query_scalar("SELECT jsonb_build_object('command_id',command_id,'device_id',device_id,'kind',kind,'intent_sha256',intent_sha256,'idempotency_key',idempotency_key,'requested_at',requested_at,'acknowledged_at',acknowledged_at,'status',CASE WHEN acknowledged_at IS NULL THEN 'pending' ELSE 'acknowledged' END) FROM gateway.local_node_control_commands WHERE command_id=$1::text::uuid AND tenant_id=$2 AND user_id=$3 AND device_id=$4")
+                .bind(id).bind(owner.tenant_id).bind(owner.user_id).bind(device_id).fetch_optional(connection).await
+        })).await.map_err(pg_error)?;
+        if row
+            .as_ref()
+            .is_some_and(|row| row["schema_unavailable"] == true)
+        {
+            return Err(LocalNodesError::detail(
+                503,
+                "durable Local Node control schema is not activated",
+            ));
+        }
+        row.ok_or_else(|| {
+            LocalNodesError::repository("control command is not owned or does not exist")
+        })
     }
     async fn list_events(
         &self,
@@ -313,6 +418,8 @@ impl LocalNodesControlPlane for PgLocalNodesControlPlane {
     ) -> LocalNodesFuture<'a, Value> {
         Box::pin(async move {
             match operation {
+                "device.emergency_stop" => self.emergency_stop(owner, args).await,
+                "controls.status" => self.control_status(owner, args).await,
                 "pairing.create" => self.create_challenge(owner, args).await,
                 "pairing.complete" => self.complete(owner, args).await,
                 "devices.list" => self.list_devices(owner).await,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  afterSequenceFromEventsUrl,
   createRuntimeV2RunSnapshot,
   isExpectedApprovalRejection,
   projectAgentV2Events,
@@ -72,4 +73,15 @@ test("durable office result projects a downloadable DOCX artifact", () => {
   const artifact = projected.find((item) => item.event_type === "artifact_created");
   assert.equal((artifact?.data as Record<string, unknown>).format, "docx");
   assert.equal((artifact?.data as Record<string, unknown>).artifact_id, "art_docx");
+});
+
+
+test("resume cursors reject partial, fractional and unsafe sequence values", () => {
+  for (const invalid of ["4garbage", "1.5", "-1", "9007199254740992", "NaN"]) {
+    assert.equal(afterSequenceFromEventsUrl(`/events?after_sequence=${invalid}`), 0);
+  }
+  for (const invalid of [NaN, Infinity, 2.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(withAfterSequence("/events?turn_id=keep", invalid), "/events?turn_id=keep&after_sequence=0");
+  }
+  assert.equal(afterSequenceFromEventsUrl("/events?after_sequence=12&turn_id=keep"), 12);
 });

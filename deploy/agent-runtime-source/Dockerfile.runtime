@@ -69,9 +69,7 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
     RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
-    cargo test --locked --profile dev-small -p codex-core --test durable_recovery recover_turn_preserves_model_lease_metadata_and_replacement_owner \
-    && RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
-       cargo test --locked --profile dev-small -p codex-core --test durable_recovery root_turn_suspension_preserves_unfinished_turn_history
+    cargo test --locked --profile dev-small -p codex-core --test durable_recovery
 
 FROM scratch AS source-evidence-export
 COPY --from=source-evidence /tmp/source-evidence/ /

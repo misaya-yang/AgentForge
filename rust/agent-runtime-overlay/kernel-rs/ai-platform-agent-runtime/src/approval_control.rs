@@ -203,7 +203,7 @@ impl ApprovalBroker {
             .await
             .map_err(|_| "approval_persistence_failed")?;
 
-        let (sender, receiver) = oneshot::channel();
+        crate::telemetry_model::approval_start(&params.turn_id,approval_id); let (sender, receiver) = oneshot::channel();
         self.pending.lock().await.insert(
             approval_id,
             PendingApproval {
@@ -269,7 +269,7 @@ impl ApprovalBroker {
         .execute(&store.pool)
         .await;
         if result.is_ok_and(|result| result.rows_affected() == 1)
-            && let Some(pending) = self.pending.lock().await.remove(&approval_id)
+            && let Some(pending) = { crate::telemetry_model::approval_finish(approval_id); self.pending.lock().await.remove(&approval_id) }
             && let ApprovalDestination::Dynamic(waiter) = pending.destination
             && let Some(sender) = waiter.lock().await.take()
         {
@@ -632,7 +632,7 @@ impl ApprovalBroker {
                 .await;
             return Err("approval_receipt_failed".to_string());
         }
-        self.pending
+        crate::telemetry_model::approval_start(&turn_id,approval_id); self.pending
             .lock()
             .await
             .entry(approval_id)
@@ -717,7 +717,7 @@ impl ApprovalBroker {
                 .await
                 .map_err(|_| "approval_not_eligible".to_string())?;
             if saved.changed {
-                if let Some(pending) = self.pending.lock().await.remove(&approval_id)
+                if let Some(pending) = { crate::telemetry_model::approval_finish(approval_id); self.pending.lock().await.remove(&approval_id) }
                     && let ApprovalDestination::Dynamic(waiter) = pending.destination
                     && let Some(sender) = waiter.lock().await.take()
                 {
@@ -819,7 +819,7 @@ impl ApprovalBroker {
                     &event,
                 )
                 .await;
-            self.pending.lock().await.remove(&approval_id);
+            { crate::telemetry_model::approval_finish(approval_id); self.pending.lock().await.remove(&approval_id) };
             return Err("approval_resume_failed".to_string());
         }
         let thread_id = codex_protocol::ThreadId::from_u128(pending.thread_id.as_u128());
@@ -845,7 +845,7 @@ impl ApprovalBroker {
             )
             .await
             .map_err(|_| "approval_result_persistence_failed".to_string())?;
-        self.pending.lock().await.remove(&approval_id);
+        { crate::telemetry_model::approval_finish(approval_id); self.pending.lock().await.remove(&approval_id) };
         Ok(ApprovalProjection {
             root_thread_id: pending.root_thread_id,
             event: SequencedAssistantTurnEventV1 { sequence, event },

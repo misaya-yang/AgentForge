@@ -1,122 +1,19 @@
-# =============================================================================
-# AI Gateway Helm Chart - Production Overrides
-# =============================================================================
-# Usage: helm install ai-gw deploy/helm/ai-gateway -f deploy/helm/ai-gateway/values-production.yaml
-# =============================================================================
-
+# Merge with values.yaml and an owner-reviewed release values file.
+# No credential bytes or image tags belong here.
 global:
   imagePullPolicy: Always
-
-# -----------------------------------------------------------------------------
-# Gateway - higher resources for production
-# -----------------------------------------------------------------------------
 gateway:
-  # ARC-05/06: process-local schedulers and SSE ownership require one pod.
   replicaCount: 1
-  resources:
-    requests:
-      cpu: 500m
-      memory: 1Gi
-    limits:
-      cpu: "4"
-      memory: 4Gi
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 1
-    targetCPUUtilization: 60
-
-# -----------------------------------------------------------------------------
-# Frontend - higher replica count
-# -----------------------------------------------------------------------------
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
+agentRuntime:
+  replicaCount: 1
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
+capabilityWorker:
+  replicaCount: 1
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
 frontend:
   replicaCount: 3
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 10
-    targetCPUUtilization: 60
-
-# -----------------------------------------------------------------------------
-# Use external managed services in production
-# -----------------------------------------------------------------------------
-postgresql:
-  enabled: false
-
-externalDatabase:
-  host: ""        # Set via --set externalDatabase.host=your-rds.xxx.rds.amazonaws.com
-  port: 5432
-  user: postgres
-  database: gateway
-
-redis:
-  enabled: false
-
-externalRedis:
-  host: ""        # Set via --set externalRedis.host=your-elasticache.xxx.cache.amazonaws.com
-  port: 6379
-
-qdrant:
-  enabled: false
-
-externalQdrant:
-  url: ""         # Set via --set externalQdrant.url=https://your-cluster.qdrant.io
-  apiKey: ""
-
-# -----------------------------------------------------------------------------
-# LangGraph Agents - higher resources for production
-# -----------------------------------------------------------------------------
-langgraph:
-  enabled: true
-  sharedEnv:
-    LANGSMITH_TRACING: "true"
-    LANGSMITH_API_KEY: ""    # Set via --set langgraph.sharedEnv.LANGSMITH_API_KEY=...
-    LANGGRAPH_CLOUD_LICENSE_KEY: ""
-  agents:
-    assistant:
-      enabled: true
-      replicaCount: 2
-      resources:
-        requests:
-          cpu: 500m
-          memory: 1Gi
-        limits:
-          cpu: "4"
-          memory: 4Gi
-      autoscaling:
-        enabled: true
-        minReplicas: 2
-        maxReplicas: 8
-        targetCPUUtilization: 60
-    customer:
-      enabled: true
-      replicaCount: 2
-      resources:
-        requests:
-          cpu: 500m
-          memory: 1Gi
-        limits:
-          cpu: "4"
-          memory: 4Gi
-      autoscaling:
-        enabled: true
-        minReplicas: 2
-        maxReplicas: 8
-        targetCPUUtilization: 60
-
-# -----------------------------------------------------------------------------
-# Ingress - TLS enabled for production
-# -----------------------------------------------------------------------------
-ingress:
-  enabled: true
-  className: nginx
-  host: ""        # Set via --set ingress.host=gateway.yourdomain.com
-  tls:
-    enabled: true
-    secretName: ai-gateway-tls
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+  autoscaling: {enabled: true, minReplicas: 3, maxReplicas: 10, targetCPUUtilization: 70}
+knowledgeService:
+  replicaCount: 2
+  autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 8, targetCPUUtilization: 70}

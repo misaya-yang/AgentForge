@@ -1,224 +1,140 @@
-version: '3.8'
-
-# Optional monitoring stack. Not used by `make quickstart`.
-# Requires the same untracked .env as the main compose file, plus
-# GRAFANA_ADMIN_PASSWORD. Do not put live secrets in this file.
-# Usage: docker compose -f docker/monitoring/docker-compose.monitoring.yml --env-file .env up -d
-
+# Merge AFTER root docker-compose.yml; Compose >= 2.24.4 required. Opt in only.
 services:
-  # =============================================================================
-  # AI Gateway - Main Application
-  # =============================================================================
-  gateway:
-    build:
-      context: ../..
-      dockerfile: deploy/platform-native/Dockerfile
-      target: runtime
-    container_name: ai-gateway
-    ports:
-      - "127.0.0.1:8001:8001"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8001
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-gateway}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
-      - LOG_LEVEL=INFO
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=ai-gateway
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # =============================================================================
-  # Frontend - React Dashboard
-  # =============================================================================
-  frontend:
-    build:
-      context: ../../web
-      dockerfile: Dockerfile
-    user: "101:101"
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    pids_limit: 128
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m,uid=101,gid=101,mode=1770
-    container_name: gateway-frontend
-    ports:
-      - "127.0.0.1:3000:8080"
-    environment:
-      - VITE_API_BASE_URL=http://gateway:8001
-    depends_on:
-      - gateway
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # =============================================================================
-  # PostgreSQL - Primary Database
-  # =============================================================================
-  postgres:
-    image: postgres:15-alpine
-    container_name: gateway-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-gateway}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ../../database/migrations:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gateway}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # =============================================================================
-  # Redis - Real-time Metrics & Caching
-  # =============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: gateway-redis
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-    command:
-      - /bin/sh
-      - -c
-      - redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # =============================================================================
-  # OpenTelemetry Collector - Trace Collection
-  # =============================================================================
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.88.0
-    container_name: otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
-    ports:
-      - "127.0.0.1:4317:4317"   # OTLP gRPC receiver
-      - "127.0.0.1:4318:4318"   # OTLP HTTP receiver
-      - "127.0.0.1:8888:8888"   # Prometheus metrics exposed by the collector
-      - "127.0.0.1:8889:8889"   # Prometheus exporter metrics
-    networks:
-      - monitoring
+    image: otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806
+    profiles:
+    - observability
     restart: unless-stopped
-
-  # =============================================================================
-  # Prometheus - Metrics Collection
-  # =============================================================================
-  prometheus:
-    image: prom/prometheus:v2.47.0
-    container_name: prometheus
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - app
+    volumes:
+    - ./docker/monitoring/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
-      - '--web.enable-admin-api'
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-      - prometheus_data:/prometheus
-    ports:
-      - "127.0.0.1:9090:9090"
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # =============================================================================
-  # Grafana - Visualization & Dashboards
-  # =============================================================================
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3001
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    ports:
-      - "127.0.0.1:3001:3000"
+    - --config=/etc/otelcol-contrib/config.yaml
     depends_on:
-      - prometheus
-    networks:
-      - monitoring
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+  prometheus:
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    profiles:
+    - observability
     restart: unless-stopped
-
-  # =============================================================================
-  # Alertmanager - Alert Routing
-  # =============================================================================
-  alertmanager:
-    image: prom/alertmanager:v0.26.0
-    container_name: alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - app
     volumes:
-      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager_data:/alertmanager
-    ports:
-      - "127.0.0.1:9093:9093"
-    networks:
-      - monitoring
+    - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./docker/monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    - monitoring-prometheus:/prometheus
+    - ${MONITORING_METRICS_TOKEN_FILE:?set metrics-read bearer credential file}:/run/secrets/metrics-token:ro
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.retention.time=24h
+    - --storage.tsdb.retention.size=512MB
+  grafana:
+    image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
+    profiles:
+    - observability
     restart: unless-stopped
-
-  # =============================================================================
-  # Jaeger - Distributed Tracing UI
-  # =============================================================================
-  jaeger:
-    image: jaegertracing/all-in-one:1.51
-    container_name: jaeger
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - app
+    volumes:
+    - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    - monitoring-grafana:/var/lib/grafana
+    - ${MONITORING_GRAFANA_PASSWORD_FILE:?set Grafana admin password file}:/run/secrets/grafana-admin:ro
     environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
     ports:
-      - "127.0.0.1:16686:16686"  # Jaeger UI
-      - "127.0.0.1:14250:14250"  # gRPC collector
-    networks:
-      - monitoring
+    - 127.0.0.1:${MONITORING_GRAFANA_PORT:-3001}:3000
+  loki:
+    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+    profiles:
+    - observability
     restart: unless-stopped
-
-# =============================================================================
-# Networks
-# =============================================================================
-networks:
-  monitoring:
-    driver: bridge
-
-# =============================================================================
-# Volumes
-# =============================================================================
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - app
+    volumes:
+    - ./docker/monitoring/loki.yaml:/etc/loki/config.yaml:ro
+    - monitoring-loki:/loki
+    command:
+    - -config.file=/etc/loki/config.yaml
+  alertmanager:
+    image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    profiles:
+    - observability
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.5
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    networks:
+    - app
+    volumes:
+    - ./docker/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    - monitoring-alertmanager:/alertmanager
+    command:
+    - --config.file=/etc/alertmanager/alertmanager.yml
+  tempo:
+    image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
+    profiles:
+    - observability
+    mem_limit: 256m
+    cpus: 0.5
+    ports: !reset []
+    volumes:
+    - ./docker/monitoring/tempo.yaml:/etc/tempo.yaml:ro
+    - tempo-data:/var/tempo
+  gateway:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  knowledge-service:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  knowledge-worker:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  agent-runtime:
+    environment:
+      AI_PLATFORM_OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
 volumes:
-  postgres_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
-  alertmanager_data:
+  monitoring-prometheus: {}
+  monitoring-grafana: {}
+  monitoring-loki: {}
+  monitoring-alertmanager: {}

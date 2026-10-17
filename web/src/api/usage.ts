@@ -7,6 +7,15 @@ import { api } from "@/lib/api";
 
 // ============ Types ============
 
+export interface UsageMeteringSummary {
+  schema: "agentforge.usage-metering/v1";
+  token_totals_scope: "reported_token_usage_only";
+  request_priced_invocations: number;
+  tokens_not_applicable_records: number;
+  request_priced_cost_nanos: number;
+  legacy_cost_projection: "USD half-even to 1e-6";
+}
+
 export interface UsageSummary {
   total_requests: number;
   success_rate: number | null;
@@ -20,6 +29,7 @@ export interface UsageSummary {
   data_status: string;
   data_freshness_minutes: number;
   last_ingested_at?: string | null;
+  metering?: UsageMeteringSummary;
 }
 
 export interface UsageBreakdownItem {

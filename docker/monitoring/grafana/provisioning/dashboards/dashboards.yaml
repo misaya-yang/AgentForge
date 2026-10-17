@@ -1,12 +1,9 @@
 apiVersion: 1
-
 providers:
-  - name: 'AI Gateway Dashboards'
-    orgId: 1
-    folder: 'AI Gateway'
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    allowUiUpdates: true
-    options:
-      path: /var/lib/grafana/dashboards
+- name: AgentForge
+  orgId: 1
+  folder: Operations (privileged)
+  type: file
+  allowUiUpdates: false
+  options:
+    path: /var/lib/grafana/dashboards

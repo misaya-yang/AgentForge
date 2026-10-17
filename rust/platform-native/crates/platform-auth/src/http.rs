@@ -54,6 +54,7 @@ fn build_router(
 ) -> Router {
     Router::new()
         .route(contract::LOGIN, post(login))
+        .route("/.well-known/jwks.json", get(jwks))
         .route(contract::LOGOUT, post(logout))
         .route(contract::ME, get(me))
         .route(contract::VALIDATE, post(validate))
@@ -175,7 +176,11 @@ fn effective_permissions(
     result
 }
 async fn me(State(s): State<HttpState>, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
-    if let Some(resolver) = &s.introspection {
+    let eddsa = bearer(&headers)
+        .ok()
+        .and_then(|token| jsonwebtoken::decode_header(token).ok())
+        .is_some_and(|header| header.alg == jsonwebtoken::Algorithm::EdDSA);
+    if let Some(resolver) = s.introspection.as_ref().filter(|_| !eddsa) {
         let mut response = resolver.resolve(&headers).await?;
         response.effective_permissions =
             effective_permissions(&response.permissions, &response.roles, &s.configured_roles);
@@ -288,4 +293,8 @@ mod contract_tests {
         assert_eq!(roles, vec!["admin", "console:users:view"]);
         assert_eq!(tier, "normal");
     }
+}
+
+async fn jwks(State(s): State<HttpState>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(s.service.codec.jwks((s.service.clock)()?)))
 }

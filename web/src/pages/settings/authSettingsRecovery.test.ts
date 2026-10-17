@@ -273,7 +273,7 @@ function host(options: { initialError?: boolean } = {}) {
   const reads: { signal?: AbortSignal }[] = [];
   const writes: Record<string, unknown>[] = [];
   const queryKeys: unknown[][] = [];
-  const initialAuth = { isAuthenticated: true, token: "synthetic-session-A", user: { user_id: "admin-A", roles: ["admin"], permissions: [] as string[], tier: "normal" } };
+  const initialAuth = { csrfToken: "synthetic-csrf", isAuthenticated: true, token: "synthetic-session-A", user: { user_id: "admin-A", roles: ["admin"], permissions: [] as string[], tier: "normal" } };
   let clearCount = 0;
   const auth = createStore(() => ({ ...initialAuth, clearAuth() {
     clearCount++; auth.setState({ token: "", isAuthenticated: false, user: { user_id: "", roles: [], permissions: [], tier: "" } });
@@ -309,7 +309,7 @@ function host(options: { initialError?: boolean } = {}) {
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
     react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
-    "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
+    "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en", resolvedLanguage: "en" } }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: ReturnType<typeof auth.getState>) => unknown) => select(auth.getState()), auth) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: authority }, "@/lib/utils": { generateUUID: () => `scope-${++identity}` },
     "@/lib/tenantGovernance": { canAdministerTenantPolicies: () => true }, "@/lib/clipboard": { copyToClipboard: () => {} },
@@ -350,6 +350,7 @@ function host(options: { initialError?: boolean } = {}) {
     const storage = { removeItem() {}, getItem() { return null; } };
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL("../../lib/api.ts", import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
       exports, require: (name: string) => {
+        if (name === "@/observability/browserTelemetry") return { browserTraceparent: () => undefined };
         if (name === "axios") return { __esModule: true, default: axios, AxiosError };
         if (name === "@/config/runtime") return { getApiBaseUrlConfig: () => "" };
         if (name === "@/hooks/use-toast") return { toast: { warning() {} } };

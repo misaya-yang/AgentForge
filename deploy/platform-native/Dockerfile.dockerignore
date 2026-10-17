@@ -12,6 +12,8 @@
 !rust/platform-native/**/*.json
 !rust/platform-native/**/*.sql
 !rust/platform-native/**/*.png
+!rust/platform-native/vendor/
+!rust/platform-native/vendor/**
 !rust/agent-runtime-overlay/
 !rust/agent-runtime-overlay/kernel-rs/
 !rust/agent-runtime-overlay/kernel-rs/Cargo.toml
@@ -29,6 +31,12 @@
 !database/**/*.json
 !database/**/*.yml
 !database/**/*.sql
+!sdk/
+!sdk/openapi/
+!sdk/openapi/**
+!docs/
+!docs/design/
+!docs/design/**
 **/.git
 **/.env*
 **/target
@@ -36,3 +44,4 @@
 **/.venv
 **/secrets
 **/credentials*
+!**/credentials*.rs

@@ -7,6 +7,8 @@ use crate::{
 use serde_json::{Value, json};
 use sqlx::{Connection, PgConnection, Row};
 use std::{collections::BTreeMap, path::Path};
+
+mod verify_postconditions;
 pub fn default_paths() -> AuthorityPaths {
     let path = std::env::var_os("AI_GATEWAY_DATABASE_DIR")
         .map(Into::into)
@@ -295,7 +297,8 @@ pub async fn verify(authority: &MigrationAuthority, baseline_id: &str) -> Result
         let epoch = manifest::load_epoch_manifest(
             &authority.paths.epoch_dir(baseline_id).join("manifest.yml"),
         )?;
-        for change in epoch.changes {
+        let changes = verify_postconditions::for_applied_prefix(&epoch, &applied)?;
+        for change in changes {
             if applied.contains_key(&change.sequence) {
                 crate::runner::evaluate_conditions(
                     &mut conn,

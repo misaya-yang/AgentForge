@@ -103,7 +103,7 @@ pub fn validate(mut value: Value) -> Result<Value> {
         !supported.is_empty()
             && supported
                 .iter()
-                .all(|v| one_of(v, &["chat_completions", "responses_v1"]))
+                .all(|v| one_of(v, &["chat_completions", "responses_v1", "anthropic_messages", "embeddings"]))
             && supported.contains(&wires["preferred"]),
     )?;
     check(

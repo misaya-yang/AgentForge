@@ -1,0 +1,36 @@
+{
+  "schema": "agentforge/gateway-private-transport-validation/v1",
+  "verified_at": "2026-10-17T10:48:18.523155+00:00",
+  "actual_check_all_targets_exit_code": 0,
+  "gateway_library": {
+    "passed": 262,
+    "failed": 0,
+    "ignored": 1
+  },
+  "shared_transport_native_source_tests": {
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0
+  },
+  "actual_edges": [
+    "Gateway thread-create POST",
+    "Gateway turn-start POST"
+  ],
+  "behavior": [
+    "Trusted active trace only; preserve auth and business identity.",
+    "Private in-process budget only shrinks route cap/existing short timeout; public raw budget headers ignored.",
+    "Single POST, complete bounded body+JSON under deadline, no transport retries.",
+    "SSE phase policy preserved."
+  ],
+  "logs_sha256": {
+    "gateway-actual-transport-tests-r1.log": "b1df3d97b9367b1a5a08b28f289b25c976fb0977950998deb6640ae949af5cc3",
+    "private-transport-native-tests.log": "a83fb4c0a9c1a6b6ae12544ed65be6b0f0d7062853690787a54326caa702ba21",
+    "gateway-transport-knowledge-zip9-check-r1.log": "375c6112eb446b7bfa96284b00593d1f1cdfea43db82a4186526cefae8cc6299"
+  },
+  "remaining": [
+    "Runtime→Worker→Knowledge real budget admission and propagation.",
+    "Real service/authenticated round-trip and unknown-outcome journeys.",
+    "Controlled Rust1.95 composed source tests/export and image admission."
+  ],
+  "product_acceptance": false
+}

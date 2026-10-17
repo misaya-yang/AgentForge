@@ -86,6 +86,13 @@ impl KnowledgeWorker {
         {
             return Err(IngestError::Validation("ingestion workers require database pool capacity for document and publication leases".into()));
         }
+        if self.service.indexer.vectors.is_read_only()
+            || self.service.vector_job_actor_authority.is_none()
+        {
+            return Err(IngestError::Validation(
+                "Knowledge worker requires write-role vectors and current actor authority".into(),
+            ));
+        }
         self.stop.send_replace(false);
         for _ in 0..self.config.concurrency.max(1) {
             let service = self.service.clone();
@@ -95,7 +102,7 @@ impl KnowledgeWorker {
             self.handles.push(tokio::spawn(async move {loop{let task=tokio::select!{biased;_ = stop.changed()=>break, task=async{queue.lock().await.recv().await}=>match task{Some(t)=>t,None=>break}};
                 // Finish an owned generation before acknowledging stop, so an
                 // abandoned CPU job cannot publish after another owner starts.
-                let result=service.ingest_document(&task.dataset_id,&task.document_id).await;
+                let result=super::model_plane_worker::ingest(&service,&task.dataset_id,&task.document_id).await;
                 let _=result;in_queue.lock().await.remove(&task);
             }}));
         }
@@ -135,6 +142,16 @@ impl KnowledgeWorker {
         let service = self.service.clone();
         let mut stop = self.stop.subscribe();
         self.handles.push(tokio::spawn(async move {let batches=super::batches::DocumentBatchStore::new(service.store.pool.clone());let worker=uuid::Uuid::new_v4().to_string();loop{if *stop.borrow(){break}let busy=super::batches::dispatch_one(&service,&batches,&worker).await.unwrap_or(false);tokio::select!{_=stop.changed()=>break,_=tokio::time::sleep(if busy{Duration::from_millis(10)}else{Duration::from_secs(1)})=>{}}}}));
+        let service = self.service.clone();
+        let mut stop = self.stop.subscribe();
+        self.handles.push(tokio::spawn(async move {
+            let actors = service.vector_job_actor_authority.as_ref().expect("validated actor authority");
+            loop {
+                if *stop.borrow() { break; }
+                let busy = super::vector_jobs::dispatch_one(&service, actors).await.unwrap_or(false);
+                tokio::select! { _ = stop.changed() => break, _ = tokio::time::sleep(if busy { Duration::from_millis(10) } else { Duration::from_secs(1) }) => {} }
+            }
+        }));
         let service = self.service.clone();
         let config = self.config.clone();
         let mut stop = self.stop.subscribe();

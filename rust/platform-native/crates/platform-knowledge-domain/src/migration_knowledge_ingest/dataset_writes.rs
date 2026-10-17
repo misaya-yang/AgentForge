@@ -119,10 +119,14 @@ impl IngestionService {
         ))
     }
     pub async fn update_dataset(&self, actor: &Actor, id: &str, input: &Value) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            return super::vector_jobs::submit(&self.store.pool,actor,id,super::vector_jobs::Mutation::UpdateDataset { input: input.clone() }).await;
+        }
         let before = self
             .store
             .require_dataset_access(actor, id, "owner")
             .await?;
+        self.check_vector_job_generation(&before)?;
         require_index_writable(&before)?;
         let mut patch = json!({});
         for k in [

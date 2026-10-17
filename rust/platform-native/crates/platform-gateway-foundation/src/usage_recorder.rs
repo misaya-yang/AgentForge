@@ -52,6 +52,7 @@ pub enum UsageRecorderError {
     CommitUncertain(sqlx::Error),
     Billing(BillingStoreError),
     Receipt(PricingReceiptError),
+    PriceBook(crate::price_book::PriceBookError),
     InvalidAccountingDelta,
     IntegerOverflow,
     Collaborator(String),
@@ -63,6 +64,7 @@ impl fmt::Display for UsageRecorderError {
             Self::CommitUncertain(_) => f.write_str("usage_raw_commit_uncertain"),
             Self::Billing(e) => e.fmt(f),
             Self::Receipt(e) => e.fmt(f),
+            Self::PriceBook(e) => e.fmt(f),
             Self::InvalidAccountingDelta => f.write_str("invalid_accounting_delta"),
             Self::IntegerOverflow => f.write_str("billing_integer_overflow"),
             Self::Collaborator(e) => f.write_str(e),
@@ -78,6 +80,11 @@ impl From<sqlx::Error> for UsageRecorderError {
 impl From<BillingStoreError> for UsageRecorderError {
     fn from(e: BillingStoreError) -> Self {
         Self::Billing(e)
+    }
+}
+impl From<crate::price_book::PriceBookError> for UsageRecorderError {
+    fn from(error: crate::price_book::PriceBookError) -> Self {
+        Self::PriceBook(error)
     }
 }
 impl From<PricingReceiptError> for UsageRecorderError {
@@ -97,6 +104,7 @@ impl UsageRecorderError {
             Self::CommitUncertain(_) => "CommitUncertain",
             Self::Billing(_) => "BillingError",
             Self::Receipt(_) => "ValueError",
+            Self::PriceBook(_) => "PriceBookError",
             Self::InvalidAccountingDelta => "ValueError",
             Self::IntegerOverflow => "OverflowError",
             Self::Collaborator(_) => "CollaboratorError",
@@ -235,18 +243,82 @@ pub fn prepare_with_snapshot(
     record: &mut UsageRecord,
     snapshot: &Value,
 ) -> Result<(), UsageRecorderError> {
+    if crate::request_meter::is_snapshot(snapshot) { return crate::request_meter::prepare(record,snapshot); }
+    if crate::request_meter::request_count(record)?.is_some(){return Err(UsageRecorderError::InvalidAccountingDelta)}
     // Only an explicit v2 marker selects the new contract. Legacy receipts and
     // their rounding remain unchanged. Validate all references before mutation.
     let price_book_v2 = snapshot.get("price_book_schema").is_some();
     if price_book_v2 {
-        crate::price_book::validate_token_snapshot(snapshot)
-            .map_err(|error| UsageRecorderError::Collaborator(error.to_string()))?;
+        if record.input_tokens < 0 || record.output_tokens < 0 {
+            return Err(UsageRecorderError::InvalidAccountingDelta);
+        }
+        crate::price_book::validate_token_snapshot(snapshot)?;
+    }
+    if !price_book_v2
+        && snapshot.get("pricing_status").and_then(Value::as_str) == Some("price_book_v2")
+    {
+        return Err(crate::price_book::PriceBookError::InvalidReference.into());
     }
     let receipt =
         validate_pricing_snapshot(snapshot, &record.tenant_id, &record.provider, &record.model)?;
-    let costs = TokenRates::parse(&receipt.input_price_per_1k, &receipt.output_price_per_1k)?
-        .calculate_cost(record.input_tokens, record.output_tokens)?
-        .usage_storage_cost()?;
+    let mut plain_input = record.input_tokens;
+    let mut cache_components = Vec::new();
+    let mut cache_state = "not_reported_base_input";
+    if price_book_v2 {
+        if let Some(raw) = record.metadata.get("provider_cache_usage") {
+            let observed: crate::usage_parser::cache::CacheUsage =
+                serde_json::from_value(raw.clone())
+                    .map_err(|_| crate::price_book::PriceBookError::Decode)?;
+            let (plain, read, write) = observed
+                .partition(&record.provider, record.input_tokens)
+                .map_err(|_| crate::price_book::PriceBookError::InvalidTerms)?;
+            plain_input = plain;
+            if matches!(
+                observed.read,
+                crate::usage_parser::cache::Count::Reported(_)
+            ) || matches!(
+                observed.write,
+                crate::usage_parser::cache::Count::Reported(_)
+            ) {
+                cache_state = "reported_components";
+            }
+            for (field, units) in [
+                ("price_book_cached_input", read),
+                ("price_book_cache_write", write),
+            ] {
+                if units > 0 {
+                    let term: crate::price_book::PriceReceipt = serde_json::from_value(
+                        snapshot
+                            .get(field)
+                            .cloned()
+                            .ok_or(crate::price_book::PriceBookError::MissingPrice)?,
+                    )
+                    .map_err(|_| crate::price_book::PriceBookError::Decode)?;
+                    let nanos = term.adjusted_rate_nanos()?;
+                    let rate = format!("{}.{:09}", nanos / 1_000_000_000, nanos % 1_000_000_000);
+                    cache_components.push((field, units, term.reference.clone(), rate));
+                }
+            }
+        }
+    }
+    let mut cost = TokenRates::parse(&receipt.input_price_per_1k, &receipt.output_price_per_1k)?
+        .calculate_cost(plain_input, record.output_tokens)?;
+    for (_, units, _, rate) in &cache_components {
+        let component = TokenRates::parse(rate, "0")?.calculate_cost(*units, 0)?;
+        cost.input_cost_usd = cost
+            .input_cost_usd
+            .checked_add(component.input_cost_usd)
+            .ok_or(crate::price_book::PriceBookError::Arithmetic)?;
+    }
+    let costs = cost.usage_storage_cost()?;
+    if price_book_v2 {
+        record
+            .metadata
+            .insert("cache_pricing_state".into(), json!(cache_state));
+        record
+            .metadata
+            .insert("cache_pricing_components".into(), json!(cache_components));
+    }
     let serialized = if price_book_v2 {
         snapshot.clone()
     } else {
@@ -529,7 +601,7 @@ impl PgUsagePersistence {
     }
 }
 const RAW_INSERT: &str = "INSERT INTO usage_records (tenant_id,user_id,request_id,service_id,assistant_id,model,provider,input_tokens,output_tokens,input_cost_cents,output_cost_cents,latency_ms,first_token_ms,request_total_duration_ms,llm_inference_duration_ms,retrieval_duration_ms,tool_call_duration_ms,agent_or_graph_overhead_ms,tool_call_breakdown,error_type,status,request_type,metadata,created_at) ";
-const RAW_CONFLICT: &str = " ON CONFLICT (tenant_id,(COALESCE(request_id,'')),(COALESCE(service_id,'')),(COALESCE(request_type,''))) WHERE request_id IS NOT NULL AND request_id<>'' DO UPDATE SET input_tokens=GREATEST(usage_records.input_tokens,EXCLUDED.input_tokens),output_tokens=GREATEST(usage_records.output_tokens,EXCLUDED.output_tokens),input_cost_cents=GREATEST(usage_records.input_cost_cents,EXCLUDED.input_cost_cents),output_cost_cents=GREATEST(usage_records.output_cost_cents,EXCLUDED.output_cost_cents),status=CASE WHEN usage_records.status IN ('running','pending') AND EXCLUDED.status='success' THEN EXCLUDED.status ELSE usage_records.status END,error_type=COALESCE(usage_records.error_type,EXCLUDED.error_type),metadata=COALESCE(usage_records.metadata,'{}'::jsonb)||COALESCE(EXCLUDED.metadata,'{}'::jsonb) RETURNING (xmax=0) AS inserted,tenant_id,COALESCE(request_id,'') AS request_id_key,COALESCE(service_id,'') AS service_id_key,COALESCE(request_type,'') AS request_type_key";
+const RAW_CONFLICT: &str = " ON CONFLICT (tenant_id,(COALESCE(request_id,'')),(COALESCE(service_id,'')),(COALESCE(request_type,''))) WHERE request_id IS NOT NULL AND request_id<>'' DO UPDATE SET input_tokens=GREATEST(usage_records.input_tokens,EXCLUDED.input_tokens),output_tokens=GREATEST(usage_records.output_tokens,EXCLUDED.output_tokens),input_cost_cents=GREATEST(usage_records.input_cost_cents,EXCLUDED.input_cost_cents),output_cost_cents=GREATEST(usage_records.output_cost_cents,EXCLUDED.output_cost_cents),status=CASE WHEN usage_records.status IN ('running','pending') AND EXCLUDED.status='success' THEN EXCLUDED.status ELSE usage_records.status END,error_type=COALESCE(usage_records.error_type,EXCLUDED.error_type),metadata=COALESCE(usage_records.metadata,'{}'::jsonb)||COALESCE(EXCLUDED.metadata,'{}'::jsonb)||CASE WHEN usage_records.metadata->'pricing_snapshot' IS NOT NULL AND usage_records.metadata->'pricing_snapshot'<>'null'::jsonb THEN jsonb_build_object('pricing_snapshot',usage_records.metadata->'pricing_snapshot') ELSE '{}'::jsonb END WHERE (COALESCE(usage_records.metadata->'pricing_snapshot'->>'price_book_schema','')='' AND COALESCE(EXCLUDED.metadata->'pricing_snapshot'->>'price_book_schema','')='') OR (usage_records.provider IS NOT DISTINCT FROM EXCLUDED.provider AND usage_records.model=EXCLUDED.model AND usage_records.metadata->'pricing_snapshot'=EXCLUDED.metadata->'pricing_snapshot') RETURNING (xmax=0) AS inserted,tenant_id,COALESCE(request_id,'') AS request_id_key,COALESCE(service_id,'') AS service_id_key,COALESCE(request_type,'') AS request_type_key";
 fn optional(value: &str) -> Option<&str> {
     if value.is_empty() { None } else { Some(value) }
 }
@@ -543,8 +615,8 @@ fn raw_query(records: &[UsageRecord]) -> QueryBuilder<'_, Postgres> {
             .push_bind(optional(&record.assistant_id))
             .push_bind(&record.model)
             .push_bind(optional(&record.provider))
-            .push_bind(record.input_tokens)
-            .push_bind(record.output_tokens)
+            .push_bind(if crate::request_meter::request_count(record).ok().flatten().is_some(){None}else{Some(record.input_tokens)})
+            .push_bind(if crate::request_meter::request_count(record).ok().flatten().is_some(){None}else{Some(record.output_tokens)})
             .push_bind(record.input_cost_cents)
             .push_bind(record.output_cost_cents)
             .push_bind(record.latency_ms)
@@ -577,6 +649,7 @@ impl UsagePersistence for PgUsagePersistence {
             if records.is_empty() {
                 return Ok(vec![]);
             }
+            for record in records {crate::request_meter::validate_raw_record(record)?;}
             let collapsed = collapse_usage_records(records);
             let records: Vec<_> = collapsed.into_iter().map(|pair| pair.database).collect();
             let mut query = raw_query(&records);
@@ -585,6 +658,19 @@ impl UsagePersistence for PgUsagePersistence {
                 .build_query_as::<PersistedUsage>()
                 .fetch_all(&mut *tx)
                 .await?;
+            // A guarded conflict cannot become an apparent successful raw write.
+            // Roll back rather than mixing providers or frozen price envelopes.
+            let returned = result
+                .iter()
+                .map(PersistedUsage::identity)
+                .collect::<HashSet<_>>();
+            if records
+                .iter()
+                .filter_map(UsageRecord::identity)
+                .any(|identity| !returned.contains(&identity))
+            {
+                return Err(crate::price_book::PriceBookError::IdentityMismatch.into());
+            }
             tx.commit()
                 .await
                 .map_err(UsageRecorderError::CommitUncertain)?;
@@ -1031,7 +1117,19 @@ impl UsageRecorder {
         for pair in collapsed {
             let identity = pair.database.identity();
             let previous = state.remember(&pair.database);
-            if identity
+            if pair
+                .database
+                .metadata
+                .get("pricing_snapshot")
+                .and_then(|s| s.get("price_book_schema"))
+                .is_some()
+            {
+                // V2 stages derive their delta from a transactional durable
+                // checkpoint, including across restart/concurrent recorders.
+                let mut accounting = pair.database.clone();
+                stage_receipts::bind_observation(&mut accounting, &pair.database);
+                accepted.push(accounting);
+            } else if identity
                 .as_ref()
                 .is_none_or(|identity| inserted.contains(identity))
             {

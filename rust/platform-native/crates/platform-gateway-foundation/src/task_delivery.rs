@@ -15,6 +15,10 @@ use serde_json::{Value, json};
 use sqlx::{FromRow, PgConnection, PgPool};
 use uuid::Uuid;
 
+#[path="task_reconciliation.rs"]
+mod reconciliation;
+pub use reconciliation::{ReconcileRequest,ReconcileResult};
+
 const FORMAT: &str = "gateway.generic-task-delivery/v1";
 const NEXT: &str = "SELECT task_id,request_id,service_id,user_id,tenant_id,payload,admitted_at FROM gateway.task_deliveries WHERE state='pending' ORDER BY priority DESC,admitted_at,task_id FOR UPDATE SKIP LOCKED LIMIT 1";
 
@@ -97,6 +101,9 @@ pub type DeliveryFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Outpu
 /// The same authority instance is shared by admission, cancellation and workers.
 /// Test doubles implement this contract; production uses PgTaskDeliveryLedger.
 pub trait TaskDelivery: Send + Sync {
+    fn configure_provider_batches(&self,_coordinator:std::sync::Arc<crate::provider_batch_store::BatchCoordinator>)->bool{false}
+    fn dispatch_provider_batch<'a>(&'a self,claim:&'a DeliveryClaim)->DeliveryFuture<'a,Option<DeliveryTerminal>>{Box::pin(async move{if crate::provider_batch::BatchPlan::from_envelope(&claim.envelope).map_err(|_|DeliveryError::InvalidEnvelope)?.is_some(){Err(DeliveryError::InvalidEnvelope)}else{Ok(None)}})}
+    fn reconcile<'a>(&'a self,_identity:&'a DeliveryIdentity,_operator:&'a str,_request:ReconcileRequest)->DeliveryFuture<'a,ReconcileResult>{Box::pin(async{Err(DeliveryError::InvalidEnvelope)})}
     fn publish(&self, envelope: TaskEnvelope, actor: TaskActor) -> DeliveryFuture<'_, Task>;
     fn claim_next(&self) -> DeliveryFuture<'_, DeliveryPoll>;
     fn observe<'a>(&'a self, identity: &'a DeliveryIdentity) -> DeliveryFuture<'a, Option<DeliveryObservation>>;
@@ -110,10 +117,10 @@ pub trait TaskDelivery: Send + Sync {
 /// retained as the public projection; broader legacy task writers cannot create
 /// ledger rows or reset a terminal/claimed delivery back to pending.
 #[derive(Clone)]
-pub struct PgTaskDeliveryLedger { pool:PgPool, operations:PgOperationStorage }
+pub struct PgTaskDeliveryLedger { pool:PgPool, operations:PgOperationStorage,provider_batches:std::sync::Arc<std::sync::OnceLock<std::sync::Arc<crate::provider_batch_store::BatchCoordinator>>> }
 impl PgTaskDeliveryLedger {
     pub fn new(pool:PgPool,control_pool:PgPool)->Result<Self,DeliveryError> {
-        Ok(Self { operations:PgOperationStorage::new(pool.clone(),control_pool).map_err(|_|DeliveryError::StorageUnavailable)?,pool })
+        Ok(Self { operations:PgOperationStorage::new(pool.clone(),control_pool).map_err(|_|DeliveryError::StorageUnavailable)?,pool,provider_batches:Default::default() })
     }
     /// Exact owner-scoped ledger observation. A claimed row surviving a process
     /// crash has an unknown effect; observation never grants replay permission.
@@ -171,6 +178,7 @@ impl PgTaskDeliveryLedger {
     pub async fn publish(&self,envelope:TaskEnvelope,actor:TaskActor)->Result<Task,DeliveryError> {
         let identity=DeliveryIdentity::of(&envelope);
         if !identity.valid() || !actor.valid() {return Err(DeliveryError::InvalidEnvelope);}
+        if crate::provider_batch::BatchPlan::from_envelope(&envelope).map_err(|_|DeliveryError::InvalidEnvelope)?.is_some(){self.provider_batches.get().ok_or(DeliveryError::InvalidEnvelope)?.admit(&envelope).await?;}
         let mut payload=encode_envelope(&envelope)?;
         payload["actor"] = serde_json::to_value(actor).map_err(|_|DeliveryError::InvalidEnvelope)?;
         let mut task=Task::new(envelope.task_id.clone(),&envelope.request,SystemTaskRuntime.now());
@@ -289,6 +297,10 @@ impl PgTaskDeliveryLedger {
     }
 }
 impl TaskDelivery for PgTaskDeliveryLedger {
+    fn configure_provider_batches(&self,coordinator:std::sync::Arc<crate::provider_batch_store::BatchCoordinator>)->bool{self.provider_batches.set(coordinator).is_ok()}
+    fn dispatch_provider_batch<'a>(&'a self,claim:&'a DeliveryClaim)->DeliveryFuture<'a,Option<DeliveryTerminal>>{Box::pin(async move{if crate::provider_batch::BatchPlan::from_envelope(&claim.envelope).map_err(|_|DeliveryError::InvalidEnvelope)?.is_none(){return Ok(None)}self.provider_batches.get().ok_or(DeliveryError::InvalidEnvelope)?.submit_claim(claim).await?;Ok(Some(DeliveryTerminal::Unknown))})}
+    fn reconcile<'a>(&'a self,identity:&'a DeliveryIdentity,operator:&'a str,request:ReconcileRequest)->DeliveryFuture<'a,ReconcileResult>{Box::pin(PgTaskDeliveryLedger::reconcile(self,identity,operator,request))}
+
     fn publish(&self,envelope:TaskEnvelope,actor:TaskActor)->DeliveryFuture<'_,Task> {Box::pin(self.publish(envelope,actor))}
     fn claim_next(&self)->DeliveryFuture<'_,DeliveryPoll> {Box::pin(self.claim_next())}
     fn observe<'a>(&'a self,identity:&'a DeliveryIdentity)->DeliveryFuture<'a,Option<DeliveryObservation>> {Box::pin(self.observe(identity))}

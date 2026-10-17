@@ -10,6 +10,8 @@ pub mod deletion_contract;
 pub mod entry;
 pub mod entry_request;
 mod event_transport;
+mod event_cursor;
+pub(crate) mod lease_authority;
 pub mod governance;
 pub mod history;
 pub mod idempotency;

@@ -1537,7 +1537,7 @@ mod tests {
                 assert_eq!(candidate.package_lock_sha256, APPROVED_020_LOCK_SHA256);
                 assert_eq!(candidate.plan["fingerprint_status"], "not_measured");
             }
-            21..=24 => {
+            21..=28 => {
                 let verified = super::historical_test_fixtures::verify_current_chain(&root);
                 assert_eq!(verified.epoch, active.epoch);
                 assert_eq!(verified.changes.len(), active.epoch as usize);

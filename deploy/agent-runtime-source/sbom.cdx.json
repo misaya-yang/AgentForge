@@ -200,52 +200,52 @@
       "version": "1.1.4"
     },
     {
-      "bom-ref": "pkg:cargo/ai-platform-agent-runtime@0.162.1",
+      "bom-ref": "pkg:cargo/ai-platform-agent-runtime@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "ai-platform-agent-runtime",
-      "purl": "pkg:cargo/ai-platform-agent-runtime@0.162.1",
+      "purl": "pkg:cargo/ai-platform-agent-runtime@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/ai-platform-capability-contract@0.162.1",
+      "bom-ref": "pkg:cargo/ai-platform-capability-contract@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "ai-platform-capability-contract",
-      "purl": "pkg:cargo/ai-platform-capability-contract@0.162.1",
+      "purl": "pkg:cargo/ai-platform-capability-contract@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/ai-platform-capability-worker@0.162.1",
+      "bom-ref": "pkg:cargo/ai-platform-capability-worker@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "ai-platform-capability-worker",
-      "purl": "pkg:cargo/ai-platform-capability-worker@0.162.1",
+      "purl": "pkg:cargo/ai-platform-capability-worker@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/ai-platform-office@0.162.1",
+      "bom-ref": "pkg:cargo/ai-platform-office@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "ai-platform-office",
-      "purl": "pkg:cargo/ai-platform-office@0.162.1",
+      "purl": "pkg:cargo/ai-platform-office@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
       "bom-ref": "pkg:cargo/allocative@0.3.6",
@@ -500,16 +500,16 @@
       "version": "1.0.103"
     },
     {
-      "bom-ref": "pkg:cargo/app_test_support@0.162.1",
+      "bom-ref": "pkg:cargo/app_test_support@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "app_test_support",
-      "purl": "pkg:cargo/app_test_support@0.162.1",
+      "purl": "pkg:cargo/app_test_support@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
       "bom-ref": "pkg:cargo/appcontainer_common@0.8.0",
@@ -564,24 +564,6 @@
       "purl": "pkg:cargo/ar_archive_writer@0.5.3",
       "type": "library",
       "version": "0.5.3"
-    },
-    {
-      "bom-ref": "pkg:cargo/arbitrary@1.4.2",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "arbitrary",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/arbitrary@1.4.2",
-      "type": "library",
-      "version": "1.4.2"
     },
     {
       "bom-ref": "pkg:cargo/arboard@3.6.1",
@@ -1268,7 +1250,7 @@
       "version": "5.2.0"
     },
     {
-      "bom-ref": "pkg:cargo/autocfg@1.5.0",
+      "bom-ref": "pkg:cargo/autocfg@1.5.1",
       "licenses": [
         {
           "expression": "Apache-2.0 OR MIT"
@@ -1281,9 +1263,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/autocfg@1.5.0",
+      "purl": "pkg:cargo/autocfg@1.5.1",
       "type": "library",
-      "version": "1.5.0"
+      "version": "1.5.1"
     },
     {
       "bom-ref": "pkg:cargo/aws-config@1.8.12",
@@ -2438,24 +2420,6 @@
       "version": "0.1.4"
     },
     {
-      "bom-ref": "pkg:cargo/bzip2@0.5.2",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "bzip2",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/bzip2@0.5.2",
-      "type": "library",
-      "version": "0.5.2"
-    },
-    {
       "bom-ref": "pkg:cargo/bzip2@0.6.1",
       "licenses": [
         {
@@ -3284,1912 +3248,1924 @@
       "version": "0.3.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-extension",
-      "purl": "pkg:cargo/codex-agent-extension@0.162.1",
+      "purl": "pkg:cargo/codex-agent-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-graph-store@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-graph-store@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-graph-store",
-      "purl": "pkg:cargo/codex-agent-graph-store@0.162.1",
+      "purl": "pkg:cargo/codex-agent-graph-store@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-identity@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-identity@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-identity",
-      "purl": "pkg:cargo/codex-agent-identity@0.162.1",
+      "purl": "pkg:cargo/codex-agent-identity@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-message-board-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-message-board-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-message-board-client",
-      "purl": "pkg:cargo/codex-agent-message-board-client@0.162.1",
+      "purl": "pkg:cargo/codex-agent-message-board-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-message-board-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-message-board-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-message-board-extension",
-      "purl": "pkg:cargo/codex-agent-message-board-extension@0.162.1",
+      "purl": "pkg:cargo/codex-agent-message-board-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-agent-roles@0.162.1",
+      "bom-ref": "pkg:cargo/codex-agent-roles@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-agent-roles",
-      "purl": "pkg:cargo/codex-agent-roles@0.162.1",
+      "purl": "pkg:cargo/codex-agent-roles@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-analytics@0.162.1",
+      "bom-ref": "pkg:cargo/codex-analytics@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-analytics",
-      "purl": "pkg:cargo/codex-analytics@0.162.1",
+      "purl": "pkg:cargo/codex-analytics@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-ansi-escape@0.162.1",
+      "bom-ref": "pkg:cargo/codex-ansi-escape@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-ansi-escape",
-      "purl": "pkg:cargo/codex-ansi-escape@0.162.1",
+      "purl": "pkg:cargo/codex-ansi-escape@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-api@0.162.1",
+      "bom-ref": "pkg:cargo/codex-api@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-api",
-      "purl": "pkg:cargo/codex-api@0.162.1",
+      "purl": "pkg:cargo/codex-api@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server",
-      "purl": "pkg:cargo/codex-app-server@0.162.1",
+      "purl": "pkg:cargo/codex-app-server@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-client",
-      "purl": "pkg:cargo/codex-app-server-client@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-daemon@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-daemon@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-daemon",
-      "purl": "pkg:cargo/codex-app-server-daemon@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-daemon@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-protocol@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-protocol@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-protocol",
-      "purl": "pkg:cargo/codex-app-server-protocol@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-protocol@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-protocol-noop-macros@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-protocol-noop-macros@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-protocol-noop-macros",
-      "purl": "pkg:cargo/codex-app-server-protocol-noop-macros@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-protocol-noop-macros@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-test-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-test-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-test-client",
-      "purl": "pkg:cargo/codex-app-server-test-client@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-test-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-app-server-transport@0.162.1",
+      "bom-ref": "pkg:cargo/codex-app-server-transport@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-app-server-transport",
-      "purl": "pkg:cargo/codex-app-server-transport@0.162.1",
+      "purl": "pkg:cargo/codex-app-server-transport@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-apply-patch@0.162.1",
+      "bom-ref": "pkg:cargo/codex-apply-patch@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-apply-patch",
-      "purl": "pkg:cargo/codex-apply-patch@0.162.1",
+      "purl": "pkg:cargo/codex-apply-patch@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-arg0@0.162.1",
+      "bom-ref": "pkg:cargo/codex-arg0@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-arg0",
-      "purl": "pkg:cargo/codex-arg0@0.162.1",
+      "purl": "pkg:cargo/codex-arg0@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-async-utils@0.162.1",
+      "bom-ref": "pkg:cargo/codex-async-utils@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-async-utils",
-      "purl": "pkg:cargo/codex-async-utils@0.162.1",
+      "purl": "pkg:cargo/codex-async-utils@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-attachment-store@0.162.1",
+      "bom-ref": "pkg:cargo/codex-attachment-store@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-attachment-store",
-      "purl": "pkg:cargo/codex-attachment-store@0.162.1",
+      "purl": "pkg:cargo/codex-attachment-store@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-aws-auth@0.162.1",
+      "bom-ref": "pkg:cargo/codex-aws-auth@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-aws-auth",
-      "purl": "pkg:cargo/codex-aws-auth@0.162.1",
+      "purl": "pkg:cargo/codex-aws-auth@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-backend-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-backend-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-backend-client",
-      "purl": "pkg:cargo/codex-backend-client@0.162.1",
+      "purl": "pkg:cargo/codex-backend-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-backend-openapi-models@0.162.1",
+      "bom-ref": "pkg:cargo/codex-backend-openapi-models@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-backend-openapi-models",
-      "purl": "pkg:cargo/codex-backend-openapi-models@0.162.1",
+      "purl": "pkg:cargo/codex-backend-openapi-models@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-build-info@0.162.1",
+      "bom-ref": "pkg:cargo/codex-build-info@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-build-info",
-      "purl": "pkg:cargo/codex-build-info@0.162.1",
+      "purl": "pkg:cargo/codex-build-info@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-bwrap@0.162.1",
+      "bom-ref": "pkg:cargo/codex-bwrap@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-bwrap",
-      "purl": "pkg:cargo/codex-bwrap@0.162.1",
+      "purl": "pkg:cargo/codex-bwrap@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-chatgpt@0.162.1",
+      "bom-ref": "pkg:cargo/codex-chatgpt@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-chatgpt",
-      "purl": "pkg:cargo/codex-chatgpt@0.162.1",
+      "purl": "pkg:cargo/codex-chatgpt@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cli@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cli@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cli",
-      "purl": "pkg:cargo/codex-cli@0.162.1",
+      "purl": "pkg:cargo/codex-cli@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-client",
-      "purl": "pkg:cargo/codex-client@0.162.1",
+      "purl": "pkg:cargo/codex-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cloud-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cloud-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cloud-client",
-      "purl": "pkg:cargo/codex-cloud-client@0.162.1",
+      "purl": "pkg:cargo/codex-cloud-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cloud-config@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cloud-config@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cloud-config",
-      "purl": "pkg:cargo/codex-cloud-config@0.162.1",
+      "purl": "pkg:cargo/codex-cloud-config@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cloud-tasks@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cloud-tasks@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cloud-tasks",
-      "purl": "pkg:cargo/codex-cloud-tasks@0.162.1",
+      "purl": "pkg:cargo/codex-cloud-tasks@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cloud-tasks-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cloud-tasks-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cloud-tasks-client",
-      "purl": "pkg:cargo/codex-cloud-tasks-client@0.162.1",
+      "purl": "pkg:cargo/codex-cloud-tasks-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-cloud-tasks-mock-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-cloud-tasks-mock-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-cloud-tasks-mock-client",
-      "purl": "pkg:cargo/codex-cloud-tasks-mock-client@0.162.1",
+      "purl": "pkg:cargo/codex-cloud-tasks-mock-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-code-mode@0.162.1",
+      "bom-ref": "pkg:cargo/codex-code-mode@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-code-mode",
-      "purl": "pkg:cargo/codex-code-mode@0.162.1",
+      "purl": "pkg:cargo/codex-code-mode@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-code-mode-host@0.162.1",
+      "bom-ref": "pkg:cargo/codex-code-mode-host@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-code-mode-host",
-      "purl": "pkg:cargo/codex-code-mode-host@0.162.1",
+      "purl": "pkg:cargo/codex-code-mode-host@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-code-mode-protocol@0.162.1",
+      "bom-ref": "pkg:cargo/codex-code-mode-protocol@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-code-mode-protocol",
-      "purl": "pkg:cargo/codex-code-mode-protocol@0.162.1",
+      "purl": "pkg:cargo/codex-code-mode-protocol@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-code-mode-runtime@0.162.1",
+      "bom-ref": "pkg:cargo/codex-code-mode-runtime@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-code-mode-runtime",
-      "purl": "pkg:cargo/codex-code-mode-runtime@0.162.1",
+      "purl": "pkg:cargo/codex-code-mode-runtime@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-collaboration-mode-templates@0.162.1",
+      "bom-ref": "pkg:cargo/codex-collaboration-mode-templates@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-collaboration-mode-templates",
-      "purl": "pkg:cargo/codex-collaboration-mode-templates@0.162.1",
+      "purl": "pkg:cargo/codex-collaboration-mode-templates@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-config@0.162.1",
+      "bom-ref": "pkg:cargo/codex-config@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-config",
-      "purl": "pkg:cargo/codex-config@0.162.1",
+      "purl": "pkg:cargo/codex-config@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-config-schema@0.162.1",
+      "bom-ref": "pkg:cargo/codex-config-schema@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-config-schema",
-      "purl": "pkg:cargo/codex-config-schema@0.162.1",
+      "purl": "pkg:cargo/codex-config-schema@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-connectors@0.162.1",
+      "bom-ref": "pkg:cargo/codex-connectors@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-connectors",
-      "purl": "pkg:cargo/codex-connectors@0.162.1",
+      "purl": "pkg:cargo/codex-connectors@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-connectors-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-connectors-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-connectors-extension",
-      "purl": "pkg:cargo/codex-connectors-extension@0.162.1",
+      "purl": "pkg:cargo/codex-connectors-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-context-fragments@0.162.1",
+      "bom-ref": "pkg:cargo/codex-context-fragments@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-context-fragments",
-      "purl": "pkg:cargo/codex-context-fragments@0.162.1",
+      "purl": "pkg:cargo/codex-context-fragments@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-core@0.162.1",
+      "bom-ref": "pkg:cargo/codex-core@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-core",
-      "purl": "pkg:cargo/codex-core@0.162.1",
+      "purl": "pkg:cargo/codex-core@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-core-api@0.162.1",
+      "bom-ref": "pkg:cargo/codex-core-api@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-core-api",
-      "purl": "pkg:cargo/codex-core-api@0.162.1",
+      "purl": "pkg:cargo/codex-core-api@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-core-plugin-common@0.162.1",
+      "bom-ref": "pkg:cargo/codex-core-plugin-common@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-core-plugin-common",
-      "purl": "pkg:cargo/codex-core-plugin-common@0.162.1",
+      "purl": "pkg:cargo/codex-core-plugin-common@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-core-plugins@0.162.1",
+      "bom-ref": "pkg:cargo/codex-core-plugins@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-core-plugins",
-      "purl": "pkg:cargo/codex-core-plugins@0.162.1",
+      "purl": "pkg:cargo/codex-core-plugins@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-diagnostics@0.162.1",
+      "bom-ref": "pkg:cargo/codex-diagnostics@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-diagnostics",
-      "purl": "pkg:cargo/codex-diagnostics@0.162.1",
+      "purl": "pkg:cargo/codex-diagnostics@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-exec@0.162.1",
+      "bom-ref": "pkg:cargo/codex-exec@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-exec",
-      "purl": "pkg:cargo/codex-exec@0.162.1",
+      "purl": "pkg:cargo/codex-exec@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-exec-server@0.162.1",
+      "bom-ref": "pkg:cargo/codex-exec-server@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-exec-server",
-      "purl": "pkg:cargo/codex-exec-server@0.162.1",
+      "purl": "pkg:cargo/codex-exec-server@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-exec-server-protocol@0.162.1",
+      "bom-ref": "pkg:cargo/codex-exec-server-protocol@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-exec-server-protocol",
-      "purl": "pkg:cargo/codex-exec-server-protocol@0.162.1",
+      "purl": "pkg:cargo/codex-exec-server-protocol@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-exec-server-test-support@0.162.1",
+      "bom-ref": "pkg:cargo/codex-exec-server-test-support@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-exec-server-test-support",
-      "purl": "pkg:cargo/codex-exec-server-test-support@0.162.1",
+      "purl": "pkg:cargo/codex-exec-server-test-support@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-execpolicy@0.162.1",
+      "bom-ref": "pkg:cargo/codex-execpolicy@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-execpolicy",
-      "purl": "pkg:cargo/codex-execpolicy@0.162.1",
+      "purl": "pkg:cargo/codex-execpolicy@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-experimental-api-macros@0.162.1",
+      "bom-ref": "pkg:cargo/codex-experimental-api-macros@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-experimental-api-macros",
-      "purl": "pkg:cargo/codex-experimental-api-macros@0.162.1",
+      "purl": "pkg:cargo/codex-experimental-api-macros@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-extension-api@0.162.1",
+      "bom-ref": "pkg:cargo/codex-extension-api@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-extension-api",
-      "purl": "pkg:cargo/codex-extension-api@0.162.1",
+      "purl": "pkg:cargo/codex-extension-api@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-extension-items@0.162.1",
+      "bom-ref": "pkg:cargo/codex-extension-items@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-extension-items",
-      "purl": "pkg:cargo/codex-extension-items@0.162.1",
+      "purl": "pkg:cargo/codex-extension-items@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-external-agent-migration@0.162.1",
+      "bom-ref": "pkg:cargo/codex-external-agent-migration@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-external-agent-migration",
-      "purl": "pkg:cargo/codex-external-agent-migration@0.162.1",
+      "purl": "pkg:cargo/codex-external-agent-migration@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-features@0.162.1",
+      "bom-ref": "pkg:cargo/codex-features@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-features",
-      "purl": "pkg:cargo/codex-features@0.162.1",
+      "purl": "pkg:cargo/codex-features@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-feedback@0.162.1",
+      "bom-ref": "pkg:cargo/codex-feedback@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-feedback",
-      "purl": "pkg:cargo/codex-feedback@0.162.1",
+      "purl": "pkg:cargo/codex-feedback@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-file-search@0.162.1",
+      "bom-ref": "pkg:cargo/codex-file-search@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-file-search",
-      "purl": "pkg:cargo/codex-file-search@0.162.1",
+      "purl": "pkg:cargo/codex-file-search@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-file-system@0.162.1",
+      "bom-ref": "pkg:cargo/codex-file-system@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-file-system",
-      "purl": "pkg:cargo/codex-file-system@0.162.1",
+      "purl": "pkg:cargo/codex-file-system@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-file-watcher@0.162.1",
+      "bom-ref": "pkg:cargo/codex-file-watcher@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-file-watcher",
-      "purl": "pkg:cargo/codex-file-watcher@0.162.1",
+      "purl": "pkg:cargo/codex-file-watcher@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-git-attribution@0.162.1",
+      "bom-ref": "pkg:cargo/codex-git-attribution@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-git-attribution",
-      "purl": "pkg:cargo/codex-git-attribution@0.162.1",
+      "purl": "pkg:cargo/codex-git-attribution@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-git-utils@0.162.1",
+      "bom-ref": "pkg:cargo/codex-git-utils@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-git-utils",
-      "purl": "pkg:cargo/codex-git-utils@0.162.1",
+      "purl": "pkg:cargo/codex-git-utils@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-goal-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-goal-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-goal-extension",
-      "purl": "pkg:cargo/codex-goal-extension@0.162.1",
+      "purl": "pkg:cargo/codex-goal-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-guardian-context@0.162.1",
+      "bom-ref": "pkg:cargo/codex-guardian-context@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-guardian-context",
-      "purl": "pkg:cargo/codex-guardian-context@0.162.1",
+      "purl": "pkg:cargo/codex-guardian-context@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-guardian-reviewer@0.162.1",
+      "bom-ref": "pkg:cargo/codex-guardian-reviewer@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-guardian-reviewer",
-      "purl": "pkg:cargo/codex-guardian-reviewer@0.162.1",
+      "purl": "pkg:cargo/codex-guardian-reviewer@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-guardian-v2@0.162.1",
+      "bom-ref": "pkg:cargo/codex-guardian-v2@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-guardian-v2",
-      "purl": "pkg:cargo/codex-guardian-v2@0.162.1",
+      "purl": "pkg:cargo/codex-guardian-v2@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-history@0.162.1",
+      "bom-ref": "pkg:cargo/codex-history@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-history",
-      "purl": "pkg:cargo/codex-history@0.162.1",
+      "purl": "pkg:cargo/codex-history@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-history-notes-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-history-notes-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-history-notes-extension",
-      "purl": "pkg:cargo/codex-history-notes-extension@0.162.1",
+      "purl": "pkg:cargo/codex-history-notes-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-home@0.162.1",
+      "bom-ref": "pkg:cargo/codex-home@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-home",
-      "purl": "pkg:cargo/codex-home@0.162.1",
+      "purl": "pkg:cargo/codex-home@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-hooks@0.162.1",
+      "bom-ref": "pkg:cargo/codex-hooks@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-hooks",
-      "purl": "pkg:cargo/codex-hooks@0.162.1",
+      "purl": "pkg:cargo/codex-hooks@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-http-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-http-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-http-client",
-      "purl": "pkg:cargo/codex-http-client@0.162.1",
+      "purl": "pkg:cargo/codex-http-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-image-generation-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-image-generation-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-image-generation-extension",
-      "purl": "pkg:cargo/codex-image-generation-extension@0.162.1",
+      "purl": "pkg:cargo/codex-image-generation-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-install-context@0.162.1",
+      "bom-ref": "pkg:cargo/codex-install-context@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-install-context",
-      "purl": "pkg:cargo/codex-install-context@0.162.1",
+      "purl": "pkg:cargo/codex-install-context@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-keyring-store@0.162.1",
+      "bom-ref": "pkg:cargo/codex-keyring-store@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-keyring-store",
-      "purl": "pkg:cargo/codex-keyring-store@0.162.1",
+      "purl": "pkg:cargo/codex-keyring-store@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-linux-sandbox@0.162.1",
+      "bom-ref": "pkg:cargo/codex-linux-sandbox@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-linux-sandbox",
-      "purl": "pkg:cargo/codex-linux-sandbox@0.162.1",
+      "purl": "pkg:cargo/codex-linux-sandbox@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-lmstudio@0.162.1",
+      "bom-ref": "pkg:cargo/codex-lmstudio@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-lmstudio",
-      "purl": "pkg:cargo/codex-lmstudio@0.162.1",
+      "purl": "pkg:cargo/codex-lmstudio@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-login@0.162.1",
+      "bom-ref": "pkg:cargo/codex-login@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-login",
-      "purl": "pkg:cargo/codex-login@0.162.1",
+      "purl": "pkg:cargo/codex-login@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-mcp@0.162.1",
+      "bom-ref": "pkg:cargo/codex-mcp@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-mcp",
-      "purl": "pkg:cargo/codex-mcp@0.162.1",
+      "purl": "pkg:cargo/codex-mcp@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-mcp-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-mcp-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-mcp-extension",
-      "purl": "pkg:cargo/codex-mcp-extension@0.162.1",
+      "purl": "pkg:cargo/codex-mcp-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-memories-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-memories-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-memories-extension",
-      "purl": "pkg:cargo/codex-memories-extension@0.162.1",
+      "purl": "pkg:cargo/codex-memories-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-memories-read@0.162.1",
+      "bom-ref": "pkg:cargo/codex-memories-read@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-memories-read",
-      "purl": "pkg:cargo/codex-memories-read@0.162.1",
+      "purl": "pkg:cargo/codex-memories-read@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-memories-write@0.162.1",
+      "bom-ref": "pkg:cargo/codex-memories-write@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-memories-write",
-      "purl": "pkg:cargo/codex-memories-write@0.162.1",
+      "purl": "pkg:cargo/codex-memories-write@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-mermaid@0.162.1",
+      "bom-ref": "pkg:cargo/codex-mermaid@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-mermaid",
-      "purl": "pkg:cargo/codex-mermaid@0.162.1",
+      "purl": "pkg:cargo/codex-mermaid@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-message-history@0.162.1",
+      "bom-ref": "pkg:cargo/codex-message-history@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-message-history",
-      "purl": "pkg:cargo/codex-message-history@0.162.1",
+      "purl": "pkg:cargo/codex-message-history@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-model-provider@0.162.1",
+      "bom-ref": "pkg:cargo/codex-model-provider@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-model-provider",
-      "purl": "pkg:cargo/codex-model-provider@0.162.1",
+      "purl": "pkg:cargo/codex-model-provider@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-model-provider-info@0.162.1",
+      "bom-ref": "pkg:cargo/codex-model-provider-info@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-model-provider-info",
-      "purl": "pkg:cargo/codex-model-provider-info@0.162.1",
+      "purl": "pkg:cargo/codex-model-provider-info@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-models-manager@0.162.1",
+      "bom-ref": "pkg:cargo/codex-models-manager@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-models-manager",
-      "purl": "pkg:cargo/codex-models-manager@0.162.1",
+      "purl": "pkg:cargo/codex-models-manager@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-mxc-sandbox@0.162.1",
+      "bom-ref": "pkg:cargo/codex-multi-env-copy-file@0.0.0",
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "name": "codex-multi-env-copy-file",
+      "purl": "pkg:cargo/codex-multi-env-copy-file@0.0.0",
+      "type": "library",
+      "version": "0.0.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/codex-mxc-sandbox@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-mxc-sandbox",
-      "purl": "pkg:cargo/codex-mxc-sandbox@0.162.1",
+      "purl": "pkg:cargo/codex-mxc-sandbox@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-network-proxy@0.162.1",
+      "bom-ref": "pkg:cargo/codex-network-proxy@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-network-proxy",
-      "purl": "pkg:cargo/codex-network-proxy@0.162.1",
+      "purl": "pkg:cargo/codex-network-proxy@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-ollama@0.162.1",
+      "bom-ref": "pkg:cargo/codex-ollama@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-ollama",
-      "purl": "pkg:cargo/codex-ollama@0.162.1",
+      "purl": "pkg:cargo/codex-ollama@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-otel@0.162.1",
+      "bom-ref": "pkg:cargo/codex-otel@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-otel",
-      "purl": "pkg:cargo/codex-otel@0.162.1",
+      "purl": "pkg:cargo/codex-otel@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-otel-trace-websocket@0.162.1",
+      "bom-ref": "pkg:cargo/codex-otel-trace-websocket@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-otel-trace-websocket",
-      "purl": "pkg:cargo/codex-otel-trace-websocket@0.162.1",
+      "purl": "pkg:cargo/codex-otel-trace-websocket@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-plugin@0.162.1",
+      "bom-ref": "pkg:cargo/codex-plugin@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-plugin",
-      "purl": "pkg:cargo/codex-plugin@0.162.1",
+      "purl": "pkg:cargo/codex-plugin@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-process-hardening@0.162.1",
+      "bom-ref": "pkg:cargo/codex-process-hardening@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-process-hardening",
-      "purl": "pkg:cargo/codex-process-hardening@0.162.1",
+      "purl": "pkg:cargo/codex-process-hardening@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-prompts@0.162.1",
+      "bom-ref": "pkg:cargo/codex-prompts@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-prompts",
-      "purl": "pkg:cargo/codex-prompts@0.162.1",
+      "purl": "pkg:cargo/codex-prompts@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-protocol@0.162.1",
+      "bom-ref": "pkg:cargo/codex-protocol@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-protocol",
-      "purl": "pkg:cargo/codex-protocol@0.162.1",
+      "purl": "pkg:cargo/codex-protocol@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-queue-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-protocol-test-support@0.0.0",
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "name": "codex-protocol-test-support",
+      "purl": "pkg:cargo/codex-protocol-test-support@0.0.0",
+      "type": "library",
+      "version": "0.0.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/codex-queue-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-queue-extension",
-      "purl": "pkg:cargo/codex-queue-extension@0.162.1",
+      "purl": "pkg:cargo/codex-queue-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-realtime-webrtc@0.162.1",
+      "bom-ref": "pkg:cargo/codex-realtime-webrtc@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-realtime-webrtc",
-      "purl": "pkg:cargo/codex-realtime-webrtc@0.162.1",
+      "purl": "pkg:cargo/codex-realtime-webrtc@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-response-debug-context@0.162.1",
+      "bom-ref": "pkg:cargo/codex-response-debug-context@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-response-debug-context",
-      "purl": "pkg:cargo/codex-response-debug-context@0.162.1",
+      "purl": "pkg:cargo/codex-response-debug-context@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-responses-api-proxy@0.162.1",
+      "bom-ref": "pkg:cargo/codex-responses-api-proxy@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-responses-api-proxy",
-      "purl": "pkg:cargo/codex-responses-api-proxy@0.162.1",
+      "purl": "pkg:cargo/codex-responses-api-proxy@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-rmcp-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-rmcp-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-rmcp-client",
-      "purl": "pkg:cargo/codex-rmcp-client@0.162.1",
+      "purl": "pkg:cargo/codex-rmcp-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-rollout@0.162.1",
+      "bom-ref": "pkg:cargo/codex-rollout@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-rollout",
-      "purl": "pkg:cargo/codex-rollout@0.162.1",
+      "purl": "pkg:cargo/codex-rollout@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-rollout-trace@0.162.1",
+      "bom-ref": "pkg:cargo/codex-rollout-trace@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-rollout-trace",
-      "purl": "pkg:cargo/codex-rollout-trace@0.162.1",
+      "purl": "pkg:cargo/codex-rollout-trace@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-sandboxing@0.162.1",
+      "bom-ref": "pkg:cargo/codex-sandboxing@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-sandboxing",
-      "purl": "pkg:cargo/codex-sandboxing@0.162.1",
+      "purl": "pkg:cargo/codex-sandboxing@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-secrets@0.162.1",
+      "bom-ref": "pkg:cargo/codex-secrets@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-secrets",
-      "purl": "pkg:cargo/codex-secrets@0.162.1",
+      "purl": "pkg:cargo/codex-secrets@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-shell-command@0.162.1",
+      "bom-ref": "pkg:cargo/codex-shell-command@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-shell-command",
-      "purl": "pkg:cargo/codex-shell-command@0.162.1",
+      "purl": "pkg:cargo/codex-shell-command@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-shell-escalation@0.162.1",
-      "licenses": [
-        {
-          "expression": "Apache-2.0"
-        }
-      ],
-      "name": "codex-shell-escalation",
-      "purl": "pkg:cargo/codex-shell-escalation@0.162.1",
-      "type": "library",
-      "version": "0.162.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/codex-skills@0.162.1",
+      "bom-ref": "pkg:cargo/codex-skills@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-skills",
-      "purl": "pkg:cargo/codex-skills@0.162.1",
+      "purl": "pkg:cargo/codex-skills@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-skills-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-skills-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-skills-extension",
-      "purl": "pkg:cargo/codex-skills-extension@0.162.1",
+      "purl": "pkg:cargo/codex-skills-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-state@0.162.1",
+      "bom-ref": "pkg:cargo/codex-state@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-state",
-      "purl": "pkg:cargo/codex-state@0.162.1",
+      "purl": "pkg:cargo/codex-state@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-stdio-to-uds@0.162.1",
+      "bom-ref": "pkg:cargo/codex-stdio-to-uds@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-stdio-to-uds",
-      "purl": "pkg:cargo/codex-stdio-to-uds@0.162.1",
+      "purl": "pkg:cargo/codex-stdio-to-uds@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-tcp-tunnel@0.162.1",
+      "bom-ref": "pkg:cargo/codex-tcp-tunnel@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-tcp-tunnel",
-      "purl": "pkg:cargo/codex-tcp-tunnel@0.162.1",
+      "purl": "pkg:cargo/codex-tcp-tunnel@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-terminal-detection@0.162.1",
+      "bom-ref": "pkg:cargo/codex-terminal-detection@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-terminal-detection",
-      "purl": "pkg:cargo/codex-terminal-detection@0.162.1",
+      "purl": "pkg:cargo/codex-terminal-detection@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-test-binary-support@0.162.1",
+      "bom-ref": "pkg:cargo/codex-test-binary-support@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-test-binary-support",
-      "purl": "pkg:cargo/codex-test-binary-support@0.162.1",
+      "purl": "pkg:cargo/codex-test-binary-support@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-thread-manager-sample@0.162.1",
+      "bom-ref": "pkg:cargo/codex-thread-manager-sample@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-thread-manager-sample",
-      "purl": "pkg:cargo/codex-thread-manager-sample@0.162.1",
+      "purl": "pkg:cargo/codex-thread-manager-sample@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-thread-store@0.162.1",
+      "bom-ref": "pkg:cargo/codex-thread-store@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-thread-store",
-      "purl": "pkg:cargo/codex-thread-store@0.162.1",
+      "purl": "pkg:cargo/codex-thread-store@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-tools@0.162.1",
+      "bom-ref": "pkg:cargo/codex-tools@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-tools",
-      "purl": "pkg:cargo/codex-tools@0.162.1",
+      "purl": "pkg:cargo/codex-tools@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-tui@0.162.1",
+      "bom-ref": "pkg:cargo/codex-tui@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-tui",
-      "purl": "pkg:cargo/codex-tui@0.162.1",
+      "purl": "pkg:cargo/codex-tui@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-uds@0.162.1",
+      "bom-ref": "pkg:cargo/codex-uds@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-uds",
-      "purl": "pkg:cargo/codex-uds@0.162.1",
+      "purl": "pkg:cargo/codex-uds@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-user-verification@0.162.1",
+      "bom-ref": "pkg:cargo/codex-user-verification@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-user-verification",
-      "purl": "pkg:cargo/codex-user-verification@0.162.1",
+      "purl": "pkg:cargo/codex-user-verification@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-absolute-path@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-absolute-path@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-absolute-path",
-      "purl": "pkg:cargo/codex-utils-absolute-path@0.162.1",
+      "purl": "pkg:cargo/codex-utils-absolute-path@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-approval-presets@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-approval-presets@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-approval-presets",
-      "purl": "pkg:cargo/codex-utils-approval-presets@0.162.1",
+      "purl": "pkg:cargo/codex-utils-approval-presets@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-audio@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-audio@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-audio",
-      "purl": "pkg:cargo/codex-utils-audio@0.162.1",
+      "purl": "pkg:cargo/codex-utils-audio@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-cache@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-cache@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-cache",
-      "purl": "pkg:cargo/codex-utils-cache@0.162.1",
+      "purl": "pkg:cargo/codex-utils-cache@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-cargo-bin@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-cargo-bin@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-cargo-bin",
-      "purl": "pkg:cargo/codex-utils-cargo-bin@0.162.1",
+      "purl": "pkg:cargo/codex-utils-cargo-bin@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-cli@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-cli@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-cli",
-      "purl": "pkg:cargo/codex-utils-cli@0.162.1",
+      "purl": "pkg:cargo/codex-utils-cli@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-elapsed@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-elapsed@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-elapsed",
-      "purl": "pkg:cargo/codex-utils-elapsed@0.162.1",
+      "purl": "pkg:cargo/codex-utils-elapsed@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-fuzzy-match@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-fuzzy-match@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-fuzzy-match",
-      "purl": "pkg:cargo/codex-utils-fuzzy-match@0.162.1",
+      "purl": "pkg:cargo/codex-utils-fuzzy-match@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-git-discovery@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-git-discovery@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-git-discovery",
-      "purl": "pkg:cargo/codex-utils-git-discovery@0.162.1",
+      "purl": "pkg:cargo/codex-utils-git-discovery@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-home-dir@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-home-dir@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-home-dir",
-      "purl": "pkg:cargo/codex-utils-home-dir@0.162.1",
+      "purl": "pkg:cargo/codex-utils-home-dir@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-image@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-image@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-image",
-      "purl": "pkg:cargo/codex-utils-image@0.162.1",
+      "purl": "pkg:cargo/codex-utils-image@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-json-to-toml@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-json-to-toml@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-json-to-toml",
-      "purl": "pkg:cargo/codex-utils-json-to-toml@0.162.1",
+      "purl": "pkg:cargo/codex-utils-json-to-toml@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-oss@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-oss@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-oss",
-      "purl": "pkg:cargo/codex-utils-oss@0.162.1",
+      "purl": "pkg:cargo/codex-utils-oss@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-output-truncation@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-output-truncation@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-output-truncation",
-      "purl": "pkg:cargo/codex-utils-output-truncation@0.162.1",
+      "purl": "pkg:cargo/codex-utils-output-truncation@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-path@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-path@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-path",
-      "purl": "pkg:cargo/codex-utils-path@0.162.1",
+      "purl": "pkg:cargo/codex-utils-path@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-path-uri@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-path-uri@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-path-uri",
-      "purl": "pkg:cargo/codex-utils-path-uri@0.162.1",
+      "purl": "pkg:cargo/codex-utils-path-uri@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-plugins@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-plugins@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-plugins",
-      "purl": "pkg:cargo/codex-utils-plugins@0.162.1",
+      "purl": "pkg:cargo/codex-utils-plugins@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-process@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-process@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-process",
-      "purl": "pkg:cargo/codex-utils-process@0.162.1",
+      "purl": "pkg:cargo/codex-utils-process@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-pty@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-pty@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-pty",
-      "purl": "pkg:cargo/codex-utils-pty@0.162.1",
+      "purl": "pkg:cargo/codex-utils-pty@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-readiness@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-readiness@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-readiness",
-      "purl": "pkg:cargo/codex-utils-readiness@0.162.1",
+      "purl": "pkg:cargo/codex-utils-readiness@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-redacted-string@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-redacted-string@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-redacted-string",
-      "purl": "pkg:cargo/codex-utils-redacted-string@0.162.1",
+      "purl": "pkg:cargo/codex-utils-redacted-string@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-rustls-provider@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-rustls-provider@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-rustls-provider",
-      "purl": "pkg:cargo/codex-utils-rustls-provider@0.162.1",
+      "purl": "pkg:cargo/codex-utils-rustls-provider@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-sandbox-summary@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-sandbox-summary@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-sandbox-summary",
-      "purl": "pkg:cargo/codex-utils-sandbox-summary@0.162.1",
+      "purl": "pkg:cargo/codex-utils-sandbox-summary@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-sleep-inhibitor@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-sleep-inhibitor@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-sleep-inhibitor",
-      "purl": "pkg:cargo/codex-utils-sleep-inhibitor@0.162.1",
+      "purl": "pkg:cargo/codex-utils-sleep-inhibitor@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-stream-parser@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-stream-parser@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-stream-parser",
-      "purl": "pkg:cargo/codex-utils-stream-parser@0.162.1",
+      "purl": "pkg:cargo/codex-utils-stream-parser@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-string@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-string@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-string",
-      "purl": "pkg:cargo/codex-utils-string@0.162.1",
+      "purl": "pkg:cargo/codex-utils-string@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-utils-template@0.162.1",
+      "bom-ref": "pkg:cargo/codex-utils-template@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-utils-template",
-      "purl": "pkg:cargo/codex-utils-template@0.162.1",
+      "purl": "pkg:cargo/codex-utils-template@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-v8-poc@0.162.1",
+      "bom-ref": "pkg:cargo/codex-v8-poc@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-v8-poc",
-      "purl": "pkg:cargo/codex-v8-poc@0.162.1",
+      "purl": "pkg:cargo/codex-v8-poc@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-voice-host@0.162.1",
+      "bom-ref": "pkg:cargo/codex-voice-host@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-voice-host",
-      "purl": "pkg:cargo/codex-voice-host@0.162.1",
+      "purl": "pkg:cargo/codex-voice-host@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-web-search-extension@0.162.1",
+      "bom-ref": "pkg:cargo/codex-web-search-extension@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-web-search-extension",
-      "purl": "pkg:cargo/codex-web-search-extension@0.162.1",
+      "purl": "pkg:cargo/codex-web-search-extension@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-websocket-auth@0.162.1",
+      "bom-ref": "pkg:cargo/codex-websocket-auth@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-websocket-auth",
-      "purl": "pkg:cargo/codex-websocket-auth@0.162.1",
+      "purl": "pkg:cargo/codex-websocket-auth@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-websocket-client@0.162.1",
+      "bom-ref": "pkg:cargo/codex-websocket-client@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-websocket-client",
-      "purl": "pkg:cargo/codex-websocket-client@0.162.1",
+      "purl": "pkg:cargo/codex-websocket-client@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-windows-sandbox@0.162.1",
+      "bom-ref": "pkg:cargo/codex-windows-sandbox@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-windows-sandbox",
-      "purl": "pkg:cargo/codex-windows-sandbox@0.162.1",
+      "purl": "pkg:cargo/codex-windows-sandbox@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-windows-sandbox-service@0.162.1",
+      "bom-ref": "pkg:cargo/codex-windows-sandbox-service@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-windows-sandbox-service",
-      "purl": "pkg:cargo/codex-windows-sandbox-service@0.162.1",
+      "purl": "pkg:cargo/codex-windows-sandbox-service@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-windows-sandbox-test-support@0.162.1",
+      "bom-ref": "pkg:cargo/codex-windows-sandbox-test-support@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-windows-sandbox-test-support",
-      "purl": "pkg:cargo/codex-windows-sandbox-test-support@0.162.1",
+      "purl": "pkg:cargo/codex-windows-sandbox-test-support@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-workload-identity@0.162.1",
+      "bom-ref": "pkg:cargo/codex-workload-identity@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-workload-identity",
-      "purl": "pkg:cargo/codex-workload-identity@0.162.1",
+      "purl": "pkg:cargo/codex-workload-identity@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/codex-worktree@0.162.1",
+      "bom-ref": "pkg:cargo/codex-worktree@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "codex-worktree",
-      "purl": "pkg:cargo/codex-worktree@0.162.1",
+      "purl": "pkg:cargo/codex-worktree@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
       "bom-ref": "pkg:cargo/color@0.3.3",
@@ -5696,16 +5672,16 @@
       "version": "0.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/core_test_support@0.162.1",
+      "bom-ref": "pkg:cargo/core_test_support@0.0.0",
       "licenses": [
         {
           "expression": "Apache-2.0"
         }
       ],
       "name": "core_test_support",
-      "purl": "pkg:cargo/core_test_support@0.162.1",
+      "purl": "pkg:cargo/core_test_support@0.0.0",
       "type": "library",
-      "version": "0.162.1"
+      "version": "0.0.0"
     },
     {
       "bom-ref": "pkg:cargo/coreaudio-rs@0.14.2",
@@ -6716,6 +6692,78 @@
       "version": "0.1.10"
     },
     {
+      "bom-ref": "pkg:cargo/defmt@0.3.100",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "defmt",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/defmt@0.3.100",
+      "type": "library",
+      "version": "0.3.100"
+    },
+    {
+      "bom-ref": "pkg:cargo/defmt@1.1.1",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "defmt",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/defmt@1.1.1",
+      "type": "library",
+      "version": "1.1.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/defmt-macros@1.1.1",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "defmt-macros",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/defmt-macros@1.1.1",
+      "type": "library",
+      "version": "1.1.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/defmt-parser@1.0.0",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "defmt-parser",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/defmt-parser@1.0.0",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    {
       "bom-ref": "pkg:cargo/deltae@0.3.2",
       "licenses": [
         {
@@ -6734,7 +6782,7 @@
       "version": "0.3.2"
     },
     {
-      "bom-ref": "pkg:cargo/deno_core_icudata@0.77.0",
+      "bom-ref": "pkg:cargo/deno_core_icudata@0.78.0",
       "licenses": [
         {
           "expression": "MIT"
@@ -6747,9 +6795,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/deno_core_icudata@0.77.0",
+      "purl": "pkg:cargo/deno_core_icudata@0.78.0",
       "type": "library",
-      "version": "0.77.0"
+      "version": "0.78.0"
     },
     {
       "bom-ref": "pkg:cargo/der@0.7.10",
@@ -6840,24 +6888,6 @@
       "purl": "pkg:cargo/derivative@2.2.0",
       "type": "library",
       "version": "2.2.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/derive_arbitrary@1.4.2",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "derive_arbitrary",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/derive_arbitrary@1.4.2",
-      "type": "library",
-      "version": "1.4.2"
     },
     {
       "bom-ref": "pkg:cargo/derive_more@1.0.0",
@@ -8120,7 +8150,7 @@
       "version": "1.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/faster-hex@0.10.0",
+      "bom-ref": "pkg:cargo/faster-hex@0.10.1",
       "licenses": [
         {
           "expression": "MIT"
@@ -8133,12 +8163,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/faster-hex@0.10.0",
+      "purl": "pkg:cargo/faster-hex@0.10.1",
       "type": "library",
-      "version": "0.10.0"
+      "version": "0.10.1"
     },
     {
-      "bom-ref": "pkg:cargo/fastrand@2.3.0",
+      "bom-ref": "pkg:cargo/fastrand@2.5.0",
       "licenses": [
         {
           "expression": "Apache-2.0 OR MIT"
@@ -8151,9 +8181,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/fastrand@2.3.0",
+      "purl": "pkg:cargo/fastrand@2.5.0",
       "type": "library",
-      "version": "2.3.0"
+      "version": "2.5.0"
     },
     {
       "bom-ref": "pkg:cargo/fax@0.2.6",
@@ -9254,7 +9284,7 @@
       "version": "0.22.8"
     },
     {
-      "bom-ref": "pkg:cargo/gix@0.81.0",
+      "bom-ref": "pkg:cargo/gix@0.89.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9267,12 +9297,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix@0.81.0",
+      "purl": "pkg:cargo/gix@0.89.0",
       "type": "library",
-      "version": "0.81.0"
+      "version": "0.89.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-actor@0.40.0",
+      "bom-ref": "pkg:cargo/gix-actor@0.44.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9285,30 +9315,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-actor@0.40.0",
+      "purl": "pkg:cargo/gix-actor@0.44.0",
       "type": "library",
-      "version": "0.40.0"
+      "version": "0.44.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-archive@0.30.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-archive",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-archive@0.30.0",
-      "type": "library",
-      "version": "0.30.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-attributes@0.31.0",
+      "bom-ref": "pkg:cargo/gix-attributes@0.37.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9321,48 +9333,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-attributes@0.31.0",
+      "purl": "pkg:cargo/gix-attributes@0.37.0",
       "type": "library",
-      "version": "0.31.0"
+      "version": "0.37.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-bitmap@0.3.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-bitmap",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-bitmap@0.3.0",
-      "type": "library",
-      "version": "0.3.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-blame@0.11.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-blame",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-blame@0.11.0",
-      "type": "library",
-      "version": "0.11.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-chunk@0.7.0",
+      "bom-ref": "pkg:cargo/gix-chunk@0.10.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9375,12 +9351,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-chunk@0.7.0",
+      "purl": "pkg:cargo/gix-chunk@0.10.0",
       "type": "library",
-      "version": "0.7.0"
+      "version": "0.10.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-command@0.8.0",
+      "bom-ref": "pkg:cargo/gix-command@0.12.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9393,12 +9369,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-command@0.8.0",
+      "purl": "pkg:cargo/gix-command@0.12.0",
       "type": "library",
-      "version": "0.8.0"
+      "version": "0.12.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-commitgraph@0.35.0",
+      "bom-ref": "pkg:cargo/gix-commitgraph@0.41.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9411,12 +9387,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-commitgraph@0.35.0",
+      "purl": "pkg:cargo/gix-commitgraph@0.41.0",
       "type": "library",
-      "version": "0.35.0"
+      "version": "0.41.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-config@0.54.0",
+      "bom-ref": "pkg:cargo/gix-config@0.62.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9429,12 +9405,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-config@0.54.0",
+      "purl": "pkg:cargo/gix-config@0.62.0",
       "type": "library",
-      "version": "0.54.0"
+      "version": "0.62.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-config-value@0.17.1",
+      "bom-ref": "pkg:cargo/gix-config-value@0.21.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9447,12 +9423,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-config-value@0.17.1",
+      "purl": "pkg:cargo/gix-config-value@0.21.0",
       "type": "library",
-      "version": "0.17.1"
+      "version": "0.21.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-date@0.15.1",
+      "bom-ref": "pkg:cargo/gix-date@0.18.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9465,12 +9441,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-date@0.15.1",
+      "purl": "pkg:cargo/gix-date@0.18.0",
       "type": "library",
-      "version": "0.15.1"
+      "version": "0.18.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-diff@0.61.0",
+      "bom-ref": "pkg:cargo/gix-diff@0.69.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9483,30 +9459,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-diff@0.61.0",
+      "purl": "pkg:cargo/gix-diff@0.69.0",
       "type": "library",
-      "version": "0.61.0"
+      "version": "0.69.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-dir@0.23.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-dir",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-dir@0.23.0",
-      "type": "library",
-      "version": "0.23.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-discover@0.49.0",
+      "bom-ref": "pkg:cargo/gix-discover@0.57.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9519,12 +9477,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-discover@0.49.0",
+      "purl": "pkg:cargo/gix-discover@0.57.0",
       "type": "library",
-      "version": "0.49.0"
+      "version": "0.57.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-error@0.2.1",
+      "bom-ref": "pkg:cargo/gix-error@0.5.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9537,30 +9495,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-error@0.2.1",
+      "purl": "pkg:cargo/gix-error@0.5.0",
       "type": "library",
-      "version": "0.2.1"
+      "version": "0.5.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-features@0.46.2",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-features",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-features@0.46.2",
-      "type": "library",
-      "version": "0.46.2"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-filter@0.28.0",
+      "bom-ref": "pkg:cargo/gix-filter@0.36.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9573,12 +9513,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-filter@0.28.0",
+      "purl": "pkg:cargo/gix-filter@0.36.0",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.36.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-fs@0.19.2",
+      "bom-ref": "pkg:cargo/gix-fs@0.24.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9591,12 +9531,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-fs@0.19.2",
+      "purl": "pkg:cargo/gix-fs@0.24.0",
       "type": "library",
-      "version": "0.19.2"
+      "version": "0.24.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-glob@0.24.0",
+      "bom-ref": "pkg:cargo/gix-glob@0.29.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9609,12 +9549,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-glob@0.24.0",
+      "purl": "pkg:cargo/gix-glob@0.29.0",
       "type": "library",
-      "version": "0.24.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-hash@0.23.0",
+      "bom-ref": "pkg:cargo/gix-hash@0.28.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9627,12 +9567,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-hash@0.23.0",
+      "purl": "pkg:cargo/gix-hash@0.28.0",
       "type": "library",
-      "version": "0.23.0"
+      "version": "0.28.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-hashtable@0.13.0",
+      "bom-ref": "pkg:cargo/gix-hashtable@0.18.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9645,48 +9585,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-hashtable@0.13.0",
+      "purl": "pkg:cargo/gix-hashtable@0.18.0",
       "type": "library",
-      "version": "0.13.0"
+      "version": "0.18.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-ignore@0.19.1",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-ignore",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-ignore@0.19.1",
-      "type": "library",
-      "version": "0.19.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-index@0.49.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-index",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-index@0.49.0",
-      "type": "library",
-      "version": "0.49.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-lock@21.0.2",
+      "bom-ref": "pkg:cargo/gix-lock@26.0.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9699,48 +9603,48 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-lock@21.0.2",
+      "purl": "pkg:cargo/gix-lock@26.0.0",
       "type": "library",
-      "version": "21.0.2"
+      "version": "26.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-merge@0.14.0",
+      "bom-ref": "pkg:cargo/gix-macros@0.2.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
         }
       ],
-      "name": "gix-merge",
+      "name": "gix-macros",
       "properties": [
         {
           "name": "cargo:source",
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-merge@0.14.0",
+      "purl": "pkg:cargo/gix-macros@0.2.0",
       "type": "library",
-      "version": "0.14.0"
+      "version": "0.2.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-negotiate@0.29.0",
+      "bom-ref": "pkg:cargo/gix-note@0.3.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
         }
       ],
-      "name": "gix-negotiate",
+      "name": "gix-note",
       "properties": [
         {
           "name": "cargo:source",
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-negotiate@0.29.0",
+      "purl": "pkg:cargo/gix-note@0.3.0",
       "type": "library",
-      "version": "0.29.0"
+      "version": "0.3.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-object@0.58.0",
+      "bom-ref": "pkg:cargo/gix-object@0.66.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9753,12 +9657,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-object@0.58.0",
+      "purl": "pkg:cargo/gix-object@0.66.0",
       "type": "library",
-      "version": "0.58.0"
+      "version": "0.66.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-odb@0.78.0",
+      "bom-ref": "pkg:cargo/gix-odb@0.86.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9771,12 +9675,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-odb@0.78.0",
+      "purl": "pkg:cargo/gix-odb@0.86.0",
       "type": "library",
-      "version": "0.78.0"
+      "version": "0.86.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-pack@0.68.0",
+      "bom-ref": "pkg:cargo/gix-pack@0.76.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9789,12 +9693,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-pack@0.68.0",
+      "purl": "pkg:cargo/gix-pack@0.76.0",
       "type": "library",
-      "version": "0.68.0"
+      "version": "0.76.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-packetline@0.21.2",
+      "bom-ref": "pkg:cargo/gix-packetline@0.24.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9807,12 +9711,30 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-packetline@0.21.2",
+      "purl": "pkg:cargo/gix-packetline@0.24.0",
       "type": "library",
-      "version": "0.21.2"
+      "version": "0.24.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-path@0.11.2",
+      "bom-ref": "pkg:cargo/gix-parallel@0.50.0",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "gix-parallel",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/gix-parallel@0.50.0",
+      "type": "library",
+      "version": "0.50.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/gix-path@0.14.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9825,30 +9747,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-path@0.11.2",
+      "purl": "pkg:cargo/gix-path@0.14.0",
       "type": "library",
-      "version": "0.11.2"
+      "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-pathspec@0.16.1",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-pathspec",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-pathspec@0.16.1",
-      "type": "library",
-      "version": "0.16.1"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-protocol@0.59.0",
+      "bom-ref": "pkg:cargo/gix-protocol@0.67.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9861,12 +9765,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-protocol@0.59.0",
+      "purl": "pkg:cargo/gix-protocol@0.67.0",
       "type": "library",
-      "version": "0.59.0"
+      "version": "0.67.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-quote@0.7.0",
+      "bom-ref": "pkg:cargo/gix-quote@0.10.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9879,12 +9783,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-quote@0.7.0",
+      "purl": "pkg:cargo/gix-quote@0.10.0",
       "type": "library",
-      "version": "0.7.0"
+      "version": "0.10.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-ref@0.61.0",
+      "bom-ref": "pkg:cargo/gix-ref@0.69.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9897,12 +9801,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-ref@0.61.0",
+      "purl": "pkg:cargo/gix-ref@0.69.0",
       "type": "library",
-      "version": "0.61.0"
+      "version": "0.69.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-refspec@0.39.0",
+      "bom-ref": "pkg:cargo/gix-refspec@0.47.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9915,12 +9819,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-refspec@0.39.0",
+      "purl": "pkg:cargo/gix-refspec@0.47.0",
       "type": "library",
-      "version": "0.39.0"
+      "version": "0.47.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-revision@0.43.0",
+      "bom-ref": "pkg:cargo/gix-revision@0.51.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9933,12 +9837,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-revision@0.43.0",
+      "purl": "pkg:cargo/gix-revision@0.51.0",
       "type": "library",
-      "version": "0.43.0"
+      "version": "0.51.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-revwalk@0.29.0",
+      "bom-ref": "pkg:cargo/gix-revwalk@0.37.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9951,12 +9855,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-revwalk@0.29.0",
+      "purl": "pkg:cargo/gix-revwalk@0.37.0",
       "type": "library",
-      "version": "0.29.0"
+      "version": "0.37.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-sec@0.13.2",
+      "bom-ref": "pkg:cargo/gix-sec@0.16.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9969,12 +9873,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-sec@0.13.2",
+      "purl": "pkg:cargo/gix-sec@0.16.0",
       "type": "library",
-      "version": "0.13.2"
+      "version": "0.16.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-shallow@0.10.0",
+      "bom-ref": "pkg:cargo/gix-shallow@0.15.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -9987,48 +9891,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-shallow@0.10.0",
+      "purl": "pkg:cargo/gix-shallow@0.15.0",
       "type": "library",
-      "version": "0.10.0"
+      "version": "0.15.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-status@0.28.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-status",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-status@0.28.0",
-      "type": "library",
-      "version": "0.28.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-submodule@0.28.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-submodule",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-submodule@0.28.0",
-      "type": "library",
-      "version": "0.28.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-tempfile@21.0.2",
+      "bom-ref": "pkg:cargo/gix-tempfile@26.0.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10041,12 +9909,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-tempfile@21.0.2",
+      "purl": "pkg:cargo/gix-tempfile@26.0.0",
       "type": "library",
-      "version": "21.0.2"
+      "version": "26.0.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-trace@0.1.18",
+      "bom-ref": "pkg:cargo/gix-trace@0.3.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10059,12 +9927,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-trace@0.1.18",
+      "purl": "pkg:cargo/gix-trace@0.3.0",
       "type": "library",
-      "version": "0.1.18"
+      "version": "0.3.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-transport@0.55.1",
+      "bom-ref": "pkg:cargo/gix-transport@0.61.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10077,12 +9945,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-transport@0.55.1",
+      "purl": "pkg:cargo/gix-transport@0.61.0",
       "type": "library",
-      "version": "0.55.1"
+      "version": "0.61.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-traverse@0.55.0",
+      "bom-ref": "pkg:cargo/gix-traverse@0.63.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10095,12 +9963,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-traverse@0.55.0",
+      "purl": "pkg:cargo/gix-traverse@0.63.0",
       "type": "library",
-      "version": "0.55.0"
+      "version": "0.63.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-url@0.35.2",
+      "bom-ref": "pkg:cargo/gix-url@0.40.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10113,12 +9981,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-url@0.35.2",
+      "purl": "pkg:cargo/gix-url@0.40.0",
       "type": "library",
-      "version": "0.35.2"
+      "version": "0.40.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-utils@0.3.1",
+      "bom-ref": "pkg:cargo/gix-utils@0.5.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10131,12 +9999,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-utils@0.3.1",
+      "purl": "pkg:cargo/gix-utils@0.5.0",
       "type": "library",
-      "version": "0.3.1"
+      "version": "0.5.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-validate@0.11.0",
+      "bom-ref": "pkg:cargo/gix-validate@0.13.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10149,48 +10017,12 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-validate@0.11.0",
+      "purl": "pkg:cargo/gix-validate@0.13.0",
       "type": "library",
-      "version": "0.11.0"
+      "version": "0.13.0"
     },
     {
-      "bom-ref": "pkg:cargo/gix-worktree@0.50.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-worktree",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-worktree@0.50.0",
-      "type": "library",
-      "version": "0.50.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-worktree-state@0.28.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "gix-worktree-state",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/gix-worktree-state@0.28.0",
-      "type": "library",
-      "version": "0.28.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/gix-worktree-stream@0.30.0",
+      "bom-ref": "pkg:cargo/gix-worktree-stream@0.38.0",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -10203,9 +10035,27 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/gix-worktree-stream@0.30.0",
+      "purl": "pkg:cargo/gix-worktree-stream@0.38.0",
       "type": "library",
-      "version": "0.30.0"
+      "version": "0.38.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/gix-zlib@0.3.0",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "gix-zlib",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/gix-zlib@0.3.0",
+      "type": "library",
+      "version": "0.3.0"
     },
     {
       "bom-ref": "pkg:cargo/glib@0.22.8",
@@ -11432,7 +11282,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/hyper@1.8.1",
+      "bom-ref": "pkg:cargo/hyper@1.11.1",
       "licenses": [
         {
           "expression": "MIT"
@@ -11445,9 +11295,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/hyper@1.8.1",
+      "purl": "pkg:cargo/hyper@1.11.1",
       "type": "library",
-      "version": "1.8.1"
+      "version": "1.11.1"
     },
     {
       "bom-ref": "pkg:cargo/hyper-rustls@0.27.7",
@@ -12152,42 +12002,6 @@
       "version": "0.14.0"
     },
     {
-      "bom-ref": "pkg:cargo/imara-diff@0.1.8",
-      "licenses": [
-        {
-          "expression": "Apache-2.0"
-        }
-      ],
-      "name": "imara-diff",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/imara-diff@0.1.8",
-      "type": "library",
-      "version": "0.1.8"
-    },
-    {
-      "bom-ref": "pkg:cargo/imara-diff@0.2.0",
-      "licenses": [
-        {
-          "expression": "Apache-2.0"
-        }
-      ],
-      "name": "imara-diff",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/imara-diff@0.2.0",
-      "type": "library",
-      "version": "0.2.0"
-    },
-    {
       "bom-ref": "pkg:cargo/include_dir@0.7.4",
       "licenses": [
         {
@@ -12476,24 +12290,6 @@
       "version": "0.3.24"
     },
     {
-      "bom-ref": "pkg:cargo/io-close@0.3.7",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "io-close",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/io-close@0.3.7",
-      "type": "library",
-      "version": "0.3.7"
-    },
-    {
       "bom-ref": "pkg:cargo/io_tee@0.1.1",
       "licenses": [
         {
@@ -12710,7 +12506,7 @@
       "version": "0.6.4"
     },
     {
-      "bom-ref": "pkg:cargo/jiff@0.2.23",
+      "bom-ref": "pkg:cargo/jiff@0.2.38",
       "licenses": [
         {
           "expression": "Unlicense OR MIT"
@@ -12723,12 +12519,30 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/jiff@0.2.23",
+      "purl": "pkg:cargo/jiff@0.2.38",
       "type": "library",
-      "version": "0.2.23"
+      "version": "0.2.38"
     },
     {
-      "bom-ref": "pkg:cargo/jiff-static@0.2.23",
+      "bom-ref": "pkg:cargo/jiff-core@0.1.1",
+      "licenses": [
+        {
+          "expression": "Unlicense OR MIT"
+        }
+      ],
+      "name": "jiff-core",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/jiff-core@0.1.1",
+      "type": "library",
+      "version": "0.1.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/jiff-static@0.2.38",
       "licenses": [
         {
           "expression": "Unlicense OR MIT"
@@ -12741,9 +12555,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/jiff-static@0.2.23",
+      "purl": "pkg:cargo/jiff-static@0.2.38",
       "type": "library",
-      "version": "0.2.23"
+      "version": "0.2.38"
     },
     {
       "bom-ref": "pkg:cargo/jiff-tzdb@0.1.6",
@@ -13448,6 +13262,24 @@
       "version": "0.5.6"
     },
     {
+      "bom-ref": "pkg:cargo/linkify@0.11.0",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "linkify",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/linkify@0.11.0",
+      "type": "library",
+      "version": "0.11.0"
+    },
+    {
       "bom-ref": "pkg:cargo/linktime-proc-macro@0.1.0",
       "licenses": [
         {
@@ -13754,24 +13586,6 @@
       "version": "0.97.0"
     },
     {
-      "bom-ref": "pkg:cargo/lzma-rs@0.3.0",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "name": "lzma-rs",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/lzma-rs@0.3.0",
-      "type": "library",
-      "version": "0.3.0"
-    },
-    {
       "bom-ref": "pkg:cargo/lzma-rust2@0.16.5",
       "licenses": [
         {
@@ -13790,22 +13604,22 @@
       "version": "0.16.5"
     },
     {
-      "bom-ref": "pkg:cargo/lzma-sys@0.1.20",
+      "bom-ref": "pkg:cargo/lzma-rust2@0.21.0",
       "licenses": [
         {
-          "expression": "MIT/Apache-2.0"
+          "expression": "Apache-2.0"
         }
       ],
-      "name": "lzma-sys",
+      "name": "lzma-rust2",
       "properties": [
         {
           "name": "cargo:source",
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/lzma-sys@0.1.20",
+      "purl": "pkg:cargo/lzma-rust2@0.21.0",
       "type": "library",
-      "version": "0.1.20"
+      "version": "0.21.0"
     },
     {
       "bom-ref": "pkg:cargo/mac_address@1.1.8",
@@ -13916,24 +13730,6 @@
       "version": "0.9.1"
     },
     {
-      "bom-ref": "pkg:cargo/maybe-async@0.2.10",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "name": "maybe-async",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/maybe-async@0.2.10",
-      "type": "library",
-      "version": "0.2.10"
-    },
-    {
       "bom-ref": "pkg:cargo/md-5@0.10.6",
       "licenses": [
         {
@@ -14006,7 +13802,7 @@
       "version": "2.8.1"
     },
     {
-      "bom-ref": "pkg:cargo/memmap2@0.9.10",
+      "bom-ref": "pkg:cargo/memmap2@0.9.11",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -14019,9 +13815,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/memmap2@0.9.10",
+      "purl": "pkg:cargo/memmap2@0.9.11",
       "type": "library",
-      "version": "0.9.10"
+      "version": "0.9.11"
     },
     {
       "bom-ref": "pkg:cargo/memmem@0.1.1",
@@ -15262,6 +15058,24 @@
         }
       ],
       "purl": "pkg:cargo/objc2-quartz-core@0.3.2",
+      "type": "library",
+      "version": "0.3.2"
+    },
+    {
+      "bom-ref": "pkg:cargo/objc2-security@0.3.2",
+      "licenses": [
+        {
+          "expression": "Zlib OR Apache-2.0 OR MIT"
+        }
+      ],
+      "name": "objc2-security",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/objc2-security@0.3.2",
       "type": "library",
       "version": "0.3.2"
     },
@@ -17156,7 +16970,7 @@
       "version": "0.8.0"
     },
     {
-      "bom-ref": "pkg:cargo/prodash@31.0.0",
+      "bom-ref": "pkg:cargo/prodash@31.0.1",
       "licenses": [
         {
           "expression": "MIT"
@@ -17169,9 +16983,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/prodash@31.0.0",
+      "purl": "pkg:cargo/prodash@31.0.1",
       "type": "library",
-      "version": "31.0.0"
+      "version": "31.0.1"
     },
     {
       "bom-ref": "pkg:cargo/proptest@1.9.0",
@@ -17696,7 +17510,7 @@
       "version": "0.11.9"
     },
     {
-      "bom-ref": "pkg:cargo/quinn-proto@0.11.15",
+      "bom-ref": "pkg:cargo/quinn-proto@0.11.18",
       "licenses": [
         {
           "expression": "MIT OR Apache-2.0"
@@ -17709,9 +17523,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/quinn-proto@0.11.15",
+      "purl": "pkg:cargo/quinn-proto@0.11.18",
       "type": "library",
-      "version": "0.11.15"
+      "version": "0.11.18"
     },
     {
       "bom-ref": "pkg:cargo/quinn-udp@0.5.14",
@@ -18288,6 +18102,24 @@
       "purl": "pkg:cargo/rand_core@0.9.5",
       "type": "library",
       "version": "0.9.5"
+    },
+    {
+      "bom-ref": "pkg:cargo/rand_pcg@0.10.2",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "rand_pcg",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/rand_pcg@0.10.2",
+      "type": "library",
+      "version": "0.10.2"
     },
     {
       "bom-ref": "pkg:cargo/rand_regex@0.18.1",
@@ -18920,7 +18752,7 @@
       "version": "0.8.18"
     },
     {
-      "bom-ref": "pkg:cargo/rmcp@3.3.0",
+      "bom-ref": "pkg:cargo/rmcp@3.5.1",
       "licenses": [
         {
           "expression": "Apache-2.0"
@@ -18930,15 +18762,15 @@
       "properties": [
         {
           "name": "cargo:source",
-          "value": "git+https://github.com/modelcontextprotocol/rust-sdk?rev=3e636cab26c013eca5131103c03d20237f12c4df#3e636cab26c013eca5131103c03d20237f12c4df"
+          "value": "git+https://github.com/modelcontextprotocol/rust-sdk?rev=98a54789b80110ad210495c4ad845c89e1980471#98a54789b80110ad210495c4ad845c89e1980471"
         }
       ],
-      "purl": "pkg:cargo/rmcp@3.3.0",
+      "purl": "pkg:cargo/rmcp@3.5.1",
       "type": "library",
-      "version": "3.3.0"
+      "version": "3.5.1"
     },
     {
-      "bom-ref": "pkg:cargo/rmcp-macros@3.3.0",
+      "bom-ref": "pkg:cargo/rmcp-macros@3.5.1",
       "licenses": [
         {
           "expression": "Apache-2.0"
@@ -18948,12 +18780,12 @@
       "properties": [
         {
           "name": "cargo:source",
-          "value": "git+https://github.com/modelcontextprotocol/rust-sdk?rev=3e636cab26c013eca5131103c03d20237f12c4df#3e636cab26c013eca5131103c03d20237f12c4df"
+          "value": "git+https://github.com/modelcontextprotocol/rust-sdk?rev=98a54789b80110ad210495c4ad845c89e1980471#98a54789b80110ad210495c4ad845c89e1980471"
         }
       ],
-      "purl": "pkg:cargo/rmcp-macros@3.3.0",
+      "purl": "pkg:cargo/rmcp-macros@3.5.1",
       "type": "library",
-      "version": "3.3.0"
+      "version": "3.5.1"
     },
     {
       "bom-ref": "pkg:cargo/roman-numerals-rs@3.1.0",
@@ -19550,7 +19382,7 @@
       "version": "1.1.4"
     },
     {
-      "bom-ref": "pkg:cargo/rustls@0.23.45",
+      "bom-ref": "pkg:cargo/rustls@0.23.46",
       "licenses": [
         {
           "expression": "Apache-2.0 OR ISC OR MIT"
@@ -19563,9 +19395,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/rustls@0.23.45",
+      "purl": "pkg:cargo/rustls@0.23.46",
       "type": "library",
-      "version": "0.23.45"
+      "version": "0.23.46"
     },
     {
       "bom-ref": "pkg:cargo/rustls-native-certs@0.8.3",
@@ -20648,24 +20480,6 @@
       "version": "0.11.0"
     },
     {
-      "bom-ref": "pkg:cargo/sha1-checked@0.10.0",
-      "licenses": [
-        {
-          "expression": "MIT OR Apache-2.0"
-        }
-      ],
-      "name": "sha1-checked",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/sha1-checked@0.10.0",
-      "type": "library",
-      "version": "0.10.0"
-    },
-    {
       "bom-ref": "pkg:cargo/sha1_smol@1.0.1",
       "licenses": [
         {
@@ -20682,6 +20496,24 @@
       "purl": "pkg:cargo/sha1_smol@1.0.1",
       "type": "library",
       "version": "1.0.1"
+    },
+    {
+      "bom-ref": "pkg:cargo/sha1dc@0.1.5",
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "sha1dc",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/sha1dc@0.1.5",
+      "type": "library",
+      "version": "0.1.5"
     },
     {
       "bom-ref": "pkg:cargo/sha2@0.10.9",
@@ -25184,7 +25016,7 @@
       "version": "1.20.0"
     },
     {
-      "bom-ref": "pkg:cargo/v8@150.4.0",
+      "bom-ref": "pkg:cargo/v8@152.2.0",
       "licenses": [
         {
           "expression": "MIT"
@@ -25197,9 +25029,9 @@
           "value": "registry+https://github.com/rust-lang/crates.io-index"
         }
       ],
-      "purl": "pkg:cargo/v8@150.4.0",
+      "purl": "pkg:cargo/v8@152.2.0",
       "type": "library",
-      "version": "150.4.0"
+      "version": "152.2.0"
     },
     {
       "bom-ref": "pkg:cargo/valuable@0.1.1",
@@ -27776,24 +27608,6 @@
       "version": "0.3.3"
     },
     {
-      "bom-ref": "pkg:cargo/xz2@0.1.7",
-      "licenses": [
-        {
-          "expression": "MIT/Apache-2.0"
-        }
-      ],
-      "name": "xz2",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/xz2@0.1.7",
-      "type": "library",
-      "version": "0.1.7"
-    },
-    {
       "bom-ref": "pkg:cargo/yaml-rust@0.4.5",
       "licenses": [
         {
@@ -28100,24 +27914,6 @@
       "version": "0.11.6"
     },
     {
-      "bom-ref": "pkg:cargo/zip@2.4.2",
-      "licenses": [
-        {
-          "expression": "MIT"
-        }
-      ],
-      "name": "zip",
-      "properties": [
-        {
-          "name": "cargo:source",
-          "value": "registry+https://github.com/rust-lang/crates.io-index"
-        }
-      ],
-      "purl": "pkg:cargo/zip@2.4.2",
-      "type": "library",
-      "version": "2.4.2"
-    },
-    {
       "bom-ref": "pkg:cargo/zip@8.6.0",
       "licenses": [
         {
@@ -28134,6 +27930,24 @@
       "purl": "pkg:cargo/zip@8.6.0",
       "type": "library",
       "version": "8.6.0"
+    },
+    {
+      "bom-ref": "pkg:cargo/zip@9.0.0",
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "name": "zip",
+      "properties": [
+        {
+          "name": "cargo:source",
+          "value": "registry+https://github.com/rust-lang/crates.io-index"
+        }
+      ],
+      "purl": "pkg:cargo/zip@9.0.0",
+      "type": "library",
+      "version": "9.0.0"
     },
     {
       "bom-ref": "pkg:cargo/zlib-rs@0.5.5",
@@ -28408,27 +28222,27 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "urn:git:092d3acd6bec3e3a14bdc7e7a2810ab628ab759d:overlay:75962ffb6996a78c93f7a17c0a1fdf43bf229723b1393e65b4bf36ba2d26e8e5",
+      "bom-ref": "urn:git:ce0323f2f2d3b25e82806cd555237da3db4e1897:overlay:35426299b5a14649435c721bac477b1fbd51705d4f45d5ae5b7e468e96f84dac",
       "name": "ai-platform-agent-runtime-source",
       "properties": [
         {
           "name": "ai-platform:git.tree",
-          "value": "572cdecd45cd985f0ad80b63d8b86ffcb345f47a"
+          "value": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc"
         },
         {
           "name": "ai-platform:overlay.sha256",
-          "value": "75962ffb6996a78c93f7a17c0a1fdf43bf229723b1393e65b4bf36ba2d26e8e5"
+          "value": "35426299b5a14649435c721bac477b1fbd51705d4f45d5ae5b7e468e96f84dac"
         },
         {
           "name": "ai-platform:cargo-lock.sha256",
-          "value": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341"
+          "value": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf"
         }
       ],
       "type": "application",
-      "version": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d+75962ffb6996"
+      "version": "ce0323f2f2d3b25e82806cd555237da3db4e1897+35426299b5a1"
     }
   },
-  "serialNumber": "urn:uuid:91055f94-62c8-557a-8db9-6b6c558b63dd",
+  "serialNumber": "urn:uuid:823a6855-e737-5465-993e-0b607618a5e2",
   "specVersion": "1.5",
   "version": 1
 }

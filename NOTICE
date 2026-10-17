@@ -1,0 +1,27 @@
+AgentForge / AI Gateway
+Copyright 2026 AI Gateway contributors
+
+Repository-owned contributions are licensed under the Apache License, Version 2.0.
+The license grant does not replace licenses or notices on third-party material.
+
+Assistant Runtime derives from OpenAI Codex:
+  OpenAI Codex
+  Copyright 2025 OpenAI
+Complete source identity, upstream LICENSE/NOTICE hashes, and Ratatui attribution:
+  deploy/agent-runtime-source/NOTICE.md
+Distributions containing the Runtime must also retain the complete pinned
+upstream LICENSE and NOTICE files identified there.
+
+Additional bundled plugin attribution:
+  agent-plugins/community-doublecheck/THIRD_PARTY_NOTICES.md
+  agent-plugins/community-engineering-reviewers/THIRD_PARTY_NOTICES.md
+
+Dependency notices are generated from the actual native dependency metadata and
+installed JavaScript packages by platform-tools third-party-notices. Include its
+THIRD_PARTY_NOTICES.txt and inventory.json with the corresponding distribution.
+Generation instructions and pending dependency license decisions:
+  docs/security/licensing.md
+
+Third-party font, certificate, data and source licenses retain their respective
+copyrights and license conditions. This NOTICE does not grant rights to project
+names, trademarks or third-party material beyond their applicable licenses.

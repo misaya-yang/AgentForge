@@ -1,26 +1,19 @@
 {
   "capability_worker_sbom": {
-    "component_count": 621,
+    "component_count": 639,
     "format": "CycloneDX-1.5",
     "path": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
-    "sha256": "2f86fc087c57343a1f8844b67ec1d05d224f43a8a09c277573952bebbe182474"
+    "sha256": "1e3475fc58c8a431225eebd35ebf4a18cdfecaae6e3bb6f8d2f3be090d622959"
   },
   "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
   "evidence_provenance": {
-    "base_export_evidence_sha256": "59d67296e784a9163967e9ce200f80b1e9b0b53f40c61284333b0f09f8aab0ec",
-    "base_receipt_sha256": "1f19b8d037db661ad582e3c62d104a63e3128f8f07ee87bd2070e922fc907230",
-    "base_source_unit_sha256": "adcacedcd460087222108c23e76d9419d5335fc4b814f87fbb33ace3bdf5193a",
-    "current_runtime_check_verified": false,
-    "current_runtime_tests_executed": false,
     "docker_image_verified": false,
-    "metadata_file_sha256": "a187dcddb47a0eb37cdf2888bd4ebe9e560d38923207c24c5f1aa86c1df25638",
-    "method": "source-only atomic recovery terminal overlay delta; inherited unchanged dependency graph and compiled protocol schema",
-    "overlay_delta_sha256": "34ddf7ef28470a850627847cf717b4147c3bbfae46de7fcc2a74afaa34bc5635",
-    "previous_overlay_delta_sha256": "0fdc8c81131e4407e08f4d0b4c659a4c7b258307bab1ab7c0cac1fed0c15524c",
-    "prior_build_receipts_scope": "Historical pre-patch source only; never rewritten or represented as current-patch verification.",
+    "export_evidence_sha256": "b1ada5309914bb36db407dcf6deed295dbf520ca7f7b2adb0e3ed01c458c589e",
+    "metadata_file_sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d",
+    "method": "verified immutable upstream plus source-only overlay; offline compiled protocol export",
     "runtime_compiled": false,
     "schema_generated_by_compiled_protocol_library": true,
-    "schema_reuse_reason": "Only five ai-platform-agent-runtime implementation/test-module paths changed; all manifests/locks and the entire codex-app-server-protocol dependency closure are unchanged.",
+    "source_unit_sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42",
     "worker_compiled": false
   },
   "license": {
@@ -29,35 +22,35 @@
     "upstream_notice_sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
   },
   "overlay": {
-    "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
-    "file_count": 163,
+    "cargo_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf",
+    "file_count": 191,
     "manifest_schema": "ai-platform/agent-runtime-overlay/v2",
-    "manifest_sha256": "8fed1e8ad5a54c5dcfe1b6f21980a90cba395fb7c286ebf2ff1b30ac145d1a95",
-    "sha256": "12fbb73aec9b1a19ffb9f055b2d285e2bebbc7fb63d226ca7c2ab01ee7e59562",
-    "source_revision": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
-    "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d"
+    "manifest_sha256": "92ba4f22ecb5c9f692fca9626ce45379ea48e5cc20259c6e731073ddf671db26",
+    "sha256": "35426299b5a14649435c721bac477b1fbd51705d4f45d5ae5b7e468e96f84dac",
+    "source_revision": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+    "upstream_sha": "ce0323f2f2d3b25e82806cd555237da3db4e1897"
   },
   "sbom": {
-    "component_count": 1633,
+    "component_count": 1623,
     "format": "CycloneDX-1.5",
-    "sha256": "f610826098ad48732cbf9bb5c09c77e7551b6d020ae5ac23958501bafbddec5e"
+    "sha256": "c7c313b881e1d94a1ef58b798208b01fd5983f8bffda24d0bb49088fc5c912d7"
   },
   "schema_bundle": {
-    "file_count": 1060,
-    "sha256": "0e8f4bcb6abd17e538e875e0dbe77dbc1e521015bab7f44dfebae4d6e072d49f",
-    "total_bytes": 4037337
+    "file_count": 1066,
+    "sha256": "01cf60668fd3c8be4391017eee99dd785f5a42cb357384648ba2ddfdafcea9fd",
+    "total_bytes": 4100963
   },
   "schema_version": "ai-platform/agent-runtime-source-receipt/v1",
   "source": {
     "branch": "",
-    "fork_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
-    "git_tree_sha": "572cdecd45cd985f0ad80b63d8b86ffcb345f47a",
-    "upstream_sha": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "fork_sha": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+    "git_tree_sha": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc",
+    "upstream_sha": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
     "upstream_url": "https://github.com/openai/codex.git"
   },
   "toolchain": {
     "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-    "cargo_lock_sha256": "a99c2af69c4272c5a527dc55e1e8b6f4717e783c8f224da0786cc97e90a81341",
+    "cargo_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf",
     "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
   }

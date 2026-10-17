@@ -1,3 +1,5 @@
+#[path="common/no_network_plane.rs"]
+mod no_network_plane;
 use ai_platform_knowledge_service::{
     KnowledgeBackends, KnowledgeConnections, KnowledgeGraph, process::ProcessSettings,
 };
@@ -36,6 +38,7 @@ async fn router(role: &str) -> axum::Router {
         .unwrap();
     KnowledgeGraph::new(
         KnowledgeConnections {
+            model_plane:Some(no_network_plane::client()),
             database: pool,
             replay_redis: None,
             idempotency_redis: None,

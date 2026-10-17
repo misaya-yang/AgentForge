@@ -2,7 +2,8 @@
 //!
 //! Run only with `-- --ignored` and the explicit loopback test settings
 //! documented by the support fixture. Ordinary test runs never connect to PG or
-//! Redis. The local Runtime HTTP stub emits one text delta and then clean EOF.
+//! Redis. The Runtime HTTP fixture covers clean EOF, SSE open 500 and a real
+//! truncated HTTP chunk after a projected text delta.
 
 #[path = "responses_route_idempotency_support/mod.rs"]
 mod support;
@@ -12,7 +13,7 @@ use axum::http::StatusCode;
 use futures_util::FutureExt;
 use serde_json::Value;
 use std::{panic::AssertUnwindSafe, sync::atomic::Ordering, time::Duration};
-use support::{ProjectFixture, Result, RuntimeStub, post_response};
+use support::{ProjectFixture, Result, RuntimeFailureMode, RuntimeStub, post_response};
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
 
@@ -22,8 +23,8 @@ async fn production_responses_route_creates_fresh_session_and_caches_post_accept
 {
     let fixture = ProjectFixture::new().await?;
     let outcome = AssertUnwindSafe(async {
-        exercise_backend(&fixture, false).await?;
-        exercise_backend(&fixture, true).await?;
+        exercise_backend(&fixture, false, RuntimeFailureMode::CleanEof).await?;
+        exercise_backend(&fixture, true, RuntimeFailureMode::CleanEof).await?;
         Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
     })
     .catch_unwind()
@@ -36,7 +37,32 @@ async fn production_responses_route_creates_fresh_session_and_caches_post_accept
     }
 }
 
-async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<()> {
+#[tokio::test]
+#[ignore = "requires explicit disposable loopback PostgreSQL and Redis; real HTTP error framing"]
+async fn production_responses_route_caches_post_accept_open_and_read_errors() -> Result<()> {
+    let fixture = ProjectFixture::new().await?;
+    let outcome = AssertUnwindSafe(async {
+        for mode in [RuntimeFailureMode::Open500, RuntimeFailureMode::ReadError] {
+            for redis in [false, true] {
+                exercise_backend(&fixture, redis, mode).await?;
+            }
+        }
+        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+    })
+    .catch_unwind()
+    .await;
+    fixture.close().await?;
+    match outcome {
+        Ok(result) => result,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+}
+
+async fn exercise_backend(
+    fixture: &ProjectFixture,
+    use_redis: bool,
+    mode: RuntimeFailureMode,
+) -> Result<()> {
     let backend = if use_redis { "redis" } else { "memory" };
     let key = format!("responses-route-{backend}-{}", Uuid::new_v4().simple());
     let session_id = Uuid::new_v4().to_string();
@@ -46,7 +72,11 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
         &key,
     );
 
-    let mut runtime = RuntimeStub::start(fixture.runtime_pool.clone()).await?;
+    let mut runtime = if mode == RuntimeFailureMode::CleanEof {
+        RuntimeStub::start(fixture.runtime_pool.clone()).await?
+    } else {
+        RuntimeStub::start_with_mode(fixture.runtime_pool.clone(), mode).await?
+    };
     let idempotency = if use_redis {
         ResponsesIdempotency::new(Some(fixture.redis.clone()))
     } else {
@@ -71,7 +101,10 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
 
     tokio::select! {
         biased;
-        seen = timeout(Duration::from_secs(10), harness.event_seen.notified()) => {
+        seen = timeout(Duration::from_secs(10), async {
+            if mode==RuntimeFailureMode::Open500 {runtime.stream_opened.notified().await;} else {harness.event_seen.notified().await;}
+            runtime.turn_started.notified().await;
+        }) => {
             seen.map_err(|_| "Runtime partial event was not projected by the Gateway")?;
         }
         response = &mut first => {
@@ -114,13 +147,24 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
         .map_err(|_| "same-key Responses waiter timed out")?
         .map_err(|_| "same-key Responses waiter task failed")??;
 
-    assert_eq!(first.status, StatusCode::BAD_GATEWAY, "{backend}");
-    assert_eq!(
-        first.body["error"]["code"],
+    let expected_status = if mode == RuntimeFailureMode::CleanEof {
+        StatusCode::BAD_GATEWAY
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    let expected_code = if mode == RuntimeFailureMode::CleanEof {
         "agent_runtime_stream_incomplete"
+    } else {
+        "agent_runtime_event_stream_failed"
+    };
+    assert_eq!(
+        first.status, expected_status,
+        "{backend} {mode:?}: unexpected Runtime failure projection {} ({})",
+        first.status, first.body["error"]["code"]
     );
+    assert_eq!(first.body["error"]["code"], expected_code);
     assert!(first.headers.get("x-idempotency-replayed").is_none());
-    assert_eq!(waited.status, StatusCode::BAD_GATEWAY, "{backend}");
+    assert_eq!(waited.status, expected_status, "{backend} {mode:?}");
     assert_eq!(waited.body, first.body);
     assert_eq!(
         waited
@@ -137,7 +181,7 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
         body.clone(),
     )
     .await?;
-    assert_eq!(replay.status, StatusCode::BAD_GATEWAY, "{backend}");
+    assert_eq!(replay.status, expected_status, "{backend} {mode:?}");
     assert_eq!(replay.body, first.body);
     assert_eq!(
         replay
@@ -146,6 +190,53 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
             .and_then(|v| v.to_str().ok()),
         Some("true")
     );
+
+    // Preserve the original EOF contract independently of the new error modes.
+    if mode == RuntimeFailureMode::CleanEof {
+        assert_eq!(first.status, StatusCode::BAD_GATEWAY);
+        assert_eq!(waited.status, StatusCode::BAD_GATEWAY);
+        assert_eq!(replay.status, StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            first.body["error"]["code"],
+            "agent_runtime_stream_incomplete"
+        );
+    }
+    let accepted_run = runtime.accepted_run_id()?;
+    for response in [&first, &waited, &replay] {
+        assert_eq!(
+            response
+                .headers
+                .get("x-run-id")
+                .and_then(|v| v.to_str().ok()),
+            Some(accepted_run.as_str()),
+            "{backend} {mode:?}"
+        );
+        assert_eq!(
+            response
+                .headers
+                .get("x-session-id")
+                .and_then(|v| v.to_str().ok()),
+            Some(session_id.as_str()),
+            "{backend} {mode:?}"
+        );
+        assert_eq!(
+            response
+                .headers
+                .get("content-type")
+                .and_then(|v| v.to_str().ok()),
+            Some("application/json")
+        );
+        assert_eq!(
+            response.raw_body, first.raw_body,
+            "cached bytes must match exactly"
+        );
+        let mut headers = response.headers.clone();
+        headers.remove("x-idempotency-replayed");
+        assert_eq!(
+            headers, first.headers,
+            "cached headers must retain accepted identity"
+        );
+    }
 
     let mut conflicting_body = body.clone();
     conflicting_body["input"] = Value::String("different request body".into());
@@ -222,6 +313,31 @@ async fn exercise_backend(fixture: &ProjectFixture, use_redis: bool) -> Result<(
     assert_eq!(
         persisted_threads, 1,
         "fresh Runtime thread should be created once"
+    );
+
+    let stored_run:String=sqlx::query_scalar("SELECT run_id::text FROM assistant.assistant_runs WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3")
+        .bind(&fixture.actor_a.actor.tenant_id).bind(&fixture.actor_a.actor.user_id).bind(&session_id).fetch_one(&fixture.pool).await?;
+    assert_eq!(
+        stored_run, accepted_run,
+        "response must identify the durable scoped run"
+    );
+    let paths = runtime.request_paths();
+    assert!(
+        (3..=4).contains(&paths.len()),
+        "unexpected Runtime requests: {paths:?}"
+    );
+    assert_eq!(paths.iter().filter(|p| p.ends_with("/turns")).count(), 1);
+    assert_eq!(paths.iter().filter(|p| p.ends_with("/events")).count(), 1);
+    assert_eq!(
+        paths
+            .iter()
+            .filter(|p| p.as_str() == "POST /internal/v1/threads")
+            .count(),
+        1
+    );
+    assert_eq!(
+        paths.iter().filter(|p| p.ends_with("/resume")).count(),
+        paths.len() - 3
     );
 
     runtime.finish().await?;

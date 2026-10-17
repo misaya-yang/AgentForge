@@ -60,7 +60,7 @@ impl RetrievalService {
             Err(_) => Ok(vec![]),
         }
     }
-    async fn hierarchy_filter(
+    pub(super) async fn hierarchy_filter(
         &self,
         d: &Dataset,
         hits: Vec<VectorHit>,
@@ -119,6 +119,9 @@ impl RetrievalService {
         let generation = d.generation()?;
         config::resolve(&d, r)?;
         self.preflight(&d).await?;
+        let mut cache_request=r.clone();cache_request.hierarchical=true;
+        let fingerprint=self.result_cache_key(user,&d,&cache_request,None)?;
+        if let Some(cached)=self.lookup_cached_result(user,&d,&generation,&cache_request,&fingerprint,started).await? {return Ok(cached);}
         let base = d.collection()?.to_owned();
         let mut summary = d.clone();
         summary.collection_name = Some(format!("{base}_summary"));
@@ -277,6 +280,11 @@ impl RetrievalService {
         self.store.require_generation(user, id, &generation).await?;
         meta["total_time_ms"] = json!(started.elapsed().as_secs_f64() * 1000.0);
         meta["timings_ms"] = json!({"total_ms":meta["total_time_ms"]});
+        meta["retrieval_cache_hit"]=json!(false);
+        meta["retrieval_query_fingerprint"]=json!(fingerprint);
+        // Hierarchy search intentionally degrades some failures to empty results;
+        // do not memoize an empty degraded path as authoritative negative recall.
+        if !results.is_empty() {self.store_cached_result(&d,&cache_request,fingerprint,results.clone(),meta.clone()).await?;}
         super::service::stamp_observation(&mut meta, &r.query);
         Ok((results, meta))
     }

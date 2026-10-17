@@ -960,8 +960,14 @@ mod tests {
             if self.dispatch_error.is_some() {
                 return Err(LocalNodeBrokerError::TransportUnavailable);
             }
-            if self.status_error_after_cancel && self.cancel_calls.load(Ordering::SeqCst) > 0 {
-                return Err(LocalNodeBrokerError::TransportUnavailable);
+            if self.status_error_after_cancel {
+                return if self.cancel_calls.load(Ordering::SeqCst) > 0 {
+                    Err(LocalNodeBrokerError::TransportUnavailable)
+                } else {
+                    // This fixture models an unresolved action, so it must not
+                    // publish a successful receipt before its timeout/cancel.
+                    Ok(Vec::new())
+                };
             }
             if after_sequence > 0 {
                 return Ok(Vec::new());

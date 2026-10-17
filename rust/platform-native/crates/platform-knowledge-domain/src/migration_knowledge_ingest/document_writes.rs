@@ -205,6 +205,9 @@ impl IngestionService {
         answer: Option<&str>,
         keywords: Option<&[String]>,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::UpdateSegment { segment: id.into(),text: text.into(),answer: answer.map(str::to_owned), keywords: keywords.map(<[String]>::to_vec) }).await;
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -221,6 +224,7 @@ impl IngestionService {
             Some(&dataset_ingestion_identity(&d)),
         )
         .await?;
+        self.check_vector_job_generation(&current)?;
         let mut seg = segment(lease.connection(), dataset, id).await?;
         active(
             &KnowledgeWriteStore::document_on(lease.connection(), dataset, &seg.document_id)
@@ -260,6 +264,15 @@ impl IngestionService {
         answer: Option<&str>,
         keywords: Option<&[String]>,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::CreateSegment {
+                segment: uuid::Uuid::new_v4().to_string(), document: document.into(), text: text.into(), answer: answer.map(str::to_owned), keywords: keywords.map(<[String]>::to_vec)
+            }).await;
+        }
+        self.create_segment_owned(actor,dataset,document,text,answer,keywords,&uuid::Uuid::new_v4().to_string()).await
+    }
+    pub(super) async fn create_segment_owned(&self, actor: &Actor, dataset: &str, document: &str, text: &str,
+        answer: Option<&str>, keywords: Option<&[String]>, id: &str) -> Result<Value> {
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -272,10 +285,23 @@ impl IngestionService {
             Some(&dataset_ingestion_identity(&d)),
         )
         .await?;
+        self.check_vector_job_generation(&current)?;
         active(&KnowledgeWriteStore::document_on(lease.connection(), dataset, document).await?)?;
         let position:i64=sqlx::query_scalar("SELECT COALESCE(MAX(position),-1)+1 FROM knowledge.segments WHERE dataset_id=$1 AND document_id=$2").bind(dataset).bind(document).fetch_one(lease.connection()).await?;
         let clean = super::parser::sanitize_text(text)?;
-        let id = uuid::Uuid::new_v4().to_string();
+        if let Ok(existing) = segment(lease.connection(),dataset,id).await {
+            if existing.document_id != document || existing.text != clean || existing.created_by.as_deref() != Some(actor.user_id.as_str()) {
+                return Err(IngestError::GenerationChanged);
+            }
+            if existing.status != "completed" {
+                self.publish_manual_segment(&serde_json::from_value(current)?, &existing, &clean).await?;
+                sqlx::query("UPDATE knowledge.segments SET vector_id=$1 WHERE segment_id=$1").bind(id).execute(lease.connection()).await?;
+                state(lease.connection(),id,"completed",None).await?;
+                refresh_count(lease.connection(),document).await?;
+            }
+            let result = serde_json::to_value(segment(lease.connection(),dataset,id).await?)?;
+            lease.release().await?; return Ok(result);
+        }
         let seg: Chunk = serde_json::from_value(
             json!({"segment_id":id,"dataset_id":dataset,"document_id":document,"position":position,"level":3,"text":clean,"token_count":clean.chars().count()/4,"word_count":clean.split_whitespace().count(),"answer":answer,"keywords":keywords.unwrap_or(&[]),"created_by":actor.user_id,"enabled":true,"status":"waiting","source_type":"manual","language":"en","metadata":{"content_type":"text"}}),
         )?;
@@ -315,6 +341,10 @@ impl IngestionService {
         id: &str,
         enabled: bool,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetSegmentEnabled { segment: id.into(), enabled }).await?;
+            return Ok(value);
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -331,6 +361,7 @@ impl IngestionService {
             Some(&dataset_ingestion_identity(&d)),
         )
         .await?;
+        self.check_vector_job_generation(&current)?;
         let seg = segment(lease.connection(), dataset, id).await?;
         active(
             &KnowledgeWriteStore::document_on(lease.connection(), dataset, &seg.document_id)
@@ -386,6 +417,10 @@ impl IngestionService {
         Ok(json!({"success":true,"updated":updated,"total":ids.len()}))
     }
     pub async fn delete_segment(&self, actor: &Actor, dataset: &str, id: &str) -> Result<bool> {
+        if self.indexer.vectors.is_read_only() {
+            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::DeleteSegment { segment: id.into() }).await?;
+            return value.as_bool().ok_or(IngestError::Database);
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -398,7 +433,8 @@ impl IngestionService {
         }
         let mut lease = self.store.dataset_delete_lease(dataset).await?;
         let current = KnowledgeWriteStore::dataset_on(lease.connection(), dataset).await?;
-        if string(&current, "tenant_id") != string(&d, "tenant_id") {
+        self.check_vector_job_generation(&current)?;
+        if dataset_ingestion_identity(&current) != dataset_ingestion_identity(&d) {
             return Err(IngestError::GenerationChanged);
         }
         let seg = match segment(lease.connection(), dataset, id).await {
@@ -473,6 +509,10 @@ impl IngestionService {
         id: &str,
         enabled: bool,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetDocumentEnabled { document: id.into(), enabled }).await?;
+            return Ok(value);
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -499,6 +539,10 @@ impl IngestionService {
         archived: bool,
         reason: Option<&str>,
     ) -> Result<Value> {
+        if self.indexer.vectors.is_read_only() {
+            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetDocumentArchived { document: id.into(), archived, reason: reason.map(str::to_owned) }).await?;
+            return Ok(value);
+        }
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -530,6 +574,7 @@ impl IngestionService {
         let dataset_id = string(dataset, "dataset_id");
         let mut lease = self.store.dataset_delete_lease(dataset_id).await?;
         let d = KnowledgeWriteStore::dataset_on(lease.connection(), dataset_id).await?;
+        self.check_vector_job_generation(&d)?;
         require_index_writable(&d)?;
         if string(&d, "tenant_id").is_empty()
             || string(&d, "tenant_id") != string(dataset, "tenant_id")

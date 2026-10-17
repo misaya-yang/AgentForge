@@ -1,0 +1,595 @@
+{
+  "schema": "agentforge/source-test-scope-reconciliation/v1",
+  "recorded_at_utc": "2026-10-17T12:46:02.105Z",
+  "result": "PASS: count difference explained by all-targets versus lib scope plus thirteen new library tests; no missing historical library tests or removed assertions",
+  "source_unit_sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42",
+  "services": {
+    "worker": {
+      "historical_full_target_summaries": [
+        {
+          "summary": "test result: ok. 120 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.38s",
+          "passed": 120,
+          "failed": 0,
+          "ignored": 8,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s",
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "current_library_summary": {
+        "summary": "test result: ok. 126 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.30s",
+        "passed": 126,
+        "failed": 0,
+        "ignored": 8,
+        "measured": 0,
+        "filtered_out": 0
+      },
+      "all_historical_library_names_and_outcomes_retained": true,
+      "missing_historical_library_tests": [],
+      "added_library_tests": [
+        {
+          "name": "read_capabilities::transport_tests::metadata_does_not_change_business_idempotency_or_refresh_stored_expiry",
+          "outcome": "ok"
+        },
+        {
+          "name": "read_capabilities::transport_tests::actual_legacy_terminal_status_and_replay_survive_missing_transport_metadata",
+          "outcome": "ok"
+        },
+        {
+          "name": "read_capabilities::transport_tests::actual_http_resource_binding_injection_is_rejected_before_authority_changes",
+          "outcome": "ok"
+        },
+        {
+          "name": "read_capabilities::transport_tests::actual_post_5xx_is_never_retried_and_trace_is_sanitized",
+          "outcome": "ok"
+        },
+        {
+          "name": "read_capabilities::transport_tests::no_verified_authority_and_legacy_rows_fail_closed",
+          "outcome": "ok"
+        },
+        {
+          "name": "read_capabilities::transport_tests::same_budget_covers_response_body_and_never_retries_timeout",
+          "outcome": "ok"
+        }
+      ],
+      "omitted_nonlibrary_passed": 33,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "-p",
+        "ai-platform-capability-worker",
+        "--lib"
+      ],
+      "cwd": "/source/codex-rs",
+      "exit_code": 0,
+      "source_binding": {
+        "target_commit": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+        "target_tree": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc",
+        "candidate_source_sha256": "fafb3aac3c1efd485bc4cb53c85d7d7307967598fd56e859a9fd2dbf3f253442",
+        "resolved_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf"
+      }
+    },
+    "runtime": {
+      "historical_full_target_summaries": [
+        {
+          "summary": "test result: ok. 125 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.34s",
+          "passed": 125,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "summary": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "current_library_summary": {
+        "summary": "test result: ok. 132 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 1.09s",
+        "passed": 132,
+        "failed": 0,
+        "ignored": 5,
+        "measured": 0,
+        "filtered_out": 0
+      },
+      "all_historical_library_names_and_outcomes_retained": true,
+      "missing_historical_library_tests": [],
+      "added_library_tests": [
+        {
+          "name": "capability_worker::budget_tests::actual_post_propagates_attenuated_budget_without_mutating_signed_body",
+          "outcome": "ok"
+        },
+        {
+          "name": "capability_worker::budget_tests::readback_exception_cannot_match_create_cancel_catalog_or_arbitrary_paths",
+          "outcome": "ok"
+        },
+        {
+          "name": "capability_worker::budget_tests::expired_parent_prevents_any_dispatch",
+          "outcome": "ok"
+        },
+        {
+          "name": "http_service::transport_budget::tests::headers_only_shorten_verified_authority",
+          "outcome": "ok"
+        },
+        {
+          "name": "http_service::transport_budget::tests::malformed_duplicates_and_expired_verified_lease_are_rejected",
+          "outcome": "ok"
+        },
+        {
+          "name": "capability_worker::budget_tests::expired_write_budget_does_not_block_scoped_status_or_events_or_renew_post",
+          "outcome": "ok"
+        },
+        {
+          "name": "capability_worker::budget_tests::body_stall_expires_same_budget_and_never_reposts",
+          "outcome": "ok"
+        }
+      ],
+      "omitted_nonlibrary_passed": 11,
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "-p",
+        "ai-platform-agent-runtime",
+        "--lib"
+      ],
+      "cwd": "/source/codex-rs",
+      "exit_code": 0,
+      "source_binding": {
+        "target_commit": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+        "target_tree": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc",
+        "candidate_source_sha256": "fafb3aac3c1efd485bc4cb53c85d7d7307967598fd56e859a9fd2dbf3f253442",
+        "resolved_lock_sha256": "67cb068b5a35c11d3eb3f3bb9e2521de7a1e3106255cebcfa4fbcbf04615dbaf"
+      }
+    }
+  },
+  "features_and_targets": {
+    "ai-platform-agent-runtime": {
+      "historical": {
+        "declared": {},
+        "resolved": [],
+        "targets": [
+          {
+            "name": "ai_platform_agent_runtime",
+            "kind": [
+              "lib"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-agent-runtime",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-history-gate",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          }
+        ]
+      },
+      "current": {
+        "declared": {},
+        "resolved": [],
+        "targets": [
+          {
+            "name": "ai_platform_agent_runtime",
+            "kind": [
+              "lib"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-agent-runtime",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-history-gate",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          }
+        ]
+      }
+    },
+    "ai-platform-capability-worker": {
+      "historical": {
+        "declared": {},
+        "resolved": [],
+        "targets": [
+          {
+            "name": "ai_platform_capability_worker",
+            "kind": [
+              "lib"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-capability-worker",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-capability-worker-health",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-plugin-packs",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-sandbox",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-sandbox-health",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-supervisor",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "platform_catalog",
+            "kind": [
+              "test"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "read_capabilities",
+            "kind": [
+              "test"
+            ],
+            "required_features": []
+          }
+        ]
+      },
+      "current": {
+        "declared": {},
+        "resolved": [],
+        "targets": [
+          {
+            "name": "ai_platform_capability_worker",
+            "kind": [
+              "lib"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-capability-worker",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-capability-worker-health",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-plugin-packs",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-sandbox",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-sandbox-health",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "ai-platform-python-supervisor",
+            "kind": [
+              "bin"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "platform_catalog",
+            "kind": [
+              "test"
+            ],
+            "required_features": []
+          },
+          {
+            "name": "read_capabilities",
+            "kind": [
+              "test"
+            ],
+            "required_features": []
+          }
+        ]
+      }
+    }
+  },
+  "source_assertion_review": {
+    "historical_service_rust_files_unchanged": 92,
+    "changed_service_rust_files": [
+      {
+        "path": "ai-platform-agent-runtime/src/capability_worker.rs",
+        "historical_sha256": "ec654cb474ed511b213731549cb358c0edbba0055d9017bc4a76399ac6f2684f",
+        "current_sha256": "4e24ec4f5387d2ca9befac90f0b4305486fc4c712bda57e3803fc1422cc09f86",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "two test client builders add retry(never); original assertions and test bodies otherwise retained"
+      },
+      {
+        "path": "ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+        "historical_sha256": "a441fc6db5a6dae400f6996aad53421d151bae17c3bce976aa728104dee6fa03",
+        "current_sha256": "efac3abff1da848f681643d721917f993b966d6a0dcb796aa92c247b393c2e73",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-agent-runtime/src/http_service/sdk_capabilities.rs",
+        "historical_sha256": "991d91ab7d12b7f44a2e5b45247966b777f0666e07ba9abbf14d39683fc63c65",
+        "current_sha256": "f596a7121faabcf3d338e9665482d94e2c4281b2026ee57a00e08763a0214370",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-agent-runtime/src/http_service/turns.rs",
+        "historical_sha256": "cfd1346547b4369ba715d762ba639fac548bc573879cce45367688dd68190bec",
+        "current_sha256": "8fefbbb1ad7e28984b20dae20ab67138004ea55102f19f484b0a9ceb5cfedd42",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-agent-runtime/src/http_service.rs",
+        "historical_sha256": "8037274effa9964a0ba8451da3a8ead7dbba62aafae0c97963326d1fbf2ad4a8",
+        "current_sha256": "1093be6eb37e04ac1a307a4996edfd307dd8601d4bab59380ccff9546f487905",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/http_service/execution.rs",
+        "historical_sha256": "23d11b608f5ebd874d29fb8f57f33ef9322495d4dbb6ea23f107c42d65f65548",
+        "current_sha256": "8df4869c5fc1973451184322032752548de86353441259b456944cca501f5aa7",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/http_service/execution_run.rs",
+        "historical_sha256": "330d4f588909463a42746a791a9ebec3c923b758ffbc9b7127f2620fe52605c4",
+        "current_sha256": "7c797dbd78d31ffca88a4f695eca649d6e699fd94ecc94743336f10e874db6ca",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/lib.rs",
+        "historical_sha256": "54ccf9b078b0e0346910533f5c381a06f80a2daef615b6d3e3084da6c7509509",
+        "current_sha256": "40e2f219a3e32826c050249e2d929e53e9baf873d89fc108b7bb3c7592396f7e",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/main.rs",
+        "historical_sha256": "d20d5914abfff4a615141e39b4e7030862b73dd3de040eca51112b96a66c2116",
+        "current_sha256": "84ca38f54112ac75f3c7f472b032892d932e5e4a670b4b9159b8f06af9916c3e",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/read_capabilities/proof.rs",
+        "historical_sha256": "dfb90311c38cc0f4f1db7e865eb6df322b12f2b0b14002429debf730530c66e0",
+        "current_sha256": "7b680195e46ea58622921fea2e69563a87becc25263486ef9b0aa80202e5900b",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      },
+      {
+        "path": "ai-platform-capability-worker/src/read_capabilities.rs",
+        "historical_sha256": "a8e51d0990bc7dc75be70dbe2eba1ef6733b46b5142587a3f0fbc3c63c90b43f",
+        "current_sha256": "2acdc506debd1e7a66e6e9fe19e753367eb61714b04e7aee09ebc1d5680f784b",
+        "original_assertions_removed": false,
+        "original_test_modules_preserved": true,
+        "notes": "production wiring changes; original test module bytes retained when present"
+      }
+    ]
+  },
+  "arithmetic": {
+    "historical_alltargets_passed": 289,
+    "historical_library_passed": 245,
+    "nonlibrary_passed_omitted_by_current_lib_scope": 44,
+    "new_library_passed": 13,
+    "current_service_lib_passed": 258,
+    "current_service_lib_ignored": 13,
+    "current_contract_passed": 29
+  },
+  "limits": [
+    "Current source has actual all-target CHECK success, but binary/integration target TEST execution is historical; do not call this current all-target test acceptance.",
+    "No Cargo/Docker or source modifications performed during reconciliation.",
+    "No product, live-provider, OCI or release acceptance inferred."
+  ],
+  "evidence": [
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-test.stdout",
+      "sha256": "d8dc17fbb438476b3a7128f6b427a5d27a72c45db18d93244c329ab3bb0f562c"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-test.stdout",
+      "sha256": "f46ebfe89783812086589195310a29c1bf3ee3056243296c78573b35fda50f24"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-list.stdout",
+      "sha256": "978ddc2e9f408da7ada52d6909d82a2bd6fa7366247843db81becfc170950dce"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-list.stdout",
+      "sha256": "68b22d3e7a4feddf84bb1d95eabc24a90e61d12998fdf7e7c74964115165d505"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/resolved-metadata.json",
+      "sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/evidence/codex-ce032-full-tests-r3.log",
+      "sha256": "464e7abd7ef7391a8164b0dedba12d779caa82355210d1d9a4955ed16733a6a1"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.json",
+      "sha256": "757bc3edd4f189d40a33bb6a900f70eab42f6cb6811a2ceeb6ef5f2b8ed5e561"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.stdout",
+      "sha256": "4874341839bd1056468ecd15da448c43e86ffaaf62c4710e87185b970c24868b"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.json",
+      "sha256": "1da652f58e533fb057170272d7fb2d01fe108829032f00000a5815699c033bd3"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.stdout",
+      "sha256": "1305527b6920b304c550519c9d25729f0ff1e791ea1f913308ca3a98d0d4f1ed"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/resolved-metadata.json",
+      "sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-tests.stdout",
+      "sha256": "352a5a6865ed51c3eb8a99c41ca59c9fc3611870d8f8d3c5c88262390fb99cb6"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-test-inventory.json",
+      "sha256": "4157388ecc9c087db8f2e76499e8633287123b97754693447ada2febaf9ba01e"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/source-unit.json",
+      "sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/candidate-verify.json",
+      "sha256": "3ad216318fe0e7e86085a9e7da96ef74c691fadd1f3d319b3a4e2d75c6d77e9f"
+    },
+    {
+      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/generate-composed.json",
+      "sha256": "84e9b14faa95c107935572df269553e9ab2582e38908ac753e376d9fe23c87f7"
+    }
+  ]
+}

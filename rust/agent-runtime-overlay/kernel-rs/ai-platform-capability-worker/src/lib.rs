@@ -1,6 +1,8 @@
 //! Durable capability execution worker. It deliberately contains no Agent
 //! loop, provider client, or long-lived connector credential.
-
+pub mod python_package_policy;
+pub mod sandbox_service;
+pub mod sandbox_transport;
 pub mod attachment_capabilities;
 pub mod confluence_write_broker;
 pub mod external_write_capabilities;
@@ -17,12 +19,12 @@ pub mod python_code_execution;
 pub mod quiz_capabilities;
 pub mod read_capabilities;
 mod trace_context;
+#[path="../../ai-platform-agent-runtime/src/telemetry.rs"]
+pub mod telemetry;
 pub mod write_capabilities;
-
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use ai_platform_capability_contract::{
     ApprovalPolicy, CAPABILITY_DESCRIPTOR_SCHEMA_VERSION, CAPABILITY_EVENT_SCHEMA_VERSION,
     CapabilityDescriptorV2, CapabilityEffect, CapabilityEventPageV2, CapabilityEventV2,
@@ -485,7 +487,7 @@ fn same_reservation(record: &ExecutionRecord, requested: &NewExecution) -> bool 
         && left.arguments_hash == right.arguments_hash
         && left.idempotency_key == right.idempotency_key
         && left.effect == right.effect
-        && record.resource_binding == requested.resource_binding
+        && crate::read_capabilities::transport::bindings_match(&record.resource_binding, &requested.resource_binding)
         && record.arguments == requested.arguments
 }
 

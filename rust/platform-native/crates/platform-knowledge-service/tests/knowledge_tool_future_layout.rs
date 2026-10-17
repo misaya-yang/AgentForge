@@ -1,5 +1,7 @@
 //! Measures public future layouts without constructing or polling those futures.
 //! The closed lazy pool fixture prevents accidental backend access.
+#[path="common/no_network_plane.rs"]
+mod no_network_plane;
 use ai_platform_knowledge_service::{
     KnowledgeBackends, KnowledgeConnections, KnowledgeGraph,
     langgraph_tools::{
@@ -40,6 +42,7 @@ async fn public_tool_future_layout() {
     pool.close().await;
     let service = KnowledgeGraph::new(
         KnowledgeConnections {
+            model_plane:Some(no_network_plane::client()),
             database: pool,
             replay_redis: None,
             idempotency_redis: None,

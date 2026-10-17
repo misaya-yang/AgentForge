@@ -29,7 +29,7 @@ export function ProtectedRoute({
   const user = useAuthStore((state) => state.user);
 
   // Show loading while waiting for hydration
-  if (!hydrated || sessionValidation === "checking") {
+  if (!hydrated || sessionValidation !== "validated") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-muted-foreground text-sm">Loading...</div>

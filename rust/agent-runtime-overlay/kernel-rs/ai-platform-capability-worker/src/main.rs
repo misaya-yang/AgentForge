@@ -1,3 +1,6 @@
+#[path = "lease_verification.rs"]
+mod lease_verification;
+mod sandbox_bootstrap;
 mod startup_admission;
 
 use std::net::SocketAddr;
@@ -22,7 +25,6 @@ use ai_platform_capability_worker::{
     office_artifact_broker::{OfficeArtifactBrokerConfig, ReqwestOfficeArtifactStore},
     office_capabilities::OfficeCapabilityExecutor,
     python_artifact_broker::{PythonArtifactBrokerConfig, ReqwestPythonArtifactStore},
-    python_code_execution::{LocalPythonSandboxBroker, LocalPythonSandboxConfig},
 };
 use anyhow::Context;
 use clap::Parser;
@@ -46,6 +48,7 @@ struct Args {
     #[arg(
         long,
         env = "AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET",
+        default_value = "",
         hide_env_values = true
     )]
     lease_signing_secret: String,
@@ -103,6 +106,19 @@ struct Args {
     #[arg(long, env = "AI_PLATFORM_OFFICE_FONT_PATHS", value_delimiter = ',')]
     office_font_paths: Vec<std::path::PathBuf>,
 
+    /// Optional remote service. All three inputs are required together;
+    /// private key bytes stay in this control process and are never env values.
+    #[arg(long, env = "AI_PLATFORM_SANDBOX_SOCKET")]
+    sandbox_socket: Option<std::path::PathBuf>,
+    #[arg(long, env = "AI_PLATFORM_SANDBOX_KEY_ID")]
+    sandbox_key_id: Option<String>,
+    #[arg(
+        long,
+        env = "AI_PLATFORM_SANDBOX_SIGNING_KEY_FILE",
+        hide_env_values = true
+    )]
+    sandbox_signing_key_file: Option<std::path::PathBuf>,
+
     /// Exact immutable generation; all three inputs are required together.
     #[arg(long, env = "AI_PLATFORM_PLUGIN_STORE")]
     plugin_store: Option<std::path::PathBuf>,
@@ -135,15 +151,13 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .try_init()
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let telemetry = ai_platform_capability_worker::telemetry::init("ai-platform-capability-worker").await.map_err(anyhow::Error::msg)?;
     let args = Args::parse();
-    if args.internal_token.len() < 32
-        || args.lease_signing_secret.len() < 32
-        || args.proof_secret.len() < 32
-    {
-        anyhow::bail!(
-            "internal token, lease signing secret, and capability proof secret must be at least 32 bytes"
-        );
+    if args.internal_token.len() < 32 || args.proof_secret.len() < 32 {
+        anyhow::bail!("internal token and capability proof secret must be at least 32 bytes");
     }
+    lease_verification::validate_configuration(args.lease_signing_secret.as_bytes())
+        .map_err(anyhow::Error::msg)?;
     let postgres_options = PgConnectOptions::new()
         .host(&args.postgres_host)
         .port(args.postgres_port)
@@ -162,6 +176,7 @@ async fn main() -> anyhow::Result<()> {
             .context("connect capability execution store")?,
     );
     let read_http_client = reqwest::Client::builder()
+        .retry(reqwest::retry::never())
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(std::time::Duration::from_secs(5))
@@ -235,13 +250,11 @@ async fn main() -> anyhow::Result<()> {
             store.pool(),
         ))),
     );
-    let python_executor = Arc::new(
-        LocalPythonSandboxBroker::new(LocalPythonSandboxConfig {
-            workspace_root: args.workspace_root.clone(),
-            ..LocalPythonSandboxConfig::default()
-        })
-        .context("configure Python sandbox")?,
-    );
+    let python_executor = sandbox_bootstrap::configure(
+        args.sandbox_socket.as_deref(),
+        args.sandbox_key_id.as_deref(),
+        args.sandbox_signing_key_file.as_deref(),
+    )?;
     let python_artifact_store = Arc::new(
         ReqwestPythonArtifactStore::new(
             read_http_client.clone(),
@@ -292,8 +305,12 @@ async fn main() -> anyhow::Result<()> {
         args.writes_enabled,
     )?
     .with_read_executor(read_executor);
+    let state = if let Some(executor) = python_executor {
+        state.with_remote_python_executor(executor)
+    } else {
+        state
+    };
     let state = state
-        .with_python_executor(python_executor)
         .with_python_artifact_store(python_artifact_store)
         .with_attachment_executor(attachment_executor)
         .with_local_node_broker(local_node_broker);
@@ -342,10 +359,12 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("bind capability worker")?;
     info!(address = %args.bind, "Agent capability worker is ready");
-    axum::serve(listener, router(state))
+    let serve_result = axum::serve(listener, router(state))
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .context("serve capability worker")?;
+        .context("serve capability worker");
+    if let Some(telemetry) = telemetry { telemetry.shutdown().await; }
+    serve_result?;
     Ok(())
 }
 

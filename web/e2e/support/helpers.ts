@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { authenticateConsoleContext, requireHttpsConsoleOrigin, CONSOLE_COOKIE } from "./bff-session.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
@@ -47,31 +48,27 @@ export async function installClientAuth(
     force_password_change: false,
     ...overrides,
   };
-  const authState = {
-    state: {
-      token: "e2e-client-token",
-      user,
-      isAuthenticated: true,
-      forcePasswordChange: user.force_password_change,
-      rememberMe: true,
-    },
-    version: 0,
-  };
-
-  await page.route("**/api/v1/auth/me", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(user),
-    });
+  const sessionUser = { ...user, tenant_id: "e2e-client-tenant" };
+  let sessionActive = true;
+  await page.route("**/api/auth/session", async route => {
+    if (route.request().method() === "GET") {
+      if (!sessionActive) return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "session_revoked" }) });
+      await route.fulfill({ contentType: "application/json", headers: { "set-cookie": "__Host-agentforge_session=e2e-opaque-session; HttpOnly; Secure; SameSite=Lax; Path=/" }, body: JSON.stringify({ user: sessionUser, csrf_token: "e2e-client-csrf", expires_at: 9999999999 }) });
+    } else if (route.request().method() === "DELETE") {
+      expect(route.request().headers()["x-csrf-token"]).toBe("e2e-client-csrf");
+      sessionActive = false;
+      await route.fulfill({ contentType: "application/json", headers: { "set-cookie": "__Host-agentforge_session=; Max-Age=0; HttpOnly; Secure; SameSite=Lax; Path=/" }, body: JSON.stringify({ message: "Logged out" }) });
+    } else { await route.fallback(); }
   });
-  await page.addInitScript(
-    ({ authStorageKey, authPayload }) => {
-      localStorage.setItem(authStorageKey, JSON.stringify(authPayload));
-      sessionStorage.removeItem(authStorageKey);
-    },
-    { authStorageKey: AUTH_STORAGE_KEY, authPayload: authState }
-  );
+  // Mocked fixtures establish HttpOnly cookie attributes through the response.
+  // Real acceptance requires HTTPS; never downgrade Secure or the __Host- name.
+  await page.route("**/api/v1/auth/me", async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
+  });
+  await page.addInitScript((authStorageKey) => {
+    localStorage.removeItem(authStorageKey);
+    sessionStorage.removeItem(authStorageKey);
+  }, AUTH_STORAGE_KEY);
 }
 
 export function getApiUrl(): string {
@@ -116,10 +113,18 @@ export async function ensureAuthenticatedPage(page: Page, destination: string) {
   }
 }
 
+/** Real Console fixture: cookies only, never API bearer/localStorage seeding. */
+export async function loginThroughConsole(page: Page): Promise<void> {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  const origin = requireHttpsConsoleOrigin(new URL(page.url()).origin);
+  await authenticateConsoleContext(page.context(), origin, await readE2ETestUser());
+}
+
 export async function loginThroughApi(request: APIRequestContext): Promise<{
   token: string;
   user: Record<string, unknown>;
 }> {
+  if ((await request.storageState()).cookies.some(cookie => cookie.name === CONSOLE_COOKIE)) throw new Error("API bearer fixture requires an isolated APIRequestContext without Console cookies");
   const testUser = await readE2ETestUser();
   const response = await request.post(`${getApiUrl()}/api/v1/auth/login`, {
     data: {

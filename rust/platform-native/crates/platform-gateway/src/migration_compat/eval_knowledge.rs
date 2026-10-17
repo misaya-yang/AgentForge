@@ -99,6 +99,7 @@ impl EvalService {
     }
 }
 pub async fn score_retrieval(
+    user: &CompatUser,
     body: &Value,
     options: &EvalHttpOptions,
 ) -> Result<Value, CompatError> {
@@ -141,7 +142,8 @@ pub async fn score_retrieval(
         .as_ref()
         .ok_or_else(|| CompatError::new(503, "KB RAGAS client unavailable"))?;
     let result = client
-        .evaluate_retrieval(
+        .evaluate_retrieval_scoped(
+            &super::eval_clients::ragas_actor::scope(user)?,
             query,
             &contexts,
             body["answer"].as_str(),

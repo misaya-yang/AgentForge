@@ -601,10 +601,15 @@ async fn artifact(source: &Value) -> Result<Vec<u8>> {
                 "unsafe archive member",
             )?;
             let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
-            need(
-                zip.file_names().filter(|s| *s == name).count() == 1,
-                "archive member missing/duplicate",
-            )?;
+            // ZIP9 names are fallible: never discard an undecodable member
+            // while proving unique archive membership.
+            let mut matches = 0usize;
+            for member in zip.file_names() {
+                if member?.as_ref() == name {
+                    matches += 1;
+                }
+            }
+            need(matches == 1, "archive member missing/duplicate")?;
             let f = zip.by_name(name)?;
             need(f.size() <= 12 * 1024 * 1024, "member exceeds size limit")?;
             let mut data = vec![];

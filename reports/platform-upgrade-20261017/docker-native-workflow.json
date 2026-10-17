@@ -1,0 +1,81 @@
+{
+  "schema": "agentforge.docker-native-workflow/v1",
+  "observed_at": "2026-10-17T13:23:03.683072+00:00",
+  "status": "final_docker_workspace_and_selected_tests_verified_duplicate_host_cache_removed",
+  "owner_authorization": "2026-10-17 correct workflow to avoid duplicate disk use; may revise unsuitable rules",
+  "git_branch": "codex/platform-upgrade-2026-10",
+  "git_head": "9edbc92df4c5eb24a003202dbeada81a1405ad3c",
+  "dirty_worktree": true,
+  "implementation": {
+    "native_toolchain": "1.99.0",
+    "daily_cache": "agentforge-dev-7801d4a9a4_native-dev-cache",
+    "same_project": "agentforge-dev-7801d4a9a4",
+    "same_builder": "desktop-linux",
+    "cargo_jobs": 1,
+    "debug": 0,
+    "incremental": false,
+    "source": "explicit-public-readonly-mounts",
+    "runtime_secrets_forwarded": false,
+    "second_host_server_target": false,
+    "host_exceptions": [
+      "explicit macOS client/OS acceptance",
+      "std-only operational launcher bootstrap"
+    ],
+    "preserved_bootstrap_native_target_bytes_approx": 915406848
+  },
+  "actual_validation": {
+    "prepare_r1": "FAIL: Debian HTTP security index 500/unexpected EOF",
+    "prepare_r2": "PASS after authenticated HTTPS apt transport",
+    "doctor": "PASS: source/image/cache ownership checks; no business services started",
+    "fetch_locked": "PASS: current workspace lock accepted; public dependencies in sole Docker volume",
+    "config_loader_tests": {
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "doc_tests": 0,
+      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/native-dev-config-loader-tests-r2.log"
+    },
+    "config_loader_r1": "STOP before Docker: newly required lock-controller option; r2 used canonical controller",
+    "make_dry_run": "PASS: check/test/engine/install/gateway targets invoke Docker launcher",
+    "diff_check": "PASS for changed workflow files",
+    "final_default_controller_check": "PASS: actual Docker all-targets check for ai-platform-config-loader with default external native controller, exact inherited owner receipts",
+    "canonical_fence_contention": "PASS: rejected competing command before Docker creation while Runtime export held shared rust-build fence",
+    "launcher_std_tests": 18,
+    "poppler_prepare": "PASS: Poppler added as separate cached compiler layer; five PDF regressions now execute and pass",
+    "whole_native_workspace": "PASS final all-target check45.07s",
+    "selected_native_tests": {
+      "passed": 1027,
+      "failed": 0,
+      "ignored": 27
+    },
+    "compiler_image_config": "sha256:e6e635d2d3d6c60129190e21443505c1351e28894ccb61cd23fdcd124f67d88e"
+  },
+  "cleanup": {
+    "status": "complete",
+    "deleted_directories": [
+      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps",
+      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/build",
+      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/.fingerprint",
+      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/incremental",
+      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/examples"
+    ],
+    "allocated_sizes_kib_before": "19643536\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps\n285216\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/build\n78928\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/.fingerprint\n0\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/incremental\n28\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/examples\n",
+    "available_bytes_before": 20419440640,
+    "available_bytes_after": 39880601600,
+    "observed_filesystem_freed_bytes": 19461160960,
+    "observed_filesystem_freed_gib": 18.124618530273438,
+    "bootstrap_sha256_unchanged": true,
+    "bootstrap_sha256": [
+      "c61c91643faa9192858917baf0e2d5a372278c9ad548c6a56dd278d2ead2c617  /Users/yang/.cache/agentforge-upgrade/native-target/debug/platform-tools",
+      "a7cb77d92590ec262273c413a8af43c87b5fd0ac4e990e2b69ae4919e4f11764  /Users/yang/.cache/agentforge-upgrade/native-target/debug/database-authority"
+    ],
+    "source_or_data_or_volumes_deleted": false
+  },
+  "unrun": [
+    "actual watch/restart and application image integration",
+    "live DB/provider/browser and required package acceptance",
+    "watch automatic restart, engine role and4 legacy live test Docker run-phase migrations"
+  ],
+  "overall_product_acceptance": "not_accepted",
+  "next": "Owner pause after ordinary source checkpoint push; resume required packages and open integration/security/license gates from sole ledger."
+}

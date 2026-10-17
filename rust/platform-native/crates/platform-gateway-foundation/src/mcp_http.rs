@@ -28,6 +28,13 @@ use std::{
     time::Duration,
 };
 
+#[path="mcp_http/revision.rs"]
+pub mod revision;
+#[path="mcp_http/oauth.rs"]
+pub mod oauth;
+#[path="mcp_http/initialize.rs"]
+mod initialize;
+
 pub const MCP_PROTOCOL_VERSION: &str = "2025-11-25";
 pub const MCP_MAX_TOOLS: usize = 50;
 
@@ -76,6 +83,8 @@ fn transport_error(error: reqwest::Error) -> McpError {
 #[derive(Clone)]
 pub struct McpClientConfig {
     pub base_url: String,
+    pub revision: revision::Revision,
+    pub oauth_metadata_url: Option<String>,
     pub endpoint_path: String,
     pub timeout: Duration,
     pub max_concurrency: usize,
@@ -95,8 +104,11 @@ impl fmt::Debug for McpClientConfig {
 }
 impl McpClientConfig {
     pub fn from_record(record: &Value, credential: Option<String>) -> Result<Self, McpError> {
+        if record.get("transport").and_then(Value::as_str).is_some_and(|t|t!="streamable_http"){return Err(broker_error("MCP_STDIO_SANDBOX_REQUIRED"))}
         let text = |key: &str| record.get(key).and_then(Value::as_str).map(str::to_owned);
         Ok(Self {
+            revision:revision::Revision::configured(record).map_err(broker_error)?,
+            oauth_metadata_url:text("oauth_metadata_url"),
             base_url: text("base_url").ok_or_else(|| broker_error("MCP_URL_INVALID"))?,
             endpoint_path: text("endpoint_path")
                 .filter(|v| !v.is_empty())
@@ -160,6 +172,7 @@ impl McpClientConfig {
         {
             return Err(broker_error("MCP_OAUTH_AUDIENCE_MISMATCH"));
         }
+        if self.revision.modern()&&self.auth_method=="oauth"&&self.oauth_resource!=self.oauth_audience{return Err(broker_error("MCP_OAUTH_RESOURCE_MISMATCH"))}
         if let Some(origin) = self.origin.as_deref().filter(|s| !s.is_empty()) {
             let parsed = Url::parse(origin).map_err(|_| broker_error("MCP_ORIGIN_DENIED"))?;
             if parsed.scheme() != "https"
@@ -301,6 +314,9 @@ struct ReqwestMcpTransport {
     client: Client,
     endpoint: Url,
     limit: usize,
+    revision:revision::Revision,
+    oauth_resource:Option<String>,
+    timeout:Duration,
 }
 impl McpTransportFactory for ReqwestMcpTransportFactory {
     fn connect(
@@ -322,10 +338,14 @@ impl McpTransportFactory for ReqwestMcpTransportFactory {
             let client = pinned_client_builder(&host, port, address, config.timeout)
                 .build()
                 .map_err(transport_error)?;
+            if config.auth_method=="oauth"&&(config.revision.modern()||config.oauth_metadata_url.is_some()){oauth::fetch(&client,&endpoint,config.oauth_metadata_url.as_deref(),config.oauth_resource.as_deref().ok_or_else(||broker_error("MCP_OAUTH_RESOURCE_MISMATCH"))?,config.timeout).await.map_err(broker_error)?;}
             Ok(Arc::new(ReqwestMcpTransport {
                 client,
                 endpoint,
                 limit: config.response_limit_bytes,
+                revision:config.revision,
+                oauth_resource:if config.auth_method=="oauth"{config.oauth_resource.clone()}else{None},
+                timeout:config.timeout,
             }) as Arc<dyn McpTransport>)
         })
     }
@@ -382,9 +402,11 @@ impl McpTransport for ReqwestMcpTransport {
                 .await
                 .map_err(transport_error)?;
             let status = response.status().as_u16();
-            validate_status(status, request.notification)?;
+            if status==401{if let Some(resource)=&self.oauth_resource{let challenge=response_header(response.headers(),"www-authenticate").map(|h|oauth::challenge_url(&h)).transpose().map_err(broker_error)?.flatten();oauth::fetch(&self.client,&self.endpoint,challenge.as_deref(),resource,self.timeout).await.map_err(broker_error)?;return Err(broker_error("MCP_OAUTH_REAUTHORIZATION_REQUIRED"));}}
+            if !(self.revision.modern()&&status==400){validate_status(status, request.notification)?;}
+            self.revision.check_session(response.headers()).map_err(broker_error)?;
             let headers = response.headers().clone();
-            pin_session(&request.session, &headers)?;
+            if !self.revision.modern(){pin_session(&request.session, &headers)?;}
             validate_content_length(&headers, self.limit)?;
             let mut body = Vec::new();
             while let Some(chunk) = response.chunk().await.map_err(transport_error)? {
@@ -478,6 +500,7 @@ impl NativeMcpClientFactory {
 impl McpClientFactory for NativeMcpClientFactory {
     fn create(&self, config: McpClientConfig) -> McpFuture<'_, McpInitializedClient> {
         Box::pin(async move {
+            let modern=config.revision.modern();
             let initialize = async {
                 let url = config.validate()?;
                 let host = url
@@ -500,29 +523,9 @@ impl McpClientFactory for NativeMcpClientFactory {
             // Canonical discover catches MCPError around list_tools only.
             // Initialization failures, including native version mismatch, escape
             // to the host's unmapped 500 boundary without leaking their causes.
-            initialize.await.map_err(|_: McpError| McpError::Unhandled)
+            initialize.await.map_err(|error: McpError| if modern{error}else{McpError::Unhandled})
         })
     }
-}
-fn validate_server_info(value: Option<&Value>) -> Result<(), McpError> {
-    let Some(value) = value.filter(|v| python_truthy(v)) else {
-        return Ok(());
-    };
-    if value.is_object() {
-        return Ok(());
-    }
-    if let Some(entries) = value.as_array() {
-        for entry in entries {
-            match entry {
-                Value::Array(pair)
-                    if pair.len() == 2 && !pair[0].is_array() && !pair[0].is_object() => {}
-                Value::String(pair) if pair.chars().count() == 2 => {}
-                _ => return Err(McpError::Unhandled),
-            }
-        }
-        return Ok(());
-    }
-    Err(McpError::Unhandled)
 }
 struct McpSession {
     config: McpClientConfig,
@@ -530,24 +533,7 @@ struct McpSession {
     session: Arc<Mutex<Option<String>>>,
 }
 impl McpSession {
-    async fn initialize(self: Arc<Self>) -> Result<McpInitializedClient, McpError> {
-        let result=self.rpc("initialize",json!({"protocolVersion":MCP_PROTOCOL_VERSION,
-            "capabilities":{"tools":{"listChanged":true}},"clientInfo":{"name":"ai-gateway","version":"1.0.0"}})).await?;
-        if result.get("protocolVersion").and_then(Value::as_str) != Some(MCP_PROTOCOL_VERSION) {
-            return Err(broker_error("MCP_PROTOCOL_VERSION_MISMATCH"));
-        }
-        validate_server_info(result.get("serverInfo"))?;
-        self.send(
-            json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
-            true,
-        )
-        .await?;
-        Ok(McpInitializedClient {
-            client: self,
-            protocol_version: Some(MCP_PROTOCOL_VERSION.into()),
-        })
-    }
-    async fn send(&self, payload: Value, notification: bool) -> Result<McpHttpResponse, McpError> {
+    async fn send(&self, mut payload: Value, notification: bool) -> Result<McpHttpResponse, McpError> {
         let wire = self
             .wire
             .lock()
@@ -559,10 +545,7 @@ impl McpSession {
             "accept",
             HeaderValue::from_static("application/json, text/event-stream"),
         );
-        headers.insert(
-            "mcp-protocol-version",
-            HeaderValue::from_static(MCP_PROTOCOL_VERSION),
-        );
+        headers.extend(self.config.revision.decorate(&mut payload).map_err(broker_error)?);
         if let Some(value) = self.config.credential.as_deref().filter(|v| !v.is_empty()) {
             let mut value = HeaderValue::from_str(&format!("Bearer {value}"))
                 .map_err(|_| broker_error("MCP_SECRET_UNAVAILABLE"))?;
@@ -580,7 +563,7 @@ impl McpSession {
             .session
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .as_ref()
+            .as_ref().filter(|_|!self.config.revision.modern())
         {
             let mut value =
                 HeaderValue::from_str(value).map_err(|_| broker_error("MCP_SESSION_INVALID"))?;
@@ -595,8 +578,9 @@ impl McpSession {
                 session: self.session.clone(),
             })
             .await?;
-        validate_status(response.status, notification)?;
-        pin_session(&self.session, &response.headers)?;
+        if !(self.config.revision.modern()&&response.status==400){validate_status(response.status, notification)?;}
+        self.config.revision.check_session(&response.headers).map_err(broker_error)?;
+        if !self.config.revision.modern(){pin_session(&self.session, &response.headers)?;}
         validate_content_length(&response.headers, self.config.response_limit_bytes)?;
         if response.body.len() > self.config.response_limit_bytes {
             return Err(broker_error("MCP_RESPONSE_TOO_LARGE"));
@@ -611,13 +595,11 @@ impl McpSession {
                 false,
             )
             .await?;
-        decode_jsonrpc_response(
-            response_header(&response.headers, "content-type")
-                .as_deref()
-                .unwrap_or(""),
-            &response.body,
-            &id,
-        )
+        let content_type=response_header(&response.headers,"content-type").unwrap_or_default();
+        if self.config.revision.modern(){let parsed=decode_response_payload(&content_type,&response.body)?;if parsed["jsonrpc"]!="2.0"||parsed["id"].as_str()!=Some(id.as_str()){return Err(broker_error("MCP_RESPONSE_INVALID"))}if let Some(code)=revision::classify_error(&parsed){return Err(broker_error(code))}}
+        let result=decode_jsonrpc_response(&content_type,&response.body,&id)?;
+        self.config.revision.validate_result(&result).map_err(broker_error)?;
+        Ok(result)
     }
 }
 fn pin_session(session: &Mutex<Option<String>>, headers: &HeaderMap) -> Result<(), McpError> {
@@ -638,7 +620,7 @@ fn pin_session(session: &Mutex<Option<String>>, headers: &HeaderMap) -> Result<(
 }
 impl McpProtocolClient for McpSession {
     fn list_tools(&self) -> McpFuture<'_, Value> {
-        Box::pin(async move { normalize_catalog(&self.rpc("tools/list", json!({})).await?) })
+        Box::pin(async move { let mut result=self.rpc("tools/list",json!({})).await?;if self.config.revision.modern(){if let Some(tools)=result["tools"].as_array_mut(){tools.retain(|t|revision::tool_headers(&t["inputSchema"],&json!({})).is_ok());}}normalize_catalog(&result) })
     }
     fn close(&self) {
         self.wire.lock().unwrap_or_else(|e| e.into_inner()).take();
@@ -891,3 +873,7 @@ pub fn sanitize_description(description: &str) -> String {
 }
 
 // Definitions remain pending until the root integrates this unmounted module.
+
+#[cfg(test)]
+#[path="mcp_http/session_tests.rs"]
+mod revision_session_tests;

@@ -563,7 +563,7 @@ impl SqlMcpRepository {
             .rows(
                 "resolve_discovery_connection",
                 r#"
-            SELECT srv.server_id, srv.name, srv.base_url, srv.auth_method,
+            SELECT srv.server_id, srv.name, srv.base_url, srv.auth_method, srv.transport, srv.oauth_metadata_url,
                    srv.oauth_resource, srv.oauth_audience, srv.allowed_origins,
                    srv.timeout_ms, srv.max_concurrency,
                    srv.response_limit_bytes, srv.enabled,

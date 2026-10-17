@@ -1,0 +1,71 @@
+-- UNACTIVATED, UNNUMBERED successor proposal. No direct psql/startup execution.
+-- Canonical authority must measure complete predecessor/post fingerprints and
+-- activate this with its own source lock; current 023/024 are immutable.
+DO $owner$
+BEGIN
+ IF current_user !~ '^[a-z][a-z0-9_]{0,20}_owner$'
+ OR current_user <> (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='gateway')
+ OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND
+   (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
+  RAISE EXCEPTION 'canonical unprivileged NOLOGIN owner required';
+ END IF;
+END $owner$;
+CREATE TABLE gateway.local_node_control_commands (
+ command_id uuid PRIMARY KEY,
+ tenant_id varchar(128) NOT NULL,
+ user_id varchar(128) NOT NULL,
+ device_id varchar(255) NOT NULL,
+ idempotency_key uuid NOT NULL,
+ kind text NOT NULL CHECK(kind='emergency_stop'),
+ intent_sha256 char(64) NOT NULL CHECK(intent_sha256 ~ '^[0-9a-f]{64}$'),
+ nonce_seed char(64) NOT NULL CHECK(nonce_seed ~ '^[0-9a-f]{64}$'),
+ requested_at timestamptz NOT NULL DEFAULT now(),
+ acknowledged_at timestamptz,
+ acknowledged_channel_id varchar(255) REFERENCES gateway.local_node_channels(channel_id) ON DELETE RESTRICT,
+ UNIQUE(tenant_id,user_id,idempotency_key),
+ FOREIGN KEY(device_id,tenant_id,user_id) REFERENCES gateway.local_node_devices(device_id,tenant_id,user_id) ON DELETE RESTRICT,
+ CHECK((acknowledged_at IS NULL)=(acknowledged_channel_id IS NULL))
+);
+CREATE INDEX local_node_control_commands_pending ON gateway.local_node_control_commands(tenant_id,user_id,device_id,requested_at) WHERE acknowledged_at IS NULL;
+CREATE TABLE gateway.local_node_control_deliveries (
+ delivery_id varchar(512) PRIMARY KEY,
+ command_id uuid NOT NULL REFERENCES gateway.local_node_control_commands(command_id) ON DELETE RESTRICT,
+ nonce char(64) NOT NULL CHECK(nonce ~ '^[0-9a-f]{64}$'),
+ issued_at double precision NOT NULL CHECK(issued_at>0 AND issued_at<'Infinity'::float8),
+ expires_at double precision NOT NULL CHECK(expires_at>issued_at AND expires_at-issued_at<=600),
+ recorded_at timestamptz NOT NULL DEFAULT now()
+);
+REVOKE ALL ON gateway.local_node_control_commands,gateway.local_node_control_deliveries FROM PUBLIC;
+DO $grant$
+DECLARE prefix text:=left(current_user,length(current_user)-length('owner'));
+BEGIN
+ IF prefix !~ '^[a-z][a-z0-9_]{0,20}_$' THEN RAISE EXCEPTION 'invalid role prefix'; END IF;
+ EXECUTE format('GRANT SELECT,INSERT ON gateway.local_node_control_commands TO %I',prefix||'gateway');
+ EXECUTE format('GRANT UPDATE(acknowledged_at,acknowledged_channel_id) ON gateway.local_node_control_commands TO %I',prefix||'gateway');
+ EXECUTE format('GRANT SELECT,INSERT ON gateway.local_node_control_deliveries TO %I',prefix||'gateway');
+END $grant$;
+
+-- Request PoP v1, activated atomically with the owner-control tables above.
+-- Keys are immutable, registered ONLY in the owner-bound signed pairing tx.
+CREATE TABLE gateway.local_node_request_keys (
+ channel_id varchar(255) PRIMARY KEY REFERENCES gateway.local_node_channels(channel_id) ON DELETE RESTRICT,
+ public_key varchar(128) NOT NULL CHECK(public_key ~ '^[A-Za-z0-9_-]{43}$'),
+ key_class text NOT NULL CHECK(key_class='os-vault-software-ed25519'),
+ registered_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE gateway.local_node_request_nonces (
+ credential_sha256 char(64) PRIMARY KEY REFERENCES gateway.local_node_device_credentials(credential_sha256) ON DELETE RESTRICT,
+ nonce varchar(128) NOT NULL CHECK(nonce ~ '^[A-Za-z0-9_-]{43}$'),
+ issued_at bigint NOT NULL CHECK(issued_at>0),
+ expires_at bigint NOT NULL CHECK(expires_at>issued_at AND expires_at-issued_at<=60),
+ consumed_at timestamptz
+);
+REVOKE ALL ON gateway.local_node_request_keys,gateway.local_node_request_nonces FROM PUBLIC;
+DO $proof_grant$
+DECLARE prefix text:=left(current_user,length(current_user)-length('owner'));
+BEGIN
+ IF prefix !~ '^[a-z][a-z0-9_]{0,20}_$' THEN RAISE EXCEPTION 'invalid role prefix'; END IF;
+ EXECUTE format('GRANT SELECT,INSERT ON gateway.local_node_request_keys TO %I',prefix||'gateway');
+ EXECUTE format('GRANT SELECT,INSERT ON gateway.local_node_request_nonces TO %I',prefix||'gateway');
+ EXECUTE format('GRANT UPDATE(nonce,issued_at,expires_at,consumed_at) ON gateway.local_node_request_nonces TO %I',prefix||'gateway');
+END $proof_grant$;

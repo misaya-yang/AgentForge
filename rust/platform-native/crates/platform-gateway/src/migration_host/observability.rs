@@ -36,8 +36,13 @@ impl ObservabilityServices {
             TraceRepository::new(pool.clone(), control_pool).map_err(|_| HostError::Database)?,
         );
         let persistence = Arc::new(
-            PgUsagePersistence::new(pool)
-                .with_trace_writer(Arc::new(SampledUsageTraceWriter::default())),
+            crate::quota_store::reservation_receipts::CheckpointSettlingPersistence::new(
+                Arc::new(
+                    PgUsagePersistence::new(pool.clone())
+                        .with_trace_writer(Arc::new(SampledUsageTraceWriter::default())),
+                ),
+                pool,
+            ),
         );
         let mut usage = UsageRecorder::new(Some(persistence), usage_config);
         if let Some(publisher) = publisher {

@@ -1,3 +1,0 @@
-{{/* LangGraph databases/logins are externally provisioned by the owning authority.
-The chart must never create admin-owned application databases via psql hooks.
-Enabled agents require LANGGRAPH_<NAME>_DSN keys in databaseRoles.existingSecret. */}}

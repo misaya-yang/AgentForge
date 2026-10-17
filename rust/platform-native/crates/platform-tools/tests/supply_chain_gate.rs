@@ -1,5 +1,5 @@
 //! Real CLI with mock cryptographic verifier only; never accesses credentials/registries.
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
@@ -125,11 +125,8 @@ fn signed_fresh_both_platforms_pass_and_both_verifier_commands_bind_identity_and
     let f = Fixture::new();
     f.check(IMAGE, false, false, true);
     let calls = fs::read_to_string(f.root.join("calls")).unwrap();
-    assert!(
-        calls.contains(
-            "--certificate-identity-regexp ^https://github\\.com/misaya-yang/AgentForge/"
-        )
-    );
+    assert!(calls
+        .contains("--certificate-identity-regexp ^https://github\\.com/misaya-yang/AgentForge/"));
     assert_eq!(
         calls
             .matches("--certificate-oidc-issuer https://token.actions.githubusercontent.com")
@@ -184,7 +181,10 @@ fn all_workflow_actions_match_verified_official_shas_and_have_explicit_permissio
         assert!(workflow["permissions"].is_object(), "{}", path.display());
         for job in workflow["jobs"].as_object().unwrap().values() {
             for step in job["steps"].as_array().into_iter().flatten() {
-                if let Some(used) = step["uses"].as_str().filter(|s| !s.starts_with("./")) {
+                if let Some(used) = step["uses"]
+                    .as_str()
+                    .filter(|s| !s.starts_with("./") && !s.starts_with("$/"))
+                {
                     let (repo, sha) = used.split_once('@').unwrap();
                     assert_eq!(sha.len(), 40);
                     assert_eq!(refs["actions"][repo]["sha"], sha, "{used}");
@@ -202,11 +202,9 @@ fn actual_release_workflow_checks_critical_findings_and_signatures_before_promot
     .unwrap();
     let jobs = &workflow["jobs"];
     assert_eq!(jobs["merge"]["permissions"]["id-token"], "write");
-    assert!(
-        jobs["build-and-push"]["permissions"]
-            .get("id-token")
-            .is_none()
-    );
+    assert!(jobs["build-and-push"]["permissions"]
+        .get("id-token")
+        .is_none());
     let build = jobs["build-and-push"]["steps"].as_array().unwrap();
     let scan = build
         .iter()
@@ -274,5 +272,36 @@ fn actual_scan_wrapper_stops_on_scanner_error_and_rejects_tags_even_on_system_ba
         assert_eq!(output.status.code(), Some(code));
         assert!(!f.root.join("predicate.json").exists());
         assert!(!f.root.join("predicate-issued").exists());
+    }
+}
+
+#[test]
+fn sdk_release_uses_only_oidc_publishing_and_disables_release_package_caches() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    let source = fs::read_to_string(root.join(".github/workflows/publish-sdk.yml")).unwrap();
+    let workflow: Value = serde_yaml::from_str(&source).unwrap();
+    assert!(!source.contains("secrets.NPM_TOKEN"));
+    assert!(!source.contains("NODE_AUTH_TOKEN:"));
+    let publish = &workflow["jobs"]["publish-cli"];
+    assert_eq!(publish["permissions"]["id-token"], "write");
+    let steps = publish["steps"].as_array().unwrap();
+    assert!(steps
+        .iter()
+        .any(|s| s["run"] == "node .github/scripts/check-npm-trusted-publisher.mjs"));
+    assert!(steps.iter().any(|s| s["run"]
+        .as_str()
+        .unwrap_or("")
+        .contains("npm publish --access public --provenance")));
+    for job in workflow["jobs"].as_object().unwrap().values() {
+        for step in job["steps"].as_array().into_iter().flatten() {
+            let used = step["uses"].as_str().unwrap_or("");
+            if used.starts_with("actions/setup-node@") {
+                assert_eq!(step["with"]["package-manager-cache"], false);
+                assert!(step["with"].get("cache").is_none());
+            }
+            if used.starts_with("actions/setup-java@") {
+                assert!(step["with"].get("cache").is_none());
+            }
+        }
     }
 }

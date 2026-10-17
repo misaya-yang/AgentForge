@@ -348,14 +348,18 @@ fn binding_dataset(base: &Dataset, b: &Value) -> Dataset {
 }
 #[derive(Clone)]
 pub struct EmbeddingMigration {
+    job_fence: Option<Value>,
     pub store: MigrationStore,
     pub query: QueryStore,
     pub vectors: QdrantStore,
     pub embeddings: EmbeddingManager,
 }
+#[path = "migration_maintenance.rs"]
+mod maintenance;
 impl EmbeddingMigration {
     pub fn new(pool: PgPool, vectors: QdrantStore, embeddings: EmbeddingManager) -> Self {
         Self {
+            job_fence: None,
             store: MigrationStore { pool: pool.clone() },
             query: QueryStore::new(pool),
             vectors,
@@ -389,6 +393,7 @@ impl EmbeddingMigration {
             format!("knowledge-embedding-start:{name}"),
         )
         .await?;
+        self.check_job_fence(&d.dataset_id).await?;
         let result = self.start_reserved(d, target, capabilities, &name).await;
         lease.release().await?;
         result
@@ -964,6 +969,7 @@ impl EmbeddingMigration {
             format!("knowledge-dataset-index:{}", d.dataset_id),
         )
         .await?;
+        self.check_job_fence(&d.dataset_id).await?;
         let scope = self.scan_target(&d, &target).await?;
         let mut tx = lease.connection().begin().await?;
         let m = locked_migration(&mut tx, id).await?;
@@ -1000,7 +1006,7 @@ impl EmbeddingMigration {
         sqlx::query("UPDATE dataset_collection_bindings SET state='retained',retired_at=NOW(),retained_until=NOW()+make_interval(secs=>$2) WHERE binding_id=$1::uuid AND state='serving'").bind(text(&source,"binding_id")).bind(retention as f64).execute(&mut *tx).await?;
         sqlx::query("UPDATE dataset_collection_bindings SET state='serving',activated_at=NOW() WHERE binding_id=$1::uuid AND state='shadow'").bind(text(&target,"binding_id")).execute(&mut *tx).await?;
         stamp_documents(&mut tx, &d.dataset_id, &target).await?;
-        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='completed',error=NULL,updated_at=NOW() WHERE migration_id=$1::uuid AND state='ready' RETURNING to_jsonb(embedding_migrations)").bind(id).fetch_one(&mut *tx).await?;
+        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='completed',error=NULL,totals=CASE WHEN $2::text IS NULL THEN totals ELSE COALESCE(totals,'{}'::jsonb)||jsonb_build_object('vector_cutover_job_id',$2::text) END,updated_at=NOW() WHERE migration_id=$1::uuid AND state='ready' RETURNING to_jsonb(embedding_migrations)").bind(id).bind(self.job_id()).fetch_one(&mut *tx).await?;
         tx.commit().await?;
         lease.release().await?;
         Ok(json!({"migration":m}))
@@ -1015,6 +1021,10 @@ impl EmbeddingMigration {
         }
         let dataset = text(&m, "dataset_id");
         dataset_lock(&mut tx, dataset).await?;
+        if self.job_fence.is_some() {
+            let current: Value = sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.datasets d WHERE dataset_id=$1 AND is_deleted=FALSE").bind(dataset).fetch_one(&mut *tx).await?;
+            self.check_job_value(&current)?;
+        }
         let source = locked_binding(&mut tx, text(&m, "source_binding_id")).await?;
         let target = locked_binding(&mut tx, text(&m, "target_binding_id")).await?;
         if source["state"] != "retained" || target["state"] != "serving" {
@@ -1026,7 +1036,7 @@ impl EmbeddingMigration {
         sqlx::query("UPDATE dataset_collection_bindings SET state=$2,retired_at=CASE WHEN $2='retired' THEN NOW() ELSE retired_at END WHERE binding_id=$1::uuid AND state='serving'").bind(text(&target,"binding_id")).bind(if keep_shadow{"shadow"}else{"retired"}).execute(&mut *tx).await?;
         sqlx::query("UPDATE dataset_collection_bindings SET state='serving',activated_at=NOW(),retained_until=NULL WHERE binding_id=$1::uuid AND state='retained'").bind(text(&source,"binding_id")).execute(&mut *tx).await?;
         stamp_documents(&mut tx, dataset, &source).await?;
-        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='rolled_back',updated_at=NOW() WHERE migration_id=$1::uuid RETURNING to_jsonb(embedding_migrations)").bind(id).fetch_one(&mut *tx).await?;
+        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='rolled_back',totals=CASE WHEN $2::text IS NULL THEN totals ELSE COALESCE(totals,'{}'::jsonb)||jsonb_build_object('vector_rollback_job_id',$2::text) END,updated_at=NOW() WHERE migration_id=$1::uuid RETURNING to_jsonb(embedding_migrations)").bind(id).bind(self.job_id()).fetch_one(&mut *tx).await?;
         if !keep_shadow {
             sqlx::query("DELETE FROM embedding_migration_progress WHERE migration_id=$1::uuid")
                 .bind(id)
@@ -1040,8 +1050,13 @@ impl EmbeddingMigration {
         let (_, d, _, target) = self.context(id).await?;
         let mut tx = self.store.pool.begin().await?;
         dataset_lock(&mut tx, &d.dataset_id).await?;
+        if self.job_fence.is_some() {
+            let current: Value = sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.datasets d WHERE dataset_id=$1 AND is_deleted=FALSE").bind(&d.dataset_id).fetch_one(&mut *tx).await?;
+            self.check_job_value(&current)?;
+        }
         let m = locked_migration(&mut tx, id).await?;
-        if ![
+        let own_abandoned = m["state"] == "abandoned" && self.job_id().is_some_and(|id| m["totals"]["vector_abort_job_id"] == id);
+        if !own_abandoned && ![
             "shadow_build",
             "backfilling",
             "verified",
@@ -1070,7 +1085,7 @@ impl EmbeddingMigration {
             sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET state='failed',error='cancelled by abort',finished_at=NOW(),updated_at=NOW() WHERE migration_id=$1::uuid AND state='queued'").bind(id).execute(&mut *tx).await?;
         }
         sqlx::query("UPDATE dataset_collection_bindings SET state='retired',retired_at=NOW() WHERE binding_id=$1::uuid AND state='shadow'").bind(text(&target,"binding_id")).execute(&mut *tx).await?;
-        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='abandoned',error=$2,updated_at=NOW() WHERE migration_id=$1::uuid RETURNING to_jsonb(embedding_migrations)").bind(id).bind(reason.chars().take(2000).collect::<String>()).fetch_one(&mut *tx).await?;
+        let m:Value=sqlx::query_scalar("UPDATE embedding_migrations SET state='abandoned',error=$2,totals=CASE WHEN $3::text IS NULL THEN totals ELSE COALESCE(totals,'{}'::jsonb)||jsonb_build_object('vector_abort_job_id',$3::text) END,updated_at=NOW() WHERE migration_id=$1::uuid RETURNING to_jsonb(embedding_migrations)").bind(id).bind(reason.chars().take(2000).collect::<String>()).bind(self.job_id()).fetch_one(&mut *tx).await?;
         sqlx::query("DELETE FROM embedding_migration_progress WHERE migration_id=$1::uuid")
             .bind(id)
             .execute(&mut *tx)
@@ -1090,32 +1105,6 @@ impl EmbeddingMigration {
             }
         }
         Ok(json!({"migration":m}))
-    }
-    pub async fn reclaim_expired(&self, delete_collections: bool) -> MResult<Vec<String>> {
-        let candidates:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE state='retained' AND retained_until<=NOW()").fetch_all(&self.store.pool).await?;
-        let mut reclaimed = Vec::new();
-        for b in candidates {
-            let mut tx = self.store.pool.begin().await?;
-            dataset_lock(&mut tx, text(&b, "dataset_id")).await?;
-            let row:Option<Value>=sqlx::query_scalar("UPDATE dataset_collection_bindings SET state='retired',retired_at=NOW() WHERE binding_id=$1::uuid AND state='retained' AND retained_until<=NOW() RETURNING to_jsonb(dataset_collection_bindings)").bind(text(&b,"binding_id")).fetch_optional(&mut *tx).await?;
-            tx.commit().await?;
-            if row.is_none() {
-                continue;
-            }
-            if delete_collections {
-                let base = Dataset {
-                    dataset_id: text(&b, "dataset_id").into(),
-                    tenant_id: text(&b, "tenant_id").into(),
-                    ..Default::default()
-                };
-                let d = binding_dataset(&base, &b);
-                if self.vectors.collection_exists(d.collection()?).await? {
-                    self.vectors.delete_collection(&d).await?;
-                }
-            }
-            reclaimed.push(text(&b, "binding_id").into());
-        }
-        Ok(reclaimed)
     }
     pub async fn describe(&self, d: &Dataset) -> MResult<Value> {
         let serving = match self.store.serving(d).await {

@@ -1,0 +1,4 @@
+# Explicit `prepare --fetch` only: public Cargo registry access, no runtime networks or secrets.
+services:
+  native-build:
+    network_mode: bridge

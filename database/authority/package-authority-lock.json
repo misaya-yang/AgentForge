@@ -166,7 +166,7 @@
     "migrations/2026_08_post_kb_v1/019_verification.json": "c2242553ad6579bf633c3bf8f57f55f4c75cfdbfa134342583a0423786e98d4b",
     "migrations/2026_08_post_kb_v1/020_gateway_task_deliveries.sql": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
     "migrations/2026_08_post_kb_v1/020_verification.json": "ec021f78081800e3ee3b20b186fda536fcec499f71b8d39ae6c2b917e6b1b2b2",
-    "migrations/2026_08_post_kb_v1/manifest.yml": "5f71e17c48675c8f86c300afff8f12a46386c1f63a486a95a9101a2d2646e17f",
+    "migrations/2026_08_post_kb_v1/manifest.yml": "988f445e7faf70e604938d98eeaf798c1ac99a242c0c22ded6c478108e81fab9",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_ACTIVATION.json": "e15a270db4d2bb6d4b11e98b80421459008f1ce8ff145df2807281e25b102561",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_MEASUREMENT.json": "0cc2f885fdbf430091b834b3e491f2561cd333e18983402f3db240541558dab2",
     "migrations/legacy-manifest.yml": "26c94878bf39861ff810c2608f6359425e695da64b0100e453b4d63c90765664",
@@ -194,7 +194,23 @@
     "migrations/2026_08_post_kb_v1/024_runtime_worker_schema_admission_reader.sql": "74c1667fa594267a85701aec9915ffad5a4f73192c8aab2ec5759a14d86bbec9",
     "migrations/2026_08_post_kb_v1/024_verification.json": "735424f1de85576af4b6c2164b7933ee89efdae960920f1a5b9e2c1677ab181a",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_024_MEASUREMENT.json": "b52ac313589b9a2a525c4b284e0747ee03b7ddd64bf64a18fba2a5b1a9ba420d",
-    "migrations/2026_08_post_kb_v1/SUCCESSOR_024_ACTIVATION.json": "f5a83d14dd0acb1ebfae8b95fb97863231b39701a0412c904afbe6e677036b5d"
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_024_ACTIVATION.json": "f5a83d14dd0acb1ebfae8b95fb97863231b39701a0412c904afbe6e677036b5d",
+    "migrations/2026_08_post_kb_v1/025_assistant_runtime_turn_security_definer.sql": "ce6c2c8f0894c976107037dd2da2d7d59d2ef6af0c129a694e25cbb12602cc5d",
+    "migrations/2026_08_post_kb_v1/025_verification.json": "37ba2afae9a71a7be02988b9d5188ada9220c13403accd5e1db59a018def8eaa",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_025_MEASUREMENT.json": "5dc1f830822c4fda82480c61cbaa5f8e8b8cd84c57e2e86beaa0f9afccf4db3e",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_025_ACTIVATION.json": "b4498a05e2da7d6b921956487378469612b891a8ad090dc70bf840f362dc0782",
+    "migrations/2026_08_post_kb_v1/026_platform_upgrade_native_contracts.sql": "8d716380f32c5ea3ff815e9228153d6161ae9a94bc68949f7dab02abfaf87b07",
+    "migrations/2026_08_post_kb_v1/026_verification.json": "617ee67dbf187e313b0b85436f521f3b8f8b722e3f0e90cd64068009e0dc54ba",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_026_MEASUREMENT.json": "b36a447dd5360751cfaeeb654b6f6e125afa76ff6b19cab6d8996f6160b1a13b",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_026_ACTIVATION.json": "1bef55dc8810882ecb32a68ada07282d91c710603f7151b6a6e9d038276bb752",
+    "migrations/2026_08_post_kb_v1/027_native_ai_platform_contracts.sql": "e22a46ef53f48f7839d6b06f121f8c57e3fa18a8065ffcc4e6b2af8760c9ed7f",
+    "migrations/2026_08_post_kb_v1/027_verification.json": "80051385a13d7ad1eef64ab504ef871f4c80b2a151b03bf81a063ff689ead324",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_027_MEASUREMENT.json": "7348b7d49ce48ff11231ade90e5feb96569cbd645b9d484fbb21d62b47b82506",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_027_ACTIVATION.json": "a9fb964735f86cedc41db33166837d3c9f5e4985750c25701e6c255ae3e95f17",
+    "migrations/2026_08_post_kb_v1/028_price_book_v2_contract.sql": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4",
+    "migrations/2026_08_post_kb_v1/028_verification.json": "a0ae5dee780ca0fc429b8523502bd8c1f337f5e5d3c08d65ad33c54070c8372a",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_028_MEASUREMENT.json": "c2c8e2b2552480a0c8fae3a8558f8133a127bde3f52e73f2daa5718039745851",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_028_ACTIVATION.json": "2d045bb350077ed94e0027527ca5af3e7f4dddaa0f0b6a68f83eeb8f30a5ee1b"
   },
   "schema": "migration-authority/source-distribution/v1"
 }

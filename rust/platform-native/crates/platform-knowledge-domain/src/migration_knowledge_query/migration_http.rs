@@ -77,6 +77,12 @@ async fn scoped(
     }
     Ok(())
 }
+async fn worker_mutation(s: &EmbeddingMigration,u: &UserContext,d: &str,operation: crate::migration_knowledge_ingest::vector_jobs::Mutation) -> std::result::Result<Value,MigrationError> {
+    crate::migration_knowledge_ingest::vector_jobs::submit(&s.store.pool,u,d,operation).await.map_err(|error| MigrationError {
+        status: match error { crate::migration_knowledge_ingest::IngestError::Permission => 403, crate::migration_knowledge_ingest::IngestError::NotFound => 404, crate::migration_knowledge_ingest::IngestError::Validation(_) => 400, crate::migration_knowledge_ingest::IngestError::GenerationChanged | crate::migration_knowledge_ingest::IngestError::LeaseBusy => 409, _ => 503 },
+        message: error.to_string(),
+    })
+}
 async fn describe(
     State(s): State<Arc<EmbeddingMigration>>,
     Extension(u): Extension<UserContext>,
@@ -103,9 +109,11 @@ async fn start(
     let d = s.query.require_dataset_access(&u, &d, "owner").await?;
     let i = serde_json::to_value(&p)
         .map_err(|_| MigrationError::invalid("invalid embedding identity"))?;
-    Ok(Json(
-        s.start(&d, i, p.capabilities.map(|v| json!(v)), "").await?,
-    ))
+    let capabilities = p.capabilities.map(|v| json!(v));
+    if s.vectors.is_read_only() {
+        return Ok(Json(worker_mutation(&s,&u,&d.dataset_id,crate::migration_knowledge_ingest::vector_jobs::Mutation::EmbeddingStart { target:i,capabilities }).await?));
+    }
+    Ok(Json(s.start(&d,i,capabilities,"").await?))
 }
 fn receipt(dataset: &str, migration: &str, job: &Value, reused: bool) -> Value {
     let mut v = public_job(job);
@@ -207,6 +215,9 @@ async fn cutover(
             .filter(|n| *n >= 0)
             .ok_or_else(|| MigrationError::invalid("invalid retention_seconds"))?
     };
+    if s.vectors.is_read_only() {
+        return Ok(Json(worker_mutation(&s,&u,&d,crate::migration_knowledge_ingest::vector_jobs::Mutation::EmbeddingCutover { migration:id.clone(), retention }).await?));
+    }
     Ok(Json(s.cutover(&id, retention).await?))
 }
 async fn rollback(
@@ -224,6 +235,9 @@ async fn rollback(
             .as_bool()
             .ok_or_else(|| MigrationError::invalid("invalid keep_shadow"))?
     };
+    if s.vectors.is_read_only() {
+        return Ok(Json(worker_mutation(&s,&u,&d,crate::migration_knowledge_ingest::vector_jobs::Mutation::EmbeddingRollback { migration:id.clone(), keep_shadow:keep }).await?));
+    }
     Ok(Json(s.rollback(&id, keep).await?))
 }
 async fn abort(
@@ -242,5 +256,8 @@ async fn abort(
             .as_bool()
             .ok_or_else(|| MigrationError::invalid("invalid purge_shadow"))?
     };
+    if s.vectors.is_read_only() {
+        return Ok(Json(worker_mutation(&s,&u,&d,crate::migration_knowledge_ingest::vector_jobs::Mutation::EmbeddingAbort { migration:id.clone(), reason:reason.into(), purge }).await?));
+    }
     Ok(Json(s.abort(&id, reason, purge).await?))
 }

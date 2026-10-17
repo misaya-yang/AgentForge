@@ -207,6 +207,7 @@ pub fn mcp_client_cache_key(item: &Value, tenant_id: &str) -> Result<McpClientCa
         "timeout_ms":record_integer(item,"timeout_ms",30_000)?,"max_concurrency":record_integer(item,"max_concurrency",5)?,
         "response_limit_bytes":record_integer(item,"response_limit_bytes",1_048_576)?,
         "auth_method":python_value_to_string(value_or(item,"auth_method",&none)),
+        "oauth_metadata_url":item.get("oauth_metadata_url").unwrap_or(&Value::Null),
         "oauth_resource":item.get("oauth_resource").unwrap_or(&Value::Null),
         "oauth_audience":item.get("oauth_audience").unwrap_or(&Value::Null),
         "audience":item.get("audience").unwrap_or(&Value::Null),"allowed_origins":origins});
@@ -221,7 +222,7 @@ pub fn mcp_client_cache_key(item: &Value, tenant_id: &str) -> Result<McpClientCa
             .map(python_value_to_string)
             .ok_or(McpError::Unhandled)?,
         credential_revision: revision,
-        protocol_version: MCP_PROTOCOL_VERSION.into(),
+        protocol_version: crate::mcp_http::revision::Revision::configured(item).map_err(broker_error)?.as_str().into(),
         config_fingerprint: fingerprint,
     })
 }
@@ -449,7 +450,7 @@ impl McpGatewayBroker {
                     client: initialized.client,
                     invalidated: AtomicBool::new(false),
                 });
-                if initialized.protocol_version.as_deref() != Some(MCP_PROTOCOL_VERSION) {
+                if initialized.protocol_version.as_deref() != Some(key.protocol_version.as_str()) {
                     return Err(broker_error("MCP_PROTOCOL_VERSION_MISMATCH"));
                 }
                 Ok(entry)
@@ -676,6 +677,7 @@ impl McpDiscovery for McpGatewayBroker {
             // enabled/revoked/expiry, delegated owner and OAuth audience checks.
             let item=self.inner.repository.call("resolve_discovery_connection",context,
                 json!({"server_id":server_id,"connection_id":connection_id,"principal_type":principal_type})).await?;
+            let actual_revision=crate::mcp_http::revision::Revision::configured(&item).map_err(broker_error)?.as_str();
             let lease = self.acquire(item, &context.tenant_id).await?;
             let result = lease
                 .entry
@@ -705,7 +707,7 @@ impl McpDiscovery for McpGatewayBroker {
                 )
                 .await?;
             let record = recorded.as_object_mut().ok_or(McpError::Unhandled)?;
-            record.insert("protocol_version".into(), json!(MCP_PROTOCOL_VERSION));
+            record.insert("protocol_version".into(), json!(actual_revision));
             Ok(recorded)
         })
     }

@@ -45,6 +45,7 @@ impl IngestionService {
         reembed: bool,
         image_points: BTreeMap<String, Vec<Value>>,
         replace_images: bool,
+        docir: Option<&super::parsing_v2::integration::Prepared>,
     ) -> Result<Vec<String>> {
         let document = string(doc, "document_id");
         let image_prepared_ids: BTreeSet<String> = image_points
@@ -250,7 +251,7 @@ impl IngestionService {
                     self.indexer.delete_points(&scope, &[id.clone()]).await?;
                 }
             }
-            KnowledgeWriteStore::commit_text_publication(
+            KnowledgeWriteStore::commit_text_publication_with_docir(
                 &mut publication,
                 &dataset.dataset_id,
                 document,
@@ -264,6 +265,7 @@ impl IngestionService {
                 pending,
                 replace_images,
                 lexical.as_ref().map(|c| (&lifecycle, c)),
+                docir.map(|prepared| (prepared, &self.assets)),
             )
             .await?;
             Ok::<_, IngestError>(staged_ids.clone())

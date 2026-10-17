@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object", "additionalProperties": false,
+  "required": ["storeRef", "secrets"],
+  "properties": {
+    "storeRef": {"type":"object","additionalProperties":false,"required":["name","kind"],"properties":{"name":{"type":"string","minLength":1},"kind":{"enum":["SecretStore","ClusterSecretStore"]}}},
+    "secrets": {"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["name","keys"],"properties":{"name":{"type":"string","minLength":1},"keys":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["secretKey","remoteKey"],"properties":{"secretKey":{"type":"string","minLength":1},"remoteKey":{"type":"string","minLength":1},"property":{"type":"string"}}}}}}}
+  }
+}

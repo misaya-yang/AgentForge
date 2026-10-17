@@ -1,6 +1,9 @@
 //! Execution lifecycle endpoints: create (lease + descriptor + binding
 //! verification, reservation, dispatch), read, and cancel.
 
+#[path = "../lease_verification.rs"]
+mod lease_verification;
+
 use std::collections::BTreeMap;
 
 use ai_platform_capability_contract::{
@@ -36,9 +39,7 @@ pub(super) async fn create_execution(
             "execution request is invalid",
         )
     })?;
-    request
-        .lease
-        .verify_signature(&state.lease_secret)
+    lease_verification::verify(&request, &state.lease_secret)
         .map_err(|_| {
             error(
                 StatusCode::FORBIDDEN,
@@ -101,6 +102,8 @@ pub(super) async fn create_execution(
         )
         .await
         .map_err(store_error)?;
+    lease_verification::verify_snapshot(&request, &runtime_binding.snapshot_id)
+        .map_err(|_| store_error(StoreError::RuntimeBindingUnauthorized))?;
     if runtime_binding.capability_revision != request.lease.capability_revision {
         return Err(store_error(StoreError::RuntimeBindingUnauthorized));
     }
@@ -197,6 +200,8 @@ pub(super) async fn create_execution(
     let mut resource_binding = resource_binding_value(
         &runtime_binding, &scope, &request.lease.run_id, &descriptor,
     );
+    let transport_budget=crate::read_capabilities::transport::ingress(&headers,request.lease.expires_at_epoch_ms,descriptor.timeout_ms).map_err(|_|error(StatusCode::REQUEST_TIMEOUT,"transport_budget_expired","private request budget is invalid or expired"))?;
+    resource_binding[crate::read_capabilities::transport::EXPIRY_KEY]=serde_json::json!(request.lease.expires_at_epoch_ms);
     if let Some(active) = &state.plugin_activation
         && active.managed.contains(&descriptor.id)
     {
@@ -264,7 +269,7 @@ pub(super) async fn create_execution(
 
     if outcome.created && !outcome.record.execution.status.is_terminal() {
         state.register_cancellation(&actual_id).await;
-        tokio::spawn(trace_context.scope(run_execution(
+        tokio::spawn(crate::read_capabilities::transport::scope(transport_budget,trace_context.scope(run_execution(
             state.clone(),
             scope,
             actual_id.clone(),
@@ -272,7 +277,7 @@ pub(super) async fn create_execution(
             outcome.record.arguments.clone(),
             descriptor,
             ticket.expect("new committed reservation has an admission ticket"),
-        )));
+        ))));
     }
     let current = state
         .store

@@ -7,7 +7,7 @@ use super::{
     qdrant::{QdrantStore, VectorHit},
     rerank::{self, Reranker},
     store::QueryStore,
-    types::{Candidate, Dataset, QueryError, Result, RetrieveResult, UserContext},
+    types::{Candidate, Dataset, IndexGeneration, QueryError, Result, RetrieveResult, UserContext},
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -18,9 +18,10 @@ use std::{
 };
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
-
 #[path = "result_cache.rs"]
 mod result_cache;
+#[path = "shared_result_cache.rs"]
+mod shared_result_cache;
 #[derive(Clone)]
 pub struct RetrievalService {
     pub store: QueryStore,
@@ -31,7 +32,10 @@ pub struct RetrievalService {
     pub interactive_deadline: Duration,
     pub max_query_concurrency: usize,
     cache: result_cache::ResultCache,
+    shared_cache: Option<shared_result_cache::SharedResultCache>,
 }
+#[path = "service_cache.rs"]
+mod cache_support;
 impl RetrievalService {
     pub fn new(
         store: QueryStore,
@@ -48,9 +52,11 @@ impl RetrievalService {
             interactive_deadline: Duration::from_secs(3),
             max_query_concurrency: 3,
             cache: result_cache::ResultCache::default(),
+            shared_cache: None,
         }
     }
-    pub async fn retrieve(
+    pub async fn retrieve(&self,user:&UserContext,dataset_id:&str,request:RetrieveRequest)->Result<(Vec<RetrieveResult>, Value)> { super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(dataset_id.into()),document_id:None,execution_id:None},user.clone(),self.retrieve_scoped(user,dataset_id,request)).await }
+    async fn retrieve_scoped(
         &self,
         user: &UserContext,
         dataset_id: &str,
@@ -135,34 +141,19 @@ impl RetrievalService {
         let generation = dataset.generation()?;
         let cfg = config::resolve(&dataset, r)?;
         self.preflight(&dataset).await?;
-        let normalized_query = result_cache::normalize_query(&r.query);
-        let mut request_value =
-            serde_json::to_value(r).map_err(|_| QueryError::InvalidProviderResponse)?;
-        request_value["query"] = json!(normalized_query);
-        let fingerprint = result_cache::key(user, &dataset, &generation, &request_value);
-        if !self.cache_ttl.is_zero() && !user.user_id.is_empty() {
-            let cached = self.cache.get(&fingerprint, self.cache_ttl).await;
-            if let Some((results, mut meta)) = cached {
-                let ids: Vec<_> = results.iter().map(|r| r.segment_id.clone()).collect();
-                let active = self.store.active_segment_ids(&dataset, &ids).await?;
-                if active == ids.into_iter().collect() {
-                    self.store.require_generation(user, id, &generation).await?;
-                    meta["retrieval_cache_hit"] = json!(true);
-                    if let Some(m) = meta.as_object_mut() {
-                        m.remove("rerank_degraded");
-                        m.remove("rerank_error");
-                    }
-                    stamp_observation(&mut meta, &r.query);
-                    self.telemetry(
-                        dataset.clone(),
-                        user.clone(),
-                        r.clone(),
-                        results.clone(),
-                        meta.clone(),
-                    );
-                    return Ok((results, meta));
-                }
-            }
+        let fingerprint = self.result_cache_key(user, &dataset, r, None)?;
+        if let Some(cached) = self
+            .lookup_cached_result(user, &dataset, &generation, r, &fingerprint, started)
+            .await?
+        {
+            self.telemetry(
+                dataset,
+                user.clone(),
+                r.clone(),
+                cached.0.clone(),
+                cached.1.clone(),
+            );
+            return Ok(cached);
         }
         let (results, mut meta) = self
             .pipeline(user, &dataset, r, std::slice::from_ref(r), cfg, deadline)
@@ -170,11 +161,8 @@ impl RetrievalService {
         meta["retrieval_cache_hit"] = json!(false);
         meta["retrieval_query_fingerprint"] = json!(fingerprint);
         meta["timings_ms"]["total_ms"] = json!(started.elapsed().as_secs_f64() * 1000.0);
-        if !self.cache_ttl.is_zero() && meta["rerank_degraded"].is_null() {
-            self.cache
-                .set(fingerprint, results.clone(), meta.clone(), self.cache_ttl)
-                .await;
-        }
+        self.store_cached_result(&dataset, r, fingerprint, results.clone(), meta.clone())
+            .await?;
         stamp_observation(&mut meta, &r.query);
         self.telemetry(
             dataset,
@@ -292,15 +280,16 @@ impl RetrievalService {
                 let manager = self.embeddings.clone();
                 let dataset = dataset.clone();
                 let query = r.query.clone();
+                let actor = user.clone();
                 let limit = semaphore.clone();
-                embeddings.spawn(async move {
+                embeddings.spawn(super::model_plane::inherit(async move {
                     let _permit = limit
                         .acquire_owned()
                         .await
                         .map_err(|_| QueryError::DependenciesFailed)?;
-                    let result = manager.embed_query(&dataset, &query).await;
+                    let result = manager.embed_query_for_actor(&dataset, &query, &actor).await;
                     Ok::<_, QueryError>((query, result))
-                });
+                }));
             }
         }
         while let Some(joined) = embeddings.join_next().await {
@@ -397,7 +386,6 @@ impl RetrievalService {
                 }
             }
         }
-
         if !native_used {
             for (r, c) in specs.iter().zip(&configs) {
                 let dense = async {
@@ -863,7 +851,8 @@ impl RetrievalService {
         out.truncate(c.keyword_k);
         Ok(out)
     }
-    pub async fn retrieve_batch(
+    pub async fn retrieve_batch(&self,user:&UserContext,dataset_id:&str,primary:RetrieveRequest,queries:Vec<RetrieveRequest>,max_parallel:usize)->Result<(Vec<Value>, Value)> { super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(dataset_id.into()),document_id:None,execution_id:None},user.clone(),self.retrieve_batch_scoped(user,dataset_id,primary,queries,max_parallel)).await }
+    async fn retrieve_batch_scoped(
         &self,
         user: &UserContext,
         dataset_id: &str,
@@ -909,16 +898,50 @@ impl RetrievalService {
         let cfg = config::resolve(&dataset, &primary)?;
         let mut service = self.clone();
         service.max_query_concurrency = max_parallel.min(self.max_query_concurrency).max(1);
-        let (results, mut metadata) = service
-            .pipeline(
-                user,
-                &dataset,
-                &primary,
-                &specs,
-                cfg,
-                self.vectors.publication_deadline(self.interactive_deadline),
-            )
-            .await?;
+        let generation = dataset.generation()?;
+        let fingerprint = service.result_cache_key(user, &dataset, &primary, Some(&specs))?;
+        let cache_allowed = specs
+            .iter()
+            .map(|r| service.result_cache_profile_available(&dataset, r))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .all(|allowed| allowed);
+        let cached = if cache_allowed {
+            service
+                .lookup_cached_result(user, &dataset, &generation, &primary, &fingerprint, started)
+                .await?
+        } else {
+            None
+        };
+        let (results, mut metadata) = match cached {
+            Some(cached) => cached,
+            None => {
+                let (results, mut metadata) = service
+                    .pipeline(
+                        user,
+                        &dataset,
+                        &primary,
+                        &specs,
+                        cfg,
+                        self.vectors.publication_deadline(self.interactive_deadline),
+                    )
+                    .await?;
+                metadata["retrieval_cache_hit"] = json!(false);
+                metadata["retrieval_query_fingerprint"] = json!(fingerprint);
+                if cache_allowed {
+                    service
+                        .store_cached_result(
+                            &dataset,
+                            &primary,
+                            fingerprint,
+                            results.clone(),
+                            metadata.clone(),
+                        )
+                        .await?;
+                }
+                (results, metadata)
+            }
+        };
         metadata["queries"] = json!(specs.iter().map(|r| &r.query).collect::<Vec<_>>());
         metadata["input_query_count"] = json!(count);
         metadata["unique_query_count"] = json!(specs.len());
@@ -937,34 +960,6 @@ impl RetrievalService {
             vec![json!({"query":primary.query,"results":results,"meta":metadata})],
             meta,
         ))
-    }
-    fn telemetry(
-        &self,
-        d: Dataset,
-        u: UserContext,
-        r: RetrieveRequest,
-        results: Vec<RetrieveResult>,
-        meta: Value,
-    ) {
-        let store = self.store.clone();
-        tokio::spawn(async move {
-            let _ = store
-                .record_query(
-                    &d,
-                    &u,
-                    &r.query,
-                    &r.mode,
-                    if r.telemetry_source.is_empty() {
-                        "api"
-                    } else {
-                        &r.telemetry_source
-                    },
-                    r.top_k,
-                    &results,
-                    &meta,
-                )
-                .await;
-        });
     }
 }
 fn candidate_from_hit(hit: VectorHit, source: &str) -> Option<Candidate> {

@@ -1,11 +1,36 @@
+# Native TLS on an app-only network. Certificate SAN must include sdk-agent-worker.
 # Explicit opt-in overlay; requires the SDK-capable native Gateway deployment.
 # The legacy Python Gateway does not implement these adapters.
-# No builds or public worker port; image must be an operator-selected immutable release.
+# No public worker port; explicit source build retains the canonical SDK target.
 services:
   gateway:
     environment:
-      SDK_AGENT_WORKER_URL: http://127.0.0.1:8096
+      SDK_AGENT_GATEWAY_TLS_ENABLED: "true"
+      SDK_AGENT_GATEWAY_TLS_BIND: gateway-sdk-callback:8097
+      SDK_AGENT_GATEWAY_TLS_CERT_FILE: /run/sdk-callback/tls.crt
+      SDK_AGENT_GATEWAY_TLS_KEY_FILE: /run/sdk-callback/tls.key
+      SDK_AGENT_WORKER_URL: https://sdk-agent-worker:8096
+      SDK_AGENT_WORKER_TLS_CA_FILE: /run/sdk-worker/ca.pem
       SDK_AGENT_WORKER_TOKEN: "${SDK_AGENT_WORKER_TOKEN:?SDK_AGENT_WORKER_TOKEN must be an operator-only secret}"
+    volumes:
+      - type: bind
+        source: "${SDK_WORKER_TLS_CA_FILE:?Provision the SDK worker CA outside source control}"
+        target: /run/sdk-worker/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${SDK_GATEWAY_TLS_CERT_FILE:?Provision dedicated Gateway callback TLS inputs outside source control}"
+        target: /run/sdk-callback/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${SDK_GATEWAY_TLS_KEY_FILE:?Provision dedicated Gateway callback TLS inputs outside source control}"
+        target: /run/sdk-callback/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
   sdk-agent-worker:
     image: "${SDK_AGENT_WORKER_IMAGE:-ai-platform/sdk-agent-worker:rust-local}"
     build:
@@ -13,14 +38,18 @@ services:
       dockerfile: deploy/platform-native/Dockerfile
       target: sdk-worker
     profiles: [sdk-agents]
-    network_mode: service:gateway
+    networks: [app]
     depends_on:
       gateway:
         condition: service_started
     environment:
+      SDK_AGENT_WORKER_BIND: 0.0.0.0:8096
+      SDK_AGENT_WORKER_TLS_CERT_FILE: /run/sdk-worker/tls.crt
+      SDK_AGENT_WORKER_TLS_KEY_FILE: /run/sdk-worker/tls.key
+      SDK_AGENT_WORKER_TLS_CA_FILE: /run/sdk-worker/ca.pem
       SDK_AGENT_WORKER_TOKEN: "${SDK_AGENT_WORKER_TOKEN:?SDK_AGENT_WORKER_TOKEN must be an operator-only secret}"
-      # Native Gateway settings default to port8080; override if the operator changes it.
-      SDK_AGENT_GATEWAY_URL: "${SDK_AGENT_GATEWAY_URL:-http://127.0.0.1:8080}"
+      SDK_AGENT_GATEWAY_URL: "${SDK_AGENT_GATEWAY_URL:-https://gateway-sdk-callback:8097}"
+      SDK_AGENT_GATEWAY_TLS_CA_FILE: /run/sdk-callback/ca.pem
       # Operator-controlled provider origins, forwarded only after native validation.
       OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
       ANTHROPIC_BASE_URL: "${ANTHROPIC_BASE_URL:-}"
@@ -28,12 +57,36 @@ services:
       SDK_AGENT_RETENTION_SECONDS: "${SDK_AGENT_RETENTION_SECONDS:?Choose finite retention in seconds (3600 to 7776000)}"
     volumes:
       - sdk-agent-state:/var/lib/sdk-agent
+      - type: bind
+        source: "${SDK_WORKER_TLS_CERT_FILE:?Provision dedicated TLS inputs outside source control}"
+        target: /run/sdk-worker/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${SDK_WORKER_TLS_KEY_FILE:?Provision dedicated TLS inputs outside source control}"
+        target: /run/sdk-worker/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${SDK_WORKER_TLS_CA_FILE:?Provision dedicated TLS inputs outside source control}"
+        target: /run/sdk-worker/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${SDK_GATEWAY_TLS_CA_FILE:?Provision dedicated TLS inputs outside source control}"
+        target: /run/sdk-callback/ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
     read_only: true
     user: "10001:10001"
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     tmpfs:
-      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
     init: true
     pids_limit: 128
     cpus: "1.0"

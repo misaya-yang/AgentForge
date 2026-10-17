@@ -1,0 +1,20 @@
+{
+  "schema": "agentforge-pg-major-rehearsal/v1",
+  "repo_root": "/opt/agentforge",
+  "target_id": "pg16_copy_rehearsal",
+  "allowed_copy_root": "/var/lib/agentforge-upgrade-copies",
+  "preserved_source": "/var/lib/agentforge-upgrade-copies/preserved16",
+  "source_copy_receipt": "/var/lib/agentforge-upgrade-copies/preserved16.receipt.json",
+  "evidence_root": "/var/lib/agentforge-upgrade-copies/evidence",
+  "old_bin": "/usr/lib/postgresql/16/bin",
+  "new_bin": "/usr/lib/postgresql/18/bin",
+  "database": "agentforge",
+  "administrator": "postgres",
+  "role_prefix": "af_",
+  "baseline": "2026_08_post_kb_v1",
+  "old_port": 25416,
+  "new_port": 25418,
+  "rollback_port": 25417,
+  "tablespaces": {},
+  "timeout_seconds": 7200
+}

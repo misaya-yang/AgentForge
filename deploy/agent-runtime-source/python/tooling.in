@@ -1,0 +1,2 @@
+# Build-time resolver/installer only; not copied into either runtime image.
+uv==0.11.19

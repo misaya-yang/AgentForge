@@ -6,7 +6,7 @@ use std::{collections::BTreeSet, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 #[derive(Clone)]
 pub struct SummaryGenerator {
-    client: reqwest::Client,
+    pub provider: String,
     pub endpoint: String,
     pub model: String,
     pub authorization: Option<String>,
@@ -16,57 +16,16 @@ pub fn prefix(text: &str, n: usize) -> String {
     text.chars().take(n).collect()
 }
 impl SummaryGenerator {
-    pub fn new(endpoint: String, model: String, authorization: Option<String>) -> Result<Self> {
-        let url = reqwest::Url::parse(&endpoint)
-            .map_err(|_| IngestError::Validation("summary endpoint is invalid".into()))?;
-        if !["http", "https"].contains(&url.scheme()) {
-            return Err(IngestError::Validation(
-                "summary endpoint scheme is invalid".into(),
-            ));
-        }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .build()
-            .map_err(|_| IngestError::Index("summary transport unavailable".into()))?;
-        Ok(Self {
-            client,
-            endpoint,
-            model,
-            authorization,
-            timeout: Duration::from_secs(60),
-        })
+    pub fn new(_endpoint:String,model:String,_authorization:Option<String>)->Result<Self> { Self::for_model("dashscope".into(),model) }
+    pub fn for_model(provider:String,model:String)->Result<Self> {
+        if provider.trim().is_empty() || model.trim().is_empty() {return Err(IngestError::Validation("summary model identity is required".into()));}
+        Ok(Self{provider,model,endpoint:String::new(),authorization:None,timeout:Duration::from_secs(60)})
     }
-    async fn call(&self, prompt: String) -> Result<String> {
-        let mut req=self.client.post(&self.endpoint).timeout(self.timeout).json(&json!({"model":self.model,"messages":[{"role":"user","content":prompt}],"max_tokens":500,"temperature":0.3}));
-        if let Some(value) = &self.authorization {
-            req = req.header(reqwest::header::AUTHORIZATION, value)
-        }
-        let mut response = req
-            .send()
-            .await
-            .map_err(|_| IngestError::Index("summary provider unavailable".into()))?;
-        if !response.status().is_success() {
-            return Err(IngestError::Index(
-                "summary provider rejected request".into(),
-            ));
-        }
-        let mut bytes = vec![];
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| IngestError::Index("summary response failed".into()))?
-        {
-            if bytes.len() + chunk.len() > 2 * 1024 * 1024 {
-                return Err(IngestError::Index("summary response exceeds budget".into()));
-            }
-            bytes.extend_from_slice(&chunk)
-        }
-        let result: Value = serde_json::from_slice(&bytes)?;
-        Ok(result["choices"][0]["message"]["content"]
-            .as_str()
-            .unwrap_or("")
-            .into())
+    async fn call(&self,prompt:String)->Result<String> {
+        use crate::migration_knowledge_query::model_plane::{self,ModelPurpose,ModelWire};
+        let (status,result)=model_plane::execute(&self.provider,&self.model,"",ModelPurpose::Summary,ModelWire::ChatCompletions,json!({"model":self.model,"messages":[{"role":"user","content":prompt}],"max_tokens":500,"temperature":0.3}),self.timeout).await?;
+        if !(200..300).contains(&status) {return Err(IngestError::Index("summary provider rejected request".into()));}
+        Ok(result["choices"][0]["message"]["content"].as_str().unwrap_or("").into())
     }
     pub async fn summarize_document(&self, text: &str) -> Value {
         let text = if text.chars().count() > 15000 {
@@ -180,7 +139,7 @@ impl BatchSummaryGenerator {
         let mut tasks = tokio::task::JoinSet::new();
         for (index, doc) in documents.iter().cloned().enumerate() {
             let this = self.clone();
-            tasks.spawn(async move {
+            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
                 let Ok(_permit) = this.semaphore.acquire().await else {
                     return (index, json!({"error":"summary batch closed"}));
                 };
@@ -191,7 +150,7 @@ impl BatchSummaryGenerator {
                 tokio::time::sleep(this.rate_limit_delay).await;
                 result["id"] = doc["id"].clone();
                 (index, result)
-            });
+            }));
         }
         let mut results = vec![Value::Null; documents.len()];
         while let Some(Ok((i, v))) = tasks.join_next().await {

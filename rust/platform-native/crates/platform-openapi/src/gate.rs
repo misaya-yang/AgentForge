@@ -75,7 +75,7 @@ fn properties(spec: &Value, schema: &Value, mut active: HashSet<usize>) -> Map<S
         return Map::new();
     }
     let reference = schema["$ref"].as_str();
-    let is31 = spec["openapi"].as_str().unwrap_or("").starts_with("3.1.");
+    let is31 = spec["openapi"].as_str().is_some_and(|v| v.starts_with("3.1.") || v.starts_with("3.2."));
     if let Some(r) = reference {
         if !is31 {
             return properties(spec, local_ref(spec, r), active);
@@ -129,7 +129,7 @@ fn response_types_supported(spec: &Value, schema: &Value, mut active: HashSet<us
         {
             return false;
         }
-        if !spec["openapi"].as_str().unwrap_or("").starts_with("3.1.") {
+        if !spec["openapi"].as_str().is_some_and(|v| v.starts_with("3.1.") || v.starts_with("3.2.")) {
             return true;
         }
     }

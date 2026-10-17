@@ -1,0 +1,56 @@
+{
+  "schema": "agentforge/schema027-real-measurement/v1",
+  "verified_at": "2026-10-17T10:55:06.772715+00:00",
+  "database": "schema_successor_verify_nativecontracts026",
+  "isolated_database_epoch_after": 27,
+  "main_database_epoch": 25,
+  "canonical_source_epoch": 26,
+  "main_database_mutated": false,
+  "business_services_started": false,
+  "stages": [
+    {
+      "stage": "validate",
+      "exit_code": 0,
+      "receipt_sha256": "745d027f0eda93b88a01d4a8cb9fb002e6c58b7d8c17b6ad76cd17e82a20381c"
+    },
+    {
+      "stage": "prepare",
+      "exit_code": 0,
+      "receipt_sha256": "c3c844659137359c6cae59a846ce832a2e806d0d59ccc813993ed8f3bdb5f83a"
+    },
+    {
+      "stage": "verify-preview",
+      "exit_code": 0,
+      "receipt_sha256": "9c5cb8a0de345117a59ef630c4b72a8e7b3e41f6611ec6a0f0b3eb4c2967275f"
+    },
+    {
+      "stage": "measure",
+      "exit_code": 0,
+      "receipt_sha256": "59a389557c313a581072891a44acaaba54f7411bcc586c9b491156a184f75671"
+    },
+    {
+      "stage": "verify-measured",
+      "exit_code": 0,
+      "receipt_sha256": "63a4e59f0f2a29907aca3b6368dcb68f6820ffffdc2f4df7773bb6d9b6b9f395"
+    },
+    {
+      "stage": "bundle",
+      "exit_code": 0,
+      "receipt_sha256": "feeeacb92b2401a6d59be07c728e67235b2a10ef7b66d71bf794212bfbb570bd"
+    }
+  ],
+  "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
+  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema027-bundle-r1-20261017",
+  "bundle_files_verified": 13,
+  "proposed_lock_sha256": "be380ed99ce7fe4cec6a1a0ea16e50be1a38711bbd3662e6b7f62e7bca305ee6",
+  "raw_private_measurement_log_sha256": "b8266f0972a6a6baa0f0cd340443d038635ab69972b6bc75866c1f85440d2f34",
+  "actual_schema_checks": "Native single-step exact26 prefix,17new tables,6new functions,expected existing-table changes,exact old ACL plus75fixed additions,unchanged extensions/reference fingerprints. No manual fingerprint/role/ledger patches.",
+  "source_activated": false,
+  "overall_product_acceptance": false,
+  "remaining": [
+    "Promote exact measured13-file bundle and compiled27 pins/guards; retain complete26 and earlier ancestry.",
+    "Add27 historical views/dispatch and regenerate Runtime/Worker snapshots via real native exporter.",
+    "Run affected guards and real authenticated business journeys after all code/review is ready.",
+    "The same27 changes do not establish N-1 old-history decoder compatibility or end-to-end acceptance."
+  ]
+}

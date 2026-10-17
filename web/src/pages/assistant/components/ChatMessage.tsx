@@ -421,6 +421,15 @@ export const ChatMessage = memo(function ChatMessage({
       style={messageContainmentStyle(runActive)}
       className={cn("group w-full", isUser ? "flex justify-end" : "")}
     >
+      {!isUser && message.streamConnectionState && ["reconnecting", "background", "unknown_outcome"].includes(message.streamConnectionState) && (
+        <p role="status" data-stream-connection={message.streamConnectionState} className="mb-2 text-sm text-muted-foreground">
+          {message.streamConnectionState === "reconnecting"
+            ? t("assistant.streamReconnecting", "Reconnecting to the same run…")
+            : message.streamConnectionState === "background"
+              ? t("assistant.streamBackground", "Run continues; connection checks resume when this tab is visible.")
+              : t("assistant.streamUnknown", "Connection interrupted; the run outcome is unknown.")}
+        </p>
+      )}
       {isUser ? (
         <div className="max-w-[75%]">
           <AttachmentsDisplay attachments={message.attachments} useV2={ASSISTANT_UI_V2} />

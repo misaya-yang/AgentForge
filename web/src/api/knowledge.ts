@@ -6,7 +6,7 @@
  */
 
 import { api } from "@/lib/api";
-import { sseFetch, sseFetchEvents, type SSEEvent } from "@/lib/sse";
+import { sseFetch, sseFetchEvents, type SSEEvent, type SSEConnectionState } from "@/lib/sse";
 import type {
   Dataset,
   Document,
@@ -548,7 +548,7 @@ export interface DocumentProgressPayload {
 /** Read-only durable document progress; callers own reconnect/cursor policy. */
 export async function* streamDocumentProgress(
   datasetId: string,
-  options: { signal?: AbortSignal; lastEventId?: string } = {},
+  options: { signal?: AbortSignal; lastEventId?: string; onConnectionState?: (state: SSEConnectionState) => void } = {},
 ): AsyncGenerator<SSEEvent<DocumentProgressPayload>, void, void> {
   const headers = new Headers({ Accept: "text/event-stream" });
   if (options.lastEventId) headers.set("Last-Event-ID", options.lastEventId);
@@ -558,7 +558,9 @@ export async function* streamDocumentProgress(
       method: "GET",
       headers,
       signal: options.signal,
-      timeoutMs: 0,
+      onConnectionState: options.onConnectionState,
+      // Dataset feeds are continuous; each per-document terminal is still followed by other documents.
+      resume: { isTerminal: () => false, isReset: event => event.event === "reset" },
     },
   )) {
     yield event;

@@ -908,7 +908,10 @@ pub fn extract_docx(bytes: &[u8]) -> Result<String> {
         let mut file = archive
             .by_index(i)
             .map_err(|_| bad("DOCX ZIP entry could not be opened"))?;
-        let name = file.name().to_owned();
+        let name = file
+            .name()
+            .map_err(|_| bad("DOCX ZIP entry name cannot be decoded"))?
+            .into_owned();
         if !name.ends_with(".xml") && !name.ends_with(".rels") {
             continue;
         }

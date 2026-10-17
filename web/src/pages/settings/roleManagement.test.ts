@@ -168,28 +168,29 @@ test("authority changes during preflight and stale callbacks never dispatch", as
 
 test("actual shared Axios auth interceptor cannot dispatch old review with replacement identity", async () => {
   for (const change of ["none", "token", "account", "role", "permission", "unmount"]) {
-    const auth = createStore(() => ({ isAuthenticated: true, token: "synthetic-a", user: { user_id: "operator", roles: ["platform_admin"], permissions: ["role:list", "role:create"], tier: "normal" } }));
+    const auth = createStore(() => ({ csrfToken: "synthetic-csrf", isAuthenticated: true, token: "synthetic-a", user: { user_id: "operator", roles: ["platform_admin"], permissions: ["role:list", "role:create"], tier: "normal" } }));
     let dispose: (() => void) | undefined;
     let active = true;
     const scope = () => JSON.stringify([auth.getState().token, auth.getState().user]); const captured = scope();
     const modules: Record<string, unknown> = {
-      axios, "@/config/runtime": { getApiBaseUrlConfig: () => "https://unused.invalid" },
+      axios, "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
+    "@/config/runtime": { getApiBaseUrlConfig: () => "https://console.example" },
       "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
       "@/store/useAuthStore": { useAuthStore: auth },
     };
     const load = (file: string): Record<string, unknown> => {
       const exports: Record<string, unknown> = {};
       vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
-        exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; }, Error, __hot: { dispose(stop: () => void) { dispose = stop; } },
+        exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; }, Error, URL, window: { location: { origin: "https://console.example", pathname: "/settings", href: "" } }, __hot: { dispose(stop: () => void) { dispose = stop; } },
       }); return exports;
     };
     modules["@/lib/sdkAuthorityScope"] = load("../../lib/sdkAuthorityScope.ts");
     const shared = load("../../lib/api.ts"); modules["@/lib/api"] = shared;
     try {
-      const realApi = shared.api as AxiosInstance; const calls: { body: unknown; auth: unknown }[] = [];
+      const realApi = shared.api as AxiosInstance; const calls: { body: unknown; auth: unknown; csrf: unknown; cookies: unknown }[] = [];
       // A later optional async interceptor must not weaken this request-local fence.
       realApi.interceptors.request.use(async config => config);
-      realApi.defaults.adapter = async config => { calls.push({ body: config.data, auth: config.headers.Authorization }); return { data: role(), status: 200, statusText: "OK", headers: {}, config }; };
+      realApi.defaults.adapter = async config => { calls.push({ body: config.data, auth: config.headers.Authorization, csrf: config.headers["X-CSRF-Token"], cookies: config.withCredentials }); return { data: role(), status: 200, statusText: "OK", headers: {}, config }; };
       const production = load("../../api/roles.ts");
       const create = production.createRole as (input: unknown, mayDispatch: () => boolean) => Promise<void>;
       const pending = create({ role_name: "reader_team", description: "Read team resources", permissions: ["service:view"] }, () => active && captured === scope());
@@ -198,7 +199,7 @@ test("actual shared Axios auth interceptor cannot dispatch old review with repla
       if (change === "role") auth.setState({ user: { ...auth.getState().user, roles: ["admin"] } });
       if (change === "permission") auth.setState({ user: { ...auth.getState().user, permissions: ["role:list"] } });
       if (change === "unmount") active = false;
-      if (change === "none") { await pending; assert.equal(calls.length, 1); assert.equal(calls[0].auth, "Bearer synthetic-a"); assert.deepEqual(JSON.parse(calls[0].body as string), { role_name: "reader_team", description: "Read team resources", permissions: ["service:view"] }); }
+      if (change === "none") { await pending; assert.equal(calls.length, 1); assert.equal(calls[0].auth, undefined); assert.equal(calls[0].csrf, "synthetic-csrf"); assert.equal(calls[0].cookies, true); assert.deepEqual(JSON.parse(calls[0].body as string), { role_name: "reader_team", description: "Read team resources", permissions: ["service:view"] }); }
       else { await assert.rejects(pending, /role_creation_authority_changed/); assert.equal(calls.length, 0); }
     } finally { assert.ok(dispose); dispose(); }
   }

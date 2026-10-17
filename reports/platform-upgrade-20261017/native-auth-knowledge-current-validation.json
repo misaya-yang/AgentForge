@@ -1,0 +1,29 @@
+{
+  "schema": "agentforge/native-auth-knowledge-validation/v1",
+  "recorded_at": "2026-10-17T11:22:44.602400+00:00",
+  "status": "passed_with_six_existing_ignored",
+  "command": "cargo +1.99.0 test --manifest-path rust/platform-native/Cargo.toml --locked --offline -p ai-platform-auth -p ai-platform-knowledge-domain -p ai-platform-knowledge-service --lib",
+  "scope": [
+    "Auth24 passed",
+    "Knowledge domain93 passed",
+    "Knowledge service63 passed6 ignored"
+  ],
+  "actual_passed": 180,
+  "actual_ignored": 6,
+  "new_dependencies": [
+    "Complete OIDC OpenSSL backend compiles on production auth path",
+    "Complete pastey matrix/tokenizer vendor compiles",
+    "scraper0.27 / ego-tree0.11 compile",
+    "Knowledge private transport budget/auth regressions execute"
+  ],
+  "limitations": [
+    "Runtime and Worker new source tests not yet executed",
+    "Upstream OIDC complete test suite pending",
+    "Actual service startup/provider/browser and model-weight inference not run"
+  ],
+  "evidence": {
+    "path": "/Users/yang/.cache/agentforge-upgrade/evidence/native-auth-knowledge-vendors-r1.log",
+    "sha256": "174f5b2f9eb957c7a96a80ad7f83946c83beba36db4b46796899039b9e5a34dc"
+  },
+  "cargo_lock_sha256": "5d705b0be616a581c840e2c7d8b6484f91154522aa95a2ccc993ceb6c03c5792"
+}

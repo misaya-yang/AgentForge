@@ -1,0 +1,274 @@
+# Opt-in source profile. Merge last with the existing root/local app Compose stack.
+# Same project and all existing Redis/data volumes are preserved; no cutover is implied.
+services:
+  valkey-coord:
+    cap_drop: &id001
+    - ALL
+    read_only: true
+    security_opt: &id002
+    - no-new-privileges:true
+    pids_limit: 128
+    restart: unless-stopped
+    image: ${VALKEY9_IMAGE:?Select the verified Valkey 9 image with an exact digest}
+    user: ${VALKEY_UID:?Select the verified image nonroot UID}:${VALKEY_GID:?Select
+      image GID}
+    profiles:
+    - valkey-split
+    networks:
+    - data-valkey-coord
+    command:
+    - valkey-server
+    - /etc/valkey/instance.conf
+    expose:
+    - '6380'
+    mem_limit: 768m
+    cpus: 1.0
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    volumes:
+    - type: bind
+      source: ./deploy/compose/valkey/coord.conf
+      target: /etc/valkey/instance.conf
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_COORD_ACL_FILE:?Generate the private per-service ACL file}
+      target: /run/valkey/users.acl
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_COORD_TLS_CERT_FILE:?Supply the purpose server certificate}
+      target: /run/valkey/tls.crt
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_COORD_TLS_KEY_FILE:?Supply the private TLS key}
+      target: /run/valkey/tls.key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CA_FILE:?Supply the trusted public CA bundle}
+      target: /run/valkey/ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_COORD_HEALTH_PASSWORD_FILE:?Supply the isolated health user
+        password}
+      target: /run/valkey/health.password
+      read_only: true
+      bind:
+        create_host_path: false
+    - valkey-coord-data:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - export VALKEYCLI_AUTH="$$(cat /run/valkey/health.password)"; exec valkey-cli
+        --tls --cacert /run/valkey/ca.pem --sni valkey-coord -h 127.0.0.1 -p 6380
+        --user coord-health ping
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+  valkey-cache:
+    cap_drop: *id001
+    read_only: true
+    security_opt: *id002
+    pids_limit: 128
+    restart: unless-stopped
+    image: ${VALKEY9_IMAGE:?Select the verified Valkey 9 image with an exact digest}
+    user: ${VALKEY_UID:?Select the verified image nonroot UID}:${VALKEY_GID:?Select
+      image GID}
+    profiles:
+    - valkey-split
+    networks:
+    - data-valkey-cache
+    command:
+    - valkey-server
+    - /etc/valkey/instance.conf
+    expose:
+    - '6380'
+    mem_limit: 256m
+    cpus: 1.0
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    - /data:rw,noexec,nosuid,nodev,size=160m,mode=0700,uid=${VALKEY_UID},gid=${VALKEY_GID}
+    volumes:
+    - type: bind
+      source: ./deploy/compose/valkey/cache.conf
+      target: /etc/valkey/instance.conf
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CACHE_ACL_FILE:?Generate the private per-service ACL file}
+      target: /run/valkey/users.acl
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CACHE_TLS_CERT_FILE:?Supply the purpose server certificate}
+      target: /run/valkey/tls.crt
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CACHE_TLS_KEY_FILE:?Supply the private TLS key}
+      target: /run/valkey/tls.key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CA_FILE:?Supply the trusted public CA bundle}
+      target: /run/valkey/ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_CACHE_HEALTH_PASSWORD_FILE:?Supply the isolated health user
+        password}
+      target: /run/valkey/health.password
+      read_only: true
+      bind:
+        create_host_path: false
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - export VALKEYCLI_AUTH="$$(cat /run/valkey/health.password)"; exec valkey-cli
+        --tls --cacert /run/valkey/ca.pem --sni valkey-cache -h 127.0.0.1 -p 6380
+        --user cache-health ping
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+  gateway:
+    environment:
+      AI_PLATFORM_VALKEY_MODE: split
+      GATEWAY_REDIS__URL: ''
+      INTERNAL_COMM_REDIS_URL: ''
+      AI_PLATFORM_VALKEY_COORD_ENDPOINT: rediss://valkey-coord:6380/0
+      AI_PLATFORM_VALKEY_COORD_USERNAME: gateway-coord
+      AI_PLATFORM_VALKEY_COORD_PASSWORD_FILE: /run/valkey-client/coord.password
+      AI_PLATFORM_VALKEY_COORD_CA_FILE: /run/valkey-client/ca.pem
+      AI_PLATFORM_VALKEY_CACHE_ENDPOINT: rediss://valkey-cache:6380/0
+      AI_PLATFORM_VALKEY_CACHE_USERNAME: gateway-cache
+      AI_PLATFORM_VALKEY_CACHE_PASSWORD_FILE: /run/valkey-client/cache.password
+      AI_PLATFORM_VALKEY_CACHE_CA_FILE: /run/valkey-client/ca.pem
+    networks:
+    - data-valkey-coord
+    - data-valkey-cache
+    volumes:
+    - type: bind
+      source: ${VALKEY_CA_FILE:?Supply public CA bundle}
+      target: /run/valkey-client/ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_GATEWAY_COORD_PASSWORD_FILE:?Supply this service-only ACL password
+        file}
+      target: /run/valkey-client/coord.password
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_GATEWAY_CACHE_PASSWORD_FILE:?Supply this service-only ACL password
+        file}
+      target: /run/valkey-client/cache.password
+      read_only: true
+      bind:
+        create_host_path: false
+    depends_on:
+      valkey-coord:
+        condition: service_healthy
+  knowledge-service:
+    environment:
+      AI_PLATFORM_VALKEY_MODE: split
+      KNOWLEDGE_REDIS__URL: ''
+      INTERNAL_COMM_REDIS_URL: ''
+      AI_PLATFORM_VALKEY_COORD_ENDPOINT: rediss://valkey-coord:6380/0
+      AI_PLATFORM_VALKEY_COORD_USERNAME: knowledge-api-coord
+      AI_PLATFORM_VALKEY_COORD_PASSWORD_FILE: /run/valkey-client/coord.password
+      AI_PLATFORM_VALKEY_COORD_CA_FILE: /run/valkey-client/ca.pem
+      AI_PLATFORM_VALKEY_CACHE_ENDPOINT: rediss://valkey-cache:6380/0
+      AI_PLATFORM_VALKEY_CACHE_USERNAME: knowledge-api-cache
+      AI_PLATFORM_VALKEY_CACHE_PASSWORD_FILE: /run/valkey-client/cache.password
+      AI_PLATFORM_VALKEY_CACHE_CA_FILE: /run/valkey-client/ca.pem
+    networks:
+    - data-valkey-coord
+    - data-valkey-cache
+    volumes:
+    - type: bind
+      source: ${VALKEY_CA_FILE:?Supply public CA bundle}
+      target: /run/valkey-client/ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_KNOWLEDGE_API_COORD_PASSWORD_FILE:?Supply this service-only
+        ACL password file}
+      target: /run/valkey-client/coord.password
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_KNOWLEDGE_API_CACHE_PASSWORD_FILE:?Supply this service-only
+        ACL password file}
+      target: /run/valkey-client/cache.password
+      read_only: true
+      bind:
+        create_host_path: false
+    depends_on:
+      valkey-coord:
+        condition: service_healthy
+  knowledge-worker:
+    environment:
+      AI_PLATFORM_VALKEY_MODE: split
+      KNOWLEDGE_REDIS__URL: ''
+      INTERNAL_COMM_REDIS_URL: ''
+      AI_PLATFORM_VALKEY_COORD_ENDPOINT: rediss://valkey-coord:6380/0
+      AI_PLATFORM_VALKEY_COORD_USERNAME: knowledge-worker-coord
+      AI_PLATFORM_VALKEY_COORD_PASSWORD_FILE: /run/valkey-client/coord.password
+      AI_PLATFORM_VALKEY_COORD_CA_FILE: /run/valkey-client/ca.pem
+      AI_PLATFORM_VALKEY_CACHE_ENDPOINT: rediss://valkey-cache:6380/0
+      AI_PLATFORM_VALKEY_CACHE_USERNAME: knowledge-worker-cache
+      AI_PLATFORM_VALKEY_CACHE_PASSWORD_FILE: /run/valkey-client/cache.password
+      AI_PLATFORM_VALKEY_CACHE_CA_FILE: /run/valkey-client/ca.pem
+    networks:
+    - data-valkey-coord
+    - data-valkey-cache
+    volumes:
+    - type: bind
+      source: ${VALKEY_CA_FILE:?Supply public CA bundle}
+      target: /run/valkey-client/ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_KNOWLEDGE_WORKER_COORD_PASSWORD_FILE:?Supply this service-only
+        ACL password file}
+      target: /run/valkey-client/coord.password
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${VALKEY_KNOWLEDGE_WORKER_CACHE_PASSWORD_FILE:?Supply this service-only
+        ACL password file}
+      target: /run/valkey-client/cache.password
+      read_only: true
+      bind:
+        create_host_path: false
+    depends_on:
+      valkey-coord:
+        condition: service_healthy
+networks:
+  data-valkey-coord:
+    internal: true
+  data-valkey-cache:
+    internal: true
+volumes:
+  valkey-coord-data: {}

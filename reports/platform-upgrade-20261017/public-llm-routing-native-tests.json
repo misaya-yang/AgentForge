@@ -1,0 +1,102 @@
+{
+  "schema": "agentforge/public-llm-routing-native-tests/v1",
+  "observed_at": "2026-10-17T10:11:54.873640+00:00",
+  "toolchain": "Rust1.99.0",
+  "jobs": 1,
+  "all_target_check": "PASS ai-platform-gateway/foundation/openapi --all-targets",
+  "test_command": "cargo test --locked -p ai-platform-gateway -p ai-platform-gateway-foundation -p ai-platform-openapi --lib --test eval_migration_parity_clients --test eval_migration_parity_scoring --test dispatch_admission_boundary",
+  "results": {
+    "passed": 567,
+    "failed": 0,
+    "ignored": 4,
+    "filtered_out": 0
+  },
+  "suites": [
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway-d3b9dc2f1902ca9e)",
+      "passed": 257,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/eval_migration_parity_clients.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_clients-b7c673845413f50b)",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/eval_migration_parity_scoring.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_scoring-34716e1379f86b42)",
+      "passed": 17,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway_foundation-b341bc23db08ae74)",
+      "passed": 252,
+      "failed": 0,
+      "ignored": 3,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running tests/dispatch_admission_boundary.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/dispatch_admission_boundary-5455d9f9a0db51d9)",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_openapi-2fbd8a2c2e094ffa)",
+      "passed": 24,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    }
+  ],
+  "source_sha256": {
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/llm_api.rs": "b4428064da59142572b99293a77d8327792e952b6806c074638563149a413b3a",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/core.rs": "98a626306bc758907189fe36be7b3039d556e9b334c7e7e2da3f1a7c65790236",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/process.rs": "71e7a3d64548952c9abe55155274e03ecd46d3f3323a500d23c5200b642647e5",
+    "rust/platform-native/crates/platform-gateway-foundation/src/routing_policy.rs": "a6ab2564e586cbaa98c502f99a16d5a2ffe4ad9b08e3830b73b44bc9686d50d5",
+    "rust/platform-native/crates/platform-openapi/src/document.rs": "61937e0e04119678a2a763789d0df7f880e66e8edd6870080dd04614d99b72ae",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/native.rs": "ec503b3930ad01e2b2cc7b03afb34f976279e05e4a076106a70096f229a7725c",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs": "3f728d1082ebcff57ee367f643ecc78fa2a63b372278d348f5920d40404c274c",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/transport.rs": "c2c23c26a84dead1906f89a82bedb44125e1b27d43647a821dded9b3528f0ac5",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/meter.rs": "d3538a4fb3a0e8b202c4da4b190a5da77a57fec3aff01d913b613d7d994e901b",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/raw_json.rs": "c0ce2e3bb04fbfe5b934232fb7d9a2f087ea99d671171897e324aa55d2dff6db",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/mod.rs": "dfdea2b25fd8bef39c7778a9eea1b9fbe43134dec8fd0ab3f680ec316cffce94",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/codec.rs": "3f992e3aa54ea6e0394873df78d8659b11c54dfe8ce403964ac0a5b57a03078f",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs": "a486504ab395e20f1bb7d7605edf353f1480d72ee628c80f176d1d2ec9e6efcb",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/http.rs": "b7bade689661001b87d97ffb239c66f5ff30b0d4e267fb7146792356a090feaa",
+    "rust/platform-native/crates/platform-gateway/src/llm_api/public_contract.rs": "c9ff48d03642a0e279ace610ac7f1c6808f6327cfade08b66912580431702a20",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/routing_policy_v1/adapter.rs": "1948cd9823b1408fa69fccb7e569740ed89392b7486935e13634296f8a2e9183",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/routing_policy_v1/mod.rs": "98e01c43532db1db3743d738e2c6f62114777f15404f22a34fb522309e1b8adb",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/routing_policy_v1/http.rs": "ab56e4e4e0ee37dfb43a91710dfcb6002ef86ba8e4ae380084f8d0ffafdbbb84",
+    "rust/platform-native/crates/platform-gateway/src/migration_host/routing_policy_v1/postgres.rs": "3c1d4a647bd8cfa992484ba3e47a177ffc8c405214610befcadc1e605aa3938e",
+    "rust/platform-native/crates/platform-gateway-foundation/src/routing_policy/evaluate.rs": "34b1b1695c00f2ca9159967149fe39d3d8798313b9b4a671e20217948d718cde",
+    "rust/platform-native/crates/platform-gateway-foundation/src/routing_policy/tests.rs": "b61642bddbc9c2cc608d1ef18926859a2ebd18dd4688007003f9183e0b483c98",
+    "rust/platform-native/crates/platform-gateway-foundation/src/routing_policy/model.rs": "cf4473a85156afc7f98f80f11fa83163044a4396c88adcec7a61f20d86ee77ae"
+  },
+  "check_log_sha256": "8d537acb60f24fd483a5f960c21eb0016e087a70fc5a5c90ca7e1bb9e2c07f46",
+  "test_log_sha256": "0092323697dc3ee8ec252e60e9cf4ed890543bfcdb278911e966c9b585f28346",
+  "verified": [
+    "Actual Axum public LLM handler fixtures with deterministic provider/accounting collaborators",
+    "Provider-native passthrough bytes and unknown fields; output budgets and terminal usage parsing",
+    "Client/upstream route header forgery stripping; trusted route header on JSON/stream",
+    "Typed policy snapshots and deterministic evaluation; unknown-outcome retry refusal",
+    "Original signed RAGAS actor/client/scoring and dispatch durable-boundary interface tests",
+    "Pure OpenAPI additive contract preserving old Responses and producer version"
+  ],
+  "not_run": [
+    "Official SDK conformance against live Gateway",
+    "Real scoped PostgreSQL routing decision CAS/immutable publication and receipt/price-book paths",
+    "Real provider/Valkey/IdP journeys",
+    "Canonical successor activation",
+    "Complete platform acceptance"
+  ],
+  "new_schema_proposals_active": false,
+  "services_started": false,
+  "product_acceptance": false
+}

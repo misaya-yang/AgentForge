@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Browser observability fixture</title>
+      <style>body{font:18px system-ui;max-width:760px;margin:64px auto;padding:24px;color:#18263a}button{font:inherit;padding:12px 20px;margin:8px 12px 8px 0}output{display:block;margin-top:24px}</style></head>
+      <body><main><h1>Browser observability fixture</h1><p>Same-origin sampled diagnostics without account or message content.</p>
+      <button id="probe">Send API probe</button><button id="diagnostic">Export diagnostic</button><output id="status" role="status">Ready</output></main>
+      <script type="module">
+        import { initBrowserTelemetry } from '/src/observability/browserTelemetry.ts';
+        import { useAuthStore } from '/src/store/useAuthStore.ts';
+        const session = await fetch('/api/auth/session').then(response => response.json());
+        useAuthStore.getState().setAuth(session.csrf_token, session.user, false);
+        initBrowserTelemetry();
+        document.querySelector('#probe').onclick = async () => {
+          await fetch('/api/v1/telemetry-probe?prompt=PRIVATE_PROMPT');
+          document.querySelector('#status').textContent = 'API probe complete';
+        };
+        document.querySelector('#diagnostic').onclick = () => {
+          const error = new TypeError('PRIVATE_ERROR email=private@example.com token=PRIVATE_TOKEN');
+          error.stack = 'TypeError: PRIVATE_ERROR\n    at ' + location.origin + '/assets/observability-fixture.js:7:11\n    at https://untrusted.invalid/PRIVATE_SOURCE.js:8:12';
+          window.dispatchEvent(new ErrorEvent('error', { error }));
+          window.dispatchEvent(new PageTransitionEvent('pagehide'));
+          document.querySelector('#status').textContent = 'Diagnostic exported';
+        };
+      </script></body></html>

@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-knowledge
+  labels:
+{{ include "ai-gateway.labels" . | indent 4 }}
+    app.kubernetes.io/component: knowledge
+spec:
+  replicas: {{ .Values.knowledgeService.replicaCount }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: knowledge
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: knowledge
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: knowledge
+      initContainers:
+      - name: database-authority
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
+        command: ["/bin/sh", "-ec"]
+        args: ["mkdir -p /state/files /state/pdf-scratch; exec /usr/local/bin/database-authority startup-check --principal knowledge_api"]
+        resources:
+{{ toYaml .Values.resources.migration | indent 10 }}
+        securityContext:
+{{ include "ai-gateway.security" 1000 | indent 10 }}
+        env:
+{{- if .Values.routing.internalGrpc.enabled }}
+        - {name: KNOWLEDGE_GRPC__BIND_ADDRESS, value: "0.0.0.0:8093"}
+{{- end }}
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
+        - name: AI_GATEWAY_ROLE_PREFIX
+          value: {{ .Values.databaseRoles.rolePrefix | quote }}
+        volumeMounts:
+        - {name: state, mountPath: /state}
+        - {name: tmp, mountPath: /tmp}
+      - name: workload-key
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "knowledge") | quote }}
+        command: [/bin/sh, -ec, "umask 077; cp /input/private.json /output/private.json; chmod 400 /output/private.json"]
+        resources:
+{{ toYaml .Values.resources.migration | indent 10 }}
+        securityContext:
+{{ include "ai-gateway.security" 1000 | indent 10 }}
+        env:
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
+        volumeMounts:
+        - {name: knowledge-model-input, mountPath: /input, readOnly: true}
+        - {name: knowledge-model-private, mountPath: /output}
+      containers:
+      - name: knowledge
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "knowledge") | quote }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        securityContext:
+{{ include "ai-gateway.security" 1000 | indent 10 }}
+        resources:
+{{ toYaml (index .Values.resources "knowledge") | indent 10 }}
+        env:
+{{- if .Values.routing.internalGrpc.enabled }}
+        - {name: KNOWLEDGE_GRPC__BIND_ADDRESS, value: "0.0.0.0:8093"}
+{{- end }}
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "KNOWLEDGE_DATABASE__DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_REDIS__URL" "secret" .Values.credentials.knowledge "key" "REDIS_URL") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_QDRANT__API_KEY" "secret" .Values.data.qdrant.existingSecret "key" "QDRANT_READ_ONLY_API_KEY") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.knowledge "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_ENCRYPTION_KEY" "secret" .Values.credentials.knowledge "key" "GATEWAY_ENCRYPTION_KEY") | indent 8 }}
+        - name: KNOWLEDGE_QDRANT__URL
+          value: {{ .Values.data.qdrant.url | quote }}
+        - name: KNOWLEDGE_RUNTIME_ROLE
+          value: "api"
+        - name: KNOWLEDGE_APP__HOST
+          value: "0.0.0.0"
+        - name: KNOWLEDGE_APP__PORT
+          value: "8092"
+        - name: KNOWLEDGE_APP__ALLOW_ANONYMOUS
+          value: "false"
+        - name: KNOWLEDGE_REDIS__ENABLED
+          value: "true"
+        - name: KNOWLEDGE_QDRANT__PREFER_GRPC
+          value: "false"
+        - name: KNOWLEDGE_QDRANT__TLS_CA_FILE
+          value: "/run/qdrant/ca-bundle.pem"
+        - name: SSL_CERT_FILE
+          value: "/run/qdrant/ca-bundle.pem"
+        - name: KNOWLEDGE_STORAGE__BACKEND
+          value: {{ ternary "s3" "local" .Values.data.objectStore.enabled | quote }}
+        - name: KNOWLEDGE_STORAGE__LOCAL_BASE_PATH
+          value: "/app/data/files"
+{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
+        - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+        - name: AI_PLATFORM_AGENT_RUNTIME_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+        - name: AI_PLATFORM_CAPABILITY_WORKER_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+        - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.knowledge "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "INTERNAL_COMM_REDIS_URL" "secret" .Values.credentials.knowledge "key" "INTERNAL_COMM_REDIS_URL") | indent 8 }}
+        - {name: INTERNAL_COMM_STATE_BACKEND, value: redis}
+        - {name: INTERNAL_IDEMPOTENCY_BACKEND, value: redis}
+        - name: GATEWAY_URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+        - name: KNOWLEDGE_MODEL_PLANE__URL
+          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+        - name: KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE
+          value: /run/knowledge-model-private/private.json
+        - name: KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE
+          value: /run/gateway-public/public.json
+        - name: KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS
+          value: {{ .Values.modelPlane.modelRevisions | toJson | quote }}
+{{- if .Values.data.objectStore.enabled }}
+        - name: KNOWLEDGE_STORAGE__S3__ENDPOINT_URL
+          value: {{ .Values.data.objectStore.endpoint | quote }}
+        - name: KNOWLEDGE_STORAGE__S3__BUCKET
+          value: {{ .Values.data.objectStore.bucket | quote }}
+        - name: KNOWLEDGE_STORAGE__S3__REGION
+          value: {{ .Values.data.objectStore.region | quote }}
+{{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_STORAGE__S3__ACCESS_KEY" "secret" .Values.data.objectStore.existingSecret "key" "ACCESS_KEY") | indent 8 }}
+{{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_STORAGE__S3__SECRET_KEY" "secret" .Values.data.objectStore.existingSecret "key" "SECRET_KEY") | indent 8 }}
+{{- end }}
+        ports:
+        - {name: http, containerPort: 8092}
+        readinessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 5
+        livenessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 30
+        volumeMounts:
+        - {name: knowledge-model-private, mountPath: /run/knowledge-model-private, readOnly: true}
+        - {name: gateway-public, mountPath: /run/gateway-public/public.json, subPath: public.json, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+        - {name: state, mountPath: /app/data}
+        - {name: qdrant-ca, mountPath: /run/qdrant, readOnly: true}
+      volumes:
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 128Mi}
+      - name: config
+        configMap:
+          name: {{ include "ai-gateway.fullname" . }}-config
+      - name: state
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.knowledge.existingClaim | quote }}
+      - name: qdrant-ca
+        configMap:
+          name: {{ .Values.data.qdrant.caConfigMap | quote }}
+      - name: knowledge-model-private
+        emptyDir: {medium: Memory, sizeLimit: 1Mi}
+      - name: knowledge-model-input
+        secret:
+          defaultMode: 0440
+          secretName: {{ .Values.modelPlane.knowledgeWorkloadSecret | quote }}
+      - name: gateway-public
+        configMap:
+          name: {{ .Values.modelPlane.gatewayPublicConfigMap | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-knowledge
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: knowledge
+  ports:
+  - {name: http, port: 8092, targetPort: http}
+{{- if .Values.routing.internalGrpc.enabled }}
+  - {name: grpc, port: 8093, targetPort: 8093}
+{{- end }}

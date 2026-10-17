@@ -96,3 +96,19 @@ exercises the frontend's non-root/read-only flags and retains all existing asser
 Real same-project HTTP, WS, SSE, multipart upload, runtime environment changes,
 image sizes, scans and read-only/non-root startup must still be measured for each
 accepted source/image combination.
+
+The native Debian 13 `native-base` now copies the trusted CA bundle from the
+Rust build stage before any apt access, selects HTTPS Debian sources, and applies
+explicit `Acquire::https::CaInfo` to both update/install. Both native-base and
+parser-base use `APT::Update::Error-Mode=any` for updates with bounded retries and
+HTTPS timeouts; no TLS verification/error bypass was added. The parser target
+retains Poppler and inherits the maintained native CA bundle.
+
+Runtime identity remains aligned with current Compose: Gateway/Knowledge/native
+operations use UID/GID1000, SDK uses UID/GID10001. Both groups are explicitly
+created. Image initialization prepares Gateway/Knowledge data/images/files/PDF
+scratch/log/upload paths, private agent-memory, private SDK state, and read-only
+configuration/TLS mount parents. This prepares fresh named-volume copy-up; it
+does not change existing volume ownership or grant writable root filesystems.
+Static CA-control mutation tests and Dockerfile RUN shell syntax passed; actual
+apt/download, image builds and read-only service startup remain untested here.

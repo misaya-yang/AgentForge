@@ -7,6 +7,7 @@ pub use ai_platform_gateway_foundation::capacity;
 pub use ai_platform_gateway_foundation::capacity_admission;
 pub use ai_platform_gateway_foundation::circuit_breaker;
 pub use ai_platform_gateway_foundation::client_ip;
+pub mod browser_telemetry;
 pub mod config;
 pub use ai_platform_gateway_foundation::dispatch_preflight;
 pub use ai_platform_gateway_foundation::dispatcher;
@@ -17,6 +18,7 @@ pub(crate) use ai_platform_gateway_foundation::http_content_type;
 pub use ai_platform_gateway_foundation::invocation_http;
 pub mod knowledge;
 pub mod knowledge_http;
+pub mod knowledge_model_plane;
 pub use ai_platform_gateway_foundation::load_shedder;
 pub use ai_platform_gateway_foundation::pricing_receipt;
 pub use ai_platform_gateway_foundation::protocol;
@@ -486,3 +488,6 @@ pub(crate) async fn read_method_not_allowed() -> axum::response::Response {
      [("allow", "GET")],
      axum::Json(serde_json::json!({"detail":"Method Not Allowed"}))).into_response()
 }
+pub mod llm_api;
+
+pub mod task_batch_accounting;

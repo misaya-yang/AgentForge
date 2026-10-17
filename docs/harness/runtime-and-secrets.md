@@ -54,10 +54,19 @@ memory ceiling. The complete low-memory profile needs roughly 4 GiB available to
 
 ### 4.1 Rust compilation boundary
 
-The owner-authorized native migration uses host Rust 1.99.0 for
-`rust/platform-native` with one Cargo job, no debug/incremental output, and an
-external `CARGO_TARGET_DIR`. Use `make native-check` and affected package tests.
-Generated targets and scratch evidence must remain outside the repository.
+The owner corrected the development workflow on 2026-10-17: native server builds
+and tests use Rust 1.99.0 inside Docker, one Cargo job, debug=0, incremental=0,
+and one Docker-managed native development cache. `make native-check` and
+`make native-test` use `scripts/new/native-container.sh`; selected tests use the
+same entry point. Do not create another host server target directory. Keep
+source mounts read-only and limited to public build inputs; never mount the
+whole checkout with its private env or forward runtime credentials into a build.
+Host Rust is reserved for explicitly selected macOS client/OS acceptance and a
+small std-only operational launcher bootstrap, not the service dependency graph.
+Preserve existing operational binaries and evidence during cache migration;
+regenerable host server intermediates may be removed as part of the owner's
+requested elimination of duplicate caches. Application data and unrelated
+checkouts remain outside that cleanup scope.
 
 Runtime/Worker composition remains pinned to Rust 1.95.0 and the controlled Docker
 source/build workflow. Reuse this project's existing Buildx builder; do not create

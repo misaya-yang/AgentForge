@@ -1,7 +1,10 @@
 //! Real production framing and in-memory reqwest bodies. No listeners, providers or DB.
 use super::{HttpResponse, LineBuffer, Lines};
 use futures_util::FutureExt;
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use tokio::sync::Semaphore;
 
 fn decode(parts: &[&[u8]]) -> Vec<String> {
@@ -38,9 +41,15 @@ fn line_buffer_preserves_empty_lf_cr_crlf_and_final_unterminated_lines() {
 fn line_buffer_preserves_utf8_at_every_split_position() {
     let wire = "你好\r\n🦀café\n終".as_bytes();
     for split in 0..=wire.len() {
-        assert_eq!(decode(&[&wire[..split], &wire[split..]]), vec!["你好", "🦀café", "終"]);
+        assert_eq!(
+            decode(&[&wire[..split], &wire[split..]]),
+            vec!["你好", "🦀café", "終"]
+        );
     }
-    assert_eq!(decode(&wire.chunks(1).collect::<Vec<_>>()), vec!["你好", "🦀café", "終"]);
+    assert_eq!(
+        decode(&wire.chunks(1).collect::<Vec<_>>()),
+        vec!["你好", "🦀café", "終"]
+    );
 }
 
 #[test]
@@ -113,18 +122,27 @@ fn line_buffer_preserves_invalid_utf8_and_clear_semantics() {
 }
 
 async fn fixture(body: reqwest::Body, slots: &Arc<Semaphore>) -> Lines {
-    let response = axum::http::Response::builder().status(200).body(body).unwrap();
+    let response = axum::http::Response::builder()
+        .status(200)
+        .body(body)
+        .unwrap();
     Lines::new(HttpResponse {
         response: response.into(),
         permit: Some(slots.clone().acquire_owned().await.unwrap()),
-    }).unwrap()
+    })
+    .unwrap()
 }
 
 #[tokio::test]
 async fn lines_remain_pull_based_and_release_permit_at_eof() {
     let reads = Arc::new(AtomicUsize::new(0));
     let observed = reads.clone();
-    let mut chunks = vec![b"one\ntwo\n".to_vec(), "三\r".as_bytes().to_vec(), b"\nend".to_vec()].into_iter();
+    let mut chunks = vec![
+        b"one\ntwo\n".to_vec(),
+        "三\r".as_bytes().to_vec(),
+        b"\nend".to_vec(),
+    ]
+    .into_iter();
     let body = reqwest::Body::wrap_stream(futures_util::stream::poll_fn(move |_| {
         observed.fetch_add(1, Ordering::SeqCst);
         std::task::Poll::Ready(chunks.next().map(Ok::<_, std::io::Error>))
@@ -149,7 +167,9 @@ async fn lines_remain_pull_based_and_release_permit_at_eof() {
 
 struct DropProbe(Arc<AtomicUsize>);
 impl Drop for DropProbe {
-    fn drop(&mut self) { self.0.fetch_add(1, Ordering::SeqCst); }
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 #[tokio::test]
@@ -179,8 +199,12 @@ async fn closing_or_dropping_pending_lines_releases_response_and_permit() {
 #[tokio::test]
 async fn cancelled_next_future_preserves_partial_line_for_resume() {
     let (send, mut receive) = tokio::sync::mpsc::channel(2);
-    send.send(Ok::<_, std::io::Error>(b"one\npar".to_vec())).await.unwrap();
-    let body = reqwest::Body::wrap_stream(futures_util::stream::poll_fn(move |context| receive.poll_recv(context)));
+    send.send(Ok::<_, std::io::Error>(b"one\npar".to_vec()))
+        .await
+        .unwrap();
+    let body = reqwest::Body::wrap_stream(futures_util::stream::poll_fn(move |context| {
+        receive.poll_recv(context)
+    }));
     let slots = Arc::new(Semaphore::new(1));
     let mut lines = fixture(body, &slots).await;
     assert_eq!(lines.next().await.unwrap().as_deref(), Some("one"));
@@ -192,16 +216,25 @@ async fn cancelled_next_future_preserves_partial_line_for_resume() {
 }
 
 async fn limited_fixture(body: reqwest::Body, slots: &Arc<Semaphore>, limit: usize) -> Lines {
-    let response = axum::http::Response::builder().status(200).body(body).unwrap();
-    Lines::with_max_line_bytes(HttpResponse {
-        response: response.into(),
-        permit: Some(slots.clone().acquire_owned().await.unwrap()),
-    }, limit).unwrap()
+    let response = axum::http::Response::builder()
+        .status(200)
+        .body(body)
+        .unwrap();
+    Lines::with_max_line_bytes(
+        HttpResponse {
+            response: response.into(),
+            permit: Some(slots.clone().acquire_owned().await.unwrap()),
+        },
+        limit,
+    )
+    .unwrap()
 }
 
 fn assert_line_limit(error: super::AdapterError) {
-    assert!(matches!(super::dispatch(error),
-        super::DispatchError::AdapterValidationFailed("provider_stream_line_too_large")));
+    assert!(matches!(
+        super::dispatch(error),
+        super::DispatchError::AdapterValidationFailed("provider_stream_line_too_large")
+    ));
 }
 
 #[test]
@@ -221,9 +254,13 @@ async fn line_limit_counts_utf8_bytes_excludes_delimiters_and_accepts_exact_boun
         for ending in ["", "\n", "\r", "\r\n"] {
             let wire = format!("{text}{ending}");
             for split in 0..=wire.len() {
-                let chunks = [wire.as_bytes()[..split].to_vec(), wire.as_bytes()[split..].to_vec()];
+                let chunks = [
+                    wire.as_bytes()[..split].to_vec(),
+                    wire.as_bytes()[split..].to_vec(),
+                ];
                 let body = reqwest::Body::wrap_stream(futures_util::stream::iter(
-                    chunks.into_iter().map(Ok::<_, std::io::Error>)));
+                    chunks.into_iter().map(Ok::<_, std::io::Error>),
+                ));
                 let slots = Arc::new(Semaphore::new(1));
                 let mut lines = limited_fixture(body, &slots, text.len()).await;
                 assert_eq!(lines.next().await.unwrap().as_deref(), Some(text));
@@ -247,7 +284,9 @@ async fn overlong_line_fails_before_eof_and_releases_every_owned_resource_once()
             let observed = polls.clone();
             let wire = format!("abcde{suffix}").into_bytes();
             let chunks = if fragmented {
-                wire.chunks(1).map(|chunk| chunk.to_vec()).collect::<Vec<_>>()
+                wire.chunks(1)
+                    .map(|chunk| chunk.to_vec())
+                    .collect::<Vec<_>>()
             } else {
                 vec![wire]
             };
@@ -263,7 +302,11 @@ async fn overlong_line_fails_before_eof_and_releases_every_owned_resource_once()
             }));
             let slots = Arc::new(Semaphore::new(1));
             let mut lines = limited_fixture(body, &slots, 4).await;
-            let error = lines.next().now_or_never().expect("reject without waiting for EOF").unwrap_err();
+            let error = lines
+                .next()
+                .now_or_never()
+                .expect("reject without waiting for EOF")
+                .unwrap_err();
             assert_line_limit(error);
             assert_eq!(polls.load(Ordering::SeqCst), expected_reads);
             assert_eq!(dropped.load(Ordering::SeqCst), 1);
@@ -315,8 +358,12 @@ async fn a_valid_line_precedes_a_coalesced_oversized_line_and_never_a_truncated_
 #[tokio::test]
 async fn cancelled_read_at_limit_and_split_crlf_can_resume_without_growing_the_budget() {
     let (send, mut receive) = tokio::sync::mpsc::channel(2);
-    send.send(Ok::<_, std::io::Error>(b"abcd".to_vec())).await.unwrap();
-    let body = reqwest::Body::wrap_stream(futures_util::stream::poll_fn(move |context| receive.poll_recv(context)));
+    send.send(Ok::<_, std::io::Error>(b"abcd".to_vec()))
+        .await
+        .unwrap();
+    let body = reqwest::Body::wrap_stream(futures_util::stream::poll_fn(move |context| {
+        receive.poll_recv(context)
+    }));
     let slots = Arc::new(Semaphore::new(1));
     let mut lines = limited_fixture(body, &slots, 4).await;
     assert!(lines.next().now_or_never().is_none());
@@ -337,8 +384,10 @@ async fn invalid_utf8_keeps_its_error_code_and_releases_the_shared_framer() {
     for wire in [vec![0xff, b'\n'], vec![0xff]] {
         let slots = Arc::new(Semaphore::new(1));
         let mut lines = limited_fixture(wire.into(), &slots, 4).await;
-        assert!(matches!(super::dispatch(lines.next().await.unwrap_err()),
-            super::DispatchError::AdapterValidationFailed("provider_stream_utf8_invalid")));
+        assert!(matches!(
+            super::dispatch(lines.next().await.unwrap_err()),
+            super::DispatchError::AdapterValidationFailed("provider_stream_utf8_invalid")
+        ));
         assert_eq!(slots.available_permits(), 1);
         assert!(lines.pending_chunk.is_none());
         assert_eq!(lines.buffer.bytes.capacity(), 0);

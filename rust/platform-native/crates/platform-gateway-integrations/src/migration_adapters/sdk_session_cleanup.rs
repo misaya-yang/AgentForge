@@ -60,7 +60,15 @@ pub async fn admit(pool: &PgPool, scope: &SdkScope) -> Result<(), CleanupError> 
     // under the canonical row lock after acquiring the common lifecycle fence.
     let owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM assistant.sessions WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND status <> 'deleted')")
         .bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_one(&mut *tx).await?;
-    if !owned || !ai_platform_gateway_foundation::session_storage::lock_session_barrier(&mut *tx,Some(&scope.tenant_id),Some(&scope.user_id),&scope.session_id).await? {
+    if !owned
+        || !ai_platform_gateway_foundation::session_storage::lock_session_barrier(
+            &mut *tx,
+            Some(&scope.tenant_id),
+            Some(&scope.user_id),
+            &scope.session_id,
+        )
+        .await?
+    {
         return Err(CleanupError::SessionUnavailable);
     }
     let row = sqlx::query("SELECT service_id FROM assistant.sessions WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND status <> 'deleted' AND (expires_at IS NULL OR expires_at > now()) FOR UPDATE")
@@ -97,7 +105,15 @@ where
     let mut tx = pool.begin().await?;
     let authorized: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM assistant.sessions WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND status <> 'deleted')")
         .bind(tenant).bind(user).bind(session).fetch_one(&mut *tx).await?;
-    if !authorized || !ai_platform_gateway_foundation::session_storage::lock_session_barrier(&mut *tx,Some(tenant),Some(user),session).await? {
+    if !authorized
+        || !ai_platform_gateway_foundation::session_storage::lock_session_barrier(
+            &mut *tx,
+            Some(tenant),
+            Some(user),
+            session,
+        )
+        .await?
+    {
         return Err(CleanupError::SessionUnavailable);
     }
     let owned: Option<String> = sqlx::query_scalar("SELECT session_id FROM assistant.sessions WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND status <> 'deleted' FOR UPDATE")
@@ -170,12 +186,44 @@ fn worker_url(base: &str) -> Result<Url, CleanupError> {
         .join("v1/sessions")
         .map_err(|_| CleanupError::WorkerConfiguration)
 }
+fn worker_ca(path: &std::path::Path) -> Result<Vec<reqwest::Certificate>, CleanupError> {
+    use std::io::Read;
+    let bad = || CleanupError::WorkerConfiguration;
+    if !path.is_absolute() {
+        return Err(bad());
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    let file = options.open(path).map_err(|_| bad())?;
+    let metadata = file.metadata().map_err(|_| bad())?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 1024 * 1024 {
+        return Err(bad());
+    }
+    let mut bytes = Vec::new();
+    file.take(1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| bad())?;
+    if bytes.len() > 1024 * 1024 {
+        return Err(bad());
+    }
+    let certificates = reqwest::Certificate::from_pem_bundle(&bytes).map_err(|_| bad())?;
+    if certificates.is_empty() {
+        return Err(bad());
+    }
+    Ok(certificates)
+}
 /// Validated operator-only worker endpoint captured from the Gateway's explicit
 /// configuration document. It deliberately exposes no Debug or serialization.
 #[derive(Clone)]
 pub struct SdkAgentWorkerConfig {
     base_url: String,
     authorization: HeaderValue,
+    ca_certificates: Vec<reqwest::Certificate>,
 }
 impl SdkAgentWorkerConfig {
     pub fn from_operator_environment(environment: &BTreeMap<String, String>) -> Option<Self> {
@@ -185,11 +233,22 @@ impl SdkAgentWorkerConfig {
             return None;
         }
         let url = worker_origin(base).ok()?;
+        let ca_certificates = match environment.get("SDK_AGENT_WORKER_TLS_CA_FILE") {
+            Some(path) => {
+                if url.scheme() != "https" {
+                    return None;
+                }
+                worker_ca(std::path::Path::new(path)).ok()?
+            }
+            None => Vec::new(),
+        };
+
         let mut authorization = HeaderValue::from_str(&format!("Bearer {token}")).ok()?;
         authorization.set_sensitive(true);
         Some(Self {
             base_url: url.origin().ascii_serialization(),
             authorization,
+            ca_certificates,
         })
     }
     pub(super) fn base_url(&self) -> &str {
@@ -197,6 +256,13 @@ impl SdkAgentWorkerConfig {
     }
     pub(super) fn authorization(&self) -> HeaderValue {
         self.authorization.clone()
+    }
+    pub(super) fn client_builder(&self) -> reqwest::ClientBuilder {
+        let mut builder = Client::builder().no_proxy();
+        for certificate in &self.ca_certificates {
+            builder = builder.add_root_certificate(certificate.clone());
+        }
+        builder
     }
     fn sessions_url(&self) -> Result<Url, CleanupError> {
         worker_url(&self.base_url)
@@ -210,7 +276,9 @@ struct Worker {
 impl Worker {
     fn configured(config: &SdkAgentWorkerConfig) -> Result<Self, CleanupError> {
         Ok(Self {
-            client: Client::builder().retry(reqwest::retry::never())
+            client: config
+                .client_builder()
+                .retry(reqwest::retry::never())
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(10))
                 .build()
@@ -341,6 +409,40 @@ mod tests {
         ));
     }
     #[test]
+    fn configured_ca_rejects_http_and_bad_files_without_fallback() {
+        let mut env = BTreeMap::from([
+            (
+                "SDK_AGENT_WORKER_URL".into(),
+                "http://127.0.0.1:8096".into(),
+            ),
+            ("SDK_AGENT_WORKER_TOKEN".into(), "a".repeat(32)),
+        ]);
+        assert!(SdkAgentWorkerConfig::from_operator_environment(&env).is_some());
+        env.insert("SDK_AGENT_WORKER_TLS_CA_FILE".into(), "/missing.pem".into());
+        assert!(SdkAgentWorkerConfig::from_operator_environment(&env).is_none());
+        env.insert(
+            "SDK_AGENT_WORKER_URL".into(),
+            "https://sdk-agent-worker:8096".into(),
+        );
+        assert!(SdkAgentWorkerConfig::from_operator_environment(&env).is_none());
+        assert!(worker_ca(std::path::Path::new("relative.pem")).is_err());
+        let root =
+            std::env::temp_dir().join(format!("sdk-gateway-ca-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("ca.pem");
+        for bytes in ["", "malformed certificate"] {
+            std::fs::write(&path, bytes).unwrap();
+            assert!(worker_ca(&path).is_err());
+        }
+        #[cfg(unix)]
+        {
+            let link = root.join("symlink.pem");
+            std::os::unix::fs::symlink(&path, &link).unwrap();
+            assert!(worker_ca(&link).is_err());
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn cleanup_target_is_only_operator_origin() {
         for base in [
             "https://worker.example",
@@ -389,7 +491,8 @@ mod tests {
                 socket.write_all(format!("HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
             });
             let worker = Worker {
-                client: Client::builder().retry(reqwest::retry::never())
+                client: Client::builder()
+                    .retry(reqwest::retry::never())
                     .redirect(reqwest::redirect::Policy::none())
                     .timeout(Duration::from_secs(2))
                     .build()

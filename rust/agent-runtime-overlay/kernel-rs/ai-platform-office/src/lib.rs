@@ -1585,8 +1585,8 @@ fn validate_archive(bytes: &[u8]) -> Result<(), DocumentError> {
         let mut part = archive
             .by_index(index)
             .map_err(|error| DocumentError::InvalidArchive(error.to_string()))?;
-        let name = part.name();
-        let checked_name = name.strip_suffix('/').unwrap_or(name);
+        let name = part.name().map_err(|error| DocumentError::InvalidArchive(error.to_string()))?;
+        let checked_name = name.strip_suffix('/').unwrap_or(name.as_ref());
         if checked_name.is_empty()
             || checked_name.starts_with('/')
             || checked_name.contains('\\')
@@ -1634,7 +1634,7 @@ fn package_parts(bytes: &[u8]) -> Result<Vec<(String, Vec<u8>)>, DocumentError> 
         if part.is_dir() {
             continue;
         }
-        let name = part.name().to_owned();
+        let name = part.name().map_err(|error| DocumentError::InvalidArchive(error.to_string()))?.into_owned();
         let mut content = Vec::with_capacity(part.size() as usize);
         part.read_to_end(&mut content)
             .map_err(|error| DocumentError::InvalidArchive(error.to_string()))?;

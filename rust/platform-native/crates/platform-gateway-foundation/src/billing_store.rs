@@ -21,6 +21,7 @@ pub enum BillingStoreError {
     ModelProviderRequired,
     Billing(BillingError),
     Database(sqlx::Error),
+    PriceBook(crate::price_book::PriceBookError),
 }
 impl fmt::Display for BillingStoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,10 +29,16 @@ impl fmt::Display for BillingStoreError {
             Self::ModelProviderRequired => f.write_str("model_provider_required"),
             Self::Billing(error) => error.fmt(f),
             Self::Database(error) => error.fmt(f),
+            Self::PriceBook(error) => error.fmt(f),
         }
     }
 }
 impl std::error::Error for BillingStoreError {}
+impl From<crate::price_book::PriceBookError> for BillingStoreError {
+    fn from(value: crate::price_book::PriceBookError) -> Self {
+        Self::PriceBook(value)
+    }
+}
 impl From<sqlx::Error> for BillingStoreError {
     fn from(value: sqlx::Error) -> Self {
         Self::Database(value)
@@ -173,7 +180,9 @@ impl PgBillingStore {
             .build_query_as::<SummaryRow>()
             .fetch_one(&self.pool)
             .await?;
-        row.into_value(filter)
+        let mut summary=row.into_value(filter)?;
+        crate::request_meter::annotate_summary(&self.pool,filter,&mut summary).await?;
+        Ok(summary)
     }
     /// Preserve Python's collection_error empty summary (including today's dates).
     pub async fn get_usage_summary(&self, filter: &UsageFilter) -> Value {
@@ -841,4 +850,3 @@ async fn apply_aggregate(
     query.push(")").build().execute(connection).await?;
     Ok(())
 }
-

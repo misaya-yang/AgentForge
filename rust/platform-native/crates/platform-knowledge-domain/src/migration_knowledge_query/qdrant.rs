@@ -23,9 +23,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QdrantRole { ApiReadOnly, WorkerWrite }
+
 #[derive(Clone)]
 pub struct QdrantStore {
     client: Client,
+    role: QdrantRole,
+    custom_ca: bool,
     grpc: Option<Arc<grpc::GrpcTransport>>,
     origin: Url,
     api_key: Option<String>,
@@ -49,9 +54,17 @@ pub struct VectorHit {
     pub payload: Value,
     pub vector: Option<Vec<f64>>,
 }
+#[path = "qdrant_security.rs"]
+mod security;
 impl QdrantStore {
+    /// Clone the dedicated TLS client for service-owned health probes. No API key is installed in its defaults.
+    pub fn health_http_client(&self) -> Client { self.client.clone() }
+
     /// Select the source client transport explicitly. No HTTP fallback on gRPC failure.
     pub fn set_prefer_grpc(&mut self, enabled: bool) -> Result<()> {
+        if enabled && self.custom_ca {
+            return Err(QueryError::Validation("custom Qdrant CA requires explicit REST transport; this gRPC client cannot install custom roots".into()));
+        }
         self.grpc = if enabled {
             Some(Arc::new(grpc::GrpcTransport::new(
                 &self.origin,
@@ -137,6 +150,8 @@ impl QdrantStore {
         }
         Ok(Self {
             client,
+            role: QdrantRole::WorkerWrite,
+            custom_ca: false,
             grpc: None,
             origin,
             api_key,
@@ -428,6 +443,11 @@ impl QdrantStore {
         write: bool,
         interactive: bool,
     ) -> Result<Value> {
+        let read_operation = method == Method::GET || (method == Method::POST && matches!(suffix,
+            ["points"] | ["points", "query"] | ["points", "query", "batch"] | ["points", "scroll"] | ["points", "count"] | ["points", "search"] | ["points", "search", "batch"]));
+        if !read_operation && self.is_read_only() {
+            return Err(QueryError::Validation("Qdrant mutation requires the durable Knowledge worker".into()));
+        }
         if let Some(grpc) = &self.grpc {
             let method = &method;
             let result = self
@@ -1456,59 +1476,8 @@ impl QdrantStore {
 }
 
 #[cfg(test)]
-mod qdrant_error_class_tests {
-    use super::{QdrantStore, resilience::Failure};
-    use reqwest::Method;
-    use serde_json::json;
-
-    #[test]
-    fn qdrant_failure_diagnostics_are_bounded_and_never_echo_response_text() {
-        let dimension = json!({"status":{"error":"Wrong input: Vector dimension error: expected dim: 1024, got 1536"}});
-        assert_eq!(
-            QdrantStore::qdrant_error_class(&dimension),
-            "vector_dimension_mismatch"
-        );
-        let missing = json!({"status":{"error":"Collection `kb-private` not found"}});
-        assert_eq!(
-            QdrantStore::qdrant_error_class(&missing),
-            "collection_not_found"
-        );
-        let unknown = json!({"status":{"error":"detail containing an opaque token value"}});
-        assert_eq!(QdrantStore::qdrant_error_class(&unknown), "upstream_response_error");
-        assert_eq!(
-            QdrantStore::operation_name(&Method::POST, &["points", "query"]),
-            "points_query"
-        );
-        assert_eq!(
-            QdrantStore::operation_name(&Method::GET, &["collections"]),
-            "collections_list"
-        );
-        assert_eq!(
-            QdrantStore::dense_query_dimension(&json!({"query":[0.1,0.2,0.3]})),
-            Some(3)
-        );
-        assert_eq!(
-            QdrantStore::dense_query_dimension(
-                &json!({"prefetch":[{"query":[0.1,0.2]}],"query":{"rrf":{"k":60}}})
-            ),
-            Some(2)
-        );
-        assert_eq!(
-            QdrantStore::dense_query_dimension(&json!({"query":{"indices":[1],"values":[0.5]}})),
-            None
-        );
-        let info = json!({"config":{"params":{"vectors":{"size":1024,"distance":"Cosine"}}}});
-        assert_eq!(QdrantStore::collection_vector_dimension(&info), Some(1024));
-        assert_eq!(
-            QdrantStore::resilience_failure_class(&Failure::<()>::Deadline),
-            "interactive_deadline"
-        );
-        assert_eq!(
-            QdrantStore::resilience_failure_class(&Failure::<()>::CircuitOpen),
-            "circuit_open"
-        );
-    }
-}
+#[path = "qdrant_error_tests.rs"]
+mod qdrant_error_class_tests;
 impl QdrantStore {
     pub async fn document_point_ids_by_collection(
         &self,
@@ -2189,3 +2158,7 @@ impl QdrantStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "qdrant_role_tls_tests.rs"]
+mod role_tls_tests;

@@ -188,7 +188,11 @@ pub(crate) struct ChildPolicy {
     filter: Vec<libc::sock_filter>,
 }
 impl ChildPolicy {
-    pub(crate) fn prepare(python: &Path, workspace: &Path) -> io::Result<Self> {
+    pub(crate) fn prepare(
+        python: &Path,
+        workspace: &Path,
+        package_roots: &[PathBuf],
+    ) -> io::Result<Self> {
         let abi = landlock_abi()?;
         let handled = (1u64 << 15) - 1 | if abi >= 5 { 1 << 15 } else { 0 };
         let attr = RulesetAttr {
@@ -211,6 +215,11 @@ impl ChildPolicy {
             filter: syscall_filter()?,
         };
         policy.allow(&fs::canonicalize(workspace)?, handled & !EXECUTE)?;
+        for path in package_roots {
+            crate::python_package_policy::validate_package_root(path)
+                .map_err(|_| io::Error::from(io::ErrorKind::PermissionDenied))?;
+            policy.allow(&fs::canonicalize(path)?, READ_FILE | READ_DIR)?;
+        }
         policy.allow(&fs::canonicalize(python)?, READ_FILE | EXECUTE)?;
         for path in ["/usr/local/lib", "/usr/lib", "/lib", "/lib64"] {
             if let Ok(path) = fs::canonicalize(path) {

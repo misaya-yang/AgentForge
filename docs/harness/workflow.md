@@ -54,18 +54,15 @@ pass full acceptance. Fix errors that block further implementation immediately;
 record remaining defects for the consolidated pass. Keep implementation,
 execution and verification status distinct, and retain the release safety gates.
 
-The root remains the single integration writer. Parallel workers may prepare
-non-overlapping proposed source changes outside the repository for root
-integration. Build caches, temporary checks, fixtures and evidence stay outside
-the repository. The cloud native compilation exception in
-`runtime-and-secrets.md` governs this program's serialized builds. These
-exceptions do not authorize publication or production access. Runtime/Worker
-compilation normally uses the prescribed Docker builders or hosted CI. The
-user-approved 2026-10-12 cloud Runtime/Worker completion exception in
-`runtime-and-secrets.md` permits isolated, serialized direct checks and builds
-for this task; it does not establish image or release acceptance. Source changes
-needed for the user-requested Agent synchronization and plugin upgrade remain
-subject to root integration and the existing compatibility/release gates.
+The root owns integration, shared manifests, lockfiles and serialized builds.
+Authorized parallel workers edit disjoint source paths directly. Build caches,
+temporary checks, fixtures and evidence stay outside the repository. Daily native
+server compilation and tests use `scripts/new/native-container.sh` and its single
+Docker cache; do not retain a second host server Cargo target. Runtime/Worker use
+their controlled Docker source workflow. Host compilation is reserved for explicit
+macOS client/OS acceptance and the small std-only launcher bootstrap. Historical
+cloud exceptions are not local build instructions. These workflows do not authorize
+publication or production access and do not establish product acceptance.
 
 Every unit of work runs `observe → act → verify → decide`.
 

@@ -23,6 +23,13 @@ use std::{collections::BTreeMap, net::SocketAddr, sync::Arc};
 
 impl GatewayDocument {
     pub async fn construct(mut self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
+        let sdk_callback_configuration =
+            crate::migration_host::sdk_callback_tls::Configuration::from_environment(
+                &self.environment,
+            )
+            .map_err(BootstrapError::Configuration)?;
+        self.environment
+            .retain(|name, _| !name.starts_with("SDK_AGENT_GATEWAY_TLS_"));
         let local_node_channel_config =
             crate::migration_host::local_node_channel::LocalNodeChannelConfig::from_environment(
                 &self.environment,
@@ -37,16 +44,41 @@ impl GatewayDocument {
             .retain(|name, _| !name.starts_with("AI_PLATFORM_LOCAL_NODE_"));
         let settings = self.settings()?;
         let mut config = self.project(&settings)?;
+        let llm_configuration = super::llm_api::Configuration::from_environment(
+            &self.environment,
+            &config.auth.api_key_header,
+        )?;
+        let enterprise_configuration =
+            super::enterprise_identity::Configuration::from_environment(&self.environment)?;
+        config.auth.enterprise_policy_enabled = enterprise_configuration.is_some();
+        let valkey = ai_platform_service_primitives::valkey::SplitConfig::from_values(
+            &self.environment,
+            ai_platform_service_primitives::valkey::ServiceIdentity::Gateway,
+        )
+        .map_err(|_| BootstrapError::Configuration("valkey_split"))?;
+        config.content.langgraph.coordination_only = valkey.is_some();
+        let knowledge_model_configuration =
+            super::knowledge_models::Configuration::from_environment(&self.environment)?;
+        config.auth.access_keys = super::auth::access_keys(&self.environment)?;
+        if self.environment.contains_key("AI_PLATFORM_BFF_ORIGINS")
+            && (config.auth.access_keys.is_none() || !config.auth.jwt_enabled)
+        {
+            return Err(BootstrapError::Configuration(
+                "bff_requires_eddsa_and_enabled_auth",
+            ));
+        }
+        self.environment
+            .retain(|name, _| !name.starts_with("AI_PLATFORM_API_EDDSA_"));
         let policies = self.policies()?;
         let integration_environment = super::configuration::provider_environment(&self.environment);
-        if !settings.database.enabled || !settings.redis.enabled {
+        if !settings.database.enabled || (!settings.redis.enabled && valkey.is_none()) {
             return Err(BootstrapError::Configuration(
                 "durable_profile_requires_database_and_redis",
             ));
         }
         let admission_principal = match settings.task_delivery_mode.as_str() {
             "memory" => ApplicationPrincipal::Gateway,
-            "durable" => ApplicationPrincipal::GatewayDurable,
+            "durable" | "schema_admitted" => ApplicationPrincipal::GatewayDurable,
             _ => return Err(BootstrapError::Configuration("task_delivery_mode")),
         };
         let address = SocketAddr::new(
@@ -70,9 +102,13 @@ impl GatewayDocument {
         let knowledge_url = config.runtime.knowledge_origin.clone();
 
         let resources = Arc::new(
-            ConnectionResources::connect(&settings.database, &settings.redis)
-                .await
-                .map_err(|_| BootstrapError::Construction("connections"))?,
+            ConnectionResources::connect_split(
+                &settings.database,
+                &settings.redis,
+                valkey.as_ref(),
+            )
+            .await
+            .map_err(|_| BootstrapError::Construction("connections"))?,
         );
         let pools = DatabasePools {
             data: resources
@@ -107,6 +143,9 @@ impl GatewayDocument {
             .await
             .map_err(|_| BootstrapError::Construction("schema_admission"))?;
         }
+        config.core.durable_tasks = ai_platform_gateway_foundation::task_rollout::DeliveryMode::parse(&settings.task_delivery_mode)
+            .and_then(|mode| mode.after_canonical_guard(Ok(()), config.core.worker_concurrency))
+            .map_err(BootstrapError::Configuration)?;
         if let Some(repository) = &local_node_channel_repository {
             let ready = repository
                 .schema_ready()
@@ -128,6 +167,8 @@ impl GatewayDocument {
             .redis
             .clone()
             .ok_or(BootstrapError::Construction("redis"))?;
+        let usage_coordination = resources.coordination.clone();
+        let enterprise_coordination = redis.clone();
         let drain = Arc::new(DrainState::default());
         let readiness = Arc::new(
             ReadinessState::new(
@@ -165,18 +206,11 @@ impl GatewayDocument {
         if policies.provider_publication == super::native_policies::PublisherMode::Required {
             foundation.provider_publisher = Some(publisher);
         }
-        let usage_bus = self
-            .environment
-            .get("EVENT_BUS_REDIS_URL")
-            .map(|value| value.trim())
-            .filter(|value| !value.is_empty())
-            .map(|url| {
-                super::usage_event_bus::UsageEventBus::new(
-                    url,
-                    format!("gateway-{}", std::process::id()),
-                )
-            })
-            .transpose()?;
+        let usage_bus = super::usage_event_bus::UsageEventBus::configured(
+            &self.environment,
+            usage_coordination,
+            format!("gateway-{}", std::process::id()),
+        )?;
         let backends = GatewayBackends {
             foundation,
             usage_publisher: usage_bus.as_ref().map(|bus| {
@@ -211,6 +245,32 @@ impl GatewayDocument {
             models,
         )
         .await?;
+        let browser_auth = self
+            .environment
+            .get("AI_PLATFORM_BFF_ORIGINS")
+            .map(|raw| {
+                serde_json::from_str::<Vec<String>>(raw)
+                    .map_err(|_| BootstrapError::Configuration("bff_origins"))
+                    .and_then(|origins| {
+                        ai_platform_auth::browser::BrowserAuth::new(graph.auth.clone(), origins)
+                            .map_err(|_| BootstrapError::Configuration("bff_origins"))
+                    })
+            })
+            .transpose()?;
+        let knowledge_model_router = knowledge_model_configuration
+            .map(|configuration| configuration.router(&graph))
+            .transpose()?;
+        let llm_router = llm_configuration
+            .map(|configuration| configuration.router(&graph))
+            .transpose()?;
+        let enterprise_router = match enterprise_configuration {
+            Some(configuration) => Some(
+                configuration
+                    .router(graph.auth.clone(), enterprise_coordination)
+                    .await?,
+            ),
+            None => None,
+        };
         let local_node_channel = if let Some(configuration) = local_node_channel_config {
             let signer = local_node_channel_signer
                 .ok_or(BootstrapError::Configuration("local_node_channel_signer"))?;
@@ -297,6 +357,39 @@ impl GatewayDocument {
             },
             knowledge: Some(graph.history_knowledge.clone()),
         };
+        let browser_telemetry = crate::browser_telemetry::BrowserTelemetryApi::new(
+            graph.content.content.public.access.clone(),
+            self.environment
+                .get("AI_PLATFORM_BROWSER_TELEMETRY_TENANTS")
+                .map(|value| serde_json::from_str::<Vec<String>>(value))
+                .transpose()
+                .map_err(|_| BootstrapError::Configuration("browser_telemetry_tenants"))?
+                .unwrap_or_default(),
+            self.environment
+                .get("AI_PLATFORM_BROWSER_TELEMETRY_ORIGINS")
+                .map(|value| serde_json::from_str::<Vec<String>>(value))
+                .transpose()
+                .map_err(|_| BootstrapError::Configuration("browser_telemetry_origins"))?
+                .unwrap_or_default(),
+            self.environment
+                .get("AI_PLATFORM_BROWSER_TELEMETRY_SAMPLE_BPS")
+                .map(|value| value.parse::<u16>())
+                .transpose()
+                .map_err(|_| BootstrapError::Configuration("browser_telemetry_sampling"))?
+                .unwrap_or(0),
+        )
+        .map_err(|_| BootstrapError::Configuration("browser_telemetry"))?;
+        let mut host_identity = settings.identity(&self.environment);
+        let identity_auth = graph.auth.clone();
+        host_identity.verify_jwt = Some(Arc::new(move |token| {
+            identity_auth
+                .verify_access_claims(token)
+                .and_then(|claims| {
+                    serde_json::to_value(claims)
+                        .map_err(|_| ai_platform_auth::service::ServiceError::Unavailable)
+                })
+                .map_err(|e| e.to_string())
+        }));
         let router = graph
             .into_router(
                 options,
@@ -306,9 +399,25 @@ impl GatewayDocument {
             )?
             .merge(crate::migration_host::readiness::router(readiness))
             .merge(metric_router)
+            .merge(crate::browser_telemetry::router(browser_telemetry))
             .merge(crate::migration_host::release::router(Arc::new(
                 crate::migration_host::release::ReleaseIdentity::gateway(&self.environment),
             )));
+        let router = if let Some(models) = knowledge_model_router {
+            router.merge(models)
+        } else {
+            router
+        };
+        let router = if let Some(llm) = llm_router {
+            router.merge(llm)
+        } else {
+            router
+        };
+        let router = if let Some(enterprise) = enterprise_router {
+            router.merge(enterprise)
+        } else {
+            router
+        };
         let (router, local_node_https) = match local_node_channel {
             Some((worker_router, companion_router, tls_configuration)) => (
                 router.merge(worker_router),
@@ -316,10 +425,15 @@ impl GatewayDocument {
             ),
             None => (router, None),
         };
-        let host = GatewayHost::assembled_with_drain(
+        let router = if let Some(browser) = browser_auth.as_ref() {
+            router.merge(browser.router())
+        } else {
+            router
+        };
+        let mut host = GatewayHost::assembled_with_drain(
             router,
             settings.middleware(),
-            settings.identity(&self.environment),
+            host_identity,
             settings
                 .cors()
                 .map_err(|_| BootstrapError::Configuration("cors"))?,
@@ -329,8 +443,25 @@ impl GatewayDocument {
             lifecycle,
             drain,
         );
+        if let Some(browser) = browser_auth {
+            host.router = browser.bridge(host.router);
+        }
         let host = if let Some((companion_router, tls_configuration)) = local_node_https {
             host.with_local_node_https(companion_router, tls_configuration)
+        } else {
+            host
+        };
+        let host = if let Some(configuration) = sdk_callback_configuration {
+            let configuration = configuration
+                .resolve()
+                .await
+                .map_err(BootstrapError::Configuration)?;
+            if configuration.address.port() == address.port() {
+                return Err(BootstrapError::Configuration(
+                    "sdk_callback_tls_port_collision",
+                ));
+            }
+            host.with_sdk_callback_https(configuration)
         } else {
             host
         };

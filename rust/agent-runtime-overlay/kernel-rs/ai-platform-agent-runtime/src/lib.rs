@@ -16,6 +16,8 @@ mod readonly_extension;
 pub mod tool_lifecycle;
 mod tool_policy;
 mod trace_context;
+pub mod telemetry;
+mod telemetry_model;
 mod v1_projector;
 
 pub use postgres_store::PlatformThreadIdentity;
@@ -100,6 +102,8 @@ impl AiPlatformExtensionRegistry {
 impl AppServerExtensionInstaller for AiPlatformExtensionRegistry {
     fn install(&self, builder: &mut ExtensionRegistryBuilder<Config>) {
         readonly_extension::install_readonly_contributors(builder);
+        builder.model_request_contributor(Arc::new(telemetry_model::ModelTelemetry));
+        builder.turn_lifecycle_contributor(Arc::new(telemetry_model::ModelTelemetry));
         if let Some(store) = &self.platform_store {
             let lifecycle = Arc::new(platform_lifecycle::PlatformLifecycleContributor::new(
                 Arc::clone(store),
@@ -215,3 +219,6 @@ mod postgres_store_contract_tests;
 #[cfg(test)]
 #[path = "v1_projector_tests.rs"]
 mod v1_projector_tests;
+
+/// Flush incomplete local observations before shutting down exporters.
+pub fn drain_turn_telemetry(){telemetry_model::drain();}

@@ -17,7 +17,28 @@ pub fn supervisor_main() -> Result<(), CodeExecutionError> {
             .ok_or(CodeExecutionError::IsolationUnavailable)?;
         isolation::verify_supervised(&cgroup_path, &request.limits)?;
         mount_workspace(&request)?;
+        let package_roots: Vec<PathBuf> = std::env::args_os()
+            .nth(3)
+            .map(|value| {
+                value
+                    .into_string()
+                    .map_err(|_| CodeExecutionError::Configuration)
+            })
+            .transpose()?
+            .map(|value| {
+                serde_json::from_str(&value).map_err(|_| CodeExecutionError::Configuration)
+            })
+            .transpose()?
+            .unwrap_or_default();
+        if package_roots.len() > 64
+            || package_roots
+                .iter()
+                .any(|path| crate::python_package_policy::validate_package_root(path).is_err())
+        {
+            return Err(CodeExecutionError::Configuration);
+        }
         let config = LocalPythonSandboxConfig {
+            package_roots,
             python_binary: std::env::args_os()
                 .nth(1)
                 .map(PathBuf::from)
@@ -70,6 +91,10 @@ pub(super) fn run_isolated(
                 Path::new("/unavailable")
             }
         })
+        .arg(
+            serde_json::to_string(&config.package_roots)
+                .map_err(|_| CodeExecutionError::Configuration)?,
+        )
         .current_dir(&config.workspace_root)
         .env_clear()
         .env("PATH", "/usr/local/bin:/usr/bin:/bin")

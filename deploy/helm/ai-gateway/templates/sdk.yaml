@@ -1,0 +1,98 @@
+{{- if .Values.sdkWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-sdk
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: sdk
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: sdk
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: sdk
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "sdk") | quote }}
+        command: [/usr/local/bin/sdk-agent-worker]
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        resources:
+{{ toYaml .Values.resources.sdk | indent 10 }}
+        env:
+        - {name: SDK_AGENT_WORKER_BIND, value: "0.0.0.0:8096"}
+        - {name: SDK_AGENT_WORKER_TLS_CERT_FILE, value: /run/sdk-worker/tls.crt}
+        - {name: SDK_AGENT_WORKER_TLS_KEY_FILE, value: /run/sdk-worker/tls.key}
+        - {name: SDK_AGENT_WORKER_TLS_CA_FILE, value: /run/sdk-worker/ca.pem}
+        - {name: SDK_AGENT_GATEWAY_TLS_CA_FILE, value: /run/sdk-callback/ca.pem}
+        - {name: SDK_AGENT_STATE_ROOT, value: /var/lib/sdk-agent}
+        - name: SDK_AGENT_RETENTION_SECONDS
+          value: {{ .Values.sdkWorker.retentionSeconds | quote }}
+        - name: SDK_AGENT_GATEWAY_URL
+          value: https://{{ include "ai-gateway.fullname" . }}-gateway:8097
+{{ include "ai-gateway.secretEnv" (dict "env" "SDK_AGENT_WORKER_TOKEN" "secret" .Values.sdkWorker.credentialsSecret "key" "SDK_AGENT_WORKER_TOKEN") | indent 8 }}
+        readinessProbe:
+          exec: {command: [/usr/local/bin/sdk-agent-worker, health]}
+        ports: [{name: https, containerPort: 8096}]
+        volumeMounts:
+        - {name: state, mountPath: /var/lib/sdk-agent}
+        - {name: worker-tls, mountPath: /run/sdk-worker, readOnly: true}
+        - {name: callback-ca, mountPath: /run/sdk-callback, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: state
+        persistentVolumeClaim: {claimName: {{ .Values.sdkWorker.existingClaim | quote }}}
+      - name: worker-tls
+        secret:
+          secretName: {{ .Values.sdkWorker.workerTLSSecret | quote }}
+      - name: callback-ca
+        secret:
+          secretName: {{ .Values.sdkWorker.callbackTLSSecret | quote }}
+          items: [{key: ca.pem, path: ca.pem}]
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-sdk
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sdk
+  ports: [{name: https, port: 8096, targetPort: https}]
+{{- range $client, $server := dict "gateway" "sdk" "sdk" "gateway" }}
+{{- $port := ternary 8096 8097 (eq $server "sdk") }}
+{{- range $direction := list "Ingress" "Egress" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-{{ $client }}-{{ $direction | lower }}-sdk-tls
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ ternary $server $client (eq $direction "Ingress") }}
+  policyTypes: [{{ $direction }}]
+  {{ $direction | lower }}:
+  - {{ ternary "from" "to" (eq $direction "Ingress") }}:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: {{ $.Release.Name }}
+          app.kubernetes.io/component: {{ ternary $client $server (eq $direction "Ingress") }}
+    ports: [{protocol: TCP, port: {{ $port }}}]
+{{- end }}
+{{- end }}
+{{- end }}

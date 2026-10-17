@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
-ai-platform-client = { path = "../platform-client" }
+ai-platform-client = { version = "0.1.0", path = "../platform-client"  }
 eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "x11", "accesskit"] }
 tokio.workspace = true
 serde_json.workspace = true

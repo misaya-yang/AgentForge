@@ -1,0 +1,272 @@
+# OFFLINE FIXTURE ONLY
+agentRuntime:
+  autoscaling:
+    enabled: false
+    maxReplicas: 1
+    minReplicas: 1
+  replicaCount: 1
+availability:
+  pdb: true
+capabilityWorker:
+  autoscaling:
+    enabled: false
+    maxReplicas: 1
+    minReplicas: 1
+  replicaCount: 1
+credentials:
+  control: fixture-control
+  gateway: fixture-gateway
+  knowledge: fixture-knowledge
+  runtime: fixture-runtime
+data:
+  objectStore:
+    enabled: false
+    peer: {}
+    port: 9000
+    existingSecret: ''
+    endpoint: ''
+    bucket: ''
+    region: us-east-1
+  postgres:
+    peer:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: state
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgres
+    port: 5432
+  qdrant:
+    caConfigMap: fixture-system-and-qdrant-ca
+    existingSecret: fixture-qdrant-client
+    peer:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: state
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: qdrant
+    port: 6333
+    url: https://qdrant.state.svc:6333
+  valkey:
+    peer:
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: state
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: valkey
+    port: 6379
+databaseRoles:
+  existingSecret: fixture-role-dsns
+  rolePrefix: ai_gateway_
+frontend:
+  autoscaling:
+    enabled: true
+    maxReplicas: 6
+    minReplicas: 2
+    targetCPUUtilization: 70
+  env: {}
+  replicaCount: 2
+fullnameOverride: ''
+gateway:
+  autoscaling:
+    enabled: false
+    maxReplicas: 1
+    minReplicas: 1
+  nativeOptions:
+    allow_private_knowledge_http: true
+    confluence_registration: disabled
+    kernel_revision: fixture-reviewed-kernel
+    local_channel: disabled
+    local_utc_offset_seconds: 0
+    model_publication: required
+    pdf:
+      allow_attachment_alternative: false
+      pdfinfo: /usr/bin/pdfinfo
+      pdftoppm: /usr/bin/pdftoppm
+      pdftotext: /usr/bin/pdftotext
+      scratch_root: /app/data/pdf-scratch
+    provider_publication: required
+    worker_writes_enabled: true
+  replicaCount: 1
+global:
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+images:
+  control:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-capability-worker
+  frontend:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-web
+  gateway:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway
+  knowledge:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-knowledge-service
+  migrate:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-migrate
+  runtime:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-runtime
+  sandbox:
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-python-sandbox
+  sdk:
+    repository: ghcr.io/misaya-yang/ai-gateway-sdk-agent-worker
+    digest: ''
+knowledgeService:
+  autoscaling:
+    enabled: true
+    maxReplicas: 8
+    minReplicas: 2
+    targetCPUUtilization: 70
+  replicaCount: 2
+knowledgeWorker:
+  keda:
+    authenticationRef: ''
+    enabled: false
+    query: ''
+  replicaCount: 1
+lease:
+  gatewayPrivateSecret: fixture-gateway-private
+  publicConfigMap: fixture-public-verifiers
+migration:
+  activeDeadlineSeconds: 600
+  backoffLimit: 1
+network:
+  dnsLabels:
+    k8s-app: kube-dns
+  dnsNamespace: kube-system
+  dnsResolver: 10.96.0.10
+  edgePeer:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: gateway-system
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: gateway-controller
+  providerCIDRs:
+  - 203.0.113.0/24
+persistence:
+  control:
+    existingClaim: fixture-control
+  gateway:
+    existingClaim: fixture-gateway
+  knowledge:
+    existingClaim: fixture-knowledge
+  runtime:
+    existingClaim: fixture-runtime
+resources:
+  control:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  frontend:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  gateway:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  knowledge:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  knowledge-worker:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  migration:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  runtime:
+    limits:
+      cpu: '1'
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  sandbox:
+    limits:
+      cpu: '2'
+      memory: 1536Mi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  sdk:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 768Mi
+routing:
+  certificate:
+    enabled: false
+    issuerKind: ClusterIssuer
+    issuerName: ''
+  enabled: false
+  gatewayClassName: ''
+  hostnames: []
+  internalGrpc:
+    enabled: false
+    parentRef:
+      name: ''
+      namespace: ''
+      sectionName: ''
+  parentRef:
+    name: ''
+    namespace: ''
+    sectionName: ''
+  tlsSecretName: ''
+sandbox:
+  cgroupCSI: {}
+  enabled: false
+  journalClaim: ''
+  nodeName: ''
+  publicKeyHex: ''
+  publicKeyId: ''
+  runtimeClassName: ''
+  seccompProfile: ''
+  signingSecret: ''
+  socketClaim: ''
+  socketFsGroupMutationDisabled: false
+  workspaceClaim: ''
+modelPlane:
+  knowledgeWorkloadPublicConfigMap: fixture-knowledge-public
+  gatewayPublicConfigMap: fixture-gateway-public
+  knowledgeWorkloadSecret: fixture-knowledge-workload-private
+  priceBookRevision: fixture-not-active
+  modelRevisions:
+    provider/model: fixture-not-registered
+sdkWorker:
+  enabled: false
+  existingClaim: ''
+  workerTLSSecret: ''
+  callbackTLSSecret: ''
+  credentialsSecret: ''
+  retentionSeconds: 86400

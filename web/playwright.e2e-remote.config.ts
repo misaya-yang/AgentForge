@@ -5,8 +5,9 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { defineConfig, devices } from "@playwright/test";
+import { requireHttpsConsoleOrigin } from "./e2e/support/bff-session.ts";
 
-const baseURL = process.env.E2E_BASE_URL!;
+const baseURL = requireHttpsConsoleOrigin(process.env.E2E_BASE_URL);
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const authStatePath = path.resolve(configDir, ".playwright/auth-state.json");
 const globalSetupPath = path.resolve(configDir, "e2e/global.setup.ts");
@@ -22,7 +23,7 @@ export default defineConfig({
   use: {
     baseURL,
     storageState: authStatePath,
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: false,
     trace: "retain-on-first-failure",
     screenshot: "only-on-failure",
   },

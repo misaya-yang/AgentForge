@@ -38,7 +38,8 @@ impl RuntimeActorClient {
                 "runtime actor signer scope is invalid".into(),
             ));
         }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(5))
@@ -222,15 +223,17 @@ async fn retrieve_capability(
     {
         return detail(StatusCode::UNAUTHORIZED, "capability authentication failed");
     }
-    let bytes = match to_bytes(body, 256 * 1024).await {
-        Ok(b) => b,
-        Err(_) => {
-            return detail(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "capability request too large",
-            );
-        }
-    };
+    let bytes =
+        match tokio::time::timeout(Duration::from_secs(30), to_bytes(body, 256 * 1024)).await {
+            Ok(Ok(b)) => b,
+            Ok(Err(_)) => {
+                return detail(
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "capability request too large",
+                );
+            }
+            Err(_) => return detail(StatusCode::REQUEST_TIMEOUT, "capability request timed out"),
+        };
     let p: CapabilityRequest = match serde_json::from_slice(&bytes) {
         Ok(p) => p,
         Err(_) => {
@@ -261,7 +264,7 @@ async fn retrieve_capability(
         arguments_hash: String::new(),
     };
     let payload = serde_json::to_value(&p).unwrap_or(Value::Null);
-    if verify_capability_proof(
+    let verified_proof = match verify_capability_proof(
         &state.proof_secret,
         header("x-ai-capability-proof"),
         "POST",
@@ -269,11 +272,10 @@ async fn retrieve_capability(
         &payload,
         &scope,
         chrono::Utc::now().timestamp(),
-    )
-    .is_err()
-    {
-        return detail(StatusCode::UNAUTHORIZED, "capability proof invalid");
-    }
+    ) {
+        Ok(proof) => proof,
+        Err(_) => return detail(StatusCode::UNAUTHORIZED, "capability proof invalid"),
+    };
     if [&scope.tenant_id, &scope.user_id, &scope.session_id]
         .iter()
         .any(|s| s.is_empty() || s.chars().count() > 255)
@@ -292,6 +294,26 @@ async fn retrieve_capability(
             );
         }
     };
+    if actor.tenant_id != scope.tenant_id || actor.user_id != scope.user_id || actor.anonymous() {
+        return detail(StatusCode::FORBIDDEN, "capability actor denied");
+    }
+    let expiry = verified_proof["expires_at"]
+        .as_u64()
+        .and_then(|value| value.checked_mul(1000))
+        .unwrap_or(0);
+    let transport = match super::private_transport::AdmittedTransport::after_authenticated(
+        &parts.headers,
+        expiry,
+    ) {
+        Ok(transport) => transport,
+        Err(_) => {
+            return detail(
+                StatusCode::REQUEST_TIMEOUT,
+                "private request budget invalid or expired",
+            );
+        }
+    };
+    match transport.run(async{
     if state.backend.require_dataset(&actor, &id).await.is_err() {
         return detail(StatusCode::NOT_FOUND, "Dataset not found");
     }
@@ -327,4 +349,9 @@ async fn retrieve_capability(
         }
         Err(e) => e.into_response(),
     }
+    }).await{Ok(response)=>response,Err(_)=>detail(StatusCode::GATEWAY_TIMEOUT,"private request budget expired")}
 }
+
+#[cfg(test)]
+#[path = "actor_transport_tests.rs"]
+mod transport_tests;

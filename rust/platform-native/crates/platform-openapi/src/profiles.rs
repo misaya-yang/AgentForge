@@ -2,7 +2,7 @@
 use crate::gate::{METHODS, operation_ids};
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, fs, path::Path};
-pub const PROFILES: &[&str] = &["python-hybrid", "native", "published"];
+pub const PROFILES: &[&str] = &["native", "published"];
 fn string_set(value: &Value) -> Result<BTreeSet<String>, String> {
     value
         .as_array()
@@ -174,20 +174,12 @@ pub fn project(published: &Value, profile: &str, ownership: &Value) -> Result<Va
     if !PROFILES.contains(&profile) {
         return Err(format!("unknown OpenAPI profile: {profile}"));
     }
-    let mut result = published.clone();
-    if profile != "python-hybrid" {
-        return Ok(result);
-    }
-    let paths = string_set(&ownership["python_paths"])?;
-    if let Some(map) = result["paths"].as_object_mut() {
-        map.retain(|p, _| paths.contains(p));
-    }
-    let schemes = string_set(&ownership["native_security_schemes"])?;
-    if let Some(map) = result["components"]["securitySchemes"].as_object_mut() {
-        map.retain(|name, _| !schemes.contains(name));
-    }
-    Ok(result)
+    // Version-1 ownership manifests remain readable for frozen historical baselines.
+    // Their python_paths partition does not authorize a retired runtime export profile.
+    let _ = ownership;
+    Ok(published.clone())
 }
+
 pub fn check_legacy_ownership(current: &Value, ownership: &Value) -> Result<(), String> {
     let native: BTreeSet<_> = ownership["native_only"]
         .as_array()

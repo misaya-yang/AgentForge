@@ -1,4 +1,6 @@
 //! Actual reqwest adapter against an isolated loopback provider fixture.
+#[path="common/model_plane_fixture.rs"]
+mod model_plane_fixture;
 use ai_platform_knowledge_service::migration_knowledge_query::rerank::{
     RerankProviderConfig, Reranker,
 };
@@ -9,7 +11,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 struct Fixture {
-    reranker: Reranker,
+    reranker: ScopedReranker,
+    _plane:model_plane_fixture::Plane,
     calls: Arc<Mutex<Vec<Value>>>,
     server: tokio::task::JoinHandle<()>,
 }
@@ -48,18 +51,22 @@ async fn fixture(schema: &str, rows: Value) -> Fixture {
             "dashscope".into(),
             RerankProviderConfig {
                 api_key: "synthetic-key".into(),
-                endpoint,
+                endpoint:endpoint.clone(),
                 request_schema: schema.into(),
                 instruct: None,
             },
         )]),
     );
+    let plane=model_plane_fixture::Plane::new(endpoint,"synthetic-key".into()).await;
     Fixture {
-        reranker,
+        reranker:ScopedReranker{reranker,client:plane.client.clone()},
+        _plane:plane,
         calls,
         server,
     }
 }
+struct ScopedReranker {reranker:Reranker,client:Arc<ai_platform_knowledge_service::migration_knowledge_query::model_plane::ModelPlaneClient>}
+impl ScopedReranker {async fn rerank(&self,provider:&str,model:&str,query:&str,documents:&[String],top_n:usize)->ai_platform_knowledge_service::migration_knowledge_query::types::Result<Vec<ai_platform_knowledge_service::migration_knowledge_query::rerank::RerankResult>> {model_plane_fixture::run(self.client.clone(),self.reranker.rerank(provider,model,query,documents,top_n)).await}}
 #[tokio::test]
 async fn legacy_unsorted_provider_output_is_resorted() {
     let f=fixture("legacy",json!([{"index":0,"relevance_score":0.11},{"index":2,"relevance_score":0.97},{"index":1,"relevance_score":0.55}])).await;

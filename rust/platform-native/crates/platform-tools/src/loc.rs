@@ -75,7 +75,7 @@ pub fn run(args: &Args) -> Result<Value> {
         .get("--baseline")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            root.join("docs/architecture/baselines/2026-08-post-rag/loc-baseline.json")
+            root.join("docs/architecture/baselines/native-rust-v2/loc-baseline.json")
         });
     let baseline = object(&baseline_path)?;
     let mut value = json!({"gate":"loc-no-growth","tier":"L0","baseline":baseline_path,"base_git_sha":baseline["base_git_sha"]});

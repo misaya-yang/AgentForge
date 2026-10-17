@@ -1,5 +1,6 @@
 //! Request-id context bridge and safe internal HTTP correlation propagation.
 use super::middleware::RequestContext;
+use ai_platform_capability_contract::private_transport::{Budget, Trace};
 use axum::{
     body::{Body, Bytes},
     extract::Request,
@@ -7,6 +8,7 @@ use axum::{
     response::Response,
 };
 use http_body::{Body as HttpBody, Frame, SizeHint};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::{
     collections::{BTreeMap, BTreeSet},
     future::Future,
@@ -22,12 +24,56 @@ pub struct OutboundContext {
 /// carrier headers are not assumed to represent an active local tracing span.
 #[derive(Clone, Default)]
 pub struct ActiveTraceCarrier(pub BTreeMap<String, String>);
-tokio::task_local! {static OUTBOUND:OutboundContext;}
+tokio::task_local! {static OUTBOUND:OutboundContext; static COMMAND_BUDGET:Option<Budget>;}
 pub fn current() -> OutboundContext {
     OUTBOUND.try_with(Clone::clone).unwrap_or_default()
 }
 pub async fn scoped<T>(context: OutboundContext, future: impl Future<Output = T>) -> T {
-    OUTBOUND.scope(context, future).await
+    let budget = COMMAND_BUDGET.try_with(Clone::clone).unwrap_or_default();
+    scoped_with_budget(context, budget, future).await
+}
+/// Explicit capture for a same-request detached command; never read public headers.
+pub fn capture_budget() -> Option<Budget> {
+    COMMAND_BUDGET.try_with(Clone::clone).unwrap_or_default()
+}
+pub async fn scoped_with_budget<T>(
+    context: OutboundContext,
+    budget: Option<Budget>,
+    future: impl Future<Output = T>,
+) -> T {
+    COMMAND_BUDGET
+        .scope(budget, OUTBOUND.scope(context, future))
+        .await
+}
+pub fn wall_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u64::MAX as u128) as u64
+}
+/// Existing local route cap, not a verified model/SDK lease expiry. An optional
+/// privately installed Budget may only shorten it. Raw HTTP budget headers never enter.
+pub fn command_budget(cap: Duration) -> Result<Budget, String> {
+    let now = Instant::now();
+    let wall = wall_ms();
+    let local = Budget::admit(
+        cap,
+        wall.saturating_add(cap.as_millis().min(u64::MAX as u128) as u64),
+        wall,
+        now,
+    )
+    .map_err(|_| "private_transport_budget_invalid")?;
+    if let Some(parent) = capture_budget() {
+        let mut headers = vec![];
+        parent
+            .append(&mut headers, wall, now)
+            .map_err(|_| "private_transport_budget_expired")?;
+        return local
+            .constrain_authenticated(&headers, wall, now)
+            .map_err(|_| "private_transport_budget_invalid".into());
+    }
+    Ok(local)
 }
 fn safe_id(value: &str, limit: usize, colon: bool) -> bool {
     !value.is_empty()
@@ -35,29 +81,6 @@ fn safe_id(value: &str, limit: usize, colon: bool) -> bool {
         && value.bytes().all(|b| {
             b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.') || colon && b == b':'
         })
-}
-// Match the existing Runtime/Worker reader limits. Keep these transport-only
-// checks here rather than coupling Gateway to either execution implementation.
-fn valid_traceparent(value: &str) -> bool {
-    value.is_ascii()
-        && value.len() == 55
-        && value.as_bytes()[2] == b'-'
-        && value.as_bytes()[35] == b'-'
-        && value.as_bytes()[52] == b'-'
-        && value
-            .bytes()
-            .enumerate()
-            .all(|(index, byte)| matches!(index, 2 | 35 | 52) || byte.is_ascii_hexdigit())
-        && !value[..2].eq_ignore_ascii_case("ff")
-        && value[3..35].bytes().any(|byte| byte != b'0')
-        && value[36..52].bytes().any(|byte| byte != b'0')
-}
-fn valid_tracestate(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 512
-        && value
-            .bytes()
-            .all(|byte| byte == b' ' || (0x21..=0x7e).contains(&byte))
 }
 /// Capture only bounded correlation for one request's detached work. This is
 /// not an identity carrier: no actor, authorization, cookies or baggage survive.
@@ -70,17 +93,10 @@ pub fn capture() -> OutboundContext {
     } else {
         format!("svc-{}", uuid::Uuid::new_v4())
     };
-    let mut trace_carrier = BTreeMap::new();
-    for name in ["traceparent", "tracestate"] {
-        if let Some(value) = context.trace_carrier.get(name).map(|value| value.trim())
-            && match name {
-                "traceparent" => valid_traceparent(value),
-                _ => valid_tracestate(value),
-            }
-        {
-            trace_carrier.insert(name.into(), value.into());
-        }
-    }
+    let incoming = context.trace_carrier.into_iter().collect::<Vec<_>>();
+    let mut carrier = vec![];
+    Trace::from_admitted_carrier(&incoming).append(&mut carrier);
+    let trace_carrier = carrier.into_iter().collect();
     OutboundContext {
         request_id,
         trace_carrier,
@@ -92,18 +108,21 @@ pub fn internal_http_headers(
     turn_id: Option<&str>,
     execution_id: Option<&str>,
 ) -> Result<BTreeMap<String, String>, String> {
-    let mut lowered: BTreeSet<String> = existing.keys().map(|k| k.to_lowercase()).collect();
     let context = capture();
+    let mut transport = existing.into_iter().collect::<Vec<_>>();
+    Trace::from_admitted_carrier(
+        &context
+            .trace_carrier
+            .clone()
+            .into_iter()
+            .collect::<Vec<_>>(),
+    )
+    .append(&mut transport);
+    existing = transport.into_iter().collect();
+    let mut lowered: BTreeSet<String> = existing.keys().map(|k| k.to_lowercase()).collect();
     let request_id = context.request_id;
     if lowered.insert("x-request-id".into()) {
         existing.insert("x-request-id".into(), request_id);
-    }
-    for name in ["traceparent", "tracestate"] {
-        if let Some(value) = context.trace_carrier.get(name).filter(|v| !v.is_empty())
-            && lowered.insert(name.into())
-        {
-            existing.insert(name.into(), value.clone());
-        }
     }
     for (name, value) in [
         ("x-ai-run-id", run_id),
@@ -126,6 +145,7 @@ pub fn internal_http_headers(
 struct ContextBody {
     body: Body,
     context: OutboundContext,
+    budget: Option<Budget>,
 }
 impl HttpBody for ContextBody {
     type Data = Bytes;
@@ -135,8 +155,10 @@ impl HttpBody for ContextBody {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Bytes>, axum::Error>>> {
         let this = self.get_mut();
-        OUTBOUND.sync_scope(this.context.clone(), || {
-            Pin::new(&mut this.body).poll_frame(cx)
+        COMMAND_BUDGET.sync_scope(this.budget.clone(), || {
+            OUTBOUND.sync_scope(this.context.clone(), || {
+                Pin::new(&mut this.body).poll_frame(cx)
+            })
         })
     }
     fn is_end_stream(&self) -> bool {
@@ -196,10 +218,23 @@ pub async fn bridge(mut request: Request, next: Next) -> Response {
             })
             .unwrap_or_default(),
     };
-    let mut response = scoped(context.clone(), next.run(request)).await;
+    // Only a trusted in-process auth/admission adapter can install this extension.
+    let budget = request.extensions().get::<Budget>().cloned();
+    let mut response = scoped_with_budget(context.clone(), budget.clone(), next.run(request)).await;
     if let Ok(value) = axum::http::HeaderValue::from_str(&context.request_id) {
         response.headers_mut().insert("x-request-id", value);
     }
     let (parts, body) = response.into_parts();
-    Response::from_parts(parts, Body::new(ContextBody { body, context }))
+    Response::from_parts(
+        parts,
+        Body::new(ContextBody {
+            body,
+            context,
+            budget,
+        }),
+    )
 }
+
+#[cfg(test)]
+#[path = "context_budget_tests.rs"]
+mod budget_tests;

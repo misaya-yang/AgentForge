@@ -1,0 +1,79 @@
+{{- if .Values.sandbox.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-agent-python-sandbox
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: agent-python-sandbox
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: agent-python-sandbox
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      runtimeClassName: {{ .Values.sandbox.runtimeClassName | quote }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ .Values.sandbox.nodeName | quote }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: Localhost
+          localhostProfile: {{ .Values.sandbox.seccompProfile | quote }}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      containers:
+      - name: sandbox
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "sandbox") | quote }}
+        # Kubernetes injects control-service discovery env even without env:.
+        # Start the credential-free process with an explicit public allowlist.
+        command: [/usr/bin/env]
+        args:
+        - -i
+        - PATH=/usr/local/bin:/usr/bin:/bin
+        - HOME=/tmp
+        - LANG=C.UTF-8
+        - ai-platform-python-sandbox
+        - --public-key-id
+        - {{ .Values.sandbox.publicKeyId | quote }}
+        - --public-key-hex
+        - {{ .Values.sandbox.publicKeyHex | quote }}
+        - --socket
+        - /run/agentforge-sandbox/control.sock
+        - --workspace-root
+        - /workspace
+        - --journal-root
+        - /var/lib/agentforge-sandbox/jobs
+        - --cgroup-root
+        - /sys/fs/cgroup/agentforge-sandbox
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        resources:
+{{ toYaml .Values.resources.sandbox | indent 10 }}
+        readinessProbe:
+          exec: {command: [ai-platform-python-sandbox-health, /run/agentforge-sandbox/control.sock]}
+        volumeMounts:
+        - {name: socket, mountPath: /run/agentforge-sandbox}
+        - {name: workspace, mountPath: /workspace}
+        - {name: journal, mountPath: /var/lib/agentforge-sandbox/jobs}
+        - {name: cgroup, mountPath: /sys/fs/cgroup/agentforge-sandbox}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: socket
+        persistentVolumeClaim: {claimName: {{ .Values.sandbox.socketClaim | quote }}}
+      - name: workspace
+        persistentVolumeClaim: {claimName: {{ .Values.sandbox.workspaceClaim | quote }}}
+      - name: journal
+        persistentVolumeClaim: {claimName: {{ .Values.sandbox.journalClaim | quote }}}
+      - name: cgroup
+        csi:
+{{ toYaml .Values.sandbox.cgroupCSI | indent 10 }}
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 128Mi}
+{{- end }}

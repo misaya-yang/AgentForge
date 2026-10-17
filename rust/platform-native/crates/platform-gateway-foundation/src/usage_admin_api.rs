@@ -1201,6 +1201,7 @@ fn project(value: &Value, schema: Schema) -> Result<Value, UsageAdminError> {
         };
     }
     if errors.is_empty() {
+        if let Some(metering)=map.get("metering").filter(|v|v.is_object()){out.insert("metering".into(),metering.clone());}
         Ok(Value::Object(out))
     } else {
         Err(UsageAdminError::ResponseValidation(errors))

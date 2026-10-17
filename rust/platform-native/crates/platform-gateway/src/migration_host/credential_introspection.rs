@@ -10,9 +10,58 @@ use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use std::{future::Future, pin::Pin, sync::Arc};
 
+/// Metadata decoding only; this must never manufacture a protected Principal.
+pub trait IntrospectionDecoder: Send + Sync {
+    fn decode(&self, token: &str) -> Result<Value, String>;
+    fn enterprise_policy_enabled(&self) -> bool {
+        false
+    }
+}
+impl IntrospectionDecoder for JwtDecoder {
+    fn decode(&self, token: &str) -> Result<Value, String> {
+        JwtDecoder::decode(self, token)
+    }
+}
+pub type NativeIntrospectionVerifier = dyn Fn(&str) -> Result<Value, String> + Send + Sync;
+/// Dispatch by the signed algorithm family. Native EdDSA uses the current key
+/// ring, issuer/audience and native claim rules; external HS profiles retain the
+/// existing permissive decoder. A failed EdDSA decode never falls back to HS.
+pub struct RotatingIntrospectionDecoder {
+    legacy: Arc<JwtDecoder>,
+    native: Arc<NativeIntrospectionVerifier>,
+    enterprise_policy_enabled: bool,
+}
+impl RotatingIntrospectionDecoder {
+    pub fn new(legacy: Arc<JwtDecoder>, native: Arc<NativeIntrospectionVerifier>) -> Self {
+        Self {
+            legacy,
+            native,
+            enterprise_policy_enabled: false,
+        }
+    }
+    pub fn with_enterprise_policy_enabled(mut self, enabled: bool) -> Self {
+        self.enterprise_policy_enabled = enabled;
+        self
+    }
+}
+impl IntrospectionDecoder for RotatingIntrospectionDecoder {
+    fn enterprise_policy_enabled(&self) -> bool {
+        self.enterprise_policy_enabled
+    }
+    fn decode(&self, token: &str) -> Result<Value, String> {
+        let header = jsonwebtoken::decode_header(token)
+            .map_err(|_| "invalid introspection credential".to_owned())?;
+        if header.alg == jsonwebtoken::Algorithm::EdDSA {
+            (self.native)(token)
+        } else {
+            self.legacy.decode(token)
+        }
+    }
+}
+
 pub struct CredentialIntrospection {
     pub pool: PgPool,
-    pub decoder: Arc<JwtDecoder>,
+    pub decoder: Arc<dyn IntrospectionDecoder>,
     pub sessions: Option<RedisSessions>,
     pub jwt_enabled: bool,
     pub api_key_enabled: bool,
@@ -251,6 +300,25 @@ impl CredentialIntrospection {
                     ) {
                         return Err(ServiceError::Credentials);
                     }
+                    if self.decoder.enterprise_policy_enabled() {
+                        ai_platform_auth::enterprise::policy::verify_session_epoch(
+                            &self.pool,
+                            &tenant,
+                            &user,
+                            session.get("auth_epoch"),
+                        )
+                        .await
+                        .map_err(|e| {
+                            if matches!(
+                                e,
+                                ai_platform_auth::enterprise::EnterpriseError::Unavailable
+                            ) {
+                                ServiceError::Unavailable
+                            } else {
+                                ServiceError::Credentials
+                            }
+                        })?;
+                    }
                     accounts
                         .current_authority(&user, &tenant)
                         .await
@@ -424,5 +492,125 @@ mod local_session_tests {
         assert!(!is_native_local_session(&session));
         // The compatibility path does not apply a local account revision to an
         // external identity session that lacks the native revision marker.
+    }
+}
+
+#[cfg(test)]
+mod rotating_decoder_tests {
+    use super::*;
+    use ai_platform_auth::{
+        Claims, TokenCodec,
+        access_tokens::{EdDsaKeyRing, PublicKeyConfig},
+    };
+    use ed25519_dalek::{
+        SigningKey,
+        pkcs8::{EncodePrivateKey, EncodePublicKey, spki::der::pem::LineEnding},
+    };
+    use jsonwebtoken::{Algorithm, EncodingKey, Header};
+    use serde_json::json;
+    const SECRET: &[u8] = b"introspection-synthetic-legacy-key-only";
+    fn legacy() -> Arc<JwtDecoder> {
+        Arc::new(
+            JwtDecoder::new(
+                std::str::from_utf8(SECRET).unwrap(),
+                &["HS256".into()],
+                None,
+                None,
+            )
+            .unwrap(),
+        )
+    }
+    fn codec(kid: &str) -> Arc<TokenCodec> {
+        let signer = SigningKey::from_bytes(&[7; 32]);
+        let ring = EdDsaKeyRing::new(
+            kid.into(),
+            signer.to_pkcs8_pem(LineEnding::LF).unwrap().as_str(),
+            vec![PublicKeyConfig {
+                kid: kid.into(),
+                public_pem: signer
+                    .verifying_key()
+                    .to_public_key_pem(LineEnding::LF)
+                    .unwrap(),
+                not_before: 1,
+                not_after: 10000,
+            }],
+        )
+        .unwrap();
+        Arc::new(
+            TokenCodec::new(SECRET, Some("api".into()), Some("gateway".into()))
+                .unwrap()
+                .with_eddsa(ring)
+                .unwrap(),
+        )
+    }
+    fn claims() -> Claims {
+        Claims {
+            sub: "local-user".into(),
+            user_id: "local-user".into(),
+            tenant_id: "tenant".into(),
+            email: None,
+            roles: vec!["user".into()],
+            permissions: vec![],
+            tier: "normal".into(),
+            exp: 0,
+            iat: 0,
+            nbf: None,
+            jti: String::new(),
+            aud: None,
+            iss: None,
+        }
+    }
+    fn decoder(codec: Arc<TokenCodec>, now: u64) -> RotatingIntrospectionDecoder {
+        RotatingIntrospectionDecoder::new(
+            legacy(),
+            Arc::new(move |token| {
+                codec
+                    .verify(token, now)
+                    .and_then(|claims| {
+                        serde_json::to_value(claims).map_err(|_| ai_platform_auth::AuthError::Token)
+                    })
+                    .map_err(|_| "invalid native metadata credential".into())
+            }),
+        )
+    }
+    #[test]
+    fn eddsa_metadata_routes_through_native_ring_and_failures_do_not_fallback() {
+        let current = codec("current");
+        let token = current.issue(claims(), 100).unwrap();
+        let decoded = decoder(current.clone(), 101).decode(&token).unwrap();
+        assert_eq!(decoded["sub"], "local-user");
+        assert_eq!(decoded["tenant_id"], "tenant");
+        assert!(decoded["jti"].as_str().is_some());
+        // Exact expiry and retired/unknown kid must fail, even though the test
+        // uses the same mathematical key under a different kid.
+        assert!(decoder(current, 400).decode(&token).is_err());
+        assert!(decoder(codec("replacement"), 101).decode(&token).is_err());
+        let broken = format!("{}x", token);
+        assert!(decoder(codec("current"), 101).decode(&broken).is_err());
+    }
+    #[test]
+    fn external_hs_profile_does_not_acquire_native_required_claims() {
+        let external =
+            json!({"sub":"external-subject","tenant":"external-tenant","role":"premium"});
+        let token = jsonwebtoken::encode(
+            &Header::new(Algorithm::HS256),
+            &external,
+            &EncodingKey::from_secret(SECRET),
+        )
+        .unwrap();
+        // In particular there is no native user_id/iat/jti/exp requirement on
+        // this historical metadata-only path. The native verifier must not run.
+        let decoder = RotatingIntrospectionDecoder::new(
+            legacy(),
+            Arc::new(|_| panic!("external HS metadata entered native verifier")),
+        );
+        assert_eq!(decoder.decode(&token).unwrap(), external);
+        let rejected = jsonwebtoken::encode(
+            &Header::new(Algorithm::HS256),
+            &external,
+            &EncodingKey::from_secret(b"wrong synthetic secret"),
+        )
+        .unwrap();
+        assert!(decoder.decode(&rejected).is_err());
     }
 }

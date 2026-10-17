@@ -1,0 +1,182 @@
+{
+  "schema": "agentforge/native-checkpoint-tests/v1",
+  "observed_at": "2026-10-17T09:59:52.010468+00:00",
+  "toolchain": "Rust1.99.0",
+  "jobs": 1,
+  "command": "cargo test --locked -p ai-platform-auth -p ai-platform-service-primitives -p ai-platform-gateway-foundation -p ai-platform-gateway -p ai-platform-knowledge-domain -p ai-platform-knowledge-service -p ai-platform-knowledge-ops -p ai-platform-tools -p ai-platform-openapi --lib --bins",
+  "scope": "Registered frozen enterprise/Valkey/model-plane source; public LLM/routing/parsing children remain unregistered",
+  "suites": [
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_auth-1844e1b942f7c2ce)",
+      "passed": 24,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/admin_create.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/admin_create-77e12c55dba003d6)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway-9c933973443411d7)",
+      "passed": 232,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/agent-runtime-text-gate.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/agent_runtime_text_gate-c6ad2d5a83af41f4)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/bootstrap-operator.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/bootstrap_operator-6ed75e0eb77ff5ee)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/chatgpt-plan.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/chatgpt_plan-0eb6282672182596)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/gateway.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/gateway-c2ea55989c61f115)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/gateway_capacity_inventory.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/gateway_capacity_inventory-ef5bdc4ffddbfa3f)",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway_foundation-0b8966d7ab939751)",
+      "passed": 242,
+      "failed": 0,
+      "ignored": 3,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_domain-c9556eafc4dda5b2)",
+      "passed": 72,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_ops-1b17bcd0c6499783)",
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/bin/knowledge-eval-gate.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_eval_gate-0474864a2586e789)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_ops-53bcccb06d87e2ed)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_service-c84f51d7c01cbab9)",
+      "passed": 63,
+      "failed": 0,
+      "ignored": 6,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_service-92b4ea6b7167ef46)",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_openapi-cabcc8422096ad77)",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_openapi-9ce17ccd2cae3701)",
+      "passed": 25,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_service_primitives-761eae572ebdbb39)",
+      "passed": 24,
+      "failed": 0,
+      "ignored": 2,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_tools-a163eff675abe9d0)",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    },
+    {
+      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_tools-f4e3c52038d3ca65)",
+      "passed": 152,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 0
+    }
+  ],
+  "results": {
+    "passed": 894,
+    "failed": 0,
+    "ignored": 12,
+    "filtered_out": 0
+  },
+  "ignored_tests": [
+    "test knowledge_model_plane::postgres_tests::concurrent_reservation_replay_conflict_and_dispatch_fence ... ignored, requires authority-admitted proposal and dedicated disposable PostgreSQL test database",
+    "test capacity_admission::atomic::tests::live_atomic_admission_concurrency_isolation_rejection_and_expiry ... ignored, requires AI_PLATFORM_ADMISSION_TEST_REDIS_URL for isolated loopback Valkey",
+    "test quota_store::reservations::tests::live_durable_token_intents_serialize_tenants_and_never_expire_dispatched_work ... ignored, requires isolated canonical proposal DB and scoped Gateway-role DSN",
+    "test request_meter::tests::real_existing_raw_writer_summary_and_cache_reader_accept_request_facts ... ignored, requires both model-plane/request-meter successors in dedicated PostgreSQL test database",
+    "test confluence::connections::migration_parity::connection_control_exact_cas_preserves_credentials_and_readback ... ignored, requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only",
+    "test confluence::connections::migration_parity::controls_and_publication_guards_recheck_revocation_and_monotonic_clock ... ignored, requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only",
+    "test confluence::connections::migration_parity::guards_reject_binding_task_and_editor_grant_revocation ... ignored, requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only",
+    "test confluence::connections::migration_parity::pause_fast_resume_and_replacement_invalidate_admitted_task ... ignored, requires explicit isolated KNOWLEDGE_TEST_DATABASE_URL; creates session-local tables only",
+    "test confluence::sql::postgres_tests::source_generation_claim_publish_abort_fences_postgres ... ignored, requires isolated KNOWLEDGE_TEST_DATABASE_URL fixture with canonical schema",
+    "test native_rerank::tests::official_model_real_inference ... ignored, requires pre-provisioned official BGE artifacts; never downloads weights",
+    "test valkey::real_tests::real_pressure_never_evicts_coordination_and_cache_cannot_admit ... ignored, real memory pressure; explicit planned-outage config and private test inputs required",
+    "test valkey::real_tests::real_wrong_ca_credentials_and_cross_service_acl_are_refused ... ignored, real TLS negative/ACL tests; explicit selected purpose credentials required"
+  ],
+  "log_sha256": "d4c685ca51e4badf8743c73f935c417b481378ad37c4de29c255d7faf7ba1e27",
+  "source_inventory_sha256": "1cd97f34f42de5b72f0f866eb02431259ac61b9243663ed71d5b07c20ad26561",
+  "source_files": 1243,
+  "source_drift": [],
+  "whole_native_workspace_all_targets": "PASS frozen-r4",
+  "product_acceptance": false,
+  "not_run": [
+    "Real TLS/Valkey pressure/IdP/browser/live journeys",
+    "Fresh public LLM/routing/parsing source execution",
+    "Canonical proposal successors",
+    "Full product acceptance"
+  ]
+}

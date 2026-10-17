@@ -19,7 +19,6 @@ use codex_app_server_client::InProcessAppServerRequestHandle;
 use codex_protocol::ThreadId;
 use serde::Serialize;
 use serde_json::json;
-use tokio::sync::broadcast;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -33,6 +32,9 @@ use crate::approval_control::ApprovalBroker;
 mod approvals;
 mod capability_dispatch;
 mod events;
+mod event_hub;
+pub(crate) mod lease_verification;
+pub(crate) mod transport_budget;
 mod projection;
 mod recovery;
 pub(crate) mod recovery_fault;
@@ -46,6 +48,7 @@ use self::approvals::decide_approval;
 use self::approvals::get_approval;
 use self::capability_dispatch::route_kernel_events;
 use self::events::events;
+use self::event_hub::RuntimeEventHub;
 use self::thread_lifecycle::archive_thread;
 use self::thread_lifecycle::interrupt_turn;
 use self::thread_lifecycle::resume_thread;
@@ -61,7 +64,7 @@ pub struct RuntimeHttpState {
     store: Arc<PostgresThreadStore>,
     requests: InProcessAppServerRequestHandle,
     approvals: ApprovalBroker,
-    events: broadcast::Sender<RuntimeBroadcastEvent>,
+    events: RuntimeEventHub,
     internal_token: Arc<str>,
     kernel_ready: Arc<AtomicBool>,
     readonly_by_turn: Arc<Mutex<HashMap<String, ReadonlyTurnBinding>>>,
@@ -80,6 +83,7 @@ pub(super) struct ReadonlyTurnBinding {
     pub(super) capability_revision: i64,
     pub(super) payload: serde_json::Value,
     pub(super) trace_context: crate::trace_context::InternalTraceContext,
+    pub(super) transport_budget: ai_platform_capability_contract::private_transport::Budget,
     pub(super) created_at: Instant,
 }
 
@@ -204,16 +208,18 @@ pub struct RuntimeHttpService {
     state: RuntimeHttpState,
     shutdown_tx: Option<oneshot::Sender<()>>,
     event_task: JoinHandle<()>,
+    fanout_task: JoinHandle<()>,
 }
 
 impl RuntimeHttpState {
     pub(super) fn thread_gate(&self, thread_id: ThreadId) -> Arc<tokio::sync::Mutex<()>> {
-        self.thread_gates
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .entry(thread_id)
-            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
-            .clone()
+        let mut gates = self.thread_gates.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        event_hub::prune_idle_gates(&mut gates);
+        gates.entry(thread_id).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+    }
+
+    pub(super) fn prune_thread_gates(&self) {
+        event_hub::prune_idle_gates(&mut self.thread_gates.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
     }
 
     pub(super) fn cancel_turn(&self, turn_id: &str) {
@@ -242,7 +248,7 @@ impl RuntimeHttpService {
             ));
         }
         let requests = kernel.request_handle();
-        let (events, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
+        let events = RuntimeEventHub::new(EVENT_CHANNEL_CAPACITY);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let kernel_ready = Arc::new(AtomicBool::new(true));
         let approvals = ApprovalBroker::new();
@@ -258,7 +264,7 @@ impl RuntimeHttpService {
         }
         let readonly_by_turn = Arc::new(Mutex::new(HashMap::new()));
         let turn_cancellations = Arc::new(Mutex::new(HashMap::new()));
-        let capability_client = reqwest::Client::builder()
+        let capability_client = reqwest::Client::builder().retry(reqwest::retry::never()).redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(std::time::Duration::from_secs(2))
             .timeout(std::time::Duration::from_secs(30))
@@ -292,11 +298,13 @@ impl RuntimeHttpService {
             execution_shutdown: CancellationToken::new(),
             thread_gates: Arc::new(Mutex::new(HashMap::new())),
         };
+        let fanout_task = tokio::spawn(event_hub::notification_loop(state.clone()));
         tokio::spawn(recovery::recovery_loop(state.clone()));
         Ok(Self {
             state,
             shutdown_tx: Some(shutdown_tx),
             event_task,
+            fanout_task,
         })
     }
 
@@ -359,6 +367,7 @@ impl RuntimeHttpService {
             let _ = shutdown_tx.send(());
         }
         let _ = self.event_task.await;
+        let _ = self.fanout_task.await;
     }
 }
 

@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as zustand from "zustand";
 import * as middleware from "zustand/middleware";
+import * as consoleTransport from "./consoleSessionTransport.ts";
 import type * as Recovery from "./knowledgeUploadRecovery";
 import type { AuthState } from "../store/useAuthStore";
 
@@ -16,13 +17,13 @@ function host() {
     setItem: (key: string, value: string) => { if (unavailable) throw Error("controlled storage failure"); values.set(key, value); },
     removeItem: (key: string) => { if (unavailable) throw Error("controlled storage failure"); values.delete(key); },
   };
-  const modules: Record<string, unknown> = { zustand, "zustand/middleware": middleware };
+  const modules: Record<string, unknown> = { zustand, "zustand/middleware": middleware, "@/lib/consoleSessionTransport": consoleTransport };
   function load(file: string) {
     const exports: Record<string, unknown> = {};
-    vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {
+    vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
     }).outputText, { exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; },
-      sessionStorage: storage, localStorage: storage, crypto, TextEncoder, Date, Error });
+      sessionStorage: storage, localStorage: storage, crypto, TextEncoder, Date, Error, __hot: undefined });
     return exports;
   }
   const recovery = load("./knowledgeUploadRecovery.ts") as typeof Recovery;
@@ -86,14 +87,16 @@ test("global auth cleanup prevents same-user revival without mounting Knowledge"
   h.recovery.beginUploadRecovery(key, files()); auth.getState().updateUser({ roles: ["viewer"] }); assert.equal(h.values.has(key), false);
 });
 
-test("synchronous same-session store hydration retains navigation receipts", () => {
+test("legacy bearer hydration is refused; bootstrap retires receipts from the prior auth document", () => {
   const h = host(); const key = h.recovery.uploadRecoveryKey("owner", "tenant", "dataset")!;
   h.recovery.beginUploadRecovery(key, files());
   h.values.set("agent-gateway-auth", JSON.stringify({ state: { token: "synthetic-token", isAuthenticated: true,
     user: { user_id: "owner", roles: [], permissions: [], tier: "normal" } }, version: 0 }));
-  const auth = h.loadAuth(); assert.equal(auth.getState().isAuthenticated, true);
+  const auth = h.loadAuth(); assert.equal(auth.getState().isAuthenticated, false);
+  assert.equal(auth.getState().token,null);assert.equal(h.values.has("agent-gateway-auth"),false);
   assert.equal(h.recovery.readUploadRecovery(key).length, 1);
-  auth.setState({ token: "synthetic-replacement" }); assert.equal(h.values.has(key), false);
+  auth.getState().setAuth("synthetic-csrf",{user_id:"owner",email:null,display_name:null,department:null,roles:[],permissions:[],tier:"normal"},false);
+  assert.equal(h.values.has(key), false);
 });
 
 test("failed global cleanup cannot revive stale metadata in this document", () => {

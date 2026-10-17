@@ -1,0 +1,35 @@
+{
+  "schema": "agentforge/schema025-real-measurement/v1",
+  "database": "schema_successor_verify_turn025a",
+  "stages": [
+    {
+      "stage": "validate",
+      "exit_code": 0
+    },
+    {
+      "stage": "prepare",
+      "exit_code": 0
+    },
+    {
+      "stage": "verify-preview",
+      "exit_code": 0
+    },
+    {
+      "stage": "measure",
+      "exit_code": 0
+    },
+    {
+      "stage": "verify-measured",
+      "exit_code": 0
+    },
+    {
+      "stage": "bundle",
+      "exit_code": 0
+    }
+  ],
+  "source_activated": false,
+  "main_database_mutated": false,
+  "preview": "/Users/yang/.cache/agentforge-upgrade/schema025-preview-20261017",
+  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema025-bundle-20261017",
+  "database_actions": "native authority exact024->025 single-step only"
+}

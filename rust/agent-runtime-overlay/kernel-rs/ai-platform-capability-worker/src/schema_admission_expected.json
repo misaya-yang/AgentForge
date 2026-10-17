@@ -3,15 +3,15 @@
   "baselines": [
     {
       "baseline_id": "2026_08_post_kb_v1",
+      "manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
       "structural_sha256": "1cb97bebe4aef680d61f88b46321ddf097a0404afc906be4f36b846e40140d39",
       "acl_sha256": "9f2400d21e7b14617186428ccd65586efa541001d0b2eccba094b4ddc1186674",
       "extensions_sha256": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
       "reference_data_sha256": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318",
-      "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98",
-      "manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2"
+      "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98"
     }
   ],
-  "epoch": 24,
+  "epoch": 28,
   "changes": [
     {
       "baseline_id": "2026_08_post_kb_v1",
@@ -156,6 +156,30 @@
       "sequence": 24,
       "name": "runtime_worker_schema_admission_reader",
       "checksum_sha256": "74c1667fa594267a85701aec9915ffad5a4f73192c8aab2ec5759a14d86bbec9"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 25,
+      "name": "assistant_runtime_turn_security_definer",
+      "checksum_sha256": "ce6c2c8f0894c976107037dd2da2d7d59d2ef6af0c129a694e25cbb12602cc5d"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 26,
+      "name": "platform_upgrade_native_contracts_026",
+      "checksum_sha256": "8d716380f32c5ea3ff815e9228153d6161ae9a94bc68949f7dab02abfaf87b07"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 27,
+      "name": "platform_upgrade_native_contracts_027",
+      "checksum_sha256": "e22a46ef53f48f7839d6b06f121f8c57e3fa18a8065ffcc4e6b2af8760c9ed7f"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 28,
+      "name": "platform_upgrade_price_book_contract_028",
+      "checksum_sha256": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4"
     }
   ],
   "has_attempts": false,

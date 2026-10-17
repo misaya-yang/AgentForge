@@ -1,4 +1,4 @@
-//! Run unchanged before and after the serde_yaml -> serde_yaml_ng package alias switch.
+//! Unchanged behavior assertions across archived YAML and successive maintained backends.
 //! This checks behavior/API; dependency-policy separately proves which crate resolved.
 use serde::{Deserialize, Serialize};
 use serde_json::json;

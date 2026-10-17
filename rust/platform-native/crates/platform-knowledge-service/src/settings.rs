@@ -63,6 +63,7 @@ pub struct QdrantSettings {
     pub retry_base_delay: f64,
     pub url: String,
     pub api_key: Option<String>,
+    pub tls_ca_file: Option<PathBuf>,
     pub timeout_seconds: f64,
     pub bm25_v2_enabled: bool,
     pub bm25_v2_capability_ttl_seconds: f64,
@@ -77,6 +78,7 @@ impl Default for QdrantSettings {
             retry_base_delay: 2.,
             url: "http://localhost:6333".into(),
             api_key: None,
+            tls_ca_file: None,
             timeout_seconds: 120.,
             bm25_v2_enabled: false,
             bm25_v2_capability_ttl_seconds: 300.,
@@ -86,186 +88,23 @@ impl Default for QdrantSettings {
     }
 }
 pub struct EmbeddingSettings {
-    pub batch_size: usize,
-    pub provider: String,
-    pub model: String,
-    pub dimension: usize,
-    pub api_key: String,
-    pub base_url: Option<String>,
-    pub google_api_key: String,
-    pub dashscope_api_key: String,
-    pub siliconflow_api_key: String,
-    pub siliconflow_base_url: String,
-    pub openai_compatible_api_key: String,
-    pub openai_compatible_base_url: String,
-    pub timeout_seconds: f64,
-    pub encryption_key: String,
-    pub multimodal_api_key: String,
-    /// Explicit opt-in TEI endpoint; never inferred from missing cloud credentials.
-    pub local_semantic_endpoint: Option<String>,
+    pub batch_size: usize,pub provider:String,pub model:String,pub dimension:usize,
+    pub timeout_seconds:f64,pub local_semantic_enabled:bool,
 }
 impl Default for EmbeddingSettings {
-    fn default() -> Self {
-        Self {
-            batch_size: 50,
-            provider: "dashscope".into(),
-            model: "text-embedding-v4".into(),
-            dimension: 1024,
-            api_key: String::new(),
-            base_url: None,
-            google_api_key: String::new(),
-            dashscope_api_key: String::new(),
-            siliconflow_api_key: String::new(),
-            siliconflow_base_url: "https://api.siliconflow.cn/v1".into(),
-            openai_compatible_api_key: String::new(),
-            openai_compatible_base_url: String::new(),
-            timeout_seconds: 30.,
-            encryption_key: String::new(),
-            multimodal_api_key: String::new(),
-            local_semantic_endpoint: None,
-        }
-    }
-}
-fn first(values: &[&str]) -> String {
-    values
-        .iter()
-        .find(|v| !v.is_empty())
-        .copied()
-        .unwrap_or("")
-        .into()
+    fn default()->Self {Self{batch_size:50,provider:"dashscope".into(),model:"text-embedding-v4".into(),dimension:1024,timeout_seconds:30.,local_semantic_enabled:false}}
 }
 impl EmbeddingSettings {
-    /// RAGAS uses the plain configured embedding client, with no tenant lookup.
-    pub fn judge_provider(&self) -> Result<query::embedding::ProviderConfig> {
-        let dedicated = match self.provider.as_str() {
-            "gemini" => &self.google_api_key,
-            "dashscope" => &self.dashscope_api_key,
-            "siliconflow" => &self.siliconflow_api_key,
-            "openai_compatible" => &self.openai_compatible_api_key,
-            _ => "",
-        };
-        Ok(query::embedding::ProviderConfig {
-            api_key: first(&[dedicated, &self.api_key]),
-            base_url: self.base_url.clone(),
-            timeout: seconds(self.timeout_seconds, "ragas_embedding_timeout")?,
-        })
-    }
-    pub fn providers(
-        &self,
-        keys: &ProviderKeys,
-    ) -> Result<BTreeMap<String, query::embedding::ProviderConfig>> {
-        let timeout = seconds(self.timeout_seconds, "embedding_timeout")?;
-        let selected = |provider: &str| {
-            if self.provider == provider {
-                self.api_key.as_str()
-            } else {
-                ""
-            }
-        };
-        let vertex = if keys
-            .google_embedding_backend
-            .trim()
-            .eq_ignore_ascii_case("vertex")
-        {
-            keys.vertex_embedding_api_key.as_str()
-        } else {
-            ""
-        };
-        let gemini = first(&[
-            &self.google_api_key,
-            selected("gemini"),
-            vertex,
-            &keys.gemini_api_key,
-            &keys.google_api_key,
-        ]);
-        let dashscope = first(&[
-            &self.dashscope_api_key,
-            selected("dashscope"),
-            &keys.dashscope_embedding_api_key,
-        ]);
-        let siliconflow = first(&[&self.siliconflow_api_key, selected("siliconflow")]);
-        let mut rows = BTreeMap::new();
-        for (provider, key, base_url) in [
-            ("gemini", gemini, None),
-            (
-                "dashscope",
-                dashscope.clone(),
-                Some(keys.dashscope_embedding_base_url.clone()).filter(|s| !s.is_empty()),
-            ),
-            (
-                "siliconflow",
-                siliconflow,
-                Some(first(&[
-                    &self.siliconflow_base_url,
-                    self.base_url.as_deref().unwrap_or(""),
-                    "https://api.siliconflow.cn/v1",
-                ])),
-            ),
-            (
-                "openai_compatible",
-                self.openai_compatible_api_key.clone(),
-                Some(self.openai_compatible_base_url.clone()).filter(|s| !s.is_empty()),
-            ),
-        ] {
-            rows.insert(
-                provider.into(),
-                query::embedding::ProviderConfig {
-                    api_key: key,
-                    base_url,
-                    timeout,
-                },
-            );
-        }
-        let multimodal = query::embedding::ProviderConfig {
-            api_key: first(&[&self.multimodal_api_key, &dashscope]),
-            base_url: Some(keys.dashscope_embedding_base_url.clone()).filter(|s| !s.is_empty()),
-            timeout,
-        };
-        rows.insert("dashscope_multimodal".into(), multimodal.clone());
-        rows.insert("unified_multimodal".into(), multimodal);
-        Ok(rows)
-    }
+    pub fn judge_provider(&self)->Result<query::embedding::ProviderConfig> {Ok(query::embedding::ProviderConfig{timeout:seconds(self.timeout_seconds,"embedding_timeout")?,..Default::default()})}
+    pub fn providers(&self,_keys:&ProviderKeys)->Result<BTreeMap<String,query::embedding::ProviderConfig>> {Ok(BTreeMap::new())}
 }
-/// Raw provider-key fallback values from Settings; never inferred from a request.
+/// Compatibility marker for old constructor signatures; contains no key fields.
 #[derive(Default)]
-pub struct ProviderKeys {
-    pub llm_api_key: String,
-    pub deepseek_api_key: String,
-    pub deepseek_key: String,
-    pub gemini_api_key: String,
-    pub google_api_key: String,
-    pub dashscope_api_key: String,
-    pub aliyun_key: String,
-    /// Already resolved by the deployment's endpoint configuration, not getenv.
-    pub dashscope_ocr_api_key: String,
-    pub dashscope_embedding_api_key: String,
-    pub dashscope_embedding_base_url: String,
-    pub vertex_embedding_api_key: String,
-    pub google_embedding_backend: String,
-    pub dashscope_ocr_base_url: String,
-}
-impl ProviderKeys {
-    pub fn qa_key(&self, provider: &str) -> String {
-        match provider {
-            "deepseek" => first(&[
-                &self.llm_api_key,
-                &self.deepseek_api_key,
-                &self.deepseek_key,
-            ]),
-            "gemini" => first(&[
-                &self.llm_api_key,
-                &self.gemini_api_key,
-                &self.google_api_key,
-            ]),
-            "dashscope" => first(&[&self.llm_api_key, &self.dashscope_api_key, &self.aliyun_key]),
-            _ => self.llm_api_key.clone(),
-        }
-    }
-}
+pub struct ProviderKeys;
+impl ProviderKeys {pub fn qa_key(&self,_provider:&str)->String {String::new()}}
 pub struct QaSettings {
     pub provider: String,
     pub model: String,
-    pub base_url: String,
     pub timeout_seconds: f64,
     pub batch_timeout_seconds: f64,
     pub allowed_providers: BTreeSet<String>,
@@ -276,7 +115,6 @@ impl Default for QaSettings {
         Self {
             provider: "gemini".into(),
             model: "gemini-2.0-flash".into(),
-            base_url: String::new(),
             timeout_seconds: 60.,
             batch_timeout_seconds: 180.,
             allowed_providers: BTreeSet::from(["gemini".into()]),
@@ -285,28 +123,17 @@ impl Default for QaSettings {
     }
 }
 impl QaSettings {
-    pub fn project(&self, keys: &ProviderKeys) -> Result<query::qa::QaConfig> {
+    pub fn project(&self, _keys: &ProviderKeys) -> Result<query::qa::QaConfig> {
         let provider = self.provider.trim().to_lowercase();
         let model = self.model.trim().to_owned();
         if !self.allowed_providers.contains(&provider) || !self.allowed_models.contains(&model) {
             return Err(KnowledgeError::Configuration("qa_allowlist"));
         }
-        let base_url = if self.base_url.is_empty() {
-            match provider.as_str() {
-                "gemini" => "https://generativelanguage.googleapis.com/v1beta/openai",
-                "dashscope" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                _ => "https://api.deepseek.com/v1",
-            }
-            .into()
-        } else {
-            self.base_url.trim_end_matches('/').into()
-        };
         Ok(query::qa::QaConfig {
-            api_key: keys.qa_key(&provider),
+            api_key: String::new(),
             provider,
             model,
-            base_url,
-            allowed_providers: self.allowed_providers.clone(),
+            base_url: String::new(),            allowed_providers: self.allowed_providers.clone(),
             allowed_models: self.allowed_models.clone(),
             timeout: seconds(self.timeout_seconds, "qa_timeout")?,
         })
@@ -317,8 +144,6 @@ pub struct OcrSettings {
     pub strategy: String,
     pub provider: String,
     pub model: String,
-    pub api_keys: String,
-    pub base_url: Option<String>,
     pub concurrency: usize,
     pub timeout_seconds: f64,
     pub task: String,
@@ -334,8 +159,6 @@ impl Default for OcrSettings {
             strategy: "hybrid".into(),
             provider: "dashscope".into(),
             model: "qwen-vl-ocr".into(),
-            api_keys: String::new(),
-            base_url: None,
             concurrency: 4,
             timeout_seconds: 30.,
             task: "document_parsing".into(),
@@ -347,106 +170,10 @@ impl Default for OcrSettings {
     }
 }
 impl OcrSettings {
-    pub fn project(
-        &self,
-        embedding: &EmbeddingSettings,
-        keys: &ProviderKeys,
-    ) -> Result<Option<ingest::ocr::OcrConfig>> {
-        if !self.enabled || !["vlm", "hybrid"].contains(&self.strategy.as_str()) {
-            return Ok(None);
-        }
-        let mut provider = self.provider.trim().to_lowercase();
-        let model = self.model.trim();
-        if provider == "auto" {
-            provider = if model.starts_with("gemini-") {
-                "gemini"
-            } else if model.to_lowercase().contains("deepseek") {
-                "siliconflow"
-            } else {
-                "dashscope"
-            }
-            .into();
-        }
-        let mut api_keys: Vec<String> = self
-            .api_keys
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned)
-            .collect();
-        let (endpoint, retries) =
-            if provider == "siliconflow" || model.to_lowercase().contains("deepseek") {
-                provider = "siliconflow".into();
-                (
-                    self.base_url
-                        .clone()
-                        .unwrap_or_else(|| "https://api.siliconflow.cn/v1".into()),
-                    3,
-                )
-            } else if provider == "gemini" {
-                let key = first(&[
-                    &keys.gemini_api_key,
-                    &keys.google_api_key,
-                    &embedding.google_api_key,
-                    if embedding.provider == "gemini" {
-                        &embedding.api_key
-                    } else {
-                        ""
-                    },
-                ]);
-                if api_keys.is_empty() && !key.is_empty() {
-                    api_keys.push(key);
-                }
-                (
-                    self.base_url.clone().unwrap_or_else(|| {
-                        "https://generativelanguage.googleapis.com/v1beta".into()
-                    }),
-                    2,
-                )
-            } else {
-                let key = first(&[
-                    api_keys.first().map(String::as_str).unwrap_or(""),
-                    &keys.dashscope_ocr_api_key,
-                    &embedding.dashscope_api_key,
-                    if embedding.provider == "dashscope" {
-                        &embedding.api_key
-                    } else {
-                        ""
-                    },
-                ]);
-                if api_keys.is_empty() && !key.is_empty() {
-                    api_keys.push(key);
-                }
-                (
-                    self.base_url
-                        .clone()
-                        .filter(|s| !s.is_empty())
-                        .unwrap_or_else(|| {
-                            first(&[
-                                &keys.dashscope_ocr_base_url,
-                                "https://dashscope.aliyuncs.com",
-                            ])
-                        }),
-                    2,
-                )
-            };
-        if api_keys.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(ingest::ocr::OcrConfig {
-            provider,
-            model: model.into(),
-            endpoint,
-            api_keys,
-            concurrency: self.concurrency,
-            timeout: seconds(self.timeout_seconds, "ocr_timeout")?,
-            max_retries: retries,
-            task: self.task.clone(),
-            min_pixels: self.min_pixels,
-            max_pixels: self.max_pixels,
-            max_tokens: self.max_tokens,
-            enable_rotate: self.enable_rotate,
-        }))
+    pub fn project(&self,_embedding:&EmbeddingSettings,_keys:&ProviderKeys)->Result<Option<ingest::ocr::OcrConfig>> {
+        if !self.enabled || !["vlm","hybrid"].contains(&self.strategy.as_str()) {return Ok(None);}
+        let model=self.model.trim();let provider=if self.provider=="auto" {if model.starts_with("gemini-") {"gemini"} else if model.to_lowercase().contains("deepseek") {"siliconflow"} else {"dashscope"}} else {self.provider.as_str()};
+        Ok(Some(ingest::ocr::OcrConfig{provider:provider.into(),model:model.into(),endpoint:String::new(),api_keys:vec![],concurrency:self.concurrency,timeout:seconds(self.timeout_seconds,"ocr_timeout")?,max_retries:if provider=="siliconflow"{3}else{2},task:self.task.clone(),min_pixels:self.min_pixels,max_pixels:self.max_pixels,max_tokens:self.max_tokens,enable_rotate:self.enable_rotate}))
     }
 }
 pub struct StorageSettings {
@@ -538,6 +265,8 @@ impl Default for ProcessingSettings {
     }
 }
 pub struct KnowledgeConfiguration {
+    pub model_plane: crate::model_plane_identity::ModelPlaneSettings,
+    pub connector_encryption_key:String,
     pub request_governance: ai_platform_service_primitives::request_governance::RequestGovernanceConfig,
     pub confluence_enabled: bool,
     pub confluence_request_timeout: f64,
@@ -560,14 +289,12 @@ pub struct KnowledgeConfiguration {
     pub native_bge_directory: PathBuf,
     pub native_bge_large_directory: PathBuf,
     pub local_rerank_endpoint: Option<String>,
-    pub local_rerank_api_key: Option<String>,
     pub summary: Option<SummarySettings>,
     pub cors_origins: Vec<String>,
 }
 pub struct SummarySettings {
-    pub endpoint: String,
+    pub provider: String,
     pub model: String,
-    pub authorization: Option<String>,
 }
 pub(crate) fn seconds(value: f64, name: &'static str) -> Result<Duration> {
     Duration::try_from_secs_f64(value).map_err(|_| KnowledgeError::Configuration(name))

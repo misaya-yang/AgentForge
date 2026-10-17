@@ -4,6 +4,7 @@
 use super::*;
 use sha2::{Digest, Sha256};
 const OBSERVATION: &str = "_native_accounting_observation";
+const V2_CUMULATIVE: &str = "_price_book_v2_cumulative";
 fn digest(record: &UsageRecord) -> String {
     let value = json!([
         record.tenant_id,
@@ -23,6 +24,28 @@ fn digest(record: &UsageRecord) -> String {
     format!("{:x}", Sha256::digest(value.to_string().as_bytes()))
 }
 pub(super) fn bind_observation(accounting: &mut UsageRecord, original: &UsageRecord) {
+    if original
+        .metadata
+        .get("pricing_snapshot")
+        .and_then(|v| v.get("price_book_schema"))
+        .is_some()
+    {
+        let mut cumulative = original.clone();
+        let snapshot = original
+            .metadata
+            .get("pricing_snapshot")
+            .cloned()
+            .unwrap_or(Value::Null);
+        cumulative.metadata = Map::from_iter([("pricing_snapshot".into(), snapshot)]);
+        if let Some(units)=original.metadata.get(crate::request_meter::METADATA_KEY){cumulative.metadata.insert(crate::request_meter::METADATA_KEY.into(),units.clone());}
+        if let Some(cache)=original.metadata.get("provider_cache_usage"){cumulative.metadata.insert("provider_cache_usage".into(),cache.clone());}
+        if let Some(cost)=original.metadata.get("request_cost_nanos"){cumulative.metadata.insert("request_cost_nanos".into(),cost.clone());}
+        cumulative.trace_steps.clear();
+        accounting.metadata.insert(
+            V2_CUMULATIVE.into(),
+            serde_json::to_value(cumulative).expect("usage record serializes"),
+        );
+    }
     // Always overwrite caller metadata at the trusted recorder boundary.
     accounting
         .metadata
@@ -75,6 +98,18 @@ pub(super) async fn claim_in_transaction(
 ) -> UsageFutureResult<Vec<UsageRecord>> {
     let mut accepted = vec![];
     for record in records {
+        let v2_delta;
+        let record = if record.metadata.contains_key(V2_CUMULATIVE) {
+            match claim_v2_cumulative(tx, stage, record).await? {
+                Some(delta) => {
+                    v2_delta = delta;
+                    &v2_delta
+                }
+                None => continue,
+            }
+        } else {
+            record
+        };
         if record.identity().is_none() {
             // Preserve ordinary source accounting for unkeyed records. There is
             // no stable replay authority for these records, so no replay is offered.
@@ -98,8 +133,79 @@ pub(super) async fn claim_in_transaction(
     Ok(accepted)
 }
 type UsageFutureResult<T> = Result<T, UsageRecorderError>;
+pub(crate) fn v2_cumulative_delta(
+    current: &UsageRecord,
+    previous: Option<&UsageRecord>,
+) -> UsageFutureResult<Option<UsageRecord>> {
+    let snapshot = current
+        .metadata
+        .get("pricing_snapshot")
+        .ok_or(UsageRecorderError::InvalidAccountingDelta)?;
+    if snapshot.get("price_book_schema").is_none() {
+        return Err(UsageRecorderError::InvalidAccountingDelta);
+    }
+    crate::price_book::service::validate_bound_snapshot(current, snapshot)?;
+    let mut verified = current.clone();
+    prepare_with_snapshot(&mut verified, snapshot)?;
+    if verified.input_cost_cents != current.input_cost_cents
+        || verified.output_cost_cents != current.output_cost_cents
+    {
+        return Err(UsageRecorderError::InvalidAccountingDelta);
+    }
+    if let Some(previous) = previous {
+        if previous.request_identity() != current.request_identity()
+            || previous.provider != current.provider
+            || previous.model != current.model
+            || previous.user_id != current.user_id
+            || previous.metadata.get("pricing_snapshot") != Some(snapshot)
+        {
+            return Err(UsageRecorderError::InvalidAccountingDelta);
+        }
+        if crate::request_meter::request_count(current)?.is_some() && crate::request_meter::request_count(current)?!=crate::request_meter::request_count(previous)? {return Err(UsageRecorderError::InvalidAccountingDelta)}
+        accounting_adjustment(current, previous)
+    } else {
+        let mut delta = current.clone();
+        bind_observation(&mut delta, current);
+        Ok(Some(delta))
+    }
+}
+async fn claim_v2_cumulative(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    stage: AccountingStage,
+    record: &UsageRecord,
+) -> UsageFutureResult<Option<UsageRecord>> {
+    let current: UsageRecord = serde_json::from_value(
+        record
+            .metadata
+            .get(V2_CUMULATIVE)
+            .cloned()
+            .ok_or(UsageRecorderError::InvalidAccountingDelta)?,
+    )
+    .map_err(|_| UsageRecorderError::InvalidAccountingDelta)?;
+    if current.identity().is_none() || current.request_identity() != record.request_identity() {
+        return Err(UsageRecorderError::InvalidAccountingDelta);
+    }
+    let lock = serde_json::to_string(&(current.request_identity(), stage.name()))
+        .map_err(|_| UsageRecorderError::InvalidAccountingDelta)?;
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+        .bind(lock)
+        .execute(&mut **tx)
+        .await?;
+    let previous:Option<Value>=sqlx::query_scalar("SELECT observation FROM gateway.price_book_v2_accounting_checkpoints WHERE tenant_id=$1 AND request_id=$2 AND service_id=$3 AND request_type=$4 AND stage=$5 FOR UPDATE")
+        .bind(&current.tenant_id).bind(&current.request_id).bind(&current.service_id).bind(&current.request_type).bind(stage.name()).fetch_optional(&mut **tx).await?;
+    let previous: Option<UsageRecord> = previous
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|_| UsageRecorderError::InvalidAccountingDelta)?;
+    let delta = v2_cumulative_delta(&current, previous.as_ref())?;
+    let mut merged = previous.unwrap_or_else(|| current.clone());
+    merge_idempotent_record(&mut merged, &current);
+    sqlx::query("INSERT INTO gateway.price_book_v2_accounting_checkpoints(tenant_id,request_id,service_id,request_type,stage,observation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(tenant_id,request_id,service_id,request_type,stage) DO UPDATE SET observation=EXCLUDED.observation,updated_at=CURRENT_TIMESTAMP")
+        .bind(&current.tenant_id).bind(&current.request_id).bind(&current.service_id).bind(&current.request_type).bind(stage.name()).bind(serde_json::to_value(merged).map_err(|_|UsageRecorderError::InvalidAccountingDelta)?).execute(&mut **tx).await?;
+    Ok(delta)
+}
 
-pub(super) async fn apply_in_transaction(
+pub async fn apply_in_transaction(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     stage: AccountingStage,
     records: &[UsageRecord],

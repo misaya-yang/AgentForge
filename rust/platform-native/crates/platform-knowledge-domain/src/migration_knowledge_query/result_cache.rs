@@ -21,21 +21,9 @@ pub(super) struct ResultCache {
     entries: Cache<String, Arc<Entry>>,
     max_bytes: u64,
 }
-pub(super) fn normalize_query(query: &str) -> String {
-    query.split_whitespace().collect::<Vec<_>>().join(" ")
-}
+pub(super) use super::super::cache_identity::{acl_scope_hash, normalize_text as normalize_query};
 fn hash(value: &Value) -> String {
     format!("{:x}", Sha256::digest(value.to_string().as_bytes()))
-}
-/// Conservative per-actor ACL partition. Roles are a set; tier/type/authentication are
-/// authority inputs too. Current dataset access is always rechecked before lookup.
-pub(super) fn acl_scope_hash(user: &UserContext) -> String {
-    let mut roles = user.roles.clone();
-    roles.sort();
-    roles.dedup();
-    hash(
-        &json!({"tenant":user.tenant_id,"user":user.user_id,"roles":roles,"tier":user.user_tier,"type":user.user_type,"authenticated":user.is_authenticated}),
-    )
 }
 pub(super) fn key(
     user: &UserContext,
@@ -51,10 +39,18 @@ pub(super) fn key(
     // The complete dataset snapshot includes current index/embedding/rerank defaults,
     // lexical profile, collection and model versions; request carries every override/filter.
     let profile =
-        hash(&json!({"dataset":dataset,"request":profile_request,"contract":"standard-v2"}));
+        hash(&json!({"dataset":dataset,"request":profile_request,"contract":"standard-v3"}));
     hash(
-        &json!({"tenant":dataset.tenant_id,"dataset":dataset.dataset_id,"generation":generation,"acl_scope_hash":acl_scope_hash(user),"normalized_query":query,"profile_fingerprint":profile}),
+        &json!({"tenant":dataset.tenant_id,"dataset":dataset.dataset_id,"generation":generation,"acl_scope_hash":acl_scope_hash(user),"normalized_query":query,"exact_input_sha256":super::super::cache_identity::input_hash(request["query"].as_str().unwrap_or("")),"profile_fingerprint":profile,"model_plane_scope":super::super::model_plane::cache_scope_identity()}),
     )
+}
+/// Degraded upstream results must not mask recovery on later requests.
+pub(super) fn cacheable_metadata(meta: &Value) -> bool {
+    meta["rerank_degraded"].is_null()
+        && meta["mmr_error"].is_null()
+        && meta
+            .get("recall_errors")
+            .is_none_or(|v| v.is_null() || v.as_array().is_some_and(Vec::is_empty))
 }
 impl Default for ResultCache {
     fn default() -> Self {
@@ -107,19 +103,24 @@ impl ResultCache {
         metadata: Value,
         ttl: Duration,
     ) {
-        if ttl.is_zero() || self.max_bytes == 0 {
+        self.set_aged(key, results, metadata, ttl, Duration::ZERO)
+            .await;
+    }
+    pub(super) async fn set_aged(
+        &self,
+        key: String,
+        results: Vec<RetrieveResult>,
+        metadata: Value,
+        ttl: Duration,
+        age: Duration,
+    ) {
+        if age >= ttl || ttl.is_zero() || self.max_bytes == 0 {
             return;
         }
-        let Ok(serialized) = serde_json::to_vec(&(&results, &metadata)) else {
+        let Some(inserted) = Instant::now().checked_sub(age) else {
             return;
         };
-        // Account for strings/JSON/container overhead, not only entry count. This is
-        // a conservative payload budget, not an allocator/RSS measurement.
-        let weight = serialized
-            .len()
-            .saturating_mul(2)
-            .saturating_add(results.len().saturating_mul(256))
-            .saturating_add(std::mem::size_of::<Entry>());
+        let weight = retained_weight(&results, &metadata);
         let total = weight.saturating_add(key.len());
         if total as u64 > self.max_bytes || total > u32::MAX as usize {
             return;
@@ -128,7 +129,7 @@ impl ResultCache {
             .insert(
                 key,
                 Arc::new(Entry {
-                    inserted: Instant::now(),
+                    inserted: inserted,
                     ttl,
                     results,
                     metadata,
@@ -137,6 +138,64 @@ impl ResultCache {
             )
             .await;
     }
+}
+// Weight retained allocations rather than serializing/cloning an entire response.
+// Object node links/allocator bookkeeping remain an estimate, not exact process RSS.
+fn json_heap_weight(value: &Value) -> usize {
+    match value {
+        Value::String(s) => s.capacity(),
+        Value::Array(values) => values
+            .capacity()
+            .saturating_mul(std::mem::size_of::<Value>())
+            .saturating_add(
+                values
+                    .iter()
+                    .map(json_heap_weight)
+                    .fold(0usize, usize::saturating_add),
+            ),
+        Value::Object(values) => values.iter().fold(0usize, |sum, (key, value)| {
+            sum.saturating_add(
+                std::mem::size_of::<(String, Value)>() + 4 * std::mem::size_of::<usize>(),
+            )
+            .saturating_add(key.capacity())
+            .saturating_add(json_heap_weight(value))
+        }),
+        _ => 0,
+    }
+}
+fn retained_weight(results: &Vec<RetrieveResult>, metadata: &Value) -> usize {
+    results.iter().fold(
+        std::mem::size_of::<Entry>()
+            .saturating_add(128)
+            .saturating_add(
+                results
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<RetrieveResult>()),
+            )
+            .saturating_add(json_heap_weight(metadata)),
+        |sum, r| {
+            let strings = [&r.segment_id, &r.document_id, &r.text, &r.content_type];
+            let bytes = strings
+                .iter()
+                .map(|s| s.capacity())
+                .fold(0usize, usize::saturating_add);
+            sum.saturating_add(bytes)
+                .saturating_add(r.image_url.as_ref().map_or(0, String::capacity))
+                .saturating_add(r.vlm_description.as_ref().map_or(0, String::capacity))
+                .saturating_add(json_heap_weight(&r.metadata))
+                .saturating_add(
+                    r.associated_images
+                        .capacity()
+                        .saturating_mul(std::mem::size_of::<Value>()),
+                )
+                .saturating_add(
+                    r.associated_images
+                        .iter()
+                        .map(json_heap_weight)
+                        .fold(0usize, usize::saturating_add),
+                )
+        },
+    )
 }
 #[cfg(test)]
 mod tests {
@@ -186,13 +245,14 @@ mod tests {
         assert_ne!(original, cache_key(&u, &other, "q"));
     }
     #[test]
-    fn publication_model_and_profile_changes_miss_but_whitespace_and_role_order_canonicalize() {
+    fn publication_model_profile_and_exact_input_changes_miss_but_role_order_canonicalizes() {
         let mut u = user();
         u.roles = vec!["b".into(), "a".into()];
         let d = dataset();
         let original = cache_key(&u, &d, "one two");
         u.roles = vec!["a".into(), "b".into(), "a".into()];
-        assert_eq!(original, cache_key(&u, &d, " one\n two "));
+        assert_eq!(original, cache_key(&u, &d, "one two"));
+        assert_ne!(original, cache_key(&u, &d, " one\n two "));
         let mut other = d.clone();
         other.content_revision = Some(2);
         assert_ne!(original, cache_key(&u, &other, "one two"));
@@ -210,6 +270,98 @@ mod tests {
                 &d.generation().unwrap(),
                 &json!({"query":"one two","top_k":11})
             )
+        );
+    }
+    #[test]
+    fn batch_query_sets_filters_and_hierarchy_are_distinct_and_degradation_is_not_cacheable() {
+        let u = user();
+        let d = dataset();
+        let generation = d.generation().unwrap();
+        let base =
+            json!({"query":"q","batch_specs":[{"query":"one","top_k":3}],"hierarchical":false});
+        let original = key(&u, &d, &generation, &base);
+        for replacement in [
+            json!({"query":"two","top_k":3}),
+            json!({"query":"one","top_k":3,"metadata_filter":{"team":"other"}}),
+        ] {
+            let mut other = base.clone();
+            other["batch_specs"][0] = replacement;
+            assert_ne!(original, key(&u, &d, &generation, &other));
+        }
+        let mut hierarchy = base.clone();
+        hierarchy["hierarchical"] = json!(true);
+        assert_ne!(original, key(&u, &d, &generation, &hierarchy));
+        assert!(cacheable_metadata(&json!({"recall_errors":[]})));
+        for meta in [
+            json!({"recall_errors":["dense failed"]}),
+            json!({"rerank_degraded":"timeout"}),
+            json!({"mmr_error":"vector unavailable"}),
+        ] {
+            assert!(!cacheable_metadata(&meta));
+        }
+        let array = json!([null, null, null, null, null, null, null, null]);
+        assert!(json_heap_weight(&array) >= 8 * std::mem::size_of::<Value>());
+    }
+    #[tokio::test]
+    async fn concurrent_acl_partitions_and_late_old_generation_writer_do_not_poison_current_keys() {
+        let cache = ResultCache::new(1024 * 1024);
+        let ready = std::sync::Arc::new(tokio::sync::Barrier::new(33));
+        let mut tasks = tokio::task::JoinSet::new();
+        for index in 0..32 {
+            let (cache, ready) = (cache.clone(), ready.clone());
+            tasks.spawn(async move {
+                let mut actor = user();
+                actor.roles = vec![format!("role-{index}")];
+                let k = cache_key(&actor, &dataset(), "q");
+                cache
+                    .set(
+                        k.clone(),
+                        vec![],
+                        json!({"partition":index}),
+                        Duration::from_secs(60),
+                    )
+                    .await;
+                ready.wait().await;
+                assert_eq!(
+                    cache.get(&k, Duration::from_secs(60)).await.unwrap().1["partition"],
+                    index
+                );
+            });
+        }
+        ready.wait().await;
+        while let Some(result) = tasks.join_next().await {
+            result.unwrap();
+        }
+        let actor = user();
+        let before = dataset();
+        let mut after = before.clone();
+        after.content_revision = Some(2);
+        let old_key = cache_key(&actor, &before, "q");
+        let new_key = cache_key(&actor, &after, "q");
+        cache
+            .set(
+                new_key.clone(),
+                vec![],
+                json!({"revision":2}),
+                Duration::from_secs(60),
+            )
+            .await;
+        // An in-flight pre-publication computation finishes after publication.
+        cache
+            .set(
+                old_key,
+                vec![],
+                json!({"revision":1}),
+                Duration::from_secs(60),
+            )
+            .await;
+        assert_eq!(
+            cache
+                .get(&new_key, Duration::from_secs(60))
+                .await
+                .unwrap()
+                .1["revision"],
+            2
         );
     }
     #[tokio::test]
@@ -260,5 +412,36 @@ mod tests {
         }
         c.entries.run_pending_tasks().await;
         assert!(c.entries.weighted_size() <= 1024);
+    }
+    #[tokio::test]
+    async fn remote_promotion_keeps_original_admission_age_under_ttl_changes() {
+        let cache = ResultCache::new(4096);
+        let ttl = Duration::from_secs(20);
+        cache
+            .set_aged(
+                "promoted".into(),
+                vec![],
+                json!({}),
+                ttl,
+                Duration::from_secs(15),
+            )
+            .await;
+        assert!(cache.get("promoted", ttl).await.is_some());
+        assert!(
+            cache
+                .get("promoted", Duration::from_secs(10))
+                .await
+                .is_none()
+        );
+        assert!(
+            cache
+                .get_at(
+                    "promoted",
+                    ttl * 10,
+                    Instant::now() + Duration::from_secs(5)
+                )
+                .await
+                .is_none()
+        );
     }
 }

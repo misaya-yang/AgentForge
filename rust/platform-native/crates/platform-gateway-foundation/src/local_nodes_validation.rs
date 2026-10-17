@@ -7,6 +7,7 @@ pub enum LocalNodesBodyKind {
     Challenge,
     Completion,
     Grant,
+    EmergencyStop,
 }
 
 fn error(field: &str, typ: &str, message: impl Into<String>, input: &Value) -> Value {
@@ -183,6 +184,27 @@ pub fn validate_body(kind: LocalNodesBodyKind, value: &Value) -> Result<Value, L
     let mut out = Map::new();
     let mut errors = vec![];
     let fields: &[&str] = match kind {
+        LocalNodesBodyKind::EmergencyStop => {
+            if input.get("confirmation").and_then(Value::as_str) != Some("stop-all-local-actions") {
+                return Err(LocalNodesError::detail(
+                    422,
+                    "explicit emergency-stop confirmation required",
+                ));
+            }
+            let id = input
+                .get("idempotency_key")
+                .and_then(Value::as_str)
+                .filter(|id| uuid::Uuid::parse_str(id).is_ok())
+                .ok_or_else(|| {
+                    LocalNodesError::detail(422, "emergency-stop idempotency_key must be a UUID")
+                })?;
+            out.insert("confirmation".into(), json!("stop-all-local-actions"));
+            out.insert(
+                "idempotency_key".into(),
+                json!(uuid::Uuid::parse_str(id).unwrap().to_string()),
+            );
+            &["confirmation", "idempotency_key"]
+        }
         LocalNodesBodyKind::Challenge => {
             let value = input
                 .get("expires_in_seconds")
@@ -409,5 +431,33 @@ pub fn validate_after_sequence(raw: Option<&str>) -> Result<Value, LocalNodesErr
             422,
             json!([{"type":typ,"loc":["query","after_sequence"],"msg":integer_message(typ),"input":raw}]),
         )),
+    }
+}
+
+#[cfg(test)]
+mod emergency_stop_tests {
+    use super::*;
+    #[test]
+    fn stop_intent_requires_exact_confirmation_unique_request_and_no_scope_injection() {
+        let good = json!({"confirmation":"stop-all-local-actions","idempotency_key":uuid::Uuid::new_v4().to_string()});
+        assert!(validate_body(LocalNodesBodyKind::EmergencyStop, &good).is_ok());
+        for bad in [
+            json!({}),
+            json!({"confirmation":true,"idempotency_key":good["idempotency_key"]}),
+            json!({"confirmation":"stop-all-local-actions","idempotency_key":"not-a-uuid"}),
+        ] {
+            assert!(validate_body(LocalNodesBodyKind::EmergencyStop, &bad).is_err());
+        }
+        for key in [
+            "tenant_id",
+            "user_id",
+            "device_id",
+            "nonce",
+            "platform_signature",
+        ] {
+            let mut bad = good.clone();
+            bad[key] = json!("injected");
+            assert!(validate_body(LocalNodesBodyKind::EmergencyStop, &bad).is_err());
+        }
     }
 }

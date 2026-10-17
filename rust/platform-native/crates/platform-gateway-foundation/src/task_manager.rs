@@ -31,7 +31,6 @@ use std::{
     time::Duration,
 };
 use tokio::sync::Notify;
-
 pub type TaskFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, TaskError>> + Send + 'a>>;
 pub type SleepFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -65,7 +64,6 @@ impl TaskStatus {
         }
     }
 }
-
 /// A response-shaped JSON dictionary is not an actual UnifiedResponse in Python.
 /// Deserializing JSON deliberately does not promote it into the Response variant.
 #[derive(Clone, Debug, PartialEq)]
@@ -738,6 +736,7 @@ impl TaskManager {
             callback: Arc::new(UnconfiguredCallbackTransport), callback_options: CallbackOptions::default() }
     }
     pub(crate) fn delivery(&self) -> Option<Arc<dyn TaskDelivery>> { self.delivery.clone() }
+    pub fn configure_provider_batches(&self,coordinator:Arc<crate::provider_batch_store::BatchCoordinator>)->Result<(),TaskError>{if self.delivery.as_ref().is_some_and(|delivery|delivery.configure_provider_batches(coordinator)){Ok(())}else{Err(TaskError::DurableAuthorityRequired)}}
     pub fn requires_durable_actor(&self) -> bool { self.delivery.is_some() }
     pub async fn drain_cancelled_deliveries(&self) -> Result<(), TaskError> {
         if let Some(delivery) = &self.delivery {
@@ -767,6 +766,7 @@ impl TaskManager {
     pub async fn create_task_with_actor(
         &self, request: UnifiedRequest, roles: Vec<String>, client_ip: Option<String>, actor: Option<TaskActor>,
     ) -> Result<Task, TaskError> {
+        if request.parameters.as_ref().is_some_and(|p|p.contains_key("provider_batch"))&&self.delivery.is_none(){return Err(TaskError::DurableAuthorityRequired)}
         if self.delivery.is_some() && actor.as_ref().is_none_or(|value| !value.valid()) {
             return Err(TaskError::DurableAuthorityRequired);
         }

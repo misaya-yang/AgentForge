@@ -201,3 +201,14 @@ flowchart LR
   recorded data.
 - Deployment: Helm install, upgrade and rollback on kind in CI; Compose rendered-config checks;
   quarterly disaster-recovery drill (U-DATA-06).
+
+### U-PE-14 eval interpreter removal implementation (2026-10-17)
+
+The RustPython-dependent `parity_support/reserve.rs` interpreter is removed. Existing native
+scenario/result validators retain their implementations; the Python work-product benchmark uses
+an explicit pinned user-code sandbox with genuine CPython and a native typed outcome scorer.
+Its prompt, generated Python artifact and all former source/behavior regression cases are retained.
+See [execution contract, fixture gate and compatibility commands](../../../tests/fixtures/eval/parity_python_reserve/README.md).
+This is implementation evidence only: Rust compilation, actual isolated fixture execution and
+cargo-deny/dependency removal remain primary verification steps. No live benchmark or image build
+was performed for this change.

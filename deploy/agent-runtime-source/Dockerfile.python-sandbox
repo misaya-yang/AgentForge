@@ -1,0 +1,156 @@
+ARG CAPABILITY_RUST_BUILD_IMAGE=rust:1.95.0-bookworm
+ARG CAPABILITY_WORKER_RUNTIME_IMAGE=debian:trixie-slim
+ARG PYTHON_SANDBOX_IMAGE=python:3.14-slim-trixie
+
+FROM ${CAPABILITY_RUST_BUILD_IMAGE} AS builder
+
+ARG CARGO_BUILD_JOBS=1
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
+
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends lld \
+    && rm -rf /var/lib/apt/lists/* \
+    && ld.lld --version
+
+WORKDIR /source/codex-rs
+COPY codex-rs/ ./
+
+RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo build --locked --profile dev-small \
+        -p ai-platform-capability-worker \
+        --bin ai-platform-capability-worker \
+        --bin ai-platform-capability-worker-health \
+        --bin ai-platform-plugin-packs \
+        --bin ai-platform-python-supervisor \
+        --bin ai-platform-python-sandbox \
+        --bin ai-platform-python-sandbox-health \
+    && cp target/dev-small/ai-platform-capability-worker /tmp/ \
+    && cp target/dev-small/ai-platform-capability-worker-health /tmp/ \
+    && cp target/dev-small/ai-platform-plugin-packs /tmp/ \
+    && cp target/dev-small/ai-platform-python-supervisor /tmp/ \
+    && cp target/dev-small/ai-platform-python-sandbox /tmp/ \
+    && cp target/dev-small/ai-platform-python-sandbox-health /tmp/
+
+# Only the build stage can fetch public, exact-hash wheels. No source builds.
+FROM ${PYTHON_SANDBOX_IMAGE} AS wheels
+ARG TARGETARCH
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
+# Explicit HTTPS CA bootstrap; apt may not silently accept a partial update.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY python/ /opt/python-locks/
+RUN test "$TARGETARCH" = amd64 -o "$TARGETARCH" = arm64 \
+    && python3 -I -S -c "import sys; assert sys.version_info[:2] == (3, 14)" \
+    && PIP_CONFIG_FILE=/dev/null python3 -m pip --disable-pip-version-check \
+        --cert /etc/ssl/certs/ca-certificates.crt download --no-index --no-deps --only-binary=:all: \
+        --require-hashes --dest /wheelhouse -r "/opt/python-locks/$TARGETARCH/tooling.wheels.lock" \
+        -r "/opt/python-locks/$TARGETARCH/requirements.wheels.lock" \
+    && PIP_CONFIG_FILE=/dev/null python3 -m pip --disable-pip-version-check \
+        install --no-index --no-deps --only-binary=:all: --require-hashes --find-links /wheelhouse \
+        -r "/opt/python-locks/$TARGETARCH/uv.lock" \
+    && for requirement in /opt/python-locks/"$TARGETARCH"/*.lock; do \
+        name="$(basename "$requirement" .lock)"; \
+        case "$name" in uv|requirements.wheels|tooling.wheels) continue ;; esac; \
+        uv --no-config pip install --python /usr/local/bin/python3.14 --no-index --find-links /wheelhouse \
+            --no-deps --only-binary=:all: --require-hashes --target "/opt/agentforge/python-packages/$name" \
+            -r "$requirement" || exit 1; \
+    done \
+    && cp "/opt/python-locks/catalog-$TARGETARCH.json" /opt/agentforge/python-packages/catalog.json \
+    && chmod -R a-w /opt/agentforge/python-packages
+# A fresh final image intentionally inherits no configured control-plane ENV.
+FROM ${PYTHON_SANDBOX_IMAGE} AS runtime
+ARG DEBIAN_MIRROR=https://deb.debian.org/debian
+ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
+# Explicit HTTPS CA bootstrap; apt may not silently accept a partial update.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o APT::Update::Error-Mode=any \
+        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends ca-certificates util-linux libssl3t64 libgcc-s1 libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION
+ARG AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256
+ARG AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256
+LABEL org.opencontainers.image.revision="${AI_PLATFORM_CAPABILITY_WORKER_SOURCE_REVISION}" \
+      com.misaya.ai-platform.capability-worker.overlay-sha256="${AI_PLATFORM_CAPABILITY_WORKER_OVERLAY_SHA256}" \
+      com.misaya.ai-platform.capability-worker.schema-sha256="${AI_PLATFORM_CAPABILITY_WORKER_SCHEMA_SHA256}"
+
+LABEL org.opencontainers.image.title="AI Platform Credential-free Python Sandbox" \
+      com.misaya.ai-platform.capability-worker.artifact="python_sandbox" \
+      com.misaya.ai-platform.capability-worker.binary="ai-platform-python-sandbox"
+COPY LICENSE NOTICE /opt/ai-platform-python-sandbox/
+COPY --from=builder /tmp/ai-platform-python-sandbox /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-python-sandbox-health /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-python-supervisor /usr/local/bin/
+COPY --from=wheels /opt/agentforge/python-packages/ /opt/agentforge/python-packages/
+RUN install -d -m 0700 -o 10001 -g 10001 /workspace /run/agentforge-sandbox /var/lib/agentforge-sandbox/jobs \
+    && rm -rf /usr/local/lib/python3.14/site-packages/* /usr/local/lib/python3.14/ensurepip /usr/local/bin/pip* \
+    && find /usr/local/lib/python3.14 -type d -name __pycache__ -prune -exec rm -rf {} + \
+    && OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MPLCONFIGDIR=/tmp/agentforge-mpl python3 -I -S -B -c "import sys,json; assert sys.version_info[:2] == (3,14); c=json.load(open('/opt/agentforge/python-packages/catalog.json')); sys.path[:0]=['/opt/agentforge/python-packages/'+p for p in c['packages']]; import numpy,pandas,scipy,matplotlib,PIL,openpyxl" \
+    && rm -rf /tmp/agentforge-mpl /root/.cache \
+    && test -x /usr/bin/unshare \
+    && for binary in /usr/local/bin/ai-platform-python-sandbox /usr/local/bin/ai-platform-python-sandbox-health /usr/local/bin/ai-platform-python-supervisor; do \
+        ldd "$binary" > /tmp/sandbox-ldd || exit 1; \
+        if grep -q 'not found' /tmp/sandbox-ldd; then cat /tmp/sandbox-ldd; exit 1; fi; \
+    done \
+    && rm /tmp/sandbox-ldd \
+    && ! command -v rustc \
+    && ! command -v cargo \
+    && ! command -v uv \
+    && ! command -v pip
+ENV RUST_BACKTRACE=1
+USER 10001:10001
+WORKDIR /workspace
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["ai-platform-python-sandbox-health"]
+ENTRYPOINT ["ai-platform-python-sandbox"]

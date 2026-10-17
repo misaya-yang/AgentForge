@@ -138,12 +138,22 @@ impl SdkCapabilityAuthority for Authority {
                 let revision=chrono::Utc::now().timestamp_millis();
                 let readonly=readonly(&state,&bound,service,revision).await?;
                 let exposed=tools(&readonly)?;
-                let snapshot=json!({"schema_version":"sdk-capability-snapshot/v1","run_id":run,"tenant_id":bound.tenant_id,"user_id":bound.user_id,"session_id":bound.session_id,"capability_revision":revision,"sdk_agent":service.metadata["sdk_agent"],"sdk_tools":service.metadata.get("sdk_tools").cloned().unwrap_or_else(||json!({})),"readonly_capabilities":readonly});
+                let mut snapshot=json!({"schema_version":"sdk-capability-snapshot/v1","run_id":run,"tenant_id":bound.tenant_id,"user_id":bound.user_id,"session_id":bound.session_id,"capability_revision":revision,"sdk_agent":service.metadata["sdk_agent"],"sdk_tools":service.metadata.get("sdk_tools").cloned().unwrap_or_else(||json!({})),"readonly_capabilities":readonly});
+                // Gateway issues the ceiling; the SDK sees neither root private keys nor open witnesses.
+                let ceiling=crate::migration_agent::lease_authority::issue_ceiling(&scope(&bound),&run.to_string(),&snapshot_id.to_string(),"",revision as u64,&readonly,(chrono::Utc::now().timestamp_millis().max(0) as u64).saturating_add(1_800_000)).map_err(|_|bad())?;
+                if let Some(token)=&ceiling { snapshot["capability_ceiling"]=serde_json::to_value(&token.root).map_err(|_|bad())?; }
+                let mut authority_tx=plane.pool.begin().await.map_err(|_|bad())?;
                 let request_hash=canonical_hash(&json!({"request_id":request.request_id,"service_id":request.service_id,"tenant_id":request.tenant_id,"user_id":request.user_id,"session_id":request.session_id,"inputs":request.inputs,"agent":service.metadata["sdk_agent"],"tools":service.metadata["sdk_tools"]}));
                 sqlx::query("SELECT assistant.issue_sdk_execution($1::uuid,$2,$3,$4,$5,$6,$7,$8::char(64),$9::uuid,$10,$11,$12::char(64),$13::uuid)")
                     .bind(run.to_string()).bind(&bound.tenant_id).bind(&bound.user_id).bind(&bound.session_id).bind(&bound.service_id).bind(&bound.request_id)
                     .bind(service.metadata["adapter_type"].as_str().ok_or_else(bad)?).bind(request_hash).bind(snapshot_id.to_string()).bind(revision).bind(&snapshot).bind(canonical_hash(&snapshot)).bind(owner.to_string())
-                    .execute(&plane.pool).await.map_err(|_|code(409,"sdk_run_reconciliation_required"))?;
+                    .execute(&mut *authority_tx).await.map_err(|_|code(409,"sdk_run_reconciliation_required"))?;
+                if let Some(token)=&ceiling {
+                    sqlx::query("INSERT INTO assistant.assistant_runtime_capability_witnesses(run_id,tenant_id,user_id,session_id,snapshot_id,token) VALUES($1,$2,$3,$4,$5,$6)")
+                        .bind(run).bind(&bound.tenant_id).bind(&bound.user_id).bind(&bound.session_id).bind(snapshot_id).bind(serde_json::to_value(token).map_err(|_|bad())?)
+                        .execute(&mut *authority_tx).await.map_err(|_|bad())?;
+                }
+                authority_tx.commit().await.map_err(|_|bad())?;
                 let (sender,mut receiver)=oneshot::channel();
                 let weak=self.proxy.clone();let owned_grant=grant.to_owned();let pool=plane.pool.clone();
                 // The renewal task is tied to the response body guard. Neither

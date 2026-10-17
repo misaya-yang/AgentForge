@@ -25,7 +25,7 @@ pub fn verify(args: &Args) -> Result<Value> {
     let mut total = 0u64;
     for i in 0..archive.len() {
         let file = archive.by_index(i)?;
-        let name = file.name().to_owned();
+        let name = file.name()?.into_owned();
         require(
             valid_name(&name) && names.insert(name),
             "unsafe/duplicated archive member",

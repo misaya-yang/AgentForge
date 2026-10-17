@@ -2,6 +2,8 @@
 use super::*;
 use std::io::Write;
 const SCHEMA: &str = "database/migrations/096_agent_capability_executions.sql";
+#[path = "source_export.rs"]
+mod source_export;
 fn atomic(path: &Path, value: &Value) -> Result<()> {
     let mut value = value.clone();
     std::fs::create_dir_all(path.parent().ok_or("missing parent")?)?;
@@ -31,7 +33,7 @@ fn invalidate(lock: &mut Value) {
         .unwrap_or_default();
     for (id, binary) in ARTIFACTS {
         let old = artifacts.get(*id).cloned().unwrap_or(Value::Null);
-        artifacts.insert((*id).into(),json!({"binary":binary,"protocol":old["protocol"],"candidate_start_allowed":false,"image_ref":null,"image_digest":null,"platforms":old.get("platforms").cloned().unwrap_or(json!(["linux/arm64"]))}));
+        artifacts.insert((*id).into(),json!({"binary":binary,"protocol":images::protocol(id),"candidate_start_allowed":false,"image_ref":null,"image_digest":null,"platforms":old.get("platforms").cloned().unwrap_or(json!(["linux/arm64"]))}));
     }
     lock["oci"] = json!({"artifacts":artifacts});
 }
@@ -671,10 +673,6 @@ pub fn composed(args: &Args) -> Result<Value> {
         "official upstream origin required",
     )?;
     let evidence = object(&export)?;
-    require(
-        evidence["schema"] == "ai-platform/composed-source-export/v1",
-        "unsupported export evidence",
-    )?;
     let unit_sha = digest(&unit_path)?;
     require(
         evidence["source_unit_sha256_before"] == unit_sha
@@ -707,15 +705,16 @@ pub fn composed(args: &Args) -> Result<Value> {
     )?;
     let schema_run = object(&exported("schema_command_receipt")?)?;
     let metadata_run = object(&exported("metadata_command_receipt")?)?;
-    for run in [&schema_run, &metadata_run] {
-        require(
-            run["exit_code"] == 0
-                && run["stop_reason"].is_null()
-                && run["command"].is_array()
-                && run["cwd"] == cwd.to_string_lossy().as_ref(),
-            "export command not successful or wrong cwd",
-        )?;
-    }
+    let export_paths = source_export::paths(
+        &evidence,
+        &unit,
+        &unit_sha,
+        &composed,
+        &schema_dir,
+        &exported,
+        &[&schema_run, &metadata_run],
+    )?;
+    export_paths.validate_runs(&[&schema_run, &metadata_run])?;
     let toolchain: toml::Value =
         std::fs::read_to_string(cwd.join("rust-toolchain.toml"))?.parse()?;
     let channel = toolchain["toolchain"]["channel"]
@@ -731,7 +730,7 @@ pub fn composed(args: &Args) -> Result<Value> {
         "--example",
         "ai_platform_export_schema",
         "--",
-        schema_dir
+        export_paths.schema_output
     ]);
     let metadata_cmd = json!([
         format!("+{channel}"),
@@ -778,7 +777,7 @@ pub fn composed(args: &Args) -> Result<Value> {
     )?;
     let metadata = object(&metadata_path)?;
     require(
-        std::fs::canonicalize(text(&metadata, "workspace_root")?)? == cwd,
+        export_paths.workspace_matches(text(&metadata, "workspace_root")?)?,
         "metadata workspace differs",
     )?;
     let packages = metadata["packages"].as_array().ok_or("packages missing")?;
@@ -820,11 +819,7 @@ pub fn composed(args: &Args) -> Result<Value> {
             "metadata package absent from exact lock",
         )?;
         if p["source"].is_null() {
-            let path = std::fs::canonicalize(text(p, "manifest_path")?)?;
-            require(
-                path.starts_with(&composed) && path.is_file(),
-                "metadata path package outside source",
-            )?;
+            export_paths.manifest(text(p, "manifest_path")?)?;
         }
     }
     let source = json!({"upstream_url":"https://github.com/openai/codex.git","upstream_sha":target,"fork_sha":target,"git_tree_sha":unit["target_tree"],"branch":""});

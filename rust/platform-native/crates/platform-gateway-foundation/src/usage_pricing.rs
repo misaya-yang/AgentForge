@@ -40,6 +40,7 @@ pub enum UsagePricingStatus {
     ProviderModel,
     Unknown,
     AmbiguousProvider,
+    PriceBookV2,
 }
 impl UsagePricingStatus {
     pub fn as_str(self) -> &'static str {
@@ -49,6 +50,7 @@ impl UsagePricingStatus {
             Self::ProviderModel => "provider_model",
             Self::Unknown => "unknown",
             Self::AmbiguousProvider => "ambiguous_provider",
+            Self::PriceBookV2 => "price_book_v2",
         }
     }
 }
@@ -129,16 +131,34 @@ impl UsagePricingRepository for PgBillingStore {
 #[derive(Clone)]
 pub struct ScopedUsagePricing {
     repository: Option<Arc<dyn UsagePricingRepository>>,
+    price_book: Option<Arc<crate::price_book::service::PgPriceBookService>>,
 }
 impl ScopedUsagePricing {
     /// Explicitly select the no-database behavior of the Python recorder.
     pub fn catalog_only() -> Self {
-        Self { repository: None }
+        Self {
+            repository: None,
+            price_book: None,
+        }
     }
     pub fn with_repository(repository: Arc<dyn UsagePricingRepository>) -> Self {
         Self {
             repository: Some(repository),
+            price_book: None,
         }
+    }
+    /// Explicit post-successor activation. Missing/ambiguous prices are typed errors;
+    /// this constructor has no catalog/zero fallback and no provider inference.
+    pub fn with_price_book_v2(pool: PgPool) -> Self {
+        Self {
+            repository: None,
+            price_book: Some(Arc::new(
+                crate::price_book::service::PgPriceBookService::new(pool),
+            )),
+        }
+    }
+    pub fn uses_price_book_v2(&self) -> bool {
+        self.price_book.is_some()
     }
     pub fn with_postgres(pool: PgPool) -> Self {
         Self::with_repository(Arc::new(PgBillingStore::new(pool)))
@@ -149,6 +169,30 @@ impl ScopedUsagePricing {
         model: &str,
         provider: Option<&str>,
     ) -> Result<UsagePrice, UsageRecorderError> {
+        if let Some(service) = &self.price_book {
+            let provider = provider
+                .filter(|p| !p.is_empty() && *p != UNATTRIBUTED_PROVIDER)
+                .ok_or(crate::price_book::PriceBookError::InvalidTerms)?;
+            let snapshot = service
+                .token_quote(
+                    tenant,
+                    provider,
+                    model,
+                    chrono::Utc::now().timestamp_millis(),
+                )
+                .await?;
+            let receipt = crate::pricing_receipt::validate_pricing_snapshot(
+                &snapshot, tenant, provider, model,
+            )?;
+            return Ok(UsagePrice {
+                provider: provider.into(),
+                rates: TokenRates::parse(
+                    &receipt.input_price_per_1k,
+                    &receipt.output_price_per_1k,
+                )?,
+                status: UsagePricingStatus::PriceBookV2,
+            });
+        }
         let provider =
             provider.filter(|value| !value.is_empty() && *value != UNATTRIBUTED_PROVIDER);
         match &self.repository {
@@ -191,6 +235,25 @@ impl ScopedUsagePricing {
         &self,
         record: &mut UsageRecord,
     ) -> Result<(), UsageRecorderError> {
+        if self.price_book.is_some() {
+            if [
+                &record.tenant_id,
+                &record.provider,
+                &record.model,
+                &record.request_id,
+            ]
+            .iter()
+            .any(|s| s.is_empty() || s.trim() != s.as_str())
+                || record.provider == UNATTRIBUTED_PROVIDER
+            {
+                return Err(crate::price_book::PriceBookError::InvalidTerms.into());
+            }
+            // A caller-supplied snapshot cannot bypass the durable first-receipt
+            // authority. Recorder-owned prior observations still win under lock.
+            record.metadata.remove("pricing_snapshot");
+            record.metadata.remove("_price_book_v2_cumulative");
+            return Ok(());
+        }
         let model = if record.model.is_empty() {
             metadata_identity(&record.metadata, &["model", "model_id", "llm_model"])
         } else {
@@ -262,6 +325,12 @@ impl ScopedUsagePricing {
 impl UsageSnapshotResolver for ScopedUsagePricing {
     fn resolve<'a>(&'a self, record: &'a UsageRecord) -> UsageFuture<'a, Value> {
         Box::pin(async move {
+            if let Some(service) = &self.price_book {
+                return service
+                    .freeze_usage(record)
+                    .await
+                    .map_err(UsageRecorderError::from);
+            }
             let price = self
                 .lookup(&record.tenant_id, &record.model, Some(&record.provider))
                 .await?;
@@ -350,4 +419,3 @@ impl DispatcherUsageSink for PricedUsageSink {
         })
     }
 }
-

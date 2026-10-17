@@ -242,3 +242,35 @@ fn checkout_head_drift_is_refused_even_when_original_commit_still_exists() {
     );
     assert_eq!(manifest, before);
 }
+
+#[test]
+fn source_refresh_adds_sandbox_with_nonempty_protocol_and_revokes_every_image() {
+    let mut lock = json!({"release_state":"local_image_locked","oci":{"artifacts":{
+        "agent_runtime":{"binary":"old","protocol":"old/v1","candidate_start_allowed":true,"image_ref":"old","image_digest":"old","platforms":["linux/amd64"]},
+        "capability_worker":{"candidate_start_allowed":true,"image_ref":"old","image_digest":"old"}
+    }}});
+    invalidate(&mut lock);
+    assert_eq!(lock["release_state"], "local_source_locked");
+    assert_eq!(lock["oci"]["artifacts"].as_object().unwrap().len(), 4);
+    for &(id, binary) in ARTIFACTS {
+        let artifact = &lock["oci"]["artifacts"][id];
+        assert_eq!(artifact["binary"], binary);
+        assert_eq!(artifact["protocol"].as_str(), images::protocol(id));
+        assert!(
+            artifact["protocol"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
+        assert_eq!(artifact["candidate_start_allowed"], false);
+        assert!(artifact["image_ref"].is_null());
+        assert!(artifact["image_digest"].is_null());
+    }
+    assert_eq!(
+        lock["oci"]["artifacts"]["python_sandbox"]["protocol"],
+        "sandbox-job/v1"
+    );
+    assert_eq!(
+        lock["oci"]["artifacts"]["agent_runtime"]["platforms"],
+        json!(["linux/amd64"])
+    );
+}

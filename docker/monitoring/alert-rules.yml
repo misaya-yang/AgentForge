@@ -1,161 +1,82 @@
-# Prometheus Alert Rules for AI Gateway
-
 groups:
-  - name: gateway_alerts
-    interval: 30s
-    rules:
-      # High Error Rate Alert
-      - alert: HighErrorRate
-        expr: |
-          (
-            sum(rate(gateway_requests_total{status_code=~"5.."}[5m]))
-            /
-            sum(rate(gateway_requests_total[5m]))
-          ) * 100 > 5
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High error rate detected"
-          description: "Error rate is {{ $value | printf \"%.1f\" }}% (threshold: 5%)"
-
-      - alert: CriticalErrorRate
-        expr: |
-          (
-            sum(rate(gateway_requests_total{status_code=~"5.."}[5m]))
-            /
-            sum(rate(gateway_requests_total[5m]))
-          ) * 100 > 10
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Critical error rate detected"
-          description: "Error rate is {{ $value | printf \"%.1f\" }}% (threshold: 10%)"
-
-      # High Latency Alert
-      - alert: HighLatencyP95
-        expr: |
-          histogram_quantile(0.95, sum(rate(gateway_request_duration_ms_bucket[5m])) by (le)) > 2000
-        for: 3m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High P95 latency detected"
-          description: "P95 latency is {{ $value | printf \"%.0f\" }}ms (threshold: 2000ms)"
-
-      - alert: CriticalLatencyP95
-        expr: |
-          histogram_quantile(0.95, sum(rate(gateway_request_duration_ms_bucket[5m])) by (le)) > 5000
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Critical P95 latency detected"
-          description: "P95 latency is {{ $value | printf \"%.0f\" }}ms (threshold: 5000ms)"
-
-      # Gateway Down Alert
-      - alert: GatewayDown
-        expr: up{job="ai-gateway"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "AI Gateway is down"
-          description: "AI Gateway has been unreachable for more than 1 minute"
-
-      # Low Request Throughput (potential issue)
-      - alert: LowThroughput
-        expr: |
-          sum(rate(gateway_requests_total[5m])) < 0.1
-        for: 10m
-        labels:
-          severity: info
-        annotations:
-          summary: "Low request throughput"
-          description: "Request rate is {{ $value | printf \"%.2f\" }} req/s"
-
-  - name: infrastructure_alerts
-    interval: 30s
-    rules:
-      # Redis Connection Issues
-      - alert: RedisDown
-        expr: redis_up == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Redis is down"
-          description: "Redis has been unreachable for more than 1 minute"
-
-      # High Memory Usage
-      - alert: HighMemoryUsage
-        expr: |
-          (
-            node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
-          ) / node_memory_MemTotal_bytes * 100 > 90
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage"
-          description: "Memory usage is {{ $value | printf \"%.1f\" }}%"
-
-  - name: event_bus_alerts
-    interval: 30s
-    rules:
-      - alert: HighDLQDepth
-        expr: event_dlq_depth > 100
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High event DLQ depth"
-          description: "Event DLQ depth is {{ $value | printf \"%.0f\" }} (threshold: 100)"
-
-      - alert: CriticalDLQDepth
-        expr: event_dlq_depth > 1000
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Critical event DLQ depth"
-          description: "Event DLQ depth is {{ $value | printf \"%.0f\" }} (threshold: 1000)"
-
-      - alert: EventConsumerLag
-        expr: event_consumer_lag > 1000
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Event consumer lag is high"
-          description: "Consumer lag is {{ $value | printf \"%.0f\" }} messages"
-
-  - name: langgraph_alerts
-    interval: 30s
-    rules:
-      # Low LangGraph Run Success Rate
-      - alert: LowRunSuccessRate
-        expr: |
-          (
-            sum(rate(langgraph_runs_success_total[5m]))
-            /
-            sum(rate(langgraph_runs_total[5m]))
-          ) * 100 < 90
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Low LangGraph run success rate"
-          description: "Success rate is {{ $value | printf \"%.1f\" }}% (threshold: 90%)"
-
-      # High Token Consumption (cost alert)
-      - alert: HighTokenConsumption
-        expr: |
-          sum(increase(langgraph_token_usage_total[1h])) > 1000000
-        for: 0m
-        labels:
-          severity: info
-        annotations:
-          summary: "High token consumption"
-          description: "{{ $value | printf \"%.0f\" }} tokens consumed in the last hour"
+- name: gateway-slo
+  interval: 30s
+  rules:
+  - record: gateway:slo_error_ratio:5m
+    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(gateway_requests_total[5m])),
+      0.000001)
+  - record: gateway:slo_slow_ratio:5m
+    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[5m]))
+      / clamp_min(sum(rate(gateway_request_duration_ms_count[5m])), 0.000001), 0)
+  - record: gateway:slo_error_ratio:30m
+    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[30m])) / clamp_min(sum(rate(gateway_requests_total[30m])),
+      0.000001)
+  - record: gateway:slo_slow_ratio:30m
+    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[30m]))
+      / clamp_min(sum(rate(gateway_request_duration_ms_count[30m])), 0.000001), 0)
+  - record: gateway:slo_error_ratio:1h
+    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[1h])) / clamp_min(sum(rate(gateway_requests_total[1h])),
+      0.000001)
+  - record: gateway:slo_slow_ratio:1h
+    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[1h]))
+      / clamp_min(sum(rate(gateway_request_duration_ms_count[1h])), 0.000001), 0)
+  - record: gateway:slo_error_ratio:6h
+    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[6h])) / clamp_min(sum(rate(gateway_requests_total[6h])),
+      0.000001)
+  - record: gateway:slo_slow_ratio:6h
+    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[6h]))
+      / clamp_min(sum(rate(gateway_request_duration_ms_count[6h])), 0.000001), 0)
+  - alert: GatewayErrorBudgetBurnFast
+    expr: (gateway:slo_error_ratio:5m > 0.0144) and (gateway:slo_error_ratio:1h >
+      0.0144)
+    for: 2m
+    labels:
+      severity: critical
+      owner: gateway
+      slo: error
+    annotations:
+      summary: Gateway error SLO budget burning (5m/1h)
+  - alert: GatewayErrorBudgetBurnSlow
+    expr: (gateway:slo_error_ratio:30m > 0.006) and (gateway:slo_error_ratio:6h >
+      0.006)
+    for: 2m
+    labels:
+      severity: warning
+      owner: gateway
+      slo: error
+    annotations:
+      summary: Gateway error SLO budget burning (30m/6h)
+  - alert: GatewaySlowBudgetBurnFast
+    expr: (gateway:slo_slow_ratio:5m > 0.144) and (gateway:slo_slow_ratio:1h > 0.144)
+    for: 2m
+    labels:
+      severity: critical
+      owner: gateway
+      slo: slow
+    annotations:
+      summary: Gateway slow SLO budget burning (5m/1h)
+  - alert: GatewaySlowBudgetBurnSlow
+    expr: (gateway:slo_slow_ratio:30m > 0.06) and (gateway:slo_slow_ratio:6h > 0.06)
+    for: 2m
+    labels:
+      severity: warning
+      owner: gateway
+      slo: slow
+    annotations:
+      summary: Gateway slow SLO budget burning (30m/6h)
+  - alert: GatewayMetricsUnavailable
+    expr: up{job="gateway"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      owner: gateway
+    annotations:
+      summary: 'Gateway metrics unavailable: check service and metrics credential'
+  - alert: GatewaySloTelemetryAbsent
+    expr: absent(gateway_request_duration_ms_count) or absent(gateway_requests_total)
+    for: 10m
+    labels:
+      severity: warning
+      owner: gateway
+    annotations:
+      summary: Gateway SLO inputs missing; SLO cannot be evaluated

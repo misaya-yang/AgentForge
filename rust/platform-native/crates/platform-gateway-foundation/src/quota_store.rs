@@ -840,3 +840,8 @@ pub fn quota_forecast(
     )
 }
 
+#[path = "quota_store/reservations.rs"]
+pub mod reservations;
+
+#[path = "quota_store/reservation_receipts.rs"]
+pub mod reservation_receipts;

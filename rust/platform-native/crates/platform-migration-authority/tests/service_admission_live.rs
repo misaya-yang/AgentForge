@@ -22,7 +22,10 @@ fn denied(error: &sqlx::Error) -> bool {
 #[tokio::test]
 #[ignore = "explicit owned loopback PostgreSQL acceptance; set AGENTFORGE_ADMISSION_LIVE=1"]
 async fn exact_service_roles_admit_and_every_other_login_is_refused() {
-    assert_eq!(std::env::var("AGENTFORGE_ADMISSION_LIVE").as_deref(), Ok("1"));
+    assert_eq!(
+        std::env::var("AGENTFORGE_ADMISSION_LIVE").as_deref(),
+        Ok("1")
+    );
     let prefix = credentials::role_prefix_from_env().expect("valid explicit role prefix required");
     let database = std::env::var("POSTGRES_DB").expect("explicit local database required");
     credential_bootstrap::verify_local_target(&commands::default_paths(), &prefix, &database)
@@ -38,7 +41,7 @@ async fn exact_service_roles_admit_and_every_other_login_is_refused() {
     ))
     .unwrap();
     assert_eq!(runtime_expected, worker_expected);
-    assert_eq!(runtime_expected["epoch"], 24);
+    assert_eq!(runtime_expected["epoch"], 28);
 
     let mut allowed = 0;
     let mut refused = 0;
@@ -46,10 +49,11 @@ async fn exact_service_roles_admit_and_every_other_login_is_refused() {
     for actual in credentials::ALL_PRINCIPALS {
         let dsn = credentials::dsn_for_principal(actual)
             .unwrap_or_else(|_| panic!("explicit role credential missing: {actual}"));
-        let mut connection = tokio::time::timeout(Duration::from_secs(10), PgConnection::connect(&dsn))
-            .await
-            .unwrap_or_else(|_| panic!("connection deadline: {actual}"))
-            .unwrap_or_else(|_| panic!("role connection refused: {actual}; details withheld"));
+        let mut connection =
+            tokio::time::timeout(Duration::from_secs(10), PgConnection::connect(&dsn))
+                .await
+                .unwrap_or_else(|_| panic!("connection deadline: {actual}"))
+                .unwrap_or_else(|_| panic!("role connection refused: {actual}; details withheld"));
         for (expected, profile) in SERVICES {
             let result = tokio::time::timeout(
                 Duration::from_secs(10),
@@ -69,13 +73,15 @@ async fn exact_service_roles_admit_and_every_other_login_is_refused() {
             }
         }
         if matches!(*actual, "runtime" | "capability_worker") {
-            let snapshot: Value = sqlx::query_scalar(
-                "SELECT assistant.platform_schema_admission_snapshot_v1()",
-            )
-            .fetch_one(&mut connection)
-            .await
-            .unwrap_or_else(|_| panic!("own-role metadata reader failed: {actual}"));
-            assert_eq!(snapshot, runtime_expected, "exact compiled source snapshot: {actual}");
+            let snapshot: Value =
+                sqlx::query_scalar("SELECT assistant.platform_schema_admission_snapshot_v1()")
+                    .fetch_one(&mut connection)
+                    .await
+                    .unwrap_or_else(|_| panic!("own-role metadata reader failed: {actual}"));
+            assert_eq!(
+                snapshot, runtime_expected,
+                "exact compiled source snapshot: {actual}"
+            );
         }
         if credentials::APPLICATION_PRINCIPALS.contains(actual) {
             // The metadata reader must never require widening the ledger,
@@ -93,7 +99,10 @@ async fn exact_service_roles_admit_and_every_other_login_is_refused() {
                 privilege_denials += 1;
             }
         }
-        connection.close().await.expect("close local test connection");
+        connection
+            .close()
+            .await
+            .expect("close local test connection");
     }
     assert_eq!(allowed, 5);
     assert_eq!(refused, 30);

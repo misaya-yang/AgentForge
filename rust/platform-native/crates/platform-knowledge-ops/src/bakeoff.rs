@@ -1,14 +1,18 @@
 //! Fixed-candidate reranker evaluation. Report-only; never changes serving defaults.
 use super::{Args, Result, error, fail};
+use ai_platform_knowledge_service::migration_knowledge_query::{
+    model_plane::{self, ModelPurpose, ModelWire},
+    rerank::{LocalRerankBackend, RerankProviderConfig, Reranker},
+};
 use ai_platform_knowledge_service::{
-    migration_knowledge_query::rerank::{RerankProviderConfig, Reranker},
     native_cross_encoder::NativeCrossEncoder,
     native_rerank::{NativeBgeReranker, NativeLocalReranker},
 };
 use serde_json::{Value, json};
+use std::path::PathBuf;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 #[derive(Clone)]
@@ -210,7 +214,9 @@ fn native(env: &BTreeMap<String, String>) -> Result<NativeLocalReranker> {
 }
 pub async fn run(args: &[String]) -> Result<()> {
     let args = Args::parse(args, &["allow-live"])?;
-    args.validate(&["cases", "out", "top-k", "adapters"], 0)?;
+    let mut options = vec!["cases", "out", "top-k", "adapters"];
+    options.extend_from_slice(super::model_session::OPTIONS);
+    args.validate(&options, 0)?;
     let path = args
         .options
         .get("cases")
@@ -233,64 +239,71 @@ pub async fn run(args: &[String]) -> Result<()> {
     {
         return fail("identity baseline must be part of --adapters");
     }
-    let env = super::environment();
     for spec in &specs {
         let provider = spec.split(':').next().unwrap().to_lowercase();
-        let key = match provider.as_str() {
-            "dashscope" => Some("DASHSCOPE_API_KEY"),
-            "cohere" => Some("COHERE_API_KEY"),
-            "jina" => Some("JINA_API_KEY"),
-            "identity" | "bge" => None,
-            _ => return fail("unknown adapter provider"),
-        };
-        if let Some(key) = key {
-            if !args.has("allow-live") {
-                return fail("live adapters require --allow-live (paid API calls)");
-            }
-            if env.get(key).is_none_or(|v| v.trim().is_empty()) {
-                return fail(&format!("{key} is not set"));
-            }
+        if !matches!(
+            provider.as_str(),
+            "identity" | "bge" | "dashscope" | "cohere" | "jina"
+        ) {
+            return fail("unknown adapter provider");
+        }
+        if !matches!(provider.as_str(), "identity" | "bge") && !args.has("allow-live") {
+            return fail("live adapters require --allow-live (paid API calls)");
         }
     }
+    let session = if specs
+        .iter()
+        .any(|spec| !matches!(spec.split(':').next(), Some("identity" | "bge")))
+    {
+        Some(super::model_session::ModelSession::load(&args).await?)
+    } else {
+        None
+    };
     let mut providers = BTreeMap::new();
-    for (provider, key, endpoint) in [
-        ("dashscope", "DASHSCOPE_API_KEY", ""),
-        (
-            "cohere",
-            "COHERE_API_KEY",
-            "https://api.cohere.com/v2/rerank",
-        ),
-    ] {
+    for provider in ["dashscope", "cohere"] {
         providers.insert(
             provider.into(),
             RerankProviderConfig {
-                api_key: env.get(key).cloned().unwrap_or_default(),
-                endpoint: if provider == "dashscope" {
-                    env.get("DASHSCOPE_RERANK_BASE_URL")
-                        .cloned()
-                        .unwrap_or_default()
-                } else {
-                    endpoint.into()
-                },
+                api_key: String::new(),
+                endpoint: String::new(),
                 request_schema: if provider == "dashscope" {
-                    env.get("DASHSCOPE_RERANK_REQUEST_SCHEMA")
-                        .cloned()
-                        .unwrap_or_else(|| "auto".into())
+                    std::env::var("DASHSCOPE_RERANK_REQUEST_SCHEMA")
+                        .unwrap_or_else(|_| "auto".into())
                 } else {
                     "flat".into()
                 },
                 instruct: if provider == "dashscope" {
-                    env.get("DASHSCOPE_RERANK_INSTRUCT").cloned()
+                    std::env::var("DASHSCOPE_RERANK_INSTRUCT").ok()
                 } else {
                     None
                 },
             },
         );
     }
-    let client = reqwest::Client::new();
-    let mut reranker =
-        Reranker::new(client.clone(), providers).with_local_backend(Arc::new(native(&env)?));
-    reranker.dashscope_base_url = env.get("DASHSCOPE_BASE_URL").cloned();
+    let mut native_env = BTreeMap::new();
+    for key in [
+        "KNOWLEDGE_NATIVE__BGE_MODEL_DIRECTORY",
+        "KNOWLEDGE_NATIVE__BGE_LARGE_MODEL_DIRECTORY",
+        "KNOWLEDGE_NATIVE__CROSS_ENCODER_MODEL_DIRECTORY",
+    ] {
+        if let Ok(value) = std::env::var(key) {
+            native_env.insert(key.into(), value);
+        }
+    }
+    let native_backend = if specs
+        .iter()
+        .any(|spec| spec.split(':').next() == Some("bge"))
+    {
+        Some(Arc::new(native(&native_env)?))
+    } else {
+        None
+    };
+    let native_identity = native_backend.as_ref().map(|backend| backend.identity());
+    let mut reranker = Reranker::new(reqwest::Client::new(), providers);
+    if let Some(backend) = native_backend {
+        reranker = reranker.with_local_backend(backend);
+    }
+
     let mut results = vec![];
     for spec in specs {
         let (provider, model) = spec.split_once(':').unwrap_or((spec, ""));
@@ -315,7 +328,45 @@ pub async fn run(args: &[String]) -> Result<()> {
         let mut scores = BTreeMap::new();
         let mut errors = vec![];
         for case in &cases {
-            let output:Result<Vec<f64>>=async{if provider=="identity"{return Ok((0..case.candidates.len()).map(|i|(case.candidates.len()-i)as f64).collect());}let docs:Vec<_>=case.candidates.iter().map(|c|c.1.clone()).collect();let mut values=vec![f64::NEG_INFINITY;docs.len()];if provider=="jina"{let response:Value=client.post("https://api.jina.ai/v1/rerank").bearer_auth(&env["JINA_API_KEY"]).timeout(std::time::Duration::from_secs(60)).json(&json!({"model":if model.is_empty(){"jina-reranker-v3"}else{model},"query":case.query,"documents":docs,"top_n":docs.len()})).send().await?.error_for_status()?.json().await?;if let Some(hits)=response["results"].as_array(){for hit in hits{if let Some(i)=hit["index"].as_u64().map(|i|i as usize).filter(|i|*i<values.len()){values[i]=hit["relevance_score"].as_f64().unwrap_or(0.);}}}}else{for hit in reranker.rerank(&provider,model,&case.query,&docs,docs.len()).await?{if hit.index<values.len(){values[hit.index]=hit.relevance_score;}}}Ok(values)}.await;
+            let output: Result<Vec<f64>> = if provider == "identity" {
+                Ok((0..case.candidates.len())
+                    .map(|i| (case.candidates.len() - i) as f64)
+                    .collect())
+            } else if provider == "bge" {
+                let docs: Vec<_> = case.candidates.iter().map(|c| c.1.clone()).collect();
+                match reranker
+                    .rerank(&provider, model, &case.query, &docs, docs.len())
+                    .await
+                {
+                    Ok(hits) => {
+                        let mut values = vec![f64::NEG_INFINITY; docs.len()];
+                        for hit in hits {
+                            if hit.index < values.len() {
+                                values[hit.index] = hit.relevance_score;
+                            }
+                        }
+                        Ok(values)
+                    }
+                    Err(error) => Err(error.into()),
+                }
+            } else {
+                session.as_ref().expect("validated live adapter session").run(async {
+                    let docs:Vec<_>=case.candidates.iter().map(|c|c.1.clone()).collect();
+                    let mut values=vec![f64::NEG_INFINITY;docs.len()];
+                    if provider=="jina" {
+                        let (status,response)=model_plane::execute("jina",if model.is_empty(){"jina-reranker-v3"}else{model},"",ModelPurpose::Rerank,ModelWire::Rerank,json!({"model":if model.is_empty(){"jina-reranker-v3"}else{model},"query":case.query,"documents":docs,"top_n":docs.len()}),std::time::Duration::from_secs(60)).await?;
+                        if !(200..300).contains(&status){return fail("Gateway rerank operation rejected");}
+                        let hits=response["results"].as_array().ok_or_else(||error("invalid rerank response"))?;
+                        for hit in hits {
+                            let i=hit["index"].as_u64().and_then(|i|usize::try_from(i).ok()).filter(|i|*i<values.len()).ok_or_else(||error("invalid rerank result index"))?;
+                            values[i]=hit["relevance_score"].as_f64().filter(|v|v.is_finite()).ok_or_else(||error("invalid rerank result score"))?;
+                        }
+                    } else {
+                        for hit in reranker.rerank(&provider,model,&case.query,&docs,docs.len()).await? {if hit.index<values.len(){values[hit.index]=hit.relevance_score;}}
+                    }
+                    Ok(values)
+                }).await
+            };
             match output{Ok(values)=>{scores.insert(case.id.clone(),values);},Err(_)=>errors.push(json!({"case_id":case.id,"error":"adapter inference or provider request failed"}))}
         }
         let scored: Vec<_> = cases
@@ -338,9 +389,12 @@ pub async fn run(args: &[String]) -> Result<()> {
         if !cross.is_empty() {
             slices["cross_lingual"] = metrics(&cross, &scores, k);
         }
-        results.push(
-            json!({"adapter":name,"eligible":errors.is_empty(),"errors":errors,"slices":slices}),
-        );
+        let mut result =
+            json!({"adapter":name,"eligible":errors.is_empty(),"errors":errors,"slices":slices});
+        if provider == "bge" {
+            result["native_identity"] = json!(native_identity);
+        }
+        results.push(result);
     }
     let report = json!({"schema":"rerank-bakeoff-v1","generated_at":chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),"params":{"k":k,"total_cases":cases.len()},"gate":gate(&results),"adapters":results});
     write_reports(Path::new(out), &report, "Reranker bake-off report")?;
@@ -432,3 +486,18 @@ mod tests {
 #[cfg(test)]
 #[path = "eval_migration_parity_bakeoff.rs"]
 mod eval_migration_parity_bakeoff;
+
+#[cfg(test)]
+mod native_benchmark_identity_tests {
+    use super::*;
+    #[test]
+    fn bge_benchmark_keeps_pinned_candle_revision_and_sha_identity() {
+        let identity = native(&BTreeMap::new()).unwrap().identity();
+        assert!(identity.contains("candle-cpu:BAAI/bge-reranker-v2-m3@"));
+        assert!(identity.contains(ai_platform_knowledge_service::native_rerank::MODEL_REVISION));
+        assert!(identity.contains(ai_platform_knowledge_service::native_rerank::MODEL_SHA256));
+        assert!(
+            identity.contains(ai_platform_knowledge_service::native_rerank::LARGE_MODEL_REVISION)
+        );
+    }
+}

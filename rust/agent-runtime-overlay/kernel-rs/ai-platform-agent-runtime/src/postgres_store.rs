@@ -26,6 +26,7 @@ use uuid::Uuid;
 
 mod approval_decision;
 mod events;
+pub(crate) mod event_notifications;
 pub(crate) mod execution;
 mod identity;
 pub(crate) mod history_codec;

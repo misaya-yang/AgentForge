@@ -49,6 +49,7 @@ function host() {
   modules["@/hooks/useAuthenticatedReadScope"] = compile("../../../hooks/useAuthenticatedReadScope.ts");
   modules["../assistantOutcome"] = compile("../assistantOutcome.ts");
   modules["./activityTerminalState"] = compile("./activityTerminalState.ts");
+  modules["../thinkingPreview"] = compile("../thinkingPreview.ts");
   const imageComponent = compile("./ImageTaskReceipt.tsx").default;
   const chat = compile("./ChatMessage.tsx").ChatMessage;
   const clean = (target: Lane) => target.slots.forEach(s => s.cleanup?.());
@@ -87,3 +88,13 @@ for (const diagnostic of ["", "bad", "11111111-1111-1111-1111-111111111111"]) te
 test("missing current session does not offer a task check", () => { const h = host(); h.props.sessionId = ""; assert.doesNotMatch(h.text(), /imageTaskReceipt.check/); assert.equal(h.requests.length, 0); h.unmount(); });
 test("effect replay does not fetch automatically and later check remains usable", async () => { const h = host(); h.render(); h.replayEffects(); assert.equal(h.requests.length, 0); h.click(); h.requests[0].resolve({ data: receipt() }); await settle(); assert.match(h.text(), /observed-model/); h.unmount(); });
 test("task receipt omits raw image URLs prompts errors and invalid optional metadata", async () => { const h = host(); h.click(); h.requests[0].resolve({ data: receipt({ images: [{ url: "https://untrusted.invalid/PRIVATE" }], prompt: "PRIVATE PROMPT", error: "PRIVATE ERROR", progress: 999, effective_model_id: null }) }); await settle(); assert.match(h.text(), /imageTaskReceipt.completed/); assert.doesNotMatch(h.text(), /PRIVATE|999|observed-model/); h.unmount(); });
+
+for (const state of ["reconnecting", "background", "unknown_outcome"] as const) test(`assistant renders live ${state} connection status independently of content`, () => {
+  const h = host(); Object.assign(h.props.message, { streamConnectionState: state, status: "streaming", outcomeUncertain: false, isStreaming: true, content: "Retained partial answer" });
+  const status = nodes(h.render()).find(node => node.props["data-stream-connection"] === state);
+  assert.ok(status); assert.equal(status.props.role, "status");
+  assert.ok(nodes(h.render()).some(node => node.type === "stream-output" && node.props.text === "Retained partial answer"));
+  Object.assign(h.props.message, { streamConnectionState: "server_terminal" });
+  assert.equal(nodes(h.render()).filter(node => node.props["data-stream-connection"]).length, 0);
+  h.unmount();
+});

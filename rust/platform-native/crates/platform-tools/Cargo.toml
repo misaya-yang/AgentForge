@@ -7,6 +7,7 @@ license.workspace = true
 name = "platform-tools"
 path = "src/main.rs"
 [dependencies]
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
@@ -15,14 +16,17 @@ sha1 = "0.10"
 regex = "1"
 toml = "0.8"
 globset = "0.4"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip.workspace = true
 syn = { version = "2", features = ["full", "visit"] }
 libc = "0.2"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 reqwest.workspace = true
 tokio.workspace = true
-ai-platform-capability-contract = { path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract" }
+ai-platform-capability-contract = { version = "0.0.0", path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract"  }
 tar = "0.4"
 flate2 = "1"
 dotenvy = "0.15"
+
+[dev-dependencies]
+jsonschema = { version = "=0.33.0", default-features = false }

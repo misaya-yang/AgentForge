@@ -1,3 +1,5 @@
+import { initBrowserTelemetry } from "@/observability/browserTelemetry";
+import { RouteTelemetry } from "@/observability/RouteTelemetry";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -69,6 +71,7 @@ const queryClient = new QueryClient({
 });
 
 async function bootstrap() {
+  initBrowserTelemetry();
   await initializeI18n();
   initInteractionTelemetry();
   createRoot(document.getElementById("root")!).render(
@@ -77,6 +80,7 @@ async function bootstrap() {
         <QueryClientProvider client={queryClient}>
           {/* v7: the old v7_startTransition / v7_relativeSplatPath future flags are now default behavior. */}
           <BrowserRouter>
+            <RouteTelemetry />
             <App />
           </BrowserRouter>
         </QueryClientProvider>

@@ -46,7 +46,7 @@ async fn signed(State(boundary): State<Boundary>, request: Request, next: Next) 
     }
 }
 async fn cached(State(boundary): State<Boundary>, request: Request, next: Next) -> Response {
-    if exempt(request.uri().path()) {
+    if exempt(request.uri().path()) || request.uri().path()==ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH {
         next.run(request).await
     } else {
         idempotency::middleware(State((*boundary.idempotency).clone()), request, next).await

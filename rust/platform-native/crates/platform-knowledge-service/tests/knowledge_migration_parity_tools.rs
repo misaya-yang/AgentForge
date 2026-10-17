@@ -1,4 +1,6 @@
 //! Public tool entrypoints must reject unsafe inputs before database/service work.
+#[path="common/no_network_plane.rs"]
+mod no_network_plane;
 use ai_platform_knowledge_service::{
     KnowledgeBackends, KnowledgeConnections, KnowledgeGraph,
     langgraph_tools::*,
@@ -33,6 +35,7 @@ async fn service() -> Arc<RetrievalService> {
     pool.close().await;
     KnowledgeGraph::new(
         KnowledgeConnections {
+            model_plane:Some(no_network_plane::client()),
             database: pool,
             replay_redis: None,
             idempotency_redis: None,

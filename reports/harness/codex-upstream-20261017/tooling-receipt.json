@@ -1,0 +1,75 @@
+{
+  "schema": "agentforge/codex-source-tooling-adaptation/v1",
+  "recorded_at": "2026-10-17T08:06:22.769Z",
+  "result": "implemented_static_checks_passed",
+  "source_scope": "Docker export v2 path mapping and complete compiled test inventory admission",
+  "source_files": [
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source.rs",
+      "sha256": "e98b4b758dd3bcb4064d4d195008d14895f7963a1e9c40595bdc8b78232bf24d"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_refresh.rs",
+      "sha256": "1d40672b2fe738e19ebe5a812395a13046958624bec0144b16d2743f963c5a88"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_export.rs",
+      "sha256": "648f09774e4d1ee051b690fc91ea4bcf9d9d022584b24d0f5acb991aea5dd28b"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_export_tests.rs",
+      "sha256": "acad806649d02108cb7e5c4619c2e94a939839a898f7d90b329ea4f690c68ee9"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_test_inventory.rs",
+      "sha256": "be15f423e19bc1a7e2b903a513cdf5f09c1f93c00ea663be4574b5f5f653824d"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_test_inventory_tests.rs",
+      "sha256": "32abd6a3ebc3940d358f2fabe430e6f7bcd46e2fc48ad6b10e099ec531fcca41"
+    }
+  ],
+  "checks": [
+    {
+      "command": "rustfmt --check --edition 2024 --config skip_children=true <six listed source files>",
+      "toolchain": "1.99.0",
+      "exit_code": 0,
+      "scope": "syntax and format only"
+    },
+    {
+      "command": "git diff --check -- <six listed source files and owning docs>",
+      "exit_code": 0
+    },
+    {
+      "command": "JSON.parse for all JSON examples in docs/harness/codex-export-evidence.md",
+      "examples": 7,
+      "exit_code": 0
+    }
+  ],
+  "source_regression_cases_added": 15,
+  "compiled_test_count": null,
+  "executed_test_count": null,
+  "not_run": [
+    "native Cargo check/test: integration writer owns serialized build",
+    "real Docker 1.95 check/test/list/schema/metadata exports",
+    "new source unit and source-lock admission"
+  ],
+  "input_contract": "docs/harness/codex-export-evidence.md",
+  "oversized_files": {
+    "source.rs": {
+      "baseline_lines": 962,
+      "current_lines": 960
+    },
+    "source_refresh.rs": {
+      "baseline_lines": 871,
+      "current_lines": 866
+    }
+  },
+  "preserved_requirements": [
+    "old source identity, hash, clean upstream and exact compiler argv/exit checks",
+    "all original thirteen required contract test names for new targets",
+    "zero failed/ignored/filtered test outcomes and complete named collection/execution equality",
+    "full immutable composed source including file modes and symlink target bytes before Docker mapping",
+    "host v1 cannot declare path aliases; only old092d source target retains its unmodified exact13 legacy evidence contract"
+  ]
+}

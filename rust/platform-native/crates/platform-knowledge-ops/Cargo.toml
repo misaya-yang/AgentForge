@@ -7,13 +7,13 @@ license.workspace = true
 name = "platform-knowledge-ops"
 path = "src/main.rs"
 [dependencies]
-ai-platform-knowledge-service = { path = "../platform-knowledge-service" }
-ai-platform-eval = { path = "../platform-eval" }
+ai-platform-knowledge-service = { version = "0.1.0", path = "../platform-knowledge-service"  }
+ai-platform-eval = { version = "0.1.0", path = "../platform-eval"  }
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "json"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json"] }
 dotenvy = "0.15"
 sha2 = "0.10"
 chrono = "0.4"

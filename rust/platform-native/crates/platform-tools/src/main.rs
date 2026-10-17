@@ -31,6 +31,15 @@ mod smoke_ops;
 mod source;
 mod supply_chain;
 mod topology;
+mod workflow_lint;
+mod third_party_notices;
+mod container_security;
+mod valkey_deployment;
+mod observability_contracts;
+mod valkey_material;
+#[allow(dead_code)]
+#[path = "../../../../../deploy/helm/ai-gateway/tests/contracts.rs"]
+mod helm_chart;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -375,6 +384,14 @@ fn run() -> Result<bool> {
  "image-size-check"=>image_size::run(&args)?,
  "database-identity-gate"=>database_identity::run(&args)?,
  "dependency-policy"=>dependency_policy::run(&args)?,
+ "workflow-lint"=>workflow_lint::run(&args)?,
+ "third-party-notices"=>third_party_notices::run(&args)?,
+ "container-security"=>container_security::run(&args)?,
+ "helm-contract"=>{let input=Path::new(args.positionals.get(1).ok_or("helm-contract requires rendered YAML")?);helm_chart::check_rendered(input)?;json!({"result":"pass","scope":"offline-rendered-helm-contract","input_sha256":digest(input)?,"cluster_acceptance":false})},
+ "valkey-deployment-check"=>{valkey_deployment::check(&root)?;json!({"result":"pass","scope":"source-only-valkey-split-policy","runtime_acceptance":false})},
+ "observability-check"=>{observability_contracts::check(&root)?;json!({"result":"pass","scope":"offline-observability-source-contract","runtime_acceptance":false,"collector_config_validated":false,"promtool_validated":false})},
+ "valkey-image-check"=>{let reference=args.positionals.get(1).ok_or("valkey-image-check requires image reference, UID and GID")?;valkey_deployment::validate_image(reference)?;valkey_deployment::validate_identity(args.positionals.get(2).ok_or("UID required")?,args.positionals.get(3).ok_or("GID required")?)?;json!({"result":"pass","scope":"reference-shape-only","image_identity_verified":false})},
+ "valkey-material"=>{let destination=Path::new(args.positionals.get(1).ok_or("valkey-material requires a new absolute external directory")?);let count=valkey_material::generate(&root,destination)?;json!({"result":"pass","generated_file_count":count})},
  "supply-chain"=>supply_chain::run(&args)?,
  "buildx-resource-builder"=>buildx_resource::run(&args)?,
  "affected-gates"=>selection::run(&args)?,

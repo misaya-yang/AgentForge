@@ -48,6 +48,8 @@ BUILD_COMPOSE := $(COMPOSE) -f docker-compose.yml -f deploy/compose/docker-compo
 DEV_COMPOSE := $(BUILD_COMPOSE) -f deploy/compose/docker-compose.dev.yml
 COMPOSE_PARALLEL_LIMIT ?= 1
 export COMPOSE_PARALLEL_LIMIT
+HELM ?= helm
+HELM_EVIDENCE_DIR ?= tmp/gate-evidence
 
 .DEFAULT_GOAL := help
 
@@ -61,8 +63,24 @@ doctor:                     ## 环境体检: 工具/Docker/内存/端口/compose
 harness-check: ## Native equivalent gate
 	@platform-tools harness-check --repo-root .
 
+.PHONY: helm-native-gate
+helm-native-gate: ## Render public Helm fixtures and enforce native security/identity contracts
+	@mkdir -p "$(HELM_EVIDENCE_DIR)"
+	@"$(HELM)" lint deploy/helm/ai-gateway -f deploy/helm/ai-gateway/tests/values-render.yaml
+	@"$(HELM)" lint deploy/helm/ai-gateway -f deploy/helm/ai-gateway/tests/values-render.yaml -f deploy/helm/ai-gateway/tests/values-features.yaml
+	@"$(HELM)" lint deploy/helm/agentforge-secrets -f deploy/helm/agentforge-secrets/tests/values-render.yaml
+	@"$(HELM)" template fixture-secrets deploy/helm/agentforge-secrets -f deploy/helm/agentforge-secrets/tests/values-render.yaml > "$(HELM_EVIDENCE_DIR)/helm-native-external-secrets.yaml"
+	@"$(HELM)" template contract deploy/helm/ai-gateway -f deploy/helm/ai-gateway/tests/values-render.yaml > "$(HELM_EVIDENCE_DIR)/helm-native-base.yaml"
+	@platform-tools helm-contract "$(HELM_EVIDENCE_DIR)/helm-native-base.yaml" > "$(HELM_EVIDENCE_DIR)/helm-native-base.json"
+	@"$(HELM)" template contract deploy/helm/ai-gateway -f deploy/helm/ai-gateway/tests/values-render.yaml -f deploy/helm/ai-gateway/tests/values-features.yaml > "$(HELM_EVIDENCE_DIR)/helm-native-full.yaml"
+	@platform-tools helm-contract "$(HELM_EVIDENCE_DIR)/helm-native-full.yaml" > "$(HELM_EVIDENCE_DIR)/helm-native-contract.json"
+
 runtime-dependency-gate: ## Native equivalent gate
 	@platform-tools python-inventory --repo-root . --require-zero
+
+.PHONY: valkey-deployment-gate
+valkey-deployment-gate: ## Check source-only split Valkey TLS, ACL, durability and deployment policy
+	@platform-tools valkey-deployment-check --repo-root .
 
 gateway-kb-boundary-gate:   ## 阻止 gateway 重新持有 KB 表 SQL 或 KB 请求 schema（PRD T8.4）
 	@ai-platform-openapi gateway-kb-boundary
@@ -101,9 +119,9 @@ agent-runtime-text-gate:    ## 真实 Qwen Responses：简单、长输出与重�
 
 agent-runtime-single-kernel-gate: ## 验证唯一 Rust Agent 内核、V1/V2 投影和迁移合同
 	@platform-tools agent-runtime-single-kernel-gate
-	@ENV_FILE="$(ENV_FILE)" cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_agent
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_v2_turn_contract --test runtime_control_plane
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test runtime_thread_store_migration
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --lib migration_agent
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --test runtime_v2_turn_contract --test runtime_control_plane
+	@$(NATIVE_CONTAINER) test -p ai-platform-migration-authority --test runtime_thread_store_migration
 	@echo "Disposable PostgreSQL execution is the separate agent-thread-store-contract L2 gate; this offline target does not certify it."
 	@$(MAKE) verify-native-openapi-contract
 
@@ -118,9 +136,14 @@ agent-thread-store-contract: ## 在真实 PostgreSQL 验证 Agent ThreadStore �
 	@ENV_FILE="$(ENV_FILE)" AI_PLATFORM_AGENT_RUNTIME_SOURCE="$(AI_PLATFORM_AGENT_RUNTIME_SOURCE)" \
 		bash scripts/harness/agent_thread_store_contract.sh
 
-agent-capability-worker-build-local: ## 单 job 构建固定源码的 Rust capability worker 镜像
+agent-capability-worker-build-local: ## 在共享资源锁内构建固定源码的 Rust control worker 镜像
 	@AI_PLATFORM_AGENT_RUNTIME_SOURCE="$(AI_PLATFORM_AGENT_RUNTIME_SOURCE)" \
-		bash scripts/harness/build_agent_capability_worker_image.sh
+		bash scripts/rust/build-update.sh --artifact worker
+
+.PHONY: agent-python-sandbox-build-local
+agent-python-sandbox-build-local: ## 在共享资源锁内构建独立无凭据 Python sandbox 镜像
+	@AI_PLATFORM_AGENT_RUNTIME_SOURCE="$(AI_PLATFORM_AGENT_RUNTIME_SOURCE)" \
+		bash scripts/rust/build-update.sh --artifact sandbox
 
 agent-capability-worker-smoke: ## 隔离 PostgreSQL 验证 capability worker 的租约、幂等、事件、取消和恢复
 	@bash scripts/harness/smoke_agent_capability_worker_image.sh
@@ -145,7 +168,7 @@ agent-runtime-source-build-local: ## 低内存构建本地 Agent Runtime 源码�
 	@bash scripts/harness/build_agent_runtime_source_image.sh
 
 sdk-sse-contract:           ## 验证四端 SSE 合同；发布 CI 要求 Maven/Dart 必须存在
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --lib --test sdk_transport
+	@$(NATIVE_CONTAINER) test -p ai-platform-client --lib --test sdk_transport
 	@npm --prefix sdk/cli run typecheck
 	@npm --prefix sdk/cli test
 	@if command -v mvn >/dev/null 2>&1; then \
@@ -261,7 +284,9 @@ status:                     ## 查看所有服务状态和健康检查
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/status.sh
 
 hot-update:                 ## 从原生源码构建镜像并更新选定服务
-	@bash $(SCRIPTS)/hot-update.sh --env "$(ENV_FILE)" $(ARGS)
+	@controller="$$(cat "$${XDG_CACHE_HOME:-$$HOME/.cache}/agentforge-native-launcher/lock-controller.path")"; \
+	  test -x "$$controller" || { echo 'Configure the retained bootstrap lock-controller.path first'; exit 2; }; \
+	  "$$controller" resource-lock run --resource integration-runtime --expected-end-condition 'Selected service image build and replacement exits' -- bash $(SCRIPTS)/hot-update.sh --env "$(ENV_FILE)" $(ARGS)
 
 # -- Database Migrations ------------------------------------------------------
 
@@ -331,21 +356,21 @@ verify-assistant-runtime-dev: ## 运行 Assistant Runtime 离线回归门禁 (AH
 	@assistant_runtime_regression gate --no-write
 
 agent-runtime-eval-contract-gate: ## 验证 V2 Agent Runtime 的离线 Thread/Turn/Item 质量合同
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --test runtime_contract_source
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_compat::eval
+	@$(NATIVE_CONTAINER) test -p ai-platform-eval --test runtime_contract_source
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --test runtime_eval_contract
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --lib migration_compat::eval
 
 agent-eval-core-gate:       ## 运行 Agent Runtime 候选执行、统计、评估器与多代理核心门禁
 	@$(MAKE) agent-runtime-eval-contract-gate
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --lib
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test eval_online_outbox_contract
+	@$(NATIVE_CONTAINER) test -p ai-platform-eval --lib
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --test eval_online_outbox_contract
 	@echo 'Offline candidate/evaluator gate; real-provider acceptance requires the explicit live gate and credentials.'
 
 verify-eval-dev:            ## 运行 Agent Trace/Eval dev 分支验证门禁
 	@cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval -- --check
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --lib migration_compat::eval
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract --test eval_online_outbox_contract --test trace_feedback_source_matrix --test agent_studio_eval
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --lib migration_compat::eval
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --test runtime_eval_contract --test eval_online_outbox_contract --test trace_feedback_source_matrix --test agent_studio_eval
+	@$(NATIVE_CONTAINER) test -p ai-platform-eval
 	@$(MAKE) eval-e1-gate
 	@pnpm -C web lint
 	@pnpm -C web type-check
@@ -374,13 +399,15 @@ kb-image-lock-gate:         ## 校验 Knowledge Service 镜像锁同步、哈希
 	@native-image-inputs --repo-root .
 
 kb-unit-gate:               ## 运行 Knowledge Service 与原生运维工具的离线 Rust 单元门禁
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --lib
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --test process_contract --test local_embedding_contract --test rerank_contract
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --lib
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway-integrations --lib migration_knowledge
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --test rag
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi --test kb_release_source_matrix
+	@$(NATIVE_CONTAINER) test -p ai-platform-knowledge-service --lib
+	@$(NATIVE_CONTAINER) test -p ai-platform-knowledge-service --test process_contract --test local_embedding_contract --test rerank_contract
+	@$(NATIVE_CONTAINER) test -p ai-platform-knowledge-ops --lib
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway-integrations --lib migration_knowledge
+	@$(NATIVE_CONTAINER) test -p ai-platform-eval --test rag
+	@$(NATIVE_CONTAINER) test -p ai-platform-openapi --test kb_release_source_matrix
 
+# Legacy explicit live recipe retained; separate Docker runtime wiring is pending.
+# Not executed this checkpoint; outside daily Docker support and no host-build authorization.
 kb-migration-gate:          ## 运行 KB 100–112 + 097/101 restore + 完整链/账本迁移门禁（需临时 Postgres + pg_dump/restore）
 	@echo "Native migration contract: full chain, idempotence, roles, lock serialization, crash rollback, and 101 dump/restore. Specialized historical embedding/artifact assertions are not certified by this target."
 	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --test kb_migration_contract -- --ignored --test-threads=1
@@ -429,6 +456,8 @@ rag-live-quality-gate:      ## L3 活栈 RAG 质量门禁: 黄金集对真实 KS
 
 # Explicit native live smoke requires Qdrant; ordinary cargo tests keep it ignored.
 # The named live gate fails if its required stack is unavailable.
+# Legacy explicit live recipe retained; separate Docker runtime wiring is pending.
+# Not executed this checkpoint; outside daily Docker support and no host-build authorization.
 kb-integration-smoke:       ## Qdrant 集成冒烟（需 kbms 栈；显式调用时缺栈失败）
 	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-service --test qdrant_integration_smoke -- --ignored --test-threads=1
 
@@ -459,8 +488,8 @@ kb-baseline-record:         ## 记录真实语料检索基线候选（需活的 
 	@echo "baseline candidate recorded; it is not release evidence until reviewed, bound, and kb-release-evidence-gate passes"
 
 eval-e1-unit-gate:          ## 运行 Agent stateful 与 RAG Eval E1 单元门禁
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --lib --test golden --test rag --test runtime_contract_source
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_eval_contract
+	@$(NATIVE_CONTAINER) test -p ai-platform-eval --lib --test golden --test rag --test runtime_contract_source
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway --test runtime_eval_contract
 
 eval-e1-gate:               ## 运行 Eval E1 离线 fixture-contract 门禁（Agent + RAG）
 	@$(MAKE) eval-e1-unit-gate
@@ -469,6 +498,8 @@ eval-e1-gate:               ## 运行 Eval E1 离线 fixture-contract 门禁（A
 
 # -- Agent Runtime isolation gate --------------------------------------------
 
+# Legacy explicit live recipe retained; separate Docker runtime wiring is pending.
+# Not executed this checkpoint; outside daily Docker support and no host-build authorization.
 test-isolation:             ## 运行 Agent Runtime 与 Gateway 隔离契约测试
 	@platform-tools live-openapi-contract --repo-root . --evidence-out tmp/gate-evidence/isolation-openapi.json
 	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_boot --test agent_studio_authorization --test runtime_control_plane
@@ -543,7 +574,7 @@ rust-changed-crate-gate:    ## 组合 lock-pinned upstream + 当前 overlay，�
 	@platform-tools rust-changed-crate-gate --base "$(BASE_SHA)"
 
 gateway-unit-gate:          ## Gateway 离线单元门禁: 排除 integration 标记与 KB/DB 套件
-	@cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway -p ai-platform-gateway-foundation -p ai-platform-gateway-integrations -p ai-platform-auth -p ai-platform-eval -p ai-platform-openapi -p ai-platform-tools --lib --tests
+	@$(NATIVE_CONTAINER) test -p ai-platform-gateway -p ai-platform-gateway-foundation -p ai-platform-gateway-integrations -p ai-platform-auth -p ai-platform-eval -p ai-platform-openapi -p ai-platform-tools --lib --tests
 
 # -- Help ---------------------------------------------------------------------
 
@@ -557,28 +588,28 @@ help:                       ## 显示此帮助信息
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-# Native migration entry points. All generated artifacts must remain external.
+# Daily Linux-native builds share one Docker cache; no host server Cargo target.
 NATIVE_MANIFEST := rust/platform-native/Cargo.toml
 NATIVE_BIN_DIR ?= $(HOME)/.local/bin
-.PHONY: native-check native-test native-install native-engine-build native-build-path-guard
-native-build-path-guard:
-	@test -n "$(CARGO_TARGET_DIR)" || { echo "Set an external CARGO_TARGET_DIR"; exit 2; }
-	@mkdir -p "$(CARGO_TARGET_DIR)"; target=$$(cd "$(CARGO_TARGET_DIR)" && pwd -P); root=$$(pwd -P); case "$$target/" in "$$root/"*) echo "CARGO_TARGET_DIR must be outside the source checkout"; exit 2;; esac
-native-check: native-build-path-guard ## Check every native service and test target
-	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
-	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo check --locked --manifest-path $(NATIVE_MANIFEST) --workspace --all-targets
-native-test: native-build-path-guard ## Run native unit and integration contracts
-	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
-	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked --manifest-path $(NATIVE_MANIFEST) --workspace
-native-engine-build: native-build-path-guard ## Build the native SDK execution process
-	@test -n "$(CARGO_TARGET_DIR)" || (echo 'Set CARGO_TARGET_DIR to an external build directory'; exit 2)
-	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo build --locked --manifest-path rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/Cargo.toml
+NATIVE_CONTAINER := scripts/new/native-container.sh
+.PHONY: native-check native-test native-install native-engine-build native-build-path-guard native-prepare native-watch
+native-prepare: ## Prepare the Docker compiler; ARGS=--fetch explicitly fills its public registry cache
+	@$(NATIVE_CONTAINER) prepare $(ARGS)
+native-watch: ## Watch selected source paths; ARGS selects build-only or controlled restart
+	@$(NATIVE_CONTAINER) watch $(ARGS)
+native-build-path-guard: ## Verify the Docker compiler and owned source/cache boundary
+	@$(NATIVE_CONTAINER) doctor
+native-check: ## Check every native service and test target in Docker
+	@$(NATIVE_CONTAINER) check --workspace --all-targets
+native-test: ## Run native unit and integration contracts in Docker
+	@$(NATIVE_CONTAINER) test --workspace
+native-engine-build: ## Build the native SDK execution process in the same Docker cache
+	@$(NATIVE_CONTAINER) engine-build
 NATIVE_INSTALL_PACKAGES := ai-platform-client-packaging ai-platform-client ai-platform-gateway ai-platform-knowledge-service ai-platform-migration-authority ai-platform-sdk-agent-worker ai-platform-local-node ai-platform-tools ai-platform-release ai-platform-eval ai-platform-config-loader ai-platform-agent-plugins ai-platform-knowledge-ops ai-platform-openapi ai-platform-auth
-NATIVE_INSTALL_BINS := local_live_acceptance macos_computer_live_acceptance platform-client-packaging platformctl gateway gateway_capacity_inventory platform-knowledge-service database-authority sdk-agent-worker local-node platform-tools platform-release platform-knowledge-ops ai-platform-openapi prepare_native_gateway_config validate_agent_plugin admin-create repair-usage-metrics check-successor-proposals render-baseline-contract freeze-baseline probe-successor-roles database-policy generate-database-grants gateway-preflight recovery-pack verify-local-stack uat-gateway-capacity-probe uat-gateway-capacity-smoke agent_studio_regression assistant_runtime_regression assistant_ttft_benchmark collect_cra_compliance_research eval_general_agent_failure_recovery eval_golden eval_rag native_agent_parity_benchmark ppr00_resource_profile real_agent_scenario_runner regen_rag_observations seed_kb_golden_set validate_real_finance_eval ai-platform-sdk-agent-engine native-image-inputs agent-runtime-eval-contract agent-runtime-text-gate assistant_capability_live judge_real_agent_receipts verify_coding_parallel_fixture runtime_recovery_reference runtime_recovery_observe runtime_durable_recovery_gate
-native-install: native-engine-build ## Build and install native services and operational tools
-	@CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo build --locked --manifest-path $(NATIVE_MANIFEST) $(foreach p,$(NATIVE_INSTALL_PACKAGES),-p $(p)) --bins
-	@install -d "$(NATIVE_BIN_DIR)"
-	@for binary in $(NATIVE_INSTALL_BINS); do install "$(CARGO_TARGET_DIR)/debug/$$binary" "$(NATIVE_BIN_DIR)/$$binary"; done
+NATIVE_INSTALL_BINS := local_live_acceptance macos_computer_live_acceptance platform-client-packaging platformctl gateway gateway_capacity_inventory platform-knowledge-service database-authority sdk-agent-worker local-node platform-tools platform-release platform-knowledge-ops ai-platform-openapi prepare_native_gateway_config validate_agent_plugin admin-create repair-usage-metrics check-successor-proposals render-baseline-contract freeze-baseline probe-successor-roles database-policy generate-database-grants gateway-preflight recovery-pack verify-local-stack uat-gateway-capacity-probe uat-gateway-capacity-smoke agent_studio_regression assistant_runtime_regression assistant_ttft_benchmark collect_cra_compliance_research eval_general_agent_failure_recovery eval_golden eval_rag native_agent_parity_benchmark ppr00_resource_profile real_agent_scenario_runner regen_rag_observations seed_kb_golden_set validate_real_finance_eval ai-platform-sdk-agent-engine native-image-inputs agent-runtime-eval-contract agent-runtime-text-gate assistant_capability_live judge_real_agent_receipts verify_coding_parallel_fixture runtime_recovery_reference runtime_recovery_observe runtime_durable_recovery_gate recovery-backup pg-major-rehearsal
+native-install: native-engine-build ## Build Docker binaries and install host launcher shims
+	@$(NATIVE_CONTAINER) build $(foreach p,$(NATIVE_INSTALL_PACKAGES),-p $(p)) --bins
+	@for binary in $(NATIVE_INSTALL_BINS); do $(NATIVE_CONTAINER) install --binary "$$binary" --prefix "$(patsubst %/bin,%,$(NATIVE_BIN_DIR))" || exit $$?; done
 
 .PHONY: agent-runtime-history-gate
 agent-runtime-history-gate: ## N-1 native rollout decoder corpus; missing evidence blocks release

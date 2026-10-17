@@ -1,6 +1,22 @@
 # Isolated infrastructure for source development; no application image fallback.
+x-service-hardening: &service-hardening
+  cap_drop: [ALL]
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  user: "1000:1000"
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+
 services:
   postgres:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=70,gid=70,mode=1777
+      - /var/run/postgresql:rw,noexec,nosuid,nodev,size=16m,uid=70,gid=70,mode=3775
+    networks:
+      - data-postgres
+    user: "70:70"
     image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -15,6 +31,10 @@ services:
       timeout: 5s
       retries: 12
   redis:
+    <<: *service-hardening
+    networks:
+      - data-redis
+    user: "999:1000"
     image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -31,13 +51,58 @@ services:
       timeout: 5s
       retries: 12
   qdrant:
+    <<: *service-hardening
+    networks:
+      - data
+    user: "1000:1000"
     image: qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    environment:
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:?Provision the Qdrant writer key}"
+      QDRANT__SERVICE__READ_ONLY_API_KEY: "${QDRANT_READ_ONLY_API_KEY:?Provision a distinct Qdrant read-only key}"
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /run/qdrant/tls.crt
+      QDRANT__TLS__KEY: /run/qdrant/tls.key
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/storage/snapshots
+      QDRANT__STORAGE__TEMP_PATH: /qdrant/storage/snapshots_temp
+      QDRANT_INIT_FILE_PATH: /qdrant/storage/.qdrant-initialized
     ports:
       - "127.0.0.1:${QDRANT_HTTP_PORT}:6333"
       - "127.0.0.1:${QDRANT_GRPC_PORT}:6334"
-    volumes: ["qdrant:/qdrant/storage"]
+    volumes:
+      - qdrant:/qdrant/storage
+      - type: bind
+        source: "${QDRANT_TLS_CERT_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.crt
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_TLS_KEY_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/tls.key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${QDRANT_CA_BUNDLE_FILE:?Provision Qdrant TLS inputs outside source control}"
+        target: /run/qdrant/ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
     mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "bash -o pipefail -ec 'printf \"GET /healthz HTTP/1.1\\r\\nHost: qdrant\\r\\nConnection: close\\r\\n\\r\\n\" | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca-bundle.pem 2>/dev/null | grep -q \"healthz check passed\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   object-store:
+    <<: *service-hardening
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1777
+      - /logs:rw,noexec,nosuid,nodev,size=32m,uid=10001,gid=10001,mode=0750
+    networks:
+      - data-object-store
+    user: "10001:10001"
     image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
     environment:
       RUSTFS_VOLUMES: /data
@@ -56,6 +121,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+networks:
+  edge:
+    driver: bridge
+  app:
+    driver: bridge
+  data-postgres:
+    driver: bridge
+    internal: true
+  data-redis:
+    driver: bridge
+    internal: true
+  # Qdrant has its own store network: only Knowledge roles may join it.
+  data:
+    driver: bridge
+    internal: true
+  data-object-store:
+    driver: bridge
+    internal: true
 volumes:
   postgres:
   redis:

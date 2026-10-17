@@ -1,0 +1,32 @@
+{
+  "schema": "agentforge/current-native-independent-tests/v1",
+  "observed_at": "2026-10-17T08:03:27.369207+00:00",
+  "results": {
+    "sdk_tls_transport": {
+      "passed": 5,
+      "failed": 0
+    },
+    "local_node_lib": {
+      "passed": 23,
+      "failed": 0
+    },
+    "price_book": {
+      "passed": 17,
+      "failed": 0
+    },
+    "runtime_cache_settlement": {
+      "passed": 2,
+      "failed": 0
+    },
+    "browser_telemetry_collector": {
+      "passed": 6,
+      "failed": 0
+    },
+    "scope": "Actual current native Cargo unit tests; OS pairing, real TLS/callback services, canonical026 and product journeys remain unaccepted."
+  },
+  "actual_logs": [
+    "external evidence/native-current-independent-tests-r3.log",
+    "external evidence/native-current-independent-tests.log"
+  ],
+  "product_accepted": false
+}

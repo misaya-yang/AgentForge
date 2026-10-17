@@ -1,10 +1,5 @@
-* text=auto eol=lf
-
-# Keep Windows scripts on CRLF if they exist.
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-
-# Evaluation inputs carry content hashes; preserve imported fixture bytes.
-tests/fixtures/eval/** -text
-
+# Preserve upstream source bytes, Markdown hard breaks and unified-diff context.
+rust/platform-native/vendor/** -whitespace
+# Raw command output is retained byte-for-byte for the recorded evidence hashes.
+reports/platform-upgrade-20261017/ce032-final-source/*.stdout -whitespace
+reports/platform-upgrade-20261017/ce032-final-source/*.stderr -whitespace

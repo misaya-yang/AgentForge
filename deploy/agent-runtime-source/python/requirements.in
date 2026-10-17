@@ -1,0 +1,8 @@
+# Curated optional data stack. Exact versions and release hashes are resolved
+# separately for CPython 3.14 / Debian 13 amd64 and arm64 in the checked-in locks.
+numpy>=2.3,<3
+pandas>=2.3,<4
+scipy>=1.16,<2
+matplotlib>=3.10,<4
+pillow>=12,<13
+openpyxl==3.1.5

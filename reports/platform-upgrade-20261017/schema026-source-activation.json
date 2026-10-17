@@ -1,0 +1,45 @@
+{
+  "schema": "agentforge/schema026-source-activation/v1",
+  "verified_at": "2026-10-17T10:40:29.023877+00:00",
+  "source_epoch": 26,
+  "main_database_mutated": false,
+  "business_services_started": false,
+  "measured_bundle": "/Users/yang/.cache/agentforge-upgrade/schema026-bundle-r2-20261017",
+  "lock_sha256": "412f111e43c8bce04096a84beaff05a8c139762ff335e8138f09696936cc711a",
+  "manifest_sha256": "c7224df7a5ba48f8a061c416b04928e84f5758de67b941093f8e036bf8b744b7",
+  "actual_checks": {
+    "strict_verify_activated_exit_code": 0,
+    "native_export_exit_code": 0,
+    "authority_library": {
+      "passed": 122,
+      "failed": 0,
+      "ignored": 0
+    },
+    "authority_bins": {
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0,
+      "suites": 17
+    },
+    "overlay_snapshot_sha256": "271e735cc1bf5fa299bafe10e6b97a57817c720a00b326c48edbd38dbb89af74"
+  },
+  "logs_sha256": {
+    "schema026-activated-authority-tests-r1.log": "4cc36171236627bef0107be0b1cdff38b79d02f67773afae1291262e64a0e57d",
+    "schema026-activated-authority-bins-r3.log": "c03267a1e9e98b60f3f10caabfde13bb0710f1fce33e5ab1e2af74ddaf0f4c78",
+    "schema026-activated-source.json": "c0df3a300d77f481b629f5b59622999544a8589446c69648deae20fc8f61b6be",
+    "schema026-native-admission.stdout": "271e735cc1bf5fa299bafe10e6b97a57817c720a00b326c48edbd38dbb89af74"
+  },
+  "repairs": [
+    "Missing probe BTreeSet import fixed after compile failure.",
+    "Internal capability-contract dependency is version0.0.0, not native workspace0.1.0.",
+    "Historical CLI modes verify later complete activated chains; trusted default/fixture paths canonicalized; explicit user source path guards unchanged."
+  ],
+  "limitations": [
+    "Library122 passed before final CLI-only dispatcher repair; CLI30 passed after repair.",
+    "Main database remains25; current native26 and overlay26 binaries will refuse readiness until controlled activation.",
+    "Native tests precede the independent Candle ZIP patch lock update.",
+    "New unnumbered proposals require subsequent measured successor.",
+    "Runtime/Worker compiled26 snapshots require controlled source/image rebuild and admission.",
+    "N-1 old-history/service integration and overall product acceptance remain unrun."
+  ]
+}

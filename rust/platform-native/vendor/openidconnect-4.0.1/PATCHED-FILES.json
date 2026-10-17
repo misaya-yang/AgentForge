@@ -1,0 +1,20 @@
+{
+  "changed_upstream_files": [
+    "Cargo.toml",
+    "Cargo.toml.orig",
+    "src/core/crypto.rs",
+    "src/core/jwk/mod.rs",
+    "src/core/jwk/tests.rs",
+    "src/core/mod.rs",
+    "tests/rp_certification_code.rs",
+    "tests/rp_certification_dynamic.rs"
+  ],
+  "new_source_files": [
+    "src/core/rsa_openssl.rs",
+    "src/core/rsa_openssl_tests.rs",
+    "tests/fixtures/upstream-rsa-private.pem"
+  ],
+  "patch_sha256": "9952c9535e253df0e164d393811bde91ebd04816dcac1fef11bd73ade0aad222",
+  "retained_upstream_tests": true,
+  "root_manifest_and_lock_changed": false
+}
