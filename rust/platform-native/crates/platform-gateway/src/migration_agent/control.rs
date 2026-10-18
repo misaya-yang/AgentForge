@@ -1,5 +1,7 @@
 //! Gateway control plane. Only issues/resumes/interrupts the existing Runtime;
 //! model or tool selection is never performed in this module.
+#[path = "execution_transport.rs"]
+pub(crate) mod execution_transport;
 use super::instructions::{CORE_ASSISTANT_PROMPT, GENERIC_AGENT_INSTRUCTIONS};
 use super::{
     Actor, AgentError, AgentFuture, Scope, entry,
@@ -8,7 +10,8 @@ use super::{
     threads::{AgentThreadStore, RuntimeThread},
 };
 use crate::migration_host::context;
-#[path="control_transport.rs"]
+use execution_transport::WorkloadSend;
+#[path = "control_transport.rs"]
 mod control_transport;
 use crate::{
     capacity::{CapacityRequest, CapacityResolver},
@@ -276,14 +279,18 @@ impl RuntimeControlPlane {
         signer: Arc<LeaseSigner>,
         options: RuntimeOptions,
     ) -> Result<Self, AgentError> {
+        if execution_transport::required() && !options.runtime_internal_token.is_empty() {
+            return Err(AgentError::code(503, "WORKLOAD_SHARED_BEARER_FORBIDDEN"));
+        }
         if options.runtime_url.is_empty()
-            || options.runtime_internal_token.is_empty()
+            || (!execution_transport::required() && options.runtime_internal_token.is_empty())
             || options.model_plane_base_url.is_empty()
             || options.kernel_revision.is_empty()
         {
             return Err(AgentError::code(503, "AGENT_RUNTIME_UNAVAILABLE"));
         }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
@@ -492,7 +499,7 @@ impl RuntimeControlPlane {
             return Err(error());
         }
         for attempt in 0..3 {
-            let result=sqlx::query("UPDATE assistant_runtime_threads SET dynamic_tool_fingerprint=$1,updated_at=NOW() WHERE runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5 AND dynamic_tool_fingerprint IS NULL AND deleted_at IS NULL").bind(fingerprint).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).execute(&self.pool).await;
+            let result=sqlx::query("UPDATE assistant_runtime_threads SET dynamic_tool_fingerprint=$1,updated_at=NOW() WHERE runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5 AND dynamic_tool_fingerprint IS NULL AND deleted_at IS NULL").bind(fingerprint).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await;
             if result.as_ref().is_ok_and(|r| r.rows_affected() == 1) {
                 thread.dynamic_tool_fingerprint = Some(fingerprint.into());
                 return Ok(thread);
@@ -525,7 +532,7 @@ impl RuntimeControlPlane {
             )))
             .headers(self.headers(scope, None)?)
             .json(config)
-            .send()
+            .workload_send()
             .await
             .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_THREAD_RESUME_FAILED"))?;
         if !response.status().is_success() {
@@ -575,7 +582,7 @@ impl RuntimeControlPlane {
             .post(url)
             .headers(self.headers(scope, None)?)
             .json(&json!({}))
-            .send()
+            .workload_send()
             .await
             .map_err(|_| {
                 AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_SESSION_CLEANUP_FAILED")
@@ -613,7 +620,7 @@ impl RuntimeControlPlane {
             )))
             .headers(self.headers(scope, Some(turn))?)
             .json(&json!({}))
-            .send()
+            .workload_send()
             .await
             .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_RECOVERY_FAILED"))?;
         if !response.status().is_success() {
@@ -647,7 +654,7 @@ impl RuntimeControlPlane {
             )))
             .headers(self.headers(scope, Some(turn))?)
             .json(&json!({}))
-            .send()
+            .workload_send()
             .await
             .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_INTERRUPT_FAILED"))?;
         if !response.status().is_success() {
@@ -667,7 +674,7 @@ impl RuntimeControlPlane {
             .client
             .get(self.endpoint(&format!("/internal/v1/approvals/{}", super::uuid(id)?)))
             .headers(self.headers(scope, None)?)
-            .send()
+            .workload_send()
             .await
             .map_err(|_| {
                 AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_APPROVAL_LOOKUP_FAILED")
@@ -727,7 +734,7 @@ impl RuntimeControlPlane {
             )))
             .headers(self.headers(scope, None)?)
             .json(&payload)
-            .send()
+            .workload_send()
             .await
             .map_err(|_| {
                 AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_APPROVAL_DECISION_FAILED")
@@ -752,13 +759,24 @@ impl RuntimeControlPlane {
         })
     }
     pub async fn complete_run(&self, run: &str, status: &str) -> Result<(), AgentError> {
+        let tenant = match ai_platform_gateway_foundation::tenant_database::run_tenant(
+            &self.pool, run,
+        )
+        .await
+        {
+            Ok(tenant) => tenant,
+            Err(sqlx::Error::RowNotFound) => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
         let status = completion_status(status);
-        let mut usage:Value=sqlx::query_scalar("SELECT jsonb_build_object('input_tokens',COALESCE(SUM(input_tokens),0)::bigint,'output_tokens',COALESCE(SUM(output_tokens),0)::bigint,'cost_microusd',COALESCE(SUM(cost_microusd),0)::bigint) FROM assistant_runtime_model_calls WHERE run_id=$1::uuid AND status='completed'").bind(run).fetch_one(&self.pool).await?;
+        let mut usage:Value=sqlx::query_scalar("SELECT jsonb_build_object('input_tokens',COALESCE(SUM(input_tokens),0)::bigint,'output_tokens',COALESCE(SUM(output_tokens),0)::bigint,'cost_microusd',COALESCE(SUM(cost_microusd),0)::bigint) FROM assistant_runtime_model_calls WHERE run_id=$1::uuid AND status='completed'").bind(run).fetch_one(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
         let snapshot: Option<Value> = sqlx::query_scalar(
             "SELECT snapshot FROM assistant_runtime_snapshots WHERE run_id=$1::uuid",
         )
         .bind(run)
-        .fetch_optional(&self.pool)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+            &self.pool, &tenant,
+        ))
         .await?;
         if let Some(p) = snapshot
             .as_ref()
@@ -767,12 +785,14 @@ impl RuntimeControlPlane {
         {
             usage["metadata"] = json!({"pricing_snapshot":p});
         }
-        sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason=$2,updated_at=NOW() WHERE run_id=$1::uuid AND status='active'").bind(run).bind(format!("turn_{status}")).execute(&self.pool).await?;
+        sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason=$2,updated_at=NOW() WHERE run_id=$1::uuid AND status='active'").bind(run).bind(format!("turn_{status}")).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
         sqlx::query(COMPLETE_RUN_SQL)
             .bind(run)
             .bind(status)
             .bind(usage)
-            .execute(&self.pool)
+            .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                &self.pool, &tenant,
+            ))
             .await?;
         if let Some(lease) = self.run_leases.lock().await.remove(run) {
             lease.release().await;
@@ -781,7 +801,9 @@ impl RuntimeControlPlane {
         // This never promotes mixed provider/estimated records into settlement.
         sqlx::query(TERMINAL_USAGE_PROJECTION_SQL)
             .bind(run)
-            .execute(&self.pool)
+            .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                &self.pool, &tenant,
+            ))
             .await?;
         Ok(())
     }
@@ -791,8 +813,17 @@ impl RuntimeControlPlane {
         snapshot: &str,
         reason: &str,
     ) -> Result<(), AgentError> {
-        sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason=$3,updated_at=NOW() WHERE run_id=$1::uuid AND snapshot_id=$2::uuid AND status='active'").bind(run).bind(snapshot).bind(reason).execute(&self.pool).await?;
-        sqlx::query("UPDATE assistant_runs SET status='failed',error=$2,finished_at=NOW(),updated_at=NOW() WHERE run_id=$1::uuid AND engine='agent_runtime' AND status='running'").bind(run).bind(reason).execute(&self.pool).await?;
+        let tenant = match ai_platform_gateway_foundation::tenant_database::run_tenant(
+            &self.pool, run,
+        )
+        .await
+        {
+            Ok(tenant) => tenant,
+            Err(sqlx::Error::RowNotFound) => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason=$3,updated_at=NOW() WHERE run_id=$1::uuid AND snapshot_id=$2::uuid AND status='active'").bind(run).bind(snapshot).bind(reason).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
+        sqlx::query("UPDATE assistant_runs SET status='failed',error=$2,finished_at=NOW(),updated_at=NOW() WHERE run_id=$1::uuid AND engine='agent_runtime' AND status='running'").bind(run).bind(reason).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
         Ok(())
     }
     async fn bind_catalog(
@@ -1102,12 +1133,7 @@ impl RuntimeControlPlane {
             .models
             .model(&scope.tenant_id, &request.model_id, provider_hint)
             .await?;
-        if model["is_enabled"] == false
-            || !entry::user_can_access_model(
-                &request.actor,
-                model["access_level"].as_str().unwrap_or("public"),
-            )
-        {
+        if model["is_enabled"] == false || !entry::authorize_model(&request.actor, &model) {
             return Err(AgentError::code(403, "AGENT_RUNTIME_MODEL_FORBIDDEN"));
         }
         let provider_id = text(&model, "provider_id");
@@ -1215,7 +1241,8 @@ impl RuntimeControlPlane {
             if let Some(value) = request.legacy_thinking_level.as_ref() {
                 parameters.insert("thinking_mode".into(), json!(value));
             }
-            let model_ref = json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
+            let model_ref =
+                json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
             let launch = entry::builtin_launch(
                 &scope,
                 &model_ref,
@@ -1353,15 +1380,22 @@ impl RuntimeControlPlane {
         let expires = chrono::Utc::now()
             + chrono::Duration::seconds(self.options.lease_ttl_seconds.clamp(30, 3600));
         let capability_ceiling = super::lease_authority::issue_ceiling(
-            &scope, &run, &snapshot_id, &thread.runtime_thread_id, revision as u64,
-            &readonly, expires.timestamp_millis().max(0) as u64,
+            &scope,
+            &run,
+            &snapshot_id,
+            &thread.runtime_thread_id,
+            revision as u64,
+            &readonly,
+            expires.timestamp_millis().max(0) as u64,
         )?;
         if let Some(ceiling) = &capability_ceiling {
             snapshot["capability_ceiling"] = serde_json::to_value(&ceiling.root)
                 .map_err(|_| AgentError::code(503, "GATEWAY_CAPABILITY_CEILING_INVALID"))?;
         }
         // The frozen function takes int4; calls is already clamped to1..=128.
-        let mut authority_transaction = self.pool.begin().await?;
+        let mut authority_transaction =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &scope.tenant_id)
+                .await?;
         sqlx::query("SELECT issue_assistant_runtime_turn($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,'agent-runtime-snapshot/v1',$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)").bind(&snapshot_id).bind(&lease_id).bind(&run).bind(&thread.runtime_thread_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(text(&assignment,"kernel_revision")).bind(&snapshot).bind(spec::hash(&snapshot)).bind(revision).bind(text(&reasoning,"effective_option")).bind("agent-runtime-model-lease/v1").bind(provider_id).bind(&request.model_id).bind(provider_revision).bind(&nonce).bind(calls as i32).bind((context_window*calls).min(10000000)).bind((output*calls).min(1000000)).bind(self.options.max_cost_microusd.max(1)).bind(expires).bind(&request.message).execute(&mut *authority_transaction)
             .await
             .map_err(|error| {
@@ -1418,7 +1452,18 @@ impl RuntimeControlPlane {
                 .await
                 .insert(run.clone(), lease.clone());
         }
-        let response = control_transport::send_json(self.client.post(self.endpoint(&format!("/internal/v1/threads/{}/turns",thread.runtime_thread_id))).headers(self.headers(&scope,Some(&run))?).json(&body),Duration::from_secs(300),"AI_PLATFORM_AGENT_RUNTIME_TURN_START_FAILED").await?;
+        let response = control_transport::send_json(
+            self.client
+                .post(self.endpoint(&format!(
+                    "/internal/v1/threads/{}/turns",
+                    thread.runtime_thread_id
+                )))
+                .headers(self.headers(&scope, Some(&run))?)
+                .json(&body),
+            Duration::from_secs(300),
+            "AI_PLATFORM_AGENT_RUNTIME_TURN_START_FAILED",
+        )
+        .await?;
         if !response.status().is_success() {
             self.fail_run(&run, &snapshot_id, "agent_turn_start_rejected")
                 .await?;
@@ -1510,11 +1555,11 @@ impl RuntimeControlPlane {
         scope: &Scope,
         turn: &AgentTurn,
     ) -> Result<bool, AgentError> {
-        let status: Option<String> = sqlx::query_scalar("SELECT status FROM assistant_runs WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND engine='agent_runtime'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
+        let status: Option<String> = sqlx::query_scalar("SELECT status FROM assistant_runs WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND engine='agent_runtime'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         Ok(status.as_deref().is_some_and(terminal_run_status))
     }
     async fn stop_run(&self, scope: &Scope, turn: &AgentTurn) -> bool {
-        let _=sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason='run_capacity_interrupted',updated_at=NOW() WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND status='active'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).execute(&self.pool).await;
+        let _=sqlx::query("UPDATE assistant_runtime_model_leases SET status='revoked',revoked_at=NOW(),revoked_reason='run_capacity_interrupted',updated_at=NOW() WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND status='active'").bind(&turn.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await;
         matches!(
             tokio::time::timeout(
                 Duration::from_secs(5),
@@ -2013,8 +2058,8 @@ mod failed_thread_create_tests {
             Some(fingerprint.as_str())
         );
 
-        let error = failed_thread_create(Some(thread(Some(&"b".repeat(64)))), &fingerprint)
-            .unwrap_err();
+        let error =
+            failed_thread_create(Some(thread(Some(&"b".repeat(64)))), &fingerprint).unwrap_err();
         assert_eq!(error.status, 409);
         assert_eq!(
             error.detail,

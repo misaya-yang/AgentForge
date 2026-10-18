@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "companion",
+  "description": "Only the bundled local companion owns native IPC. Console and offline Console windows receive no capability; remote URL access is intentionally absent.",
+  "local": true,
+  "windows": ["companion"],
+  "permissions": ["companion-operations"]
+}

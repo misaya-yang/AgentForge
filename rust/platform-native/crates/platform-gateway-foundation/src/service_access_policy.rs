@@ -171,7 +171,7 @@ pub struct ServiceAccessConstraints {
     pub user_policy: ServiceAccessPolicy,
 }
 
-pub fn service_visible_with_scopes(
+fn legacy_service_visible_with_scopes(
     aliases: &[Value],
     allowed_sources: &[(String, Vec<String>)],
     user_policy: &ServiceAccessPolicy,
@@ -199,6 +199,67 @@ pub fn service_visible_with_scopes(
     .0
 }
 
+pub fn service_visible_with_scopes(
+    aliases: &[Value],
+    allowed_sources: &[(String, Vec<String>)],
+    user_policy: &ServiceAccessPolicy,
+    is_admin: bool,
+) -> bool {
+    let legacy =
+        legacy_service_visible_with_scopes(aliases, allowed_sources, user_policy, is_admin);
+    use ai_platform_auth::cedar::resources::{
+        self, ObjectAction, ObjectProfile, ObjectResource, ObjectSubject, ResourceKind,
+    };
+    let mut subject = resources::current_subject().unwrap_or_else(|| ObjectSubject {
+        tenant_id: "public".into(),
+        user_id: "anonymous".into(),
+        anonymous: true,
+        ..Default::default()
+    });
+    // is_admin is the canonical caller's exact-role fact, not its policy result.
+    subject.roles.retain(|v| v != "admin");
+    if is_admin {
+        subject.roles.push("admin".into());
+    }
+    let aliases = normalize_service_candidates(aliases);
+    let mut resource = ObjectResource::new(
+        ResourceKind::Tool,
+        aliases.first().map(String::as_str).unwrap_or("missing"),
+        &subject.tenant_id,
+    );
+    resource.profile = ObjectProfile::ToolVisibility;
+    resource.aliases = aliases.iter().cloned().collect();
+    resource.allowlist_mode = user_policy.mode == ServiceAccessMode::Allowlist;
+    for (index, (name, scope)) in allowed_sources.iter().enumerate() {
+        let key = format!("{index}:{name}");
+        resource.required_scopes.insert(key.clone());
+        if normalized_scope_matches(
+            &normalize_strings(scope.iter().map(String::as_str)),
+            &aliases,
+        ) {
+            resource.satisfied_scopes.insert(key);
+        }
+    }
+    for alias in &aliases {
+        if !user_policy.denied_services.is_empty()
+            && normalized_scope_matches(
+                &normalize_strings(user_policy.denied_services.iter().map(String::as_str)),
+                std::slice::from_ref(alias),
+            )
+        {
+            resource.denied_aliases.insert(alias.clone());
+        }
+        if !user_policy.allowed_services.is_empty()
+            && normalized_scope_matches(
+                &normalize_strings(user_policy.allowed_services.iter().map(String::as_str)),
+                std::slice::from_ref(alias),
+            )
+        {
+            resource.allowed_aliases.insert(alias.clone());
+        }
+    }
+    resources::compare_current(&subject, &resource, ObjectAction::Invoke, legacy) && legacy
+}
 /// Do not substitute an admin-like role, permission, tier or wildcard here.
 pub fn service_visible_for_roles(
     aliases: &[Value],
@@ -410,3 +471,7 @@ pub async fn load_uncached_service_access_constraints(
     }
     Ok(load)
 }
+
+#[cfg(test)]
+#[path = "service_access_policy_cedar_tests.rs"]
+mod cedar_differential_tests;

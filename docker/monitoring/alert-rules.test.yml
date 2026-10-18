@@ -71,3 +71,64 @@ tests:
         owner: gateway
       exp_annotations:
         summary: Gateway SLO inputs missing; SLO cannot be evaluated
+- name: 'actual instrument names: healthy first chunk'
+  interval: 1m
+  input_series:
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}
+    values: 0+600x400
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}
+    values: 0+600x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: ModelFirstChunkBudgetBurnFast
+    exp_alerts: []
+- name: 'actual instrument names: sustained first chunk slowdown'
+  interval: 1m
+  input_series:
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}
+    values: 0+600x400
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}
+    values: 0+480x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: ModelFirstChunkBudgetBurnFast
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        owner: runtime
+        slo: streaming_first_chunk
+      exp_annotations:
+        summary: ModelFirstChunk candidate latency budget burning (5m/1h)
+- name: first chunk missing bucket must be visible
+  interval: 1m
+  input_series:
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}
+    values: 0+600x400
+  alert_rule_test:
+  - eval_time: 12m
+    alertname: ModelFirstChunkTelemetryAbsent
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        owner: runtime
+        slo: streaming_first_chunk
+      exp_annotations:
+        summary: ModelFirstChunk telemetry absent; candidate latency budget cannot be evaluated
+- name: zero traffic never burns request or first-chunk latency budgets
+  interval: 1m
+  input_series:
+  - series: gateway_request_duration_ms_count
+    values: 0+0x400
+  - series: gateway_request_duration_ms_bucket{le="2500"}
+    values: 0+0x400
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}
+    values: 0+0x400
+  - series: gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}
+    values: 0+0x400
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: GatewaySlowBudgetBurnFast
+    exp_alerts: []
+  - eval_time: 65m
+    alertname: ModelFirstChunkBudgetBurnFast
+    exp_alerts: []

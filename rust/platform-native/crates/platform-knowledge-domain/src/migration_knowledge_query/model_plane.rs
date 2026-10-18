@@ -32,7 +32,13 @@ pub struct ModelPlaneClient {
     workload_signer: Option<Arc<dyn KnowledgeWorkloadSigner>>,
     model_revisions: std::collections::BTreeMap<String, String>,
     verifier: Arc<dyn ServiceModelLeaseVerifier>,
+    workload_http:
+        Option<Arc<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>>,
+    health_origin: Option<reqwest::Url>,
+    legacy_transport: Option<axum::http::HeaderValue>,
 }
+#[derive(Clone, Copy)]
+pub(crate) struct ResponseDeadline(pub tokio::time::Instant);
 tokio::task_local! { static PLANE_CONTEXT: (Arc<ModelPlaneClient>,ModelResource); }
 impl ModelPlaneClient {
     pub fn new(
@@ -69,6 +75,9 @@ impl ModelPlaneClient {
             workload_signer: None,
             model_revisions: Default::default(),
             verifier,
+            workload_http: None,
+            health_origin: None,
+            legacy_transport: None,
         })
     }
     pub fn for_workload(
@@ -99,7 +108,36 @@ impl ModelPlaneClient {
             workload_signer: Some(signer),
             model_revisions: Default::default(),
             verifier,
+            workload_http: None,
+            health_origin: None,
+            legacy_transport: None,
         })
+    }
+    pub fn with_legacy_transport(mut self, token: &str) -> Result<Self> {
+        if token.len() < 32
+            || token
+                .bytes()
+                .any(|b| !b.is_ascii() || b.is_ascii_whitespace() || b.is_ascii_control())
+        {
+            return Err(QueryError::Forbidden);
+        }
+        self.legacy_transport = Some(
+            format!("Bearer {token}")
+                .parse()
+                .map_err(|_| QueryError::Forbidden)?,
+        );
+        Ok(self)
+    }
+    pub fn with_workload_http(
+        mut self,
+        http: Arc<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
+        health_origin: Option<reqwest::Url>,
+    ) -> Result<Self> {
+        http.validate_endpoint(self.origin.as_str())
+            .map_err(|_| QueryError::Validation("model-plane origin is not admitted".into()))?;
+        self.workload_http = Some(http);
+        self.health_origin = health_origin;
+        Ok(self)
     }
     pub fn with_model_revisions(
         mut self,
@@ -143,6 +181,7 @@ impl ModelPlaneClient {
             ),
             None => timeout,
         };
+        let deadline = tokio::time::Instant::now() + effective;
         let mut request = self
             .client
             .post(
@@ -153,6 +192,11 @@ impl ModelPlaneClient {
             .header("content-type", "application/json");
         if !stream {
             request = request.timeout(effective);
+        }
+        if self.workload_http.is_none() {
+            if let Some(bearer) = &self.legacy_transport {
+                request = request.header("authorization", bearer);
+            }
         }
         if let Some(transport) = &admitted {
             let mut headers = Vec::new();
@@ -206,10 +250,32 @@ impl ModelPlaneClient {
         }
         // Bound response headers without imposing a whole-body deadline on SSE.
         // Any ambiguous dispatch remains a dependency failure, never a retry.
-        tokio::time::timeout(effective, request.body(bytes).send())
+        let mut response = if let Some(http) = &self.workload_http {
+            let request = request
+                .build()
+                .map_err(|_| QueryError::DependenciesFailed)?;
+            tokio::time::timeout(
+                effective,
+                http.send(
+                    reqwest::Method::POST,
+                    request.url().as_str(),
+                    request.headers().clone(),
+                    Some(bytes),
+                ),
+            )
             .await
             .map_err(|_| QueryError::DependenciesFailed)?
-            .map_err(|_| QueryError::DependenciesFailed)
+            .map_err(|_| QueryError::DependenciesFailed)?
+        } else {
+            tokio::time::timeout(effective, request.body(bytes).send())
+                .await
+                .map_err(|_| QueryError::DependenciesFailed)?
+                .map_err(|_| QueryError::DependenciesFailed)?
+        };
+        if !stream {
+            response.extensions_mut().insert(ResponseDeadline(deadline));
+        }
+        Ok(response)
     }
     async fn reserve(&self, call: &ModelCall) -> Result<ModelLease> {
         call.validate()
@@ -274,18 +340,31 @@ impl ModelPlaneClient {
 pub(crate) async fn bounded_json<T: DeserializeOwned>(
     mut response: reqwest::Response,
 ) -> Result<T> {
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| QueryError::DependenciesFailed)?
-    {
-        if bytes.len() + chunk.len() > 32 * 1024 * 1024 {
-            return Err(QueryError::InvalidProviderResponse);
-        }
-        bytes.extend_from_slice(&chunk);
+    let deadline = response.extensions().get::<ResponseDeadline>().copied();
+    if deadline.is_some_and(|deadline| deadline.0 <= tokio::time::Instant::now()) {
+        return Err(QueryError::DependenciesFailed);
     }
-    serde_json::from_slice(&bytes).map_err(|_| QueryError::InvalidProviderResponse)
+    let decode = async move {
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| QueryError::DependenciesFailed)?
+        {
+            if bytes.len() + chunk.len() > 32 * 1024 * 1024 {
+                return Err(QueryError::InvalidProviderResponse);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        serde_json::from_slice(&bytes).map_err(|_| QueryError::InvalidProviderResponse)
+    };
+    if let Some(deadline) = deadline {
+        tokio::time::timeout_at(deadline.0, decode)
+            .await
+            .map_err(|_| QueryError::DependenciesFailed)?
+    } else {
+        decode.await
+    }
 }
 pub(crate) fn check_execution(
     call: &ModelCall,
@@ -519,7 +598,8 @@ pub async fn run_current<F: Future>(
 impl ModelPlaneClient {
     /// Gateway service readiness, not a claim of semantic inference quality.
     pub async fn ready(&self, timeout: Duration) -> bool {
-        let Ok(url) = self.origin.join("/health/live") else {
+        let origin = self.health_origin.as_ref().unwrap_or(&self.origin);
+        let Ok(url) = origin.join("/health/live") else {
             return false;
         };
         matches!(self.client.get(url).timeout(timeout).send().await,Ok(response) if response.status().is_success())
@@ -529,6 +609,22 @@ impl ModelPlaneClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn certificate_transport_response_cannot_extend_original_body_deadline() {
+        let mut response: reqwest::Response = axum::http::Response::builder()
+            .status(200)
+            .body("{}".to_owned())
+            .unwrap()
+            .into();
+        response.extensions_mut().insert(ResponseDeadline(
+            tokio::time::Instant::now() - Duration::from_millis(1),
+        ));
+        assert!(matches!(
+            bounded_json::<Value>(response).await,
+            Err(QueryError::DependenciesFailed)
+        ));
+    }
+
     fn fixture() -> (ModelCall, ModelLease, ModelExecution) {
         let actor =
             serde_json::from_value(serde_json::json!({"tenant_id":"t","user_id":"u"})).unwrap();

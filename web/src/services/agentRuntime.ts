@@ -1,3 +1,4 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 import { sseFetch } from "@/lib/sse";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -52,7 +53,7 @@ export async function getPublicAgent(
   embedOrigin?: string,
 ): Promise<PublicAgentConfig> {
   const { data } = await api.get<PublicAgentConfig>(`/api/v1/public/agents/${publicId}`, {
-    params: { channel },
+    params: ({ channel } satisfies RequestQuery<"GET /api/v1/public/agents/{public_id}">),
     headers: embedToken ? authHeaders(embedToken, embedOrigin) : undefined,
   });
   return data;
@@ -66,7 +67,7 @@ export async function createPublicAgentSession(
 ): Promise<AgentRuntimeSession> {
   const { data } = await api.post<AgentRuntimeSession>(
     `/api/v1/public/agents/${publicId}/sessions`,
-    { channel },
+    ({ channel } satisfies RequestBody<"POST /api/v1/public/agents/{public_id}/sessions">),
     { headers: embedToken ? authHeaders(embedToken, embedOrigin) : undefined },
   );
   return data;
@@ -79,13 +80,12 @@ export async function uploadPublicAgentAttachment(input: {
   embedToken?: string;
   embedOrigin?: string;
 }): Promise<PublicAgentAttachment> {
-  const form = new FormData();
-  form.append("file", input.file);
+  const upload: RequestBody<"POST /api/v1/public/agents/{public_id}/attachments"> = { file: input.file };
   const { data } = await api.post<PublicAgentAttachment>(
     `/api/v1/public/agents/${input.publicId}/attachments`,
-    form,
+    upload,
     {
-      params: { channel: input.channel ?? "hosted" },
+      params: ({ channel: input.channel ?? "hosted" } satisfies RequestQuery<"POST /api/v1/public/agents/{public_id}/attachments">),
       headers: input.embedToken ? authHeaders(input.embedToken, input.embedOrigin) : undefined,
     },
   );
@@ -108,7 +108,7 @@ export async function* streamPublicAgent(input: {
     {
       method: "POST",
       headers: authHeaders(input.embedToken, input.embedOrigin),
-      body: JSON.stringify({
+      body: JSON.stringify(({
         message: input.message,
         session_id: input.sessionId,
         // The server's AgentRuntimeAttachment schema is closed (extra="forbid")
@@ -120,7 +120,7 @@ export async function* streamPublicAgent(input: {
           ({ artifact_id, filename, mime_type }) => ({ artifact_id, filename, mime_type }),
         ),
         channel,
-      }),
+      } satisfies RequestBody<"POST /api/v1/public/agents/{public_id}/chat/stream">)),
       signal: input.signal,
     },
   )) {
@@ -139,12 +139,12 @@ export async function submitPublicAgentFeedback(input: {
 }): Promise<void> {
   await api.post(
     `/api/v1/public/agents/${input.publicId}/feedback`,
-    {
+    ({
       session_id: input.sessionId,
       rating: input.rating,
       comment: input.comment ?? "",
       channel: input.channel ?? "hosted",
-    },
+    } satisfies RequestBody<"POST /api/v1/public/agents/{public_id}/feedback">),
     { headers: input.embedToken ? authHeaders(input.embedToken, input.embedOrigin) : undefined },
   );
 }

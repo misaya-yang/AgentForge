@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import YAML from "yaml";
@@ -118,7 +119,7 @@ export function ServiceForm({ onRegistered }: { onRegistered?: () => void }) {
       const graphIdClean = formData.graphId.toLowerCase().replace(/[^a-z0-9-]/g, "-");
       const serviceId = `${urlPrefix}${graphIdClean}`.replace(/^-+|-+$/g, "").replace(/-+/g, "-");
       
-      await api.post("/api/v1/config/services/langgraph", {
+      await api.post("/api/v1/config/services/langgraph", ({
         service_id: serviceId,
         name: formData.graphId,
         deployment_url: formData.deploymentUrl,
@@ -126,7 +127,7 @@ export function ServiceForm({ onRegistered }: { onRegistered?: () => void }) {
         langsmith_api_key: formData.langsmithApiKey || undefined,
         session_enabled: true,
         proxy_mode: "transparent",
-      });
+      } satisfies RequestBody<"POST /api/v1/config/services/langgraph">));
       onRegistered?.();
       setOpen(false);
       // 重置表单

@@ -21,8 +21,14 @@ pub struct WriteApiState {
     pub batches: DocumentBatchStore,
     pub maximum_upload_bytes: usize,
 }
-async fn vector_job_status(State(s): State<WriteApiState>,Extension(actor): Extension<Actor>,Path((dataset,id)): Path<(String,String)>) -> super::Result<Json<Value>> {
-    Ok(Json(super::vector_jobs::status(&s.service.store.pool,&actor,&dataset,&id).await?))
+async fn vector_job_status(
+    State(s): State<WriteApiState>,
+    Extension(actor): Extension<Actor>,
+    Path((dataset, id)): Path<(String, String)>,
+) -> super::Result<Json<Value>> {
+    Ok(Json(
+        super::vector_jobs::status(&s.service.store.pool, &actor, &dataset, &id).await?,
+    ))
 }
 #[path = "http_routes.rs"]
 mod write_router;
@@ -123,7 +129,11 @@ async fn upload(
                 if bytes.is_some() {
                     return Err(IngestError::Validation("only one file is accepted".into()));
                 }
-                filename = field.file_name().filter(|name| !name.is_empty()).unwrap_or("upload").to_owned();
+                filename = field
+                    .file_name()
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or("upload")
+                    .to_owned();
                 mime = field
                     .content_type()
                     .unwrap_or("application/octet-stream")
@@ -146,10 +156,13 @@ async fn upload(
             _ => {}
         }
     }
-    if mode == "auto" {
+    let multimodal = crate::migration_knowledge_query::serving_profile::multimodal(
+        &serde_json::from_value(d.clone())?,
+    )?;
+    if mode == "auto" && !multimodal {
         mode = "text_only".into();
     }
-    if mode != "text_only" {
+    if mode != "text_only" && !multimodal {
         return Err(IngestError::Validation(
             "scanned and multimodal uploads are disabled until the unified multimodal index profile is released".into(),
         ));
@@ -352,7 +365,10 @@ async fn batch_delete(
     Ok((StatusCode::ACCEPTED, Json(value)))
 }
 
-pub fn routes(state: WriteApiState, auth: Arc<dyn ai_platform_service_primitives::actor_verifier::JwtActorVerifier>) -> Router {
+pub fn routes(
+    state: WriteApiState,
+    auth: Arc<dyn ai_platform_service_primitives::actor_verifier::JwtActorVerifier>,
+) -> Router {
     write_routes(state).route_layer(axum::middleware::from_fn_with_state(
         auth,
         crate::migration_knowledge_query::auth::verify_jwt,

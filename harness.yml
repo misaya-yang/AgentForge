@@ -24,17 +24,15 @@ toolchain:
   pnpm: "12.11.2"           # explicit bootstrap; pnpm installs web dependencies
   docker_compose: v2
 
-# -- Entry points agents must read before acting ------------------------------
+# -- Navigation: AGENTS is the entry; other documents are read on demand -------
 entrypoints:
   contract: AGENTS.md
-  claude: CLAUDE.md
   harness: docs/harness/README.md
   docs_index: docs/README.md
 
 # -- Required documents (existence + non-empty is enforced) -------------------
 required_docs:
   - AGENTS.md
-  - CLAUDE.md
   - README.md
   - DEPLOY.md
   - CHANGELOG.md
@@ -58,7 +56,6 @@ required_docs:
 # not the budget.
 budgets:
   AGENTS.md: 150
-  CLAUDE.md: 80
 
 # -- Canonical commands -------------------------------------------------------
 # Each entry must resolve to a real Make target.
@@ -216,7 +213,8 @@ commands:
 #   tier           : L0 structural/offline | L1 domain offline/unit
 #                    L2 hosted integration (CI services) | L3 live release/singleton
 #   required_on    : subset of [change, release, manual]
-#                    change  = mandatory when a trigger path is in the diff
+#                    change  = coverage for a complete candidate diff in CI;
+#                              not a command to rerun after each local edit
 #                    release = mandatory evidence before a release
 #   resource       : offline | hosted-service | live-stack | provider | docker
 #   skip           : never | live-stack | toolchain   (see docs/harness/repository-quality.md)
@@ -225,9 +223,20 @@ commands:
 #   ci_job         : CI job that executes the exact entrypoint; use the explicit
 #                    `manual` sentinel only for non-change release/manual gates
 gates:
+  platform_fitness:
+    make: platform-fitness-gate
+    purpose: Enforce recurring source trust, credentials, hardening, dependency, image and singleton constraints with negative tests in CI.
+    triggers: ["rust/platform-native/**", "rust/agent-runtime-overlay/**", "deploy/**", "docker/**", "docker-compose*", ".github/**", "LICENSE", "NOTICE", "harness.yml", "Makefile"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: "${RUNNER_TEMP}/platform-fitness.json"
+    ci_job: compose-and-harness
   harness:
     make: harness-check
-    triggers: [AGENTS.md, CLAUDE.md, harness.yml, Makefile, rust/platform-native/crates/platform-tools/src/harness.rs, rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs, "docs/**", "deploy/runbooks/**", "deploy/release/**", "reports/**", ".gitignore", ".editorconfig", ".gitattributes", ".pre-commit-config.yaml", ".claude/**", ".agents/**", README.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, DEPLOY.md, CODE_OF_CONDUCT.md, RELEASE.md, SUPPORT.md, LICENSE]
+    triggers: ["*.md", harness.yml, Makefile, rust/platform-native/crates/platform-tools/src/harness.rs, rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs, "docs/**", "deploy/runbooks/**", "deploy/release/**", "reports/**", ".gitignore", ".editorconfig", ".gitattributes", ".pre-commit-config.yaml", ".claude/**", ".agents/**", LICENSE]
     tier: L0
     required_on: [change, release]
     resource: offline
@@ -673,12 +682,15 @@ workspace:
 
 # -- Task loop ----------------------------------------------------------------
 loop:
-  stages: [observe, act, verify, decide]
+  guide: docs/harness/README.md
+  stages: [scope, implement, integrate, verify, deliver]
   rules:
-    - One feature per cycle.
-    - A change is unverified until its gate has run; never merge act and verify into a claim.
-    - Evidence means a named command and its real output.
-    - Status for multi-phase or context-spanning programs lives in loop-state.json, not in prose.
+    - Complete a module or integrated batch before verification; do not cycle per function or file.
+    - Select checks by required behavior, deduplicate overlapping coverage, and assign one executor.
+    - Reuse applicable results across agents; rerun only for relevant changes or new failure evidence.
+    - Fix the cause before repeating a failed command; continue independent work if its environment is unavailable.
+    - Report actual outcomes and unrun requirements without adding reports or changing acceptance standards.
+    - End the task when its requested outcome and applicable verification are complete; do not create housekeeping work.
 
 # -- Multi-session programs ---------------------------------------------------
 programs:
@@ -688,12 +700,13 @@ programs:
   # minimal contract and deliberately dropped v3's plan/report/ledger artifacts, so
   # asserting v4 on a v3 program produces noise, not signal.
   required_files_by_schema:
-    prd-phase-harness/loop-state/v4: [README.md, loop-state.json, HANDOFF.md, init.sh]
+    prd-phase-harness/loop-state/v4: [README.md, loop-state.json]
     prd-phase-harness/loop-state/v3: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
     prd-phase-harness/loop-state/v2: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
     prd-phase-harness/loop-state/v1: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
   structural_validator: "platform-tools harness-check --repo-root ."
-  semantic_validator_target: "make program-check PROGRAM=<program-dir>  # queued for ARC-00"
+  # Older schemas are historical templates, not instructions to create missing
+  # handoff/progress files for current tasks. No unimplemented gate is a prerequisite.
   convention: docs/harness/workflow.md#4-programs-and-large-changes
 
 # -- Knowledge locations ------------------------------------------------------

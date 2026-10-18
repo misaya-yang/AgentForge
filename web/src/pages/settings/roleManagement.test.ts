@@ -4,7 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
-import axios, { type AxiosInstance } from "axios";
+import fetchHttp, { type FetchClient } from '../../lib/fetchClient.ts';
 
 type Tree = { type: unknown; props: Record<string, unknown>; key?: string };
 type Frame = { slots: unknown[]; effects: (() => void)[]; cleanup: (() => void)[] };
@@ -27,7 +27,7 @@ function host() {
     if (path === "/api/v1/roles") return { roles: [], total: 0 };
     if (path === "/api/v1/roles/permissions") return { permissions: codes, total: codes.length };
     if (live) return structuredClone(live);
-    throw { isAxiosError: true, response: { status: 404 } };
+    throw { isHttpError: true, response: { status: 404 } };
   };
   let write = async (_path: string, body: Record<string, unknown>): Promise<unknown> => { live = role(body); return live; };
   const auth = { token: "synthetic-a", user: { user_id: "operator", roles: ["platform_admin"], permissions: ["role:list", "role:create"], tier: "normal" }, hasPermission: (code: string) => auth.user.permissions.includes(code) };
@@ -44,7 +44,7 @@ function host() {
   };
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const modules: Record<string, unknown> = {
-    axios: { isAxiosError: (error: { isAxiosError?: boolean }) => error?.isAxiosError === true },
+    "@/lib/fetchClient": { isHttpError: (error: { isHttpError?: boolean }) => error?.isHttpError === true },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-router-dom": { Link: "Link" },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: typeof auth) => unknown) => select(auth), { getState: () => auth }) },
@@ -156,7 +156,7 @@ test("unmount fences post-submit readback without stopping an already dispatched
 });
 test("authority changes during preflight and stale callbacks never dispatch", async () => {
   for (const change of ["account", "credential", "role", "unmount"]) { const h = host(); const pending = deferred<unknown>(); try {
-    await reviewed(h); h.setRead(async path => path.endsWith("/permissions") ? pending.promise : Promise.reject({ isAxiosError: true, response: { status: 404 } }));
+    await reviewed(h); h.setRead(async path => path.endsWith("/permissions") ? pending.promise : Promise.reject({ isHttpError: true, response: { status: 404 } }));
     const callback = h.button("confirm").props.onClick as () => void; callback(); await settle();
     if (change === "account") h.auth.user.user_id = "another";
     if (change === "credential") h.auth.token = "synthetic-b";
@@ -166,14 +166,14 @@ test("authority changes during preflight and stale callbacks never dispatch", as
   } finally { h.dispose(); } }
 });
 
-test("actual shared Axios auth interceptor cannot dispatch old review with replacement identity", async () => {
+test("actual shared Fetch auth interceptor cannot dispatch old review with replacement identity", async () => {
   for (const change of ["none", "token", "account", "role", "permission", "unmount"]) {
     const auth = createStore(() => ({ csrfToken: "synthetic-csrf", isAuthenticated: true, token: "synthetic-a", user: { user_id: "operator", roles: ["platform_admin"], permissions: ["role:list", "role:create"], tier: "normal" } }));
     let dispose: (() => void) | undefined;
     let active = true;
     const scope = () => JSON.stringify([auth.getState().token, auth.getState().user]); const captured = scope();
     const modules: Record<string, unknown> = {
-      axios, "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
+      "@/lib/fetchClient": fetchHttp, "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
     "@/config/runtime": { getApiBaseUrlConfig: () => "https://console.example" },
       "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
       "@/store/useAuthStore": { useAuthStore: auth },
@@ -187,7 +187,7 @@ test("actual shared Axios auth interceptor cannot dispatch old review with repla
     modules["@/lib/sdkAuthorityScope"] = load("../../lib/sdkAuthorityScope.ts");
     const shared = load("../../lib/api.ts"); modules["@/lib/api"] = shared;
     try {
-      const realApi = shared.api as AxiosInstance; const calls: { body: unknown; auth: unknown; csrf: unknown; cookies: unknown }[] = [];
+      const realApi = shared.api as FetchClient; const calls: { body: unknown; auth: unknown; csrf: unknown; cookies: unknown }[] = [];
       // A later optional async interceptor must not weaken this request-local fence.
       realApi.interceptors.request.use(async config => config);
       realApi.defaults.adapter = async config => { calls.push({ body: config.data, auth: config.headers.Authorization, csrf: config.headers["X-CSRF-Token"], cookies: config.withCredentials }); return { data: role(), status: 200, statusText: "OK", headers: {}, config }; };

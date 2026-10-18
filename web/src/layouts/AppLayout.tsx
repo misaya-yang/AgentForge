@@ -30,6 +30,7 @@ import { changeAppLanguage, languages } from "@/i18n";
 import { GROUP_ORDER, useConsoleNavigation, type NavGroup, type NavItem } from "@/config/consoleNavigation";
 import { ConsoleQuickNav } from "@/components/ConsoleQuickNav";
 import "@/styles/enterprise-console.css";
+import { preloadNavigationIntent } from "@/lib/routePreload";
 
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
@@ -218,7 +219,7 @@ export function AppLayout() {
   }, [floatingSidebarOpen]);
 
   return (
-    <Layout className="enterprise-console" style={{ minHeight: '100dvh' }}>
+    <Layout className="enterprise-console" onPointerOver={preloadNavigationIntent} onFocusCapture={preloadNavigationIntent} style={{ minHeight: '100dvh' }}>
       <a className="console-skip-link" href="#console-main">{t("workbench.skipContent")}</a>
       {floatingSidebarOpen && (
         <button

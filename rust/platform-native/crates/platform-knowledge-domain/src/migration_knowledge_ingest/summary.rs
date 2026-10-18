@@ -16,16 +16,35 @@ pub fn prefix(text: &str, n: usize) -> String {
     text.chars().take(n).collect()
 }
 impl SummaryGenerator {
-    pub fn new(_endpoint:String,model:String,_authorization:Option<String>)->Result<Self> { Self::for_model("dashscope".into(),model) }
-    pub fn for_model(provider:String,model:String)->Result<Self> {
-        if provider.trim().is_empty() || model.trim().is_empty() {return Err(IngestError::Validation("summary model identity is required".into()));}
-        Ok(Self{provider,model,endpoint:String::new(),authorization:None,timeout:Duration::from_secs(60)})
+    pub fn new(_endpoint: String, model: String, _authorization: Option<String>) -> Result<Self> {
+        Self::for_model("dashscope".into(), model)
     }
-    async fn call(&self,prompt:String)->Result<String> {
-        use crate::migration_knowledge_query::model_plane::{self,ModelPurpose,ModelWire};
+    pub fn for_model(provider: String, model: String) -> Result<Self> {
+        if provider.trim().is_empty() || model.trim().is_empty() {
+            return Err(IngestError::Validation(
+                "summary model identity is required".into(),
+            ));
+        }
+        Ok(Self {
+            provider,
+            model,
+            endpoint: String::new(),
+            authorization: None,
+            timeout: Duration::from_secs(60),
+        })
+    }
+    async fn call(&self, prompt: String) -> Result<String> {
+        use crate::migration_knowledge_query::model_plane::{self, ModelPurpose, ModelWire};
         let (status,result)=model_plane::execute(&self.provider,&self.model,"",ModelPurpose::Summary,ModelWire::ChatCompletions,json!({"model":self.model,"messages":[{"role":"user","content":prompt}],"max_tokens":500,"temperature":0.3}),self.timeout).await?;
-        if !(200..300).contains(&status) {return Err(IngestError::Index("summary provider rejected request".into()));}
-        Ok(result["choices"][0]["message"]["content"].as_str().unwrap_or("").into())
+        if !(200..300).contains(&status) {
+            return Err(IngestError::Index(
+                "summary provider rejected request".into(),
+            ));
+        }
+        Ok(result["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("")
+            .into())
     }
     pub async fn summarize_document(&self, text: &str) -> Value {
         let text = if text.chars().count() > 15000 {
@@ -139,18 +158,20 @@ impl BatchSummaryGenerator {
         let mut tasks = tokio::task::JoinSet::new();
         for (index, doc) in documents.iter().cloned().enumerate() {
             let this = self.clone();
-            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
-                let Ok(_permit) = this.semaphore.acquire().await else {
-                    return (index, json!({"error":"summary batch closed"}));
-                };
-                let mut result = this
-                    .generator
-                    .summarize_document(doc["text"].as_str().unwrap_or(""))
-                    .await;
-                tokio::time::sleep(this.rate_limit_delay).await;
-                result["id"] = doc["id"].clone();
-                (index, result)
-            }));
+            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(
+                async move {
+                    let Ok(_permit) = this.semaphore.acquire().await else {
+                        return (index, json!({"error":"summary batch closed"}));
+                    };
+                    let mut result = this
+                        .generator
+                        .summarize_document(doc["text"].as_str().unwrap_or(""))
+                        .await;
+                    tokio::time::sleep(this.rate_limit_delay).await;
+                    result["id"] = doc["id"].clone();
+                    (index, result)
+                },
+            ));
         }
         let mut results = vec![Value::Null; documents.len()];
         while let Some(Ok((i, v))) = tasks.join_next().await {

@@ -13,10 +13,10 @@ struct RegistrationFlow {
     state: PasskeyRegistration,
 }
 #[derive(Serialize, Deserialize)]
-struct AuthenticationFlow {
-    tenant: String,
-    user: String,
-    epoch: u64,
+pub(super) struct AuthenticationFlow {
+    pub(super) tenant: String,
+    pub(super) user: String,
+    pub(super) epoch: u64,
     keys: Vec<(String, i64)>,
     state: PasskeyAuthentication,
 }
@@ -199,7 +199,23 @@ impl EnterpriseService {
             .await?;
         let user = self.lookup_user(&input.tenant_id, &input.user_name).await?;
         let policy = policy::password_policy(&self.pool, &input.tenant_id, &user).await?;
-        let rows=sqlx::query("SELECT credential_id,passkey,revision FROM gateway.enterprise_passkeys WHERE tenant_id=$1 AND user_id=$2 ORDER BY credential_id").bind(&input.tenant_id).bind(&user).fetch_all(&self.pool).await?;
+        let (mut challenge, flow) = self
+            .assertion_challenge(&input.tenant_id, &user, policy.auth_epoch)
+            .await?;
+        let id = crate::sessions::browser::opaque();
+        self.transient
+            .put("passkey-auth", &id, browser_binding, &flow)
+            .await?;
+        challenge["flow_id"] = json!(id);
+        Ok(challenge)
+    }
+    pub(super) async fn assertion_challenge(
+        &self,
+        tenant: &str,
+        user: &str,
+        epoch: u64,
+    ) -> Result<(Value, AuthenticationFlow)> {
+        let rows=sqlx::query("SELECT credential_id,passkey,revision FROM gateway.enterprise_passkeys WHERE tenant_id=$1 AND user_id=$2 ORDER BY credential_id").bind(tenant).bind(user).fetch_all(&self.pool).await?;
         if rows.is_empty() || rows.len() > 16 {
             return Err(EnterpriseError::Proof);
         }
@@ -216,22 +232,16 @@ impl EnterpriseService {
             .webauthn
             .start_passkey_authentication(&keys)
             .map_err(|_| EnterpriseError::Proof)?;
-        let id = crate::sessions::browser::opaque();
-        self.transient
-            .put(
-                "passkey-auth",
-                &id,
-                browser_binding,
-                &AuthenticationFlow {
-                    tenant: input.tenant_id,
-                    user,
-                    epoch: policy.auth_epoch,
-                    keys: versions,
-                    state,
-                },
-            )
-            .await?;
-        Ok(json!({"flow_id":id,"publicKey":challenge.public_key}))
+        Ok((
+            json!({"publicKey":challenge.public_key}),
+            AuthenticationFlow {
+                tenant: tenant.into(),
+                user: user.into(),
+                epoch,
+                keys: versions,
+                state,
+            },
+        ))
     }
     pub(super) async fn passkey_authentication_finish(
         &self,
@@ -245,9 +255,22 @@ impl EnterpriseService {
             .transient
             .take("passkey-auth", &input.flow_id, browser_binding)
             .await?;
+        let mut tx = self.pool.begin().await?;
+        self.verify_assertion(&mut tx, &flow, &input.credential)
+            .await?;
+        tx.commit().await?;
+        self.establish(&flow.user, &flow.tenant, "passkey", flow.epoch)
+            .await
+    }
+    pub(super) async fn verify_assertion(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        flow: &AuthenticationFlow,
+        credential: &PublicKeyCredential,
+    ) -> Result<()> {
         let result = self
             .webauthn
-            .finish_passkey_authentication(&input.credential, &flow.state)
+            .finish_passkey_authentication(credential, &flow.state)
             .map_err(|_| EnterpriseError::Proof)?;
         if !result.user_verified() {
             return Err(EnterpriseError::Proof);
@@ -260,12 +283,11 @@ impl EnterpriseService {
             .find(|(key, _)| key == &id)
             .ok_or(EnterpriseError::Proof)?
             .1;
-        let mut tx = self.pool.begin().await?;
-        let epoch:i64=sqlx::query_scalar("SELECT auth_epoch FROM gateway.users WHERE tenant_id=$1 AND user_id=$2 AND status='active' FOR UPDATE").bind(&flow.tenant).bind(&flow.user).fetch_optional(&mut *tx).await?.ok_or(EnterpriseError::Proof)?;
+        let epoch:i64=sqlx::query_scalar("SELECT auth_epoch FROM gateway.users WHERE tenant_id=$1 AND user_id=$2 AND status='active' FOR UPDATE").bind(&flow.tenant).bind(&flow.user).fetch_optional(&mut **tx).await?.ok_or(EnterpriseError::Proof)?;
         if u64::try_from(epoch).ok() != Some(flow.epoch) {
             return Err(EnterpriseError::Proof);
         }
-        let row=sqlx::query("SELECT passkey,counter,revision FROM gateway.enterprise_passkeys WHERE credential_id=$1 AND tenant_id=$2 AND user_id=$3 FOR UPDATE").bind(&id).bind(&flow.tenant).bind(&flow.user).fetch_optional(&mut *tx).await?.ok_or(EnterpriseError::Proof)?;
+        let row=sqlx::query("SELECT passkey,counter,revision FROM gateway.enterprise_passkeys WHERE credential_id=$1 AND tenant_id=$2 AND user_id=$3 FOR UPDATE").bind(&id).bind(&flow.tenant).bind(&flow.user).fetch_optional(&mut **tx).await?.ok_or(EnterpriseError::Proof)?;
         if row.try_get::<i64, _>("revision")? != expected
             || !counter_valid(row.try_get("counter")?, result.counter())
         {
@@ -276,10 +298,8 @@ impl EnterpriseService {
         if key.update_credential(&result).is_none() {
             return Err(EnterpriseError::Proof);
         }
-        sqlx::query("UPDATE gateway.enterprise_passkeys SET passkey=$2,counter=$3,revision=revision+1 WHERE credential_id=$1").bind(id).bind(serde_json::to_value(key).map_err(|_|EnterpriseError::Unavailable)?).bind(i64::from(result.counter())).execute(&mut *tx).await?;
-        tx.commit().await?;
-        self.establish(&flow.user, &flow.tenant, "passkey", flow.epoch)
-            .await
+        sqlx::query("UPDATE gateway.enterprise_passkeys SET passkey=$2,counter=$3,revision=revision+1 WHERE credential_id=$1").bind(id).bind(serde_json::to_value(key).map_err(|_|EnterpriseError::Unavailable)?).bind(i64::from(result.counter())).execute(&mut **tx).await?;
+        Ok(())
     }
     pub(super) async fn recovery(
         &self,

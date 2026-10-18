@@ -366,13 +366,50 @@ impl ControlledDispatcher for BlockingDispatcher {
         self.control.clone()
     }
 }
+#[derive(Clone, Copy, PartialEq)]
+enum StreamMode {
+    Poll,
+    Healthy,
+    Buffered,
+}
 struct PumpTransport {
+    mode: StreamMode,
     calls: Arc<AtomicUsize>,
     started: Arc<tokio::sync::Notify>,
     claim: Value,
     control_command: Value,
 }
 impl RunnerTransport for PumpTransport {
+    fn open_control_stream<'a>(
+        &'a self,
+        _: &'a Credential,
+        _: Option<&'a str>,
+    ) -> Pin<
+        Box<
+            dyn Future<
+                    Output = ai_platform_local_node::Result<
+                        Option<Box<dyn ai_platform_local_node::control_stream::ControlStream>>,
+                    >,
+                > + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            if self.mode == StreamMode::Poll {
+                return Ok(None);
+            }
+            Ok(Some(Box::new(FixtureControlStream {
+                mode: self.mode,
+                started: self.started.clone(),
+                command: self.control_command.clone(),
+                sequence: 0,
+                stream_id: uuid::Uuid::new_v4().to_string(),
+            })
+                as Box<
+                    dyn ai_platform_local_node::control_stream::ControlStream,
+                >))
+        })
+    }
     fn exchange<'a>(
         &'a self,
         _: &'a Credential,
@@ -380,13 +417,14 @@ impl RunnerTransport for PumpTransport {
     ) -> Pin<Box<dyn Future<Output = ai_platform_local_node::Result<ExchangeResponse>> + Send + 'a>>
     {
         let call = self.calls.fetch_add(1, Ordering::SeqCst);
+        let mode = self.mode;
         let started = self.started.clone();
         let claim = self.claim.clone();
         let control_command = self.control_command.clone();
         Box::pin(async move {
             let commands = match call {
                 0 => vec![claim],
-                1 => {
+                1 if mode != StreamMode::Healthy => {
                     started.notified().await;
                     vec![control_command]
                 }
@@ -397,6 +435,56 @@ impl RunnerTransport for PumpTransport {
                 accepted_through_sequence: 0,
                 commands,
             })
+        })
+    }
+}
+struct FixtureControlStream {
+    mode: StreamMode,
+    started: Arc<tokio::sync::Notify>,
+    command: Value,
+    sequence: u64,
+    stream_id: String,
+}
+impl ai_platform_local_node::control_stream::ControlStream for FixtureControlStream {
+    fn next(
+        &mut self,
+    ) -> Pin<
+        Box<
+            dyn Future<
+                    Output = ai_platform_local_node::Result<
+                        ai_platform_local_node::control_stream::ControlFrame,
+                    >,
+                > + Send
+                + '_,
+        >,
+    > {
+        Box::pin(async move {
+            if self.mode == StreamMode::Buffered || self.sequence > 1 {
+                return std::future::pending().await;
+            }
+            let commands = if self.sequence == 0 {
+                Vec::new()
+            } else {
+                self.started.notified().await;
+                vec![self.command.clone()]
+            };
+            self.sequence += 1;
+            let mut frame = ai_platform_local_node::control_stream::ControlFrame {
+                protocol_version: ai_platform_local_node::transport::PROTOCOL_VERSION.into(),
+                device_id: "device-fixture".into(),
+                stream_id: self.stream_id.clone(),
+                sequence: self.sequence,
+                cursor: format!("{}:{}", self.stream_id, self.sequence),
+                issued_at: ai_platform_local_node::now(),
+                expires_at: ai_platform_local_node::now() + 5.0,
+                commands,
+                platform_key_id: "fixture-platform-key".into(),
+                platform_signature: String::new(),
+            };
+            let mut value = serde_json::to_value(&frame).unwrap();
+            value.as_object_mut().unwrap().remove("platform_signature");
+            frame.platform_signature = sign(ai_platform_local_node::canonical(&value).as_bytes());
+            Ok(frame)
         })
     }
 }
@@ -416,6 +504,10 @@ fn signed_emergency_stop() -> Value {
 }
 
 async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) {
+    assert_runner_control_mode(control_command, StreamMode::Poll).await;
+}
+async fn assert_runner_control_mode(control_command: Value, mode: StreamMode) -> Duration {
+    let measured = std::time::Instant::now();
     let emergency = control_command["command_id"]
         .as_str()
         .is_some_and(|id| id.starts_with("emergency."));
@@ -440,6 +532,7 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
     let dispatches = dispatcher.dispatches.clone();
     let calls = Arc::new(AtomicUsize::new(0));
     let transport = PumpTransport {
+        mode,
         calls: calls.clone(),
         started,
         claim: claim_fixture(json!({"grant_id":"grant-fixture","path":"fixture.txt"})),
@@ -454,7 +547,7 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
     let mut replay = ReplayGuard::open(&temp.0.join("replay.sqlite")).unwrap();
     let mut outbox = Outbox::open(&temp.0.join("outbox.sqlite")).unwrap();
     let result = tokio::time::timeout(
-        Duration::from_secs(3),
+        Duration::from_secs(6),
         run_forever(
             "device-fixture".into(),
             json!({"status":"ready"}),
@@ -464,7 +557,11 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
             replay,
             outbox,
             dispatcher,
-            Duration::from_millis(250),
+            if mode == StreamMode::Poll {
+                Duration::from_millis(250)
+            } else {
+                Duration::from_secs(5)
+            },
             stop_receiver,
         ),
     )
@@ -473,7 +570,21 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
     result.unwrap().unwrap();
     assert!(*state.cancelled.lock().unwrap());
     assert_eq!(dispatches.load(Ordering::SeqCst), 1, "claim was replayed");
-    assert!(calls.load(Ordering::SeqCst) >= 2, "control was not polled");
+    if mode == StreamMode::Healthy {
+        assert!(
+            calls.load(Ordering::SeqCst) <= 2,
+            "stream control waited for polling"
+        );
+        assert!(
+            ReplayGuard::open(&temp.0.join("replay.sqlite"))
+                .unwrap()
+                .stream_cursor("device-fixture")
+                .unwrap()
+                .is_some()
+        );
+    } else {
+        assert!(calls.load(Ordering::SeqCst) >= 2, "control was not polled");
+    }
     assert!(!state.side_effect.load(Ordering::SeqCst));
     let outbox = Outbox::open(&temp.0.join("outbox.sqlite")).unwrap();
     let receipts = outbox.pending(10).unwrap();
@@ -492,6 +603,7 @@ async fn assert_runner_control_cancels_pending_dispatch(control_command: Value) 
         assert!(acknowledgments[0].action_id.is_none());
         assert!(acknowledgments[0].result.is_none());
     }
+    measured.elapsed()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -627,4 +739,128 @@ fn idle_emergency_ack_is_durable_idempotent_and_repairs_reserved_before_stop_cra
         .is_err()
     );
     assert_eq!(remote.0.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn signed_stream_stop_fixture_p95_under_one_second_during_blocking_dispatch() {
+    let mut samples = Vec::new();
+    for _ in 0..20 {
+        samples
+            .push(assert_runner_control_mode(signed_emergency_stop(), StreamMode::Healthy).await);
+    }
+    samples.sort();
+    let p95 = samples[18];
+    println!(
+        "U-CL-03 signed stream runner fixture n=20 p95_ms={:.3}",
+        p95.as_secs_f64() * 1000.0
+    );
+    assert!(p95 < Duration::from_secs(1));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn buffering_stream_falls_back_to_poll_before_the_five_second_heartbeat() {
+    let elapsed = assert_runner_control_mode(signed_cancel(), StreamMode::Buffered).await;
+    assert!(elapsed >= ai_platform_local_node::control_stream::FRAME_TIMEOUT);
+    assert!(
+        elapsed < Duration::from_millis(4500),
+        "buffered stream did not trigger immediate poll fallback: {elapsed:?}"
+    );
+}
+
+struct PendingStreamTransport(Arc<AtomicBool>);
+struct PendingStream(Arc<AtomicBool>);
+impl Drop for PendingStream {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+impl ai_platform_local_node::control_stream::ControlStream for PendingStream {
+    fn next(
+        &mut self,
+    ) -> Pin<
+        Box<
+            dyn Future<
+                    Output = ai_platform_local_node::Result<
+                        ai_platform_local_node::control_stream::ControlFrame,
+                    >,
+                > + Send
+                + '_,
+        >,
+    > {
+        Box::pin(std::future::pending())
+    }
+}
+impl RunnerTransport for PendingStreamTransport {
+    fn open_control_stream<'a>(
+        &'a self,
+        _: &'a Credential,
+        _: Option<&'a str>,
+    ) -> Pin<
+        Box<
+            dyn Future<
+                    Output = ai_platform_local_node::Result<
+                        Option<Box<dyn ai_platform_local_node::control_stream::ControlStream>>,
+                    >,
+                > + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            Ok(Some(Box::new(PendingStream(self.0.clone()))
+                as Box<
+                    dyn ai_platform_local_node::control_stream::ControlStream,
+                >))
+        })
+    }
+    fn exchange<'a>(
+        &'a self,
+        _: &'a Credential,
+        _: &'a ExchangeRequest,
+    ) -> Pin<Box<dyn Future<Output = ai_platform_local_node::Result<ExchangeResponse>> + Send + 'a>>
+    {
+        Box::pin(std::future::pending())
+    }
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_cancels_pending_stream_read_and_poll_without_waiting_for_network_timeouts() {
+    let temp = TempDir::new();
+    let (replay, outbox) = opened_state(&temp);
+    let dropped = Arc::new(AtomicBool::new(false));
+    let (stop, receiver) = tokio::sync::watch::channel(false);
+    let runner = run_forever(
+        "device-fixture".into(),
+        json!({}),
+        PendingStreamTransport(dropped.clone()),
+        Credential::new(
+            "device-fixture".into(),
+            "synthetic".into(),
+            ai_platform_local_node::now() + 60.0,
+        )
+        .unwrap(),
+        Arc::new(Trusted),
+        replay,
+        outbox,
+        IdleDispatcher(Arc::new(IdleEmergency::default())),
+        Duration::from_secs(5),
+        receiver,
+    );
+    let stop_task = async {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let measured = std::time::Instant::now();
+        stop.send(true).unwrap();
+        measured
+    };
+    let (result, measured) = tokio::time::timeout(Duration::from_secs(1), async {
+        tokio::join!(runner, stop_task)
+    })
+    .await
+    .unwrap();
+    result.unwrap();
+    // Abort is cooperative; yield once so the outbound-only task drops its read.
+    tokio::task::yield_now().await;
+    assert!(measured.elapsed() < Duration::from_millis(250));
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "pending HTTP response was retained after stop"
+    );
 }

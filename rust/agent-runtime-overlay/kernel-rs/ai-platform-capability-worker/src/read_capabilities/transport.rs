@@ -87,9 +87,11 @@ pub(crate) fn bindings_match(existing: &Value, requested: &Value) -> bool {
     let mut requested = requested.clone();
     if let Some(object) = existing.as_object_mut() {
         object.remove(EXPIRY_KEY);
+        object.remove(crate::broker_proof::BINDING_KEY);
     }
     if let Some(object) = requested.as_object_mut() {
         object.remove(EXPIRY_KEY);
+        object.remove(crate::broker_proof::BINDING_KEY);
     }
     existing == requested
 }

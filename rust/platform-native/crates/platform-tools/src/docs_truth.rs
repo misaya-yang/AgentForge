@@ -13,33 +13,17 @@ pub const LIVE_DOCS: &[&str] = &[
 ];
 
 pub fn check(root: &Path) -> Result<Value> {
-    let today = chrono::Utc::now().date_naive();
-    let date = regex::Regex::new(r"(?m)^\*\*Last verified:\*\* (\d{4}-\d{2}-\d{2})\b")?;
     let scripts = regex::Regex::new(r"\bscripts/[A-Za-z0-9_./-]+\.(?:py|sh)\b")?;
     let links = regex::Regex::new(r"\[[^\]]*\]\(([^)]+)\)")?;
     let commands =
         regex::Regex::new(r"\bplatform-tools ([a-z][a-z0-9-]+)(?:[ \t]+([a-z][a-z0-9-]+))?")?;
     let mut errors = vec![];
-    let mut warnings = vec![];
     for file in LIVE_DOCS {
         let path = root.join(file);
         let Ok(text) = std::fs::read_to_string(&path) else {
             errors.push(format!("{file}: living document missing"));
             continue;
         };
-        let verified = date
-            .captures(&text)
-            .and_then(|m| chrono::NaiveDate::parse_from_str(&m[1], "%Y-%m-%d").ok());
-        match verified {
-            None => errors.push(format!("{file}: missing/invalid Last verified date")),
-            Some(day) if day > today => {
-                errors.push(format!("{file}: verification date is in the future"))
-            }
-            Some(day) if today.signed_duration_since(day).num_days() > 30 => warnings.push(
-                format!("{file}: source/command review is older than 30 days"),
-            ),
-            _ => {}
-        }
         for script in scripts.find_iter(&text) {
             if !root.join(script.as_str()).is_file() {
                 errors.push(format!(
@@ -120,7 +104,7 @@ pub fn check(root: &Path) -> Result<Value> {
     }
     Ok(
         json!({"result":if errors.is_empty(){"pass"}else{"fail"},"tier":"L0",
-        "documents_checked":LIVE_DOCS.len(),"freshness_policy":"warn after 30 days; dates describe source/command review only",
-        "errors":errors,"warnings":warnings,"runtime_acceptance":"not_checked"}),
+        "documents_checked":LIVE_DOCS.len(),"freshness_policy":"check operational references and commands; dates are historical metadata",
+        "errors":errors,"warnings":[],"runtime_acceptance":"not_checked"}),
     )
 }

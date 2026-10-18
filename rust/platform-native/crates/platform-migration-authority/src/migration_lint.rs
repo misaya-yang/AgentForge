@@ -15,6 +15,11 @@ use std::{
 #[path = "migration_lint/approved_027_grants.rs"]
 mod approved_027_grants;
 
+#[path = "migration_lint/approved_service_grants.rs"]
+mod approved_service_grants;
+#[path = "migration_lint/reviewed_schema.rs"]
+mod reviewed_schema;
+
 #[path = "migration_lint/grants.rs"]
 mod grants;
 #[path = "migration_lint/n1.rs"]

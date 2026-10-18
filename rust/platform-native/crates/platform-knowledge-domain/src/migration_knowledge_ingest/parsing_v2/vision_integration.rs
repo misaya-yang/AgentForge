@@ -94,7 +94,13 @@ pub async fn prepare_vision(
         chunk.enabled = false;
         chunk.status = "indexing".into();
     }
-    let points = service.indexer.prepare_chunks(dataset, &chunks).await?;
+    let points = if crate::migration_knowledge_ingest::pipeline::stage()
+        == crate::migration_knowledge_ingest::pipeline::Stage::Parse
+    {
+        Default::default()
+    } else {
+        service.indexer.prepare_chunks(dataset, &chunks).await?
+    };
     for (collection, mut points) in points {
         plan.points_by_collection
             .entry(collection)

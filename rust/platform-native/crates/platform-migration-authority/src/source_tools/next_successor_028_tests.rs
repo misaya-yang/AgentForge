@@ -152,9 +152,12 @@ fn preview_generation_is_external_and_unactivated_from_the_exact_027_fixture() {
 }
 
 #[test]
-fn active_028_verifier_accepts_the_real_canonical_source() {
-    let source = repository_root();
-    let receipt = verify_activated_source(&source).unwrap();
+fn active_028_verifier_accepts_the_real_archived_source() {
+    let source =
+        crate::source_tools::next_successor::historical_test_fixtures::HistoricalSourceFixture::new(
+            28,
+        );
+    let receipt = verify_activated_source(source.root()).unwrap();
     assert_eq!(receipt["candidate_epoch"], CANDIDATE_EPOCH);
     assert_eq!(receipt["status"], "activated_source_chain");
 }

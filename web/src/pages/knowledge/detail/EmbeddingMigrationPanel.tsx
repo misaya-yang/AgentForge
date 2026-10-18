@@ -1,4 +1,4 @@
-import { isAxiosError } from "axios";
+import { isHttpError } from '@/lib/fetchClient';
 import {
   Activity,
   AlertTriangle,
@@ -102,7 +102,7 @@ type ConfirmedAction = "cutover" | "rollback" | "abort";
 type BusyAction = EmbeddingMigrationActionName | "start" | "refresh";
 
 function parseOperatorError(error: unknown): OperatorError {
-  if (isAxiosError(error)) {
+  if (isHttpError(error)) {
     const responseData = error.response?.data as
       | { detail?: unknown; message?: unknown }
       | string
@@ -993,7 +993,7 @@ export function EmbeddingMigrationPanel({
       onMigrationChange?.();
     } catch (error) {
       reportActionError(error);
-      if (isAxiosError(error) && [404, 409].includes(error.response?.status ?? 0)) {
+      if (isHttpError(error) && [404, 409].includes(error.response?.status ?? 0)) {
         await refresh(true);
       }
     } finally {

@@ -1,5 +1,6 @@
+import { deferComponent } from "@/components/deferComponent";
 import { DataStatusBadge } from "./components/DataStatusBadge";
-import { useMemo, useState, type ComponentType } from "react";
+import { Suspense, useMemo, useState, type ComponentType } from "react";
 import { Segmented, Tooltip } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -11,22 +12,20 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/store/useAppStore";
-import { ProviderStatusCard } from "@/components/ProviderStatusCard";
+const ProviderStatusCard = deferComponent(() => import("@/components/ProviderStatusCard"), "ProviderStatusCard");
 import { useHealth, useServices } from "@/hooks/useServices";
 import { getQuotaUsersOverview, getUsageSummary, listRequestTraces } from "@/api/usage";
 import { useDashboardContext } from "./DashboardContext";
 import { getColors, LAYOUT, TYPOGRAPHY } from "./styles";
 import type { PanelType } from "./types";
-import {
-  ServiceHealthPanel,
-  PerformancePanel,
-  TokenUsagePanel,
-  CostAnalysisPanel,
-  UserQuotaPanel,
-  SecurityEventsPanel,
-  RequestTracePanel,
-  FailureAnalysisPanel,
-} from "./components/panels";
+const ServiceHealthPanel = deferComponent(() => import("./components/panels/ServiceHealthPanel"), "ServiceHealthPanel");
+const PerformancePanel = deferComponent(() => import("./components/panels/PerformancePanel"), "PerformancePanel");
+const TokenUsagePanel = deferComponent(() => import("./components/panels/TokenUsagePanel"), "TokenUsagePanel");
+const CostAnalysisPanel = deferComponent(() => import("./components/panels/CostAnalysisPanel"), "CostAnalysisPanel");
+const UserQuotaPanel = deferComponent(() => import("./components/panels/UserQuotaPanel"), "UserQuotaPanel");
+const SecurityEventsPanel = deferComponent(() => import("./components/panels/SecurityEventsPanel"), "SecurityEventsPanel");
+const RequestTracePanel = deferComponent(() => import("./components/panels/RequestTracePanel"), "RequestTracePanel");
+const FailureAnalysisPanel = deferComponent(() => import("./components/panels/FailureAnalysisPanel"), "FailureAnalysisPanel");
 
 type WorkspaceKey = "overview" | "operations" | "reliability" | "governance" | "tracing";
 
@@ -534,7 +533,7 @@ export function DashboardLayout({ width = 1200, forceWorkspace }: DashboardLayou
                   : "1 / -1",
               }}
             >
-              <PanelComponent />
+              <Suspense fallback={<div role="status" aria-live="polite">{t("common.loading")}</div>}><PanelComponent /></Suspense>
             </div>
           );
         })}

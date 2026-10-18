@@ -11,7 +11,10 @@ enum ResultMessage {
         u64,
         Result<(Client, bool, migration_desktop::DesktopApi), String>,
     ),
-    ReleaseIdentity(u64, Result<ai_platform_client::compatibility::GatewayVersion, Error>),
+    ReleaseIdentity(
+        u64,
+        Result<ai_platform_client::compatibility::GatewayVersion, Error>,
+    ),
     PasswordChanged(u64, Result<(), Error>),
     Data(u64, Result<Value, Error>),
     Logout(u64, Result<(), Error>),
@@ -141,8 +144,8 @@ impl App {
                         "Gateway release {} · source {}. Runtime/Worker capability compatibility is unverified.",
                         version.release_id, version.git_sha
                     ),
-                    Err(Error::Status(404)) => "Gateway /version is unavailable; release compatibility is unverified.".into(),
-                    Err(Error::Status(503)) => "Gateway release identity is unavailable or disagrees with its manifest; release compatibility is unverified.".into(),
+                    Err(error) if error.status() == Some(404) => "Gateway /version is unavailable; release compatibility is unverified.".into(),
+                    Err(error) if error.status() == Some(503) => "Gateway release identity is unavailable or disagrees with its manifest; release compatibility is unverified.".into(),
                     Err(error) => format!("Gateway release identity unverified: {error}"),
                 };
             }
@@ -153,7 +156,7 @@ impl App {
                         self.data = v;
                         self.status = "Loaded".into();
                     }
-                    Err(Error::Status(401)) => {
+                    Err(error) if error.status() == Some(401) => {
                         self.clear_auth("Session expired. Sign in again.");
                     }
                     Err(e) => self.status = e.to_string(),
@@ -163,9 +166,8 @@ impl App {
                 self.logging_out = false;
                 self.busy = false;
                 match result {
-                    Ok(()) | Err(Error::Status(401)) => {
-                        self.clear_auth("Signed out");
-                    }
+                    Ok(()) => self.clear_auth("Signed out"),
+                    Err(error) if error.status() == Some(401) => self.clear_auth("Signed out"),
                     Err(e) => self.status = format!("Sign out failed: {e}"),
                 }
             }
@@ -176,8 +178,9 @@ impl App {
                     Ok(()) => {
                         self.clear_auth("Password changed. Sign in again.");
                     }
-                    Err(Error::Status(401)) => self.clear_auth("Session expired. Sign in again."),
-                    Err(Error::Status(408 | 500..=599) | Error::Transport | Error::Response) => self.clear_auth(
+                    Err(error) if error.status() == Some(401) => self.clear_auth("Session expired. Sign in again."),
+                    Err(error) if matches!(&error, Error::Transport | Error::Response)
+                        || matches!(error.status(), Some(408 | 500..=599)) => self.clear_auth(
                         "Password-change outcome unknown. Sign in with your new password to check.",
                     ),
                     Err(e) => self.status = format!("Password change failed: {e}"),
@@ -223,12 +226,17 @@ impl App {
         self.read_task = Some(task.abort_handle());
     }
 }
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+impl App {
+    fn process_messages(&mut self, ctx: &egui::Context) {
         while let Ok(message) = self.receiver.try_recv() {
             self.handle_message(message, ctx);
         }
-        egui::CentralPanel::default().show(ctx, |ui| {
+    }
+    fn render_ui(&mut self, root_ui: &mut egui::Ui) {
+        let context = root_ui.ctx().clone();
+        let ctx = &context;
+        self.process_messages(ctx);
+        egui::CentralPanel::default().show_inside(root_ui, |ui| {
             ui.heading("AI Platform");
             ui.label("Native Rust desktop · reconstruction preview");
             ui.label(&self.status);
@@ -395,6 +403,17 @@ impl eframe::App for App {
         });
     }
 }
+impl eframe::App for App {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // eframe also calls logic for a hidden window after a requested repaint.
+        // Session/result fencing must not depend on drawing a visible frame.
+        self.process_messages(ctx);
+    }
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.render_ui(ui);
+    }
+}
+
 fn main() -> eframe::Result {
     if let Some(code) = package_info::handle_args() {
         std::process::exit(code);
@@ -405,3 +424,107 @@ fn main() -> eframe::Result {
         Box::new(|_| Ok(Box::<App>::default())),
     )
 }
+
+#[cfg(test)]
+mod problem_session_tests {
+    use super::*;
+    fn problem(status: u16) -> Error {
+        let bytes=serde_json::to_vec(&serde_json::json!({"type":"about:blank","title":"private-marker","status":status,"detail":{"password":"private-marker"},"instance":"https://private-marker.invalid"})).unwrap();
+        Error::Problem(Box::new(
+            ai_platform_client::problem::RemoteProblem::decode(status, &bytes).unwrap(),
+        ))
+    }
+    fn authenticated() -> App {
+        let mut app = App::default();
+        app.generation = 12;
+        app.client = Some(
+            Client::new("https://gateway.example")
+                .unwrap()
+                .authenticated("synthetic-token".into()),
+        );
+        app.chat = Some(chat::Chat::default());
+        app.session = "session-sensitive".into();
+        app.password = "password-sensitive".into();
+        app.current_password = "old-sensitive".into();
+        app.new_password = "new-sensitive".into();
+        app.confirm_password = "new-sensitive".into();
+        app.data = serde_json::json!({"private":"cached"});
+        app.busy = true;
+        app
+    }
+    fn assert_fenced(app: &App) {
+        assert_eq!(app.generation, 13);
+        assert!(app.client.is_none() && app.chat.is_none() && app.workspace.is_none());
+        assert!(
+            app.session.is_empty()
+                && app.password.is_empty()
+                && app.current_password.is_empty()
+                && app.new_password.is_empty()
+                && app.confirm_password.is_empty()
+        );
+        assert_eq!(app.data, Value::Null);
+        assert!(!app.busy);
+        assert!(!app.status.contains("private-marker"));
+    }
+    #[test]
+    fn problem_unauthorized_fences_data_logout_and_password_and_stale_messages() {
+        let ctx = egui::Context::default();
+        for kind in 0..3 {
+            let mut app = authenticated();
+            let message = match kind {
+                0 => ResultMessage::Data(12, Err(problem(401))),
+                1 => ResultMessage::Logout(12, Err(problem(401))),
+                _ => ResultMessage::PasswordChanged(12, Err(problem(401))),
+            };
+            app.handle_message(message, &ctx);
+            assert_fenced(&app);
+            app.handle_message(
+                ResultMessage::Data(12, Ok(serde_json::json!({"stale":"must-not-return"}))),
+                &ctx,
+            );
+            assert_fenced(&app);
+        }
+    }
+    #[test]
+    fn problem_password_timeout_or_server_failure_fences_unknown_outcome() {
+        let ctx = egui::Context::default();
+        for status in [408, 500, 502, 503, 504, 599] {
+            let mut app = authenticated();
+            app.handle_message(
+                ResultMessage::PasswordChanged(12, Err(problem(status))),
+                &ctx,
+            );
+            assert_fenced(&app);
+            assert!(app.status.contains("outcome unknown"));
+        }
+        for status in [403, 404, 409, 422, 429] {
+            let mut app = authenticated();
+            app.handle_message(
+                ResultMessage::PasswordChanged(12, Err(problem(status))),
+                &ctx,
+            );
+            assert!(app.client.is_some());
+            assert_eq!(app.generation, 12);
+            assert!(!app.status.contains("private-marker"));
+        }
+    }
+    #[test]
+    fn problem_release_absence_and_unavailability_keep_compatibility_unknown() {
+        let ctx = egui::Context::default();
+        for status in [404, 503] {
+            let mut app = authenticated();
+            app.release_generation = Some(12);
+            app.handle_message(
+                ResultMessage::ReleaseIdentity(12, Err(problem(status))),
+                &ctx,
+            );
+            assert!(app.release_status.contains("unverified"));
+            assert!(!app.release_status.contains("private-marker"));
+            assert!(app.client.is_some());
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "font_rendering_tests.rs"]
+mod maintained_font_rendering_tests;

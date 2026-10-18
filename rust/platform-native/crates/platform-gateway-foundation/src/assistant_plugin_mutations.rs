@@ -57,6 +57,9 @@ pub(super) async fn update_plugin(
         return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin catalog is unavailable");
     }
     for record in records.iter().filter(|record| record["plugin_version"] == body.selected_version) {
+        if body.enabled && !super::publisher_admitted(record, &principal.tenant_id) {
+            return error(StatusCode::FORBIDDEN, "The publisher is not admitted for this tenant");
+        }
         let required: Vec<_> = record["required_permissions"].as_array().into_iter().flatten()
             .filter_map(Value::as_str).map(str::to_owned).collect();
         if !user_has_required_permissions(&principal.tier, &principal.roles, &required) {

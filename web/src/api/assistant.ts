@@ -1,3 +1,4 @@
+import type { RequestBody, Defined, RequestQuery } from "@/api/contracts";
 import type { SSEConnectionState } from "@/lib/sse";
 import type { SdkApprovalBinding } from "@/features/chat/stream/sdkApprovalBinding";
 /**
@@ -58,33 +59,7 @@ export interface AssistantMessage {
   content: string;
 }
 
-export interface ChatRequest {
-  message: string;
-  session_id?: string;
-  history?: AssistantMessage[];
-  model_id?: string;
-  provider_id?: string;
-  temperature?: number;
-  max_tokens?: number;
-  kb_dataset_ids?: string[];
-  kb_mode?: "auto" | "tool" | "off";
-  kb_top_k?: number;
-  kb_score_threshold?: number;
-  kb_include_images?: boolean;
-  web_search_enabled?: boolean;
-  web_search_max_results?: number;
-  file_paths?: string[];
-  system_prompt?: string;
-  execution_profile?: "safe";
-  thinking_level?: "off" | "low" | "medium" | "high";
-  reasoning_option?: string;
-  memory_mode?: "auto" | "strict" | "off";
-  os_agent_enabled?: boolean;
-  local_node_device_id?: string;
-  local_node_grant_ids?: string[];
-  resume_run_id?: string;
-  resume_approval_id?: string;
-}
+export type ChatRequest = RequestBody<"POST /api/v2/agent/threads/{thread}/turns"> & Pick<RequestBody<"POST /api/v2/agent/threads">, "session_id">;
 
 export interface WebSearchResult {
   title: string;
@@ -728,20 +703,10 @@ export async function getSessionArtifacts(sessionId: string, signal?: AbortSigna
  * Create an artifact from base64 content.
  * Used for saving generated images, documents, etc.
  */
-export interface CreateArtifactRequest {
-  session_id: string;
-  type: string;  // image, document, chart, code, file
-  format: string;  // png, jpg, pdf, json, etc.
-  title: string;
-  filename: string;
-  content_base64: string;
-  source?: string;  // ai | user | code_execution | image_generation
-  message_id?: string;
-  metadata?: Record<string, unknown>;
-}
+export type CreateArtifactRequest = Defined<RequestBody<"POST /api/v1/assistant/artifacts">, "session_id" | "type" | "format" | "title" | "filename" | "content_base64">;
 
 export async function createArtifact(request: CreateArtifactRequest): Promise<ArtifactInfo> {
-  const { data } = await api.post<ArtifactInfo>("/api/v1/assistant/artifacts", request);
+  const { data } = await api.post<ArtifactInfo>("/api/v1/assistant/artifacts", (request satisfies RequestBody<"POST /api/v1/assistant/artifacts">));
   return data;
 }
 
@@ -788,18 +753,18 @@ export interface ExistingConversationShare extends ShareInfo {
 
 export async function previewConversationShare(
   sessionId: string,
-  options: { expires_days?: number; include_artifacts: boolean; audience: "public" | "internal" },
+  options: RequestQuery<"GET /api/v1/assistant/sessions/{session_id}/share-preview">,
 ): Promise<ConversationSharePreview> {
   const { data } = await api.get<ConversationSharePreview>(
     `/api/v1/assistant/sessions/${sessionId}/share-preview`,
-    { params: options },
+    { params: (options satisfies RequestQuery<"GET /api/v1/assistant/sessions/{session_id}/share-preview">) },
   );
   return data;
 }
 
 export async function listConversationShares(sessionId: string): Promise<ExistingConversationShare[]> {
   const { data } = await api.get<{ shares: ExistingConversationShare[] }>("/api/v1/assistant/shares", {
-    params: { session_id: sessionId },
+    params: ({ session_id: sessionId } satisfies RequestQuery<"GET /api/v1/assistant/shares">),
   });
   return data.shares;
 }
@@ -810,11 +775,11 @@ export async function revokeConversationShare(shareCode: string): Promise<void> 
 
 export async function createConversationShare(
   sessionId: string,
-  options: { expires_days?: number; include_artifacts: boolean; preview_hash: string; audience: "public" | "internal" }
+  options: RequestBody<"POST /api/v1/assistant/sessions/{session_id}/share">
 ): Promise<ShareInfo> {
   const { data } = await api.post<ShareInfo>(
     `/api/v1/assistant/sessions/${sessionId}/share`,
-    options,
+    (options satisfies RequestBody<"POST /api/v1/assistant/sessions/{session_id}/share">),
   );
   return data;
 }
@@ -827,10 +792,7 @@ export async function createConversationShare(
 // Run lifecycle + tool approval
 // =============================================================================
 
-export type ToolApprovalRequest = {
-  approved: boolean;
-  reason?: string | null;
-} & (SdkApprovalBinding | {
+export type ToolApprovalRequest = Pick<RequestBody<"POST /api/v1/assistant/approvals/{approval_id}">, "approved" | "reason"> & (SdkApprovalBinding | {
   expected_run_id?: never;
   expected_tool_call_id?: never;
   expected_arguments_hash?: never;
@@ -847,9 +809,7 @@ export interface ToolApprovalResponse {
   };
 }
 
-export interface RunResumeRequest {
-  approval_id?: string | null;
-}
+export type RunResumeRequest = RequestBody<"POST /api/v1/assistant/runs/{run_id}/resume">;
 
 export interface RunResumeResponse {
   resume: {
@@ -894,7 +854,7 @@ export async function approveToolCall(
 ): Promise<ToolApprovalResponse> {
   const { data } = await api.post<ToolApprovalResponse>(
     `/api/v1/assistant/approvals/${encodeURIComponent(approvalId)}`,
-    body,
+    (body satisfies RequestBody<"POST /api/v1/assistant/approvals/{approval_id}">),
   );
   return data;
 }
@@ -913,7 +873,7 @@ export async function prepareAssistantRunResume(
 ): Promise<RunResumeResponse> {
   const { data } = await api.post<RunResumeResponse>(
     `/api/v1/assistant/runs/${runId}/resume`,
-    body,
+    (body satisfies RequestBody<"POST /api/v1/assistant/runs/{run_id}/resume">),
   );
   return data;
 }
@@ -922,14 +882,7 @@ export async function prepareAssistantRunResume(
 // Image Generation API (Smart Routing)
 // =========================================================================
 
-export interface ImageGenerationRequest {
-  prompt: string;
-  model_id: string;
-  session_id?: string;
-  style?: string;
-  size?: string;
-  n?: number;
-}
+export type ImageGenerationRequest = Defined<RequestBody<"POST /api/v1/assistant/generate-image">, "prompt" | "model_id">;
 
 export interface GeneratedImage {
   url: string;
@@ -981,7 +934,7 @@ export async function readImageTask(taskId: string, sessionId: string, turnId?: 
  * - Fallback to DashScope for other providers
  */
 export async function generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
-  const { data } = await api.post<ImageGenerationResponse>("/api/v1/assistant/generate-image", request);
+  const { data } = await api.post<ImageGenerationResponse>("/api/v1/assistant/generate-image", (request satisfies RequestBody<"POST /api/v1/assistant/generate-image">));
   return data;
 }
 
@@ -990,9 +943,7 @@ export async function generateImage(request: ImageGenerationRequest): Promise<Im
 // Task Cancellation API (Phase 1 Optimization)
 // =========================================================================
 
-export interface TaskCancelRequest {
-  reason?: string;
-}
+export type TaskCancelRequest = RequestBody<"POST /api/v1/assistant/tasks/{task_id}/cancel">;
 
 export interface TaskCancelResponse {
   task_id: string;
@@ -1012,7 +963,7 @@ export async function cancelTask(taskId: string, reason?: string, options?: { si
   const body: TaskCancelRequest = reason ? { reason } : {};
   const { data } = await api.post<TaskCancelResponse>(
     `/api/v1/assistant/tasks/${encodeURIComponent(taskId)}/cancel`,
-    body,
+    (body satisfies RequestBody<"POST /api/v1/assistant/tasks/{task_id}/cancel">),
     options
   );
   return data;

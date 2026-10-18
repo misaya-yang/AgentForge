@@ -959,7 +959,7 @@ function StateChip({
 
   if (viewMode === "quiz") {
     label = t("assistant.quiz.chipAnswering", {
-      defaultValue: "作答中 · {{done}}/{{total}}",
+      defaultValue: "作答中 · {done}/{total}",
       done: answeredCount,
       total: totalQuestions,
     }) as string;
@@ -986,7 +986,7 @@ function StateChip({
     const pct = scorePct ?? 0;
     const good = pct >= 70;
     label = t("assistant.quiz.chipResult", {
-      defaultValue: "已提交 · {{pct}}%",
+      defaultValue: "已提交 · {pct}%",
       pct,
     }) as string;
     toneClass = good

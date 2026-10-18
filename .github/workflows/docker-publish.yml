@@ -16,12 +16,12 @@ permissions:
 
 jobs:
   image-size:
-    uses: $/.github/workflows/image-size.yml
+    uses: ./.github/workflows/image-size.yml
     with:
       policy-only: true
 
   supply-chain:
-    uses: $/.github/workflows/supply-chain.yml
+    uses: ./.github/workflows/supply-chain.yml
 
   build-and-push:
     needs: [image-size, supply-chain]
@@ -72,7 +72,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Install pinned vulnerability scanner
@@ -176,7 +176,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Install pinned vulnerability scanner
@@ -274,9 +274,26 @@ jobs:
             predicate="$RUNNER_TEMP/critical-scan-$arch.json"
             bash scripts/harness/scan_release_image.sh "$signed_ref" "linux/$arch" "$predicate"
             bash scripts/harness/scan_release_license.sh "$signed_ref" "linux/$arch" "$RUNNER_TEMP/license-admission-$arch.json"
+            # Preserve the actual immutable platform SPDX, not only an unsigned pass flag.
+            for variable in "${!TRIVY_@}"; do unset "$variable"; done
+            sbom="$RUNNER_TEMP/sbom-$arch.spdx.json"
+            trivy image --config deploy/security/trivy.yaml --image-src remote \
+              --platform "linux/$arch" --scanners license --license-full --ignorefile /dev/null \
+              --format spdx-json --output "$sbom" "$signed_ref"
+            platform-tools delivery-policy license-predicate --repo-root . --image-ref "$signed_ref" \
+              --platform "linux/$arch" --sbom "$sbom" > "$RUNNER_TEMP/license-predicate-$arch.json"
+            cosign attest --yes --type spdxjson --predicate "$sbom" "$signed_ref"
+            cosign attest --yes --type https://github.com/misaya-yang/AgentForge/attestations/license-admission/v1 \
+              --predicate "$RUNNER_TEMP/license-predicate-$arch.json" "$signed_ref"
             cosign attest --yes --type "$predicate_type" --predicate "$predicate" "$signed_ref"
           done
+          platform-tools delivery-policy release-predicate --repo-root . --image-ref "$signed_ref" \
+            --revision "$GITHUB_SHA" --records "$digest_dir" > "$RUNNER_TEMP/native-release.json"
+          cosign attest --yes --type https://github.com/misaya-yang/AgentForge/attestations/native-release/v1 \
+            --predicate "$RUNNER_TEMP/native-release.json" "$signed_ref"
           cosign sign --yes "$signed_ref"
+          platform-tools delivery-policy verify-image --repo-root . --image-ref "$signed_ref" \
+            --evidence-out "$RUNNER_TEMP/delivery-verification.json"
           platform-tools supply-chain verify-image --repo-root . --image-ref "$signed_ref" --evidence-out "$RUNNER_TEMP/signature-verification.json"
           docker buildx imagetools create "${tag_args[@]}" "$signed_ref"
           promoted_digest="$(docker buildx imagetools inspect "${tags[0]}" --format '{{json .Manifest}}' | jq -er '.digest')"
@@ -290,4 +307,8 @@ jobs:
             ${{ runner.temp }}/signature-verification.json
             ${{ runner.temp }}/critical-scan-amd64.json
             ${{ runner.temp }}/critical-scan-arm64.json
+            ${{ runner.temp }}/delivery-verification.json
+            ${{ runner.temp }}/native-release.json
+            ${{ runner.temp }}/license-predicate-*.json
+            ${{ runner.temp }}/sbom-*.spdx.json
           if-no-files-found: error

@@ -24,10 +24,11 @@ const stubPlugin = {
 };
 
 const options = {
+  absWorkingDir: dirname(fileURLToPath(import.meta.url)),
   entryPoints: ["src/cli.tsx"],
   bundle: true,
   platform: "node",
-  target: "node22",
+  target: "node24",
   format: "esm",
   outfile: "dist/cli.js",
   sourcemap: false,
@@ -92,6 +93,8 @@ function writeNativeSourceIdentity() {
     schema_version: "ai-gateway-cli/native-source/v1",
     upstream_sha: upstreamSha,
     overlay_sha256: overlaySha,
+    release_keys: readJson(resolve(cliRoot, "release/trusted-keys.json")),
+    release_version: readJson(resolve(cliRoot,"package.json")).version,
   }, null, 2)}\n`);
 }
 

@@ -5,6 +5,7 @@
 //! bounded bytes plus a scope-bound capability proof and never retries a
 //! request whose upload outcome is uncertain.
 
+use crate::workload_identity::WorkloadSend;
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -47,8 +48,8 @@ impl OfficeArtifactBrokerConfig {
             || url.password().is_some()
             || url.query().is_some()
             || url.fragment().is_some()
-            || self.internal_token.len() < MIN_SECRET_BYTES
-            || self.proof_secret.len() < MIN_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < MIN_SECRET_BYTES)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_SECRET_BYTES)
         {
             return Err(OfficeArtifactStoreError::Unavailable);
         }
@@ -171,7 +172,7 @@ impl OfficeArtifactStore for ReqwestOfficeArtifactStore {
         request: OfficeArtifactPut,
     ) -> Result<OfficeArtifactRecord, OfficeArtifactStoreError> {
         let body = Self::body(&request)?;
-        let proof = self.proof(&request, &body)?;
+        let proof = if crate::broker_proof::required() { crate::broker_proof::issue(PATH, &body).await.map_err(|_| OfficeArtifactStoreError::Unavailable)? } else { self.proof(&request, &body)? };
         let request_builder = self
             .client
             .post(self.config.endpoint()?)
@@ -190,7 +191,7 @@ impl OfficeArtifactStore for ReqwestOfficeArtifactStore {
         )
         .json(&body)
         .timeout(Duration::from_secs(20))
-        .send()
+        .workload_send()
         .await
         .map_err(|error| {
             if error.is_timeout() {

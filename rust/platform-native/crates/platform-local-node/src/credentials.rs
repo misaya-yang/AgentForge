@@ -4,6 +4,9 @@ pub const DEVICE_IDENTITY_KEYCHAIN_SERVICE: &str = "ai-platform.local-node.devic
 pub const DEVICE_CREDENTIAL_KEYCHAIN_SERVICE: &str = "ai-platform.local-node.device-credential.v2";
 pub trait SecureCredentialStore: Send + Sync {
     fn ready(&self) -> bool;
+    fn remove(&self, _reference: &str) -> Result<()> {
+        Err(Error::Denied("credential deletion unavailable"))
+    }
     fn load(&self, reference: &str) -> Result<Option<Vec<u8>>>;
     fn store(&self, reference: &str, secret: &[u8]) -> Result<()>;
 }
@@ -26,18 +29,25 @@ pub struct MacKeychainStore {
 #[cfg(target_os = "macos")]
 impl MacKeychainStore {
     pub fn new(service: String) -> Result<Self> {
-        if service.is_empty() || service.len() > 512 {
-            return Err(Error::Denied("keychain service"));
-        }
+        validate_name(&service)?;
         Ok(Self { service })
     }
 }
 #[cfg(target_os = "macos")]
 impl SecureCredentialStore for MacKeychainStore {
+    fn remove(&self, reference: &str) -> Result<()> {
+        validate_name(reference)?;
+        match security_framework::passwords::delete_generic_password(&self.service, reference) {
+            Ok(()) => Ok(()),
+            Err(e) if e.code() == -25300 => Ok(()),
+            Err(_) => Err(Error::Denied("keychain delete failed")),
+        }
+    }
     fn ready(&self) -> bool {
         true
     }
     fn load(&self, reference: &str) -> Result<Option<Vec<u8>>> {
+        validate_name(reference)?;
         match security_framework::passwords::get_generic_password(&self.service, reference) {
             Ok(v) => Ok(Some(v)),
             Err(e) if e.code() == -25300 => Ok(None),
@@ -45,6 +55,10 @@ impl SecureCredentialStore for MacKeychainStore {
         }
     }
     fn store(&self, reference: &str, secret: &[u8]) -> Result<()> {
+        validate_name(reference)?;
+        if secret.is_empty() || secret.len() > 8192 {
+            return Err(Error::Denied("invalid credential size"));
+        }
         security_framework::passwords::set_generic_password(&self.service, reference, secret)
             .map_err(|_| Error::Denied("keychain store failed"))
     }

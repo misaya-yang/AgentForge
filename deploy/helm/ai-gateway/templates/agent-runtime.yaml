@@ -15,6 +15,9 @@ spec:
       app.kubernetes.io/component: agent-runtime
   template:
     metadata:
+      annotations:
+        agentforge.io/application-secret-generation: {{ .Values.workloadIdentity.applicationSecretGeneration | quote }}
+        agentforge.io/data-generation: {{ .Values.dataSecurity.generation | quote }}
       labels:
 {{ include "ai-gateway.labels" . | indent 8 }}
         app.kubernetes.io/component: agent-runtime
@@ -35,6 +38,8 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: agent-runtime
       initContainers:
+{{ include "ai-gateway.appSecretInit" (dict "root" . "role" "runtime" "uid" 10001) | indent 6 }}
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "agent-runtime" "role" "runtime" "uid" 10001 "once" true) | indent 6 }}
       - name: database-authority
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
         command: ["/bin/sh", "-ec"]
@@ -48,9 +53,11 @@ spec:
         - name: AI_GATEWAY_ROLE_PREFIX
           value: {{ .Values.databaseRoles.rolePrefix | quote }}
         volumeMounts:
+{{ include "ai-gateway.dataMount" . | indent 8 }}
         - {name: state, mountPath: /state}
         - {name: tmp, mountPath: /tmp}
       containers:
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "agent-runtime" "role" "runtime" "uid" 10001 "once" false) | indent 6 }}
       - name: agent-runtime
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "runtime") | quote }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -59,14 +66,27 @@ spec:
         resources:
 {{ toYaml (index .Values.resources "runtime") | indent 10 }}
         env:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_RUNTIME_MODEL_PROXY_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_RUNTIME_MODEL_PROXY_TOKEN") | indent 8 }}
+{{- end }}
+{{ include "ai-gateway.workloadEnv" (dict "root" . "service" "agent-runtime") | indent 8 }}
+{{ include "ai-gateway.dataEnv" (dict "root" . "role" "runtime" "prefix" "DATA_RUNTIME" "alias" "runtime" "replicas" 1) | indent 8 }}
+{{- if not .Values.dataSecurity.enabled }}
 {{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_HOST" "secret" .Values.credentials.runtime "key" "POSTGRES_HOST") | indent 8 }}
+{{- end }}
+{{- if not .Values.dataSecurity.enabled }}
 {{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PORT" "secret" .Values.credentials.runtime "key" "POSTGRES_PORT") | indent 8 }}
+{{- end }}
+{{- if not .Values.dataSecurity.enabled }}
 {{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_USER" "secret" .Values.credentials.runtime "key" "POSTGRES_USER") | indent 8 }}
+{{- end }}
+{{- if not .Values.dataSecurity.enabled }}
 {{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_PASSWORD" "secret" .Values.credentials.runtime "key" "POSTGRES_PASSWORD") | indent 8 }}
+{{- end }}
+{{- if not .Values.dataSecurity.enabled }}
 {{ include "ai-gateway.secretEnv" (dict "env" "POSTGRES_DB" "secret" .Values.credentials.runtime "key" "POSTGRES_DB") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN") | indent 8 }}
+{{- end }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.runtime "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
         - name: AI_PLATFORM_LEASE_TRUST_MODE
           value: "verify_only"
         - name: AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE
@@ -81,20 +101,23 @@ spec:
           value: "/workspace"
 {{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_RUNTIME_DSN" "key" "RUNTIME_DSN") | indent 8 }}
         - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
         - name: AI_PLATFORM_AGENT_RUNTIME_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-runtime") }}
         - name: AI_PLATFORM_CAPABILITY_WORKER_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-capability-worker") }}
         - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "knowledge") }}
         - name: AI_PLATFORM_CAPABILITY_PLANE_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080/internal/v2/agent-capabilities
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}/internal/v2/agent-capabilities
         - name: AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080/internal/v1/agent-model-plane
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}/internal/v1/agent-model-plane
         - name: AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION
           value: {{ .Values.gateway.nativeOptions.kernel_revision | quote }}
         ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+        - {name: workload, containerPort: 8454}
+{{- end }}
         - {name: http, containerPort: 8094}
         readinessProbe:
           httpGet: {path: /health/ready, port: http}
@@ -103,11 +126,17 @@ spec:
           httpGet: {path: /health/live, port: http}
           initialDelaySeconds: 30
         volumeMounts:
+{{ include "ai-gateway.workloadMount" . | indent 8 }}
+{{ include "ai-gateway.dataMount" . | indent 8 }}
+{{ include "ai-gateway.appSecretMount" (dict "root" . "role" "runtime") | indent 8 }}
         - {name: tmp, mountPath: /tmp}
         - {name: state, mountPath: /var/lib/ai-platform-agent-runtime}
         - {name: workspace, mountPath: /workspace}
         - {name: lease, mountPath: /run/lease, readOnly: true}
       volumes:
+{{ include "ai-gateway.workloadVolumes" (dict "root" . "role" "runtime") | indent 6 }}
+{{ include "ai-gateway.dataVolumes" (dict "root" . "role" "runtime") | indent 6 }}
+{{ include "ai-gateway.appSecretVolume" (dict "root" . "role" "runtime") | indent 6 }}
       - name: tmp
         emptyDir: {medium: Memory, sizeLimit: 128Mi}
       - name: config
@@ -131,4 +160,7 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: agent-runtime
   ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+  - {name: workload, port: 8454, targetPort: workload}
+{{- end }}
   - {name: http, port: 8094, targetPort: http}

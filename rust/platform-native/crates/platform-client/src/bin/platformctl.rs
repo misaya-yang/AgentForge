@@ -2,8 +2,8 @@
 use ai_platform_client::{
     ApiRequest, Client, Error,
     management::{NodeEventCursor, TaskQuery, TaskStatus},
-    scheduled_tasks::{ScheduleCursor, ScheduleQuery},
     scheduled_notifications::{NotificationCursor, NotificationFilter, NotificationQuery},
+    scheduled_tasks::{ScheduleCursor, ScheduleQuery},
 };
 use serde_json::{Value, json};
 use std::{
@@ -11,12 +11,18 @@ use std::{
     time::Duration,
 };
 
+#[path = "platformctl/device_auth.rs"]
+mod device_auth_cli;
 #[path = "platformctl/sdk_services.rs"]
 mod sdk_services_cli;
 
 const HELP: &str = "platformctl --origin <https://gateway> --token-stdin <command>
 
-Authentication: pipe an existing Gateway access token on standard input.
+Authentication: platformctl auth login --origin <https://gateway> uses device authorization
+and the native OS vault. Normal commands refresh that scoped session as needed.
+Use auth status|logout with the same origin. A strict --config FILE may contain
+{version:1,origin:https://gateway,client_id:agentforge-cli}; it never contains secrets.
+Alternatively pipe an existing Gateway access token with --token-stdin.
 Tokens are never accepted in arguments, written to disk or printed by errors.
 HTTP is accepted only for a literal loopback IP.
 
@@ -96,6 +102,7 @@ struct Arguments {
     words: Vec<String>,
     options: std::collections::BTreeMap<String, String>,
     yes: bool,
+    token_stdin: bool,
 }
 impl Arguments {
     fn parse(args: Vec<String>) -> Result<Self, &'static str> {
@@ -104,6 +111,7 @@ impl Arguments {
             words: Vec::new(),
             options: Default::default(),
             yes: false,
+            token_stdin: false,
         };
         let mut token_stdin = false;
         let mut iter = args.into_iter();
@@ -114,9 +122,19 @@ impl Arguments {
                 }
                 "--token-stdin" if !token_stdin => token_stdin = true,
                 "--yes" if !result.yes => result.yes = true,
-                "--status" | "--limit" | "--offset" | "--after" | "--interval" | "--file"
-                | "--filter" | "--before-at" | "--before-id" | "--provider-key-file"
-                | "--run-id" | "--tool-call-id" | "--arguments-hash" => {
+                "--status"
+                | "--limit"
+                | "--offset"
+                | "--after"
+                | "--interval"
+                | "--file"
+                | "--filter"
+                | "--before-at"
+                | "--before-id"
+                | "--provider-key-file"
+                | "--run-id"
+                | "--tool-call-id"
+                | "--arguments-hash" => {
                     let value = iter.next().ok_or("Option needs a value")?;
                     if result.options.insert(arg, value).is_some() {
                         return Err("Duplicate option");
@@ -126,9 +144,10 @@ impl Arguments {
                 _ => result.words.push(arg),
             }
         }
-        if result.origin.is_empty() || !token_stdin {
-            return Err("Provide --origin and --token-stdin; use --help");
+        if result.origin.is_empty() {
+            return Err("Provide --origin or --config; use --help");
         }
+        result.token_stdin = token_stdin;
         Ok(result)
     }
     fn number(&mut self, key: &str, default: u64, min: u64, max: u64) -> Result<u64, &'static str> {
@@ -166,7 +185,11 @@ enum Command {
     RunGet(String),
     RunCancel(String),
     ApprovalInspect(String),
-    ApprovalDecision(String, ai_platform_client::assistant_runs::ApprovalBinding, bool),
+    ApprovalDecision(
+        String,
+        ai_platform_client::assistant_runs::ApprovalBinding,
+        bool,
+    ),
     ScheduleList(ScheduleQuery),
     ScheduleExecutions(String, ScheduleQuery),
     ScheduleGet(String),
@@ -178,9 +201,15 @@ enum Command {
 }
 fn schedule_query(args: &mut Arguments, max: u64) -> Result<ScheduleQuery, &'static str> {
     let limit = args.number("--limit", 20, 1, max)? as u16;
-    let cursor = match (args.options.remove("--before-at"), args.options.remove("--before-id")) {
+    let cursor = match (
+        args.options.remove("--before-at"),
+        args.options.remove("--before-id"),
+    ) {
         (None, None) => None,
-        (Some(before_at), Some(before_id)) => Some(ScheduleCursor { before_at, before_id }),
+        (Some(before_at), Some(before_id)) => Some(ScheduleCursor {
+            before_at,
+            before_id,
+        }),
         _ => return Err("Schedule pagination requires both --before-at and --before-id"),
     };
     Ok(ScheduleQuery { limit, cursor })
@@ -224,21 +253,39 @@ fn command(args: &mut Arguments) -> Result<Command, &'static str> {
             Duration::from_secs(args.number("--interval", 2, 1, 300)?),
         ),
         ["runs", action, id] if ["get", "cancel"].contains(action) => {
-            ai_platform_client::assistant_runs::validate_id(id).map_err(|_| "Run ID must be a canonical UUID")?;
-            if *action == "get" { Command::RunGet((*id).into()) } else { Command::RunCancel((*id).into()) }
+            ai_platform_client::assistant_runs::validate_id(id)
+                .map_err(|_| "Run ID must be a canonical UUID")?;
+            if *action == "get" {
+                Command::RunGet((*id).into())
+            } else {
+                Command::RunCancel((*id).into())
+            }
         }
         ["approvals", "inspect", id] => {
-            ai_platform_client::assistant_runs::validate_id(id).map_err(|_| "Approval ID must be a canonical UUID")?;
+            ai_platform_client::assistant_runs::validate_id(id)
+                .map_err(|_| "Approval ID must be a canonical UUID")?;
             Command::ApprovalInspect((*id).into())
         }
         ["approvals", action, id] if ["approve", "reject"].contains(action) => {
-            ai_platform_client::assistant_runs::validate_id(id).map_err(|_| "Approval ID must be a canonical UUID")?;
+            ai_platform_client::assistant_runs::validate_id(id)
+                .map_err(|_| "Approval ID must be a canonical UUID")?;
             let binding = ai_platform_client::assistant_runs::ApprovalBinding {
-                run_id: args.options.remove("--run-id").ok_or("Copy --run-id from approvals inspect")?,
-                tool_call_id: args.options.remove("--tool-call-id").ok_or("Copy --tool-call-id from approvals inspect")?,
-                arguments_hash: args.options.remove("--arguments-hash").ok_or("Copy --arguments-hash from approvals inspect")?,
+                run_id: args
+                    .options
+                    .remove("--run-id")
+                    .ok_or("Copy --run-id from approvals inspect")?,
+                tool_call_id: args
+                    .options
+                    .remove("--tool-call-id")
+                    .ok_or("Copy --tool-call-id from approvals inspect")?,
+                arguments_hash: args
+                    .options
+                    .remove("--arguments-hash")
+                    .ok_or("Copy --arguments-hash from approvals inspect")?,
             };
-            binding.validate().map_err(|_| "Invalid approval binding; copy the exact inspected values")?;
+            binding
+                .validate()
+                .map_err(|_| "Invalid approval binding; copy the exact inspected values")?;
             Command::ApprovalDecision((*id).into(), binding, *action == "approve")
         }
         ["nodes", "list"] => Command::Read(ApiRequest::get(&["api", "v1", "local-nodes"])),
@@ -260,20 +307,26 @@ fn command(args: &mut Arguments) -> Result<Command, &'static str> {
         ),
         ["schedules", "list"] => {
             let query = schedule_query(args, 200)?;
-            query.tasks_request().map_err(|_| "Invalid schedule query or cursor")?;
+            query
+                .tasks_request()
+                .map_err(|_| "Invalid schedule query or cursor")?;
             Command::ScheduleList(query)
         }
         ["schedules", "executions", id] => {
             let query = schedule_query(args, 100)?;
-            query.executions_request(id).map_err(|_| "Invalid schedule ID, query or cursor")?;
+            query
+                .executions_request(id)
+                .map_err(|_| "Invalid schedule ID, query or cursor")?;
             Command::ScheduleExecutions((*id).into(), query)
         }
         ["schedules", "get", id] => {
-            ai_platform_client::scheduled_tasks::get_request(id).map_err(|_| "Invalid schedule ID")?;
+            ai_platform_client::scheduled_tasks::get_request(id)
+                .map_err(|_| "Invalid schedule ID")?;
             Command::ScheduleGet((*id).into())
         }
         ["schedules", "execution", id, execution_id] => {
-            ai_platform_client::scheduled_tasks::execution_request(id, execution_id).map_err(|_| "Invalid schedule or execution ID")?;
+            ai_platform_client::scheduled_tasks::execution_request(id, execution_id)
+                .map_err(|_| "Invalid schedule or execution ID")?;
             Command::ScheduleExecution((*id).into(), (*execution_id).into())
         }
         ["schedules", "create"] => {
@@ -320,17 +373,38 @@ fn command(args: &mut Arguments) -> Result<Command, &'static str> {
             ))
         }
         ["notifications", "list"] => {
-            let filter = args.options.remove("--filter")
-                .map(|value| NotificationFilter::parse(&value).map_err(|_| "Invalid notification filter"))
-                .transpose()?.unwrap_or_default();
+            let filter = args
+                .options
+                .remove("--filter")
+                .map(|value| {
+                    NotificationFilter::parse(&value).map_err(|_| "Invalid notification filter")
+                })
+                .transpose()?
+                .unwrap_or_default();
             let limit = args.number("--limit", 50, 1, 100)? as u16;
-            let cursor = match (args.options.remove("--before-at"), args.options.remove("--before-id")) {
+            let cursor = match (
+                args.options.remove("--before-at"),
+                args.options.remove("--before-id"),
+            ) {
                 (None, None) => None,
-                (Some(before_at), Some(before_id)) => Some(NotificationCursor { before_at, before_id }),
-                _ => return Err("Notification pagination requires both --before-at and --before-id"),
+                (Some(before_at), Some(before_id)) => Some(NotificationCursor {
+                    before_at,
+                    before_id,
+                }),
+                _ => {
+                    return Err(
+                        "Notification pagination requires both --before-at and --before-id",
+                    );
+                }
             };
-            let query = NotificationQuery { filter, limit, cursor };
-            query.request().map_err(|_| "Invalid notification query or cursor")?;
+            let query = NotificationQuery {
+                filter,
+                limit,
+                cursor,
+            };
+            query
+                .request()
+                .map_err(|_| "Invalid notification query or cursor")?;
             Command::NotificationList(query)
         }
         ["notifications", "summary"] => Command::NotificationSummary,
@@ -356,7 +430,13 @@ fn command(args: &mut Arguments) -> Result<Command, &'static str> {
         }
         _ => return Err("Unknown command or wrong number of arguments; use --help"),
     };
-    args.finish(matches!(result, Command::Mutation(_) | Command::NotificationMark(_, _) | Command::RunCancel(_) | Command::ApprovalDecision(_, _, _)))?;
+    args.finish(matches!(
+        result,
+        Command::Mutation(_)
+            | Command::NotificationMark(_, _)
+            | Command::RunCancel(_)
+            | Command::ApprovalDecision(_, _, _)
+    ))?;
     Ok(result)
 }
 fn token_from_stdin() -> Result<String, &'static str> {
@@ -387,6 +467,11 @@ fn output(value: &Value) -> Result<(), &'static str> {
         .and_then(|_| out.flush())
         .map_err(|_| "Could not write output")
 }
+// Preserve the existing once-only mutation barrier for both HTTP error forms.
+fn uncertain_change(error: &Error) -> bool {
+    matches!(error, Error::Transport | Error::Response)
+        || matches!(error.status(), Some(408 | 500..=599))
+}
 async fn run(client: Client, command: Command) -> Result<u8, Box<dyn std::error::Error>> {
     match command {
         Command::SdkService(action) => sdk_services_cli::execute(&client, action).await?,
@@ -394,7 +479,7 @@ async fn run(client: Client, command: Command) -> Result<u8, Box<dyn std::error:
         Command::Mutation(request) => {
             match client.execute(request).await {
                 Ok(value) => output(&value)?,
-                Err(Error::Transport | Error::Response | Error::Status(408 | 500..=599)) => {
+                Err(error) if uncertain_change(&error) => {
                     return Err("Change outcome unknown; inspect the affected task or schedule before retrying".into());
                 }
                 Err(error) => return Err(error.into()),
@@ -402,29 +487,44 @@ async fn run(client: Client, command: Command) -> Result<u8, Box<dyn std::error:
         }
         Command::RunGet(id) => output(&client.assistant_run(&id).await?)?,
         Command::ApprovalInspect(id) => output(&client.sdk_approval(&id).await?)?,
-        Command::RunCancel(id) => {
-            match client.cancel_assistant_run(&id).await {
-                Ok(value) => output(&value)?,
-                Err(Error::Transport | Error::Response | Error::Status(300..=399 | 408 | 500..=599)) => return Err("Cancellation outcome unknown; use runs get before deciding to retry".into()),
-                Err(error) => return Err(error.into()),
+        Command::RunCancel(id) => match client.cancel_assistant_run(&id).await {
+            Ok(value) => output(&value)?,
+            Err(error) if uncertain_change(&error) || matches!(error.status(), Some(300..=399)) => {
+                return Err(
+                    "Cancellation outcome unknown; use runs get before deciding to retry".into(),
+                );
             }
-        }
+            Err(error) => return Err(error.into()),
+        },
         Command::ApprovalDecision(id, binding, approved) => {
             match client.decide_sdk_approval(&id, &binding, approved).await {
                 Ok(value) => output(&value)?,
-                Err(Error::Transport | Error::Response | Error::Status(408 | 500..=599)) => return Err("Approval outcome unknown; use approvals inspect before deciding to retry".into()),
+                Err(error) if uncertain_change(&error) => {
+                    return Err(
+                        "Approval outcome unknown; use approvals inspect before deciding to retry"
+                            .into(),
+                    );
+                }
                 Err(error) => return Err(error.into()),
             }
         }
         Command::ScheduleList(query) => output(&client.scheduled_tasks_page(&query).await?)?,
-        Command::ScheduleExecutions(id, query) => output(&client.scheduled_task_executions_page(&id, &query).await?)?,
+        Command::ScheduleExecutions(id, query) => {
+            output(&client.scheduled_task_executions_page(&id, &query).await?)?
+        }
         Command::ScheduleGet(id) => output(&client.scheduled_task(&id).await?)?,
-        Command::ScheduleExecution(id, execution_id) => output(&client.scheduled_task_execution(&id, &execution_id).await?)?,
+        Command::ScheduleExecution(id, execution_id) => {
+            output(&client.scheduled_task_execution(&id, &execution_id).await?)?
+        }
         Command::NotificationList(query) => {
-            output(&serde_json::to_value(client.scheduled_notifications(&query).await?)?)?;
+            output(&serde_json::to_value(
+                client.scheduled_notifications(&query).await?,
+            )?)?;
         }
         Command::NotificationSummary => {
-            output(&serde_json::to_value(client.scheduled_notification_summary().await?)?)?;
+            output(&serde_json::to_value(
+                client.scheduled_notification_summary().await?,
+            )?)?;
         }
         Command::NotificationGet(id) => {
             output(&json!({"notification": client.scheduled_notification(&id).await?}))?;
@@ -438,7 +538,7 @@ async fn run(client: Client, command: Command) -> Result<u8, Box<dyn std::error:
             };
             match result {
                 Ok(value) => output(&serde_json::to_value(value)?)?,
-                Err(Error::Transport | Error::Response | Error::Status(408 | 500..=599)) => {
+                Err(error) if uncertain_change(&error) => {
                     return Err("Read-state change outcome unknown; use notifications get for the supplied IDs before retrying".into());
                 }
                 Err(error) => return Err(error.into()),
@@ -478,34 +578,83 @@ async fn run(client: Client, command: Command) -> Result<u8, Box<dyn std::error:
     }
     Ok(0)
 }
+fn error_value(code: &str, message: &str) -> Value {
+    json!({"schema_version":"agentforge.platformctl.error.v1","error":{"code":code,"message":message}})
+}
+fn report_error(code: &str, message: &str) {
+    eprintln!("{}", error_value(code, message));
+}
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args == ["--credential-stdio"] {
+        return match device_auth_cli::credential_stdio().await {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(_) => {
+                eprintln!("Credential operation failed");
+                std::process::ExitCode::FAILURE
+            }
+        };
+    }
+    let args = match device_auth_cli::expand_profile(args) {
+        Ok(args) => args,
+        Err(_) => {
+            report_error("invalid_configuration", "Invalid client configuration");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let args = if args.len() >= 4 && args[0] == "--origin" && args[2] == "auth" {
+        let mut auth = vec![
+            "auth".to_owned(),
+            args[3].clone(),
+            args[0].clone(),
+            args[1].clone(),
+        ];
+        auth.extend_from_slice(&args[4..]);
+        auth
+    } else {
+        args
+    };
+    if args.first().map(String::as_str) == Some("auth") {
+        return tokio::select! {
+            result=device_auth_cli::auth(&args[1..])=>match result {Ok(code)=>std::process::ExitCode::from(code),Err(error)=>{report_error("authentication_failed", &error.to_string());std::process::ExitCode::FAILURE}},
+            _=tokio::signal::ctrl_c()=>std::process::ExitCode::from(130),
+        };
+    }
     if args.is_empty() || args == ["--help"] || args == ["-h"] {
         print!("{HELP}");
         return std::process::ExitCode::SUCCESS;
     }
-    let prepared = (|| -> Result<_, Box<dyn std::error::Error>> {
+    let prepared = async {
         let mut args = Arguments::parse(args)?;
         let command = command(&mut args)?;
-        let client = Client::new(&args.origin)?.authenticated(token_from_stdin()?);
-        Ok((client, command))
-    })();
+        let token = if args.token_stdin {
+            token_from_stdin()?
+        } else {
+            ai_platform_client::device_auth::DeviceLogin::new(&args.origin, "agentforge-cli")?
+                .access_token()
+                .await?
+                .token
+        };
+        let client = Client::new(&args.origin)?.authenticated(token);
+        Ok::<_, Box<dyn std::error::Error>>((client, command))
+    }
+    .await;
     let (client, command) = match prepared {
         Ok(value) => value,
         Err(error) => {
-            eprintln!("{error}");
+            report_error("invalid_request", &error.to_string());
             return std::process::ExitCode::from(2);
         }
     };
     tokio::select! {
         result = run(client, command) => match result {
             Ok(code) => std::process::ExitCode::from(code),
-            Err(error) => { eprintln!("{error}"); std::process::ExitCode::FAILURE }
+            Err(error) => { report_error("request_failed", &error.to_string()); std::process::ExitCode::FAILURE }
         },
         signal = tokio::signal::ctrl_c() => {
-            if signal.is_err() { eprintln!("Could not observe Ctrl-C"); }
-            eprintln!("Observation stopped. Any submitted change may still complete on the server.");
+            if signal.is_err() { report_error("signal_failed", "Could not observe Ctrl-C"); }
+            report_error("observation_stopped", "Observation stopped. Any submitted change may still complete on the server.");
             std::process::ExitCode::from(130)
         }
     }
@@ -514,19 +663,35 @@ async fn main() -> std::process::ExitCode {
 #[cfg(test)]
 mod approval_cli_tests {
     use super::*;
+    #[test]
+    fn error_output_has_stable_json_schema() {
+        assert_eq!(
+            error_value("invalid_request", "Invalid option"),
+            json!({"schema_version":"agentforge.platformctl.error.v1","error":{"code":"invalid_request","message":"Invalid option"}})
+        );
+    }
     fn parse(words: &str) -> Result<Command, &'static str> {
-        let mut args=Arguments::parse(format!("--origin https://gateway.example --token-stdin {words}").split_whitespace().map(str::to_owned).collect())?;
+        let mut args = Arguments::parse(
+            format!("--origin https://gateway.example --token-stdin {words}")
+                .split_whitespace()
+                .map(str::to_owned)
+                .collect(),
+        )?;
         command(&mut args)
     }
-    const ID: &str="00000000-0000-4000-8000-000000000001";
-    #[test] fn explicit_acknowledgment_and_binding_required() {
+    const ID: &str = "00000000-0000-4000-8000-000000000001";
+    #[test]
+    fn explicit_acknowledgment_and_binding_required() {
         assert!(parse(&format!("runs get {ID}")).is_ok());
         assert!(parse(&format!("runs get {ID} --yes")).is_err());
         assert!(parse(&format!("runs cancel {ID}")).is_err());
         assert!(parse(&format!("runs cancel {ID} --yes")).is_ok());
         assert!(parse(&format!("approvals approve {ID} --yes")).is_err());
-        for action in ["approve","reject"] {
-            let input=format!("approvals {action} {ID} --run-id {ID} --tool-call-id call_1 --arguments-hash {}", "a".repeat(64));
+        for action in ["approve", "reject"] {
+            let input = format!(
+                "approvals {action} {ID} --run-id {ID} --tool-call-id call_1 --arguments-hash {}",
+                "a".repeat(64)
+            );
             assert!(parse(&input).is_err());
             assert!(parse(&format!("{input} --yes")).is_ok());
         }
@@ -539,30 +704,120 @@ mod schedule_history_tests {
     use super::*;
     const ID: &str = "00000000-0000-0000-0000-000000000001";
     fn parse(words: &[&str]) -> Result<Command, &'static str> {
-        let mut args=vec!["--origin".into(),"https://gateway.example".into(),"--token-stdin".into()];
-        args.extend(words.iter().map(|s|s.to_string()));
+        let mut args = vec![
+            "--origin".into(),
+            "https://gateway.example".into(),
+            "--token-stdin".into(),
+        ];
+        args.extend(words.iter().map(|s| s.to_string()));
         command(&mut Arguments::parse(args)?)
     }
     #[test]
     fn schedules_default_latest_and_exact_reads() {
-        assert!(matches!(parse(&["schedules","list"]).unwrap(),Command::ScheduleList(ScheduleQuery{limit:20,cursor:None})));
-        assert!(matches!(parse(&["schedules","executions",ID]).unwrap(),Command::ScheduleExecutions(_,ScheduleQuery{limit:20,cursor:None})));
-        assert!(matches!(parse(&["schedules","get",ID]).unwrap(),Command::ScheduleGet(_)));
-        assert!(matches!(parse(&["schedules","execution",ID,ID]).unwrap(),Command::ScheduleExecution(_,_)));
+        assert!(matches!(
+            parse(&["schedules", "list"]).unwrap(),
+            Command::ScheduleList(ScheduleQuery {
+                limit: 20,
+                cursor: None
+            })
+        ));
+        assert!(matches!(
+            parse(&["schedules", "executions", ID]).unwrap(),
+            Command::ScheduleExecutions(
+                _,
+                ScheduleQuery {
+                    limit: 20,
+                    cursor: None
+                }
+            )
+        ));
+        assert!(matches!(
+            parse(&["schedules", "get", ID]).unwrap(),
+            Command::ScheduleGet(_)
+        ));
+        assert!(matches!(
+            parse(&["schedules", "execution", ID, ID]).unwrap(),
+            Command::ScheduleExecution(_, _)
+        ));
     }
     #[test]
     fn schedules_cursor_and_limit_boundaries() {
-        for words in [vec!["schedules","list","--limit","200"],vec!["schedules","executions",ID,"--limit","100"],vec!["schedules","list","--before-at","2026-10-13T00:00:00Z","--before-id",ID]] {
+        for words in [
+            vec!["schedules", "list", "--limit", "200"],
+            vec!["schedules", "executions", ID, "--limit", "100"],
+            vec![
+                "schedules",
+                "list",
+                "--before-at",
+                "2026-10-13T00:00:00Z",
+                "--before-id",
+                ID,
+            ],
+        ] {
             assert!(parse(&words).is_ok());
         }
-        for words in [vec!["schedules","list","--limit","201"],vec!["schedules","list","--limit","0"],vec!["schedules","executions",ID,"--limit","101"],vec!["schedules","list","--before-id",ID],vec!["schedules","list","--before-at","2026-10-13T00:00:00Z"],vec!["schedules","list","--before-at","bad","--before-id",ID],vec!["schedules","list","--offset","20"],vec!["schedules","list","--limit","1","--limit","2"],vec!["schedules","get","bad"],vec!["schedules","execution",ID,"bad"],vec!["schedules","get",ID,"--limit","1"],vec!["schedules","list","--yes"]] {
-            assert!(parse(&words).is_err(),"{words:?}");
+        for words in [
+            vec!["schedules", "list", "--limit", "201"],
+            vec!["schedules", "list", "--limit", "0"],
+            vec!["schedules", "executions", ID, "--limit", "101"],
+            vec!["schedules", "list", "--before-id", ID],
+            vec!["schedules", "list", "--before-at", "2026-10-13T00:00:00Z"],
+            vec!["schedules", "list", "--before-at", "bad", "--before-id", ID],
+            vec!["schedules", "list", "--offset", "20"],
+            vec!["schedules", "list", "--limit", "1", "--limit", "2"],
+            vec!["schedules", "get", "bad"],
+            vec!["schedules", "execution", ID, "bad"],
+            vec!["schedules", "get", ID, "--limit", "1"],
+            vec!["schedules", "list", "--yes"],
+        ] {
+            assert!(parse(&words).is_err(), "{words:?}");
         }
     }
     #[test]
     fn schedule_actions_still_require_explicit_approval() {
-        assert!(parse(&["schedules","pause",ID]).is_err());
-        assert!(matches!(parse(&["schedules","pause",ID,"--yes"]).unwrap(),Command::Mutation(_)));
-        assert!(parse(&["schedules","pause",ID,"--yes","--before-id",ID]).is_err());
+        assert!(parse(&["schedules", "pause", ID]).is_err());
+        assert!(matches!(
+            parse(&["schedules", "pause", ID, "--yes"]).unwrap(),
+            Command::Mutation(_)
+        ));
+        assert!(parse(&["schedules", "pause", ID, "--yes", "--before-id", ID]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod problem_effect_tests {
+    use super::*;
+    fn problem(status: u16) -> Error {
+        let bytes=serde_json::to_vec(&json!({"type":"about:blank","title":"private-marker","status":status,"detail":{"password":"private-marker"},"instance":"https://private-marker.invalid"})).unwrap();
+        Error::Problem(Box::new(
+            ai_platform_client::problem::RemoteProblem::decode(status, &bytes).unwrap(),
+        ))
+    }
+    #[test]
+    fn problem_errors_keep_cli_reconciliation_classification_and_privacy() {
+        for status in [401, 403, 404, 409, 422, 429, 408, 500, 502, 503, 504, 599] {
+            let error = problem(status);
+            assert_eq!(uncertain_change(&error), matches!(status, 408 | 500..=599));
+            assert_eq!(
+                uncertain_change(&error),
+                uncertain_change(&Error::Status(status))
+            );
+            assert!(
+                !error_value("request_failed", &error.to_string())
+                    .to_string()
+                    .contains("private-marker")
+            );
+            assert!(!format!("{error:?}").contains("private-marker"));
+        }
+        assert!(uncertain_change(&Error::Transport));
+        assert!(uncertain_change(&Error::Response));
+        // Redirect uncertainty remains specific to cancellation, as before.
+        assert!(!uncertain_change(&Error::Status(302)));
+        assert!(matches!(Error::Status(302).status(), Some(300..=399)));
+        assert!(
+            Error::UnknownOutcome
+                .to_string()
+                .contains("do not automatically resubmit")
+        );
     }
 }

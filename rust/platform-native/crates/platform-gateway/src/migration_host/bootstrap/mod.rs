@@ -9,15 +9,17 @@ pub mod compat;
 pub mod configuration;
 pub mod content;
 pub mod core;
+pub mod data_connections;
+mod enterprise_identity;
 pub mod evaluation;
 pub mod foundation;
 pub mod foundation_backends;
 pub mod foundation_settings;
 pub mod graph;
-mod enterprise_identity;
-mod llm_api;
+pub mod ha;
 mod knowledge_models;
 pub mod langgraph_preparation;
+mod llm_api;
 pub mod models;
 pub mod native_policies;
 pub mod process;
@@ -29,6 +31,7 @@ pub mod storage;
 pub mod timestamps;
 pub mod usage_event_bus;
 pub mod workers;
+pub mod workload;
 
 use sqlx::PgPool;
 #[derive(Clone)]

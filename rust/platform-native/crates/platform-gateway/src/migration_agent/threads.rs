@@ -41,14 +41,14 @@ impl AgentThreadStore {
             .map_err(|_| AgentError::code(503, "AGENT_RUNTIME_STORAGE_UNAVAILABLE"))
     }
     pub async fn get(&self, actor: &Actor, id: &str) -> Result<Option<RuntimeThread>, AgentError> {
-        let value:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM assistant_runtime_threads t WHERE runtime_thread_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND deleted_at IS NULL").bind(uuid(id)?).bind(&actor.tenant_id).bind(&actor.user_id).fetch_optional(&self.pool).await?;
+        let value:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM assistant_runtime_threads t WHERE runtime_thread_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND deleted_at IS NULL").bind(uuid(id)?).bind(&actor.tenant_id).bind(&actor.user_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &actor.tenant_id)).await?;
         value.map(Self::thread).transpose()
     }
     pub async fn get_for_session(
         &self,
         scope: &Scope,
     ) -> Result<Option<RuntimeThread>, AgentError> {
-        let value:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM assistant_runtime_threads t WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND deleted_at IS NULL").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
+        let value:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM assistant_runtime_threads t WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND deleted_at IS NULL").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         value.map(Self::thread).transpose()
     }
     pub async fn ensure_native(
@@ -61,7 +61,10 @@ impl AgentThreadStore {
             .bind(&scope.tenant_id)
             .bind(&scope.user_id)
             .bind(&scope.session_id)
-            .execute(&self.pool)
+            .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                &self.pool,
+                &scope.tenant_id,
+            ))
             .await?;
         self.get_for_session(scope)
             .await?
@@ -78,7 +81,10 @@ impl AgentThreadStore {
                 .bind(&scope.tenant_id)
                 .bind(&scope.user_id)
                 .bind(&scope.session_id)
-                .execute(&self.pool)
+                .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                    &self.pool,
+                    &scope.tenant_id,
+                ))
                 .await;
         if let Err(e) = result {
             let message = e.as_database_error().map(|e| e.message()).unwrap_or("");
@@ -109,7 +115,7 @@ impl AgentThreadStore {
         after: i64,
         limit: i64,
     ) -> Result<Vec<Value>, AgentError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('sequence',sequence,'event_id',event_id,'event_key',event_key,'turn_id',turn_id,'item_id',item_id,'event_type',event_type,'item_type',item_type,'status',status,'payload',payload,'created_at',created_at) FROM assistant_runtime_items WHERE runtime_thread_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND sequence>$4 ORDER BY sequence ASC LIMIT $5").bind(uuid(id)?).bind(&actor.tenant_id).bind(&actor.user_id).bind(after.max(0)).bind(limit.clamp(1,1000)).fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('sequence',sequence,'event_id',event_id,'event_key',event_key,'turn_id',turn_id,'item_id',item_id,'event_type',event_type,'item_type',item_type,'status',status,'payload',payload,'created_at',created_at) FROM assistant_runtime_items WHERE runtime_thread_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND sequence>$4 ORDER BY sequence ASC LIMIT $5").bind(uuid(id)?).bind(&actor.tenant_id).bind(&actor.user_id).bind(after.max(0)).bind(limit.clamp(1,1000)).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &actor.tenant_id)).await?)
     }
     pub async fn append_event(
         &self,
@@ -126,7 +132,7 @@ impl AgentThreadStore {
             format!("ai-platform:{}:{key}", thread.runtime_thread_id).as_bytes(),
         )
         .to_string();
-        Ok(sqlx::query_scalar("SELECT append_assistant_runtime_item($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)").bind(&thread.runtime_thread_id).bind(&thread.runtime_thread_id).bind(&thread.tenant_id).bind(&thread.user_id).bind(&thread.session_id).bind(event_id).bind(key).bind(turn).bind(item).bind(event_type).bind(item.map(|_|"item")).bind(status).bind(payload).bind(spec::hash(payload)).fetch_one(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT append_assistant_runtime_item($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)").bind(&thread.runtime_thread_id).bind(&thread.runtime_thread_id).bind(&thread.tenant_id).bind(&thread.user_id).bind(&thread.session_id).bind(event_id).bind(key).bind(turn).bind(item).bind(event_type).bind(item.map(|_|"item")).bind(status).bind(payload).bind(spec::hash(payload)).fetch_one(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &thread.tenant_id)).await?)
     }
     pub async fn turn_metadata(
         &self,
@@ -134,11 +140,11 @@ impl AgentThreadStore {
         thread: &str,
         turn: &str,
     ) -> Result<Option<Value>, AgentError> {
-        let row:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('snapshot',snapshot,'capability_revision',capability_revision,'kernel_revision',snapshot->>'kernel_revision') FROM assistant_runtime_snapshots WHERE run_id=$1::uuid AND runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5").bind(uuid(turn)?).bind(uuid(thread)?).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
+        let row:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('snapshot',snapshot,'capability_revision',capability_revision,'kernel_revision',snapshot->>'kernel_revision') FROM assistant_runtime_snapshots WHERE run_id=$1::uuid AND runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5").bind(uuid(turn)?).bind(uuid(thread)?).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         Ok(row.map(|r|{let s=&r["snapshot"];let p=&s["reasoning"];let t=s["parameters"]["temperature"].as_f64().filter(|t|(0.0..=2.0).contains(t));json!({"requested_reasoning_option":p["requested_option"],"effective_reasoning_option":p["effective_option"],"reasoning_adapter_id":p["adapter_id"],"capability_revision":r["capability_revision"].as_i64().unwrap_or(1),"reasoning_fallback_reason":p["fallback_reason"],"kernel":"agent","kernel_revision":r["kernel_revision"],"model_id":s["model"]["id"],"temperature":t})}))
     }
     pub async fn assignment(&self, scope: &Scope) -> Result<Option<Value>, AgentError> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(a) FROM assistant_session_runtime_assignments a WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(a) FROM assistant_session_runtime_assignments a WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?)
     }
     pub async fn require_assignment(&self, scope: &Scope) -> Result<Value, AgentError> {
         let a = self
@@ -162,7 +168,7 @@ impl AgentThreadStore {
         let revision = revision
             .filter(|s| !s.is_empty())
             .unwrap_or("legacy-runtime");
-        sqlx::query("INSERT INTO assistant_session_runtime_assignments(tenant_id,user_id,session_id,runtime_owner,kernel_revision,assignment_reason) VALUES($1,$2,$3,'agent_runtime',$4,$5) ON CONFLICT(tenant_id,user_id,session_id) DO NOTHING").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(revision).bind(reason).execute(&self.pool).await?;
+        sqlx::query("INSERT INTO assistant_session_runtime_assignments(tenant_id,user_id,session_id,runtime_owner,kernel_revision,assignment_reason) VALUES($1,$2,$3,'agent_runtime',$4,$5) ON CONFLICT(tenant_id,user_id,session_id) DO NOTHING").bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(revision).bind(reason).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         let existing = self
             .assignment(scope)
             .await?
@@ -189,7 +195,7 @@ impl AgentThreadStore {
             .await
     }
     pub async fn owned_session(&self, scope: &Scope) -> Result<Value, AgentError> {
-        sqlx::query_scalar("SELECT to_jsonb(s) FROM assistant.sessions s WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_optional(&self.pool).await?.ok_or_else(||AgentError::code(404,"SESSION_NOT_FOUND"))
+        sqlx::query_scalar("SELECT to_jsonb(s) FROM assistant.sessions s WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?.ok_or_else(||AgentError::code(404,"SESSION_NOT_FOUND"))
     }
 }
 pub fn safe_history_event(event: &Value) -> Value {

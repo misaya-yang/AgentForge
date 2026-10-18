@@ -2,6 +2,7 @@
 //! mutation, so an acknowledged receipt is authoritative for replay suppression.
 //! This is not a durable intake outbox and never resolves an uncertain raw commit.
 use super::*;
+use ai_platform_service_primitives::data_connection::append_store;
 use sha2::{Digest, Sha256};
 const OBSERVATION: &str = "_native_accounting_observation";
 const V2_CUMULATIVE: &str = "_price_book_v2_cumulative";
@@ -37,9 +38,21 @@ pub(super) fn bind_observation(accounting: &mut UsageRecord, original: &UsageRec
             .cloned()
             .unwrap_or(Value::Null);
         cumulative.metadata = Map::from_iter([("pricing_snapshot".into(), snapshot)]);
-        if let Some(units)=original.metadata.get(crate::request_meter::METADATA_KEY){cumulative.metadata.insert(crate::request_meter::METADATA_KEY.into(),units.clone());}
-        if let Some(cache)=original.metadata.get("provider_cache_usage"){cumulative.metadata.insert("provider_cache_usage".into(),cache.clone());}
-        if let Some(cost)=original.metadata.get("request_cost_nanos"){cumulative.metadata.insert("request_cost_nanos".into(),cost.clone());}
+        if let Some(units) = original.metadata.get(crate::request_meter::METADATA_KEY) {
+            cumulative
+                .metadata
+                .insert(crate::request_meter::METADATA_KEY.into(), units.clone());
+        }
+        if let Some(cache) = original.metadata.get("provider_cache_usage") {
+            cumulative
+                .metadata
+                .insert("provider_cache_usage".into(), cache.clone());
+        }
+        if let Some(cost) = original.metadata.get("request_cost_nanos") {
+            cumulative
+                .metadata
+                .insert("request_cost_nanos".into(), cost.clone());
+        }
         cumulative.trace_steps.clear();
         accounting.metadata.insert(
             V2_CUMULATIVE.into(),
@@ -117,9 +130,10 @@ pub(super) async fn claim_in_transaction(
             continue;
         }
         let event = receipt_id(stage, record)?;
-        let inserted=sqlx::query_scalar::<_,String>("INSERT INTO billing_events(event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,status,cost_amount,cost_currency,metadata,event_time) VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7,'accounting_applied',NULL,'USD',$8,$9) ON CONFLICT(event_id) DO NOTHING RETURNING event_id")
+        append_store::bind_tenant(&mut **tx, "gateway.billing_events", &record.tenant_id).await?;
+        let inserted=append_store::fetch_scalar_optional::<String>(&mut **tx, "gateway.billing_events", sqlx::query("INSERT INTO billing_events(event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,status,cost_amount,cost_currency,metadata,event_time) VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7,'accounting_applied',NULL,'USD',$8,$9) ON CONFLICT(event_id) DO NOTHING RETURNING event_id")
             .bind(&event).bind(&record.request_id).bind(if record.service_id.is_empty(){"unattributed_service"}else{&record.service_id}).bind(&record.user_id).bind(&record.tenant_id).bind(&record.model).bind(&record.assistant_id)
-            .bind(json!({"event":"usage_accounting_stage_receipt_v1","stage":stage.name(),"observation":record.metadata.get(OBSERVATION)})).bind(record.timestamp).fetch_optional(&mut **tx).await?;
+            .bind(json!({"event":"usage_accounting_stage_receipt_v1","stage":stage.name(),"observation":record.metadata.get(OBSERVATION)})).bind(record.timestamp)).await?;
         if inserted.is_some() {
             accepted.push(record.clone());
         } else {
@@ -161,7 +175,12 @@ pub(crate) fn v2_cumulative_delta(
         {
             return Err(UsageRecorderError::InvalidAccountingDelta);
         }
-        if crate::request_meter::request_count(current)?.is_some() && crate::request_meter::request_count(current)?!=crate::request_meter::request_count(previous)? {return Err(UsageRecorderError::InvalidAccountingDelta)}
+        if crate::request_meter::request_count(current)?.is_some()
+            && crate::request_meter::request_count(current)?
+                != crate::request_meter::request_count(previous)?
+        {
+            return Err(UsageRecorderError::InvalidAccountingDelta);
+        }
         accounting_adjustment(current, previous)
     } else {
         let mut delta = current.clone();
@@ -191,6 +210,12 @@ async fn claim_v2_cumulative(
         .bind(lock)
         .execute(&mut **tx)
         .await?;
+    append_store::bind_tenant(
+        &mut **tx,
+        "gateway.price_book_v2_accounting_checkpoints",
+        &current.tenant_id,
+    )
+    .await?;
     let previous:Option<Value>=sqlx::query_scalar("SELECT observation FROM gateway.price_book_v2_accounting_checkpoints WHERE tenant_id=$1 AND request_id=$2 AND service_id=$3 AND request_type=$4 AND stage=$5 FOR UPDATE")
         .bind(&current.tenant_id).bind(&current.request_id).bind(&current.service_id).bind(&current.request_type).bind(stage.name()).fetch_optional(&mut **tx).await?;
     let previous: Option<UsageRecord> = previous
@@ -200,8 +225,8 @@ async fn claim_v2_cumulative(
     let delta = v2_cumulative_delta(&current, previous.as_ref())?;
     let mut merged = previous.unwrap_or_else(|| current.clone());
     merge_idempotent_record(&mut merged, &current);
-    sqlx::query("INSERT INTO gateway.price_book_v2_accounting_checkpoints(tenant_id,request_id,service_id,request_type,stage,observation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(tenant_id,request_id,service_id,request_type,stage) DO UPDATE SET observation=EXCLUDED.observation,updated_at=CURRENT_TIMESTAMP")
-        .bind(&current.tenant_id).bind(&current.request_id).bind(&current.service_id).bind(&current.request_type).bind(stage.name()).bind(serde_json::to_value(merged).map_err(|_|UsageRecorderError::InvalidAccountingDelta)?).execute(&mut **tx).await?;
+    append_store::execute(&mut **tx, "gateway.price_book_v2_accounting_checkpoints", sqlx::query("INSERT INTO gateway.price_book_v2_accounting_checkpoints(tenant_id,request_id,service_id,request_type,stage,observation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(tenant_id,request_id,service_id,request_type,stage) DO UPDATE SET observation=EXCLUDED.observation,updated_at=CURRENT_TIMESTAMP")
+        .bind(&current.tenant_id).bind(&current.request_id).bind(&current.service_id).bind(&current.request_type).bind(stage.name()).bind(serde_json::to_value(merged).map_err(|_|UsageRecorderError::InvalidAccountingDelta)?)).await?;
     Ok(delta)
 }
 
@@ -210,6 +235,18 @@ pub async fn apply_in_transaction(
     stage: AccountingStage,
     records: &[UsageRecord],
 ) -> UsageFutureResult<()> {
+    apply_observed_in_transaction(tx, stage, records)
+        .await
+        .map(|_| ())
+}
+
+/// Returns only newly claimed accounting deltas. The caller must commit before
+/// emitting any observation; a replay or uncertain commit is never a new charge.
+pub async fn apply_observed_in_transaction(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    stage: AccountingStage,
+    records: &[UsageRecord],
+) -> UsageFutureResult<Vec<UsageRecord>> {
     if stage == AccountingStage::RequestTraces {
         return Err(UsageRecorderError::InvalidAccountingDelta);
     }
@@ -235,7 +272,7 @@ pub async fn apply_in_transaction(
         }
         AccountingStage::RequestTraces => unreachable!(),
     }
-    Ok(())
+    Ok(accepted)
 }
 /// Failure identity is deterministic even for an unkeyed, manual-only receipt.
 pub fn failure_id(stage: AccountingStage, record: &UsageRecord) -> String {

@@ -142,7 +142,8 @@ impl TenantPoliciesPool for PgTenantPoliciesPool {
                     Box::pin(async move {
                         let invalid =
                             || sqlx::Error::Protocol("tenant_policies_invalid_binding".into());
-                        let mut query = sqlx::query(&statement.sql);
+                        let sql=if matches!(statement.kind,TenantPoliciesStatementKind::AuditRows|TenantPoliciesStatementKind::AuditCount) {ai_platform_service_primitives::data_connection::append_store::pruning_sql(&mut *connection,"gateway.tool_audit_log",&statement.sql).await?}else{statement.sql.clone()};
+                        let mut query = sqlx::query(&sql);
                         for (i, value) in statement.arguments.iter().enumerate() {
                             query = if (statement.kind == TenantPoliciesStatementKind::ToolUpsert
                                 && (1..=3).contains(&i))

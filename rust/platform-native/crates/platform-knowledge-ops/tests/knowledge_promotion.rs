@@ -4,11 +4,60 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
 };
+// Rebuild only synthetic test receipts in temporary storage when evaluator source
+// changes. Tracked frozen receipts and production baseline pins remain untouched.
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../..")
-        .canonicalize()
-        .unwrap()
+    static ROOT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    ROOT.get_or_init(|| {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../..")
+            .canonicalize()
+            .unwrap();
+        let root =
+            std::env::temp_dir().join(format!("knowledge-gate-fixtures-{}", std::process::id()));
+        fn copy_tree(source: &Path, destination: &Path) {
+            std::fs::create_dir_all(destination).unwrap();
+            for entry in std::fs::read_dir(source).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    copy_tree(&entry.path(), &destination.join(entry.file_name()));
+                } else {
+                    std::fs::copy(entry.path(), destination.join(entry.file_name())).unwrap();
+                }
+            }
+        }
+        for relative in [
+            "tests/fixtures/eval/knowledge/promotion",
+            "tests/fixtures/eval/rag/golden",
+        ] {
+            copy_tree(&repo.join(relative), &root.join(relative));
+        }
+        let directory = root.join("tests/fixtures/eval/knowledge/promotion");
+        for entry in std::fs::read_dir(&directory).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            if value.get("evaluator_sha256").is_some() {
+                assert!(
+                    value["provenance"] == "fixture" || value["schema"] == "knowledge-promotion/v1"
+                );
+                value["evaluator_sha256"] = promotion::evaluator_sha256().into();
+                std::fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+            }
+        }
+        let path = directory.join("policy-fixture.json");
+        let mut policy: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        policy["baseline"]["sha256"] =
+            promotion::sha256(&std::fs::read(directory.join("baseline-fixture.json")).unwrap())
+                .into();
+        std::fs::write(path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+        root
+    })
+    .clone()
 }
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::parse_from_rfc3339("2026-10-17T00:00:00Z")
@@ -35,6 +84,7 @@ fn positive_fixture_computes_metrics_but_never_promotes() {
     let d = check("candidate-pass.json", true).unwrap();
     assert!(d.eligible && d.fixture_only && !d.promotable);
     assert!(d.cases > 1);
+    assert!(d.retrieval_v2_promotions.is_empty());
     assert_eq!(d.metrics["retrieval-starter/native-hybrid"]["mrr"], 1.0);
 }
 #[test]

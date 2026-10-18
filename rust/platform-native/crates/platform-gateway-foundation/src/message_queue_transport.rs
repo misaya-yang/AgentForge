@@ -6,7 +6,7 @@ use crate::{
     generic_rest_adapter::{
         RestMappingError, RestRequest, RestResponse, RestTransport, RestTransportFuture,
     },
-    quiz_grading::python_str,
+    python_value::python_str,
     service_ownership::ServiceHandle,
     service_registry::python_truthy,
 };

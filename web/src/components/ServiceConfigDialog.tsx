@@ -1,3 +1,5 @@
+import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
+import type { RequestBody } from "@/api/contracts";
 import { SdkAgentSettings } from "@/components/SdkAgentSettings";
 import { isNativeAgentSdk } from "@/lib/sdkAgentConfig";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -227,12 +229,12 @@ function readModelOverride(value: unknown): ServiceModelOverride {
 }
 
 async function getServiceConfig(serviceId: string): Promise<ServiceConfigResponse> {
-  const { data } = await api.get(`/api/v1/config/services/${serviceId}/config`);
+  const { data } = await api.get<ServiceConfigResponse>(`/api/v1/config/services/${serviceId}/config`);
   return data;
 }
 
-async function updateServiceConfig(serviceId: string, config: Partial<ServiceConfig>) {
-  const { data } = await api.put(`/api/v1/config/services/${serviceId}/config`, config);
+async function updateServiceConfig(serviceId: string, config: RequestBody<"PUT /api/v1/config/services/{service_id}/config">) {
+  const { data } = await api.put(`/api/v1/config/services/${serviceId}/config`, (config satisfies RequestBody<"PUT /api/v1/config/services/{service_id}/config">));
   return data;
 }
 
@@ -248,6 +250,7 @@ export function ServiceConfigDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const providerReadScope = useAuthenticatedReadScope();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
   const [basicError, setBasicError] = useState<string | null>(null);
@@ -326,9 +329,8 @@ export function ServiceConfigDialog({
 
   const selectedProviderId = modelOverrideForm.provider_id || "";
   const providersQuery = useQuery({
-    queryKey: providersApi.providerQueryKeys.list(true),
-    queryFn: () => providersApi.listProviders(true),
-    enabled: open && isLangGraphService,
+    ...providersApi.providersOptions(providerReadScope.id, true),
+    enabled: open && isLangGraphService && providerReadScope.isCurrent(),
   });
   const modelsQuery = useQuery({
     queryKey: ["models", "all-enabled-and-disabled"],
@@ -1281,7 +1283,7 @@ export function ServiceConfigDialog({
                                   "Failover needs valid unique candidates"
                                 )
                               : t("services.configDialog.model.failoverReady", {
-                                  defaultValue: "{{count}} fallback candidates",
+                                  defaultValue: "{count} fallback candidates",
                                   count: failoverCandidates.length,
                                 })}
                           </Badge>

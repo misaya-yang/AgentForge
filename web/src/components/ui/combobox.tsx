@@ -244,7 +244,7 @@ export function Combobox({
         </div>
         {option.description && (
           <div className={cn(
-            "text-xs truncate mt-0.5",
+            "ui-combobox-slot-3",
             isSelected ? "text-muted-foreground" : "text-muted-foreground/70"
           )}>
             {option.description}
@@ -290,14 +290,14 @@ export function Combobox({
           style={dropdownStyle}
           className={cn(
             // Container
-            "rounded-xl overflow-hidden",
+            "ui-combobox-slot-4",
             // Border & Shadow - prominent to stand out
-            "border border-border/60 ring-1 ring-black/5 dark:ring-white/10",
+            "ui-combobox-slot-5",
             "shadow-xl",
             // Solid background - using theme colors
             "bg-popover",
             // Animation
-            "animate-in fade-in-0 zoom-in-[0.98] duration-150"
+            "ui-combobox-slot-8"
           )}
         >
           {/* Search Input Area */}
@@ -312,13 +312,13 @@ export function Combobox({
                 onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
                 className={cn(
-                  "w-full h-10 pl-9 pr-9 rounded-lg text-sm",
+                  "ui-combobox-slot-9",
                   "bg-background",
-                  "border border-border/60",
+                  "ui-combobox-slot-11",
                   "outline-hidden",
                   "placeholder:text-muted-foreground/50",
-                  "focus:border-primary/50 focus:ring-2 focus:ring-primary/20",
-                  "transition-all duration-150"
+                  "ui-combobox-slot-14",
+                  "ui-combobox-slot-15"
                 )}
               />
               {searchQuery && (
@@ -359,9 +359,9 @@ export function Combobox({
                       onClick={() => !option.disabled && handleSelect(option)}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={cn(
-                        "relative flex cursor-pointer select-none items-center",
-                        "rounded-lg px-3 py-2.5 text-sm outline-hidden",
-                        "transition-all duration-100",
+                        "ui-combobox-slot-16",
+                        "ui-combobox-slot-17",
+                        "ui-combobox-slot-18",
                         // Base state
                         "text-foreground",
                         // Hover state
@@ -408,12 +408,12 @@ export function Combobox({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          "flex h-10 w-full items-center justify-between",
-          "rounded-lg border border-input bg-background px-3 py-2 text-sm",
+          "ui-combobox-slot-21",
+          "ui-combobox-slot-22",
           "ring-offset-background",
-          "focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "transition-all duration-200",
+          "ui-combobox-slot-24",
+          "ui-combobox-slot-25",
+          "ui-combobox-slot-26",
           "hover:border-primary/50",
           open && "ring-2 ring-primary/30 border-primary/50"
         )}
@@ -432,7 +432,7 @@ export function Combobox({
           )}
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              "ui-combobox-slot-28",
               open && "rotate-180"
             )}
           />

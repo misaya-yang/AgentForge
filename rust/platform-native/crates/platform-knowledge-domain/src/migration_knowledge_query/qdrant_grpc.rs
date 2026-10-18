@@ -155,6 +155,7 @@ impl GrpcTransport {
                             collection_name,
                             wait,
                             points,
+                            shard_key_selector: shard_selector(&v["shard_key"])?,
                             ..Default::default()
                         })
                         .await
@@ -253,6 +254,8 @@ impl GrpcTransport {
 fn query_points(name: &str, v: &Value) -> Result<q::QueryPoints> {
     Ok(q::QueryPoints {
         collection_name: name.to_owned(),
+        params: search_params(&v["params"])?,
+        shard_key_selector: shard_selector(&v["shard_key"])?,
         query: query(&v["query"])?,
         prefetch: prefetch(&v["prefetch"])?,
         using: v["using"].as_str().map(str::to_owned),

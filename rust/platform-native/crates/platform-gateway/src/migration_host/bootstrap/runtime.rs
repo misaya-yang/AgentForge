@@ -114,6 +114,7 @@ pub struct RuntimeServices {
     pub mcp_database: Arc<PgMcpDatabase>,
 }
 impl RuntimeServices {
+    /// Compatibility constructor for callers using the bundled builtin catalog.
     pub fn new(
         pools: &DatabasePools,
         auth: &AuthServices,
@@ -126,10 +127,57 @@ impl RuntimeServices {
         public: Option<Arc<PublicRuntime>>,
         cleanup_memory: Option<Arc<crate::migration_agent::memory_cleanup::RuntimeMemoryCleanup>>,
     ) -> Result<Self, BootstrapError> {
+        Self::new_with_catalog(
+            pools,
+            auth,
+            core,
+            models,
+            authorities,
+            content,
+            observability,
+            config,
+            Arc::new(
+                CapabilityCatalog::bundled()
+                    .map_err(|_| BootstrapError::Construction("capability_catalog"))?,
+            ),
+            public,
+            cleanup_memory,
+        )
+    }
+
+    pub fn new_with_catalog(
+        pools: &DatabasePools,
+        auth: &AuthServices,
+        core: &CoreServices,
+        models: &ModelServices,
+        authorities: &RuntimeAuthorities,
+        content: &AssembledContent,
+        observability: &ObservabilityServices,
+        config: RuntimeConfiguration,
+        records: Arc<CapabilityCatalog>,
+        public: Option<Arc<PublicRuntime>>,
+        cleanup_memory: Option<Arc<crate::migration_agent::memory_cleanup::RuntimeMemoryCleanup>>,
+    ) -> Result<Self, BootstrapError> {
+        if crate::migration_agent::control::execution_transport::required()
+            && !config.model_plane_internal_token.is_empty()
+        {
+            return Err(BootstrapError::Configuration(
+                "workload_shared_bearer_forbidden",
+            ));
+        }
         super::endpoint(&config.options.runtime_url, "agent_runtime_url")?;
-        super::endpoint(&config.options.model_plane_base_url, "model_plane_base_url")?;
+        let model_plane =
+            super::endpoint(&config.options.model_plane_base_url, "model_plane_base_url")?;
+        if crate::migration_agent::control::execution_transport::required()
+            && (model_plane.scheme() != "https"
+                || model_plane.path() != "/internal/v1/agent-model-plane")
+        {
+            return Err(BootstrapError::Configuration("model_plane_workload_origin"));
+        }
         super::endpoint(&config.capability_worker_url, "capability_worker_url")?;
-        if config.model_plane_internal_token.is_empty() {
+        if config.model_plane_internal_token.is_empty()
+            && !crate::migration_agent::control::execution_transport::required()
+        {
             return Err(BootstrapError::Configuration("model_plane_internal_token"));
         }
         let signer = Arc::new(
@@ -141,10 +189,7 @@ impl RuntimeServices {
                 pools.data.clone(),
                 config.capability_worker_url,
                 config.options.runtime_internal_token.clone(),
-                Arc::new(
-                    CapabilityCatalog::bundled()
-                        .map_err(|_| BootstrapError::Construction("capability_catalog"))?,
-                ),
+                records,
                 config.web_search_configured,
             )
             .map_err(|_| BootstrapError::Construction("capability_catalog"))?,
@@ -172,6 +217,7 @@ impl RuntimeServices {
         control.capacity = Some(core.capacity.clone());
         let control = Arc::new(control);
         let model_plane = Arc::new(AgentModelPlane {
+            context_metrics: None,
             pool: pools.data.clone(),
             signer,
             providers: models.providers.clone(),
@@ -181,13 +227,16 @@ impl RuntimeServices {
             admission: Some(core.admission.clone()),
             capacity: Some(core.capacity.clone()),
         });
-        let repository = Arc::new(AgentRepository::new(
-            pools.data.clone(),
-            Arc::new(NativeStudioResources {
-                pool: pools.data.clone(),
-                knowledge: authorities.knowledge.clone(),
-            }),
-        ));
+        let repository = Arc::new(
+            AgentRepository::new(
+                pools.data.clone(),
+                Arc::new(NativeStudioResources {
+                    pool: pools.data.clone(),
+                    knowledge: authorities.knowledge.clone(),
+                }),
+            )
+            .with_object_policy(core.rbac.decision_point.clone()),
+        );
         let mcp_database = Arc::new(
             PgMcpDatabase::new(pools.data.clone(), pools.control.clone())
                 .map_err(|_| BootstrapError::Construction("mcp_database"))?,

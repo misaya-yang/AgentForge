@@ -7,7 +7,7 @@ test("U-WEB-06 sampled browser errors and API traces use the owned same-origin c
   await page.addInitScript(() => {
     window.__AI_GATEWAY_RUNTIME_CONFIG__ = { telemetryEndpoint: "/api/v1/telemetry/browser" };
   });
-  await page.route("**/runtime-config.js", route => route.fulfill({ contentType: "application/javascript", body: 'window.__AI_GATEWAY_RUNTIME_CONFIG__ = { telemetryEndpoint: "/api/v1/telemetry/browser" };' }));
+  await page.route("**/runtime-config.json", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ telemetryEndpoint: "/api/v1/telemetry/browser" }) }));
   const fixtureOrigin = new URL(testInfo.project.use.baseURL!).origin;
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
@@ -34,7 +34,7 @@ test("U-WEB-06 sampled browser errors and API traces use the owned same-origin c
     expect(route.request().method()).toBe("POST"); expect(route.request().headers()["x-csrf-token"]).toBe("e2e-client-csrf"); expect(route.request().headers().authorization).toBeUndefined();
     batches.push(route.request().postDataJSON()); await route.fulfill({ status: 202, body: "" });
   });
-  await page.route("**/api/v1/telemetry-probe**", async route => {
+  await page.route("**/api/v1/users**", async route => {
     trace = route.request().headers().traceparent ?? ""; await route.fulfill({ contentType: "application/json", body: "{}" });
   });
   await page.goto("/e2e/fixtures/browser-observability.html?token=PRIVATE_QUERY");

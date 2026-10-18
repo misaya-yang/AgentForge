@@ -30,8 +30,8 @@ Tempo API is exposed to the browser. Optional profiling adds
 must explicitly send profiles to `http://pyroscope:4040`. No automatic profiling
 instrumentation is claimed.
 
-Native Gateway/Knowledge OTLP gRPC uses `otel-collector:4317`; Runtime/Worker's
-existing explicitly enabled HTTP exporters use `otel-collector:4318`. The collector
+Native Gateway/Knowledge and the explicitly enabled Runtime/Worker exporters all use
+HTTP/protobuf at `otel-collector:4318`. The collector
 exports traces only to Tempo, logs through Loki's `/otlp/v1/logs`, and metrics via
 its Prometheus exporter `:8889`. Prometheus also scrapes the **authenticated**
 Gateway `:8080/metrics`, using an external credential file. Redis `:6379` is not
@@ -88,3 +88,25 @@ memory/retention; service OTLP export and W3C parentage through real journeys;
 redaction fixtures observed at storage; credential expiry/rotation; burn/resolve
 alerts delivered to an operator receiver. No deployment or live trace acceptance
 is implied by static validation.
+
+Every observability/profiling container now declares a numeric non-root identity, read-only
+root, dropped capabilities, no-new-privileges, PID bounds and bounded noexec scratch. Writable
+state remains on the existing named data volumes. Before an authorized start, inspect and
+prepare those volumes for their declared UID/GID; no root repair container or volume deletion
+is introduced. Prometheus/Alertmanager use 65534, Grafana 472, Collector/Loki/Tempo/Pyroscope
+10001. External credential files must be readable by the specific consumer. Grafana logs use
+its existing writable data volume. These source settings still require exact-image filesystem
+and memory acceptance. `platform-tools platform-fitness` adds negative source checks for this
+previously uncovered profile, without substituting them for a rendered Compose/network test.
+
+Candidate GenAI/retrieval/ingestion latency recording rules and paired burn alerts now use the
+actual exported histogram names and operation labels from U-PE-11 instrumentation. Provisional
+operational targets are 99% of observed first-text-chunks/retrieval operations within 5 seconds,
+and agent-turn/ingestion operations within 50 seconds (native SDK bucket boundaries). These are
+operator review inputs, not replacements for the enterprise performance contract. First text
+chunk is not browser first byte. Missing counters or required buckets alert separately; idle
+traffic never burns the latency budget. The earlier Gateway idle-traffic slow-ratio issue is
+also corrected and has a zero-traffic negative rule fixture. Additional dashboard panels show
+provider observation latency and actual settled token/cost counters by opaque tenant/model.
+These queries, buckets, provisional targets and burn/resolve fixtures still need `promtool`,
+actual Collector output and real operator acceptance; no newly added rule is a measured SLO.

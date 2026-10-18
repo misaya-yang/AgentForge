@@ -32,6 +32,7 @@ pub(super) fn sign_capability_proof(
     secret: &str,
     input: CapabilityProofInput<'_>,
 ) -> Result<String, ReadCapabilityError> {
+    if crate::broker_proof::required() { return Ok("v3.pending".into()); }
     if secret.len() < MIN_PROOF_SECRET_BYTES || input.now == 0 || input.nonce.is_empty() {
         return Err(ReadCapabilityError::Configuration);
     }

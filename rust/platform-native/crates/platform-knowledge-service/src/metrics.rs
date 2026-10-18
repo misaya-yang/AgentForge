@@ -43,7 +43,9 @@ impl Metrics {
 pub(crate) async fn scrape(State(metrics): State<Metrics>) -> impl IntoResponse {
     if let Ok(Ok(depth)) = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_scalar::<_, i64>(QUEUE_DEPTH_SQL).fetch_one(&metrics.pool),
+        sqlx::query_scalar::<_, i64>(QUEUE_DEPTH_SQL).fetch_one(
+            ai_platform_knowledge_domain::database::executor(&metrics.pool),
+        ),
     )
     .await
     {

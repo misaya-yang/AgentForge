@@ -96,13 +96,35 @@ impl HistoricalSourceFixture {
                 let identity = successor_027_identity.unwrap();
                 let (lock, manifest) = match active_epoch {
                     27 => (ACTIVE_LOCK_RELATIVE, ACTIVE_MANIFEST_RELATIVE),
-                    28 => (
+                    28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 => (
                         "docs/design/canonical-schema-successor-028-approved27-package-lock.json",
                         "docs/design/canonical-schema-successor-028-approved27-manifest.yml",
                     ),
-                    _ => panic!("epoch27 fixture requires active27 or active28 source"),
+                    _ => panic!("epoch27 fixture requires active27, active28 or active29 source"),
                 };
                 (lock, manifest, identity.lock_sha, identity.manifest_sha)
+            }
+            28 => (
+                "docs/design/canonical-schema-successor-029-approved28-package-lock.json",
+                "docs/design/canonical-schema-successor-029-approved28-manifest.yml",
+                crate::source_tools::next_successor_029::APPROVED_028_LOCK_SHA256.unwrap(),
+                crate::source_tools::next_successor_029::APPROVED_028_MANIFEST_SHA256.unwrap(),
+            ),
+            29 => {
+                let (lock, manifest) = if active_epoch == 29 {
+                    (ACTIVE_LOCK_RELATIVE, ACTIVE_MANIFEST_RELATIVE)
+                } else {
+                    (
+                        "docs/design/canonical-schema-service-successors-approved29-package-lock.json",
+                        "docs/design/canonical-schema-service-successors-approved29-manifest.yml",
+                    )
+                };
+                (
+                    lock,
+                    manifest,
+                    "b8580e5d3ee6d8fa25966e9857d5372082e664788616db91cac2f678fb10f87b",
+                    "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa",
+                )
             }
             _ => panic!("unreviewed historical epoch fixture"),
         };
@@ -123,11 +145,19 @@ impl HistoricalSourceFixture {
         fs::write(root.join(ACTIVE_LOCK_RELATIVE), lock_bytes).unwrap();
         fs::write(root.join(ACTIVE_MANIFEST_RELATIVE), manifest_bytes).unwrap();
         for relative in [
+            "docs/design/canonical-schema-service-successors-approved29-package-lock.json",
+            "docs/design/canonical-schema-service-successors-approved29-manifest.yml",
+            "docs/design/canonical-schema-successor-029-approved28-package-lock.json",
+            "docs/design/canonical-schema-successor-029-approved28-manifest.yml",
             "docs/design/canonical-schema-successor-028-approved27-package-lock.json",
             "docs/design/canonical-schema-successor-028-approved27-manifest.yml",
         ] {
             let path = root.join(relative);
-            if path.exists() {
+            if path.exists()
+                && (epoch < 28
+                    || (epoch < 29 && relative.contains("029-approved28"))
+                    || relative.contains("service-successors-approved29"))
+            {
                 fs::remove_file(path).unwrap();
             }
         }
@@ -222,6 +252,11 @@ impl HistoricalSourceFixture {
         let eligible = [
             distribution::LOCK_SHA256,
             distribution::PREVIOUS_RELEASE_LOCK_SHA256,
+            distribution::SOURCE_OWNED_029_ANCHOR_LOCK_SHA256,
+            // Exact027 proof pin remains available to the recursive028 verifier.
+            crate::source_tools::next_successor_028::APPROVED_027_LOCK_SHA256.unwrap(),
+            // Exact025 proof pin remains available to recursive026 verification.
+            crate::source_tools::next_successor_026::APPROVED_025_LOCK_SHA256,
             // Exact026 proof pin remains available to the recursive027 verifier.
             crate::source_tools::next_successor_027::APPROVED_026_LOCK_SHA256,
             // Exact024 pin remains accepted as a historical source package.
@@ -295,6 +330,18 @@ pub(crate) fn verify_current_chain(root: &Path) -> manifest::EpochManifest {
             let receipt =
                 crate::source_tools::next_successor_028::verify_activated_source(root).unwrap();
             assert_eq!(receipt["candidate_epoch"], 28);
+            manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()
+        }
+        29 => {
+            let receipt =
+                crate::source_tools::next_successor_029::verify_activated_source(root).unwrap();
+            assert_eq!(receipt["candidate_epoch"], 29);
+            manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()
+        }
+        30..=35 => {
+            let receipt =
+                crate::source_tools::service_successors::verify_activated_source(root).unwrap();
+            assert_eq!(receipt["candidate_epoch"], active.epoch);
             manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()
         }
         _ => panic!("current root must use an explicitly supported fully verified chain"),

@@ -646,7 +646,7 @@ export function AssistantPage() {
       try {
         const [datasetsResult, connectionsData] = await Promise.all([
           listDatasets().then((data) => ({ ok: true, data })).catch(() => ({ ok: false, data: [] as DatasetInfo[] })),
-          apiClient.get("/api/v1/connectors/available").catch(() => ({ data: [] })),
+          apiClient.get<Array<{ connected?: boolean }>>("/api/v1/connectors/available").catch(() => ({ data: [] })),
         ]);
         if (cancelled) return;
         const datasetsData = datasetsResult.data;
@@ -1225,7 +1225,7 @@ export function AssistantPage() {
                       {sourceRecreateNeeded
                           ? t("assistant.sourceNeedsNewConversation", "Earlier knowledge sources are unavailable. Start a new conversation to continue.")
                         : savedModelUnavailable
-                          ? t("assistant.savedModelUnavailable", "This conversation's saved model ({{model}}) is unavailable or you no longer have access. Its existing history is unchanged.", { model: activeSessionConfig?.selected_model })
+                          ? t("assistant.savedModelUnavailable", "This conversation''s saved model ({model}) is unavailable or you no longer have access. Its existing history is unchanged.", { model: activeSessionConfig?.selected_model })
                           : t("assistant.modelNeedsNewConversation", "This model uses a different tool configuration. Start a new conversation to continue.")}
                     </p>
                     {!modelsLoadError && models.length > 0 && (

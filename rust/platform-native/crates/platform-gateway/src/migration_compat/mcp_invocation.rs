@@ -583,6 +583,7 @@ struct HttpState {
 pub fn router(authority: Arc<CapabilityAuthority>, broker: Arc<McpInvocationBroker>) -> Router {
     Router::new()
         .route("/internal/v2/agent-capabilities/mcp/read", post(invoke))
+        .layer(axum::middleware::from_fn(crate::migration_content::capabilities::scope_authenticated_workload))
         .with_state(HttpState { authority, broker })
 }
 async fn invoke(

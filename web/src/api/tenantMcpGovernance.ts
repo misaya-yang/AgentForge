@@ -1,4 +1,5 @@
-import { isAxiosError } from "axios";
+import type { RequestBody } from "@/api/contracts";
+import { isHttpError } from '@/lib/fetchClient';
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
 import { normalizeMcpConfig, saveReviewedMcpConfig, type TenantMcpConfig } from "@/lib/tenantMcpGovernance";
@@ -13,7 +14,7 @@ async function readTenantMcpConfig(tenant: string, signal: AbortSignal): Promise
     const { data } = await api.get<unknown>(`${base}/${encodeURIComponent(tenant)}`, { signal });
     return normalizeMcpConfig(data);
   } catch (error) {
-    if (isAxiosError(error) && error.response?.status === 404) return null;
+    if (isHttpError(error) && error.response?.status === 404) return null;
     throw error;
   }
 }
@@ -36,7 +37,7 @@ export async function saveTenantMcpConfig({ payload, baseline, identity }: { pay
       return result;
     }, async config => {
       guard();
-      await api.put(base, config, { signal: controller.signal });
+      await api.put(base, (config satisfies RequestBody<"PUT /api/v1/admin/tenant-policies/mcp-configs">), { signal: controller.signal });
       guard();
     });
   } finally { unsubscribe(); }

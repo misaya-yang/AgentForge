@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 /**
  * Quiz Page — Standalone quiz experience for shared links.
  *
@@ -94,7 +95,7 @@ function QuizPageSession({ userId }: { userId?: string }) {
           const prior = await fetch(`/api/v1/quiz/public/${shareCode}/attempts/result`, {
             method: "POST",
             headers: quizShareHeaders(true),
-            body: JSON.stringify({ attempt_token: savedToken }),
+            body: JSON.stringify(({ attempt_token: savedToken } satisfies RequestBody<"POST /api/v1/quiz/public/{share_code}/attempts/result">)),
             signal: controller.signal,
           });
           if (prior.ok) {
@@ -193,11 +194,11 @@ function QuizPageSession({ userId }: { userId?: string }) {
       const resp = await fetch(`/api/v1/quiz/shared/${shareCode}/submit`, {
         method: "POST",
         headers: quizShareHeaders(true),
-        body: JSON.stringify({
+        body: JSON.stringify(({
           answers: selectedAnswers,
           display_name: displayName.trim() || null,
           attempt_token: attemptToken,
-        }),
+        } satisfies RequestBody<"POST /api/v1/quiz/shared/{share_code}/submit">)),
       });
       if (!resp.ok) {
         throw new Error(

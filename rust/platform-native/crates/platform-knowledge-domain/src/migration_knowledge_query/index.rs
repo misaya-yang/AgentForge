@@ -16,6 +16,7 @@ pub struct Indexer {
     pub store: QueryStore,
     pub vectors: QdrantStore,
     pub embeddings: EmbeddingManager,
+    v2_promotions: super::retrieval_v2::Promotions,
 }
 impl Indexer {
     pub fn new(store: QueryStore, vectors: QdrantStore, embeddings: EmbeddingManager) -> Self {
@@ -23,7 +24,15 @@ impl Indexer {
             store,
             vectors,
             embeddings,
+            v2_promotions: super::retrieval_v2::Promotions::from_server_environment(),
         }
+    }
+    pub(crate) fn contextual_headers_enabled(&self, dataset: &Dataset) -> Result<bool> {
+        let profile = super::retrieval_v2::Profile::from_dataset(dataset)?;
+        if let Some(profile) = &profile {
+            self.v2_promotions.require(profile, dataset)?;
+        }
+        Ok(profile.as_ref().is_some_and(|p| p.contextual_headers))
     }
     pub async fn index_chunks(&self, dataset: &Dataset, chunks: &[Chunk]) -> Result<Vec<String>> {
         let points = self.prepare_chunks(dataset, chunks).await?;
@@ -52,12 +61,25 @@ impl Indexer {
                 ));
             }
         }
+        let contextual = self.contextual_headers_enabled(dataset)?;
         let resolved = self.embeddings.resolve(dataset).await?;
-        let base = self
-            .vectors
-            .ensure_collection(dataset, resolved.dimension)
-            .await?;
-        let texts: Vec<String> = chunks.iter().map(embedding_text).collect();
+        let base = dataset
+            .collection_name
+            .clone()
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                QueryError::Validation("dataset collection is required before embedding".into())
+            })?;
+        let texts: Vec<String> = chunks
+            .iter()
+            .map(|chunk| {
+                if contextual {
+                    contextual_embedding_text(chunk)
+                } else {
+                    embedding_text(chunk)
+                }
+            })
+            .collect();
         let vectors = self
             .embeddings
             .embed_resolved(&resolved, &texts, "document")
@@ -92,12 +114,23 @@ impl Indexer {
                 "document_title",
                 "madhab",
                 "language",
+                "docir_v2",
+                "section_path",
+                "structure",
+                "region_crop",
+                "caption",
+                "vlm_description",
             ] {
                 if let Some(v) = chunk.metadata.get(key).filter(|v| !v.is_null()) {
                     payload_meta.insert(key.into(), v.clone());
                 }
             }
-            let mut payload = json!({"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":chunk.document_id,"segment_id":chunk.segment_id,"position":chunk.position,"text":text,"token_count":chunk.token_count,"source_type":payload_meta.get("source_type").cloned().unwrap_or(json!("unknown")),"language":payload_meta.get("language").cloned().unwrap_or(json!("en")),"citation_text":payload_meta.get("citation_text"),"source_reference":payload_meta.get("source_reference"),"metadata":payload_meta});
+            let mut payload = json!({"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":chunk.document_id,"segment_id":chunk.segment_id,"position":chunk.position,"text":if contextual { &chunk.text } else { &text },"token_count":chunk.token_count,"source_type":payload_meta.get("source_type").cloned().unwrap_or(json!("unknown")),"language":payload_meta.get("language").cloned().unwrap_or(json!("en")),"citation_text":payload_meta.get("citation_text"),"source_reference":payload_meta.get("source_reference"),"metadata":payload_meta});
+            // Structured references are authoritative SQL chunk fields, not a display prefix.
+            if chunk.source_reference["schema"] == "docir-publication-ref/v2" {
+                payload["source_reference"] = chunk.source_reference.clone();
+                payload["metadata"]["docir_v2"] = chunk.source_reference.clone();
+            }
             if chunk.level > 0 {
                 payload["level"] = json!(chunk.level)
             }
@@ -110,7 +143,8 @@ impl Indexer {
             if !chunk.enabled {
                 payload["enabled"] = json!(false)
             }
-            let (indices, values) = lexical::sparse_vector(&text, false);
+            let lexical_text = if contextual { &chunk.text } else { &text };
+            let (indices, values) = lexical::sparse_vector(lexical_text, false);
             let (indices, values) = if indices.is_empty() {
                 (vec![0], vec![1.0])
             } else {
@@ -254,5 +288,62 @@ impl QdrantStore {
     }
     pub async fn upsert_index_points(&self, dataset: &Dataset, points: &[Value]) -> Result<()> {
         self.upsert_points(dataset, points).await
+    }
+}
+
+/// Keep the display body immutable. This header participates only in embedding input.
+pub fn contextual_embedding_text(chunk: &Chunk) -> String {
+    let bounded = |text: &str, count: usize| {
+        text.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(count)
+            .collect::<String>()
+    };
+    let title = chunk.metadata["document_title"]
+        .as_str()
+        .or(chunk.metadata["source_document"].as_str())
+        .unwrap_or("");
+    let path = chunk.metadata["section_path"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .take(6)
+                .collect::<Vec<_>>()
+                .join(" > ")
+        })
+        .unwrap_or_else(|| chunk.section_header.clone().unwrap_or_default());
+    let mut header = Vec::new();
+    for (name, value, limit) in [
+        ("Document", title, 256),
+        ("Section", path.as_str(), 512),
+        (
+            "Context",
+            chunk.contextual_prefix.as_deref().unwrap_or(""),
+            512,
+        ),
+        (
+            "Caption",
+            chunk.metadata["caption"].as_str().unwrap_or(""),
+            256,
+        ),
+        (
+            "Description",
+            chunk.metadata["vlm_description"].as_str().unwrap_or(""),
+            512,
+        ),
+    ] {
+        let value = bounded(value, limit);
+        if !value.is_empty() {
+            header.push(format!("{name}: {value}"));
+        }
+    }
+    if header.is_empty() {
+        chunk.text.clone()
+    } else {
+        format!("{}\n\n{}", header.join("\n"), chunk.text)
     }
 }

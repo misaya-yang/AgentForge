@@ -19,11 +19,16 @@ impl ModelRequestContributor for ModelTelemetry {
         let state = metadata
             .and_then(|m| m.get("tracestate"))
             .map(String::as_str);
-        Some(Box::new(ResponseTelemetry(Operation::start(
-            parent,
-            state,
-            OperationKind::Chat,
-        ))))
+        let mut operation =
+            Operation::start(parent, state, OperationKind::Chat).with_model(input.model);
+        if let Some(run) = metadata.and_then(|m| m.get("x-ai-run-id")) {
+            if let Ok(turns) = turns().lock() {
+                if let Some(turn) = turns.get(run) {
+                    operation.inherit_tenant(turn);
+                }
+            }
+        }
+        Some(Box::new(ResponseTelemetry(operation)))
     }
 }
 impl ModelResponseInterceptor for ResponseTelemetry {
@@ -31,6 +36,9 @@ impl ModelResponseInterceptor for ResponseTelemetry {
         Box::pin(async_stream::stream! {
             let mut operation=Some(self.0);
             while let Some(event)=std::future::poll_fn(|cx|stream.as_mut().poll_next(cx)).await {
+                if matches!(&event, Ok(ResponseEvent::OutputTextDelta(_))) {
+                    if let Some(operation) = operation.as_mut() { operation.first_chunk(); }
+                }
                 if let Ok(ResponseEvent::Completed{token_usage,..})=&event {
                     if let Some(mut operation)=operation.take(){
                         if let Some(usage)=token_usage { operation.tokens(usage.input_tokens.max(0)as u64,usage.output_tokens.max(0)as u64); }
@@ -72,6 +80,21 @@ impl Drop for TurnAdmission {
     }
 }
 pub(crate) fn start_turn(metadata: &mut HashMap<String, String>, key: &str) -> TurnAdmission {
+    start_turn_scoped(metadata, key, None)
+}
+/// Tenant comes from authenticated host state and is never inserted in model metadata.
+pub(crate) fn start_turn_for_tenant(
+    metadata: &mut HashMap<String, String>,
+    key: &str,
+    tenant: &str,
+) -> TurnAdmission {
+    start_turn_scoped(metadata, key, Some(tenant))
+}
+fn start_turn_scoped(
+    metadata: &mut HashMap<String, String>,
+    key: &str,
+    tenant: Option<&str>,
+) -> TurnAdmission {
     let mut admission = TurnAdmission { key: None };
     let Ok(mut turns) = turns().lock() else {
         return admission;
@@ -79,11 +102,14 @@ pub(crate) fn start_turn(metadata: &mut HashMap<String, String>, key: &str) -> T
     if turns.len() >= 1024 || turns.contains_key(key) {
         return admission;
     }
-    let operation = Operation::start(
+    let mut operation = Operation::start(
         metadata.get("traceparent").map(String::as_str),
         metadata.get("tracestate").map(String::as_str),
         OperationKind::InvokeAgent,
     );
+    if let Some(tenant) = tenant {
+        operation = operation.with_tenant(tenant);
+    }
     if let Some(parent) = operation.traceparent() {
         metadata.insert("traceparent".into(), parent);
     }
@@ -149,6 +175,16 @@ mod tests {
         fn drop(&mut self) {
             self.0.fetch_add(1, Ordering::SeqCst);
         }
+    }
+    #[test]
+    fn tenant_observation_is_local_and_failed_admission_is_removed() {
+        let mut metadata = HashMap::new();
+        let key = "telemetry-test-private-run";
+        let admission = start_turn_for_tenant(&mut metadata, key, "private-tenant-name");
+        assert!(turns().lock().unwrap().contains_key(key));
+        assert!(!format!("{metadata:?}").contains("private-tenant-name"));
+        drop(admission);
+        assert!(!turns().lock().unwrap().contains_key(key));
     }
     #[tokio::test]
     async fn interceptor_preserves_content_and_drops_upstream_on_cancel() {

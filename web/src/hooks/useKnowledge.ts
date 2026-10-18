@@ -210,7 +210,7 @@ export function useSegments(
   return useQuery({
     queryKey: observedKey ?? ["kb-segments", datasetId, documentId, q, page.limit, page.offset, null, userId],
     queryFn: ({ signal }) => withConflictRetry(() => listSegments(datasetId!, {
-      documentId,
+      document_id: documentId,
       q,
       ...page,
     }, { signal })),

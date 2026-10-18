@@ -617,7 +617,8 @@ impl TokenCounter {
             }
             previous_end = end;
             let end_token = offsets.partition_point(|offset| *offset < end);
-            let mut next_start = end.min((start + 1).max(offsets[end_token.saturating_sub(overlap)]));
+            let mut next_start =
+                end.min((start + 1).max(offsets[end_token.saturating_sub(overlap)]));
             while next_start < end && !text.is_char_boundary(next_start) {
                 next_start += 1;
             }
@@ -1608,7 +1609,13 @@ pub fn extract_metadata(text: &str, fields: &[String]) -> Value {
 mod unicode_token_windows_tests {
     use super::*;
 
-    fn assert_coverage(counter: &TokenCounter, text: &str, chunks: &[String], limit: usize, overlap: usize) {
+    fn assert_coverage(
+        counter: &TokenCounter,
+        text: &str,
+        chunks: &[String],
+        limit: usize,
+        overlap: usize,
+    ) {
         let (mut previous_start, mut covered) = (None, 0);
         for chunk in chunks {
             assert!(!chunk.is_empty());
@@ -1618,7 +1625,11 @@ mod unicode_token_windows_tests {
                     && *start <= covered
                     && text[*start..].starts_with(chunk)
                     && *start + chunk.len() > covered
-                    && counter.encoder.encode_ordinary(&text[*start..covered]).len() <= overlap
+                    && counter
+                        .encoder
+                        .encode_ordinary(&text[*start..covered])
+                        .len()
+                        <= overlap
             });
             let start = found.unwrap_or_else(|| {
                 let start = text.len() - text[covered..].trim_start().len();
@@ -1641,14 +1652,19 @@ mod unicode_token_windows_tests {
         let cases: Vec<Value> = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../tests/fixtures/knowledge/token_window_unicode.json"
-        ))).unwrap();
+        )))
+        .unwrap();
         for case in cases {
             let text = case["text"].as_str().unwrap();
             let limit = case["limit"].as_u64().unwrap() as usize;
             let overlap = case["overlap"].as_u64().unwrap() as usize;
             let result = counter.fixed_windows(text, limit, overlap);
             if case["error"].as_bool().unwrap() {
-                assert!(matches!(result, Err(IngestError::Validation(message)) if message.contains("increase token_limit")), "{}", case["name"]);
+                assert!(
+                    matches!(result, Err(IngestError::Validation(message)) if message.contains("increase token_limit")),
+                    "{}",
+                    case["name"]
+                );
             } else {
                 let chunks = result.unwrap();
                 assert_coverage(&counter, text, &chunks, limit, overlap);
@@ -1664,8 +1680,11 @@ mod unicode_token_windows_tests {
             "mode": "fixed_size", "use_token_count": true, "token_limit": 512,
             "chunk_overlap": 0, "min_chunk_size": 50, "remove_extra_spaces": false,
             "normalize_whitespace": false, "extract_metadata": false
-        })).unwrap();
-        let chunks = chunker.process_document(&text, &config, "dataset", "document", "text").unwrap();
+        }))
+        .unwrap();
+        let chunks = chunker
+            .process_document(&text, &config, "dataset", "document", "text")
+            .unwrap();
         let values: Vec<String> = chunks.into_iter().map(|chunk| chunk.text).collect();
         assert_coverage(&chunker.tokens, &text, &values, 512, 0);
     }
@@ -1673,20 +1692,30 @@ mod unicode_token_windows_tests {
     #[test]
     fn terminal_overlap_does_not_emit_duplicate_tail() {
         let counter = TokenCounter::new().unwrap();
-        assert_eq!(counter.fixed_windows("hello world", 4, 3).unwrap(), vec!["hello world"]);
+        assert_eq!(
+            counter.fixed_windows("hello world", 4, 3).unwrap(),
+            vec!["hello world"]
+        );
     }
 
     #[test]
     fn small_budget_overlap_cross_product() {
         let counter = TokenCounter::new().unwrap();
-        for text in ["A世|B😀|Cक्षि|D\u{301}|E�Z", "甲x乙y🚀z丙", "qé:rالعربية:s"] {
+        for text in ["A世|B😀|Cक्षि|D\u{301}|E�Z", "甲x乙y🚀z丙", "qé:rالعربية:s"]
+        {
             for limit in 1..=8 {
                 for overlap in 0..limit {
                     match counter.fixed_windows(text, limit, overlap) {
                         Ok(chunks) => assert_coverage(&counter, text, &chunks, limit, overlap),
                         Err(IngestError::Validation(message)) => {
                             assert!(message.contains("increase token_limit"));
-                            assert!(text.chars().any(|c| counter.encoder.encode_ordinary(&c.to_string()).len() > limit));
+                            assert!(
+                                text.chars().any(|c| counter
+                                    .encoder
+                                    .encode_ordinary(&c.to_string())
+                                    .len()
+                                    > limit)
+                            );
                         }
                         Err(error) => panic!("unexpected chunking error: {error:?}"),
                     }
@@ -1694,5 +1723,4 @@ mod unicode_token_windows_tests {
             }
         }
     }
-
 }

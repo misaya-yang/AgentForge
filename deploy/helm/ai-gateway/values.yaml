@@ -1,5 +1,6 @@
 # Release-specific admission inputs required.
 global:
+  deploymentMode: multi-instance
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
 fullnameOverride: ''
@@ -24,6 +25,9 @@ images:
     digest: ''
   sandbox:
     repository: ghcr.io/misaya-yang/ai-gateway-agent-python-sandbox
+    digest: ''
+  tools:
+    repository: ghcr.io/misaya-yang/ai-gateway-tools
     digest: ''
   sdk:
     repository: ghcr.io/misaya-yang/ai-gateway-sdk-agent-worker
@@ -53,7 +57,7 @@ data:
     peer: {}
     port: 6333
   objectStore:
-    enabled: false
+    enabled: true
     peer: {}
     port: 9000
     existingSecret: ''
@@ -129,8 +133,18 @@ frontend:
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilization: 70
-  env: {}
+  env:
+    FRONTEND_CSP_MODE: report-only
+    FRONTEND_CONNECT_ORIGINS: ""
+    FRONTEND_IMAGE_ORIGINS: ""
 sandbox:
+  # Strong pool is separately admitted node infrastructure, never an automatic fallback.
+  # When enabled supply every field in deploy/sandbox/strong-pool.schema.json,
+  # plus sandbox.signingSecret for the Worker's job-only signer. No key bytes here.
+  strongPool:
+    enabled: false
+    warm: 2
+    maximum: 8
   enabled: false
   nodeName: ''
   runtimeClassName: ''
@@ -244,3 +258,34 @@ sdkWorker:
   callbackTLSSecret: ''
   credentialsSecret: ''
   retentionSeconds: 86400
+
+# Explicit staged migration. Disabled retains the existing admission contract.
+workloadIdentity:
+  mode: disabled
+  trustDomain: agentforge.internal
+  applicationSecretGeneration: ''
+  rotationPollSeconds: 15
+  # Each Secret contains ca.pem, cert.pem, key.pem for exactly one SPIFFE service.
+  secrets: {gateway: '', runtime: '', control: '', knowledge: '', knowledgeWorker: '', sdk: ''}
+# Direct/session PostgreSQL mTLS, with one Secret per role. Secret keys:
+# dsn, ca-bundle.pem, tls.crt, tls.key (and password only for pooler SCRAM).
+dataSecurity:
+  enabled: false
+  generation: ''
+  mode: direct
+  expectedHost: postgres
+  controlHost: postgres
+  directPostgres: {peer: {}, port: 5432}
+  physicalDatabase: gateway
+  poolMax: 4
+  roleConnectionLimit: 64
+  pooledBackendLimit: 8
+  statementTimeoutMs: 30000
+  roles: {gateway: '', runtime: '', control: '', knowledge: '', knowledgeWorker: '', migrator: ''}
+
+# One rollout controls Gateway dataset PDP and both Knowledge clients together.
+# Pins come from the native Cedar differential report for the admitted role map.
+datasetAuthorization:
+  mode: 'off'
+  expectedPolicySha256: ''
+  expectedMatrixSha256: ''

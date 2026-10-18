@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ai-quiz",
-  "version": "1.0.0",
-  "description": "Create interactive quizzes from knowledge-base content through the assistant's built-in generate_quiz tool, grade answers, and share them publicly.",
+  "version": "1.1.0",
+  "description": "Signed ai-quiz compiled plugin: governed quiz generation persistence, deterministic grading and tenant-scoped artifact sharing.",
   "author": {
     "name": "AI Gateway Maintainers"
   },
@@ -21,7 +21,17 @@
       ],
       "agents": [
         "./agents/quiz-expert.md"
-      ]
+      ],
+      "worker_capabilities": [
+        "generate_quiz"
+      ],
+      "implementation": {
+        "crate": "ai-platform-plugin-quiz",
+        "delivery": "compiled-plugin",
+        "package_signatures": "minisign-Ed",
+        "executable_payload": false
+      },
+      "publisher_id": "agentforge-maintainers"
     }
   }
 }

@@ -79,7 +79,7 @@ test("active and queued attachments follow draft rekey with independent source-s
 test("removing active upload after rekey aborts its original transport", () => {
   const h = host(); h.select(["a.txt"]); h.render().rekeyFiles("a", "b"); h.render("b").removeFile(0); assert.equal(h.requests[0].signal?.aborted, true); assert.equal(h.render("b").isUploading, false);
 });
-test("actual upload API passes cancellation to Axios and prevents dispatch canceled during preparation", async () => {
+test("actual upload API passes cancellation to Fetch and prevents dispatch canceled during preparation", async () => {
   const requests: Array<Record<string, unknown>> = [];
   const api = compile("../../../api/files.ts", { "@/lib/format": { formatFileSize: () => "1 KB" }, "@/lib/api": { api: { post: async (_path: string, _body: unknown, options: Record<string, unknown>) => { requests.push(options); return { data: { file_id: "id" } }; } } } }).uploadFileWithProgress as (input: File, progress?: unknown, compress?: boolean, signal?: AbortSignal) => Promise<unknown>;
   const first = new AbortController(); await api(file("a.txt"), undefined, false, first.signal); assert.equal(requests[0].signal, first.signal);

@@ -60,6 +60,9 @@ pub struct KnowledgeAuthorities {
     pub actor_verifier: Arc<GatewayAuth>,
 }
 pub struct GatewayGraph {
+    pub ha: Option<Arc<super::ha::Runtime>>,
+    pub context_metrics: Arc<crate::migration_host::context_metrics::ContextMetricsCollector>,
+    pub control_plane: crate::migration_host::control_plane::config::Configuration,
     pub pools: DatabasePools,
     pub auth: Arc<AuthService>,
     pub admission: Arc<ai_platform_auth::admission::AdmissionService>,
@@ -107,6 +110,41 @@ impl GatewayGraph {
         knowledge: KnowledgeAuthorities,
         models: ModelServices,
     ) -> Result<Self, BootstrapError> {
+        Self::from_model_services_with_ha(pools, redis, config, backends, knowledge, models, None)
+            .await
+    }
+    pub async fn from_model_services_with_ha(
+        pools: DatabasePools,
+        redis: ConnectionManager,
+        config: GatewayConfiguration,
+        backends: GatewayBackends,
+        knowledge: KnowledgeAuthorities,
+        models: ModelServices,
+        ha: Option<Arc<super::ha::Runtime>>,
+    ) -> Result<Self, BootstrapError> {
+        if ha.is_some() && !config.core.durable_tasks {
+            return Err(BootstrapError::Configuration("ha_requires_durable_tasks"));
+        }
+        let context_metrics = ha.as_ref().map(|h| h.context.clone()).unwrap_or_else(
+            crate::migration_host::context_metrics::ContextMetricsCollector::global,
+        );
+        let coordination = ha
+            .as_ref()
+            .map(|h| h.coordination())
+            .unwrap_or_else(|| redis.clone());
+        let control_plane =
+            crate::migration_host::control_plane::config::Configuration::from_environment(
+                &config.provider_environment,
+            )
+            .map_err(BootstrapError::Configuration)?;
+        control_plane
+            .validate(&config.runtime.options.kernel_revision)
+            .map_err(BootstrapError::Configuration)?;
+        if control_plane.a2a.is_some() {
+            crate::migration_host::control_plane::a2a::verify_schema(&pools.data)
+                .await
+                .map_err(|_| BootstrapError::Configuration("a2a_schema"))?;
+        }
         // Shared private capability endpoints must agree on the same authority.
         if config.content.capability_internal_token != config.compat.internal_token
             || config.content.capability_proof_secret != config.compat.proof_secret
@@ -135,7 +173,7 @@ impl GatewayGraph {
         ));
         let quota = Arc::new(
             foundation_backends::NativeQuotaChecker::new(&pools, security)?
-                .with_shared_rpm(redis.clone()),
+                .with_shared_rpm(coordination.clone()),
         );
         let langgraph_preparation = Arc::new(langgraph_preparation::LiveLangGraphPreparation::new(
             models.models.clone(),
@@ -155,6 +193,15 @@ impl GatewayGraph {
             observability.usage.as_ref(),
             &config.provider_environment,
         )?;
+        if let Some(ha) = &ha {
+            ha.configure_grants(&core.registry)?;
+            core.task_worker
+                .lock()
+                .await
+                .verify_ready()
+                .await
+                .map_err(|_| BootstrapError::Construction("ha_task_delivery_schema"))?;
+        }
         core.registry
             .configure_sdk_agent_key(config.provider_encryption_key.clone())
             .map_err(|_| BootstrapError::Construction("sdk_agent_encryption"))?;
@@ -197,6 +244,7 @@ impl GatewayGraph {
             config.rate_config.clone(),
             content_config,
             ContentBackends {
+                shared_coordination: ha.as_ref().map(|h| h.coordination()),
                 pdf: Arc::new(
                     crate::migration_host::pdf_backend::PopplerPdfBackend::new(config.pdf_backend)
                         .map_err(|_| BootstrapError::Configuration("pdf_backend"))?,
@@ -213,7 +261,7 @@ impl GatewayGraph {
                 max_attachment_bytes: p.max_attachment_bytes,
             })
         });
-        let runtime = RuntimeServices::new(
+        let mut runtime = RuntimeServices::new_with_catalog(
             &pools,
             &auth,
             &core,
@@ -222,9 +270,15 @@ impl GatewayGraph {
             &content.content,
             &observability,
             config.runtime,
+            config
+                .foundation
+                .catalog
+                .clone()
+                .map_err(|_| BootstrapError::Construction("capability_catalog"))?,
             public,
             backends.cleanup_memory,
         )?;
+        Arc::make_mut(&mut runtime.model_plane).context_metrics = Some(context_metrics.clone());
         let shared = FoundationShared::new(
             &pools,
             Some(redis.clone()),
@@ -247,7 +301,7 @@ impl GatewayGraph {
         )?;
         let secrets = backends.foundation.mcp_secrets.clone();
         let foundation_backends = native_foundation.clone().into_backends(backends.foundation);
-        let foundation = assemble_foundation(
+        let mut foundation = assemble_foundation(
             &pools,
             Some(redis.clone()),
             &core,
@@ -259,6 +313,11 @@ impl GatewayGraph {
             foundation_backends,
             history.clone(),
         )?;
+        if let Some(ha) = &ha {
+            Arc::get_mut(&mut foundation.apis.dashboard)
+                .ok_or(BootstrapError::Construction("ha_dashboard_already_shared"))?
+                .configure_shared_websocket_sessions(ha.sockets());
+        }
         let compat = CompatServices::new(
             &pools,
             Some(redis),
@@ -293,6 +352,7 @@ impl GatewayGraph {
         }
         proxy.configure_sdk_reads(core.registry.clone(), core.session_storage.clone());
         proxy.sdk_control = Some(runtime.control.clone());
+        proxy.context_metrics = Some(context_metrics.clone());
         proxy.trace_capture = Some(
             crate::migration_knowledge_query::rag_trace::RagTraceCapture::new(
                 observability.traces.clone(),
@@ -312,7 +372,10 @@ impl GatewayGraph {
                 },
             ))
             .map_err(|_| BootstrapError::Construction("sdk_capability_authority"))?;
-        Ok(Self {
+        let graph = Self {
+            ha: ha.clone(),
+            context_metrics,
+            control_plane,
             pools,
             auth: auth.auth,
             admission: auth.admission,
@@ -333,7 +396,11 @@ impl GatewayGraph {
             limiter,
             knowledge_actor,
             knowledge_proxy: proxy,
-        })
+        };
+        if let Some(ha) = &ha {
+            ha.verify(&graph)?;
+        }
+        Ok(graph)
     }
     pub fn into_router(
         self,
@@ -373,6 +440,15 @@ impl GatewayGraph {
             proxy_access,
             crate::migration_content::access::request_context,
         ));
+        let quiz = crate::quiz_plugin_bridge::deployment_router(
+            &options.catalog.catalog,
+            self.pools.data.clone(),
+            self.pools.control.clone(),
+            self.foundation.apis.artifact_shares.scope.clone(),
+            self.foundation.apis.artifact_share_identity.clone(),
+            self.content.content.public.access.clone(),
+        )
+        .map_err(|_| BootstrapError::Construction("quiz_plugin"))?;
         let foundation = self.foundation.apis.into_router(
             self.auth.clone(),
             self.pools.data,
@@ -382,6 +458,7 @@ impl GatewayGraph {
             content_type,
         );
         let foundation = foundation
+            .merge(quiz)
             .merge(proxy)
             .layer(axum::middleware::from_fn_with_state(
                 self.content.content.public.access.clone(),
@@ -391,6 +468,9 @@ impl GatewayGraph {
                 foundation_backends::request_effects_context,
             ));
         let application = GatewayApplication {
+            context_metrics: self.context_metrics,
+            control_plane: self.control_plane,
+            rbac: self.core.rbac.clone(),
             foundation,
             auth: self.auth,
             agent: self.runtime.agent,

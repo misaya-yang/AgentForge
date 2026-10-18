@@ -28,6 +28,51 @@ fn same_pg_port_and_qdrant_origin_are_refused() {
     assert!(c.validate().is_err());
 }
 #[test]
+fn equivalent_qdrant_origin_spellings_are_refused() {
+    for (source, drill) in [
+        ("http://127.0.0.1:6333", "http://127.0.0.1:6333/"),
+        ("http://127.0.0.1", "http://127.0.0.1:80/"),
+        ("http://127.0.0.1:6333", "http://127.1:6333/"),
+    ] {
+        let mut c = config();
+        c.v["qdrant_source"] = json!(source);
+        c.v["qdrant_drill"] = json!(drill);
+        assert!(
+            c.validate().is_err(),
+            "same parsed origin: {source} / {drill}"
+        );
+    }
+}
+#[test]
+fn writable_roots_cannot_be_inside_the_source_cluster() {
+    for key in ["drill_root", "evidence_root"] {
+        let mut c = config();
+        c.v[key] = c.v["pg_source_path"].clone();
+        assert!(c.validate().is_err(), "{key} cannot target source data");
+        c.v[key] = json!(format!("{}/nested", c.value("pg_source_path").unwrap()));
+        assert!(c.validate().is_err(), "{key} cannot be inside source data");
+    }
+}
+#[cfg(unix)]
+#[test]
+fn source_cluster_aliases_cannot_be_writable_roots() {
+    let root = std::env::temp_dir().join(format!("af-drill-roots-{}", uuid::Uuid::new_v4()));
+    private_dir(&root).unwrap();
+    let source = root.join("source");
+    private_dir(&source).unwrap();
+    let alias = root.join("alias");
+    std::os::unix::fs::symlink(&source, &alias).unwrap();
+    for key in ["drill_root", "evidence_root"] {
+        let mut c = config();
+        c.v["pg_source_path"] = json!(source);
+        c.v[key] = json!(alias.join("nested"));
+        assert!(c.validate().is_err(), "{key} cannot alias source data");
+    }
+    fs::remove_file(alias).unwrap();
+    fs::remove_dir(source).unwrap();
+    fs::remove_dir(root).unwrap();
+}
+#[test]
 fn production_bucket_and_shell_paths_are_refused() {
     let mut c = config();
     c.v["drill_bucket"] = c.v["bucket"].clone();

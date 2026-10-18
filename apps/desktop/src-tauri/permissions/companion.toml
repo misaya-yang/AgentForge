@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "companion-operations"
+description = "Bounded native operations for the bundled companion window only. No raw HTTP, token, filesystem, shell, arbitrary notification or opener API."
+commands.allow = ["configure_gateway", "desktop_status", "open_console", "begin_login", "finish_login", "logout", "native_identity", "pair_node", "node_status", "check_update", "install_update"]

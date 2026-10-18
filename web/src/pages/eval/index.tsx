@@ -1,3 +1,4 @@
+import { deferComponent } from "@/components/deferComponent";
 import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
 import { useEvalRunActions } from "./useEvalRunActions";
 import { Alert, App as AntApp, Button, Descriptions, Input, InputNumber, Pagination, Progress, Select, Space, Tabs } from "antd";
@@ -15,7 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
@@ -69,15 +70,15 @@ import { useAuthStore, usePermission } from "@/store/useAuthStore";
 import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 import { generateUUID } from "@/lib/utils";
 
-import {
-  type AssistantTraceFilters,
+import type {
+  AssistantTraceFilters,
 } from "./components/AssistantTraceList";
-import { GoldenJsonlImport } from "./components/GoldenJsonlImport";
-import { BehaviorContractEditor } from "./components/BehaviorContractEditor";
-import { ExperimentRunComparison } from "./components/ExperimentRunComparison";
-import { ExperimentRunResults } from "./components/ExperimentRunResults";
-import { KbRagasPanel } from "./components/KbRagasPanel";
-import { TraceExplorerShell } from "./components/TraceExplorerShell";
+const GoldenJsonlImport = deferComponent(() => import("./components/GoldenJsonlImport"), "GoldenJsonlImport");
+const BehaviorContractEditor = deferComponent(() => import("./components/BehaviorContractEditor"), "BehaviorContractEditor");
+const ExperimentRunComparison = deferComponent(() => import("./components/ExperimentRunComparison"), "ExperimentRunComparison");
+const ExperimentRunResults = deferComponent(() => import("./components/ExperimentRunResults"), "ExperimentRunResults");
+const KbRagasPanel = deferComponent(() => import("./components/KbRagasPanel"), "KbRagasPanel");
+const TraceExplorerShell = deferComponent(() => import("./components/TraceExplorerShell"), "TraceExplorerShell");
 import { canApproveReviewExample, kbDeepLinkNavigationKey, kbFailureSourceVersions, latestReviewCandidates } from "./reviewQueue";
 import { agentVersionTarget, buildExperimentTargetConfig } from "./agentVersionTarget";
 
@@ -867,7 +868,7 @@ export function EvalPage() {
     onSuccess: async (version) => {
       setSelectedAgentVersionId(version.agent_version_id);
       await queryClient.invalidateQueries({ queryKey: ["eval", "agent-versions", version.agent_id] });
-      message.success(t("eval.workbench.agentVersionCreated", { version: version.version_number, defaultValue: "Immutable Agent version {{version}} created." }));
+      message.success(t("eval.workbench.agentVersionCreated", { version: version.version_number, defaultValue: "Immutable Agent version {version} created." }));
     },
     onError: (error) => message.error(toError(error).message),
   });
@@ -1714,7 +1715,7 @@ export function EvalPage() {
         <Alert
           type="warning"
           showIcon
-          title={t("eval.workbench.missingRunInputs", "Select {{items}} before running.", { items: missingRunInputs.join(", ") })}
+          title={t("eval.workbench.missingRunInputs", "Select {items} before running.", { items: missingRunInputs.join(", ") })}
         />
       ) : null}
       <Space size={10} wrap>
@@ -2186,6 +2187,7 @@ export function EvalPage() {
 
   return (
     <main className="eval-console" data-testid="eval-console">
+      <Suspense fallback={<div role="status" aria-live="polite">{t("common.loading")}</div>}>
       <div className="eval-page-heading">
         <div>
           <div className="eval-eyebrow">
@@ -2905,6 +2907,7 @@ export function EvalPage() {
           }
         }
       `}</style>
+      </Suspense>
     </main>
   );
 }

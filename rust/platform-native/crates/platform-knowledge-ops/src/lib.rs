@@ -5,6 +5,7 @@ pub mod bakeoff;
 pub mod golden;
 pub mod lexical_shadow;
 pub mod model_session;
+pub mod qdrant_upgrade;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -153,10 +154,39 @@ pub async fn run(args: &[String]) -> Result<()> {
     match command.as_str() {
         "--help" | "help" => {
             println!(
-                "platform-knowledge-ops commands: import-kb-eval-golden, build-rerank-bakeoff-cases, reranker-bakeoff, chinese-lexical-shadow-eval, migrate-sparse-vectors, backfill-bm25-v2"
+                "platform-knowledge-ops commands: import-kb-eval-golden, build-rerank-bakeoff-cases, reranker-bakeoff, chinese-lexical-shadow-eval, migrate-sparse-vectors, backfill-bm25-v2, serving-profile-plan, qdrant-upgrade"
             );
             Ok(())
         }
+        "serving-profile-plan" => {
+            let args = Args::parse(&args[1..], &[])?;
+            args.validate(&["dataset"], 0)?;
+            let path = args.get("dataset", "");
+            if path.is_empty() {
+                return fail("--dataset is required");
+            }
+            let metadata = std::fs::metadata(path)?;
+            if metadata.len() > 1024 * 1024 {
+                return fail("dataset configuration exceeds byte budget");
+            }
+            let dataset: ai_platform_knowledge_service::migration_knowledge_query::types::Dataset =
+                serde_json::from_slice(&std::fs::read(path)?)?;
+            let profile=ai_platform_knowledge_service::migration_knowledge_query::serving_profile::Profile::from_dataset(&dataset)?.ok_or_else(||error("serving_v2 profile is required"))?;
+            let mut collection = json!({"vectors":{"size":dataset.embedding_dimension,"distance":"Cosine"},"sparse_vectors":{"bm25":{"modifier":"idf"}},"hnsw_config":{"m":16,"ef_construct":200},"metadata":{"knowledge_serving":{"schema":"knowledge-serving/v1","index_fingerprint":ai_platform_knowledge_service::migration_knowledge_query::lexical_v2::fingerprint(&serde_json::to_value(&profile.index)?)} }});
+            profile.collection_config(&mut collection);
+            if let Some(scope) = profile.shared_scope(&dataset) {
+                collection["metadata"]["knowledge_scope"] = scope;
+                collection["sharding_method"] = json!("custom");
+            } else {
+                collection["metadata"]["knowledge_scope"] = json!({"schema_version":1,"dataset_id":dataset.dataset_id,"tenant_id":dataset.tenant_id});
+            }
+            println!(
+                "{}",
+                json!({"schema":"knowledge-serving-plan/v1","activation":"requires_real_promotion","fingerprint":profile.fingerprint(&dataset),"collection":collection,"shard_selector":profile.shard_key(),"payload_indexes":{"tenant_id":{"type":"keyword","is_tenant":true},"dataset_id":"keyword","document_id":"keyword","segment_id":"keyword","enabled":"bool","content_type":"keyword","level":"integer","source_version":"integer","_rollback_backup":"bool","metadata.source_path":{"type":"keyword","prefix":{}}}})
+            );
+            Ok(())
+        }
+        "qdrant-upgrade" => qdrant_upgrade::run(&args[1..]).await,
         "reranker-bakeoff" => bakeoff::run(&args[1..]).await,
         "backfill-bm25-v2" => backfill::run(&args[1..]).await,
         "chinese-lexical-shadow-eval" => lexical_shadow::run(&args[1..]),

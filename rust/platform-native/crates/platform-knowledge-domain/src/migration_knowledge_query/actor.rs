@@ -7,7 +7,7 @@ use super::{
     types::{QueryError, Result, UserContext},
 };
 use crate::migration_content::capabilities::{
-    CapabilityScope, constant_time_equal, verify_capability_proof,
+    CapabilityScope, constant_time_equal, verify_broker_proof_for_window,
 };
 use axum::{
     Json, Router,
@@ -25,7 +25,10 @@ pub const ACTOR_PATH: &str = "/internal/v2/agent-capabilities/knowledge-actor";
 pub struct RuntimeActorClient {
     client: reqwest::Client,
     origin: reqwest::Url,
+    legacy_transport: Option<axum::http::HeaderValue>,
     signer: Arc<GatewayAuth>,
+    workload_http:
+        Option<Arc<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>>,
 }
 impl RuntimeActorClient {
     pub fn new(origin: reqwest::Url, signer: Arc<GatewayAuth>) -> Result<Self> {
@@ -48,8 +51,35 @@ impl RuntimeActorClient {
         Ok(Self {
             client,
             origin,
+            legacy_transport: None,
             signer,
+            workload_http: None,
         })
+    }
+    pub fn with_legacy_transport(mut self, token: &str) -> Result<Self> {
+        if token.len() < 32
+            || token
+                .bytes()
+                .any(|b| !b.is_ascii() || b.is_ascii_whitespace() || b.is_ascii_control())
+        {
+            return Err(QueryError::Forbidden);
+        }
+        self.legacy_transport = Some(
+            format!("Bearer {token}")
+                .parse()
+                .map_err(|_| QueryError::Forbidden)?,
+        );
+        Ok(self)
+    }
+    pub fn with_workload_http(
+        mut self,
+        http: Arc<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
+    ) -> Result<Self> {
+        http.validate_endpoint(self.origin.as_str()).map_err(|_| {
+            QueryError::Validation("actor origin is not an admitted workload endpoint".into())
+        })?;
+        self.workload_http = Some(http);
+        Ok(self)
     }
     pub async fn resolve(&self, tenant: &str, user: &str) -> Result<UserContext> {
         let body = serde_json::to_vec(&json!({"tenant_id":tenant,"user_id":user}))
@@ -61,22 +91,49 @@ impl RuntimeActorClient {
             .origin
             .join(ACTOR_PATH)
             .map_err(|_| QueryError::DependenciesFailed)?;
-        let response = self
-            .client
-            .post(url)
-            .header("x-gateway-secret", signature)
-            .header("content-type", "application/json")
-            .body(body)
-            .send()
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        let response = if let Some(http) = &self.workload_http {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "x-gateway-secret",
+                signature.parse().map_err(|_| QueryError::Forbidden)?,
+            );
+            headers.insert(
+                "content-type",
+                "application/json"
+                    .parse()
+                    .map_err(|_| QueryError::DependenciesFailed)?,
+            );
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                http.send(reqwest::Method::POST, url.as_str(), headers, Some(body)),
+            )
             .await
-            .map_err(|_| QueryError::DependenciesFailed)?;
+            .map_err(|_| QueryError::DependenciesFailed)?
+            .map_err(|_| QueryError::DependenciesFailed)?
+        } else {
+            let mut request = self.client.post(url);
+            if let Some(bearer) = &self.legacy_transport {
+                request = request.header("authorization", bearer);
+            }
+            request
+                .header("x-gateway-secret", signature)
+                .header("content-type", "application/json")
+                .body(body)
+                .send()
+                .await
+                .map_err(|_| QueryError::DependenciesFailed)?
+        };
         if response.status() == StatusCode::FORBIDDEN {
             return Err(QueryError::Forbidden);
         }
         if !response.status().is_success() {
             return Err(QueryError::DependenciesFailed);
         }
-        let value: Value = response.json().await.map_err(|_| QueryError::Forbidden)?;
+        let value: Value = tokio::time::timeout_at(deadline, response.json())
+            .await
+            .map_err(|_| QueryError::DependenciesFailed)?
+            .map_err(|_| QueryError::Forbidden)?;
         let roles = value["roles"].as_array().ok_or(QueryError::Forbidden)?;
         if value["tenant_id"] != tenant
             || value["user_id"] != user
@@ -154,6 +211,8 @@ pub struct CapabilityState {
     backend: Arc<dyn CapabilityBackend>,
     internal_token: Arc<String>,
     proof_secret: Arc<Vec<u8>>,
+    legacy_accept_until_ms: Option<u64>,
+    transport_guard: Option<Arc<dyn Fn(&axum::http::Extensions) -> bool + Send + Sync>>,
 }
 impl CapabilityState {
     pub fn new(
@@ -168,6 +227,21 @@ impl CapabilityState {
             proof_secret,
         )
     }
+    /// Executable bootstrap replaces only the legacy transport predicate.
+    /// Actor lookup, capability proof and dataset authorization remain mandatory.
+    pub fn with_transport_guard(
+        mut self,
+        guard: Arc<dyn Fn(&axum::http::Extensions) -> bool + Send + Sync>,
+    ) -> Self {
+        self.transport_guard = Some(guard);
+        self
+    }
+    /// Bounded compatibility window for explicit migration/library fixtures.
+    /// Production constructors leave it unset; required mode cannot admit it.
+    pub fn with_legacy_window(mut self, until: u64) -> Self {
+        self.legacy_accept_until_ms = Some(until);
+        self
+    }
     pub fn with_backend(
         backend: Arc<dyn CapabilityBackend>,
         internal_token: String,
@@ -177,6 +251,8 @@ impl CapabilityState {
             backend,
             internal_token: Arc::new(internal_token),
             proof_secret: Arc::new(proof_secret),
+            legacy_accept_until_ms: None,
+            transport_guard: None,
         }
     }
 }
@@ -217,10 +293,15 @@ async fn retrieve_capability(
             .unwrap_or("")
     };
     let token = header("x-ai-platform-internal-token");
-    if state.internal_token.is_empty()
-        || token.is_empty()
-        || !constant_time_equal(&state.internal_token, token)
-    {
+    let transport_admitted = match &state.transport_guard {
+        Some(guard) => guard(&parts.extensions),
+        None => {
+            !state.internal_token.is_empty()
+                && !token.is_empty()
+                && constant_time_equal(&state.internal_token, token)
+        }
+    };
+    if !transport_admitted {
         return detail(StatusCode::UNAUTHORIZED, "capability authentication failed");
     }
     let bytes =
@@ -264,7 +345,7 @@ async fn retrieve_capability(
         arguments_hash: String::new(),
     };
     let payload = serde_json::to_value(&p).unwrap_or(Value::Null);
-    let verified_proof = match verify_capability_proof(
+    let verified_proof = match verify_broker_proof_for_window(
         &state.proof_secret,
         header("x-ai-capability-proof"),
         "POST",
@@ -272,6 +353,7 @@ async fn retrieve_capability(
         &payload,
         &scope,
         chrono::Utc::now().timestamp(),
+        state.legacy_accept_until_ms,
     ) {
         Ok(proof) => proof,
         Err(_) => return detail(StatusCode::UNAUTHORIZED, "capability proof invalid"),
@@ -313,7 +395,7 @@ async fn retrieve_capability(
             );
         }
     };
-    match transport.run(async{
+    match transport.run(super::model_plane::with_actor_scope(actor.clone(), async{
     if state.backend.require_dataset(&actor, &id).await.is_err() {
         return detail(StatusCode::NOT_FOUND, "Dataset not found");
     }
@@ -349,7 +431,7 @@ async fn retrieve_capability(
         }
         Err(e) => e.into_response(),
     }
-    }).await{Ok(response)=>response,Err(_)=>detail(StatusCode::GATEWAY_TIMEOUT,"private request budget expired")}
+    })).await{Ok(response)=>response,Err(_)=>detail(StatusCode::GATEWAY_TIMEOUT,"private request budget expired")}
 }
 
 #[cfg(test)]

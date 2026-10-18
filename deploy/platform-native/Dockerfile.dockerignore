@@ -1,4 +1,10 @@
 **
+!LICENSE
+!NOTICE
+!agent-plugins/
+!agent-plugins/ai-quiz/
+!agent-plugins/ai-quiz/native/
+!agent-plugins/ai-quiz/native/**
 !rust/
 !rust/platform-native/
 !rust/platform-native/**/
@@ -6,6 +12,7 @@
 !rust/platform-native/**/Cargo.lock
 !rust/platform-native/rust-toolchain.toml
 !rust/platform-native/**/*.rs
+!rust/platform-native/crates/platform-openapi/src/fetch_client.ts
 !rust/platform-native/**/*.proto
 !rust/platform-native/**/*.lua
 !rust/platform-native/crates/platform-gateway-foundation/src/generic_rest_multibyte/*.bin
@@ -34,6 +41,9 @@
 !sdk/
 !sdk/openapi/
 !sdk/openapi/**
+!sdk/*.json
+!sdk/rust/
+!sdk/rust/generated_models.rs
 !docs/
 !docs/design/
 !docs/design/**

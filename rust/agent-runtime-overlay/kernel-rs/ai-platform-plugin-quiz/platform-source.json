@@ -1,0 +1,19 @@
+{
+  "schema": "agentforge/composed-plugin-source/v1",
+  "source": "agent-plugins/ai-quiz/native",
+  "source_files_sha256": {
+    "Cargo.toml": "7386b576b5d1c64a632b1db472ba148ce5ca268e257f74148b4d26df7813df1b",
+    "capability.json": "8e7137f40854c42803adc30c723fa33d0d2acf16af2151303e1b7c6890de5fe3",
+    "src/executor.rs": "5a954bc521413eb6f198ca4e09931ce5c0361cd85dcc412af5644edcc8ebcd71",
+    "src/lib.rs": "05ec0a7e8467ef512877482fbf1055d07af82340705ea834ef6e5c1145dcaef3",
+    "src/quiz_grading.rs": "ee492f05dee4ff88c5553a4f41b6af672c8c302bcf2e31c1cc485fd35c6482f2"
+  },
+  "composed_files_sha256": {
+    "Cargo.toml": "9565e708c657657621138485e9ace9a4bc97e943fbf820de55dfb541f8485d4f",
+    "capability.json": "8e7137f40854c42803adc30c723fa33d0d2acf16af2151303e1b7c6890de5fe3",
+    "src/executor.rs": "5a954bc521413eb6f198ca4e09931ce5c0361cd85dcc412af5644edcc8ebcd71",
+    "src/lib.rs": "05ec0a7e8467ef512877482fbf1055d07af82340705ea834ef6e5c1145dcaef3",
+    "src/quiz_grading.rs": "ee492f05dee4ff88c5553a4f41b6af672c8c302bcf2e31c1cc485fd35c6482f2"
+  },
+  "manifest_binding": "sibling platform dependencies; executor uses composed workspace SQLx"
+}

@@ -167,7 +167,10 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if matches!(active_epoch.epoch, 23 | 24 | 25 | 26 | 27 | 28) {
+            if matches!(
+                active_epoch.epoch,
+                23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35
+            ) {
                 let (chain, _) = successors::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"historical_021_prefix_verified_through_current",
@@ -277,7 +280,10 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if matches!(active_epoch.epoch, 23 | 24 | 25 | 26 | 27 | 28) {
+            if matches!(
+                active_epoch.epoch,
+                23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35
+            ) {
                 let (chain, _) = successors::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"historical_022_prefix_verified_through_current",
@@ -374,7 +380,10 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
             let active_epoch = ai_platform_migration_authority::manifest::load_epoch_manifest(
                 &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
             )?;
-            if matches!(active_epoch.epoch, 24 | 25 | 26 | 27 | 28) {
+            if matches!(
+                active_epoch.epoch,
+                24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35
+            ) {
                 let (chain, _) = successors::verify_activated_source(&root)?;
                 serde_json::json!({
                     "status":"historical_023_prefix_verified_through_current",
@@ -415,8 +424,10 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
     let active_manifest = ai_platform_migration_authority::manifest::load_epoch_manifest(
         &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
     )?;
-    let activated =
-        matches!(active_manifest.epoch, 27 | 28) || successors::activation_receipt_present(&root)?;
+    let activated = matches!(
+        active_manifest.epoch,
+        27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35
+    ) || successors::activation_receipt_present(&root)?;
     let result = if activated {
         if output.is_some() {
             return Err(AuthorityError::Refused(
@@ -424,7 +435,14 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
                     .into(),
             ));
         }
-        let (plan, manifest) = if active_manifest.epoch == 28 {
+        let (plan, manifest) = if (30..=35).contains(&active_manifest.epoch) {
+            (ai_platform_migration_authority::source_tools::service_successors::verify_activated_source(&root)?,active_manifest)
+        } else if active_manifest.epoch == 29 {
+            (
+                ai_platform_migration_authority::source_tools::next_successor_029::verify_activated_source(&root)?,
+                active_manifest,
+            )
+        } else if active_manifest.epoch == 28 {
             (
                 ai_platform_migration_authority::source_tools::next_successor_028::verify_activated_source(&root)?,
                 active_manifest,
@@ -439,7 +457,7 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
         } else {
             successors::verify_activated_source(&root)?
         };
-        let plan_sha256 = if matches!(manifest.epoch, 27 | 28) {
+        let plan_sha256 = if matches!(manifest.epoch, 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35) {
             plan["source_plan_sha256"]
                 .as_str()
                 .ok_or_else(|| {
@@ -473,7 +491,7 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
-    fn canonical_028_source_check_uses_its_027_activation_receipt() {
+    fn canonical_029_source_check_uses_its_028_activation_receipt() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../..")
             .canonicalize()
@@ -482,13 +500,16 @@ mod tests {
             &root.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
         )
         .unwrap();
-        assert_eq!(manifest.epoch, 28);
-        let receipt = ai_platform_migration_authority::source_tools::next_successor_028::verify_activated_source(&root)
+        assert!((29..=35).contains(&manifest.epoch));
+        let receipt =
+            ai_platform_migration_authority::source_tools::service_successors::verify_anchor_029(
+                &root,
+            )
             .unwrap();
-        assert_eq!(receipt["candidate_epoch"], 28);
-        assert_eq!(receipt["predecessor_epoch"], 27);
+        assert_eq!(receipt["candidate_epoch"], 29);
+        assert_eq!(receipt["predecessor_epoch"], 28);
         let predecessor_activation_path =
-            root.join("database/migrations/2026_08_post_kb_v1/SUCCESSOR_027_ACTIVATION.json");
+            root.join("database/migrations/2026_08_post_kb_v1/SUCCESSOR_028_ACTIVATION.json");
         let predecessor_activation_sha256 =
             ai_platform_migration_authority::manifest::file_sha256(&predecessor_activation_path)
                 .unwrap();
@@ -498,20 +519,20 @@ mod tests {
         );
         assert_eq!(
             Some(predecessor_activation_sha256.as_str()),
-            ai_platform_migration_authority::source_tools::next_successor_028::APPROVED_027_ACTIVATION_SHA256
+            ai_platform_migration_authority::source_tools::next_successor_029::APPROVED_028_ACTIVATION_SHA256
         );
         let predecessor_activation: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&predecessor_activation_path).unwrap()).unwrap();
         assert_eq!(
             predecessor_activation["source_plan_sha256"].as_str(),
-            ai_platform_migration_authority::source_tools::next_successor_028::APPROVED_027_SOURCE_PLAN_SHA256
+            ai_platform_migration_authority::source_tools::next_successor_029::APPROVED_028_SOURCE_PLAN_SHA256
         );
         assert!(receipt["source_plan_sha256"].as_str().is_some());
         run_with_args(["--root".to_owned(), root.to_string_lossy().into_owned()]).unwrap();
     }
 
     #[test]
-    fn reviewed_023_source_check_dispatches_through_the_current_028_prefix() {
+    fn reviewed_023_source_check_dispatches_through_the_current_029_prefix() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../..")
             .canonicalize()

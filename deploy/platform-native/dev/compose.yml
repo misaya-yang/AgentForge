@@ -28,14 +28,18 @@ services:
     volumes:
       - native-dev-cache:/native-cache
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/platform-native:/source/rust/platform-native:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/agent-plugins/ai-quiz/native:/source/agent-plugins/ai-quiz/native:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/Cargo.toml:/source/rust/agent-runtime-overlay/kernel-rs/Cargo.toml:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/database:/source/database:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/tests:/source/tests:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/docs:/source/docs:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/deploy:/source/deploy:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/scripts:/source/scripts:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/rust/generated_models.rs:/source/sdk/rust/generated_models.rs:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/fixtures:/source/sdk/fixtures:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/openapi:/source/sdk/openapi:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/openapi.json:/source/sdk/openapi.json:ro

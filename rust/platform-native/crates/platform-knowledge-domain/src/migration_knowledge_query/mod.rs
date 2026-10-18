@@ -5,9 +5,10 @@ pub mod auth;
 pub mod config;
 pub mod embedding;
 pub mod model_plane;
-pub mod model_scope;
 mod model_plane_stream;
+pub mod model_scope;
 
+pub mod document_acl;
 pub mod index;
 pub mod lexical;
 pub mod lexical_v2;
@@ -15,8 +16,11 @@ pub mod parents;
 pub mod qa;
 mod qa_stream;
 pub mod qdrant;
+mod region_citations;
 pub mod rerank;
+pub mod retrieval_v2;
 pub mod service;
+pub mod serving_profile;
 pub mod store;
 pub mod types;
 pub use embedding::EmbeddingManager;
@@ -25,7 +29,6 @@ pub use qdrant::QdrantStore;
 pub use service::RetrievalService;
 pub use store::QueryStore;
 pub use types::{Chunk, Dataset, IndexGeneration, QueryError, UserContext};
-
 
 pub mod hierarchy;
 pub mod lexical_http;

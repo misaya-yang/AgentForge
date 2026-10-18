@@ -62,6 +62,18 @@ pub(super) async fn create_thread(
         .map_err(RuntimeError::from_store)?;
     let mut start = body.start;
     let config = start.config.get_or_insert_with(HashMap::new);
+    if let Some(base) = config
+        .get("model_providers")
+        .and_then(|providers| providers.get("ai-platform-gateway"))
+        .and_then(|provider| provider.get("base_url"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+    {
+        config
+            .get_mut("model_providers")
+            .expect("present providers")["ai-platform-gateway"]["base_url"] =
+            super::model_proxy::kernel_base_url(&base)?.into();
+    }
     crate::tool_policy::apply_managed_feature_profile(config);
     if !tool_policy.allows_native_search() {
         config.insert("web_search".to_string(), serde_json::json!("disabled"));
@@ -84,6 +96,16 @@ pub(super) async fn create_thread(
         ))
         .await
         .map_err(RuntimeError::from_store)?;
+    if let Some(owner) = state
+        .store
+        .route_thread_owner(root_thread_id)
+        .await
+        .map_err(RuntimeError::from_store)?
+    {
+        if owner.owner_id != state.store.instance_id {
+            return Err(RuntimeError::conflict("runtime_thread_owned_elsewhere"));
+        }
+    }
     state
         .store
         .stage_host_startup(

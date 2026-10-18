@@ -8,8 +8,11 @@ pub const BASE: &str = "rust:1.99.0-bookworm";
 pub const VOLUME: &str = "agentforge-dev-7801d4a9a4_native-dev-cache";
 pub const SOURCES: &[&str] = &[
     "rust/platform-native",
+    "agent-plugins/ai-quiz/native",
     "rust/agent-runtime-overlay/kernel-rs/Cargo.toml",
     "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz",
+    "rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat",
     "rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine",
     "database",
     "tests",
@@ -17,6 +20,7 @@ pub const SOURCES: &[&str] = &[
     "deploy",
     "scripts",
     "sdk/fixtures",
+    "sdk/rust/generated_models.rs",
     "sdk/openapi",
     "sdk/openapi.json",
     "sdk/openapi-profiles.json",
@@ -110,6 +114,7 @@ pub fn cargo_args(action: &str, args: &[String]) -> Result<Vec<String>, String> 
             "--all-features",
             "--no-default-features",
             "--release",
+            "--keep-going",
         ]
         .contains(&arg)
         {
@@ -135,9 +140,27 @@ pub fn engine_args(action: &str, args: &[String]) -> Result<Vec<String>, String>
         }
         vec!["fetch".into(), "--locked".into()]
     } else {
-        cargo_args("build", args)?
+        cargo_args(
+            if action == "engine-test" {
+                "test"
+            } else {
+                "build"
+            },
+            args,
+        )?
     };
     command.splice(1..1, ["--manifest-path".into(), ENGINE_MANIFEST.into()]);
+    Ok(command)
+}
+pub fn plugin_args(args: &[String]) -> Result<Vec<String>, String> {
+    let mut command = cargo_args("test", args)?;
+    command.splice(
+        1..1,
+        [
+            "--manifest-path".into(),
+            "/source/agent-plugins/ai-quiz/native/Cargo.toml".into(),
+        ],
+    );
     Ok(command)
 }
 pub fn external_cache() -> Result<PathBuf, String> {
@@ -173,6 +196,29 @@ mod tests {
                 "--",
                 "tls",
                 "--exact"
+            ]
+        );
+    }
+    #[test]
+    fn independent_failures_can_be_collected_without_changing_build_limits() {
+        let command = cargo_args(
+            "check",
+            &[
+                "--workspace".into(),
+                "--all-targets".into(),
+                "--keep-going".into(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            command,
+            [
+                "check",
+                "--locked",
+                "--offline",
+                "--workspace",
+                "--all-targets",
+                "--keep-going"
             ]
         );
     }
@@ -229,11 +275,39 @@ mod tests {
     }
     #[test]
     fn engine_uses_fixed_manifest_and_the_existing_target_cache() {
+        let plugin = plugin_args(&[
+            "--workspace".into(),
+            "--features".into(),
+            "executor".into(),
+            "--".into(),
+            "--test-threads=1".into(),
+        ])
+        .unwrap();
+        assert_eq!(plugin[0], "test");
+        assert_eq!(plugin[2], "/source/agent-plugins/ai-quiz/native/Cargo.toml");
+        assert!(plugin.iter().any(|v| v == "--offline"));
+        assert!(plugin_args(&["--manifest-path".into(), "/other".into()]).is_err());
+
         let command = engine_args("engine-build", &["--release".into()]).unwrap();
         assert_eq!(command[0], "build");
         assert_eq!(command[1], "--manifest-path");
         assert_eq!(command[2], ENGINE_MANIFEST);
         assert!(command.iter().any(|a| a == "--offline"));
+        let test = engine_args(
+            "engine-test",
+            &[
+                "-p".into(),
+                "ai-platform-sdk-agent-engine".into(),
+                "--".into(),
+                "model_plane".into(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(test[0], "test");
+        assert_eq!(test[2], ENGINE_MANIFEST);
+        assert_eq!(&test[test.len() - 2..], &["--", "model_plane"]);
+        assert!(test.iter().any(|a| a == "--offline"));
+        assert!(engine_args("engine-test", &["--target-dir".into(), "/host".into()]).is_err());
         let fetch = engine_args("engine-fetch", &[]).unwrap();
         assert_eq!(
             fetch,

@@ -102,12 +102,18 @@ fn installed_poppler(name: &str) -> PathBuf {
         .expect("real Poppler PDF tests require PATH with installed Poppler tools");
     for directory in std::env::split_paths(&path) {
         let candidate = directory.join(name);
-        let Ok(info) = fs::metadata(&candidate) else { continue };
-        if !info.is_file() { continue; }
+        let Ok(info) = fs::metadata(&candidate) else {
+            continue;
+        };
+        if !info.is_file() {
+            continue;
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            if info.permissions().mode() & 0o111 == 0 { continue; }
+            if info.permissions().mode() & 0o111 == 0 {
+                continue;
+            }
         }
         let absolute = candidate.canonicalize().unwrap_or_else(|error| {
             panic!("cannot resolve installed Poppler tool {name} to an absolute path: {error}")
@@ -116,7 +122,9 @@ fn installed_poppler(name: &str) -> PathBuf {
             panic!("installed Poppler tool {name} fails production executable validation: {error}")
         });
     }
-    panic!("real Poppler PDF tests require installed executable {name} on PATH; install Poppler or fix the test environment");
+    panic!(
+        "real Poppler PDF tests require installed executable {name} on PATH; install Poppler or fix the test environment"
+    );
 }
 
 fn backend() -> PopplerPdfBackend {

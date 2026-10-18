@@ -943,7 +943,8 @@ pub struct RuntimeIdempotency {
 }
 impl RuntimeIdempotency {
     pub async fn reserve(&self, pool: &sqlx::PgPool, session: &str) -> Result<Value, AgentError> {
-        let mut tx = pool.begin().await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(pool, &self.tenant).await?;
         let created:Option<Value>=sqlx::query_scalar("INSERT INTO agent_runtime_idempotency AS i(tenant_id,publication_id,principal_id,idempotency_key,request_hash,session_id) VALUES($1,$2::uuid,$3,$4,$5,$6) ON CONFLICT(tenant_id,publication_id,principal_id,idempotency_key) DO UPDATE SET request_hash=EXCLUDED.request_hash,session_id=EXCLUDED.session_id,status='pending',response_body=NULL,response_media_type=NULL,response_status_code=NULL,completed_at=NULL,created_at=NOW(),expires_at=NOW()+INTERVAL '24 hours' WHERE i.expires_at<=NOW() RETURNING jsonb_build_object('created',TRUE,'session_id',i.session_id,'status','pending')").bind(&self.tenant).bind(&self.publication).bind(&self.principal).bind(&self.key).bind(&self.request_hash).bind(session).fetch_optional(&mut *tx).await?;
         if let Some(row) = created {
             tx.commit().await?;
@@ -963,7 +964,7 @@ impl RuntimeIdempotency {
         media: &str,
         status: i32,
     ) -> Result<(), AgentError> {
-        let result=sqlx::query("UPDATE agent_runtime_idempotency SET status='completed',response_body=$6,response_media_type=$7,response_status_code=$8,completed_at=NOW() WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND idempotency_key=$4 AND request_hash=$5 AND status='pending' AND expires_at>NOW()").bind(&self.tenant).bind(&self.publication).bind(&self.principal).bind(&self.key).bind(&self.request_hash).bind(body).bind(media.chars().take(255).collect::<String>()).bind(status).execute(pool).await?;
+        let result=sqlx::query("UPDATE agent_runtime_idempotency SET status='completed',response_body=$6,response_media_type=$7,response_status_code=$8,completed_at=NOW() WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND idempotency_key=$4 AND request_hash=$5 AND status='pending' AND expires_at>NOW()").bind(&self.tenant).bind(&self.publication).bind(&self.principal).bind(&self.key).bind(&self.request_hash).bind(body).bind(media.chars().take(255).collect::<String>()).bind(status).execute(ai_platform_gateway_foundation::tenant_database::executor(pool, &self.tenant)).await?;
         if result.rows_affected() != 1 {
             return Err(AgentError::code(
                 409,
@@ -973,7 +974,7 @@ impl RuntimeIdempotency {
         Ok(())
     }
     pub async fn fail(&self, pool: &sqlx::PgPool) -> Result<(), AgentError> {
-        sqlx::query("UPDATE agent_runtime_idempotency SET status='failed',completed_at=NOW() WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND idempotency_key=$4 AND request_hash=$5 AND status='pending'").bind(&self.tenant).bind(&self.publication).bind(&self.principal).bind(&self.key).bind(&self.request_hash).execute(pool).await?;
+        sqlx::query("UPDATE agent_runtime_idempotency SET status='failed',completed_at=NOW() WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND idempotency_key=$4 AND request_hash=$5 AND status='pending'").bind(&self.tenant).bind(&self.publication).bind(&self.principal).bind(&self.key).bind(&self.request_hash).execute(ai_platform_gateway_foundation::tenant_database::executor(pool, &self.tenant)).await?;
         Ok(())
     }
 }

@@ -18,6 +18,8 @@ pub enum ObjectStorageConfiguration {
         bucket: String,
         prefix: String,
         public_base: String,
+        encryption: String,
+        kms_key: Option<String>,
     },
     Oss {
         endpoint: String,
@@ -50,16 +52,30 @@ impl ObjectStorageConfiguration {
                 bucket,
                 prefix,
                 public_base,
-            } => Ok(Arc::new(CloudStorage {
-                transport: Arc::new(
-                    S3HttpTransport::new(client, region, access_key, secret_key, endpoint)
-                        .map_err(|_| BootstrapError::Configuration("s3_storage"))?,
-                ),
-                bucket,
-                prefix,
-                public_base,
-                s3: true,
-            })),
+                encryption,
+                kms_key,
+            } => {
+                if bucket.trim().is_empty()
+                    || region.trim().is_empty()
+                    || access_key.trim().is_empty()
+                    || secret_key.is_empty()
+                {
+                    return Err(BootstrapError::Configuration("s3_storage_configuration"));
+                }
+                Ok(Arc::new(CloudStorage {
+                    transport: Arc::new(
+                        S3HttpTransport::new(client, region, access_key, secret_key, endpoint)
+                            .and_then(|transport| {
+                                transport.with_encryption(&encryption, kms_key.as_deref())
+                            })
+                            .map_err(|_| BootstrapError::Configuration("s3_storage"))?,
+                    ),
+                    bucket,
+                    prefix,
+                    public_base,
+                    s3: true,
+                }))
+            }
             Self::Oss {
                 endpoint,
                 access_key,

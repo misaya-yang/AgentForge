@@ -1,3 +1,4 @@
+import { IntlMessageFormat } from "intl-messageformat";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -30,7 +31,7 @@ function host() {
   const modules: Record<string, unknown> = {
     react: { useState(initial: unknown) { const i = index++; const owner = slots; owner[i] ??= { value: initial }; return [owner[i].value, (next: unknown) => { owner[i].value = typeof next === "function" ? next(owner[i].value) : next; }]; }, useMemo: memo, useCallback: (fn: unknown, deps: unknown[]) => memo(() => fn, deps), useRef: (value: unknown) => memo(() => ({ current: value }), []), useEffect: effect, useLayoutEffect: effect },
     "react/jsx-runtime": { jsx, jsxs: jsx },
-    "react-i18next": { useTranslation: () => ({ t: (_key: string, fallback: string, args?: Record<string, unknown>) => fallback.replace(/{{(\w+)}}/g, (_, name: string) => String(args?.[name])) }) },
+    "react-i18next": { useTranslation: () => ({ t: (_key: string, fallback: string, args?: Record<string, unknown>) => String(new IntlMessageFormat(fallback, "en-US").format(args as never)) }) },
     "@/components/ui/dialog": Object.fromEntries(["Dialog", "DialogContent", "DialogDescription", "DialogHeader", "DialogTitle"].map(name => [name, name])),
     "@/components/ui/button": { Button: "Button" }, "@/components/ui/input": { Input: "Input" },
     "@/lib/utils": { generateUUID: () => `scope-${++uuid}` },

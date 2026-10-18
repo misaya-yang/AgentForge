@@ -100,3 +100,11 @@ at the scratch directory instead:
 Ad-hoc verification screenshots are scratch, not evidence. If a screenshot is genuinely evidence for
 a review, put it under `reports/<area>/` and reference it from the report — otherwise leave it in
 `tmp/`.
+
+The all-route WCAG 2.2 AA gate is
+`pnpm -C web exec playwright test -c playwright.opensource.config.ts e2e/all-routes-accessibility.spec.ts`.
+Its inventory is checked against the router by the Node suite; no route is skipped and every
+axe violation fails. Run it with representative data for dynamic/public routes, and separately
+with unavailable/error states. Shell-only or error-state coverage does not establish that the
+route's successful data view is accessible. Keep browser execution serialized with the owning
+integration run.

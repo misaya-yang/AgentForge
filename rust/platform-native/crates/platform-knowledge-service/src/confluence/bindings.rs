@@ -71,7 +71,7 @@ impl Sources {
         offset: i64,
     ) -> Result<Value> {
         let actor = self.actor(user, dataset, true, true).await?;
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('connection_id',connection_id,'name',name) FROM confluence_connections WHERE tenant_id=$1 AND COALESCE(NULLIF(owner_id,''),created_by)=$2 AND status='active' ORDER BY connection_id LIMIT 51 OFFSET $3").bind(&actor.tenant_id).bind(&actor.user_id).bind(offset).fetch_all(&self.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('connection_id',connection_id,'name',name) FROM confluence_connections WHERE tenant_id=$1 AND COALESCE(NULLIF(owner_id,''),created_by)=$2 AND status='active' ORDER BY connection_id LIMIT 51 OFFSET $3").bind(&actor.tenant_id).bind(&actor.user_id).bind(offset).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         Ok(
             json!({"connections":rows.iter().take(50).collect::<Vec<_>>(),"next_offset":if rows.len()>50{Some(offset+50)}else{None}}),
         )
@@ -199,6 +199,7 @@ impl Sources {
         }
         let current_actor = self.actor(user, dataset, true, true).await?;
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         let locked: Option<Value> = sqlx::query_scalar(
             "SELECT to_jsonb(c) FROM confluence_connections c WHERE connection_id=$1 FOR UPDATE",
         )

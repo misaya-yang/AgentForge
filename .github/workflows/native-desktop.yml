@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-client-packaging
+      - uses: ./.github/actions/setup-client-packaging
       - name: Read canonical desktop target manifest
         id: targets
         run: echo "matrix=$(platform-client-packaging package-desktop --matrix)" >> "$GITHUB_OUTPUT"
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-client-packaging
+      - uses: ./.github/actions/setup-client-packaging
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
           toolchain: 1.99.0

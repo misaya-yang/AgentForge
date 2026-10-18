@@ -46,7 +46,7 @@ export function TimelineSection({
         <span className="flex-1 text-slate-600 dark:text-zinc-300">
           {isRunning
             ? t("playground.timeline.running", "Agent working...")
-            : t("playground.timeline.completed", "{{count}} steps completed", { count: stepCount })}
+            : t("playground.timeline.completed", "{count} steps completed", { count: stepCount })}
         </span>
         <motion.div
           animate={{ rotate: isExpanded ? 180 : 0 }}

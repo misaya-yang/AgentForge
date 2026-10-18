@@ -10,9 +10,16 @@ use std::{
     path::{Component, Path},
 };
 
-pub const LOCK_SHA256: &str = "1d45dc6faae144ab72cbb64eaa4b4eb849fc4c649acbdd74ad9e2921aed38f01";
+pub const LOCK_SHA256: &str = "b8580e5d3ee6d8fa25966e9857d5372082e664788616db91cac2f678fb10f87b";
+// The closed service-successor verifier reconstructs this real029 anchor even
+// after later releases advance N-1. It is a source proof pin, not app admission.
+pub const SOURCE_OWNED_029_ANCHOR_LOCK_SHA256: &str =
+    "b8580e5d3ee6d8fa25966e9857d5372082e664788616db91cac2f678fb10f87b";
 // Exact N-1 release package retained for source-chain verification and rolling upgrades.
 pub const PREVIOUS_RELEASE_LOCK_SHA256: &str =
+    "1d45dc6faae144ab72cbb64eaa4b4eb849fc4c649acbdd74ad9e2921aed38f01";
+// Exact027 package remains necessary for recursive028 ancestry verification.
+const HISTORICAL_027_LOCK_SHA256: &str =
     "4809ae95335a98ff2f50ed486b47af59463643395dbcad0c8aa9bcda5f20b855";
 const HISTORICAL_026_LOCK_SHA256: &str =
     "412f111e43c8bce04096a84beaff05a8c139762ff335e8138f09696936cc711a";
@@ -111,6 +118,8 @@ pub fn verify(root: &Path, baseline_id: &str) -> Result<()> {
     if ![
         LOCK_SHA256,
         PREVIOUS_RELEASE_LOCK_SHA256,
+        SOURCE_OWNED_029_ANCHOR_LOCK_SHA256,
+        HISTORICAL_027_LOCK_SHA256,
         HISTORICAL_026_LOCK_SHA256,
         HISTORICAL_025_LOCK_SHA256,
         HISTORICAL_024_LOCK_SHA256,

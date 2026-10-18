@@ -75,6 +75,12 @@ pub(super) fn trust_roots(path: &Path) -> Result<Vec<reqwest::Certificate>> {
     Ok(roots)
 }
 impl Transport {
+    pub fn address(&self) -> SocketAddr {
+        self.address
+    }
+    pub fn has_legacy_tls(&self) -> bool {
+        self.certificate.is_some()
+    }
     pub fn from_environment(environment: &BTreeMap<String, String>) -> Result<Self> {
         let keys = [
             "SDK_AGENT_WORKER_TLS_CERT_FILE",
@@ -109,7 +115,7 @@ impl Transport {
         if count != 0 && count != 3 {
             return Err("sdk_worker_tls_incomplete");
         }
-        if !address.ip().is_loopback() && count != 3 {
+        if !address.ip().is_loopback() && count != 3 && !crate::workload_identity::required() {
             return Err("sdk_worker_nonlocal_requires_tls");
         }
         if values.iter().flatten().any(|p| !p.is_absolute()) {

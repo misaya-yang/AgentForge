@@ -1,4 +1,6 @@
+@layer theme, base, antd, components, utilities;
 @import 'tailwindcss';
+@import './styles/ui-primitives.css';
 
 @plugin '@tailwindcss/typography';
 
@@ -101,25 +103,6 @@
   --radius-md: var(--radius-md);
   --radius-sm: var(--radius-sm);
 
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-
-  @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
-  }
-  @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
-  }
 }
 
 /*
@@ -667,13 +650,6 @@
    Radix compat
    ═══════════════════════════════════════════ */
 
-[data-radix-popper-content-wrapper] { z-index: var(--z-dropdown) !important; }
-[data-radix-select-content] { z-index: var(--z-dropdown) !important; }
-[data-radix-dialog-overlay] { z-index: var(--z-overlay) !important; }
-[data-radix-dialog-content] { z-index: var(--z-modal) !important; }
-[data-radix-tooltip-content] { z-index: var(--z-dropdown) !important; }
-[data-radix-dropdown-menu-content] { z-index: var(--z-dropdown) !important; }
-[data-radix-toast-viewport] { z-index: var(--z-modal) !important; }
 
 /* ═══════════════════════════════════════════
    Dark mode border normalization

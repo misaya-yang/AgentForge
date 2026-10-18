@@ -6,6 +6,7 @@
 //! boundaries are tracked in the migration report.
 pub mod application;
 pub mod confluence;
+pub mod connector;
 mod http;
 mod metrics;
 pub mod upload;
@@ -21,13 +22,14 @@ pub mod native_contract;
 pub mod native_cross_encoder;
 pub mod native_rerank;
 pub mod ocr_utils;
-pub mod pdf_backend;
 pub mod parsing_eval;
+pub mod pdf_backend;
 mod pdf_readiness;
 pub mod process;
 pub mod rpc;
 pub mod settings;
 pub mod tracing;
+pub mod workload;
 use crate::host::{cors::CorsConfig, idempotency, middleware::DrainState};
 use crate::{migration_knowledge_ingest as ingest, migration_knowledge_query as query};
 use redis::aio::ConnectionManager;
@@ -108,12 +110,16 @@ impl PdfBackends {
 /// remain optional real inputs. None leaves that feature explicitly unavailable.
 #[derive(Default)]
 pub struct KnowledgeBackends {
+    pub internal_transport_bearer: Option<String>,
+    pub workload_http:
+        Option<Arc<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>>,
     pub result_cache: Option<ai_platform_service_primitives::valkey::CacheConnection>,
     pub pdf: PdfBackends,
     pub image_fetch: Option<Arc<dyn crate::migration_content::images::ImageReferenceFetch>>,
     pub structured: ingest::structured::BackendRegistry,
 }
 pub struct KnowledgeGraph {
+    pub workload: Option<workload::Configuration>,
     pub request_governance: ai_platform_service_primitives::request_governance::RequestGovernance,
     pub release_identity: Arc<crate::host::release::ReleaseIdentity>,
     pub application: Option<KnowledgeApplication>,
@@ -168,13 +174,25 @@ impl KnowledgeGraph {
             ),
         };
         let service_auth = Arc::new(
-            query::auth::GatewayAuth::for_knowledge_service(
-                config.authentication.internal_token.trim().into(),
-                config.authentication.keyring.clone(),
-                &config.authentication.environment,
-                replay,
-            )
-            .map(|mut auth| {auth.allowed_path_prefixes.push(ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH.into());auth})
+            if config.authentication.internal_token.is_empty() {
+                query::auth::GatewayAuth::for_knowledge_service_keyring(
+                    config.authentication.keyring.clone(),
+                    &config.authentication.environment,
+                    replay,
+                )
+            } else {
+                query::auth::GatewayAuth::for_knowledge_service(
+                    config.authentication.internal_token.trim().into(),
+                    config.authentication.keyring.clone(),
+                    &config.authentication.environment,
+                    replay,
+                )
+            }
+            .map(|mut auth| {
+                auth.allowed_path_prefixes
+                    .push(ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH.into());
+                auth
+            })
             .map_err(|_| KnowledgeError::Configuration("gateway_signature"))?,
         );
         let idem_store: Arc<dyn idempotency::IdempotencyStore> =
@@ -230,7 +248,8 @@ impl KnowledgeGraph {
         vectors.retry_base_delay =
             settings::seconds(config.qdrant.retry_base_delay, "qdrant_retry_base_delay")?;
         vectors.timeout = settings::seconds(config.qdrant.timeout_seconds, "qdrant_timeout")?;
-        vectors.set_prefer_grpc(config.qdrant.prefer_grpc)
+        vectors
+            .set_prefer_grpc(config.qdrant.prefer_grpc)
             .map_err(|_| KnowledgeError::Construction("qdrant_grpc"))?;
         vectors.interactive_deadline = settings::seconds(
             config.qdrant.interactive_deadline_seconds,
@@ -241,23 +260,110 @@ impl KnowledgeGraph {
             config.qdrant.bm25_v2_capability_ttl_seconds,
             "bm25_capability_ttl",
         )?;
-        let model_plane=connections.model_plane.clone().ok_or(KnowledgeError::Configuration("knowledge_model_plane_required"))?;
-        let mut embeddings=query::embedding::EmbeddingManager::new(client.clone(),None,String::new(),Default::default());
-        embeddings.document_batch_size=config.embeddings.batch_size.max(1);
+        let model_plane = connections
+            .model_plane
+            .clone()
+            .ok_or(KnowledgeError::Configuration(
+                "knowledge_model_plane_required",
+            ))?;
+        let mut embeddings = query::embedding::EmbeddingManager::new(
+            client.clone(),
+            None,
+            String::new(),
+            Default::default(),
+        );
+        embeddings.document_batch_size = config.embeddings.batch_size.max(1);
         if config.embeddings.local_semantic_enabled {
-            embeddings=embeddings.with_gateway_local_semantic(settings::seconds(config.embeddings.timeout_seconds,"local_semantic_timeout")?).map_err(|_|KnowledgeError::Configuration("local_semantic_profile"))?;
+            embeddings = embeddings
+                .with_gateway_local_semantic(settings::seconds(
+                    config.embeddings.timeout_seconds,
+                    "local_semantic_timeout",
+                )?)
+                .map_err(|_| KnowledgeError::Configuration("local_semantic_profile"))?;
         }
-        let store = query::store::QueryStore::new(connections.database.clone());
+        let outbound_keys = match &config.authentication.outbound_key_id {
+            Some(key) => std::collections::BTreeMap::from([(
+                key.clone(),
+                config
+                    .authentication
+                    .keyring
+                    .get(key)
+                    .cloned()
+                    .ok_or(KnowledgeError::Configuration("active_signing_key"))?,
+            )]),
+            None => config.authentication.keyring,
+        };
+        let mut actor_signer = if config.authentication.internal_token.is_empty() {
+            query::auth::GatewayAuth::signed_v2(outbound_keys, service_auth.replay.clone())
+        } else {
+            query::auth::GatewayAuth::new(
+                config.authentication.internal_token.trim().into(),
+                outbound_keys,
+                "v2".into(),
+                service_auth.replay.clone(),
+            )
+        }
+        .map_err(|_| KnowledgeError::Configuration("actor_signer"))?;
+        actor_signer.caller_service = "knowledge-service".into();
+        actor_signer.audience = "gateway".into();
+        actor_signer.allowed_path_prefixes = vec![query::actor::ACTOR_PATH.into()];
+        actor_signer.allowed_path_prefixes.push(
+            ai_platform_service_primitives::object_authorization::DATASET_DECISION_PATH.into(),
+        );
+        let actor_signer = Arc::new(actor_signer);
+        let object_policy: Option<
+            Arc<dyn ai_platform_knowledge_domain::cedar_dataset_policy::DatasetObjectPolicy>,
+        > = config
+            .dataset_policy
+            .map(|configuration| -> Result<_> {
+                let mut policy = configuration
+                    .build(actor_signer.clone())
+                    .map_err(|_| KnowledgeError::Configuration("dataset_policy"))?;
+                if let Some(token) = backends.internal_transport_bearer.as_deref() {
+                    policy = policy.with_legacy_transport(token).map_err(|_| {
+                        KnowledgeError::Configuration("dataset_policy_legacy_transport")
+                    })?;
+                }
+                if let Some(http) = backends.workload_http.clone() {
+                    policy = policy.with_workload_http(http).map_err(|_| {
+                        KnowledgeError::Configuration("dataset_policy_workload_origin")
+                    })?;
+                }
+                Ok(Arc::new(policy)
+                    as Arc<
+                        dyn ai_platform_knowledge_domain::cedar_dataset_policy::DatasetObjectPolicy,
+                    >)
+            })
+            .transpose()?;
+
+        let mut actors = query::actor::RuntimeActorClient::new(
+            endpoint(&config.authentication.gateway_origin, "gateway_origin")?,
+            actor_signer,
+        )
+        .map_err(|_| KnowledgeError::Construction("runtime_actor_client"))?;
+        if let Some(token) = backends.internal_transport_bearer.as_deref() {
+            actors = actors
+                .with_legacy_transport(token)
+                .map_err(|_| KnowledgeError::Configuration("actor_legacy_transport"))?;
+        }
+        if let Some(http) = backends.workload_http.take() {
+            actors = actors
+                .with_workload_http(http)
+                .map_err(|_| KnowledgeError::Configuration("actor_workload_origin"))?;
+        }
+        let store = query::store::QueryStore::new(connections.database.clone())
+            .with_object_policy(object_policy.clone());
         let mut reranker = query::rerank::Reranker::new(client.clone(), config.rerank_providers);
         reranker.dashscope_base_url = config.dashscope_rerank_region;
-        reranker=reranker.with_local_backend(Arc::new(query::rerank::HttpLocalRerankBackend::gateway()));
+        reranker =
+            reranker.with_local_backend(Arc::new(query::rerank::HttpLocalRerankBackend::gateway()));
         let mut retrieval = query::service::RetrievalService::new(
             store.clone(),
             vectors.clone(),
             embeddings.clone(),
             Some(reranker),
         );
-        retrieval= retrieval.with_shared_result_cache(backends.result_cache.take());
+        retrieval = retrieval.with_shared_result_cache(backends.result_cache.take());
         retrieval.cache_ttl = settings::seconds(
             config.processing.retrieval_cache_ttl_seconds,
             "retrieval_cache_ttl",
@@ -267,17 +373,19 @@ impl KnowledgeGraph {
             "interactive_deadline",
         )?;
         retrieval.max_query_concurrency = config.processing.retrieval_query_max_concurrency;
-        let retrieval = Arc::new(retrieval);
         let indexer = Arc::new(query::index::Indexer::new(
             store.clone(),
             vectors.clone(),
             embeddings.clone(),
         ));
         let assets = config.storage.project(&config.working_directory)?;
+        retrieval = retrieval.with_image_assets(assets.clone());
+        let retrieval = Arc::new(retrieval);
         let mut parser = ingest::parser::DocumentParser::new(config.parser);
         parser.pdf_backend = backends.pdf.text;
         let mut ingestion = ingest::IngestionService::new(
-            ingest::store::KnowledgeWriteStore::new(connections.database.clone()),
+            ingest::store::KnowledgeWriteStore::new(connections.database.clone())
+                .with_object_policy(object_policy.clone()),
             assets.clone(),
             parser.clone(),
             indexer.clone(),
@@ -289,6 +397,7 @@ impl KnowledgeGraph {
                 embedding_provider: "local_semantic".into(),
                 embedding_model: query::embedding::LOCAL_SEMANTIC_MODEL.into(),
                 embedding_dimension: query::embedding::LOCAL_SEMANTIC_DIMENSION,
+                embedding_model_version: config.embeddings.local_semantic_revision.clone(),
                 rerank: false,
             });
         }
@@ -346,59 +455,69 @@ impl KnowledgeGraph {
         }
         if let Some(summary) = config.summary {
             ingestion.summary = Some(
-                ingest::summary::SummaryGenerator::for_model(summary.provider,summary.model)
-                .map_err(|_| KnowledgeError::Construction("summary"))?,
+                ingest::summary::SummaryGenerator::for_model(summary.provider, summary.model)
+                    .map_err(|_| KnowledgeError::Construction("summary"))?,
             );
         }
-        let mut actor_signer = query::auth::GatewayAuth::new(
-            config.authentication.internal_token.trim().into(),
-            match &config.authentication.outbound_key_id {
-                Some(key) => std::collections::BTreeMap::from([(
-                    key.clone(),
-                    config
-                        .authentication
-                        .keyring
-                        .get(key)
-                        .cloned()
-                        .ok_or(KnowledgeError::Configuration("active_signing_key"))?,
-                )]),
-                None => config.authentication.keyring,
-            },
-            "v2".into(),
-            service_auth.replay.clone(),
-        )
-        .map_err(|_| KnowledgeError::Configuration("actor_signer"))?;
-        actor_signer.caller_service = "knowledge-service".into();
-        actor_signer.audience = "gateway".into();
-        actor_signer.allowed_path_prefixes = vec![query::actor::ACTOR_PATH.into()];
-        let actors = query::actor::RuntimeActorClient::new(
-            endpoint(&config.authentication.gateway_origin, "gateway_origin")?,
-            Arc::new(actor_signer),
-        )
-        .map_err(|_| KnowledgeError::Construction("runtime_actor_client"))?;
         ingestion.vector_job_actor_authority = Some(actors.clone());
         ingestion.confluence_sources_enabled = config.confluence_enabled && config.role.api();
-        ingestion.model_plane=Some(model_plane.clone());
+        ingestion.model_plane = Some(model_plane.clone());
         let ingestion = Arc::new(ingestion);
-        let migrations = Arc::new(query::migration::EmbeddingMigration::new(
+        let mut migrations = query::migration::EmbeddingMigration::new(
             connections.database.clone(),
             vectors.clone(),
             embeddings.clone(),
-        ));
-        let lifecycle = Arc::new(lifecycle::KnowledgeLifecycle::new(
-            connections,
-            config.role,
-            client,
-            vectors.health_http_client(),
-            qdrant_origin,
-            config.qdrant.api_key,
-            vectors.timeout,
-            ingestion.clone(),
-            config.processing.worker,
-            migrations.clone(),
-            Arc::new(DrainState::default()),
-            None,
-        ).with_model_plane(model_plane.clone()));
+        );
+        migrations.query.object_policy = object_policy.clone();
+        let migrations = Arc::new(migrations);
+        let lifecycle = Arc::new(
+            lifecycle::KnowledgeLifecycle::new(
+                connections,
+                config.role,
+                client,
+                vectors.health_http_client(),
+                qdrant_origin,
+                config.qdrant.api_key,
+                vectors.timeout,
+                ingestion.clone(),
+                config.processing.worker,
+                migrations.clone(),
+                Arc::new(DrainState::default()),
+                config
+                    .embeddings
+                    .local_semantic_enabled
+                    .then(|| embeddings.clone()),
+            )
+            .with_model_plane(model_plane.clone()),
+        );
+        let sources = if config.role.api()
+            || (config.confluence_acl_refresh
+                && matches!(
+                    config.role,
+                    settings::RuntimeRole::All
+                        | settings::RuntimeRole::Worker
+                        | settings::RuntimeRole::Index
+                )) {
+            Some(Arc::new(
+                confluence::Sources::new(
+                    lifecycle.pool.clone(),
+                    actors.clone(),
+                    config.connector_encryption_key.clone(),
+                    ingestion.clone(),
+                    config.confluence_enabled,
+                    settings::seconds(config.confluence_request_timeout, "confluence_timeout")?,
+                    config.confluence_max_retries,
+                )
+                .map_err(|_| KnowledgeError::Construction("confluence_sources"))?
+                .with_acl_refresh(config.confluence_acl_refresh),
+            ))
+        } else {
+            None
+        };
+        *lifecycle
+            .confluence
+            .write()
+            .map_err(|_| KnowledgeError::Construction("confluence_lifecycle"))? = sources.clone();
         let application = if config.role.api() {
             let qa = config
                 .qa
@@ -413,8 +532,8 @@ impl KnowledgeGraph {
                     Ok(Arc::new(service))
                 })
                 .transpose()?;
-            let judge_embeddings=embeddings.clone();
-            let judge_providers=std::collections::BTreeMap::new();
+            let judge_embeddings = embeddings.clone();
+            let judge_providers = std::collections::BTreeMap::new();
             let ragas = Arc::new(
                 query::ragas::RagasService::new(
                     lifecycle.client.clone(),
@@ -427,36 +546,26 @@ impl KnowledgeGraph {
                         dimension: Some(config.embeddings.dimension),
                     }),
                 )
-                .map_err(|_| KnowledgeError::Construction("ragas"))?.with_actor_authority(actors.clone()),
+                .map_err(|_| KnowledgeError::Construction("ragas"))?
+                .with_actor_authority(actors.clone()),
             );
 
-            let sources = Arc::new(
-                confluence::Sources::new(
-                    lifecycle.pool.clone(),
-                    actors.clone(),
-                    config.connector_encryption_key.clone(),
-                    ingestion.clone(),
-                    config.confluence_enabled,
-                    settings::seconds(config.confluence_request_timeout, "confluence_timeout")?,
-                    config.confluence_max_retries,
-                )
-                .map_err(|_| KnowledgeError::Construction("confluence_sources"))?,
-            );
-            *lifecycle
-                .confluence
-                .write()
-                .map_err(|_| KnowledgeError::Construction("confluence_lifecycle"))? =
-                Some(sources.clone());
             Some(KnowledgeApplication {
-                model_plane:model_plane.clone(),
-                model_scope:Arc::new(query::model_scope::ModelScopeAuthority{store:store.clone(),actors:ingestion.vector_job_actor_authority.clone().ok_or(KnowledgeError::Construction("model_scope_actor"))?}),
+                model_plane: model_plane.clone(),
+                model_scope: Arc::new(query::model_scope::ModelScopeAuthority {
+                    store: store.clone(),
+                    actors: ingestion
+                        .vector_job_actor_authority
+                        .clone()
+                        .ok_or(KnowledgeError::Construction("model_scope_actor"))?,
+                }),
                 upload: crate::upload::UploadState {
                     service: ingestion.clone(),
                     backend: backends.pdf.split,
                     maximum_upload_bytes: config.processing.maximum_upload_bytes,
                     config: config.processing.pdf_upload.clone(),
                 },
-                sources,
+                sources: sources.ok_or(KnowledgeError::Construction("confluence_sources"))?,
                 service_auth: service_auth.clone(),
                 retrieval: retrieval.clone(),
                 qa,
@@ -504,9 +613,11 @@ impl KnowledgeGraph {
             crate::host::release::ReleaseIdentity::gateway(&Default::default());
         release_identity.service_id = "knowledge-service".into();
         Ok(Self {
-            request_governance: ai_platform_service_primitives::request_governance::RequestGovernance::new(
-                config.request_governance,
-            ),
+            workload: None,
+            request_governance:
+                ai_platform_service_primitives::request_governance::RequestGovernance::new(
+                    config.request_governance,
+                ),
             release_identity: Arc::new(release_identity),
             application,
             ingestion,

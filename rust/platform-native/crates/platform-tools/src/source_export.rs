@@ -53,8 +53,35 @@ pub(super) fn paths(
     exported: &impl Fn(&str) -> Result<PathBuf>,
     runs: &[&Value],
 ) -> Result<ExportPaths> {
+    paths_inner(
+        evidence, unit, unit_sha, source, schema, exported, runs, false,
+    )
+}
+pub(super) fn paths_batch(
+    evidence: &Value,
+    unit: &Value,
+    unit_sha: &str,
+    source: &Path,
+    schema: &Path,
+    exported: &impl Fn(&str) -> Result<PathBuf>,
+    runs: &[&Value],
+) -> Result<ExportPaths> {
+    paths_inner(
+        evidence, unit, unit_sha, source, schema, exported, runs, true,
+    )
+}
+fn paths_inner(
+    evidence: &Value,
+    unit: &Value,
+    unit_sha: &str,
+    source: &Path,
+    schema: &Path,
+    exported: &impl Fn(&str) -> Result<PathBuf>,
+    runs: &[&Value],
+    batch: bool,
+) -> Result<ExportPaths> {
     let cwd = source.join("codex-rs");
-    if evidence["schema"] == "ai-platform/composed-source-export/v1" {
+    if !batch && evidence["schema"] == "ai-platform/composed-source-export/v1" {
         require(
             evidence.get("execution").is_none(),
             "v1 cannot declare a path alias",
@@ -67,7 +94,12 @@ pub(super) fn paths(
         });
     }
     require(
-        evidence["schema"] == "ai-platform/composed-source-export/v2",
+        evidence["schema"]
+            == if batch {
+                "ai-platform/composed-source-export/v3"
+            } else {
+                "ai-platform/composed-source-export/v2"
+            },
         "unsupported export evidence",
     )?;
     let execution = &evidence["execution"];

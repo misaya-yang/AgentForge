@@ -37,6 +37,8 @@ pub struct Runtime {
     pub closing: AtomicBool,
     pub admissions: RwLock<()>,
     pub tasks: Mutex<BTreeMap<String, Task>>,
+    pub refresh: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    pub rate_next: Mutex<BTreeMap<String, tokio::time::Instant>>,
 }
 pub fn task_receipt(row: &Value) -> Value {
     let mut out = pick(
@@ -102,6 +104,52 @@ impl Sources {
         binding: &str,
         id: &str,
     ) -> Result<Value> {
+        self.start_sync_delta(user, dataset, binding, id, None)
+            .await
+    }
+    pub async fn start_page_sync(
+        self: &Arc<Self>,
+        user: &query::types::UserContext,
+        dataset: &str,
+        binding: &str,
+        event: &crate::connector::DeltaEvent,
+    ) -> Result<Value> {
+        if !event.validate("confluence") {
+            return Err(Error::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Invalid connector delta identity",
+            ));
+        }
+        // A webhook cannot escape its bound source subtree. New-page events are
+        // discovered by the ordinary binding sync before page deltas are accepted.
+        self.authorize_sync(user, dataset, binding, true).await?;
+        let known: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM confluence_pages WHERE binding_id=$1 AND page_id=$2)",
+        )
+        .bind(binding)
+        .bind(&event.source_id)
+        .fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool))
+        .await?;
+        if !known {
+            return Err(Error::missing("Connector page is outside its binding"));
+        }
+        self.start_sync_delta(
+            user,
+            dataset,
+            binding,
+            &event.request_id.to_string(),
+            Some(&event.source_id),
+        )
+        .await
+    }
+    async fn start_sync_delta(
+        self: &Arc<Self>,
+        user: &query::types::UserContext,
+        dataset: &str,
+        binding: &str,
+        id: &str,
+        page: Option<&str>,
+    ) -> Result<Value> {
         let _admission = self.runtime.admissions.read().await;
         if self.runtime.closing.load(Ordering::Acquire) {
             return Err(Error::unavailable(
@@ -111,6 +159,7 @@ impl Sources {
         let (actor, row, connection) = self.authorize_sync(user, dataset, binding, true).await?;
         let connection = connection.ok_or_else(Error::forbidden)?;
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         let current: Value = sqlx::query_scalar(
             "SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE binding_id=$1 FOR UPDATE",
         )
@@ -129,7 +178,10 @@ impl Sources {
                 .fetch_optional(&mut *tx)
                 .await?;
         if let Some(prior) = prior {
-            if text(&prior, "binding_id") != binding || text(&prior, "owner_id") != actor.user_id {
+            if text(&prior, "binding_id") != binding
+                || text(&prior, "owner_id") != actor.user_id
+                || prior["page_id"].as_str() != page
+            {
                 return Err(Error::conflict("Sync request identity already used"));
             }
             return Ok(task_receipt(&prior));
@@ -140,7 +192,7 @@ impl Sources {
                 "Confluence sync is active or requires interruption reconciliation",
             ));
         }
-        sqlx::query("INSERT INTO confluence_sync_tasks(task_id,binding_id,task_type,priority,status,retry_count,max_retries,progress,total_items,processed_items,owner_id) VALUES($1,$2,'full_sync',1,'pending',0,0,0,0,0,$3)").bind(id).bind(binding).bind(&actor.user_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO confluence_sync_tasks(task_id,binding_id,task_type,priority,status,retry_count,max_retries,progress,total_items,processed_items,owner_id,page_id) VALUES($1,$2,$5,1,'pending',0,0,0,0,0,$3,$4)").bind(id).bind(binding).bind(&actor.user_id).bind(page).bind(if page.is_some(){"page_sync"}else{"full_sync"}).execute(&mut *tx).await?;
         sqlx::query("UPDATE confluence_space_bindings SET status='syncing',updated_at=NOW() WHERE binding_id=$1").bind(binding).execute(&mut *tx).await?;
         tx.commit().await?;
         let execution = Execution {
@@ -152,7 +204,7 @@ impl Sources {
         let source = self.clone();
         let running = execution.clone();
         let (start, started) = tokio::sync::oneshot::channel();
-        let handle = tokio::spawn(async move {
+        let handle = tokio::spawn(query::model_plane::inherit(async move {
             if started.await.is_err() {
                 return;
             }
@@ -160,7 +212,7 @@ impl Sources {
                 let _ = source.interrupted(&running).await;
             }
             source.runtime.tasks.lock().await.remove(&running.task_id);
-        });
+        }));
         self.runtime
             .tasks
             .lock()
@@ -179,7 +231,7 @@ impl Sources {
         id: &str,
     ) -> Result<Value> {
         self.authorize_sync(user, dataset, binding, false).await?;
-        let row:Value=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3").bind(id).bind(binding).bind(&user.user_id).fetch_optional(&self.pool).await?.ok_or_else(||Error::missing("Confluence sync task not available"))?;
+        let row:Value=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3").bind(id).bind(binding).bind(&user.user_id).fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool)).await?.ok_or_else(||Error::missing("Confluence sync task not available"))?;
         Ok(task_receipt(&row))
     }
     pub async fn guard(&self, e: &Execution) -> Result<query::types::UserContext> {
@@ -226,7 +278,7 @@ impl Sources {
         {
             return Err(Error::forbidden());
         }
-        let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM confluence_sync_tasks WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status IN ('pending','processing'))").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&actor.user_id).fetch_one(&self.pool).await?;
+        let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM confluence_sync_tasks WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status IN ('pending','processing'))").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&actor.user_id).fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         if !active {
             return Err(Error::conflict("Confluence task ownership changed"));
         }
@@ -265,13 +317,17 @@ impl Sources {
             "SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE binding_id=$1",
         )
         .bind(text(&e.binding, "binding_id"))
-        .fetch_optional(&mut *conn)
+        .fetch_optional(ai_platform_knowledge_domain::database::connection(
+            &mut *conn,
+        ))
         .await?;
         let connection: Option<Value> = sqlx::query_scalar(
             "SELECT to_jsonb(c) FROM confluence_connections c WHERE connection_id=$1",
         )
         .bind(text(&e.binding, "connection_id"))
-        .fetch_optional(&mut *conn)
+        .fetch_optional(ai_platform_knowledge_domain::database::connection(
+            &mut *conn,
+        ))
         .await?;
         if binding.as_ref().map(|b| pick(b, BINDING_FIELDS))
             != Some(pick(&e.binding, BINDING_FIELDS))
@@ -279,14 +335,83 @@ impl Sources {
         {
             return Err(Error::forbidden());
         }
-        let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM confluence_sync_tasks WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status IN ('pending','processing'))").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&actor.user_id).fetch_one(conn).await?;
+        let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM confluence_sync_tasks WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status IN ('pending','processing'))").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&actor.user_id).fetch_one(ai_platform_knowledge_domain::database::connection(&mut *conn)).await?;
         if !active {
             return Err(Error::conflict("Confluence task ownership changed"));
         }
         Ok(())
     }
+    pub async fn start_acl_refresh(self: &Arc<Self>) -> Result<()> {
+        if !self.enabled || !self.refresh_enabled {
+            return Ok(());
+        }
+        if std::env::var_os("KNOWLEDGE_CONNECTOR_PRINCIPALS_FILE").is_none() {
+            return Err(Error::unavailable(
+                "ACL refresh requires a server principal mapping",
+            ));
+        }
+        let mut running = self.runtime.refresh.lock().await;
+        if running.is_some() {
+            return Ok(());
+        }
+        let sources = self.clone();
+        *running = Some(tokio::spawn(async move {
+            loop {
+                if sources.runtime.closing.load(Ordering::Acquire) {
+                    break;
+                }
+                let _ = sources.refresh_one_acl().await;
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+        }));
+        Ok(())
+    }
+    async fn refresh_one_acl(self: &Arc<Self>) -> Result<()> {
+        let controlled = ai_platform_knowledge_domain::database::control_enabled(
+            &self.pool,
+            "knowledge.next_confluence_acl_refresh_v1()",
+        )
+        .await?;
+        let query = if controlled {
+            "SELECT * FROM knowledge.next_confluence_acl_refresh_v1()"
+        } else {
+            "SELECT jsonb_build_object('binding',b.binding_id,'dataset',b.dataset_id,'tenant',b.tenant_id,'actor',b.created_by,'page',p.page_id) FROM confluence_pages p JOIN confluence_space_bindings b ON b.binding_id=p.binding_id JOIN confluence_connections c ON c.connection_id=b.connection_id JOIN knowledge.documents d ON d.document_id=p.document_id AND d.dataset_id=b.dataset_id WHERE b.status<>'syncing' AND b.sync_enabled IS DISTINCT FROM FALSE AND c.status='active' AND CASE WHEN COALESCE(d.metadata->'_connector_acl'->>'expires_at','') ~ '^[0-9]{1,12}$' THEN (d.metadata->'_connector_acl'->>'expires_at')::bigint ELSE 0 END < extract(epoch from clock_timestamp())+900 ORDER BY d.updated_at,p.page_id LIMIT 1"
+        };
+        let row: Option<Value> = sqlx::query_scalar(query)
+            .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
+            .await?;
+        let Some(row) = row else { return Ok(()) };
+        let actor = self
+            .actors
+            .resolve(text(&row, "tenant"), text(&row, "actor"))
+            .await?;
+        let event = crate::connector::DeltaEvent {
+            request_id: uuid::Uuid::new_v5(
+                &uuid::Uuid::NAMESPACE_URL,
+                format!(
+                    "connector-acl-refresh:{}:{}:{}",
+                    text(&row, "binding"),
+                    text(&row, "page"),
+                    chrono::Utc::now().timestamp() / 300
+                )
+                .as_bytes(),
+            ),
+            connector: "confluence".into(),
+            source_id: text(&row, "page").into(),
+        };
+        query::model_plane::with_actor_scope(
+            actor.clone(),
+            self.start_page_sync(&actor, text(&row, "dataset"), text(&row, "binding"), &event),
+        )
+        .await?;
+        Ok(())
+    }
     pub async fn close(&self) -> Result<()> {
         self.runtime.closing.store(true, Ordering::Release);
+        if let Some(refresh) = self.runtime.refresh.lock().await.take() {
+            refresh.abort();
+            let _ = refresh.await;
+        }
         let _admissions = self.runtime.admissions.write().await;
         let tasks = std::mem::take(&mut *self.runtime.tasks.lock().await);
         for task in tasks.values() {
@@ -303,6 +428,7 @@ impl Sources {
     }
     async fn interrupted(&self, e: &Execution) -> Result<()> {
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         let changed=sqlx::query("UPDATE confluence_sync_tasks SET status='failed',error='Manual sync interrupted; inspect source status before retrying',completed_at=NOW(),updated_at=NOW() WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status IN ('pending','processing')").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&e.actor.user_id).execute(&mut *tx).await?.rows_affected();
         if changed > 0 {
             let current:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE binding_id=$1 FOR UPDATE").bind(text(&e.binding,"binding_id")).fetch_optional(&mut *tx).await?;
@@ -317,12 +443,38 @@ impl Sources {
         Ok(())
     }
     async fn run_sync(&self, e: &Execution) -> Result<()> {
+        let actor = self
+            .actors
+            .resolve(&e.actor.tenant_id, &e.actor.user_id)
+            .await?;
+        query::model_plane::with_actor_scope(actor, self.run_scoped_sync(e)).await
+    }
+    async fn run_scoped_sync(&self, e: &Execution) -> Result<()> {
+        let actor = self.guard(e).await?;
+        let work = self.run_sync_owned(e);
+        if let Some(client) = self.ingestion.model_plane.clone() {
+            query::model_plane::run_scoped(
+                client,
+                query::model_plane::ModelResource {
+                    dataset_id: Some(text(&e.binding, "dataset_id").into()),
+                    document_id: None,
+                    execution_id: None,
+                },
+                actor,
+                work,
+            )
+            .await
+        } else {
+            query::model_plane::with_actor_scope(actor, work).await
+        }
+    }
+    async fn run_sync_owned(&self, e: &Execution) -> Result<()> {
         self.guard(e).await?;
         let credentials = credentials::open(&e.connection, &self.encryption_key)?;
         let existing: Vec<Value> =
             sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE binding_id=$1")
                 .bind(text(&e.binding, "binding_id"))
-                .fetch_all(&self.pool)
+                .fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?;
         let mut roots = e.binding["root_page_ids"]
             .as_array()
@@ -336,9 +488,12 @@ impl Sources {
         if roots.is_empty() && !text(&e.binding, "root_page_id").is_empty() {
             roots.push(text(&e.binding, "root_page_id").into());
         }
+        let delta:Option<String>=sqlx::query_scalar("SELECT page_id FROM confluence_sync_tasks WHERE task_id=$1 AND binding_id=$2 AND owner_id=$3 AND status='pending'").bind(&e.task_id).bind(text(&e.binding,"binding_id")).bind(&e.actor.user_id).fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         let mut pages = Vec::new();
         let mut seen = BTreeSet::new();
-        if roots.is_empty() {
+        if let Some(page) = &delta {
+            pages.push(page.clone());
+        } else if roots.is_empty() {
             pages = existing
                 .iter()
                 .map(|p| text(p, "page_id").to_owned())
@@ -415,7 +570,7 @@ impl Sources {
                 }
             }
         }
-        sqlx::query("UPDATE confluence_sync_tasks SET status='processing',total_items=$2,started_at=NOW(),updated_at=NOW() WHERE task_id=$1 AND owner_id=$3 AND status='pending'").bind(&e.task_id).bind(pages.len()as i32).bind(&e.actor.user_id).execute(&self.pool).await?;
+        sqlx::query("UPDATE confluence_sync_tasks SET status='processing',total_items=$2,started_at=NOW(),updated_at=NOW() WHERE task_id=$1 AND owner_id=$3 AND status='pending'").bind(&e.task_id).bind(pages.len()as i32).bind(&e.actor.user_id).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         let mut synced = 0;
         let mut skipped = 0;
         let mut failed = 0;
@@ -445,9 +600,9 @@ impl Sources {
                     );
                 }
             }
-            sqlx::query("UPDATE confluence_sync_tasks SET processed_items=$2,progress=$3::float8,updated_at=NOW() WHERE task_id=$1 AND owner_id=$4 AND status='processing'").bind(&e.task_id).bind((i+1)as i32).bind((i+1)as f64/pages.len().max(1)as f64*100.).bind(&e.actor.user_id).execute(&self.pool).await?;
+            sqlx::query("UPDATE confluence_sync_tasks SET processed_items=$2,progress=$3::float8,updated_at=NOW() WHERE task_id=$1 AND owner_id=$4 AND status='processing'").bind(&e.task_id).bind((i+1)as i32).bind((i+1)as f64/pages.len().max(1)as f64*100.).bind(&e.actor.user_id).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         }
-        if !roots.is_empty() {
+        if delta.is_none() && !roots.is_empty() {
             let discovered: BTreeSet<_> = pages.iter().map(String::as_str).collect();
             for page in existing
                 .iter()
@@ -461,6 +616,7 @@ impl Sources {
         let success = failed == 0 && errors.is_empty();
         let result = json!({"total_pages":pages.len(),"synced_pages":synced,"skipped_pages":skipped,"failed_pages":failed,"created_documents":created,"updated_documents":updated,"deleted_documents":deleted,"errors":errors});
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         self.guard_on(e, &mut tx).await?;
         sqlx::query("UPDATE confluence_space_bindings SET status=$2,last_sync_at=CASE WHEN $3 THEN NOW() ELSE last_sync_at END,last_error=$4,synced_page_count=$5,total_page_count=$6,updated_at=NOW() WHERE binding_id=$1").bind(text(&e.binding,"binding_id")).bind(if success{"completed"}else{"error"}).bind(success).bind(if success{None}else{Some("Confluence sync did not complete all pages")}).bind(synced).bind(pages.len()as i32).execute(&mut *tx).await?;
         sqlx::query("UPDATE confluence_sync_tasks SET status=$2,progress=CASE WHEN $3 THEN 100 ELSE progress END,completed_at=NOW(),result=$4,error=$5,updated_at=NOW() WHERE task_id=$1 AND status IN ('pending','processing') AND owner_id=$6").bind(&e.task_id).bind(if success{"completed"}else{"failed"}).bind(success).bind(result).bind(if success{None}else{Some("Confluence sync did not complete all pages")}).bind(&e.actor.user_id).execute(&mut *tx).await?;

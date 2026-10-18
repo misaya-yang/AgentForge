@@ -37,17 +37,17 @@ async fn segment(conn: &mut PgConnection, dataset: &str, id: &str) -> Result<Chu
     )
     .bind(dataset)
     .bind(id)
-    .fetch_optional(conn)
+    .fetch_optional(crate::database::connection(&mut *conn))
     .await?
     .ok_or(IngestError::NotFound)?;
     Ok(serde_json::from_value(row)?)
 }
 async fn state(conn: &mut PgConnection, id: &str, value: &str, error: Option<&str>) -> Result<()> {
-    if sqlx::query("UPDATE knowledge.segments SET status=$2,error=$3,updated_at=NOW() WHERE segment_id=$1 RETURNING segment_id").bind(id).bind(value).bind(error).fetch_optional(conn).await?.is_none(){return Err(IngestError::GenerationChanged)}
+    if sqlx::query("UPDATE knowledge.segments SET status=$2,error=$3,updated_at=NOW() WHERE segment_id=$1 RETURNING segment_id").bind(id).bind(value).bind(error).fetch_optional(crate::database::connection(&mut *conn)).await?.is_none(){return Err(IngestError::GenerationChanged)}
     Ok(())
 }
 async fn refresh_count(conn: &mut PgConnection, doc: &str) -> Result<()> {
-    sqlx::query("UPDATE knowledge.documents SET segment_count=(SELECT COUNT(*) FROM knowledge.segments WHERE document_id=$1),updated_at=NOW() WHERE document_id=$1").bind(doc).execute(conn).await?;
+    sqlx::query("UPDATE knowledge.documents SET segment_count=(SELECT COUNT(*) FROM knowledge.segments WHERE document_id=$1),updated_at=NOW() WHERE document_id=$1").bind(doc).execute(crate::database::connection(&mut *conn)).await?;
     Ok(())
 }
 /// The set of mutable columns is fixed; the supplied values never enter SQL text.
@@ -105,7 +105,7 @@ pub(super) async fn document_fields(
         .bind(id)
         .bind(values)
         .bind(reserved)
-        .execute(conn)
+        .execute(crate::database::connection(&mut *conn))
         .await?;
     Ok(())
 }
@@ -141,11 +141,18 @@ impl IngestionService {
         seg: &Chunk,
         text: &str,
     ) -> Result<()> {
+        let embedding_text = if self.indexer.contextual_headers_enabled(dataset)? {
+            let mut chunk = seg.clone();
+            chunk.text = text.into();
+            crate::migration_knowledge_query::index::contextual_embedding_text(&chunk)
+        } else {
+            text.to_owned()
+        };
         let resolved = self.indexer.embeddings.resolve(dataset).await?;
         let vectors = self
             .indexer
             .embeddings
-            .embed_resolved(&resolved, &[text.to_owned()], "document")
+            .embed_resolved(&resolved, &[embedding_text], "document")
             .await?;
         let vector = vectors
             .first()
@@ -206,7 +213,18 @@ impl IngestionService {
         keywords: Option<&[String]>,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::UpdateSegment { segment: id.into(),text: text.into(),answer: answer.map(str::to_owned), keywords: keywords.map(<[String]>::to_vec) }).await;
+            return super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::UpdateSegment {
+                    segment: id.into(),
+                    text: text.into(),
+                    answer: answer.map(str::to_owned),
+                    keywords: keywords.map(<[String]>::to_vec),
+                },
+            )
+            .await;
         }
         let d = self
             .store
@@ -238,7 +256,7 @@ impl IngestionService {
         metadata["manual_source_override"] = json!(true);
         seg.metadata = metadata.clone();
         state(lease.connection(), id, "indexing", None).await?;
-        let result:Result<()>=async {sqlx::query("UPDATE knowledge.segments SET text=$2,answer=COALESCE($3,answer),keywords=COALESCE($4::jsonb,keywords),content_hash=$5,metadata=$6,updated_at=NOW() WHERE segment_id=$1").bind(id).bind(&clean).bind(answer).bind(keywords.map(|k|json!(k))).bind(sha256(clean.as_bytes())).bind(metadata).execute(lease.connection()).await?;self.publish_manual_segment(&serde_json::from_value(current)?,&seg,&clean).await?;state(lease.connection(),id,"completed",None).await}.await;
+        let result:Result<()>=async {sqlx::query("UPDATE knowledge.segments SET text=$2,answer=COALESCE($3,answer),keywords=COALESCE($4::jsonb,keywords),content_hash=$5,metadata=$6,updated_at=NOW() WHERE segment_id=$1").bind(id).bind(&clean).bind(answer).bind(keywords.map(|k|json!(k))).bind(sha256(clean.as_bytes())).bind(metadata).execute(crate::database::connection(lease.connection())).await?;self.publish_manual_segment(&serde_json::from_value(current)?,&seg,&clean).await?;state(lease.connection(),id,"completed",None).await}.await;
         if result.is_err() {
             state(
                 lease.connection(),
@@ -265,14 +283,41 @@ impl IngestionService {
         keywords: Option<&[String]>,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::CreateSegment {
-                segment: uuid::Uuid::new_v4().to_string(), document: document.into(), text: text.into(), answer: answer.map(str::to_owned), keywords: keywords.map(<[String]>::to_vec)
-            }).await;
+            return super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::CreateSegment {
+                    segment: uuid::Uuid::new_v4().to_string(),
+                    document: document.into(),
+                    text: text.into(),
+                    answer: answer.map(str::to_owned),
+                    keywords: keywords.map(<[String]>::to_vec),
+                },
+            )
+            .await;
         }
-        self.create_segment_owned(actor,dataset,document,text,answer,keywords,&uuid::Uuid::new_v4().to_string()).await
+        self.create_segment_owned(
+            actor,
+            dataset,
+            document,
+            text,
+            answer,
+            keywords,
+            &uuid::Uuid::new_v4().to_string(),
+        )
+        .await
     }
-    pub(super) async fn create_segment_owned(&self, actor: &Actor, dataset: &str, document: &str, text: &str,
-        answer: Option<&str>, keywords: Option<&[String]>, id: &str) -> Result<Value> {
+    pub(super) async fn create_segment_owned(
+        &self,
+        actor: &Actor,
+        dataset: &str,
+        document: &str,
+        text: &str,
+        answer: Option<&str>,
+        keywords: Option<&[String]>,
+        id: &str,
+    ) -> Result<Value> {
         let d = self
             .store
             .require_dataset_access(actor, dataset, "editor")
@@ -287,20 +332,28 @@ impl IngestionService {
         .await?;
         self.check_vector_job_generation(&current)?;
         active(&KnowledgeWriteStore::document_on(lease.connection(), dataset, document).await?)?;
-        let position:i64=sqlx::query_scalar("SELECT COALESCE(MAX(position),-1)+1 FROM knowledge.segments WHERE dataset_id=$1 AND document_id=$2").bind(dataset).bind(document).fetch_one(lease.connection()).await?;
+        let position:i64=sqlx::query_scalar("SELECT COALESCE(MAX(position),-1)+1 FROM knowledge.segments WHERE dataset_id=$1 AND document_id=$2").bind(dataset).bind(document).fetch_one(crate::database::connection(lease.connection())).await?;
         let clean = super::parser::sanitize_text(text)?;
-        if let Ok(existing) = segment(lease.connection(),dataset,id).await {
-            if existing.document_id != document || existing.text != clean || existing.created_by.as_deref() != Some(actor.user_id.as_str()) {
+        if let Ok(existing) = segment(lease.connection(), dataset, id).await {
+            if existing.document_id != document
+                || existing.text != clean
+                || existing.created_by.as_deref() != Some(actor.user_id.as_str())
+            {
                 return Err(IngestError::GenerationChanged);
             }
             if existing.status != "completed" {
-                self.publish_manual_segment(&serde_json::from_value(current)?, &existing, &clean).await?;
-                sqlx::query("UPDATE knowledge.segments SET vector_id=$1 WHERE segment_id=$1").bind(id).execute(lease.connection()).await?;
-                state(lease.connection(),id,"completed",None).await?;
-                refresh_count(lease.connection(),document).await?;
+                self.publish_manual_segment(&serde_json::from_value(current)?, &existing, &clean)
+                    .await?;
+                sqlx::query("UPDATE knowledge.segments SET vector_id=$1 WHERE segment_id=$1")
+                    .bind(id)
+                    .execute(crate::database::connection(lease.connection()))
+                    .await?;
+                state(lease.connection(), id, "completed", None).await?;
+                refresh_count(lease.connection(), document).await?;
             }
-            let result = serde_json::to_value(segment(lease.connection(),dataset,id).await?)?;
-            lease.release().await?; return Ok(result);
+            let result = serde_json::to_value(segment(lease.connection(), dataset, id).await?)?;
+            lease.release().await?;
+            return Ok(result);
         }
         let seg: Chunk = serde_json::from_value(
             json!({"segment_id":id,"dataset_id":dataset,"document_id":document,"position":position,"level":3,"text":clean,"token_count":clean.chars().count()/4,"word_count":clean.split_whitespace().count(),"answer":answer,"keywords":keywords.unwrap_or(&[]),"created_by":actor.user_id,"enabled":true,"status":"waiting","source_type":"manual","language":"en","metadata":{"content_type":"text"}}),
@@ -312,7 +365,7 @@ impl IngestionService {
                 .await?;
             sqlx::query("UPDATE knowledge.segments SET vector_id=$1 WHERE segment_id=$1")
                 .bind(&id)
-                .execute(lease.connection())
+                .execute(crate::database::connection(lease.connection()))
                 .await?;
             state(lease.connection(), &id, "completed", None).await
         }
@@ -342,7 +395,16 @@ impl IngestionService {
         enabled: bool,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetSegmentEnabled { segment: id.into(), enabled }).await?;
+            let value = super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::SetSegmentEnabled {
+                    segment: id.into(),
+                    enabled,
+                },
+            )
+            .await?;
             return Ok(value);
         }
         let d = self
@@ -369,14 +431,14 @@ impl IngestionService {
         )?;
         let typed: Dataset = serde_json::from_value(current)?;
         if !enabled {
-            sqlx::query("UPDATE knowledge.segments SET enabled=FALSE,disabled_at=NOW(),disabled_by=$2,updated_at=NOW() WHERE segment_id=$1").bind(id).bind(&actor.user_id).execute(lease.connection()).await?;
+            sqlx::query("UPDATE knowledge.segments SET enabled=FALSE,disabled_at=NOW(),disabled_by=$2,updated_at=NOW() WHERE segment_id=$1").bind(id).bind(&actor.user_id).execute(crate::database::connection(lease.connection())).await?;
         }
         self.indexer
             .vectors
             .set_segment_payload_enabled(&typed, &seg.document_id, id, enabled)
             .await?;
         if enabled {
-            sqlx::query("UPDATE knowledge.segments SET enabled=TRUE,disabled_at=NULL,disabled_by=NULL,updated_at=NOW() WHERE segment_id=$1").bind(id).execute(lease.connection()).await?;
+            sqlx::query("UPDATE knowledge.segments SET enabled=TRUE,disabled_at=NULL,disabled_by=NULL,updated_at=NOW() WHERE segment_id=$1").bind(id).execute(crate::database::connection(lease.connection())).await?;
         }
         let result = serde_json::to_value(segment(lease.connection(), dataset, id).await?)?;
         lease.release().await?;
@@ -418,7 +480,13 @@ impl IngestionService {
     }
     pub async fn delete_segment(&self, actor: &Actor, dataset: &str, id: &str) -> Result<bool> {
         if self.indexer.vectors.is_read_only() {
-            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::DeleteSegment { segment: id.into() }).await?;
+            let value = super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::DeleteSegment { segment: id.into() },
+            )
+            .await?;
             return value.as_bool().ok_or(IngestError::Database);
         }
         let d = self
@@ -484,7 +552,7 @@ impl IngestionService {
             sqlx::query("DELETE FROM knowledge.segments WHERE segment_id=$1 AND dataset_id=$2")
                 .bind(id)
                 .bind(dataset)
-                .execute(lease.connection())
+                .execute(crate::database::connection(lease.connection()))
                 .await?
                 .rows_affected()
                 > 0;
@@ -510,7 +578,16 @@ impl IngestionService {
         enabled: bool,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetDocumentEnabled { document: id.into(), enabled }).await?;
+            let value = super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::SetDocumentEnabled {
+                    document: id.into(),
+                    enabled,
+                },
+            )
+            .await?;
             return Ok(value);
         }
         let d = self
@@ -540,7 +617,17 @@ impl IngestionService {
         reason: Option<&str>,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            let value = super::vector_jobs::submit(&self.store.pool, actor, dataset, super::vector_jobs::Mutation::SetDocumentArchived { document: id.into(), archived, reason: reason.map(str::to_owned) }).await?;
+            let value = super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::SetDocumentArchived {
+                    document: id.into(),
+                    archived,
+                    reason: reason.map(str::to_owned),
+                },
+            )
+            .await?;
             return Ok(value);
         }
         let d = self
@@ -621,8 +708,8 @@ impl IngestionService {
             updates["metadata"] = metadata;
             document_fields(lease.connection(), id, &updates, true).await?;
             self.indexer.vectors.delete_document_points(&typed,id).await.map_err(|_|IngestError::Validation("document vectors could not be fully deactivated; retry the same transition".into()))?;
-            sqlx::query("UPDATE knowledge.datasets SET content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE").bind(dataset_id).execute(lease.connection()).await?;
-            if sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'_document_lifecycle_reindex',updated_at=NOW() WHERE document_id=$1 AND metadata->'_document_lifecycle_reindex'->>'status'='deactivating' RETURNING document_id").bind(id).fetch_optional(lease.connection()).await?.is_none(){return Err(IngestError::GenerationChanged)}
+            sqlx::query("UPDATE knowledge.datasets SET content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE").bind(dataset_id).execute(crate::database::connection(lease.connection())).await?;
+            if sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'_document_lifecycle_reindex',updated_at=NOW() WHERE document_id=$1 AND metadata->'_document_lifecycle_reindex'->>'status'='deactivating' RETURNING document_id").bind(id).fetch_optional(crate::database::connection(lease.connection())).await?.is_none(){return Err(IngestError::GenerationChanged)}
         } else {
             let terminal = ["error", "completed"].contains(&string(&doc, "status"));
             let stale = chrono::DateTime::parse_from_rfc3339(string(&doc, "updated_at"))
@@ -644,7 +731,7 @@ impl IngestionService {
                     && metadata.get("embedded_image_count").is_none()
                     && integer(&metadata, "image_count") <= 0;
                 if !hot {
-                    sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'images_embedded'-'embedded_image_count',updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(id).bind(dataset_id).execute(lease.connection()).await?;
+                    sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'images_embedded'-'embedded_image_count',updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(id).bind(dataset_id).execute(crate::database::connection(lease.connection())).await?;
                 }
                 self.indexer
                     .vectors
@@ -656,11 +743,11 @@ impl IngestionService {
                         )
                     })?;
                 if hot {
-                    sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{_document_ingest_action}','\"reembed\"'::jsonb,TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(id).bind(dataset_id).execute(lease.connection()).await?;
+                    sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{_document_ingest_action}','\"reembed\"'::jsonb,TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(id).bind(dataset_id).execute(crate::database::connection(lease.connection())).await?;
                 } else {
                     sqlx::query("DELETE FROM knowledge.segments WHERE document_id=$1")
                         .bind(id)
-                        .execute(lease.connection())
+                        .execute(crate::database::connection(lease.connection()))
                         .await?;
                     document_fields(lease.connection(), id, &json!({"segment_count":0}), false)
                         .await?;

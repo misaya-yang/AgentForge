@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import type { PlaygroundRequestCapture } from "../utils/requestSnapshot";
 import { observeTokenUsage, type TokenObservation } from "@/features/chat/stream/tokenObservation";
 import { sdkRunReference, sdkUsageObservation, type SdkRunReference } from "@/features/chat/stream/sdkRun";
@@ -516,9 +517,9 @@ export function usePlaygroundStream(opts: UsePlaygroundStreamOptions) {
                   "Content-Type": "application/json",
                   ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({
+                body: JSON.stringify(({
                   metadata: { gateway_session_id: effectiveSessionId },
-                }),
+                } satisfies RequestBody<"POST /api/v1/proxy/{service_name}/threads">)),
               }
             )
               .then((resp) => (resp.ok ? resp.json() : null))
@@ -779,7 +780,7 @@ export function usePlaygroundStream(opts: UsePlaygroundStreamOptions) {
                     ? { Authorization: `Bearer ${token}` }
                     : {}),
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify((payload satisfies RequestBody<"POST /api/v1/proxy/{service_name}/runs/stream">)),
                 signal: abortController.signal,
                 preserveControlFrames: true,
               }
@@ -1540,7 +1541,7 @@ export function usePlaygroundStream(opts: UsePlaygroundStreamOptions) {
                 headers: {
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify(req),
+                body: JSON.stringify((req satisfies RequestBody<"POST /api/v1/stream">)),
                 signal: abortController.signal,
               }
             )) {

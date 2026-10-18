@@ -204,7 +204,7 @@ impl MigrationStore {
             "SELECT to_jsonb(m) FROM embedding_migrations m WHERE migration_id=$1::uuid",
         )
         .bind(id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(crate::database::executor(&self.pool))
         .await?;
         row.ok_or_else(|| MigrationError {
             status: 404,
@@ -219,7 +219,7 @@ impl MigrationStore {
             "SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE binding_id=$1::uuid",
         )
         .bind(id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(crate::database::executor(&self.pool))
         .await?)
     }
     pub async fn binding(&self, id: &str) -> MResult<Value> {
@@ -236,11 +236,11 @@ impl MigrationStore {
         error: Option<&str>,
     ) -> MResult<Value> {
         let from: Vec<String> = from.iter().map(|s| s.to_string()).collect();
-        let row:Option<Value>=sqlx::query_scalar("UPDATE embedding_migrations SET state=$3,gate=COALESCE($4::jsonb,gate),error=$5,updated_at=NOW() WHERE migration_id=$1::uuid AND state=ANY($2::text[]) RETURNING to_jsonb(embedding_migrations)").bind(id).bind(from).bind(to).bind(gate).bind(error).fetch_optional(&self.pool).await?;
+        let row:Option<Value>=sqlx::query_scalar("UPDATE embedding_migrations SET state=$3,gate=COALESCE($4::jsonb,gate),error=$5,updated_at=NOW() WHERE migration_id=$1::uuid AND state=ANY($2::text[]) RETURNING to_jsonb(embedding_migrations)").bind(id).bind(from).bind(to).bind(gate).bind(error).fetch_optional(crate::database::executor(&self.pool)).await?;
         row.ok_or_else(|| MigrationError::conflict(format!("migration cannot transition to {to}")))
     }
     pub async fn merge(&self, id: &str, checkpoint: Value, totals: Value) -> MResult<()> {
-        sqlx::query("UPDATE embedding_migrations SET checkpoint=checkpoint||$2::jsonb,totals=totals||$3::jsonb,updated_at=NOW() WHERE migration_id=$1::uuid").bind(id).bind(checkpoint).bind(totals).execute(&self.pool).await?;
+        sqlx::query("UPDATE embedding_migrations SET checkpoint=checkpoint||$2::jsonb,totals=totals||$3::jsonb,updated_at=NOW() WHERE migration_id=$1::uuid").bind(id).bind(checkpoint).bind(totals).execute(crate::database::executor(&self.pool)).await?;
         Ok(())
     }
     pub async fn pending_on(c: &mut PgConnection, id: &str, dataset: &str) -> MResult<i64> {
@@ -283,6 +283,7 @@ impl MigrationStore {
     }
     pub async fn authority(&self, id: &str) -> MResult<Value> {
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             .execute(&mut *tx)
             .await?;
@@ -292,6 +293,7 @@ impl MigrationStore {
     }
     pub async fn serving(&self, d: &Dataset) -> MResult<Value> {
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         dataset_lock(&mut tx, &d.dataset_id).await?;
         let current:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE dataset_id=$1 AND state='serving'").bind(&d.dataset_id).fetch_optional(&mut *tx).await?;
         if let Some(current) = current {
@@ -433,7 +435,7 @@ impl EmbeddingMigration {
                 ));
             }
         }
-        let existing:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE collection_name=$1 AND state<>'retired'").bind(name).fetch_optional(&self.store.pool).await?;
+        let existing:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE collection_name=$1 AND state<>'retired'").bind(name).fetch_optional(crate::database::executor(&self.store.pool)).await?;
         if let Some(b) = &existing {
             if b["dataset_id"] != d.dataset_id || b["tenant_id"] != d.tenant_id {
                 return Err(MigrationError::conflict(
@@ -443,11 +445,11 @@ impl EmbeddingMigration {
             if identity(b) != i {
                 return Err(MigrationError::conflict("shadow identity conflicts"));
             }
-            let prior:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM embedding_migrations m WHERE target_binding_id=$1::uuid ORDER BY created_at DESC LIMIT 1").bind(text(b,"binding_id")).fetch_optional(&self.store.pool).await?;
+            let prior:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM embedding_migrations m WHERE target_binding_id=$1::uuid ORDER BY created_at DESC LIMIT 1").bind(text(b,"binding_id")).fetch_optional(crate::database::executor(&self.store.pool)).await?;
             if let Some(p) = prior {
                 let state = text(&p, "state");
                 if ["failed", "gate_failed"].contains(&state) {
-                    let busy:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM embedding_migrations WHERE dataset_id=$1 AND state=ANY($2::text[]))").bind(&d.dataset_id).bind(LIVE).fetch_one(&self.store.pool).await?;
+                    let busy:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM embedding_migrations WHERE dataset_id=$1 AND state=ANY($2::text[]))").bind(&d.dataset_id).bind(LIVE).fetch_one(crate::database::executor(&self.store.pool)).await?;
                     if busy {
                         return Err(MigrationError::conflict(
                             "dataset already has a live migration",
@@ -459,6 +461,7 @@ impl EmbeddingMigration {
                 }
                 if state == "rolled_back" && b["state"] == "shadow" {
                     let mut tx = self.store.pool.begin().await?;
+                    crate::database::bind_current(&mut tx).await?;
                     let current = locked_migration(&mut tx, text(&p, "migration_id")).await?;
                     dataset_lock(&mut tx, &d.dataset_id).await?;
                     let retained =
@@ -519,6 +522,7 @@ impl EmbeddingMigration {
         }
         let opened: MResult<Value> = async {
         let mut tx = self.store.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         dataset_lock(&mut tx, &d.dataset_id).await?;
         let busy:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM embedding_migrations WHERE dataset_id=$1 AND state=ANY($2::text[]))").bind(&d.dataset_id).bind(LIVE).fetch_one(&mut *tx).await?;
         if busy {
@@ -549,7 +553,7 @@ impl EmbeddingMigration {
             // Fail closed on a failed reference lookup, including uncertain
             // commits. Only a proven unbound collection is an orphan.
             let referenced: std::result::Result<bool, sqlx::Error> = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM dataset_collection_bindings WHERE collection_name=$1 AND state<>'retired')")
-                .bind(name).fetch_one(&self.store.pool).await;
+                .bind(name).fetch_one(crate::database::executor(&self.store.pool)).await;
             if matches!(referenced, Ok(false)) {
                 let _ = self.vectors.delete_collection(&target_dataset).await;
             }
@@ -663,7 +667,7 @@ impl EmbeddingMigration {
         let mut embedded = 0;
         let mut rounds = 0;
         for round in 0..max_rounds {
-            let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT to_jsonb(s)||jsonb_build_object('vector_id',COALESCE(NULLIF(s.vector_id,''),s.segment_id),'content_hash',COALESCE(s.content_hash,s.index_node_hash,'')){PENDING} ORDER BY s.document_id,s.position LIMIT $3")).bind(id).bind(&d.dataset_id).bind(page_size as i64).fetch_all(&self.store.pool).await?;
+            let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT to_jsonb(s)||jsonb_build_object('vector_id',COALESCE(NULLIF(s.vector_id,''),s.segment_id),'content_hash',COALESCE(s.content_hash,s.index_node_hash,'')){PENDING} ORDER BY s.document_id,s.position LIMIT $3")).bind(id).bind(&d.dataset_id).bind(page_size as i64).fetch_all(crate::database::executor(&self.store.pool)).await?;
             if rows.is_empty() {
                 break;
             }
@@ -708,7 +712,7 @@ impl EmbeddingMigration {
             for (row, vector) in rows.iter().zip(vectors) {
                 let vector = vector.ok_or_else(|| MigrationError::invalid("missing vector"))?;
                 let hash = text(row, "content_hash");
-                let _=sqlx::query("INSERT INTO embedding_vector_cache(embedding_provider,embedding_model,embedding_model_version,content_hash,vector,dimension) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(embedding_provider,embedding_model,embedding_model_version,content_hash) DO UPDATE SET vector=EXCLUDED.vector,dimension=EXCLUDED.dimension,updated_at=NOW()").bind(text(&b,"embedding_provider")).bind(text(&b,"embedding_model")).bind(text(&b,"embedding_model_version")).bind(hash).bind(&vector).bind(resolved.dimension as i32).execute(&self.store.pool).await;
+                let _=sqlx::query("INSERT INTO embedding_vector_cache(embedding_provider,embedding_model,embedding_model_version,content_hash,vector,dimension) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(embedding_provider,embedding_model,embedding_model_version,content_hash) DO UPDATE SET vector=EXCLUDED.vector,dimension=EXCLUDED.dimension,updated_at=NOW()").bind(text(&b,"embedding_provider")).bind(text(&b,"embedding_model")).bind(text(&b,"embedding_model_version")).bind(hash).bind(&vector).bind(resolved.dimension as i32).execute(crate::database::executor(&self.store.pool)).await;
                 let mut metadata = json!({});
                 for k in [
                     "source_type",
@@ -753,6 +757,7 @@ impl EmbeddingMigration {
             self.vectors.upsert_index_points(&target, &points).await?;
             write_lease.release().await?;
             let mut tx = self.store.pool.begin().await?;
+            crate::database::bind_current(&mut tx).await?;
             for row in &rows {
                 sqlx::query("INSERT INTO embedding_migration_progress(migration_id,segment_id,document_id,position,vector_id,content_hash) VALUES($1::uuid,$2,$3,$4,$5,$6) ON CONFLICT(migration_id,segment_id) DO UPDATE SET content_hash=EXCLUDED.content_hash,vector_id=EXCLUDED.vector_id,written_at=NOW()").bind(id).bind(text(row,"segment_id")).bind(text(row,"document_id")).bind(row["position"].as_i64().unwrap_or(0)as i32).bind(text(row,"vector_id")).bind(text(row,"content_hash")).execute(&mut *tx).await?;
             }
@@ -768,7 +773,7 @@ impl EmbeddingMigration {
         }
         let total: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*){ENABLED}"))
             .bind(&d.dataset_id)
-            .fetch_one(&self.store.pool)
+            .fetch_one(crate::database::executor(&self.store.pool))
             .await?;
         Ok(
             json!({"migration":self.store.migration(id).await?,"embedded":embedded,"enabled_chunks":total,"remaining":self.store.pending(id,&d.dataset_id).await?,"rounds":rounds}),
@@ -905,7 +910,7 @@ impl EmbeddingMigration {
                 verdict["reason"] = json!("gate context is missing dataset/serving/target collection bindings; cannot measure the candidate generation");
                 return Ok(());
             }
-            let rows:Vec<(String,String)>=sqlx::query_as(&format!("SELECT s.segment_id,s.text{ENABLED} AND COALESCE(s.text,'')<>'' ORDER BY random() LIMIT $2")).bind(&d.dataset_id).bind(size as i64).fetch_all(&self.store.pool).await?;
+            let rows:Vec<(String,String)>=sqlx::query_as(&format!("SELECT s.segment_id,s.text{ENABLED} AND COALESCE(s.text,'')<>'' ORDER BY random() LIMIT $2")).bind(&d.dataset_id).bind(size as i64).fetch_all(crate::database::executor(&self.store.pool)).await?;
             let rows: Vec<_> = rows.into_iter().filter(|(id,text)| !id.trim().is_empty() && !text.trim().is_empty()).collect();
             verdict["samples"] = json!(rows.len());
             if rows.is_empty() {
@@ -972,6 +977,7 @@ impl EmbeddingMigration {
         self.check_job_fence(&d.dataset_id).await?;
         let scope = self.scan_target(&d, &target).await?;
         let mut tx = lease.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let m = locked_migration(&mut tx, id).await?;
         if m["state"] != "ready" || m["gate"]["passed"] != true {
             return Err(MigrationError::conflict(
@@ -1013,6 +1019,7 @@ impl EmbeddingMigration {
     }
     pub async fn rollback(&self, id: &str, keep_shadow: bool) -> MResult<Value> {
         let mut tx = self.store.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let m = locked_migration(&mut tx, id).await?;
         if m["state"] != "completed" {
             return Err(MigrationError::conflict(
@@ -1049,24 +1056,29 @@ impl EmbeddingMigration {
     pub async fn abort(&self, id: &str, reason: &str, purge: bool) -> MResult<Value> {
         let (_, d, _, target) = self.context(id).await?;
         let mut tx = self.store.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         dataset_lock(&mut tx, &d.dataset_id).await?;
         if self.job_fence.is_some() {
             let current: Value = sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.datasets d WHERE dataset_id=$1 AND is_deleted=FALSE").bind(&d.dataset_id).fetch_one(&mut *tx).await?;
             self.check_job_value(&current)?;
         }
         let m = locked_migration(&mut tx, id).await?;
-        let own_abandoned = m["state"] == "abandoned" && self.job_id().is_some_and(|id| m["totals"]["vector_abort_job_id"] == id);
-        if !own_abandoned && ![
-            "shadow_build",
-            "backfilling",
-            "verified",
-            "gating",
-            "ready",
-            "failed",
-            "gate_failed",
-            "rolled_back",
-        ]
-        .contains(&text(&m, "state"))
+        let own_abandoned = m["state"] == "abandoned"
+            && self
+                .job_id()
+                .is_some_and(|id| m["totals"]["vector_abort_job_id"] == id);
+        if !own_abandoned
+            && ![
+                "shadow_build",
+                "backfilling",
+                "verified",
+                "gating",
+                "ready",
+                "failed",
+                "gate_failed",
+                "rolled_back",
+            ]
+            .contains(&text(&m, "state"))
         {
             return Err(MigrationError::conflict("migration cannot be aborted"));
         }
@@ -1114,12 +1126,12 @@ impl EmbeddingMigration {
         };
         // A recoverable attempt can be older than the bounded history window.
         let live: Option<Value> = sqlx::query_scalar("SELECT to_jsonb(m) FROM embedding_migrations m WHERE dataset_id=$1 AND (state=ANY($2::text[]) OR state IN ('failed','gate_failed')) ORDER BY CASE WHEN state=ANY($2::text[]) THEN 0 ELSE 1 END,created_at DESC,migration_id DESC LIMIT 1")
-            .bind(&d.dataset_id).bind(LIVE).fetch_optional(&self.store.pool).await?;
-        let recent:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM embedding_migrations m WHERE dataset_id=$1 ORDER BY created_at DESC,migration_id DESC LIMIT 5").bind(&d.dataset_id).fetch_all(&self.store.pool).await?;
+            .bind(&d.dataset_id).bind(LIVE).fetch_optional(crate::database::executor(&self.store.pool)).await?;
+        let recent:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM embedding_migrations m WHERE dataset_id=$1 ORDER BY created_at DESC,migration_id DESC LIMIT 5").bind(&d.dataset_id).fetch_all(crate::database::executor(&self.store.pool)).await?;
         let selected = live.as_ref().or(recent.first());
         let enabled: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*){ENABLED}"))
             .bind(&d.dataset_id)
-            .fetch_one(&self.store.pool)
+            .fetch_one(crate::database::executor(&self.store.pool))
             .await?;
         let mut out = json!({"dataset_id":d.dataset_id,"serving_binding":serving,"live_migration":live,"latest_migration":recent.first(),"recent_migrations":recent,"source_binding":null,"target_binding":null,"pending_chunks":null,"enabled_chunks":enabled});
         let totals = selected.map(|m| &m["totals"]).filter(|t| t.is_object());
@@ -1174,7 +1186,7 @@ impl EmbeddingMigration {
             }
         }
         out["collection_health"] = health;
-        let jobs:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.embedding_migration_action_jobs j WHERE dataset_id=$1 ORDER BY CASE WHEN state IN ('queued','running') THEN 0 ELSE 1 END,COALESCE(finished_at,updated_at) DESC,created_at DESC,job_id DESC LIMIT 11").bind(&d.dataset_id).fetch_all(&self.store.pool).await?;
+        let jobs:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.embedding_migration_action_jobs j WHERE dataset_id=$1 ORDER BY CASE WHEN state IN ('queued','running') THEN 0 ELSE 1 END,COALESCE(finished_at,updated_at) DESC,created_at DESC,job_id DESC LIMIT 11").bind(&d.dataset_id).fetch_all(crate::database::executor(&self.store.pool)).await?;
         out["active_action_job"] = jobs
             .iter()
             .find(|j| ["queued", "running"].contains(&text(j, "state")))

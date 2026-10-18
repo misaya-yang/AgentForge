@@ -1,0 +1,81 @@
+{
+  "schema": "agentforge/gateway-ha-chaos/v1",
+  "source_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "origins": [
+    "http://127.0.0.1:18081",
+    "http://127.0.0.1:18082"
+  ],
+  "credential_file": "/operator/private/current-test-access-token",
+  "ca_file": null,
+  "steps": [
+    {
+      "kind": "spawn",
+      "label": "gateway-a",
+      "program": "/operator/bin/gateway",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "args": [
+        "--config-stdin"
+      ],
+      "stdin_file": "/operator/private/gateway-a.json"
+    },
+    {
+      "kind": "spawn",
+      "label": "gateway-b",
+      "program": "/operator/bin/gateway",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "args": [
+        "--config-stdin"
+      ],
+      "stdin_file": "/operator/private/gateway-b.json"
+    },
+    {
+      "kind": "wait",
+      "milliseconds": 1000
+    },
+    {
+      "kind": "probe",
+      "origin": 0,
+      "method": "GET",
+      "path": "/health/ready",
+      "body": null,
+      "status": 200,
+      "assertions": [],
+      "capture": null
+    },
+    {
+      "kind": "probe",
+      "origin": 1,
+      "method": "GET",
+      "path": "/health/ready",
+      "body": null,
+      "status": 200,
+      "assertions": [],
+      "capture": null
+    },
+    {
+      "kind": "load",
+      "path": "/health/ready",
+      "requests": 100,
+      "concurrency": 4,
+      "status": 200
+    },
+    {
+      "kind": "kill9",
+      "label": "gateway-a"
+    },
+    {
+      "kind": "wait",
+      "milliseconds": 16000
+    },
+    {
+      "kind": "probe",
+      "origin": 1,
+      "method": "GET",
+      "path": "/health/ready",
+      "body": null,
+      "status": 200,
+      "assertions": [],
+      "capture": null
+    }
+  ]
+}

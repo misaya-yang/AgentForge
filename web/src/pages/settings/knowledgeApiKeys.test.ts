@@ -49,7 +49,7 @@ function host(initial: Row[] = []) {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
-    axios: { isAxiosError: (error: { isAxiosError?: boolean }) => error?.isAxiosError === true },
+    "@/lib/fetchClient": { isHttpError: (error: { isHttpError?: boolean }) => error?.isHttpError === true },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-router-dom": { Link: "Link" },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: typeof auth) => unknown) => select(auth), { getState: () => auth }) },
@@ -198,7 +198,7 @@ test("route and navigation retain separate legacy configuration key surface", ()
 test("current metadata permission denial hides the one-time secret", async () => {
   const h = host(); try { await h.start(); h.name("Fixture key"); h.submit(); await h.click("confirmCreate");
     assert.ok(h.text().includes("synthetic-one-time-value"));
-    h.setRead(async () => { throw Object.assign(new Error("denied"), { isAxiosError: true, response: { status: 403 } }); });
+    h.setRead(async () => { throw Object.assign(new Error("denied"), { isHttpError: true, response: { status: 403 } }); });
     await h.click("refresh"); assert.ok(!h.text().includes("synthetic-one-time-value")); assert.ok(h.has("readError"));
   } finally { h.dispose(); }
 });
@@ -212,7 +212,7 @@ test("a separate grant resets write permission, name and expiry choices", async 
 });
 test("current metadata denial clears a pending exact-key review", async () => {
   const h = host([row()]); try { await h.start(); await h.click("reviewRevoke"); assert.ok(h.has("reviewTitle"));
-    h.setRead(async () => { throw Object.assign(new Error("denied"), { isAxiosError: true, response: { status: 401 } }); });
+    h.setRead(async () => { throw Object.assign(new Error("denied"), { isHttpError: true, response: { status: 401 } }); });
     await h.click("refresh"); assert.ok(!h.has("reviewTitle")); assert.equal(h.posts().length, 0);
   } finally { h.dispose(); }
 });

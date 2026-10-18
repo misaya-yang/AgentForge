@@ -88,3 +88,8 @@ impl RedisSessions {
 
 #[path = "browser_sessions.rs"]
 pub mod browser;
+#[path = "browser_step_up.rs"]
+pub(crate) mod step_up;
+
+#[path = "device_flow/store.rs"]
+pub(crate) mod device;

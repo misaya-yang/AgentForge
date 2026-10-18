@@ -79,7 +79,8 @@ impl Client {
             .clear()
             .extend(&request.segments);
         let read_only = request.method == Method::GET || request.method == Method::HEAD;
-        let mut pending = self.authorize(self.http.request(request.method, url))?
+        let mut pending = self
+            .authorize(self.http.request(request.method, url))?
             .query(&request.query)
             .timeout(timeout);
         for (name, value) in request.headers {
@@ -95,7 +96,7 @@ impl Client {
         }
         let mut response = self.send_request(pending, read_only).await?;
         if !response.status().is_success() {
-            return Err(Error::Status(response.status().as_u16()));
+            return Err(crate::problem::decode_response(response).await);
         }
         if response.status() == reqwest::StatusCode::NO_CONTENT {
             return Ok(Value::Null);

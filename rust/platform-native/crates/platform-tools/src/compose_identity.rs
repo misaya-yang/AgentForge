@@ -14,6 +14,10 @@ const UNITS: &[(&str, &str)] = &[
 
 pub fn source_contract(root: &Path) -> Result<()> {
     let base: Value = serde_yaml::from_slice(&std::fs::read(root.join("docker-compose.yml"))?)?;
+    source_value_contract(&base)
+}
+fn source_value_contract(base: &Value) -> Result<()> {
+    let mut defaults = BTreeSet::new();
     for (service, variable) in UNITS {
         let unit = &base["services"][service];
         require(
@@ -29,6 +33,25 @@ pub fn source_contract(root: &Path) -> Result<()> {
             expression.starts_with(&format!("${{{variable}:")),
             format!("Compose {service} must use its public {variable} override"),
         )?;
+        require(
+            expression.ends_with('}') && !expression[2..].contains("${"),
+            "image override must not alias another code unit",
+        )?;
+        if let Some(default) = expression
+            .split_once(":-")
+            .map(|(_, v)| v.trim_end_matches('}'))
+        {
+            require(
+                !default.is_empty() && (*service == "knowledge-worker" || defaults.insert(default)),
+                "different code units share an image default",
+            )?;
+        }
+        if ["agent-runtime", "agent-capability-worker"].contains(service) {
+            require(
+                expression.starts_with(&format!("${{{variable}:?")),
+                "Runtime/Worker require explicit current paired source-lock selections",
+            )?;
+        }
     }
     require(
         base["services"]["knowledge-service"]["image"]
@@ -123,6 +146,14 @@ pub fn check(root: &Path, config: &Value, mode: &str, source_build: bool) -> Res
         }
     }
     let lock = object(&root.join("deploy/agent-runtime-source/lock.json"))?;
+    pairing(services, &lock)?;
+    Ok(
+        json!({"result":"pass","mode":mode,"source_build":source_build,
+        "identity":"configuration_matches_source_lock","artifact_acceptance":"not_checked; source-lock verify-local-images remains required"}),
+    )
+}
+
+fn pairing(services: &serde_json::Map<String, Value>, lock: &Value) -> Result<()> {
     let upstream = lock["source"]["upstream_sha"]
         .as_str()
         .ok_or("Source lock upstream missing")?;
@@ -170,10 +201,80 @@ pub fn check(root: &Path, config: &Value, mode: &str, source_build: bool) -> Res
             == revision,
         "Runtime kernel revision differs from the current source lock",
     )?;
-    Ok(
-        json!({"result":"pass","mode":mode,"source_build":source_build,
-        "identity":"configuration_matches_source_lock","artifact_acceptance":"not_checked; source-lock verify-local-images remains required"}),
-    )
+    Ok(())
+}
+pub(crate) fn recurrence_selftest() -> Result<Value> {
+    let mut source = json!({"services":{}});
+    for (service, variable) in UNITS {
+        source["services"][*service] = json!({"image":if ["agent-runtime","agent-capability-worker"].contains(service) {
+            format!("${{{variable}:?select paired image}}")
+        } else { format!("${{{variable}:-example.invalid/{variable}:2}}") }});
+    }
+    source_value_contract(&source)?;
+    let mut cases =
+        vec![json!({"case":"distinct_code_units","findings":["F-01","F-02"],"result":"pass"})];
+    for (name, service, expression) in [
+        (
+            "web_knowledge_variable",
+            "frontend",
+            "${KNOWLEDGE_IMAGE:-example.invalid/KNOWLEDGE_IMAGE:2}",
+        ),
+        (
+            "web_knowledge_default_collision",
+            "frontend",
+            "${FRONTEND_IMAGE:-example.invalid/KNOWLEDGE_IMAGE:2}",
+        ),
+        (
+            "nested_web_knowledge_alias",
+            "frontend",
+            "${FRONTEND_IMAGE:-${KNOWLEDGE_IMAGE:-collided}}",
+        ),
+        (
+            "mismatched_knowledge_worker",
+            "knowledge-worker",
+            "${KNOWLEDGE_IMAGE:-different:2}",
+        ),
+        (
+            "stale_runtime_default",
+            "agent-runtime",
+            "${AI_PLATFORM_AGENT_RUNTIME_IMAGE:-old-runtime:1}",
+        ),
+    ] {
+        let mut bad = source.clone();
+        bad["services"][service]["image"] = json!(expression);
+        require(
+            source_value_contract(&bad).is_err(),
+            "image recurrence negative unexpectedly accepted",
+        )?;
+        cases.push(json!({"case":name,"findings":["F-01","F-02"],"result":"rejected_as_required"}));
+    }
+    let upstream = "a".repeat(40);
+    let overlay = "b".repeat(64);
+    let lock = json!({"source":{"upstream_sha":upstream},"build":{"overlay_sha256":overlay}});
+    let mut services = json!({"agent-runtime":{"image":format!("ai-gateway-agent-runtime:local-{}-{}",&upstream[..12],&overlay[..12]),
+        "environment":{"AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION":format!("{upstream}+{}",&overlay[..12])}},
+        "agent-capability-worker":{"image":format!("ai-gateway-agent-capability-worker:local-{}-{}",&upstream[..12],&overlay[..12])}});
+    pairing(services.as_object().unwrap(), &lock)?;
+    for name in ["agent-runtime", "agent-capability-worker"] {
+        let old = services[name]["image"].clone();
+        services[name]["image"] = json!("stale:1");
+        require(
+            pairing(services.as_object().unwrap(), &lock).is_err(),
+            "stale paired image was accepted",
+        )?;
+        cases.push(json!({"case":format!("stale_{name}"),"findings":["F-02"],"result":"rejected_as_required"}));
+        services[name]["image"] = old;
+    }
+    services["agent-runtime"]["environment"]["AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION"] =
+        json!("old");
+    require(
+        pairing(services.as_object().unwrap(), &lock).is_err(),
+        "stale kernel revision was accepted",
+    )?;
+    cases.push(
+        json!({"case":"stale_kernel_revision","findings":["F-02"],"result":"rejected_as_required"}),
+    );
+    Ok(json!(cases))
 }
 
 pub fn run(args: &Args) -> Result<Value> {
@@ -226,8 +327,46 @@ pub fn matrix(root: &Path) -> Result<Value> {
         // Render-only fixture credentials. Public examples deliberately leave
         // these unset so real deployments must generate distinct passwords.
         // Nothing from the selected private env or ambient credentials is used.
-        for principal in ["MIGRATOR", "GATEWAY", "RUNTIME", "CAPABILITY_WORKER", "KNOWLEDGE_API", "KNOWLEDGE_WORKER"] {
-            command.env(format!("LOCAL_DB_{principal}_PASSWORD"), format!("public-render-fixture-{principal}"));
+        for principal in [
+            "MIGRATOR",
+            "GATEWAY",
+            "RUNTIME",
+            "CAPABILITY_WORKER",
+            "KNOWLEDGE_API",
+            "KNOWLEDGE_WORKER",
+        ] {
+            command.env(
+                format!("LOCAL_DB_{principal}_PASSWORD"),
+                format!("public-render-fixture-{principal}"),
+            );
+        }
+        // Optional profiles are interpolated by Compose even when not started.
+        // These synthetic references are render-only and deliberately unusable.
+        for (key, value) in [
+            ("QDRANT_API_KEY", "public-render-writer-fixture"),
+            ("QDRANT_READ_ONLY_API_KEY", "public-render-reader-fixture"),
+            ("QDRANT_TLS_CERT_FILE", "/public-render-fixture/qdrant.crt"),
+            ("QDRANT_TLS_KEY_FILE", "/public-render-fixture/qdrant.key"),
+            ("QDRANT_CA_BUNDLE_FILE", "/public-render-fixture/ca.pem"),
+            (
+                "AGENT_PYTHON_SANDBOX_IMAGE",
+                "example.invalid/render/sandbox:unrunnable",
+            ),
+            ("AGENT_SANDBOX_PUBLIC_KEY_ID", "public-render-fixture"),
+            (
+                "AGENT_SANDBOX_PUBLIC_KEY_HEX",
+                "1111111111111111111111111111111111111111111111111111111111111111",
+            ),
+            (
+                "AGENT_SANDBOX_SIGNING_KEY_FILE",
+                "/public-render-fixture/sandbox.seed",
+            ),
+            (
+                "AGENT_CAPABILITY_SANDBOX_CGROUP_DELEGATION",
+                "/public-render-fixture/cgroup",
+            ),
+        ] {
+            command.env(key, value);
         }
         command
             .args([

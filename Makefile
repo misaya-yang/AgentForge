@@ -60,6 +60,27 @@ HELM_EVIDENCE_DIR ?= tmp/gate-evidence
 doctor:                     ## 环境体检: 工具/Docker/内存/端口/compose 归属 (只读)
 	@ENV_FILE="$(ENV_FILE)" bash $(SCRIPTS)/doctor.sh --env "$(ENV_FILE)"
 
+PLATFORM_FITNESS_EVIDENCE ?= $(if $(RUNNER_TEMP),$(RUNNER_TEMP),$(HOME)/.cache/agentforge-upgrade/evidence)/platform-fitness.json
+.PHONY: platform-fitness-gate
+.PHONY: native-source-tools source-workload-check source-workload-sync source-plugin-check source-plugin-sync
+native-source-tools:
+	@$(NATIVE_CONTAINER) build -p ai-platform-tools --bin platform-tools
+
+source-workload-check: native-source-tools ## 校验受控 Runtime 包中的共享 TLS 源码
+	@$(NATIVE_CONTAINER) run --binary platform-tools -- source-lock sync-workload-source --repo-root /source
+
+source-workload-sync: native-source-tools ## 从唯一维护源更新平台自有 TLS 源码副本
+	@$(NATIVE_CONTAINER) run --binary platform-tools -- source-lock sync-workload-source --repo-root /source --apply
+
+source-plugin-check: native-source-tools ## 校验受控 Worker 的编译插件源码
+	@$(NATIVE_CONTAINER) run --binary platform-tools -- source-lock sync-plugin-source --repo-root /source
+
+source-plugin-sync: native-source-tools ## 从插件唯一维护源更新受控构建输入
+	@$(NATIVE_CONTAINER) run --binary platform-tools -- source-lock sync-plugin-source --repo-root /source --apply
+
+platform-fitness-gate: ## 原生平台架构与交付约束；不启动服务
+	@platform-tools platform-fitness source --repo-root . --evidence-out "$(PLATFORM_FITNESS_EVIDENCE)"
+
 harness-check: ## Native equivalent gate
 	@platform-tools harness-check --repo-root .
 
@@ -576,6 +597,18 @@ rust-changed-crate-gate:    ## 组合 lock-pinned upstream + 当前 overlay，�
 gateway-unit-gate:          ## Gateway 离线单元门禁: 排除 integration 标记与 KB/DB 套件
 	@$(NATIVE_CONTAINER) test -p ai-platform-gateway -p ai-platform-gateway-foundation -p ai-platform-gateway-integrations -p ai-platform-auth -p ai-platform-eval -p ai-platform-openapi -p ai-platform-tools --lib --tests
 
+# U-PE-04 uses a prebuilt operational Linux observer, never the credential-free
+# native compiler container for live sampling. ARGS supplies existing accepted
+# inputs; plan is offline and explicitly blocked without an accepted build.
+PERFORMANCE_BASELINE ?= platform-performance-baseline
+.PHONY: performance-baseline-plan performance-baseline-run performance-baseline-l0
+performance-baseline-plan: ## Offline performance plan; missing accepted build stays BLOCKED
+	@$(PERFORMANCE_BASELINE) plan --repo-root "$(CURDIR)" $(ARGS)
+performance-baseline-run: ## Explicit existing-fixture baseline; no provisioning or deployment mutation
+	@$(PERFORMANCE_BASELINE) run --repo-root "$(CURDIR)" $(ARGS)
+performance-baseline-l0: ## Native controller regressions; no real baseline or provider acceptance
+	@$(NATIVE_CONTAINER) test -p ai-platform-tools --lib performance_baseline::tests -- --test-threads=1
+
 # -- Help ---------------------------------------------------------------------
 
 .PHONY: help
@@ -614,3 +647,64 @@ native-install: native-engine-build ## Build Docker binaries and install host la
 .PHONY: agent-runtime-history-gate
 agent-runtime-history-gate: ## N-1 native rollout decoder corpus; missing evidence blocks release
 	@bash scripts/harness/check_agent_runtime_history.sh
+
+# U-RT-07 evidence uses the existing external deployment cache; no calendar
+# history is synthesized by these explicit operator commands. ARGS supplies
+# pinned inputs. Set UPSTREAM_SYNC_OUTPUT to a fresh path for every retry.
+UPSTREAM_SYNC_REPORT_DIR ?= $(if $(RUNNER_TEMP),$(RUNNER_TEMP),$(if $(XDG_CACHE_HOME),$(XDG_CACHE_HOME),$(HOME)/.cache)/agentforge-upgrade/evidence)/upstream-sync
+.PHONY: agent-runtime-upstream-sync-l0 agent-runtime-upstream-sync-begin agent-runtime-upstream-sync-inspect agent-runtime-upstream-sync-compare agent-runtime-upstream-sync-record-gate agent-runtime-upstream-sync-verify
+
+agent-runtime-upstream-sync-l0: ## 离线原生 U-RT-07 测试与拒绝夹具；不代表月度窗口验收
+	@$(NATIVE_CONTAINER) test -p ai-platform-tools --bin platform-tools upstream_sync::tests -- --test-threads=1
+
+agent-runtime-upstream-sync-begin: UPSTREAM_SYNC_OUTPUT = $(UPSTREAM_SYNC_REPORT_DIR)/window.json
+agent-runtime-upstream-sync-begin: ## 固定实际当月 stable tag/commit 并记录不可重置的窗口起点
+	@platform-tools upstream-sync begin --repo-root "$(CURDIR)" --output "$(UPSTREAM_SYNC_OUTPUT)" $(ARGS)
+
+agent-runtime-upstream-sync-inspect: ## 只读真实补丁/冲突盘点；不代替 verify
+	@platform-tools upstream-sync inspect --repo-root "$(CURDIR)" $(ARGS)
+
+agent-runtime-upstream-sync-compare: UPSTREAM_SYNC_OUTPUT = $(UPSTREAM_SYNC_REPORT_DIR)/diff.json
+agent-runtime-upstream-sync-compare: ## 比较 source-lock 绑定的实际 App Server schema 与两份 SBOM
+	@platform-tools upstream-sync compare --repo-root "$(CURDIR)" --output "$(UPSTREAM_SYNC_OUTPUT)" $(ARGS)
+
+agent-runtime-upstream-sync-record-gate: UPSTREAM_SYNC_OUTPUT = $(UPSTREAM_SYNC_REPORT_DIR)/gate-run.json
+agent-runtime-upstream-sync-record-gate: ## 运行显式预构建门禁；ARGS 必须指定真实 kind/spec/source/window
+	@platform-tools upstream-sync record-gate --repo-root "$(CURDIR)" --output "$(UPSTREAM_SYNC_OUTPUT)" $(ARGS)
+
+agent-runtime-upstream-sync-verify: UPSTREAM_SYNC_OUTPUT = $(UPSTREAM_SYNC_REPORT_DIR)/report.json
+agent-runtime-upstream-sync-verify: ## 全部真实证据完整才通过；缺少历史/回放/eval 不会降级为 inspect
+	@platform-tools upstream-sync verify --repo-root "$(CURDIR)" --output "$(UPSTREAM_SYNC_OUTPUT)" $(ARGS)
+
+# Existing owned local project; no Cargo/image build/pull, no old DB/volume deletion.
+LOCAL_FRESH_ENV_FILE ?= .env.dev
+LOCAL_FRESH_DIRECTORY ?=
+LOCAL_FRESH_DATA_INPUT ?=
+LOCAL_FRESH_TOOLS_IMAGE ?=
+LOCAL_FRESH_CLIENT_CIDR ?= 10.71.10.0/24
+LOCAL_FRESH_BACKEND_CIDR ?= 10.71.11.0/24
+LOCAL_FRESH_NATIVE_IMAGES_FILE ?=
+LOCAL_FRESH_TOOLS_IMAGES_FILE ?=
+LOCAL_FRESH_ADMIN_IMAGES_FILE ?=
+LOCAL_FRESH_FRONTEND_IMAGES_FILE ?=
+LOCAL_FRESH_SANDBOX ?= false
+LOCAL_FRESH_SDK ?= false
+LOCAL_FRESH_SECURITY_GENERATION ?= transport-r1
+LOCAL_FRESH_CONSOLE_CERT_FILE ?=
+LOCAL_FRESH_CONSOLE_KEY_FILE ?=
+LOCAL_FRESH_CONSOLE_CA_FILE ?=
+.PHONY: local-fresh-prepare local-fresh-database local-fresh-secure-extend local-fresh-up local-fresh-check
+local-fresh-prepare local-fresh-database local-fresh-secure-extend local-fresh-up local-fresh-check:
+	@$(SCRIPTS)/local-fresh.sh $(patsubst local-fresh-%,%,$@) \
+	  --env-file "$(LOCAL_FRESH_ENV_FILE)" --directory "$(LOCAL_FRESH_DIRECTORY)" \
+	  --data-input "$(LOCAL_FRESH_DATA_INPUT)" --tools-image "$(LOCAL_FRESH_TOOLS_IMAGE)" \
+	  --security-generation "$(LOCAL_FRESH_SECURITY_GENERATION)" \
+	  $(if $(LOCAL_FRESH_CONSOLE_CERT_FILE),--console-cert-file "$(LOCAL_FRESH_CONSOLE_CERT_FILE)") \
+	  $(if $(LOCAL_FRESH_CONSOLE_KEY_FILE),--console-key-file "$(LOCAL_FRESH_CONSOLE_KEY_FILE)") \
+	  $(if $(LOCAL_FRESH_CONSOLE_CA_FILE),--console-ca-file "$(LOCAL_FRESH_CONSOLE_CA_FILE)") \
+	  --client-cidr "$(LOCAL_FRESH_CLIENT_CIDR)" --backend-cidr "$(LOCAL_FRESH_BACKEND_CIDR)" \
+	  $(if $(LOCAL_FRESH_NATIVE_IMAGES_FILE),--image-env "$(LOCAL_FRESH_NATIVE_IMAGES_FILE)") \
+	  $(if $(LOCAL_FRESH_TOOLS_IMAGES_FILE),--image-env "$(LOCAL_FRESH_TOOLS_IMAGES_FILE)") \
+	  $(if $(LOCAL_FRESH_ADMIN_IMAGES_FILE),--image-env "$(LOCAL_FRESH_ADMIN_IMAGES_FILE)") \
+	  $(if $(LOCAL_FRESH_FRONTEND_IMAGES_FILE),--image-env "$(LOCAL_FRESH_FRONTEND_IMAGES_FILE)") \
+	  $(if $(filter true,$(LOCAL_FRESH_SANDBOX)),--sandbox) $(if $(filter true,$(LOCAL_FRESH_SDK)),--sdk)

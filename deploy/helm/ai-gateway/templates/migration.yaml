@@ -21,6 +21,7 @@ spec:
       restartPolicy: Never
       automountServiceAccountToken: false
       securityContext:
+        fsGroup: 1000
         runAsNonRoot: true
         seccompProfile: {type: RuntimeDefault}
       imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
@@ -37,7 +38,13 @@ spec:
         - name: AI_GATEWAY_ROLE_PREFIX
           value: {{ .Values.databaseRoles.rolePrefix | quote }}
         volumeMounts:
+{{- if .Values.dataSecurity.enabled }}
+{{- range $file := list "dsn" "ca-bundle.pem" "tls.crt" "tls.key" }}
+        - {name: data-credentials, mountPath: /run/data/credentials/{{ $file }}, subPath: {{ $file }}, readOnly: true}
+{{- end }}
+{{- end }}
         - {name: tmp, mountPath: /tmp}
       volumes:
+{{ include "ai-gateway.dataVolumes" (dict "root" . "role" "migrator") | indent 6 }}
       - name: tmp
         emptyDir: {medium: Memory, sizeLimit: 64Mi}

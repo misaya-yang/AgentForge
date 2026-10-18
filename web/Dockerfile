@@ -64,10 +64,12 @@ LABEL org.opencontainers.image.title="AI Gateway Web" \
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-precompressed-assets.conf /etc/nginx/nginx-precompressed-assets.conf
 COPY docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
+COPY docker-entrypoint.d/45-security-headers.sh /docker-entrypoint.d/45-security-headers.sh
 USER root
-RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
-ENV RUNTIME_CONFIG_OUTPUT_PATH=/tmp/runtime-config.js
+RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/45-security-headers.sh
+ENV RUNTIME_CONFIG_OUTPUT_PATH=/tmp/runtime-config.json
 USER 101:101
 
 # Copy built assets from builder

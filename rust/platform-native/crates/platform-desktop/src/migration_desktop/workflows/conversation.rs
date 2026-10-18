@@ -365,7 +365,7 @@ impl ConversationEditor {
                 }
                 Message::Failed(g, error) if g == self.generation => {
                     self.observing = false;
-                    self.expired = matches!(error, Error::Status(401));
+                    self.expired = error.status() == Some(401);
                     self.active = !self.turn_id.is_empty() && !self.expired;
                     self.status = format!(
                         "{error}. The turn was not resubmitted; reconnect or stop the existing turn."
@@ -1120,4 +1120,46 @@ fn project(value: &Value) -> Vec<(String, Value)> {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod client_problem_tests {
+    use super::*;
+    fn problem(status: u16) -> Error {
+        let bytes=serde_json::to_vec(&json!({"type":"about:blank","title":"private-marker","status":status,"detail":"private-marker"})).unwrap();
+        Error::Problem(Box::new(
+            ai_platform_client::problem::RemoteProblem::decode(status, &bytes).unwrap(),
+        ))
+    }
+    #[test]
+    fn direct_client_problem_follows_real_generation_and_session_fences() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let api = DesktopApi::new("https://gateway.example", "synthetic-token".into()).unwrap();
+        let ctx = egui::Context::default();
+        for status in [401, 404, 408, 500, 503] {
+            let mut editor = ConversationEditor::default();
+            editor.generation = 7;
+            editor.turn_id = "existing-turn".into();
+            editor.thread_id = "existing-thread".into();
+            editor.active = true;
+            editor.observing = true;
+            assert!(editor.tx.try_send(Message::Failed(6, problem(401))).is_ok());
+            editor.poll(&api, &runtime, &ctx);
+            assert!(!editor.expired && editor.active && editor.observing);
+            assert!(
+                editor
+                    .tx
+                    .try_send(Message::Failed(7, problem(status)))
+                    .is_ok()
+            );
+            editor.poll(&api, &runtime, &ctx);
+            assert_eq!(editor.expired, status == 401);
+            assert_eq!(editor.active, status != 401);
+            assert!(!editor.observing);
+            assert_eq!(editor.turn_id, "existing-turn");
+            assert!(editor.status.contains("turn was not resubmitted"));
+            assert!(!editor.status.contains("private-marker"));
+            assert!(editor.rx.try_recv().is_err());
+        }
+    }
 }

@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use super::security::{RuntimeError, SESSION_HEADER, TENANT_HEADER, USER_HEADER};
 use super::thread_lifecycle::{ResumeThreadRequest, authorize_thread_scope, resume_params};
-use super::turns::{StartTurnRequest, start_turn_mode};
+use super::turns::start_turn_mode;
 use super::{RuntimeBroadcastEvent, RuntimeHttpState};
 use crate::postgres_store::execution::ExecutionClaim;
 use crate::postgres_store::recovery_terminal::RecoveryTerminalMode;
@@ -212,8 +212,7 @@ pub(super) async fn recovery_loop(state: RuntimeHttpState) {
 }
 
 async fn recover_claim(state: &RuntimeHttpState, claim: ExecutionClaim) -> Result<(), String> {
-    let body: StartTurnRequest =
-        serde_json::from_value(claim.context.clone()).map_err(|_| "recovery_context_invalid")?;
+    let (body, mut recovery_headers) = super::execution_context::decode(claim.context.clone())?;
     if body.run_id != claim.run_id {
         return Err("recovery_identity_mismatch".to_string());
     }
@@ -329,7 +328,7 @@ async fn recover_claim(state: &RuntimeHttpState, claim: ExecutionClaim) -> Resul
         .await
         .map_err(|_| "recovery_kernel_unavailable")?
         .map_err(|_| "recovery_thread_rejected")?;
-    let mut headers = HeaderMap::new();
+    let mut headers = std::mem::take(&mut recovery_headers);
     for (name, value) in [
         (
             "x-ai-platform-internal-token",

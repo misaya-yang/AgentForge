@@ -367,3 +367,41 @@ fn file_credentials_are_detected_without_reading_their_contents() {
     assert!(credential_paths_clean([root.0.as_path()]).is_err());
     assert!(credential_paths_clean([secret.as_path()]).is_err());
 }
+
+#[tokio::test]
+async fn a_strong_sandbox_accepts_one_original_execution_and_never_recycles() {
+    let root = TempRoot::new();
+    let executor = FakeExecutor::new(false);
+    let (_, verifier) = keys();
+    // from_parts isolates journal/admission behavior; cryptographic attestation
+    // and real tier execution have their own independent gates.
+    let service = SandboxService::from_parts(
+        SandboxServiceConfig {
+            journal_root: root.0.clone(),
+            concurrency: 1,
+            max_records: 1,
+            strong_tier: Some(crate::sandbox_tier::StrongTierConfig {
+                runtime: crate::sandbox_tier::StrongRuntime::Gvisor,
+                evidence_file: "/test-only/evidence".into(),
+                public_keyring_file: "/test-only/keys".into(),
+            }),
+            ..Default::default()
+        },
+        verifier,
+        executor.clone(),
+    )
+    .unwrap();
+    let original = job();
+    service.submit(original.clone()).await.unwrap();
+    assert!(matches!(
+        completed(&service, &original).await,
+        SandboxReplyState::Completed(Ok(_))
+    ));
+    assert!(service.submit(original).await.is_ok());
+    let different = job();
+    assert!(matches!(
+        service.submit(different).await,
+        Err((StatusCode::SERVICE_UNAVAILABLE, _))
+    ));
+    assert_eq!(executor.calls.load(Ordering::SeqCst), 1);
+}

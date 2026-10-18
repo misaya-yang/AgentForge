@@ -100,7 +100,7 @@ export function ActivityPanel({
 
   const stepsText = t("playground.activity.steps", {
     count: stepCount,
-    defaultValue: "{{count}} steps",
+    defaultValue: "{count} steps",
   });
 
   const subtitle = [statusWord, reasoningLabel, stepsText, durationLabel]

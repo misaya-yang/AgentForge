@@ -1,0 +1,17 @@
+# Loaded only after the launcher's exact sync-plugin-source --apply admission.
+# Explicitly clear inherited read_only on these existing public generated binds.
+services:
+  native-build:
+    volumes:
+      - type: bind
+        source: ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz
+        target: /source/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz
+        read_only: false
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat
+        target: /source/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat
+        read_only: false
+        bind:
+          create_host_path: false

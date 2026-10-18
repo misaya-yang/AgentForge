@@ -1,0 +1,63 @@
+# Local development only. No Cargo, apt, downloads, source tree or compiler in final.
+# Launcher verifies this already-local donor tag against its recorded image ID.
+# The canonical fence prevents concurrent prepare from replacing the local tag.
+ARG NATIVE_DONOR_IMAGE
+FROM ${NATIVE_DONOR_IMAGE} AS donor
+USER 0:0
+WORKDIR /payload
+COPY bin/ /payload/bin/
+COPY binaries.sha256 /payload/binaries.sha256
+COPY collect-runtime.sh /collect-runtime.sh
+RUN ["/bin/sh", "/collect-runtime.sh"]
+
+FROM scratch AS native-base
+COPY --from=donor --chown=0:0 /runtime/ /
+COPY --from=donor --chown=1000:1000 /runtime/app/ /app/
+COPY source-identity.json binaries.sha256 /usr/share/agentforge/
+COPY LICENSE NOTICE /usr/share/doc/agentforge/
+ENV PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp
+ARG SOURCE_SHA256
+ARG VCS_REF
+LABEL agentforge.native.packaging="dev-cache-v1" agentforge.native.toolchain="absent" org.opencontainers.image.revision="$VCS_REF" agentforge.native.observed-source-sha256="$SOURCE_SHA256"
+USER 1000:1000
+WORKDIR /app
+# Runs as nonroot in the actual minimal rootfs, catching missing loader/runtime deps.
+RUN ["/bin/sh", "-ec", "test \"$(id -u)\" = 1000 && test ! -w /usr/local/bin && test -w /app/data && test -w /app/logs && test -w /app/agent-memory && test ! -e /usr/local/cargo && test ! -e /usr/local/rustup && test ! -e /source && test ! -e /usr/bin/rustc && test ! -e /usr/bin/gcc && curl --version && openssl version && pdftotext -v && pdfinfo -v && test -r /etc/ssl/certs/ca-certificates.crt"]
+
+FROM native-base AS gateway
+COPY --chmod=0555 bin/gateway /usr/local/bin/gateway
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD ["curl", "-f", "http://localhost:8080/health/ready"]
+ENTRYPOINT ["/usr/local/bin/gateway"]
+CMD ["--config-env"]
+
+FROM native-base AS knowledge
+COPY --chmod=0555 bin/platform-knowledge-service /usr/local/bin/platform-knowledge-service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 CMD ["curl", "-f", "http://localhost:8092/health/ready"]
+ENTRYPOINT ["/usr/local/bin/platform-knowledge-service"]
+
+FROM native-base AS migrate
+COPY --chmod=0555 bin/database-authority /usr/local/bin/database-authority
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
+ENTRYPOINT ["/usr/local/bin/database-authority"]
+CMD ["migrate"]
+
+FROM native-base AS tools
+COPY --chmod=0555 bin/platform-tools /usr/local/bin/platform-tools
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
+ENTRYPOINT ["/usr/local/bin/platform-tools"]
+
+FROM native-base AS credentials
+COPY --chmod=0555 bin/workload-credentials /usr/local/bin/workload-credentials
+COPY database/ /app/database/
+ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
+ENTRYPOINT ["/usr/local/bin/workload-credentials"]
+
+# Explicit one-shot account authority; never part of a service startup process.
+FROM native-base AS auth-bootstrap
+COPY --chmod=0555 bin/admin-create /usr/local/bin/admin-create
+ENTRYPOINT ["/usr/local/bin/admin-create"]
+CMD ["--fresh-development"]

@@ -1,5 +1,7 @@
 //! Explicit one-shot admin bootstrap. This binary is never run by service startup.
 use sqlx::{Connection, PgConnection};
+#[path = "admin_create/fresh.rs"]
+mod fresh;
 fn required(name: &str) -> Result<String, String> {
     std::env::var(name)
         .ok()
@@ -7,11 +9,18 @@ fn required(name: &str) -> Result<String, String> {
         .ok_or_else(|| format!("{name} must be set"))
 }
 async fn run() -> Result<(), String> {
-    if std::env::args().skip(1).any(|a| a == "--help" || a == "-h") {
+    let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.iter().any(|a| a == "--help" || a == "-h") {
         println!(
-            "admin-create: requires DATABASE_URL, ADMIN_EMAIL and ADMIN_PASSWORD; inserts user_id=admin once. Duplicate rows fail; no reset or upsert."
+            "admin-create: legacy mode requires DATABASE_URL, ADMIN_EMAIL and ADMIN_PASSWORD and refuses duplicate rows. --fresh-development reads a bounded JSON email/password object from stdin and canonical DATA_GATEWAY file/mTLS configuration; initializes only gateway_dev_fresh. Fresh mode creates the tenant and current admin role binding once, retains first-login password change, and only verifies an already matching active administrator. Neither mode resets or upserts accounts."
         );
         return Ok(());
+    }
+    if arguments == ["--fresh-development"] {
+        return fresh::run().await.map_err(str::to_owned);
+    }
+    if !arguments.is_empty() {
+        return Err("unknown admin-create arguments".into());
     }
     let dsn = required("DATABASE_URL")?;
     let email = required("ADMIN_EMAIL")?;

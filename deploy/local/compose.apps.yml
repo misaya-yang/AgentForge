@@ -1,152 +1,170 @@
-# Optional full application profile. Merge after local compose.yml + runtime.yml
-# in the existing project with --project-directory set to the repository root.
-# No infrastructure service is declared here. Requires Compose >= 2.24.4.
-# Absolute extends/config references avoid first-file path ambiguity and preserve
-# host-native configuration independently from container-only inputs.
-x-root-compose: &root-compose "${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml"
-x-internal-proxy-bypass: &internal-proxy-bypass
-  NO_PROXY: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store"
-  no_proxy: "${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store"
-x-local-object-storage: &local-object-storage
-  GATEWAY_STORAGE__BACKEND: "${LOCAL_CONTAINER_STORAGE_BACKEND:-local}"
-  GATEWAY_STORAGE__S3__BUCKET: "${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}"
-  GATEWAY_STORAGE__S3__REGION: "${LOCAL_S3_REGION:-us-east-1}"
-  GATEWAY_STORAGE__S3__ACCESS_KEY: "${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}"
-  GATEWAY_STORAGE__S3__SECRET_KEY: "${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}"
+# Optional default local application profile, merged after compose.yml + runtime.yml.
+# Preserves root defaults via extends. For file-secret/mTLS deployments select
+# compose.full.yml as the sole base instead; its native freshness test resolves
+# these public local decisions before security credentials are removed.
+x-internal-proxy-bypass:
+  NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+  no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+x-local-object-storage:
+  GATEWAY_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+  GATEWAY_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+  GATEWAY_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+  GATEWAY_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+  GATEWAY_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
   GATEWAY_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
-x-local-knowledge-storage: &local-knowledge-storage
-  KNOWLEDGE_STORAGE__BACKEND: "${LOCAL_CONTAINER_STORAGE_BACKEND:-local}"
-  KNOWLEDGE_STORAGE__S3__BUCKET: "${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}"
-  KNOWLEDGE_STORAGE__S3__REGION: "${LOCAL_S3_REGION:-us-east-1}"
-  KNOWLEDGE_STORAGE__S3__ACCESS_KEY: "${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}"
-  KNOWLEDGE_STORAGE__S3__SECRET_KEY: "${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}"
+x-local-knowledge-storage:
+  KNOWLEDGE_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+  KNOWLEDGE_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+  KNOWLEDGE_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+  KNOWLEDGE_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+  KNOWLEDGE_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
   KNOWLEDGE_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
-
 services:
   database-bootstrap:
+    image: ${MIGRATE_IMAGE:?Select the admitted native migration image}
+    pull_policy: never
     extends:
-      file: *root-compose
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
       service: database-bootstrap
-    image: "${MIGRATE_IMAGE:?Select the admitted native migration image}"
-    pull_policy: never
-    # The root admin-only bootstrap is retained; no app/migrator gets its DSN.
   migrate:
+    image: ${MIGRATE_IMAGE:?Select the admitted native migration image}
+    pull_policy: never
+    container_name: !reset null
     extends:
-      file: *root-compose
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
       service: migrate
-    image: "${MIGRATE_IMAGE:?Select the admitted native migration image}"
-    pull_policy: never
-    container_name: !reset null
   gateway-init:
-    extends:
-      file: *root-compose
-      service: gateway-init
-    image: "${GATEWAY_IMAGE:?Select the admitted native Gateway image}"
+    image: ${GATEWAY_IMAGE:?Select the admitted native Gateway image}
     pull_policy: never
     container_name: !reset null
-    # Override the Gateway image ENTRYPOINT; this remains a non-root directory check.
-    entrypoint: [/bin/sh, -ec]
-    command: ["mkdir -p /app/data/images /app/logs /app/agent-memory && test -w /app/data && test -w /app/logs && test -w /app/agent-memory && chmod 700 /app/agent-memory"]
-  gateway:
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - mkdir -p /app/data/images /app/logs /app/agent-memory && test -w /app/data && test -w /app/logs && test -w /app/agent-memory &&
+      chmod 700 /app/agent-memory
     extends:
-      file: *root-compose
-      service: gateway
-    image: "${GATEWAY_IMAGE:?Select the admitted native Gateway image}"
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
+      service: gateway-init
+  gateway:
+    image: ${GATEWAY_IMAGE:?Select the admitted native Gateway image}
     pull_policy: never
     container_name: !reset null
     environment:
-      <<: [*internal-proxy-bypass, *local-object-storage]
+      GATEWAY_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      GATEWAY_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      GATEWAY_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      GATEWAY_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      GATEWAY_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      GATEWAY_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
       GATEWAY_NATIVE_CONFIG: /app/config/native-gateway.json
-      # Container-only DSNs; never interpolate the host-native DSN variables here.
-      GATEWAY_DATABASE__DSN: "${LOCAL_CONTAINER_GATEWAY_DSN:?Provide the scoped postgres:5432 Gateway DSN}"
+      GATEWAY_DATABASE__DSN: ${LOCAL_CONTAINER_GATEWAY_DSN:?Provide the scoped postgres:5432 Gateway DSN}
       KB_SERVICE_URL: http://knowledge-service:8092
       AI_PLATFORM_KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       AI_PLATFORM_AGENT_RUNTIME_URL: http://agent-runtime:8094
       AI_PLATFORM_CAPABILITY_WORKER_URL: http://agent-capability-worker:8095
       AI_PLATFORM_TOPOLOGY_MODE: full
     ports: !override
-      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    - 127.0.0.1:${GATEWAY_PORT:-8080}:8080
     volumes: !override
-      - type: bind
-        source: "${LOCAL_CONTAINER_GATEWAY_NATIVE_OPTIONS_FILE:?Select verified container NativeDeployment options}"
-        target: /app/config/native-gateway.json
-        read_only: true
-        bind:
-          create_host_path: false
-      - gateway-logs:/app/logs
-      - gateway-data:/app/data
-      - assistant-memory-data:/app/agent-memory
-      - type: bind
-        source: "${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json"
-        target: /app/deploy/release/compatibility-manifest.json
-        read_only: true
-        bind:
-          create_host_path: false
+    - type: bind
+      source: ${LOCAL_CONTAINER_GATEWAY_NATIVE_OPTIONS_FILE:?Select verified container NativeDeployment options}
+      target: /app/config/native-gateway.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - gateway-logs:/app/logs
+    - gateway-data:/app/data
+    - assistant-memory-data:/app/agent-memory
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    extends:
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
+      service: gateway
   knowledge-service:
-    extends:
-      file: *root-compose
-      service: knowledge-service
-    image: "${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}"
+    image: ${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}
     pull_policy: never
     container_name: !reset null
     environment:
-      <<: [*internal-proxy-bypass, *local-knowledge-storage]
+      KNOWLEDGE_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      KNOWLEDGE_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      KNOWLEDGE_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      KNOWLEDGE_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
       KNOWLEDGE_RUNTIME_ROLE: api
-      KNOWLEDGE_DATABASE__DSN: "${LOCAL_CONTAINER_KNOWLEDGE_API_DSN:?Provide the scoped postgres:5432 Knowledge API DSN}"
+      KNOWLEDGE_DATABASE__DSN: ${LOCAL_CONTAINER_KNOWLEDGE_API_DSN:?Provide the scoped postgres:5432 Knowledge API DSN}
     ports: !override
-      - "127.0.0.1:${KNOWLEDGE_SERVICE_PORT:-8092}:8092"
+    - 127.0.0.1:${KNOWLEDGE_SERVICE_PORT:-8092}:8092
     volumes: !override
-      - kb-data:/app/data
-      - type: bind
-        source: "${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json"
-        target: /app/deploy/release/compatibility-manifest.json
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: "${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}"
-        target: /run/qdrant/ca-bundle.pem
-        read_only: true
-        bind:
-          create_host_path: false
-  knowledge-worker:
+    - kb-data:/app/data
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}
+      target: /run/qdrant/ca-bundle.pem
+      read_only: true
+      bind:
+        create_host_path: false
     extends:
-      file: *root-compose
-      service: knowledge-worker
-    image: "${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}"
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
+      service: knowledge-service
+  knowledge-worker:
+    image: ${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}
     pull_policy: never
     environment:
-      <<: [*internal-proxy-bypass, *local-knowledge-storage]
+      KNOWLEDGE_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      KNOWLEDGE_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      KNOWLEDGE_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      KNOWLEDGE_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
       KNOWLEDGE_RUNTIME_ROLE: worker
-      KNOWLEDGE_DATABASE__DSN: "${LOCAL_CONTAINER_KNOWLEDGE_WORKER_DSN:?Provide the scoped postgres:5432 Knowledge worker DSN}"
+      KNOWLEDGE_DATABASE__DSN: ${LOCAL_CONTAINER_KNOWLEDGE_WORKER_DSN:?Provide the scoped postgres:5432 Knowledge worker DSN}
     volumes: !override
-      - kb-data:/app/data
-      - type: bind
-        source: "${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json"
-        target: /app/deploy/release/compatibility-manifest.json
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: "${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}"
-        target: /run/qdrant/ca-bundle.pem
-        read_only: true
-        bind:
-          create_host_path: false
-  frontend:
+    - kb-data:/app/data
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}
+      target: /run/qdrant/ca-bundle.pem
+      read_only: true
+      bind:
+        create_host_path: false
     extends:
-      file: *root-compose
-      service: frontend
-    image: "${FRONTEND_IMAGE:?Select the admitted frontend image}"
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
+      service: knowledge-worker
+  frontend:
+    image: ${FRONTEND_IMAGE:?Select the admitted frontend image}
     pull_policy: never
     container_name: !reset null
     ports: !override
-      - "127.0.0.1:${FRONTEND_PORT:-8081}:8080"
+    - 127.0.0.1:${FRONTEND_PORT:-8081}:8080
+    extends:
+      file: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/docker-compose.yml
+      service: frontend
   agent-runtime:
-    # Merge into the already-selected local Runtime; preserve its source image,
-    # dedicated DB identity, readonly paths, health and sandbox/control wiring.
     environment:
-      <<: *internal-proxy-bypass
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
       AI_PLATFORM_CAPABILITY_PLANE_URL: http://gateway:8080/internal/v2/agent-capabilities
       AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: http://gateway:8080/internal/v1/agent-model-plane
       AI_PLATFORM_CAPABILITY_WORKER_URL: http://agent-capability-worker:8095
@@ -155,7 +173,8 @@ services:
         condition: service_completed_successfully
   agent-capability-worker:
     environment:
-      <<: *internal-proxy-bypass
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store
       AI_PLATFORM_KNOWLEDGE_SERVICE_URL: http://knowledge-service:8092
       AI_PLATFORM_GATEWAY_INTERNAL_URL: http://gateway:8080
     depends_on:
@@ -165,8 +184,6 @@ services:
         condition: service_completed_successfully
       knowledge-service:
         condition: service_healthy
-
-# App-owned data only. Infrastructure and sandbox volumes stay in existing files.
 volumes:
   gateway-logs: {}
   gateway-data: {}

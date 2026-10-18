@@ -51,6 +51,9 @@ impl EnterpriseService {
         p: &Principal,
         password: Option<String>,
     ) -> Result<()> {
+        if super::step_up::recent(&self.auth, p, None).await? {
+            return Ok(());
+        }
         let method:Option<String>=sqlx::query_scalar("SELECT method FROM gateway.enterprise_session_assurance WHERE jti=$1::text::uuid AND tenant_id=$2 AND user_id=$3 AND method IN ('passkey','oidc_mfa','recovery') AND verified_at>CURRENT_TIMESTAMP-interval '5 minutes' AND expires_at>CURRENT_TIMESTAMP").bind(&p.jti).bind(&p.account.tenant_id).bind(&p.account.user_id).fetch_optional(&self.pool).await?;
         match method.as_deref() {
             Some("passkey" | "oidc_mfa") => Ok(()),
@@ -62,6 +65,9 @@ impl EnterpriseService {
         }
     }
     pub(super) async fn require_recent_mfa(&self, p: &Principal) -> Result<()> {
+        if super::step_up::recent(&self.auth, p, None).await? {
+            return Ok(());
+        }
         let recent:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM gateway.enterprise_session_assurance WHERE jti=$1::text::uuid AND tenant_id=$2 AND user_id=$3 AND method IN ('passkey','oidc_mfa') AND verified_at>CURRENT_TIMESTAMP-interval '5 minutes' AND expires_at>CURRENT_TIMESTAMP)").bind(&p.jti).bind(&p.account.tenant_id).bind(&p.account.user_id).fetch_one(&self.pool).await?;
         if !recent {
             return Err(EnterpriseError::Forbidden);

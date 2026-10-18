@@ -5,6 +5,7 @@
 //! A timeout/transport error is deliberately not retried: the caller must
 //! reconcile the execution as `side_effect_unknown`.
 
+use crate::workload_identity::WorkloadSend;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ai_platform_capability_contract::canonical_json_hash;
@@ -44,8 +45,8 @@ impl ImageWriteBrokerConfig {
             || base.password().is_some()
             || base.query().is_some()
             || base.fragment().is_some()
-            || self.internal_token.len() < MIN_SECRET_BYTES
-            || self.proof_secret.len() < MIN_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < MIN_SECRET_BYTES)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_SECRET_BYTES)
         {
             return Err(GatewayBrokerError::Unavailable);
         }
@@ -142,7 +143,7 @@ impl GatewayWriteBroker for ReqwestImageWriteBroker {
             .duration_since(UNIX_EPOCH)
             .map_err(|_| GatewayBrokerError::Unavailable)?
             .as_secs();
-        let proof = self.proof(&request, &body, now)?;
+        let proof = if crate::broker_proof::required() { crate::broker_proof::issue(PATH, &body).await.map_err(|_| GatewayBrokerError::Unavailable)? } else { self.proof(&request, &body, now)? };
         let request_builder = self
             .client
             .post(endpoint)
@@ -160,7 +161,7 @@ impl GatewayWriteBroker for ReqwestImageWriteBroker {
         )
         .json(&body)
         .timeout(Duration::from_secs(120))
-        .send()
+        .workload_send()
         .await
         .map_err(|error| {
             if error.is_timeout() {

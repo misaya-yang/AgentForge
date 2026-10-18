@@ -158,6 +158,7 @@ impl Default for DashboardWebSocketConfig {
 pub struct DashboardApi {
     websocket_config: DashboardWebSocketConfig,
     websocket_sessions: Arc<tokio::sync::Semaphore>,
+    websocket_shared: Option<crate::multi_instance::dashboard::SocketLeases>,
     gate: MetricsAdminApi,
     realtime: Arc<dyn DashboardRealtimeSource>,
     metrics: Arc<dyn MetricsSummarySource>,
@@ -173,6 +174,7 @@ impl DashboardApi {
                 websocket_config.max_sessions,
             )),
             websocket_config,
+            websocket_shared: None,
             gate: MetricsAdminApi::new(
                 d.metrics.clone(),
                 None,
@@ -193,6 +195,23 @@ impl DashboardApi {
         self.websocket_sessions = Arc::new(tokio::sync::Semaphore::new(config.max_sessions));
         self.websocket_config = config;
         self
+    }
+    pub fn with_shared_websocket_sessions(
+        mut self,
+        leases: crate::multi_instance::dashboard::SocketLeases,
+    ) -> Self {
+        self.websocket_shared = Some(leases);
+        self
+    }
+    /// Only during graph construction, before any router clones this authority.
+    pub fn configure_shared_websocket_sessions(
+        &mut self,
+        leases: crate::multi_instance::dashboard::SocketLeases,
+    ) {
+        self.websocket_shared = Some(leases);
+    }
+    pub fn shared_websocket_authority_configured(&self) -> bool {
+        self.websocket_shared.is_some()
     }
     pub fn available_websocket_sessions(&self) -> usize {
         self.websocket_sessions.available_permits()
@@ -1128,79 +1147,100 @@ async fn http_websocket(
     let Ok(permit) = state.api.websocket_sessions.clone().try_acquire_owned() else {
         return (StatusCode::SERVICE_UNAVAILABLE, [("retry-after", "1")]).into_response();
     };
+    let shared = if let Some(leases) = &state.api.websocket_shared {
+        match leases
+            .acquire(identity.tenant_id(), identity.user_id())
+            .await
+        {
+            Ok(lease) => Some(lease),
+            Err(_) => {
+                return (StatusCode::SERVICE_UNAVAILABLE, [("retry-after", "1")]).into_response();
+            }
+        }
+    } else {
+        None
+    };
     let config = state.api.websocket_config.clone();
     upgrade
         .on_upgrade(move |mut socket| async move {
             use axum::extract::ws::Message;
             // Captured before upgrade: failed handshake/drop also releases admission.
             let _permit = permit;
-            let mut last_received = tokio::time::Instant::now();
-            loop {
-                let Ok(Ok(data)) = tokio::time::timeout(
-                    config.send_timeout,
-                    state.api.websocket_snapshot(identity.tenant_id()),
-                )
-                .await
-                else {
-                    break;
-                };
-                if !matches!(
-                    tokio::time::timeout(
+            let run = async {
+                let mut last_received = tokio::time::Instant::now();
+                loop {
+                    let Ok(Ok(data)) = tokio::time::timeout(
                         config.send_timeout,
-                        socket.send(Message::Text(data.to_string().into()))
+                        state.api.websocket_snapshot(identity.tenant_id()),
                     )
-                    .await,
-                    Ok(Ok(()))
-                ) {
-                    break;
-                }
-                let remaining = config.idle_timeout.saturating_sub(last_received.elapsed());
-                if remaining.is_zero() {
-                    break;
-                }
-                match tokio::time::timeout(
-                    remaining.min(std::time::Duration::from_secs(5)),
-                    socket.recv(),
-                )
-                .await
-                {
-                    Err(_) => {
-                        if last_received.elapsed() >= config.idle_timeout {
-                            break;
-                        }
-                        // Browser peers answer protocol pings automatically; passive
-                        // dashboards stay open while unreachable peers release capacity.
-                        if !matches!(
-                            tokio::time::timeout(
-                                config.send_timeout,
-                                socket.send(Message::Ping(Vec::new().into()))
-                            )
-                            .await,
-                            Ok(Ok(()))
-                        ) {
-                            break;
-                        }
+                    .await
+                    else {
+                        break;
+                    };
+                    if !matches!(
+                        tokio::time::timeout(
+                            config.send_timeout,
+                            socket.send(Message::Text(data.to_string().into()))
+                        )
+                        .await,
+                        Ok(Ok(()))
+                    ) {
+                        break;
                     }
-                    Ok(Some(Ok(Message::Text(message)))) => {
-                        last_received = tokio::time::Instant::now();
-                        if message == "ping"
-                            && !matches!(
+                    let remaining = config.idle_timeout.saturating_sub(last_received.elapsed());
+                    if remaining.is_zero() {
+                        break;
+                    }
+                    match tokio::time::timeout(
+                        remaining.min(std::time::Duration::from_secs(5)),
+                        socket.recv(),
+                    )
+                    .await
+                    {
+                        Err(_) => {
+                            if last_received.elapsed() >= config.idle_timeout {
+                                break;
+                            }
+                            // Browser peers answer protocol pings automatically; passive
+                            // dashboards stay open while unreachable peers release capacity.
+                            if !matches!(
                                 tokio::time::timeout(
                                     config.send_timeout,
-                                    socket.send(Message::Text("{\"type\":\"pong\"}".into()))
+                                    socket.send(Message::Ping(Vec::new().into()))
                                 )
                                 .await,
                                 Ok(Ok(()))
-                            )
-                        {
-                            break;
+                            ) {
+                                break;
+                            }
                         }
+                        Ok(Some(Ok(Message::Text(message)))) => {
+                            last_received = tokio::time::Instant::now();
+                            if message == "ping"
+                                && !matches!(
+                                    tokio::time::timeout(
+                                        config.send_timeout,
+                                        socket.send(Message::Text("{\"type\":\"pong\"}".into()))
+                                    )
+                                    .await,
+                                    Ok(Ok(()))
+                                )
+                            {
+                                break;
+                            }
+                        }
+                        Ok(Some(Ok(Message::Ping(_)))) | Ok(Some(Ok(Message::Pong(_)))) => {
+                            last_received = tokio::time::Instant::now();
+                        }
+                        _ => break,
                     }
-                    Ok(Some(Ok(Message::Ping(_)))) | Ok(Some(Ok(Message::Pong(_)))) => {
-                        last_received = tokio::time::Instant::now();
-                    }
-                    _ => break,
                 }
+            };
+            if let Some(lease) = shared {
+                tokio::select! {_=run=>{},_=lease.maintain()=>{}}
+                let _ = lease.release().await;
+            } else {
+                run.await;
             }
         })
         .into_response()

@@ -45,6 +45,7 @@ impl GatewayWorkers {
     ) {
         let mut running = self.image.lock().await;
         if running.is_none() {
+            worker.prepare_start();
             *running = Some(tokio::spawn(async move {
                 struct RunningFlag(Arc<std::sync::atomic::AtomicBool>);
                 impl Drop for RunningFlag {
@@ -76,7 +77,14 @@ impl GatewayGraph {
         workers: Arc<GatewayWorkers>,
         mut extra_start: Vec<LifecycleStep>,
         mut extra_stop: Vec<LifecycleStep>,
-    ) -> Lifecycle {
+        role: crate::migration_host::worker_roles::ProcessRole,
+    ) -> Result<
+        (
+            Lifecycle,
+            Arc<crate::migration_host::worker_roles::WorkerHealth>,
+        ),
+        HostError,
+    > {
         let (mut starts, mut stops) = self.core.lifecycle_steps();
         let (evaluation_start, evaluation_stop) = self.evaluation.lifecycle_steps();
         starts.extend(evaluation_start);
@@ -359,6 +367,12 @@ impl GatewayGraph {
                 })
             }),
         });
+        if let Some(ha) = &self.ha {
+            let (start, stop) = ha.lifecycle_steps();
+            // Register before a worker can issue any process-owned grant.
+            extra_start.insert(0, start);
+            stops.push(stop);
+        }
         starts.append(&mut extra_start);
         stops.append(&mut extra_stop);
         stops.sort_by_key(|step| {
@@ -367,6 +381,29 @@ impl GatewayGraph {
                 .position(|name| *name == step.name)
                 .unwrap_or(0)
         });
-        Lifecycle::new(starts, stops)
+        let health = crate::migration_host::worker_roles::apply(
+            role,
+            self.pools.data.clone(),
+            self.pools.control.clone(),
+            &mut starts,
+            &mut stops,
+        )?;
+        if let Some(ha) = &self.ha {
+            ha.supervise_workers(&stops)
+                .map_err(|_| HostError::Configuration)?;
+            let index = starts
+                .iter()
+                .position(|step| step.name == "gateway_ha_directory")
+                .ok_or(HostError::Configuration)?;
+            let registration = starts.remove(index);
+            // The role supervisor inserts its own schema step at index zero;
+            // register after filtering, then guard every remaining activation.
+            starts = starts
+                .into_iter()
+                .map(|step| ha.guard_start(step))
+                .collect();
+            starts.insert(0, registration);
+        }
+        Ok((Lifecycle::new(starts, stops), health))
     }
 }

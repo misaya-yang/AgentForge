@@ -1,5 +1,6 @@
 //! Private Runtime transport for Capability Contract V2.
 
+use crate::workload_identity::WorkloadSend;
 use std::net::IpAddr;
 use std::time::Duration;
 
@@ -68,7 +69,7 @@ impl CapabilityWorkerClient {
     ) -> Result<Self, CapabilityWorkerError> {
         let base_url = strict_base_url(base_url)?;
         let internal_token = internal_token.into();
-        if internal_token.trim().is_empty() {
+        if internal_token.trim().is_empty() && !crate::workload_identity::required() {
             return Err(CapabilityWorkerError::MissingInternalToken);
         }
         Ok(Self {
@@ -113,7 +114,7 @@ impl CapabilityWorkerClient {
                 .get(url)
                 .header("x-request-id", "runtime-health")
                 .timeout(Duration::from_secs(2))
-                .send(),
+                .workload_send(),
         )
         .await
         .map_err(|_| CapabilityWorkerError::Timeout)?

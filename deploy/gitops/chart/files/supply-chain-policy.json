@@ -1,0 +1,22 @@
+{
+  "schema_version": "agentforge/supply-chain-policy/v1",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "certificate_identity_regexp": "^https://github\\.com/misaya-yang/AgentForge/\\.github/workflows/docker-publish\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)*$",
+  "predicate_type": "https://github.com/misaya-yang/AgentForge/attestations/trivy-critical/v1",
+  "trivy_version": "0.76.0",
+  "cosign_version": "v3.1.3",
+  "max_database_age_hours": 72,
+  "max_scan_age_hours": 24,
+  "platforms": ["linux/amd64", "linux/arm64"],
+  "services": {
+    "gateway": "ghcr.io/misaya-yang/ai-gateway",
+    "frontend": "ghcr.io/misaya-yang/ai-gateway-web",
+    "knowledge-service": "ghcr.io/misaya-yang/ai-gateway-knowledge-service",
+    "knowledge-worker": "ghcr.io/misaya-yang/ai-gateway-knowledge-service",
+    "migrate": "ghcr.io/misaya-yang/ai-gateway-migrate",
+    "code-interpreter": "ghcr.io/misaya-yang/ai-gateway-code-interpreter",
+    "agent-runtime": "ghcr.io/misaya-yang/ai-gateway-agent-runtime",
+    "agent-capability-worker": "ghcr.io/misaya-yang/ai-gateway-agent-capability-worker",
+    "sdk-agent-worker": "ghcr.io/misaya-yang/ai-gateway-sdk-agent-worker"
+  }
+}

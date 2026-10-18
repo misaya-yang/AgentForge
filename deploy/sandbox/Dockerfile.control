@@ -1,0 +1,7 @@
+# This image is a role-specific derivative of the source-locked control Worker
+# image. Root packages both native controller/attestor binaries there. No runtime
+# installer, provider credential, CA private key or build tool is added here.
+ARG CONTROL_BINARY_IMAGE
+FROM ${CONTROL_BINARY_IMAGE}
+USER 10001:10001
+ENTRYPOINT ["ai-platform-sandbox-pool"]

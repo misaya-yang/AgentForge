@@ -10,7 +10,11 @@ function fixture() {
   const call=async(method:string,path:string,body?:unknown)=>{calls.push({method,path,body});return {data:response};};
   const api={get:(path:string)=>call("GET",path),post:(path:string,body?:unknown)=>call("POST",path,body),delete:(path:string)=>call("DELETE",path)};
   const exports:Record<string,unknown>={};
-  vm.runInNewContext(ts.transpileModule(readFileSync(new URL("./auth.ts",import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports,require:(name:string)=>{assert.equal(name,"../lib/api");return {api};},Error});
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL("./auth.ts",import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports,require:(name:string)=>{
+    if(name==="./generatedTransport")return {request:async(operation:string,input:{body?:unknown})=>(await call(operation.split(" ")[0],operation.split(" ")[1],input.body)).data};
+    if(name==="../lib/installConsoleStepUp")return {installConsoleStepUp() {}};
+    if(name==="../lib/consoleStepUp")return {};
+    assert.equal(name,"../lib/api");return {api};},Error});
   return {auth:exports as typeof Auth,calls,setResponse(value:unknown){response=value;}};
 }
 test("browser login/bootstrap/logout/password use exactly the agreed BFF endpoints",async()=>{

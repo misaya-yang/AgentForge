@@ -13,9 +13,8 @@ pub const USERS: &[&str] = &[
     "cache-health",
 ];
 const HANDSHAKE: &str = "+ping +hello +info +client|info +client|setname +client|setinfo";
-const COORD_COMMANDS:&str="+scan +time +type +get +set +setex +psetex +getdel +del +unlink +exists +expire +pexpire +expireat +pexpireat +ttl +pttl +incr +incrby +decr +decrby +sadd +srem +smembers +scard +sismember +hget +hset +hmget +hmset +hgetall +hdel +hincrby +hexists +zadd +zrem +zremrangebyscore +zremrangebyrank +zcard +zcount +zrange +zrangebyscore +zscore +zpopmin +eval +evalsha +script|load +script|exists +multi +exec +discard";
-const GATEWAY_KEYS: &str =
-    "~auth:* ~gateway:* ~ratelimit:* ~oauth:* ~guest:* ~guest_session:* ~ai-gateway:* ~quota:* ~usage:* ~mq:* ~queue:* ~config:auth ~metrics:* ~events:* ~agent:channel:* ~lg:quota:*";
+const COORD_COMMANDS: &str = "+scan +time +type +get +set +setex +psetex +getdel +del +unlink +exists +expire +pexpire +expireat +pexpireat +ttl +pttl +incr +incrby +decr +decrby +sadd +srem +smembers +scard +sismember +hget +hset +hmget +hmset +hgetall +hdel +hincrby +hexists +zadd +zrem +zremrangebyscore +zremrangebyrank +zcard +zcount +zrange +zrangebyscore +zscore +zpopmin +eval +evalsha +script|load +script|exists +multi +exec +discard";
+const GATEWAY_KEYS: &str = "~auth:* ~{auth}:enterprise:* ~gateway:* ~ratelimit:* ~oauth:* ~guest:* ~guest_session:* ~ai-gateway:* ~quota:* ~usage:* ~mq:* ~queue:* ~config:auth ~metrics:* ~events:* ~agent:channel:* ~lg:quota:*";
 const KNOWLEDGE_KEYS: &str = "~ai-gateway:internal:replay:* ~ai-gateway:internal:idem:*";
 /// Hashes are SHA256 of the separate high-entropy ACL password files. Passwords
 /// and ACL-file values must never be included in diagnostics or return summaries.
@@ -47,9 +46,13 @@ pub fn render(
                 user.trim_end_matches("-cache")
             )
         } else if user == "gateway-coord" {
-            format!("{HANDSHAKE} {COORD_COMMANDS} +publish +subscribe +unsubscribe +xadd +xread +xreadgroup +xgroup|create +xgroup|destroy +xgroup|setid +xgroup|delconsumer +xgroup|createconsumer +xack +xpending +xclaim +xautoclaim +xrange +xrevrange +xlen +xinfo|groups +xtrim +xdel {GATEWAY_KEYS} &gateway:* &ai-gateway:*")
+            format!(
+                "{HANDSHAKE} {COORD_COMMANDS} +publish +subscribe +unsubscribe +xadd +xread +xreadgroup +xgroup|create +xgroup|destroy +xgroup|setid +xgroup|delconsumer +xgroup|createconsumer +xack +xpending +xclaim +xautoclaim +xrange +xrevrange +xlen +xinfo|groups +xtrim +xdel {GATEWAY_KEYS} &gateway:* &ai-gateway:*"
+            )
         } else {
-            format!("{HANDSHAKE} +get +set +setex +del +exists +expire +eval +evalsha +script|load +script|exists {KNOWLEDGE_KEYS}")
+            format!(
+                "{HANDSHAKE} +get +set +setex +del +exists +expire +eval +evalsha +script|load +script|exists {KNOWLEDGE_KEYS}"
+            )
         };
         lines.push(format!(
             "user {user} reset on #{} -@all resetkeys resetchannels {grants}",
@@ -68,4 +71,44 @@ pub(crate) fn gateway_key_allowed(key: &str) -> bool {
             None => key == p,
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enterprise_hash_tag_is_scoped_to_gateway_coordination() {
+        for key in [
+            "{auth}:enterprise:passkey-auth:one-use",
+            "{auth}:enterprise:passkey-step-up:one-use",
+            "auth:token:session:step-up",
+        ] {
+            assert!(gateway_key_allowed(key));
+        }
+        for key in [
+            "{auth}:other:session",
+            "{other}:enterprise:session",
+            "{auth}:enterprise-unrelated:session",
+        ] {
+            assert!(!gateway_key_allowed(key));
+        }
+        let hashes = USERS
+            .iter()
+            .enumerate()
+            .map(|(index, user)| (user.to_string(), format!("{index:064x}")))
+            .collect();
+        let coord = render(Instance::Coord, &hashes).unwrap();
+        for line in coord
+            .lines()
+            .filter(|line| !line.starts_with("user gateway-coord "))
+        {
+            assert!(!line.contains("~{auth}:enterprise:*"));
+        }
+        assert!(
+            !render(Instance::Cache, &hashes)
+                .unwrap()
+                .contains("~{auth}:enterprise:*")
+        );
+    }
 }

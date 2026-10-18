@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { consoleLoginFence } from "@/lib/consoleLoginFence";
+import { useEffect, useRef, useState } from "react";
+import { EnterpriseSignIn } from "@/components/EnterpriseSignIn";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "motion/react";
@@ -7,7 +9,7 @@ import { getAllowedEmailDomain, getSupportEmail } from "@/config/runtime";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
-import { useAuthStore } from "@/store/useAuthStore";
+import { consoleAuthGeneration, useAuthStore } from "@/store/useAuthStore";
 import { login } from "@/api/auth";
 import { PasswordChangeModal } from "@/components/PasswordChangeModal";
 import {
@@ -29,7 +31,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Modal } from "antd";
-import type { AxiosError } from "axios";
+import type { HttpError } from '@/lib/fetchClient';
 
 type ApiValidationIssue = { msg?: unknown; message?: unknown };
 type ApiErrorPayload = { detail?: unknown; message?: unknown; error?: unknown };
@@ -109,14 +111,23 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const returnPath = getSafeReturnPath(location.state);
   const hasFullEmail = email.trim().includes("@");
+  const pendingLogin = useRef(false), mountedLogin = useRef(true);
+  useEffect(() => { mountedLogin.current = true; return () => { mountedLogin.current = false; }; }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setLoading(true);
+    e.preventDefault();
+    const initial = useAuthStore.getState();
+    if (pendingLogin.current || initial.isLoading) return;
+    pendingLogin.current = true;
+    const fence = consoleLoginFence(useAuthStore.getState, consoleAuthGeneration, useAuthStore.subscribe, () => mountedLogin.current);
+    const current = fence.current;
+    setError(""); setLoading(true);
     try {
       const trimmed = email.trim();
       if (!trimmed) { setError(t("login.errors.emailRequired")); setLoading(false); return; }
       const normalized = trimmed.includes("@") ? trimmed.toLowerCase() : `${trimmed.toLowerCase()}@${allowedDomain}`;
       const res = await login({ email: normalized, password });
+      if (!current()) return;
       setAuth(res.csrf_token, res.user, res.force_password_change);
       if (res.force_password_change) {
         setShowPasswordChange(true);
@@ -124,7 +135,8 @@ export function LoginPage() {
         navigate(returnPath || getDefaultDestination(res.user.permissions || []), { replace: true });
       }
     } catch (err: unknown) {
-      const ax = err as AxiosError<ApiErrorPayload>;
+      const ax = err as HttpError<ApiErrorPayload>;
+      if (!fence.ownsFailure(ax.response?.status)) return;
       const status = ax.response?.status;
       const data = ax.response?.data;
       const msg = extractErrorText(data?.detail ?? data);
@@ -132,7 +144,7 @@ export function LoginPage() {
       else if (status === 401) setError(t("login.errors.invalidCredentials"));
       else if (status === 403) setError(t("login.errors.accountDisabled"));
       else setError(msg || t("login.errors.loginFailed"));
-    } finally { setLoading(false); }
+    } finally { pendingLogin.current = false; if (current()) setLoading(false); fence.dispose(); }
   };
 
   const handleForgotPassword = () => {
@@ -473,6 +485,11 @@ export function LoginPage() {
                 </p>
               </div>
             </form>
+            <EnterpriseSignIn onAuthenticated={grant => {
+              setAuth(grant.csrf_token, grant.user, grant.force_password_change);
+              if (grant.force_password_change) setShowPasswordChange(true);
+              else navigate(returnPath || getDefaultDestination(grant.user.permissions), { replace: true });
+            }} />
           </div>
         </motion.div>
       </main>

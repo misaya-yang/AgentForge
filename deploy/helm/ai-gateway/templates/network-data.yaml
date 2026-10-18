@@ -57,3 +57,21 @@ spec:
     - {{ toYaml .Values.network.edgePeer | nindent 6 }}
     ports: [{protocol: TCP, port: 8080}]
 {{- end }}
+{{- if and .Values.dataSecurity.enabled (eq .Values.dataSecurity.mode "session") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-postgres-direct-authority
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+    - {key: app.kubernetes.io/component, operator: In, values: [gateway, knowledge, knowledge-worker, agent-runtime, agent-capability-worker]}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - {{ toYaml .Values.dataSecurity.directPostgres.peer | nindent 6 }}
+    ports: [{protocol: TCP, port: {{ .Values.dataSecurity.directPostgres.port }}}]
+{{- end }}

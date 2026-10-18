@@ -85,10 +85,34 @@ The frontend defaults to nginx 1.30 unprivileged, UID/GID 101, and internal HTTP
 Host ports and the Helm Service port stay unchanged. Compose and Helm configure a
 read-only root filesystem, dropped capabilities, no privilege escalation and memory
 scratch at `/tmp`. nginx PID, request/proxy/FastCGI/uWSGI/SCGI temporary paths and
-`runtime-config.js` live there. Static files stay immutable; the exact config route
-reads `/tmp` with existing cache/security headers. Do not override the runtime-config
+`runtime-config.json` and `frontend-security-headers.conf` live there. Static files stay immutable;
+the exact JSON route reads `/tmp` with no-store/security headers. The browser awaits this
+public JSON before issuing API requests or rendering; failures leave the boot recovery UI
+available rather than silently using a different API authority. Do not override the runtime-config
 output path without aligning nginx's config route. Existing API/WS/SSE/upload and
 embed proxy behavior is preserved.
+
+`FRONTEND_CSP_MODE=report-only` retains the current enforced policy and adds the strict
+candidate for one release. Collect browser `securitypolicyviolation` events during the
+prescribed e2e/rollout observation; only then select `enforce`. The strict candidate permits
+connections to self plus `FRONTEND_CONNECT_ORIGINS`, images to self/data/blob plus
+`FRONTEND_IMAGE_ORIGINS`, and named Trusted HTML policies for DOMPurify and the entity decoder.
+Both lists accept explicit
+whitespace-separated HTTP(S) origins (WS(S) also for connections), without paths or wildcards.
+Set the actual remote API/WebSocket/CDN origins before enforcement. Invalid configuration
+fails startup. HSTS remains owned by the TLS edge. Dynamic published-agent embeds retain
+their Gateway-generated framing policy and do not inherit console-only headers.
+
+The pinned pnpm patches keep CSS injection on `textContent` in both installed
+`@rc-component/util` versions. The markdown HTML parser uses its existing DOM-free
+implementation instead of string `innerHTML`/`DOMParser` sinks. Its entity decoder policy
+accepts exactly one `&name;` token (ASCII letters/digits, bounded to 64 characters); it rejects
+markup before any DOM write and keeps the existing small browser decoder. Document HTML requests
+DOMPurify's `TrustedHTML` output; there is no permissive default Trusted Types policy.
+Run `pnpm exec playwright test --config playwright.security.config.ts` for the production
+build fixture (sanitized preview, math/markdown updates, login bootstrap and rejected raw
+HTML/arbitrary policies/external connections). This fixture is browser security evidence,
+not a real authenticated backend journey or the required release observation period.
 
 To run the built-image embed header smoke, first build/load the canonical `tools`
 target as `ai-platform/tools:rust-local` or supply `NATIVE_FIXTURE_IMAGE`. That smoke

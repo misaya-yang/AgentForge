@@ -36,13 +36,16 @@
     "directory": "sdk/cli"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.0.0"
   },
   "os": [
-    "linux"
+    "linux",
+    "darwin",
+    "win32"
   ],
   "cpu": [
-    "x64"
+    "x64",
+    "arm64"
   ],
   "files": [
     "dist/",
@@ -65,5 +68,12 @@
     "typescript": "^6.0.3",
     "esbuild": "^0.28.1",
     "vitest": "^4.1.9"
+  },
+  "optionalDependencies": {
+    "@agentforge/cli-linux-x64": "1.5.0",
+    "@agentforge/cli-linux-arm64": "1.5.0",
+    "@agentforge/cli-darwin-x64": "1.5.0",
+    "@agentforge/cli-darwin-arm64": "1.5.0",
+    "@agentforge/cli-win32-x64": "1.5.0"
   }
 }

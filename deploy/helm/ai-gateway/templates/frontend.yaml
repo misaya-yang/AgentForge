@@ -55,6 +55,7 @@ spec:
         volumeMounts:
         - {name: tmp, mountPath: /tmp}
         - {name: config, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf, readOnly: true}
+        - {name: config, mountPath: /etc/nginx/nginx-precompressed-assets.conf, subPath: nginx-precompressed-assets.conf, readOnly: true}
       volumes:
       - name: tmp
         emptyDir: {medium: Memory, sizeLimit: 128Mi}

@@ -1,3 +1,5 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
+import type { ApiRequest } from "../../../sdk/typescript/generated";
 import { api } from "../lib/api";
 
 // ============================================================
@@ -29,24 +31,9 @@ export interface UserListResponse {
   page_size: number;
 }
 
-export interface UserCreateRequest {
-  email: string;
-  display_name: string;
-  department?: string;  // 部门 - 由管理员分配
-  roles?: string[];
-}
+export type UserCreateRequest = ApiRequest<"POST /api/v1/users">["body"];
 
-export interface UserUpdateRequest {
-  display_name?: string;
-  department?: string;  // 部门 - 由管理员分配
-  roles?: string[];
-  extra_permissions?: string[];  // 额外权限 - 直接分配，非角色
-  service_access_mode?: "all" | "allowlist";
-  allowed_services?: string[];
-  denied_services?: string[];
-  status?: string;
-  tier?: string;
-}
+export type UserUpdateRequest = ApiRequest<"PUT /api/v1/users/{user_id}">["body"];
 
 export interface RoleResponse {
   role_name: string;
@@ -85,13 +72,8 @@ export interface PermissionListResponse {
 /**
  * List users with pagination
  */
-export async function listUsers(params?: {
-  page?: number;
-  page_size?: number;
-  status?: string;
-  search?: string;
-}): Promise<UserListResponse> {
-  const response = await api.get<UserListResponse>("/api/v1/users", { params });
+export async function listUsers(params?: RequestQuery<"GET /api/v1/users">): Promise<UserListResponse> {
+  const response = await api.get<UserListResponse>("/api/v1/users", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/users">) });
   return response.data;
 }
 
@@ -107,7 +89,7 @@ export async function getUser(userId: string): Promise<UserResponse> {
  * Create a new user
  */
 export async function createUser(data: UserCreateRequest): Promise<UserResponse> {
-  const response = await api.post<UserResponse>("/api/v1/users", data);
+  const response = await api.post<UserResponse>("/api/v1/users", (data satisfies RequestBody<"POST /api/v1/users">));
   return response.data;
 }
 
@@ -118,7 +100,7 @@ export async function updateUser(
   userId: string,
   data: UserUpdateRequest
 ): Promise<UserResponse> {
-  const response = await api.put<UserResponse>(`/api/v1/users/${encodeURIComponent(userId)}`, data);
+  const response = await api.put<UserResponse>(`/api/v1/users/${encodeURIComponent(userId)}`, (data satisfies RequestBody<"PUT /api/v1/users/{user_id}">));
   return response.data;
 }
 
@@ -168,6 +150,12 @@ export async function listRoles(): Promise<RoleListResponse> {
  */
 export async function listPermissions(category?: string): Promise<PermissionListResponse> {
   const params = category ? { category } : undefined;
-  const response = await api.get<PermissionListResponse>("/api/v1/roles/permissions", { params });
+  const response = await api.get<PermissionListResponse>("/api/v1/roles/permissions", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/roles/permissions">) });
   return response.data;
+}
+
+export function requestDepartment(value: string): UserCreateRequest["department"] {
+  if (!value) return undefined;
+  if (value === "admin" || value === "cs" || value === "sales" || value === "tech") return value;
+  throw new Error("Unsupported user department");
 }

@@ -236,10 +236,7 @@ pub(super) async fn create_response(
         roles: user.roles.clone(),
         tier: user.tier.clone(),
     };
-    if !crate::migration_agent::entry::user_can_access_model(
-        &actor,
-        text(&model_record, "access_level"),
-    ) {
+    if !crate::migration_agent::entry::authorize_model(&actor, &model_record) {
         return response_error(
             403,
             "model_access_denied",

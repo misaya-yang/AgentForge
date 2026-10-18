@@ -25,6 +25,7 @@ pub mod inspection_http;
 mod iso_datetime;
 pub mod legacy_images;
 pub mod metadata;
+mod model_plane_worker;
 pub mod ocr;
 pub mod parser;
 pub mod parsing_v2;
@@ -41,11 +42,11 @@ pub mod store;
 pub mod streaming;
 pub mod structured;
 pub mod summary;
+pub mod table_teds;
+pub mod vector_jobs;
 pub mod version_reads;
 pub mod versions;
 pub mod vision;
-pub mod vector_jobs;
-mod model_plane_worker;
 pub mod vlm;
 pub mod worker;
 
@@ -57,7 +58,7 @@ use sha2::{Digest, Sha256};
 use std::fmt;
 pub use store::KnowledgeWriteStore;
 
-pub use ai_platform_service_primitives::pdf_ports::{IngestError,Result};
+pub use ai_platform_service_primitives::pdf_ports::{IngestError, Result};
 
 pub use crate::migration_knowledge_query::types::UserContext as Actor;
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -125,10 +126,18 @@ pub fn dataset_ingestion_identity(dataset: &Value) -> String {
         }
     }
     // Canonicalize recursively: this workspace enables serde_json preserve_order.
-    let payload = json!({"tenant_id":string(dataset,"tenant_id"),"collection_name":string(dataset,"collection_name"),
+    let mut payload = json!({"tenant_id":string(dataset,"tenant_id"),"collection_name":string(dataset,"collection_name"),
         "embedding_provider":string(dataset,"embedding_provider"),"embedding_model":string(dataset,"embedding_model"),
         "embedding_dimension":integer(dataset,"embedding_dimension"),"embedding_config":object(&dataset["embedding_config"]),
         "ingestion_index_config":index});
+    if !string(dataset, "embedding_model_version").is_empty() {
+        payload["embedding_model_version"] = dataset["embedding_model_version"].clone();
+    }
+    if dataset["index_config"]["retrieval"]["v2"]["contextual_headers"].as_bool() == Some(true) {
+        // Header changes require a reindexed generation. Preserve legacy identities
+        // byte-for-byte for datasets which do not select the enrichment contract.
+        payload["contextual_embedding_contract"] = json!("title-section-context/v1");
+    }
     sha256(canonical_json(&payload).as_bytes())
 }
 pub fn require_index_writable(dataset: &Value) -> Result<()> {
@@ -139,6 +148,7 @@ pub fn require_index_writable(dataset: &Value) -> Result<()> {
     }
     let index = object(&dataset["index_config"]);
     chunking::ChunkingConfig::from_value(&index["chunking"])?;
+    crate::migration_knowledge_query::retrieval_v2::Profile::from_index_config(&index)?;
     crate::migration_knowledge_query::lexical_v2::LexicalProfile::from_dataset(
         &serde_json::from_value(dataset.clone())?,
     )?;
@@ -247,3 +257,7 @@ pub const SOURCE_METADATA_KEYS: &[&str] = &[
 pub fn source_metadata_key(key: &str) -> bool {
     SOURCE_METADATA_KEYS.contains(&key)
 }
+
+pub mod parser_sandbox;
+
+pub mod pipeline;

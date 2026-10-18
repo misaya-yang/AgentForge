@@ -67,22 +67,7 @@ impl TenantPackagePolicy {
         let root = Path::new(CURATED_PACKAGE_ROOT);
         let catalog = read_small(&root.join("catalog.json"), 128 * 1024)?;
         let selected = Self::from_bytes(&policy, &catalog, root)?;
-        let status = std::process::Command::new(python)
-            .args([
-                "-I",
-                "-S",
-                "-c",
-                "import sys; raise SystemExit(sys.version_info[:2] != (3, 14))",
-            ])
-            .env_clear()
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map_err(|_| "python_314_unavailable")?;
-        if !status.success() {
-            return Err("python_314_unavailable");
-        }
+        verify_python_runtime(python)?;
         Ok(selected)
     }
     fn from_bytes(policy: &[u8], catalog: &[u8], root: &Path) -> Result<Self, &'static str> {
@@ -264,5 +249,43 @@ mod tests {
         }
         assert!(canonical_name("python-dateutil"));
         assert!(validate_package_root(Path::new("/etc")).is_err());
+    }
+}
+
+/// The stdlib-only sandbox has the same pinned interpreter contract as tenants
+/// that select curated wheels. A missing policy must not admit Python 3.11.
+pub fn verify_python_runtime(python: &Path) -> Result<(), &'static str> {
+    let mut child = std::process::Command::new(python)
+        .args([
+            "-I",
+            "-S",
+            "-c",
+            "import sys; raise SystemExit(sys.version_info[:2] != (3, 14))",
+        ])
+        .env_clear()
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|_| "python_314_unavailable")?;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return if status.success() {
+                    Ok(())
+                } else {
+                    Err("python_314_unavailable")
+                };
+            }
+            Ok(None) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(10))
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("python_314_unavailable");
+            }
+        }
     }
 }

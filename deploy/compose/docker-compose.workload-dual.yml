@@ -1,0 +1,58 @@
+# Initial dual window: append to workload-security.yml.
+# At retirement REMOVE this file from the selected Compose file list and recreate owned services.
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/app-secrets/internal-token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/internal-token
+      target: /run/app-secrets/internal-token
+      read_only: true
+      bind:
+        create_host_path: false
+  agent-runtime:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/app-secrets/internal-token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/agent-runtime/internal-token
+      target: /run/app-secrets/internal-token
+      read_only: true
+      bind:
+        create_host_path: false
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/app-secrets/internal-token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/agent-capability-worker/internal-token
+      target: /run/app-secrets/internal-token
+      read_only: true
+      bind:
+        create_host_path: false
+  knowledge-service:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/app-secrets/internal-token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-service/internal-token
+      target: /run/app-secrets/internal-token
+      read_only: true
+      bind:
+        create_host_path: false
+  knowledge-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/app-secrets/internal-token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-worker/internal-token
+      target: /run/app-secrets/internal-token
+      read_only: true
+      bind:
+        create_host_path: false

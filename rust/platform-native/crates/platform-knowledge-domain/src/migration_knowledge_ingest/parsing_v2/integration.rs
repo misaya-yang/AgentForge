@@ -92,6 +92,7 @@ impl Config {
     }
 }
 /// Cannot be constructed by a caller from unverified request metadata.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Prepared {
     scope: ProcessingScope,
     pages: Vec<PageV2>,
@@ -118,7 +119,7 @@ async fn authority(
     expected_content: &str,
 ) -> Result<(String, String)> {
     let row:Value=sqlx::query_scalar("SELECT jsonb_build_object('tenant',ds.tenant_id,'actor',COALESCE(e.triggered_by,d.created_by)) FROM knowledge.documents d JOIN knowledge.datasets ds ON ds.dataset_id=d.dataset_id JOIN knowledge.document_pipeline_executions e ON e.document_id=d.document_id AND e.dataset_id=d.dataset_id WHERE d.document_id=$1 AND d.dataset_id=$2 AND e.execution_id=$3 AND e.status='running' AND d.metadata->>'_document_pipeline_execution_id'=e.execution_id AND d.content=$4 AND ds.is_deleted=FALSE")
-        .bind(document).bind(dataset).bind(execution).bind(expected_content).fetch_optional(conn).await?.ok_or(IngestError::GenerationChanged)?;
+        .bind(document).bind(dataset).bind(execution).bind(expected_content).fetch_optional(crate::database::connection(&mut *conn)).await?.ok_or(IngestError::GenerationChanged)?;
     let tenant = row["tenant"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -217,6 +218,14 @@ pub async fn prepare(
         parser_profile: config.fingerprint()?,
     };
     let layout = config.layout_profile()?;
+    if layout.is_some()
+        && !crate::migration_knowledge_query::serving_profile::require(dataset)?
+            .is_some_and(|p| p.layout)
+    {
+        return Err(invalid(
+            "layout parser has not passed the server promotion gate",
+        ));
+    }
     if layout.as_ref().is_some_and(|profile| {
         profile.mode == LayoutMode::Explicit && !profile.allow_known_failure_native_fallback
     }) && native.pages.iter().any(|page| {
@@ -246,11 +255,11 @@ pub async fn prepare(
     let pending_prefix = prefix(&tenant, document, execution);
     let candidate = json!({"execution_id":execution,"source_sha256":native.content_hash,"profile":scope.parser_profile,"object_prefix":pending_prefix});
     let changed=sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{_docir_v2_candidate}',$4::jsonb,TRUE) WHERE document_id=$1 AND dataset_id=$2 AND metadata->>'_document_pipeline_execution_id'=$3 AND content=$5")
-        .bind(document).bind(&dataset.dataset_id).bind(execution).bind(&candidate).bind(expected).execute(lease.connection()).await?.rows_affected();
+        .bind(document).bind(&dataset.dataset_id).bind(execution).bind(&candidate).bind(expected).execute(crate::database::connection(lease.connection())).await?.rows_affected();
     if changed != 1 {
         return Err(IngestError::GenerationChanged);
     }
-    let recorded=sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=COALESCE(manifest,'{}'::jsonb)||jsonb_build_object('docir_v2_candidate',$2::jsonb) WHERE execution_id=$1 AND dataset_id=$3 AND document_id=$4 AND status='running'").bind(execution).bind(&candidate).bind(&dataset.dataset_id).bind(document).execute(lease.connection()).await?.rows_affected();
+    let recorded=sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=COALESCE(manifest,'{}'::jsonb)||jsonb_build_object('docir_v2_candidate',$2::jsonb) WHERE execution_id=$1 AND dataset_id=$3 AND document_id=$4 AND status='running'").bind(execution).bind(&candidate).bind(&dataset.dataset_id).bind(document).execute(crate::database::connection(lease.connection())).await?.rows_affected();
     if recorded != 1 {
         return Err(IngestError::GenerationChanged);
     }
@@ -295,6 +304,9 @@ impl Prepared {
                         }
                     }
                     Structure::Formula { latex, .. } => format!("$$\n{latex}\n$$"),
+                    Structure::Figure { caption, .. } if block.text.trim().is_empty() => {
+                        caption.clone()
+                    }
                     _ => block.text.clone(),
                 };
                 if text.trim().is_empty() {
@@ -333,6 +345,15 @@ impl Prepared {
                     row.metadata["docir_v2"] = reference.clone();
                     row.metadata["structure"] = serde_json::to_value(&block.structure)?;
                     row.metadata["section_path"] = json!(sections);
+                    row.metadata["document_title"] = json!(title);
+                    if let Structure::Figure { caption, crop } = &block.structure {
+                        row.metadata["caption"] = json!(caption);
+                        row.metadata["region_crop"] = json!(crop);
+                        row.metadata["vlm_description"] = json!(block.text);
+                    }
+                    if let Some(caption) = block.provenance.get("caption").and_then(Value::as_str) {
+                        row.metadata["caption"] = json!(caption);
+                    }
                     row.source_reference = reference;
                     row.page_start = Some(page.page_number as i32);
                     row.page_end = Some(page.page_number as i32);
@@ -390,11 +411,11 @@ impl Prepared {
             return Err(IngestError::GenerationChanged);
         }
         let final_revision = final_revision(negative_revision)?;
-        let actual:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND tenant_id=$2 AND is_deleted=FALSE FOR UPDATE").bind(&self.scope.dataset_id).bind(&tenant).fetch_one(&mut *conn).await?;
+        let actual:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND tenant_id=$2 AND is_deleted=FALSE FOR UPDATE").bind(&self.scope.dataset_id).bind(&tenant).fetch_one(crate::database::connection(&mut *conn)).await?;
         if actual != negative_revision {
             return Err(IngestError::GenerationChanged);
         }
-        let version:String=sqlx::query_scalar("SELECT v.version_id FROM knowledge.document_versions v JOIN knowledge.documents d ON d.document_id=v.document_id AND d.current_version=v.version_number WHERE d.document_id=$1 AND d.dataset_id=$2 AND v.change_type NOT IN ('pending_restore','pending_before_restore') FOR UPDATE OF v").bind(&self.scope.document_id).bind(&self.scope.dataset_id).fetch_optional(&mut *conn).await?.ok_or(IngestError::GenerationChanged)?;
+        let version:String=sqlx::query_scalar("SELECT v.version_id FROM knowledge.document_versions v JOIN knowledge.documents d ON d.document_id=v.document_id AND d.current_version=v.version_number WHERE d.document_id=$1 AND d.dataset_id=$2 AND v.change_type NOT IN ('pending_restore','pending_before_restore') FOR UPDATE OF v").bind(&self.scope.document_id).bind(&self.scope.dataset_id).fetch_optional(crate::database::connection(&mut *conn)).await?.ok_or(IngestError::GenerationChanged)?;
         let document = DocV2 {
             schema: "docir/v2".into(),
             filename: self.native.filename.clone(),
@@ -440,11 +461,11 @@ impl Prepared {
             }
         }
         let manifest = json!({"schema":"docir/v2","object_key":key,"object_sha256":hash,"source":document.source});
-        let changed=sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=COALESCE(manifest,'{}'::jsonb)||jsonb_build_object('docir_v2',$2::jsonb) WHERE execution_id=$1 AND status='running'").bind(execution).bind(&manifest).execute(&mut *conn).await?.rows_affected();
+        let changed=sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=COALESCE(manifest,'{}'::jsonb)||jsonb_build_object('docir_v2',$2::jsonb) WHERE execution_id=$1 AND status='running'").bind(execution).bind(&manifest).execute(crate::database::connection(&mut *conn)).await?.rows_affected();
         if changed != 1 {
             return Err(IngestError::GenerationChanged);
         }
-        sqlx::query("UPDATE knowledge.document_versions SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object('docir_v2',$2::jsonb) WHERE version_id=$1 AND document_id=$3").bind(&document.source.document_version).bind(&manifest).bind(&self.scope.document_id).execute(&mut *conn).await?;
+        sqlx::query("UPDATE knowledge.document_versions SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object('docir_v2',$2::jsonb) WHERE version_id=$1 AND document_id=$3").bind(&document.source.document_version).bind(&manifest).bind(&self.scope.document_id).execute(crate::database::connection(&mut *conn)).await?;
         Ok(Published {
             patch: json!({"docir_v2":manifest,"_docir_v2_candidate":null}),
             document,
@@ -595,7 +616,7 @@ pub async fn resolve_reference(
         .ok_or(IngestError::Permission)?;
     store.require_generation(user, dataset, expected).await?;
     let manifest:Value=sqlx::query_scalar("SELECT e.manifest->'docir_v2' FROM knowledge.document_pipeline_executions e JOIN knowledge.documents d ON d.document_id=e.document_id AND d.dataset_id=e.dataset_id JOIN knowledge.document_versions v ON v.document_id=d.document_id AND v.version_id=e.manifest->'docir_v2'->'source'->>'document_version' WHERE d.dataset_id=$1 AND d.document_id=$2 AND e.execution_id=$3 AND v.change_type NOT IN ('pending_restore','pending_before_restore')")
-        .bind(dataset).bind(document).bind(execution).fetch_optional(&store.pool).await?.ok_or(IngestError::NotFound)?;
+        .bind(dataset).bind(document).bind(execution).fetch_optional(crate::database::executor(&store.pool)).await?.ok_or(IngestError::NotFound)?;
     let key = manifest["object_key"]
         .as_str()
         .filter(|key| key.starts_with(&prefix(&user.tenant_id, document, execution)))

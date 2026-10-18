@@ -79,7 +79,7 @@ pub(super) async fn create_execution(
     } else {
         requested_descriptor
     };
-    if !state.admits_plugin_descriptor(&descriptor) {
+    if !state.admits_plugin_descriptor(&scope.tenant_id, &descriptor) {
         return Err(store_error(StoreError::RuntimeBindingUnauthorized));
     }
     let declared_type = descriptor_type(&descriptor)?;
@@ -201,6 +201,7 @@ pub(super) async fn create_execution(
         &runtime_binding, &scope, &request.lease.run_id, &descriptor,
     );
     let transport_budget=crate::read_capabilities::transport::ingress(&headers,request.lease.expires_at_epoch_ms,descriptor.timeout_ms).map_err(|_|error(StatusCode::REQUEST_TIMEOUT,"transport_budget_expired","private request budget is invalid or expired"))?;
+    resource_binding[crate::broker_proof::BINDING_KEY] = serde_json::json!({"lease":request.lease,"schema_hash":descriptor.schema_hash,"execution_id":execution_id});
     resource_binding[crate::read_capabilities::transport::EXPIRY_KEY]=serde_json::json!(request.lease.expires_at_epoch_ms);
     if let Some(active) = &state.plugin_activation
         && active.managed.contains(&descriptor.id)

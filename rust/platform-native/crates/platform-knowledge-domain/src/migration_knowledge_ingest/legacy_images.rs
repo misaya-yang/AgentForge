@@ -22,7 +22,7 @@ async fn store_image_batch(conn: &mut PgConnection, rows: &[Chunk]) -> Result<()
             .bind(&row.image_filename)
             .bind(&row.image_media_type)
             .bind(row.image_file_size)
-            .fetch_optional(&mut *conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?;
         if id.is_none() {
             return Err(IngestError::GenerationChanged);
@@ -53,6 +53,7 @@ impl IngestionService {
             .await?;
         let result: Result<()> = async {
             let mut tx = lease.connection().begin().await?;
+            crate::database::bind_current(&mut tx).await?;
             store_image_batch(&mut tx, rows).await?;
             tx.commit().await?;
             Ok(())
@@ -274,6 +275,6 @@ impl LegacyPdfImage {
     }
 }
 async fn save_legacy_image(conn: &mut PgConnection, row: &Chunk) -> Result<()> {
-    sqlx::query("INSERT INTO knowledge.segments(segment_id,dataset_id,document_id,position,text,token_count,vector_id,metadata,content_type,image_url,image_attachment_id,image_filename,image_media_type,image_file_size,enabled,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'image',$9,$10,$11,$12,$13,TRUE,'completed') ON CONFLICT(segment_id) DO UPDATE SET dataset_id=EXCLUDED.dataset_id,document_id=EXCLUDED.document_id,vector_id=EXCLUDED.vector_id,content_type=EXCLUDED.content_type,image_url=EXCLUDED.image_url,image_attachment_id=EXCLUDED.image_attachment_id,image_filename=EXCLUDED.image_filename,image_media_type=EXCLUDED.image_media_type,image_file_size=EXCLUDED.image_file_size,updated_at=NOW()").bind(&row.segment_id).bind(&row.dataset_id).bind(&row.document_id).bind(row.position).bind(&row.text).bind(row.token_count).bind(&row.vector_id).bind(&row.metadata).bind(&row.image_url).bind(&row.image_attachment_id).bind(&row.image_filename).bind(&row.image_media_type).bind(row.image_file_size).execute(conn).await?;
+    sqlx::query("INSERT INTO knowledge.segments(segment_id,dataset_id,document_id,position,text,token_count,vector_id,metadata,content_type,image_url,image_attachment_id,image_filename,image_media_type,image_file_size,enabled,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'image',$9,$10,$11,$12,$13,TRUE,'completed') ON CONFLICT(segment_id) DO UPDATE SET dataset_id=EXCLUDED.dataset_id,document_id=EXCLUDED.document_id,vector_id=EXCLUDED.vector_id,content_type=EXCLUDED.content_type,image_url=EXCLUDED.image_url,image_attachment_id=EXCLUDED.image_attachment_id,image_filename=EXCLUDED.image_filename,image_media_type=EXCLUDED.image_media_type,image_file_size=EXCLUDED.image_file_size,updated_at=NOW()").bind(&row.segment_id).bind(&row.dataset_id).bind(&row.document_id).bind(row.position).bind(&row.text).bind(row.token_count).bind(&row.vector_id).bind(&row.metadata).bind(&row.image_url).bind(&row.image_attachment_id).bind(&row.image_filename).bind(&row.image_media_type).bind(row.image_file_size).execute(crate::database::connection(&mut *conn)).await?;
     Ok(())
 }

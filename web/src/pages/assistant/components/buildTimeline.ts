@@ -243,13 +243,13 @@ function buildToolTitle(t: TFn, tc: ToolCall, icon: TimelineIcon): string {
       const host = url ? domainFromUrl(url) ?? url : tc.name;
       return t("playground.activity.step.fetch", {
         host,
-        defaultValue: "Fetching {{host}}",
+        defaultValue: "Fetching {host}",
       });
     }
     if (query) {
       return t("playground.activity.step.searchWeb", {
         query: truncate(query, 80),
-        defaultValue: 'Searching the web for "{{query}}"',
+        defaultValue: "Searching the web for \"{query}\"",
       });
     }
     return t("playground.activity.step.searchWebGeneric", {
@@ -258,17 +258,17 @@ function buildToolTitle(t: TFn, tc: ToolCall, icon: TimelineIcon): string {
   }
 
   if (icon === "file_read") {
-    if (path) return t("playground.activity.step.readFile", { path, defaultValue: "Reading {{path}}" });
+    if (path) return t("playground.activity.step.readFile", { path, defaultValue: "Reading {path}" });
     if (query)
       return t("playground.activity.step.grep", {
         query: truncate(query, 80),
-        defaultValue: 'Searching files for "{{query}}"',
+        defaultValue: "Searching files for \"{query}\"",
       });
     return t("playground.activity.step.readFileGeneric", { defaultValue: "Reading files" });
   }
 
   if (icon === "file_write") {
-    if (path) return t("playground.activity.step.writeFile", { path, defaultValue: "Writing {{path}}" });
+    if (path) return t("playground.activity.step.writeFile", { path, defaultValue: "Writing {path}" });
     return t("playground.activity.step.writeFileGeneric", { defaultValue: "Writing a file" });
   }
 
@@ -280,7 +280,7 @@ function buildToolTitle(t: TFn, tc: ToolCall, icon: TimelineIcon): string {
     if (prompt)
       return t("playground.activity.step.generateImage", {
         prompt: truncate(prompt, 80),
-        defaultValue: "Generating image: {{prompt}}",
+        defaultValue: "Generating image: {prompt}",
       });
     return t("playground.activity.step.generateImageGeneric", {
       defaultValue: "Generating image",
@@ -301,7 +301,7 @@ function buildToolTitle(t: TFn, tc: ToolCall, icon: TimelineIcon): string {
   }
   return t("playground.activity.step.toolGeneric", {
     name: displayName,
-    defaultValue: "Using {{name}}",
+    defaultValue: "Using {name}",
   });
 }
 
@@ -360,7 +360,7 @@ function buildProcessToolBody(t: TFn, tool?: ProcessTool): string | undefined {
   if (tool.queueState) {
     return t("assistant.activity.queueState", {
       state: tool.queueState,
-      defaultValue: "Queue: {{state}}",
+      defaultValue: "Queue: {state}",
     });
   }
   return undefined;
@@ -383,17 +383,17 @@ function buildContextStateBody(t: TFn, summary: ProcessSummary): string {
       ? t("assistant.activity.contextUsedWindow", {
           used,
           window,
-          defaultValue: "Context used: {{used}} / {{window}}",
+          defaultValue: "Context used: {used} / {window}",
         })
       : t("assistant.activity.contextUsed", {
           used,
-          defaultValue: "Context used: {{used}}",
+          defaultValue: "Context used: {used}",
         });
     lines.push(
       typeof dropped === "number"
         ? `${base} · ${t("assistant.activity.historyDropped", {
             count: dropped,
-            defaultValue: "dropped {{count}} history messages",
+            defaultValue: "dropped {count} history messages",
           })}`
         : base,
     );
@@ -404,7 +404,7 @@ function buildContextStateBody(t: TFn, summary: ProcessSummary): string {
       typeof dropped === "number"
         ? t("assistant.activity.contextCompactedDropped", {
             count: dropped,
-            defaultValue: "Context compacted · dropped {{count}} history messages",
+            defaultValue: "Context compacted · dropped {count} history messages",
           })
         : t("assistant.activity.contextCompacted", {
             defaultValue: "Context compacted",
@@ -599,7 +599,7 @@ export function buildTimeline(
       body: t("assistant.activity.retrievedContextBody", {
         chunks: totalChunks,
         datasets: message.contexts.length,
-        defaultValue: "{{chunks}} sources from {{datasets}} datasets",
+        defaultValue: "{chunks} sources from {datasets} datasets",
       }),
       status: "completed",
     });
@@ -613,7 +613,7 @@ export function buildTimeline(
         icon: artifact.type === "image" ? "image" : "document",
         title: t("assistant.activity.generatedArtifact", {
           title: artifact.title || artifact.filename || artifact.id,
-          defaultValue: "Generated {{title}}",
+          defaultValue: "Generated {title}",
         }),
         body: [artifact.format?.toUpperCase(), artifact.filename].filter(Boolean).join(" · "),
         status: "completed",
@@ -632,7 +632,7 @@ export function buildTimeline(
         title = item.query
           ? t("playground.activity.step.searchWeb", {
               query: truncate(item.query, 80),
-              defaultValue: 'Searching the web for "{{query}}"',
+              defaultValue: "Searching the web for \"{query}\"",
             })
           : t("playground.activity.step.searchWebGeneric", {
               defaultValue: "Searching the web",
@@ -642,7 +642,7 @@ export function buildTimeline(
         title = ds
           ? t("playground.activity.step.searchKb", {
               dataset: ds,
-              defaultValue: "Searching {{dataset}}",
+              defaultValue: "Searching {dataset}",
             })
           : t("playground.activity.step.searchKbGeneric", {
               defaultValue: "Searching knowledge base",
@@ -656,7 +656,7 @@ export function buildTimeline(
         item.resultCount != null
           ? t("playground.activity.foundResults", {
               count: item.resultCount,
-              defaultValue: "{{count}} results",
+              defaultValue: "{count} results",
             })
           : "";
       if (typeof item.durationMs === "number") totalToolMs += item.durationMs;

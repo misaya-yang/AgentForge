@@ -81,7 +81,8 @@ impl Sources {
             )
         };
         let mut accepted = None;
-        for attempt in 0..self.max_retries {
+        for attempt in 0..self.max_retries.max(1) {
+            self.throttle(&credentials.domain).await?;
             let response = self
                 .client
                 .get(url.clone())
@@ -97,7 +98,7 @@ impl Sources {
                         .and_then(|v| v.to_str().ok())
                         .and_then(|v| v.parse::<u64>().ok())
                         .unwrap_or(5);
-                    tokio::time::sleep(Duration::from_secs(delay)).await;
+                    tokio::time::sleep(Duration::from_secs(delay.min(30))).await;
                 }
                 Ok(response)
                     if response.status().is_server_error() && attempt + 1 < self.max_retries =>

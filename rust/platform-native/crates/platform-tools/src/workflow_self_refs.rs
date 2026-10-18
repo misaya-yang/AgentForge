@@ -1,4 +1,4 @@
-//! Strict self-repository references and validated compatibility copies for actionlint.
+//! Strict self-repository references and validated input copies for actionlint.
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -26,8 +26,8 @@ fn no_symlinks(root: &Path, target: &Path) -> Result<()> {
 
 pub fn validate_ref(root: &Path, value: &str, workflow: bool) -> Result<String> {
     let relative = value
-        .strip_prefix("$/")
-        .ok_or("self-reference requires $/")?;
+        .strip_prefix("./")
+        .ok_or("self-reference requires standard ./ syntax")?;
     let valid = if workflow {
         relative
             .strip_prefix(".github/workflows/")
@@ -63,10 +63,10 @@ pub fn validate_workflow(root: &Path, text: &str) -> Result<String> {
     let mut result = String::new();
     for line in text.split_inclusive('\n') {
         let content = line.trim_end_matches(['\r', '\n']);
-        if content.contains("uses:") && content.contains("./.github/") {
-            return Err("local uses must use immutable running-commit $/ syntax".into());
-        }
         if content.contains("uses:") && content.contains("$/") {
+            return Err("unsupported $/ syntax; GitHub local uses require ./".into());
+        }
+        if content.contains("uses:") && content.contains("./.github/") {
             let (prefix, value, workflow) = if let Some(v) = content.strip_prefix("    uses: ") {
                 ("    uses: ", v, true)
             } else if let Some(v) = content.strip_prefix("      - uses: ") {
@@ -181,11 +181,11 @@ mod tests {
     fn valid_action_and_workflow() {
         let f = Fixture::new();
         assert_eq!(
-            validate_ref(&f.0, "$/.github/actions/setup-native", false).unwrap(),
+            validate_ref(&f.0, "./.github/actions/setup-native", false).unwrap(),
             "./.github/actions/setup-native"
         );
         assert_eq!(
-            validate_ref(&f.0, "$/.github/workflows/verify.yml", true).unwrap(),
+            validate_ref(&f.0, "./.github/workflows/verify.yml", true).unwrap(),
             "./.github/workflows/verify.yml"
         );
     }
@@ -193,12 +193,12 @@ mod tests {
     fn bad_refs() {
         let f = Fixture::new();
         for value in [
-            "$/.github/actions/setup-native@main",
-            "$/.github/actions/../setup-native",
-            "$/.github/actions/missing",
-            "$/.github/actions/setup-native\nrun: evil",
-            "$/other/setup-native",
-            "./.github/actions/setup-native",
+            "./.github/actions/setup-native@main",
+            "./.github/actions/../setup-native",
+            "./.github/actions/missing",
+            "./.github/actions/setup-native\nrun: evil",
+            "./other/setup-native",
+            "$/.github/actions/setup-native",
         ] {
             assert!(validate_ref(&f.0, value, false).is_err(), "{value}");
         }
@@ -210,27 +210,27 @@ mod tests {
         let metadata = f.0.join(".github/actions/setup-native/action.yml");
         fs::remove_file(&metadata).unwrap();
         std::os::unix::fs::symlink(f.0.join(".github/workflows/verify.yml"), metadata).unwrap();
-        assert!(validate_ref(&f.0, "$/.github/actions/setup-native", false).is_err());
+        assert!(validate_ref(&f.0, "./.github/actions/setup-native", false).is_err());
         std::os::unix::fs::symlink(
             f.0.join(".github/actions/setup-native"),
             f.0.join(".github/actions/linked"),
         )
         .unwrap();
-        assert!(validate_ref(&f.0, "$/.github/actions/linked", false).is_err());
+        assert!(validate_ref(&f.0, "./.github/actions/linked", false).is_err());
     }
     #[test]
     fn kind_and_layout() {
         let f = Fixture::new();
-        assert!(validate_ref(&f.0, "$/.github/workflows/verify.yml", false).is_err());
+        assert!(validate_ref(&f.0, "./.github/workflows/verify.yml", false).is_err());
         for text in [
-            "      - uses: \"$/.github/actions/setup-native\"",
-            "      - uses: ./.github/actions/setup-native",
-            "    - uses: $/.github/actions/setup-native",
+            "      - uses: \"./.github/actions/setup-native\"",
+            "      - uses: $/.github/actions/setup-native",
+            "    - uses: ./.github/actions/setup-native",
         ] {
             assert!(validate_workflow(&f.0, text).is_err());
         }
         assert_eq!(
-            validate_workflow(&f.0, "      - uses: $/.github/actions/setup-native\n").unwrap(),
+            validate_workflow(&f.0, "      - uses: ./.github/actions/setup-native\n").unwrap(),
             "      - uses: ./.github/actions/setup-native\n"
         );
     }
@@ -242,14 +242,14 @@ mod tests {
         assert!(check(&f.0, Some(&internal)).is_err());
         fs::write(
             f.0.join(".github/workflows/verify.yml"),
-            "      - uses: $/.github/actions/missing\n",
+            "      - uses: ./.github/actions/missing\n",
         )
         .unwrap();
         assert!(check(&f.0, Some(&output)).is_err());
         assert!(!output.exists());
         fs::write(
             f.0.join(".github/workflows/verify.yml"),
-            "      - uses: $/.github/actions/setup-native\n",
+            "      - uses: ./.github/actions/setup-native\n",
         )
         .unwrap();
         assert_eq!(check(&f.0, Some(&output)).unwrap(), 1);
@@ -258,9 +258,11 @@ mod tests {
                 .unwrap()
                 .contains("uses: ./")
         );
-        assert!(fs::read_to_string(f.0.join(".github/workflows/verify.yml"))
-            .unwrap()
-            .contains("uses: $/"));
+        assert!(
+            fs::read_to_string(f.0.join(".github/workflows/verify.yml"))
+                .unwrap()
+                .contains("uses: ./")
+        );
         assert!(check(&f.0, Some(&output)).is_err());
         fs::remove_dir_all(output).unwrap();
     }

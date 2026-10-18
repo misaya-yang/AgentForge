@@ -1,0 +1,53 @@
+{{- $edges := list (list "gateway" "knowledge" 8092 8452) (list "gateway" "agent-runtime" 8094 8454) (list "gateway" "agent-capability-worker" 8095 8455) (list "knowledge" "gateway" 8080 8443) (list "knowledge-worker" "gateway" 8080 8443) (list "agent-runtime" "gateway" 8080 8443) (list "agent-runtime" "agent-capability-worker" 8095 8455) (list "agent-capability-worker" "gateway" 8080 8443) (list "agent-capability-worker" "knowledge" 8092 8452) }}
+{{- if and .Values.sdkWorker.enabled (ne .Values.workloadIdentity.mode "disabled") }}
+{{- $edges = concat $edges (list (list "gateway" "sdk" 8096 8456) (list "sdk" "gateway" 8080 8443)) }}
+{{- end }}
+{{- range $edge := $edges }}
+{{- $client := index $edge 0 }}{{- $server := index $edge 1 }}
+{{- $port := ternary (index $edge 2) (index $edge 3) (eq $.Values.workloadIdentity.mode "disabled") }}
+{{- range $direction := list "Ingress" "Egress" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-{{ $client }}-{{ $server }}-{{ $direction | lower }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ ternary $server $client (eq $direction "Ingress") }}
+  policyTypes: [{{ $direction }}]
+  {{ $direction | lower }}:
+  - {{ ternary "from" "to" (eq $direction "Ingress") }}:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: {{ $.Release.Name }}
+          app.kubernetes.io/component: {{ ternary $client $server (eq $direction "Ingress") }}
+    ports: [{protocol: TCP, port: {{ $port }}}]
+{{- end }}
+{{- end }}
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+{{/* Knowledge readiness polls Gateway's separate public health listener. */}}
+{{- range $client := list "knowledge" "knowledge-worker" }}
+{{- range $direction := list "Ingress" "Egress" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" $ }}-{{ $client }}-gateway-health-{{ $direction | lower }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ ternary "gateway" $client (eq $direction "Ingress") }}
+  policyTypes: [{{ $direction }}]
+  {{ $direction | lower }}:
+  - {{ ternary "from" "to" (eq $direction "Ingress") }}:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: {{ $.Release.Name }}
+          app.kubernetes.io/component: {{ ternary $client "gateway" (eq $direction "Ingress") }}
+    ports: [{protocol: TCP, port: 8080}]
+{{- end }}
+{{- end }}
+{{- end }}

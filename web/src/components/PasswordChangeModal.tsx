@@ -129,8 +129,8 @@ function PasswordChangeForm({
       onComplete();
     } catch (err: unknown) {
       if (!ownsAttempt()) return;
-      const axiosError = err as { response?: { status?: number; data?: { detail?: string } } };
-      const status = axiosError?.response?.status;
+      const httpError = err as { response?: { status?: number; data?: { detail?: string } } };
+      const status = httpError?.response?.status;
       if (typeof status !== "number" || status < 400 || status >= 500 || status === 408) {
         // A lost acknowledgement is not evidence the password stayed unchanged.
         blocked.current = true;
@@ -140,7 +140,7 @@ function PasswordChangeForm({
         setConfirmPassword("");
         setError(t("auth.passwordChangeUnknown"));
       } else {
-        setError(axiosError.response?.data?.detail || "Failed to change password");
+        setError(httpError.response?.data?.detail || "Failed to change password");
       }
     } finally {
       pending.current = false;

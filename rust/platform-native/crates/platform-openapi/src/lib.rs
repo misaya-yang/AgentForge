@@ -21,3 +21,5 @@ pub mod breaking;
 pub mod release;
 
 pub mod validation;
+
+pub mod codegen;

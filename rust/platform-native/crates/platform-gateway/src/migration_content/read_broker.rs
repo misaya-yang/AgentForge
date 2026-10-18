@@ -202,6 +202,7 @@ pub fn router(broker: Arc<ContentReadBroker>) -> Router {
             "/internal/v2/agent-capabilities/artifacts/{id}/read",
             post(read),
         )
+        .layer(axum::middleware::from_fn(super::capabilities::scope_authenticated_workload))
         .with_state(broker)
 }
 async fn search(

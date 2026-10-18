@@ -1,0 +1,62 @@
+# Opt-in rehearsal only. Merge with the owned project's base Compose file.
+# Native `qdrant-upgrade prepare/upgrade` supplies run/volume/image values.
+x-rehearsal: &rehearsal
+  profiles: [qdrant-upgrade]
+  image: "${QDRANT_UPGRADE_CANARY_IMAGE:-qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c}"
+  pull_policy: never
+  user: "1000:1000"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+  restart: 'no'
+  mem_limit: "${QDRANT_UPGRADE_MEMORY_LIMIT:-768m}"
+  cpus: 1.0
+  pids_limit: 128
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  networks: [data]
+  environment:
+    QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:?Existing Qdrant writer key required}"
+    QDRANT__SERVICE__READ_ONLY_API_KEY: "${QDRANT_READ_ONLY_API_KEY:?Existing distinct read key required}"
+    QDRANT__SERVICE__ENABLE_TLS: 'true'
+    QDRANT__TLS__CERT: /run/qdrant/tls.crt
+    QDRANT__TLS__KEY: /run/qdrant/tls.key
+    QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/storage/snapshots
+    QDRANT__STORAGE__TEMP_PATH: /qdrant/storage/snapshots_temp
+    QDRANT__TELEMETRY_DISABLED: 'true'
+    QDRANT_INIT_FILE_PATH: /qdrant/storage/.qdrant-initialized
+  healthcheck:
+    test: [CMD-SHELL, "bash -o pipefail -ec 'printf \"GET /healthz HTTP/1.1\r\nHost: qdrant\r\nConnection: close\r\n\r\n\" | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca-bundle.pem 2>/dev/null | grep -q \"healthz check passed\"'"]
+    interval: 5s
+    timeout: 5s
+    retries: 20
+services:
+  qdrant-upgrade-canary:
+    <<: *rehearsal
+    labels:
+      agentforge.io/qdrant-upgrade-run: "${QDRANT_UPGRADE_RUN_ID:?Native upgrade run ID required}"
+    ports: ["127.0.0.1:${QDRANT_UPGRADE_CANARY_PORT:-16333}:6333"]
+    volumes:
+      - qdrant-upgrade-canary:/qdrant/storage
+      - {type: bind, source: "${QDRANT_TLS_CERT_FILE:?TLS cert required}", target: /run/qdrant/tls.crt, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${QDRANT_TLS_KEY_FILE:?TLS key required}", target: /run/qdrant/tls.key, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${QDRANT_CA_BUNDLE_FILE:?TLS CA required}", target: /run/qdrant/ca-bundle.pem, read_only: true, bind: {create_host_path: false}}
+  qdrant-upgrade-rollback:
+    <<: *rehearsal
+    # Never boot the old binary against canary's upgraded storage.
+    image: qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    labels:
+      agentforge.io/qdrant-upgrade-run: "${QDRANT_UPGRADE_RUN_ID:?Native upgrade run ID required}"
+    ports: ["127.0.0.1:${QDRANT_UPGRADE_ROLLBACK_PORT:-26333}:6333"]
+    volumes:
+      - qdrant-upgrade-rollback:/qdrant/storage
+      - {type: bind, source: "${QDRANT_TLS_CERT_FILE:?TLS cert required}", target: /run/qdrant/tls.crt, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${QDRANT_TLS_KEY_FILE:?TLS key required}", target: /run/qdrant/tls.key, read_only: true, bind: {create_host_path: false}}
+      - {type: bind, source: "${QDRANT_CA_BUNDLE_FILE:?TLS CA required}", target: /run/qdrant/ca-bundle.pem, read_only: true, bind: {create_host_path: false}}
+volumes:
+  qdrant-upgrade-canary:
+    name: "${QDRANT_UPGRADE_CANARY_VOLUME:?Fresh run-specific volume required}"
+    labels: {agentforge.io/qdrant-upgrade-run: "${QDRANT_UPGRADE_RUN_ID:?Run ID required}"}
+  qdrant-upgrade-rollback:
+    name: "${QDRANT_UPGRADE_ROLLBACK_VOLUME:?Fresh separate rollback volume required}"
+    labels: {agentforge.io/qdrant-upgrade-run: "${QDRANT_UPGRADE_RUN_ID:?Run ID required}"}

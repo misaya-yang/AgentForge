@@ -28,9 +28,11 @@ pub struct RetrievalService {
     pub vectors: QdrantStore,
     pub embeddings: EmbeddingManager,
     pub reranker: Option<Reranker>,
+    image_assets: Option<crate::migration_knowledge_ingest::assets::AssetStorage>,
     pub cache_ttl: Duration,
     pub interactive_deadline: Duration,
     pub max_query_concurrency: usize,
+    pub(super) v2_promotions: super::retrieval_v2::Promotions,
     cache: result_cache::ResultCache,
     shared_cache: Option<shared_result_cache::SharedResultCache>,
 }
@@ -48,14 +50,45 @@ impl RetrievalService {
             vectors,
             embeddings,
             reranker,
+            image_assets: None,
             cache_ttl: Duration::ZERO,
             interactive_deadline: Duration::from_secs(3),
             max_query_concurrency: 3,
+            v2_promotions: super::retrieval_v2::Promotions::from_server_environment(),
             cache: result_cache::ResultCache::default(),
             shared_cache: None,
         }
     }
-    pub async fn retrieve(&self,user:&UserContext,dataset_id:&str,request:RetrieveRequest)->Result<(Vec<RetrieveResult>, Value)> { super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(dataset_id.into()),document_id:None,execution_id:None},user.clone(),self.retrieve_scoped(user,dataset_id,request)).await }
+    pub fn with_image_assets(
+        mut self,
+        assets: crate::migration_knowledge_ingest::assets::AssetStorage,
+    ) -> Self {
+        self.image_assets = Some(assets);
+        self
+    }
+    pub async fn retrieve(
+        &self,
+        user: &UserContext,
+        dataset_id: &str,
+        request: RetrieveRequest,
+    ) -> Result<(Vec<RetrieveResult>, Value)> {
+        use ai_platform_service_primitives::genai_telemetry::{Operation, OperationKind};
+        let mut operation = Operation::start(OperationKind::Retrieval);
+        let result = super::model_plane::run_current(
+            super::model_plane::ModelResource {
+                dataset_id: Some(dataset_id.into()),
+                document_id: None,
+                execution_id: None,
+            },
+            user.clone(),
+            self.retrieve_scoped(user, dataset_id, request),
+        )
+        .await;
+        if result.is_ok() {
+            operation.success();
+        }
+        result
+    }
     async fn retrieve_scoped(
         &self,
         user: &UserContext,
@@ -179,7 +212,7 @@ impl RetrievalService {
             dataset.embedding_provider.as_deref().unwrap_or(""),
         );
         let model = dataset.embedding_model.as_deref().unwrap_or("");
-        if provider.ends_with("multimodal")
+        if (provider.ends_with("multimodal")
             || [
                 "multimodal-embedding-v1",
                 "multimodal-embedding-one-peace-v1",
@@ -189,11 +222,15 @@ impl RetrievalService {
             ]
             .contains(&model)
             || dataset.index_config["multimodal_enabled"].as_bool() == Some(true)
-            || dataset.index_config["enable_multimodal"].as_bool() == Some(true)
+            || dataset.index_config["enable_multimodal"].as_bool() == Some(true))
+            && !super::serving_profile::multimodal(dataset)?
         {
             return Err(QueryError::Validation(
                 "multimodal dataset retrieval is unavailable in this release".into(),
             ));
+        }
+        if let Some(profile) = super::retrieval_v2::Profile::from_dataset(dataset)? {
+            self.v2_promotions.require(&profile, dataset)?;
         }
         LexicalProfile::from_dataset(dataset)?;
         config::validate_bounds(&dataset.index_config["retrieval"])?;
@@ -249,6 +286,49 @@ impl RetrievalService {
                 dataset.collection_name = Some(collection.into())
             }
         }
+        let v2 = super::retrieval_v2::Profile::from_dataset(&dataset)?;
+        let mut transformed = Vec::new();
+        let mut transformation_meta = Vec::new();
+        if let Some(profile) = &v2 {
+            self.v2_promotions.require(profile, &dataset)?;
+            let mut seen = BTreeSet::new();
+            for request in specs {
+                let (queries, report) = super::retrieval_v2::understand(request, profile)?;
+                transformation_meta.push(report);
+                for query in queries {
+                    // Include filters in the identity: equal query text with different ACL-safe
+                    // filters must remain separate recall requests.
+                    let key = serde_json::to_string(&query)
+                        .map_err(|_| QueryError::InvalidProviderResponse)?;
+                    if seen.insert(key) {
+                        transformed.push(query);
+                    }
+                }
+            }
+            if transformed.len() > 60 {
+                return Err(QueryError::Validation(
+                    "retrieval.v2 expansion budget exceeded".into(),
+                ));
+            }
+        }
+        let specs = if v2.is_some() {
+            transformed.as_slice()
+        } else {
+            specs
+        };
+        let transformed_primary = if let Some(profile) = &v2 {
+            Some(
+                super::retrieval_v2::understand(primary, profile)?
+                    .0
+                    .remove(0),
+            )
+        } else {
+            None
+        };
+        let primary = transformed_primary.as_ref().unwrap_or(primary);
+        if v2.is_some() {
+            cfg = config::resolve(&dataset, primary)?;
+        }
         let configs: Vec<_> = specs
             .iter()
             .map(|r| config::resolve(&dataset, r))
@@ -287,7 +367,9 @@ impl RetrievalService {
                         .acquire_owned()
                         .await
                         .map_err(|_| QueryError::DependenciesFailed)?;
-                    let result = manager.embed_query_for_actor(&dataset, &query, &actor).await;
+                    let result = manager
+                        .embed_query_for_actor(&dataset, &query, &actor)
+                        .await;
                     Ok::<_, QueryError>((query, result))
                 }));
             }
@@ -458,7 +540,10 @@ impl RetrievalService {
         let ids: Vec<_> = candidates.keys().cloned().collect();
         let active = self.store.active_segment_ids(&dataset, &ids).await?;
         let inactive = ids.len() - active.len();
-        candidates.retain(|id, c| active.contains(id) && !contains_image(&c.metadata));
+        let include_images = super::serving_profile::multimodal(&dataset)?;
+        candidates.retain(|id, c| {
+            active.contains(id) && (include_images || !contains_image(&c.metadata))
+        });
         let dense_scores: BTreeMap<_, _> = candidates
             .iter()
             .filter_map(|(id, c)| c.dense_score.map(|v| (id.clone(), v)))
@@ -547,7 +632,10 @@ impl RetrievalService {
             c.metadata["_term_matches"] = details["term_matches"].clone();
             c.metadata["_term_ratio"] = details["term_ratio"].clone();
         }
-        let mut meta = json!({"mode":cfg.mode,"fusion_method":cfg.fusion_method,"dense_weight":cfg.dense_weight,"bm25_weight":cfg.bm25_weight,"rrf_k":cfg.rrf_k,"native_hybrid":native_used,"fusion_applied_by":if native_used{"qdrant"}else{"python"},"dense_hits":dense_count,"bm25_hits":bm25_count,"inactive_candidates":inactive,"pipeline_stages":[],"timings_ms":{"dense_prepare_ms":dense_prepare_ms},"recall_max_parallel":self.max_query_concurrency,"score_threshold":if cfg.mode=="dense"{cfg.threshold}else{0.0}});
+        let mut meta = json!({"mode":cfg.mode,"fusion_method":cfg.fusion_method,"dense_weight":cfg.dense_weight,"bm25_weight":cfg.bm25_weight,"rrf_k":cfg.rrf_k,"native_hybrid":native_used,"fusion_applied_by":if native_used{"qdrant"}else{"python"},"fusion_engine_v2":if native_used{"qdrant"}else{"native"},"dense_hits":dense_count,"bm25_hits":bm25_count,"inactive_candidates":inactive,"pipeline_stages":[],"timings_ms":{"dense_prepare_ms":dense_prepare_ms},"recall_max_parallel":self.max_query_concurrency,"score_threshold":if cfg.mode=="dense"{cfg.threshold}else{0.0}});
+        if v2.is_some() {
+            meta["retrieval_v2"] = json!(transformation_meta);
+        }
         if let Some(e) = native_error {
             meta["native_hybrid_error"] = json!(e)
         }
@@ -576,18 +664,62 @@ impl RetrievalService {
             ranked.retain(|c| matches_filters(&c.metadata, primary));
         }
         ranked.truncate(cfg.candidate_k);
+        if v2.as_ref().is_some_and(|p| p.deduplicate) {
+            meta["near_duplicate_candidates_removed"] =
+                json!(super::retrieval_v2::deduplicate(&mut ranked));
+        }
         if native_used {
             for (i, c) in ranked.iter_mut().enumerate() {
                 c.metadata["global_rank"] = json!(i + 1)
             }
         }
         let mut rerank_served = false;
+        let mut final_cascade_stage = None;
         let mut effective_threshold = if cfg.mode == "dense" {
             cfg.threshold
         } else {
             0.0
         };
-        if cfg.rerank && !ranked.is_empty() {
+        if let Some(cascade) = v2
+            .as_ref()
+            .and_then(|p| p.cascade.as_ref())
+            .filter(|_| !ranked.is_empty())
+        {
+            let (applied, report) = super::retrieval_v2::rerank_cascade_mixed(
+                &mut ranked,
+                &primary.query,
+                cascade,
+                deadline,
+                self.image_assets
+                    .as_ref()
+                    .map(|assets| super::retrieval_v2::MixedContext {
+                        store: &self.store,
+                        assets,
+                        dataset: &dataset,
+                    }),
+            )
+            .await;
+            rerank_served = applied;
+            final_cascade_stage = report["stages"]
+                .as_array()
+                .and_then(|stages| {
+                    stages
+                        .iter()
+                        .rev()
+                        .find(|stage| stage["status"] == "applied")
+                })
+                .and_then(|stage| stage["stage"].as_u64());
+            if applied {
+                effective_threshold = cfg.threshold;
+            }
+            if let Some(failure) = report["stages"]
+                .as_array()
+                .and_then(|stages| stages.iter().find(|s| s["status"] != "applied"))
+            {
+                meta["rerank_degraded"] = failure["status"].clone();
+            }
+            meta["rerank_cascade"] = report;
+        } else if cfg.rerank && !ranked.is_empty() {
             let rerank_started = Instant::now();
             let budget = deadline.saturating_duration_since(Instant::now());
             if budget < Duration::from_millis(50) {
@@ -665,6 +797,9 @@ impl RetrievalService {
         if let Some(reason) = meta["rerank_degraded"].as_str() {
             super::pipeline_metrics::rerank_degraded(reason);
         }
+        if cfg.mmr && final_cascade_stage.is_some() {
+            meta["mmr_relevance"] = json!("cascade_rank");
+        }
         if cfg.mmr && !ranked.is_empty() {
             if ranked.len() <= primary.top_k {
                 meta["mmr_skipped"] = json!("candidate_count<=top_k")
@@ -686,10 +821,15 @@ impl RetrievalService {
                             .collect();
                         let relevance: BTreeMap<_, _> = ranked
                             .iter()
-                            .map(|c| {
+                            .enumerate()
+                            .map(|(rank, c)| {
                                 (
                                     c.segment_id.clone(),
-                                    c.rerank_score.or(c.fusion_score).unwrap_or(c.final_score),
+                                    if final_cascade_stage.is_some() {
+                                        1.0 / (rank + 1) as f64
+                                    } else {
+                                        c.rerank_score.or(c.fusion_score).unwrap_or(c.final_score)
+                                    },
                                 )
                             })
                             .collect();
@@ -722,7 +862,9 @@ impl RetrievalService {
                                     c.metadata["_mmr_score"] = json!(p.mmr_score);
                                     c.metadata["_mmr_relevance"] = json!(p.relevance);
                                     c.metadata["_mmr_max_sim"] = json!(p.max_sim_to_selected);
-                                    c.final_score = p.relevance
+                                    if final_cascade_stage.is_none() {
+                                        c.final_score = p.relevance;
+                                    }
                                 }
                                 Some(c)
                             })
@@ -744,7 +886,12 @@ impl RetrievalService {
             meta["score_threshold_skipped"] = json!("uncalibrated_final_score")
         } else if effective_threshold > 0.0 {
             ranked.retain(|c| {
-                (rerank_served && c.rerank_score.is_none()) || c.final_score >= effective_threshold
+                let uncalibrated_stage = final_cascade_stage.is_some_and(|stage| {
+                    c.metadata["_rerank_cascade_stage"].as_u64() != Some(stage)
+                });
+                uncalibrated_stage
+                    || (rerank_served && c.rerank_score.is_none())
+                    || c.final_score >= effective_threshold
             })
         }
         ranked.truncate(primary.top_k);
@@ -752,7 +899,18 @@ impl RetrievalService {
             .iter()
             .map(|c| (c.segment_id.clone(), c.final_score))
             .collect();
-        let display = lexical::normalize(&raw, "robust");
+        let display = if final_cascade_stage.is_some() {
+            // Different rerank stages need not share a calibrated score scale.
+            // Preserve their raw scores below and expose a monotone rank display.
+            meta["score_normalization"] = json!("cascade_rank");
+            ranked
+                .iter()
+                .enumerate()
+                .map(|(rank, c)| (c.segment_id.clone(), 1.0 / (rank + 1) as f64))
+                .collect()
+        } else {
+            lexical::normalize(&raw, "robust")
+        };
         let mut results = Vec::new();
         for (i, mut c) in ranked.into_iter().enumerate() {
             let score = display.get(&c.segment_id).copied().unwrap_or(0.0);
@@ -779,8 +937,13 @@ impl RetrievalService {
             c.metadata["_rank"] = json!(i + 1);
             c.metadata["_final_score_raw"] = json!(parents::round(c.final_score, 6));
             c.metadata["_final_score"] = json!(parents::round(score, 6));
-            let content_type = c.metadata["content_type"].as_str().unwrap_or("text").into();
-            let image_url = c.metadata["image_url"].as_str().map(str::to_owned);
+            let content_type: String = c.metadata["content_type"].as_str().unwrap_or("text").into();
+            let image_url =
+                if content_type == "image" && super::serving_profile::multimodal(&dataset)? {
+                    Some(format!("/api/v1/knowledge/images/{}", c.segment_id))
+                } else {
+                    None
+                };
             let vlm_description = c.metadata["vlm_description"].as_str().map(str::to_owned);
             results.push(RetrieveResult {
                 segment_id: c.segment_id,
@@ -794,6 +957,9 @@ impl RetrievalService {
                 associated_images: vec![],
             });
         }
+        self.store
+            .enrich_region_citations(&dataset, &mut results)
+            .await?;
         self.store
             .require_generation(user, &dataset.dataset_id, &generation)
             .await?;
@@ -851,7 +1017,25 @@ impl RetrievalService {
         out.truncate(c.keyword_k);
         Ok(out)
     }
-    pub async fn retrieve_batch(&self,user:&UserContext,dataset_id:&str,primary:RetrieveRequest,queries:Vec<RetrieveRequest>,max_parallel:usize)->Result<(Vec<Value>, Value)> { super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(dataset_id.into()),document_id:None,execution_id:None},user.clone(),self.retrieve_batch_scoped(user,dataset_id,primary,queries,max_parallel)).await }
+    pub async fn retrieve_batch(
+        &self,
+        user: &UserContext,
+        dataset_id: &str,
+        primary: RetrieveRequest,
+        queries: Vec<RetrieveRequest>,
+        max_parallel: usize,
+    ) -> Result<(Vec<Value>, Value)> {
+        super::model_plane::run_current(
+            super::model_plane::ModelResource {
+                dataset_id: Some(dataset_id.into()),
+                document_id: None,
+                execution_id: None,
+            },
+            user.clone(),
+            self.retrieve_batch_scoped(user, dataset_id, primary, queries, max_parallel),
+        )
+        .await
+    }
     async fn retrieve_batch_scoped(
         &self,
         user: &UserContext,

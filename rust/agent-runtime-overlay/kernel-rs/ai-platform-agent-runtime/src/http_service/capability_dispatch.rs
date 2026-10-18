@@ -969,6 +969,8 @@ async fn load_readonly_turn_binding(
         .get("readonly_capabilities")
         .cloned()
         .ok_or_else(|| "dynamic_tool_binding_missing".to_string())?;
+    let claim = store.assert_execution(turn_uuid).await.map_err(|_| "dynamic_tool_owner_unavailable")?;
+    let transport_budget = super::execution_context::restore_budget(&claim.context, row.try_get::<chrono::DateTime<chrono::Utc>,_>("lease_expires_at").map_err(|_|"dynamic_tool_snapshot_invalid")?.timestamp_millis().max(0)as u64)?;
     Ok(ReadonlyTurnBinding {
         snapshot_id: row
             .try_get::<Uuid, _>("snapshot_id")
@@ -979,7 +981,7 @@ async fn load_readonly_turn_binding(
             .map_err(|_| "dynamic_tool_snapshot_invalid".to_string())?,
         payload,
         trace_context: crate::trace_context::InternalTraceContext::default(),
-        transport_budget: super::transport_budget::local(super::transport_budget::ADMISSION_CAP,Some(row.try_get::<chrono::DateTime<chrono::Utc>,_>("lease_expires_at").map_err(|_|"dynamic_tool_snapshot_invalid")?.timestamp_millis().max(0)as u64))?,
+        transport_budget,
         created_at: Instant::now(),
     })
 }

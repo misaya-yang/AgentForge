@@ -107,7 +107,7 @@ impl IngestionService {
                 )
                 .bind(string(&doc, "document_id"))
                 .bind(&batch)
-                .execute(&self.store.pool)
+                .execute(crate::database::executor(&self.store.pool))
                 .await?;
                 Ok(doc)
             }

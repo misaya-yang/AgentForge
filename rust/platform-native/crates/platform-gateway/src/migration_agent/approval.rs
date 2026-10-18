@@ -152,7 +152,7 @@ pub async fn owner_approval_preview(
     summary: &Value,
 ) -> Value {
     let unavailable = json!({"can_approve":false,"reason":"Action details could not be verified. Reject this request or check the affected system.","authorization_scope":"this action only"});
-    let row=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('run_id',a.run_id,'tool_name',a.tool_name,'arguments',a.arguments,'status',a.status) FROM assistant_tool_approvals a JOIN assistant_runs r ON r.run_id=a.run_id WHERE a.approval_id=$1::uuid AND a.tenant_id=$2 AND a.user_id=$3 AND a.session_id=$4 AND r.tenant_id=$2 AND r.user_id=$3 AND r.session_id=$4 AND r.harness_thread_id=$5::uuid").bind(id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(thread).fetch_optional(pool).await;
+    let row=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('run_id',a.run_id,'tool_name',a.tool_name,'arguments',a.arguments,'status',a.status) FROM assistant_tool_approvals a JOIN assistant_runs r ON r.run_id=a.run_id WHERE a.approval_id=$1::uuid AND a.tenant_id=$2 AND a.user_id=$3 AND a.session_id=$4 AND r.tenant_id=$2 AND r.user_id=$3 AND r.session_id=$4 AND r.harness_thread_id=$5::uuid").bind(id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(thread).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(pool, &scope.tenant_id)).await;
     let Ok(Some(row)) = row else {
         return unavailable;
     };

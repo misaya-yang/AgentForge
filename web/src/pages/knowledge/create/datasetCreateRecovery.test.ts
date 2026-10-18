@@ -227,7 +227,7 @@ test("successful active submission sends each source once and clears request ide
 test("safe source rejection retries only the failed source without recreating the dataset", async () => {
   const h = host(); let failures = 0; try {
     await h.prepare(); h.setUpload(async body => {
-      if (body instanceof FormData && (body.get("file") as File).name === "second.txt" && failures++ === 0) throw { response: { status: 422 } };
+      if ((body as { file?: File }).file?.name === "second.txt" && failures++ === 0) throw { response: { status: 422 } };
       return { document_id: "accepted" };
     });
     await h.invoke("confirm"); await h.flush(); assert.equal(h.component("SourceUploadFailureAlert").props.outcomeUnknown, false);

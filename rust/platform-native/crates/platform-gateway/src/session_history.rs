@@ -3,10 +3,11 @@
 //! Canonical contracts: `_assistant_routes/sessions.py`, the core database
 //! session manager, `agent_runtime/thread_store.py`, and `images/history.py`.
 //! This module never starts a turn, appends Runtime items, or rewrites history.
-use ai_platform_gateway_foundation::sessions_api::{SessionsApiError, SessionsRuntimeCleanup};
-use ai_platform_auth::{
-    service::AuthService,
+use ai_platform_auth::service::AuthService;
+use ai_platform_gateway_foundation::native_contract::sessions::{
+    self as contract, HistoryLimit, HistoryMessage, SessionResponse, create_metadata,
 };
+use ai_platform_gateway_foundation::sessions_api::{SessionsApiError, SessionsRuntimeCleanup};
 use axum::{
     Json, Router,
     body::Bytes,
@@ -16,7 +17,6 @@ use axum::{
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
-use ai_platform_gateway_foundation::native_contract::sessions::{self as contract, SessionResponse, HistoryLimit, HistoryMessage, create_metadata};
 use serde_json::{Map, Value, json};
 use sqlx::{FromRow, PgPool};
 use std::{
@@ -91,15 +91,30 @@ struct Sessions {
 }
 /// Merge with the Gateway's existing GET /sessions route. DELETE fails closed
 /// unless the host injects the durable session cleanup collaborator.
-pub(super) fn router(auth: Arc<AuthService>, pool: PgPool, config: SessionConfig, identity: Option<Arc<dyn crate::migration_content::ContentAccess>>) -> Router {
+pub(super) fn router(
+    auth: Arc<AuthService>,
+    pool: PgPool,
+    config: SessionConfig,
+    identity: Option<Arc<dyn crate::migration_content::ContentAccess>>,
+) -> Router {
     Router::new()
         .route(contract::COLLECTION, post(create))
-        .route(contract::ITEM, get(detail).delete(delete).head(super::read_method_not_allowed))
+        .route(
+            contract::ITEM,
+            get(detail)
+                .delete(delete)
+                .head(super::read_method_not_allowed),
+        )
         .route(
             contract::HISTORY,
             get(history).head(super::read_method_not_allowed),
         )
-        .with_state(Sessions { auth, pool, config, identity })
+        .with_state(Sessions {
+            auth,
+            pool,
+            config,
+            identity,
+        })
 }
 fn error(status: StatusCode, detail: &'static str) -> Response {
     super::error(status, detail)
@@ -108,8 +123,12 @@ fn error(status: StatusCode, detail: &'static str) -> Response {
     clippy::result_large_err,
     reason = "Axum response is returned directly on the cold authentication error path"
 )]
-async fn identity(state: &Sessions, headers: &HeaderMap) -> Result<crate::migration_content::ContentIdentity, Response> {
-    let principal = super::resolve_read_identity(&state.auth, state.identity.as_deref(), headers).await?;
+async fn identity(
+    state: &Sessions,
+    headers: &HeaderMap,
+) -> Result<crate::migration_content::ContentIdentity, Response> {
+    let principal =
+        super::resolve_read_identity(&state.auth, state.identity.as_deref(), headers).await?;
     if principal.user_id.is_empty() || principal.tenant_id.is_empty() {
         return Err(error(StatusCode::UNAUTHORIZED, "Authentication required"));
     }
@@ -163,13 +182,16 @@ async fn session(
         .bind(session_id)
         .bind(tenant)
         .bind(user)
-        .fetch_optional(&state.pool)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+            &state.pool,
+            tenant,
+        ))
         .await?;
     if row.is_some() {
         // The canonical database manager renews an expired session on access;
         // this bounded update never reorders the sidebar or rewrites history.
         sqlx::query("UPDATE assistant.sessions SET expires_at=NOW()+($4::bigint * INTERVAL '1 second') WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND status <> 'deleted' AND expires_at < NOW()")
-            .bind(session_id).bind(tenant).bind(user).bind(state.config.default_ttl_seconds).execute(&state.pool).await?;
+            .bind(session_id).bind(tenant).bind(user).bind(state.config.default_ttl_seconds).execute(ai_platform_gateway_foundation::tenant_database::executor(&state.pool, tenant)).await?;
     }
     Ok(row)
 }
@@ -214,7 +236,10 @@ async fn delete_owned_response(
     session_id: &str,
 ) -> Response {
     let Some(cleanup) = cleanup else {
-        return error(StatusCode::SERVICE_UNAVAILABLE, "Session deletion was not completed");
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Session deletion was not completed",
+        );
     };
     // The shared collaborator checks canonical ownership before any mutation and
     // again under its lifecycle lock. Never use a stale cached row as authority,
@@ -222,20 +247,34 @@ async fn delete_owned_response(
     match cleanup.delete_owned_session(tenant, user, session_id).await {
         Ok(true) => {}
         Ok(false) => {
-            return error(StatusCode::SERVICE_UNAVAILABLE, "Session deletion was not completed");
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Session deletion was not completed",
+            );
         }
         Err(SessionsApiError::Http { status: 404, .. }) => {
             return error(StatusCode::NOT_FOUND, "Session not found");
         }
-        Err(_) => return error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete session"),
+        Err(_) => {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to delete session",
+            );
+        }
     }
     // Python verifies the session is gone before acknowledging. Native durable
     // deletion can retain an FK parent tombstone, so verify logical deletion via
     // its permanent barrier, not physical row absence or a cached manager read.
     match cleanup.session_deleted(tenant, user, session_id).await {
         Ok(true) => Json(contract::delete_response(session_id)).into_response(),
-        Ok(false) => error(StatusCode::SERVICE_UNAVAILABLE, "Session deletion was not completed"),
-        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete session"),
+        Ok(false) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Session deletion was not completed",
+        ),
+        Err(_) => error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to delete session",
+        ),
     }
 }
 
@@ -282,7 +321,8 @@ async fn create_owned(
     user: &str,
     metadata: Value,
 ) -> Result<SessionRow, sqlx::Error> {
-    let mut tx = state.pool.begin().await?;
+    let mut tx =
+        ai_platform_gateway_foundation::tenant_database::begin(&state.pool, tenant).await?;
     let row: SessionRow = sqlx::query_as("INSERT INTO assistant.sessions(session_id,user_id,tenant_id,service_id,state,history,metadata,config,status,expires_at) VALUES(gen_random_uuid()::text,$1,$2,'__builtin_assistant__','{}','[]',$3,'{}','active',CASE WHEN $4::bigint=0 THEN NULL ELSE NOW()+($4::bigint * INTERVAL '1 second') END) RETURNING session_id,user_id,tenant_id,service_id,created_at,updated_at,metadata,history")
         .bind(user).bind(tenant).bind(metadata).bind(state.config.default_ttl_seconds).fetch_one(&mut *tx).await?;
     // Session and immutable single-kernel assignment are committed together.
@@ -1329,7 +1369,9 @@ async fn enrich_runtime(
             .bind(tenant)
             .bind(user)
             .bind(&users)
-            .fetch_all(pool)
+            .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+                pool, tenant,
+            ))
             .await?;
         let mut seen = HashSet::new();
         for upload in uploads {
@@ -1366,7 +1408,9 @@ async fn enrich_runtime(
         .bind(tenant)
         .bind(user)
         .bind(&assistants)
-        .fetch_all(pool)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+            pool, tenant,
+        ))
         .await?;
     for parameters in parameters {
         let Some(message) = messages.iter_mut().rev().find(|m| {
@@ -1418,7 +1462,9 @@ async fn enrich_runtime(
         .bind(tenant)
         .bind(user)
         .bind(&assistants)
-        .fetch_all(pool)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+            pool, tenant,
+        ))
         .await
     {
         for quiz in quizzes {
@@ -1663,13 +1709,13 @@ async fn enrich_images(
         return Ok(());
     }
     let mut turns: Vec<ImageTurn> = sqlx::query_as("SELECT t.turn_id,t.task_id,t.prompt,t.status,t.created_at,task.status AS task_status,task.result FROM assistant.image_turns t JOIN assistant.image_tasks task ON task.task_id=t.task_id WHERE t.session_id=$1 AND task.tenant_id=$2 AND task.user_id=$3 ORDER BY t.created_at DESC,t.turn_id DESC LIMIT $4")
-        .bind(session_id).bind(tenant).bind(user).bind(limit).fetch_all(pool).await?;
+        .bind(session_id).bind(tenant).bind(user).bind(limit).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(pool, tenant)).await?;
     if turns.is_empty() {
         return Ok(());
     }
     let ids: Vec<_> = turns.iter().map(|turn| turn.turn_id.clone()).collect();
     let artifacts: Vec<ImageArtifact> = sqlx::query_as("SELECT artifact_id,turn_id,variant FROM assistant.artifacts WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND turn_id=ANY($4::text[]) AND size_bytes>0 AND variant IN ('raw','display')")
-        .bind(session_id).bind(tenant).bind(user).bind(ids).fetch_all(pool).await?;
+        .bind(session_id).bind(tenant).bind(user).bind(ids).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(pool, tenant)).await?;
     turns.reverse();
     merge_images(messages, turns, &artifacts, sources, visible);
     Ok(())
@@ -1728,15 +1774,19 @@ async fn read_history(
     row: SessionRow,
     limit: i64,
 ) -> Result<Value, HistoryError> {
-    let (tenant, user, session_id) = (
-        &principal.tenant_id,
-        &principal.user_id,
-        &row.session_id,
-    );
+    let (tenant, user, session_id) = (&principal.tenant_id, &principal.user_id, &row.session_id);
     let snapshots: Vec<Snapshot> = sqlx::query_as(RUNTIME_SNAPSHOT_HISTORY_SQL)
-        .bind(session_id).bind(tenant).bind(user).fetch_all(&state.pool).await?;
+        .bind(session_id)
+        .bind(tenant)
+        .bind(user)
+        .fetch_all(&state.pool)
+        .await?;
     let contexts: Vec<ContextEvent> = sqlx::query_as(RUNTIME_CONTEXT_HISTORY_SQL)
-        .bind(session_id).bind(tenant).bind(user).fetch_all(&state.pool).await?;
+        .bind(session_id)
+        .bind(tenant)
+        .bind(user)
+        .fetch_all(&state.pool)
+        .await?;
     let sources = source_map(&row.history, &snapshots, &contexts)
         .map_err(|_| HistoryError::SourceUnavailable)?;
     let mut visible = match &state.config.source_access {
@@ -1753,7 +1803,11 @@ async fn read_history(
     let mut messages =
         project_legacy(&row.history, &sources, &visible).map_err(|_| HistoryError::Projection)?;
     let thread: Option<String> = sqlx::query_scalar(RUNTIME_THREAD_SESSION_SQL)
-        .bind(tenant).bind(user).bind(session_id).fetch_optional(&state.pool).await?;
+        .bind(tenant)
+        .bind(user)
+        .bind(session_id)
+        .fetch_optional(&state.pool)
+        .await?;
     let mut runtime_total = 0;
     let mut projected_count = 0;
     if let Some(thread) = thread {
@@ -1882,40 +1936,105 @@ pub async fn agent_runtime_history(
 ) -> Result<Option<(Vec<Value>, usize)>, crate::migration_agent::AgentError> {
     use crate::migration_agent::{AgentError, entry::SourceRefs};
     let session: Option<SessionRow> = sqlx::query_as(SESSION_SELECT)
-        .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id)
-        .fetch_optional(pool).await?;
-    let Some(session) = session else { return Ok(None) };
+        .bind(&scope.session_id)
+        .bind(&scope.tenant_id)
+        .bind(&scope.user_id)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+            pool,
+            &scope.tenant_id,
+        ))
+        .await?;
+    let Some(session) = session else {
+        return Ok(None);
+    };
     let thread: Option<String> = sqlx::query_scalar(RUNTIME_THREAD_SESSION_SQL)
-        .bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id)
-        .fetch_optional(pool).await?;
-    let Some(thread) = thread else { return Ok(None) };
+        .bind(&scope.tenant_id)
+        .bind(&scope.user_id)
+        .bind(&scope.session_id)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+            pool,
+            &scope.tenant_id,
+        ))
+        .await?;
+    let Some(thread) = thread else {
+        return Ok(None);
+    };
     let snapshots: Vec<Snapshot> = sqlx::query_as(RUNTIME_SNAPSHOT_HISTORY_SQL)
-        .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(pool).await?;
+        .bind(&scope.session_id)
+        .bind(&scope.tenant_id)
+        .bind(&scope.user_id)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+            pool,
+            &scope.tenant_id,
+        ))
+        .await?;
     let contexts: Vec<ContextEvent> = sqlx::query_as(RUNTIME_CONTEXT_HISTORY_SQL)
-        .bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(pool).await?;
+        .bind(&scope.session_id)
+        .bind(&scope.tenant_id)
+        .bind(&scope.user_id)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+            pool,
+            &scope.tenant_id,
+        ))
+        .await?;
     let sources = source_map(&session.history, &snapshots, &contexts)
-        .map_err(|_| AgentError::code(503,"ASSISTANT_SOURCE_CHECK_UNAVAILABLE"))?;
+        .map_err(|_| AgentError::code(503, "ASSISTANT_SOURCE_CHECK_UNAVAILABLE"))?;
     let mut visible = VisibleSources::default();
     for dataset in &sources.all.datasets {
-        let refs = SourceRefs { datasets: [dataset.clone()].into_iter().collect(), ..Default::default() };
-        if access.allowed(scope,&refs).await? { visible.datasets.insert(dataset.clone(),dataset.clone()); }
+        let refs = SourceRefs {
+            datasets: [dataset.clone()].into_iter().collect(),
+            ..Default::default()
+        };
+        if access.allowed(scope, &refs).await? {
+            visible.datasets.insert(dataset.clone(), dataset.clone());
+        }
     }
     for document in &sources.all.documents {
-        let refs = SourceRefs { documents: [document.clone()].into_iter().collect(), ..Default::default() };
-        if access.allowed(scope,&refs).await? { visible.documents.insert(document.clone()); }
+        let refs = SourceRefs {
+            documents: [document.clone()].into_iter().collect(),
+            ..Default::default()
+        };
+        if access.allowed(scope, &refs).await? {
+            visible.documents.insert(document.clone());
+        }
     }
     for version in &sources.all.versions {
-        let refs = SourceRefs { versions: [version.clone()].into_iter().collect(), ..Default::default() };
-        if access.allowed(scope,&refs).await? { visible.versions.insert(version.clone()); }
+        let refs = SourceRefs {
+            versions: [version.clone()].into_iter().collect(),
+            ..Default::default()
+        };
+        if access.allowed(scope, &refs).await? {
+            visible.versions.insert(version.clone());
+        }
     }
     let rows: Vec<RuntimeMessage> = sqlx::query_as(RUNTIME_HISTORY_SQL)
-        .bind(&thread).bind(&scope.tenant_id).bind(&scope.user_id)
-        .bind(limit.clamp(1,500) as i64).fetch_all(pool).await?;
-    let total = rows.first().map(|row| row.total.max(0) as usize).unwrap_or(0);
-    let mut messages = project_runtime(rows,&sources,&visible);
-    enrich_runtime(pool,&mut messages,&scope.tenant_id,&scope.user_id,&thread).await
-        .map_err(|_| AgentError::code(503,"AGENT_HISTORY_UNAVAILABLE"))?;
-    let messages = messages.into_iter().map(serde_json::to_value).collect::<Result<Vec<_>,_>>()
-        .map_err(|_| AgentError::code(503,"AGENT_HISTORY_UNAVAILABLE"))?;
-    Ok(Some((messages,total)))
+        .bind(&thread)
+        .bind(&scope.tenant_id)
+        .bind(&scope.user_id)
+        .bind(limit.clamp(1, 500) as i64)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::executor(
+            pool,
+            &scope.tenant_id,
+        ))
+        .await?;
+    let total = rows
+        .first()
+        .map(|row| row.total.max(0) as usize)
+        .unwrap_or(0);
+    let mut messages = project_runtime(rows, &sources, &visible);
+    enrich_runtime(
+        pool,
+        &mut messages,
+        &scope.tenant_id,
+        &scope.user_id,
+        &thread,
+    )
+    .await
+    .map_err(|_| AgentError::code(503, "AGENT_HISTORY_UNAVAILABLE"))?;
+    let messages = messages
+        .into_iter()
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| AgentError::code(503, "AGENT_HISTORY_UNAVAILABLE"))?;
+    Ok(Some((messages, total)))
 }

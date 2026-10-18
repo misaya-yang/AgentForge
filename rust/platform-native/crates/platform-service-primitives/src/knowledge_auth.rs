@@ -1,9 +1,7 @@
 //! Shared HMAC v1/v2 gateway boundary and trusted identity extraction.
 //! Startup supplies keys/replay backend; this module never reads environment secrets.
 use super::knowledge_types::{QueryError, Result, UserContext};
-use crate::actor_verifier::{
-    JwtActorVerifier, SelectedCredential, select_credential,
-};
+use crate::actor_verifier::{JwtActorVerifier, SelectedCredential, select_credential};
 use axum::{
     Json,
     body::{Body, to_bytes},
@@ -150,7 +148,27 @@ impl GatewayAuth {
         } else {
             keys
         };
-        Ok(Self {
+        Ok(Self::configured(secret, keys, version, replay))
+    }
+    /// V2 domain keys are independent of retired transport bearer credentials.
+    /// This explicit constructor cannot authenticate or issue legacy v1 proofs.
+    pub fn signed_v2(keys: BTreeMap<String, String>, replay: ReplayStore) -> Result<Self> {
+        if keys.is_empty()
+            || keys
+                .iter()
+                .any(|(id, key)| id.is_empty() || id.contains(':') || key.chars().count() < 16)
+        {
+            return Err(QueryError::Validation("invalid v2 signing keyring".into()));
+        }
+        Ok(Self::configured(String::new(), keys, "v2".into(), replay))
+    }
+    fn configured(
+        secret: String,
+        keys: BTreeMap<String, String>,
+        version: String,
+        replay: ReplayStore,
+    ) -> Self {
+        Self {
             secret: Arc::new(secret),
             keys: Arc::new(keys),
             version,
@@ -163,7 +181,24 @@ impl GatewayAuth {
             allow_anonymous: false,
             separately_authenticated_paths: vec![],
             separately_authenticated_prefixes: vec![],
-        })
+        }
+    }
+    pub fn for_knowledge_service_keyring(
+        keys: BTreeMap<String, String>,
+        environment: &str,
+        replay: ReplayStore,
+    ) -> Result<Self> {
+        let local = ["local", "dev", "development", "test", "testing"]
+            .contains(&environment.trim().to_lowercase().as_str());
+        if !local && matches!(replay, ReplayStore::Memory(_)) {
+            return Err(QueryError::Validation(
+                "internal replay protection must use Redis outside local development/test".into(),
+            ));
+        }
+        let mut auth = Self::signed_v2(keys, replay)?;
+        auth.separately_authenticated_paths = vec!["/version".into()];
+        auth.separately_authenticated_prefixes = vec!["/internal/v2/capabilities/".into()];
+        Ok(auth)
     }
     pub fn for_knowledge_service(
         secret: String,
@@ -184,8 +219,8 @@ impl GatewayAuth {
         Ok(config)
     }
     pub fn validate_service_boundary(&self) -> Result<()> {
-        if (self.allow_anonymous && !self.secret.is_empty())
-            || (!self.allow_anonymous && (self.secret.is_empty() || self.version != "v2"))
+        if (self.allow_anonymous && (!self.secret.is_empty() || !self.keys.is_empty()))
+            || (!self.allow_anonymous && (self.keys.is_empty() || self.version != "v2"))
         {
             return Err(QueryError::Validation("knowledge service requires signed v2 traffic or explicit anonymous development mode".into()));
         }
@@ -226,6 +261,9 @@ impl GatewayAuth {
         headers: &HeaderMap,
     ) -> Result<String> {
         let parts: Vec<_> = header.split(':').collect();
+        if self.version == "v1" && self.secret.is_empty() {
+            return Err(QueryError::Forbidden);
+        }
         if parts.first().copied() != Some(self.version.as_str()) {
             return Err(QueryError::Forbidden);
         }
@@ -464,7 +502,10 @@ pub async fn verify_gateway(
     }
     crate::knowledge_model::with_actor_scope(identity, next.run(request)).await
 }
-pub async fn verified_actor<V: JwtActorVerifier + ?Sized>(auth: &V, headers: &HeaderMap) -> Result<UserContext> {
+pub async fn verified_actor<V: JwtActorVerifier + ?Sized>(
+    auth: &V,
+    headers: &HeaderMap,
+) -> Result<UserContext> {
     let token = match select_credential(headers, &HeaderName::from_static("x-api-key")) {
         Ok(SelectedCredential::Jwt(t)) => t,
         _ => return Err(QueryError::Forbidden),
@@ -513,6 +554,9 @@ impl GatewayAuth {
         let id = uuid::Uuid::new_v4().to_string();
         let timestamp = epoch_ms()?.to_string();
         if self.version == "v1" {
+            if self.secret.is_empty() {
+                return Err(QueryError::Forbidden);
+            }
             let mut mac = Hmac::<Sha256>::new_from_slice(self.secret.as_bytes())
                 .map_err(|_| QueryError::Forbidden)?;
             mac.update(format!("{id}:{timestamp}").as_bytes());
@@ -599,9 +643,7 @@ pub async fn verify_gateway_signature(
 #[cfg(test)]
 mod actor_verifier_port_tests {
     use super::*;
-    use crate::actor_verifier::{
-        ActorVerificationError, ActorVerificationFuture, VerifiedActor,
-    };
+    use crate::actor_verifier::{ActorVerificationError, ActorVerificationFuture, VerifiedActor};
     use std::sync::atomic::{AtomicUsize, Ordering};
     struct Verifier {
         calls: AtomicUsize,
@@ -703,5 +745,119 @@ mod actor_verifier_port_tests {
             Err(QueryError::Forbidden)
         ));
         assert_eq!(verifier.calls.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[cfg(test)]
+mod pure_v2_tests {
+    use super::*;
+    fn auth() -> GatewayAuth {
+        GatewayAuth::signed_v2(
+            BTreeMap::from([("rotated".into(), "independent-knowledge-domain-key".into())]),
+            ReplayStore::memory(),
+        )
+        .unwrap()
+    }
+    #[tokio::test]
+    async fn domain_keyring_without_transport_bearer_preserves_binding_and_replay() {
+        let auth = auth();
+        auth.validate_service_boundary().unwrap();
+        assert!(auth.secret.is_empty());
+        let mut headers = HeaderMap::new();
+        headers.insert("x-user-id", "user-one".parse().unwrap());
+        headers.insert("x-tenant-id", "tenant-one".parse().unwrap());
+        let proof = auth
+            .sign("POST", "/api/v1/knowledge", "scope=one", b"body", &headers)
+            .unwrap();
+        assert!(proof.starts_with("v2:rotated:"));
+        for (method, path, query, body) in [
+            ("GET", "/api/v1/knowledge", "scope=one", b"body".as_slice()),
+            ("POST", "/api/v1/other", "scope=one", b"body"),
+            ("POST", "/api/v1/knowledge", "scope=two", b"body"),
+            ("POST", "/api/v1/knowledge", "scope=one", b"tampered"),
+        ] {
+            assert!(
+                auth.verify(&proof, method, path, query, body, &headers)
+                    .await
+                    .is_err()
+            );
+        }
+        let mut changed = headers.clone();
+        changed.insert("x-tenant-id", "tenant-two".parse().unwrap());
+        assert!(
+            auth.verify(
+                &proof,
+                "POST",
+                "/api/v1/knowledge",
+                "scope=one",
+                b"body",
+                &changed
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            auth.verify(
+                &proof,
+                "POST",
+                "/api/v1/knowledge",
+                "scope=one",
+                b"body",
+                &headers
+            )
+            .await
+            .is_ok()
+        );
+        assert!(
+            auth.verify(
+                &proof,
+                "POST",
+                "/api/v1/knowledge",
+                "scope=one",
+                b"body",
+                &headers
+            )
+            .await
+            .is_err()
+        );
+    }
+    #[tokio::test]
+    async fn pure_keyring_cannot_be_downgraded_to_empty_key_legacy_authentication() {
+        let mut auth = auth();
+        auth.version = "v1".into();
+        assert!(
+            auth.sign("POST", "/api/v1/knowledge", "", b"", &HeaderMap::new())
+                .is_err()
+        );
+        assert!(
+            auth.verify(
+                "v1:a:1:any",
+                "POST",
+                "/api/v1/knowledge",
+                "",
+                b"",
+                &HeaderMap::new()
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            GatewayAuth::new(
+                "".into(),
+                BTreeMap::new(),
+                "v2".into(),
+                ReplayStore::memory()
+            )
+            .is_err()
+        );
+        assert!(GatewayAuth::signed_v2(BTreeMap::new(), ReplayStore::memory()).is_err());
+        assert!(
+            GatewayAuth::for_knowledge_service_keyring(
+                (*auth.keys).clone(),
+                "production",
+                ReplayStore::memory()
+            )
+            .is_err()
+        );
     }
 }

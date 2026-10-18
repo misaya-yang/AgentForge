@@ -30,7 +30,9 @@ impl Sources {
         let current: Option<Value> =
             sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE id=$1")
                 .bind(record)
-                .fetch_optional(lease.connection())
+                .fetch_optional(ai_platform_knowledge_domain::database::connection(
+                    lease.connection(),
+                ))
                 .await?;
         let Some(current) = current else {
             lease
@@ -57,14 +59,18 @@ impl Sources {
         let doc: Option<Value> =
             sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1")
                 .bind(id)
-                .fetch_optional(lease.connection())
+                .fetch_optional(ai_platform_knowledge_domain::database::connection(
+                    lease.connection(),
+                ))
                 .await?;
         let shared: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM confluence_pages WHERE document_id=$1 AND id<>$2)",
         )
         .bind(id)
         .bind(record)
-        .fetch_one(lease.connection())
+        .fetch_one(ai_platform_knowledge_domain::database::connection(
+            lease.connection(),
+        ))
         .await?;
         if id.is_empty() || shared {
             if id.is_empty() && doc.is_some() {
@@ -131,6 +137,7 @@ impl Sources {
             .map_err(|_| Error::unavailable("Confluence document assets removal failed"))?;
         // Commit reference removal, document deletion and exact fence clear atomically.
         let mut tx = lease.connection().begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         delete_record(&mut tx, page).await?;
         let deleted = sqlx::query("DELETE FROM documents WHERE document_id=$1 AND dataset_id=$2")
             .bind(id)
@@ -163,7 +170,7 @@ impl Sources {
     }
 }
 async fn delete_record(conn: &mut PgConnection, page: &Value) -> Result<()> {
-    let n=sqlx::query("DELETE FROM confluence_pages WHERE id=$1 AND binding_id=$2 AND page_id=$3 AND document_id IS NOT DISTINCT FROM $4").bind(text(page,"id")).bind(text(page,"binding_id")).bind(text(page,"page_id")).bind(page["document_id"].as_str()).execute(conn).await?.rows_affected();
+    let n=sqlx::query("DELETE FROM confluence_pages WHERE id=$1 AND binding_id=$2 AND page_id=$3 AND document_id IS NOT DISTINCT FROM $4").bind(text(page,"id")).bind(text(page,"binding_id")).bind(text(page,"page_id")).bind(page["document_id"].as_str()).execute(ai_platform_knowledge_domain::database::connection(&mut *conn)).await?.rows_affected();
     if n != 1 {
         return Err(Error::conflict(
             "Confluence source ownership changed; removal refused",

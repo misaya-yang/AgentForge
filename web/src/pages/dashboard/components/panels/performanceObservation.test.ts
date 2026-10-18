@@ -1,3 +1,4 @@
+import { IntlMessageFormat } from "intl-messageformat";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -19,7 +20,7 @@ function host(locale = "en-US") {
   const t = (key: string, options?: string | Record<string, unknown>) => {
     let value: unknown = translations;
     for (const part of key.split(".")) value = value && typeof value === "object" ? (value as Record<string, unknown>)[part] : undefined;
-    return String(value ?? (typeof options === "string" ? options : key)).replace(/\{\{(\w+)\}\}/g, (_, name) => String(typeof options === "object" ? options[name] : ""));
+    return String(new IntlMessageFormat(String(value ?? (typeof options === "string" ? options : key)), locale).format((typeof options === "object" ? options : {}) as never));
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   let context = { dateRange: ["2026-10-01", "2026-10-14"], granularity: "day", serviceId: "service / same", userId: "member & one", lastRefresh: new Date(0) };

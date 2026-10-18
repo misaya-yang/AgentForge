@@ -941,6 +941,14 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join(BASELINE)
             .join("manifest.yml"),
     )?;
+    if (30..=35).contains(&current_manifest.epoch) {
+        let receipt = crate::source_tools::service_successors::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
+    if current_manifest.epoch == crate::source_tools::next_successor_029::CANDIDATE_EPOCH {
+        let receipt = crate::source_tools::next_successor_029::verify_activated_source(&root)?;
+        return Ok((receipt, current_manifest));
+    }
     if current_manifest.epoch == crate::source_tools::next_successor_028::CANDIDATE_EPOCH {
         let receipt = crate::source_tools::next_successor_028::verify_activated_source(&root)?;
         return Ok((receipt, current_manifest));
@@ -1457,7 +1465,7 @@ mod tests {
             assert_eq!(verified.epoch, epoch.epoch);
             assert_eq!(verified.changes.len(), epoch.epoch as usize);
             assert!(validate_with_preimage_root(&root, None).is_err());
-        } else if epoch.epoch == crate::source_tools::next_successor_028::CANDIDATE_EPOCH {
+        } else if matches!(epoch.epoch, 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35) {
             assert!(activated);
             let (receipt, verified) = verify_activated_source(&root).unwrap();
             assert_eq!(receipt["candidate_epoch"], epoch.epoch);

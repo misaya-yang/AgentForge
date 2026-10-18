@@ -1,0 +1,24 @@
+[workspace]
+members = ["gateway"]
+resolver = "2"
+[package]
+name = "ai-platform-plugin-quiz"
+version = "1.1.0"
+edition = "2024"
+license = "Apache-2.0"
+[features]
+default = []
+executor = ["dep:ai-platform-capability-contract", "dep:sqlx", "dep:uuid", "dep:thiserror"]
+[dependencies]
+ai-platform-python-compat = { version = "0.1.0", path = "../../../rust/platform-native/crates/platform-python-compat" }
+ai-platform-capability-contract = { version = "0.0.0", path = "../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls","postgres","chrono","json","uuid"], optional = true }
+uuid = { version = "1", features = ["v4","v7","serde"], optional = true }
+thiserror = { version = "2", optional = true }
+[dev-dependencies]
+tokio = { version = "1", features = ["macros","rt-multi-thread"] }
+
+[patch.crates-io]
+openidconnect = { path = "../../../rust/platform-native/vendor/openidconnect-4.0.1" }

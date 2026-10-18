@@ -86,7 +86,7 @@ impl LegacySyncService {
         let ds: Value =
             sqlx::query_scalar("SELECT to_jsonb(d) FROM datasets d WHERE dataset_id=$1")
                 .bind(id)
-                .fetch_optional(&self.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?
                 .ok_or_else(|| Error::missing("Dataset not found"))?;
         writable_dataset(&ds)?;
@@ -121,7 +121,9 @@ impl LegacySyncService {
         let ds: Value =
             sqlx::query_scalar("SELECT to_jsonb(d) FROM datasets d WHERE dataset_id=$1 FOR UPDATE")
                 .bind(text(&e.binding, "dataset_id"))
-                .fetch_optional(conn)
+                .fetch_optional(ai_platform_knowledge_domain::database::connection(
+                    &mut *conn,
+                ))
                 .await?
                 .ok_or_else(|| Error::missing("Dataset not found"))?;
         if let Some(target) = target {
@@ -162,13 +164,13 @@ impl LegacySyncService {
             "SELECT to_jsonb(p) FROM confluence_pages p WHERE binding_id=$1 ORDER BY title ASC",
         )
         .bind(id)
-        .fetch_all(&self.pool)
+        .fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?)
     }
     async fn recover_stale(&self, binding: &Value) -> Result<bool> {
         let mut tasks = Vec::<Value>::new();
         for status in ["pending", "processing"] {
-            let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE binding_id=$1 AND status=$2 ORDER BY priority DESC,created_at ASC LIMIT 100").bind(text(binding,"binding_id")).bind(status).fetch_all(&self.pool).await?;
+            let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE binding_id=$1 AND status=$2 ORDER BY priority DESC,created_at ASC LIMIT 100").bind(text(binding,"binding_id")).bind(status).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             tasks.extend(rows);
         }
         let cutoff =
@@ -182,7 +184,7 @@ impl LegacySyncService {
             }
         }
         for task in tasks {
-            sqlx::query("UPDATE confluence_sync_tasks SET status='failed',error='Recovered stale Confluence sync after restart',completed_at=NOW(),updated_at=NOW() WHERE task_id=$1").bind(text(&task,"task_id")).execute(&self.pool).await?;
+            sqlx::query("UPDATE confluence_sync_tasks SET status='failed',error='Recovered stale Confluence sync after restart',completed_at=NOW(),updated_at=NOW() WHERE task_id=$1").bind(text(&task,"task_id")).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         }
         self.management.persist_binding(text(binding,"binding_id"),&json!({"status":"pending","last_error":"Recovered stale Confluence sync after restart"})).await?;
         Ok(true)
@@ -201,7 +203,7 @@ impl LegacySyncService {
             return Err(Error::conflict("A sync is already in progress"));
         }
         let task = uuid::Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO confluence_sync_tasks(task_id,binding_id,task_type,priority,owner_id,status,retry_count,max_retries,progress,total_items,processed_items) VALUES($1,$2,$3,$4,$5,'pending',0,3,0,0,0)").bind(&task).bind(id).bind(kind).bind(priority).bind(owner(&binding)).execute(&self.pool).await?;
+        sqlx::query("INSERT INTO confluence_sync_tasks(task_id,binding_id,task_type,priority,owner_id,status,retry_count,max_retries,progress,total_items,processed_items) VALUES($1,$2,$3,$4,$5,'pending',0,3,0,0,0)").bind(&task).bind(id).bind(kind).bind(priority).bind(owner(&binding)).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         self.management
             .persist_binding(id, &json!({"status":"syncing"}))
             .await?;
@@ -407,11 +409,11 @@ impl LegacySyncService {
             if text(&e.binding,"last_sync_at").is_empty(){incremental=false;}
             let roots=e.binding["root_page_ids"].as_array().filter(|v|!v.is_empty()).map(|v|v.iter().map(client::scalar).collect::<Vec<_>>()).unwrap_or_else(||if text(&e.binding,"root_page_id").is_empty(){vec![]}else{vec![text(&e.binding,"root_page_id").into()]});
             let partial=specific.is_some();let pages=if let Some(pages)=specific{pages}else if incremental{self.modified(&c,text(&e.binding,"space_key"),text(&e.binding,"last_sync_at")).await?}else if roots.is_empty(){prior.keys().cloned().collect()}else{let mut seen=BTreeSet::new();let mut all=Vec::new();for root in &roots{for page in self.descendants(&c,root,e.binding["max_depth"].as_i64().unwrap_or(10)).await?{if seen.insert(page.clone()){all.push(page);}}}all};
-            result.total_pages=pages.len();sqlx::query("UPDATE confluence_sync_tasks SET status='processing',total_items=$2,started_at=NOW(),updated_at=NOW() WHERE task_id=$1").bind(task).bind(pages.len()as i32).execute(&self.pool).await?;
+            result.total_pages=pages.len();sqlx::query("UPDATE confluence_sync_tasks SET status='processing',total_items=$2,started_at=NOW(),updated_at=NOW() WHERE task_id=$1").bind(task).bind(pages.len()as i32).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             let seen=pages.iter().cloned().collect::<BTreeSet<_>>();
             for (position,page) in pages.iter().enumerate(){
                 if prior.get(page).is_some_and(|p|text(p,"document_id").is_empty())&&!partial{result.synced_pages+=1;continue;}
-                match self.publish_page(&e,&c,page).await{Ok((document,changed,new))=>{if !changed&&!partial{result.skipped_pages+=1;continue;}result.synced_pages+=1;if new{result.created_documents.push(document.clone());}else if changed{result.updated_documents.push(document.clone());}self.enqueue(text(&e.binding,"dataset_id"),&document).await?;sqlx::query("UPDATE confluence_sync_tasks SET processed_items=$2,progress=$3,updated_at=NOW() WHERE task_id=$1").bind(task).bind((position+1)as i32).bind(((position+1)as f64/pages.len()as f64)*100.).execute(&self.pool).await?;},Err(error)=>{result.failed_pages+=1;result.errors.push(json!({"page_id":page,"error":error.detail}));}}
+                match self.publish_page(&e,&c,page).await{Ok((document,changed,new))=>{if !changed&&!partial{result.skipped_pages+=1;continue;}result.synced_pages+=1;if new{result.created_documents.push(document.clone());}else if changed{result.updated_documents.push(document.clone());}self.enqueue(text(&e.binding,"dataset_id"),&document).await?;sqlx::query("UPDATE confluence_sync_tasks SET processed_items=$2,progress=$3,updated_at=NOW() WHERE task_id=$1").bind(task).bind((position+1)as i32).bind(((position+1)as f64/pages.len()as f64)*100.).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;},Err(error)=>{result.failed_pages+=1;result.errors.push(json!({"page_id":page,"error":error.detail}));}}
             }
             if !partial && (incremental||!roots.is_empty()){
                 for (page,record) in &prior{if seen.contains(page){continue;}let removed=if incremental{matches!(self.sources.page(&c,page).await,Err(error) if error.detail=="Confluence provider resource not found")}else{true};if removed{match self.detach_source(&e,record).await{Ok(true)=>result.deleted_documents.push(text(record,"document_id").into()),Ok(false)=>{},Err(error)=>result.errors.push(json!({"page_id":page,"error":error.detail}))}}}
@@ -428,14 +430,14 @@ impl LegacySyncService {
                     update["total_page_count"] = json!(result.total_pages);
                 }
                 self.management.persist_binding(id, &update).await?;
-                sqlx::query("UPDATE confluence_sync_tasks SET status='completed',progress=100,completed_at=NOW(),result=$2,updated_at=NOW() WHERE task_id=$1").bind(task).bind(result.value()).execute(&self.pool).await?;
+                sqlx::query("UPDATE confluence_sync_tasks SET status='completed',progress=100,completed_at=NOW(),result=$2,updated_at=NOW() WHERE task_id=$1").bind(task).bind(result.value()).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             }
             Err(error) => {
                 result.errors.push(json!({"error":error.detail}));
                 self.management
                     .persist_binding(id, &json!({"status":"error","last_error":error.detail}))
                     .await?;
-                sqlx::query("UPDATE confluence_sync_tasks SET status='failed',completed_at=NOW(),result=$2,error=$3,updated_at=NOW() WHERE task_id=$1").bind(task).bind(result.value()).bind(error.detail.as_str().unwrap_or("Confluence sync failed")).execute(&self.pool).await?;
+                sqlx::query("UPDATE confluence_sync_tasks SET status='failed',completed_at=NOW(),result=$2,error=$3,updated_at=NOW() WHERE task_id=$1").bind(task).bind(result.value()).bind(error.detail.as_str().unwrap_or("Confluence sync failed")).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             }
         }
         Ok(result.value())
@@ -460,7 +462,7 @@ impl LegacySyncService {
         } else {
             sqlx::query_scalar::<_, Value>("SELECT to_jsonb(p) FROM confluence_pages p WHERE id=$1")
                 .bind(id)
-                .fetch_optional(&self.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?
         };
         let Some(record) = record else {
@@ -573,7 +575,7 @@ impl LegacySyncService {
     pub(super) async fn document(&self, id: &str) -> Result<Value> {
         sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1")
             .bind(id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
             .await?
             .ok_or_else(|| Error::missing("Confluence document disappeared after source publish"))
     }
@@ -589,7 +591,7 @@ impl LegacySyncService {
             ));
         }
         let domain = discovery::parse_domain_from_url(request.url);
-        let connection=if let Some(id)=request.connection_id.filter(|s|!s.is_empty()){self.sources.connection(id).await?}else{sqlx::query_scalar("SELECT to_jsonb(c) FROM confluence_connections c WHERE domain=$1 AND ($2::text IS NULL OR tenant_id=$2) AND status='active' ORDER BY created_at DESC LIMIT 1").bind(&domain).bind(request.tenant_id.filter(|s|!s.is_empty())).fetch_optional(&self.pool).await?}.ok_or_else(||Error::missing("No matching Confluence connection found"))?;
+        let connection=if let Some(id)=request.connection_id.filter(|s|!s.is_empty()){self.sources.connection(id).await?}else{sqlx::query_scalar("SELECT to_jsonb(c) FROM confluence_connections c WHERE domain=$1 AND ($2::text IS NULL OR tenant_id=$2) AND status='active' ORDER BY created_at DESC LIMIT 1").bind(&domain).bind(request.tenant_id.filter(|s|!s.is_empty())).fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool)).await?}.ok_or_else(||Error::missing("No matching Confluence connection found"))?;
         legacy_management::verify_import_access(
             &connection,
             request.tenant_id,
@@ -684,7 +686,7 @@ impl LegacySyncService {
             )
             .bind(text(&e.binding, "binding_id"))
             .bind(page)
-            .fetch_optional(&self.pool)
+            .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
             .await?;
             let Some(record) = record else {
                 return Ok(None);
@@ -732,7 +734,7 @@ impl LegacySyncService {
                 }
                 let changed = sqlx::query("DELETE FROM confluence_pages WHERE id=$1")
                     .bind(id)
-                    .execute(&self.pool)
+                    .execute(ai_platform_knowledge_domain::database::executor(&self.pool))
                     .await?
                     .rows_affected()
                     > 0;
@@ -784,7 +786,7 @@ impl LegacySyncService {
                 "Access denied: connection belongs to different tenant",
             ));
         }
-        let existing:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE connection_id=$1 AND dataset_id=$2 ORDER BY created_at DESC LIMIT 100").bind(request.connection_id).bind(request.dataset_id).fetch_all(&self.pool).await?;
+        let existing:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE connection_id=$1 AND dataset_id=$2 ORDER BY created_at DESC LIMIT 100").bind(request.connection_id).bind(request.dataset_id).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         if existing.iter().any(|b| b["space_key"] == request.space_key) {
             return Err(Error::conflict(
                 "Binding already exists for this space and dataset",
@@ -809,7 +811,7 @@ impl LegacySyncService {
         let id = uuid::Uuid::new_v4().to_string();
         // The original save_confluence_binding persists only the compatibility
         // first root; multi-root/image options are absent from its INSERT list.
-        let mut row:Value=sqlx::query_scalar("INSERT INTO confluence_space_bindings(binding_id,connection_id,tenant_id,dataset_id,space_key,space_id,space_name,root_page_id,root_page_title,include_patterns,exclude_patterns,max_depth,include_attachments,include_comments,status,last_sync_at,synced_page_count,total_page_count,last_error,created_by,owner_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending',NULL,0,0,NULL,$15,$15) RETURNING to_jsonb(confluence_space_bindings)").bind(&id).bind(request.connection_id).bind(request.tenant_id).bind(request.dataset_id).bind(request.space_key).bind(space.space_id).bind(space.name).bind(request.root_page_ids.first()).bind(titles.first()).bind(json!(request.include_patterns)).bind(json!(request.exclude_patterns)).bind(request.max_depth).bind(request.include_attachments).bind(request.include_comments).bind(request.created_by).fetch_one(&self.pool).await?;
+        let mut row:Value=sqlx::query_scalar("INSERT INTO confluence_space_bindings(binding_id,connection_id,tenant_id,dataset_id,space_key,space_id,space_name,root_page_id,root_page_title,include_patterns,exclude_patterns,max_depth,include_attachments,include_comments,status,last_sync_at,synced_page_count,total_page_count,last_error,created_by,owner_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending',NULL,0,0,NULL,$15,$15) RETURNING to_jsonb(confluence_space_bindings)").bind(&id).bind(request.connection_id).bind(request.tenant_id).bind(request.dataset_id).bind(request.space_key).bind(space.space_id).bind(space.name).bind(request.root_page_ids.first()).bind(titles.first()).bind(json!(request.include_patterns)).bind(json!(request.exclude_patterns)).bind(request.max_depth).bind(request.include_attachments).bind(request.include_comments).bind(request.created_by).fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         if let Ok(task) = self.trigger_sync(&id, false, None).await {
             row["initial_sync_task_id"] = json!(task);
         }
@@ -821,7 +823,7 @@ impl LegacySyncService {
         };
         if delete_documents {
             let e = self.execution(binding, "").await?;
-            let pages:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE binding_id=$1 ORDER BY title ASC LIMIT 100").bind(id).fetch_all(&self.pool).await?;
+            let pages:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE binding_id=$1 ORDER BY title ASC LIMIT 100").bind(id).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             for page in pages {
                 if !text(&page, "document_id").is_empty()
                     && self.detach_source(&e, &page).await.is_err()
@@ -833,7 +835,7 @@ impl LegacySyncService {
         Ok(
             sqlx::query("DELETE FROM confluence_space_bindings WHERE binding_id=$1")
                 .bind(id)
-                .execute(&self.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?
                 .rows_affected()
                 > 0,
@@ -856,7 +858,7 @@ impl LegacySyncService {
             let page: Option<Value> =
                 sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE id=$1")
                     .bind(id)
-                    .fetch_optional(&self.pool)
+                    .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
                     .await?;
             let Some(page) = page else {
                 not_found.push(id.clone());

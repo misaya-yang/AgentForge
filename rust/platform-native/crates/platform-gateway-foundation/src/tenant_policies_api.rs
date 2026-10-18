@@ -13,8 +13,8 @@
 //! host boundaries. Tenant payload isalnum uses Python UCD 15.0 rather than Rust's
 //! broader Alphabetic property. Path/query tenant IDs are deliberately unvalidated.
 use crate::{
-    config_audit_writer::ConfigAuditRequestContext,
     config_audit_read::{self, ConfigAuditQuery},
+    config_audit_writer::ConfigAuditRequestContext,
     rate_config_api::integer,
     service_config_api::{ServiceConfigCancellation, ServiceConfigError, ServiceConfigFuture},
     tenant_policies_store::*,
@@ -73,7 +73,11 @@ pub const TENANT_POLICIES_ROUTES: &[(&str, &str, &str)] = &[
         "delete_mcp_config",
     ),
     ("GET", "/admin/tenant-policies/audit-log", "query_audit_log"),
-    ("GET", "/admin/tenant-policies/config-audit-log", "query_config_audit_log"),
+    (
+        "GET",
+        "/admin/tenant-policies/config-audit-log",
+        "query_config_audit_log",
+    ),
 ];
 #[derive(Clone, Default)]
 pub struct TenantPoliciesIdentity {
@@ -218,28 +222,100 @@ impl TenantPoliciesApi {
         } else {
             None
         };
-        let platform_admin = identity.roles.iter().any(|role| matches!(
-            role.trim().to_lowercase().as_str(), "platform_admin" | "superadmin" | "super_admin"
-        ));
+        let platform_admin = identity.roles.iter().any(|role| {
+            matches!(
+                role.trim().to_lowercase().as_str(),
+                "platform_admin" | "superadmin" | "super_admin"
+            )
+        });
+        {
+            use ai_platform_auth::cedar::resources::{
+                self, ObjectAction, ObjectResource, ObjectSubject, ResourceKind,
+            };
+            let target = match &operation {
+                TenantPoliciesOperation::ToolGet { tenant_id }
+                | TenantPoliciesOperation::ToolDelete { tenant_id }
+                | TenantPoliciesOperation::McpGet { tenant_id }
+                | TenantPoliciesOperation::McpDelete { tenant_id } => tenant_id.as_str(),
+                TenantPoliciesOperation::ToolUpsert | TenantPoliciesOperation::McpUpsert => payload
+                    .as_ref()
+                    .and_then(|v| v["tenant_id"].as_str())
+                    .unwrap_or(""),
+                TenantPoliciesOperation::Audit(q) => q
+                    .tenant_id
+                    .as_deref()
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or(&identity.tenant_id),
+                TenantPoliciesOperation::ConfigAudit(q) => q
+                    .tenant_id
+                    .as_deref()
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or(&identity.tenant_id),
+                _ => &identity.tenant_id,
+            };
+            let subject = ObjectSubject {
+                tenant_id: identity.tenant_id.clone(),
+                user_id: identity.user_id.clone(),
+                roles: identity.roles.clone(),
+                tier: identity.tier.clone(),
+                ..Default::default()
+            };
+            let resource = ObjectResource::new(ResourceKind::Tenant, target, target);
+            let legacy = platform_admin
+                || (!identity.tenant_id.is_empty()
+                    && target == identity.tenant_id
+                    && (identity.roles.iter().any(|r| r == "admin")
+                        || identity.tier.to_lowercase() == "admin"));
+            let decision =
+                resources::compare_current(&subject, &resource, ObjectAction::Admin, legacy);
+            if legacy && !decision {
+                return Err(ServiceConfigError::detail(
+                    403,
+                    "Tenant resource authorization denied",
+                ));
+            }
+        }
         let require_tenant = |tenant: &str| {
             if !platform_admin && (identity.tenant_id.is_empty() || tenant != identity.tenant_id) {
-                Err(ServiceConfigError::detail(403, "Cross-tenant policy administration denied"))
-            } else { Ok(()) }
+                Err(ServiceConfigError::detail(
+                    403,
+                    "Cross-tenant policy administration denied",
+                ))
+            } else {
+                Ok(())
+            }
         };
         if !platform_admin {
             use TenantPoliciesOperation as ScopeOp;
             match &mut operation {
-                ScopeOp::ToolGet { tenant_id } | ScopeOp::ToolDelete { tenant_id }
-                | ScopeOp::McpGet { tenant_id } | ScopeOp::McpDelete { tenant_id } => require_tenant(tenant_id)?,
+                ScopeOp::ToolGet { tenant_id }
+                | ScopeOp::ToolDelete { tenant_id }
+                | ScopeOp::McpGet { tenant_id }
+                | ScopeOp::McpDelete { tenant_id } => require_tenant(tenant_id)?,
                 ScopeOp::ToolUpsert | ScopeOp::McpUpsert => require_tenant(
-                    payload.as_ref().and_then(|value| value["tenant_id"].as_str()).unwrap_or("")
+                    payload
+                        .as_ref()
+                        .and_then(|value| value["tenant_id"].as_str())
+                        .unwrap_or(""),
                 )?,
                 ScopeOp::Audit(query) => {
-                    require_tenant(query.tenant_id.as_deref().filter(|v| !v.is_empty()).unwrap_or(&identity.tenant_id))?;
+                    require_tenant(
+                        query
+                            .tenant_id
+                            .as_deref()
+                            .filter(|v| !v.is_empty())
+                            .unwrap_or(&identity.tenant_id),
+                    )?;
                     query.tenant_id = Some(identity.tenant_id.clone());
                 }
                 ScopeOp::ConfigAudit(query) => {
-                    require_tenant(query.tenant_id.as_deref().filter(|v| !v.is_empty()).unwrap_or(&identity.tenant_id))?;
+                    require_tenant(
+                        query
+                            .tenant_id
+                            .as_deref()
+                            .filter(|v| !v.is_empty())
+                            .unwrap_or(&identity.tenant_id),
+                    )?;
                     query.tenant_id = Some(identity.tenant_id.clone());
                 }
                 ScopeOp::ToolList | ScopeOp::McpList => require_tenant(&identity.tenant_id)?,
@@ -250,7 +326,10 @@ impl TenantPoliciesApi {
         } else {
             None
         };
-        if !platform_admin && !identity.roles.iter().any(|r| r == "admin") && identity.tier.to_lowercase() != "admin" {
+        if !platform_admin
+            && !identity.roles.iter().any(|r| r == "admin")
+            && identity.tier.to_lowercase() != "admin"
+        {
             return Err(ServiceConfigError::detail(403, "Admin access required"));
         }
         let db = self
@@ -375,13 +454,22 @@ impl TenantPoliciesApi {
             }
             Op::ConfigAudit(query) => {
                 if !db.config_audit_available() {
-                    return Err(ServiceConfigError::detail(503, "Configuration audit database not available"));
+                    return Err(ServiceConfigError::detail(
+                        503,
+                        "Configuration audit database not available",
+                    ));
                 }
                 let (statement, limit, offset) = config_audit_read::statement(&query)?;
                 let mut items = db.run(statement).await.map_err(store_error)?;
                 let has_more = items.len() > limit;
                 items.truncate(limit);
-                Ok(crate::native_contract::responses::audit::value(items, has_more, limit, offset, crate::native_contract::AUDIT_OFFSET_MAX))
+                Ok(crate::native_contract::responses::audit::value(
+                    items,
+                    has_more,
+                    limit,
+                    offset,
+                    crate::native_contract::AUDIT_OFFSET_MAX,
+                ))
             }
             Op::Audit(_) => {
                 let (rows, count) = audit.expect("validated audit query");
@@ -733,13 +821,13 @@ async fn dispatch(
                 offset: get("offset").map_or(json!(0), |v| json!(v)),
             })
         } else {
-        TenantPoliciesOperation::Audit(TenantAuditQuery {
-            tenant_id: get("tenant_id"),
-            user_id: get("user_id"),
-            tool_name: get("tool_name"),
-            limit: get("limit").map_or(json!(50), |v| json!(v)),
-            offset: get("offset").map_or(json!(0), |v| json!(v)),
-        })
+            TenantPoliciesOperation::Audit(TenantAuditQuery {
+                tenant_id: get("tenant_id"),
+                user_id: get("user_id"),
+                tool_name: get("tool_name"),
+                limit: get("limit").map_or(json!(50), |v| json!(v)),
+                offset: get("offset").map_or(json!(0), |v| json!(v)),
+            })
         }
     } else {
         match (method, detail, tool) {
@@ -1572,15 +1660,24 @@ mod manual_tenant_scope_regressions {
 
     struct UnusedIdentity;
     impl TenantPoliciesIdentityResolver for UnusedIdentity {
-        fn resolve<'a>(&'a self, _: &'a HeaderMap, _: &'a str) -> ServiceConfigFuture<'a, TenantPoliciesIdentity> {
+        fn resolve<'a>(
+            &'a self,
+            _: &'a HeaderMap,
+            _: &'a str,
+        ) -> ServiceConfigFuture<'a, TenantPoliciesIdentity> {
             Box::pin(async { panic!("execute-level regression must not resolve identity") })
         }
     }
     #[derive(Default)]
     struct CaptureDatabase(Mutex<Vec<TenantPoliciesStatement>>);
     impl TenantPoliciesDatabase for CaptureDatabase {
-        fn config_audit_available(&self) -> bool { true }
-        fn run(&self, statement: TenantPoliciesStatement) -> TenantPoliciesStoreFuture<'_, Vec<Value>> {
+        fn config_audit_available(&self) -> bool {
+            true
+        }
+        fn run(
+            &self,
+            statement: TenantPoliciesStatement,
+        ) -> TenantPoliciesStoreFuture<'_, Vec<Value>> {
             Box::pin(async move {
                 self.0.lock().unwrap().push(statement);
                 Ok(vec![])
@@ -1590,28 +1687,48 @@ mod manual_tenant_scope_regressions {
     fn setup() -> (TenantPoliciesApi, Arc<CaptureDatabase>) {
         let database = Arc::new(CaptureDatabase::default());
         let api = TenantPoliciesApi::new(TenantPoliciesDependencies {
-            identity: Arc::new(UnusedIdentity), database: Some(database.clone()),
-            tool_invalidation: None, mcp_invalidation: None,
+            identity: Arc::new(UnusedIdentity),
+            database: Some(database.clone()),
+            tool_invalidation: None,
+            mcp_invalidation: None,
         });
         (api, database)
     }
     fn actor(role: &str, tenant: &str) -> TenantPoliciesIdentity {
-        TenantPoliciesIdentity { user_id: "actor".into(), tenant_id: tenant.into(), roles: vec![role.into()], tier: "normal".into() }
+        TenantPoliciesIdentity {
+            user_id: "actor".into(),
+            tenant_id: tenant.into(),
+            roles: vec![role.into()],
+            tier: "normal".into(),
+        }
     }
     #[tokio::test]
     async fn foreign_policy_denied_before_storage_own_and_platform_allowed() {
         for (role, tenant, target, allowed) in [
-            ("admin", "a", "b", false), ("admin", "", "b", false),
-            ("user", "a", "a", false), ("admin", "a", "a", true),
+            ("admin", "a", "b", false),
+            ("admin", "", "b", false),
+            ("user", "a", "a", false),
+            ("admin", "a", "a", true),
             ("platform_admin", "a", "b", true),
         ] {
             let (api, database) = setup();
-            let result = api.execute(TenantPoliciesOperation::ToolDelete { tenant_id: target.into() }, &actor(role, tenant), &json!({})).await;
+            let result = api
+                .execute(
+                    TenantPoliciesOperation::ToolDelete {
+                        tenant_id: target.into(),
+                    },
+                    &actor(role, tenant),
+                    &json!({}),
+                )
+                .await;
             if allowed {
                 assert!(result.is_ok());
                 assert_eq!(database.0.lock().unwrap()[0].arguments, vec![json!(target)]);
             } else {
-                assert!(matches!(result, Err(ServiceConfigError::Http { status: 403, .. })));
+                assert!(matches!(
+                    result,
+                    Err(ServiceConfigError::Http { status: 403, .. })
+                ));
                 assert!(database.0.lock().unwrap().is_empty());
             }
         }
@@ -1623,12 +1740,19 @@ mod manual_tenant_scope_regressions {
             TenantPoliciesOperation::McpList,
             TenantPoliciesOperation::Audit(TenantAuditQuery::default()),
             TenantPoliciesOperation::ConfigAudit(ConfigAuditQuery {
-                tenant_id: None, user_id: None, resource_type: None,
-                resource_id: None, action: None, limit: json!(50), offset: json!(0),
+                tenant_id: None,
+                user_id: None,
+                resource_type: None,
+                resource_id: None,
+                action: None,
+                limit: json!(50),
+                offset: json!(0),
             }),
         ] {
             let (api, database) = setup();
-            api.execute(operation, &actor("admin", "a"), &json!({})).await.unwrap();
+            api.execute(operation, &actor("admin", "a"), &json!({}))
+                .await
+                .unwrap();
             let calls = database.0.lock().unwrap();
             assert!(!calls.is_empty());
             for call in calls.iter() {
@@ -1641,9 +1765,21 @@ mod manual_tenant_scope_regressions {
     async fn missing_or_foreign_audit_tenant_denied_before_storage() {
         for (tenant, requested) in [("", None), ("a", Some("b"))] {
             let (api, database) = setup();
-            let query = TenantAuditQuery { tenant_id: requested.map(str::to_owned), ..Default::default() };
-            let result = api.execute(TenantPoliciesOperation::Audit(query), &actor("admin", tenant), &json!({})).await;
-            assert!(matches!(result, Err(ServiceConfigError::Http { status: 403, .. })));
+            let query = TenantAuditQuery {
+                tenant_id: requested.map(str::to_owned),
+                ..Default::default()
+            };
+            let result = api
+                .execute(
+                    TenantPoliciesOperation::Audit(query),
+                    &actor("admin", tenant),
+                    &json!({}),
+                )
+                .await;
+            assert!(matches!(
+                result,
+                Err(ServiceConfigError::Http { status: 403, .. })
+            ));
             assert!(database.0.lock().unwrap().is_empty());
         }
     }

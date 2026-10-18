@@ -6,14 +6,21 @@ use ai_platform_gateway::migration_host::bootstrap::{
 use std::{io::Read, process::ExitCode, time::Duration};
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let check_only = args == ["--check-config-stdin"] || args == ["--check-config-env"];
-    let environment_mode = args == ["--config-env"] || args == ["--check-config-env"];
-    if args != ["--config-stdin"] && args != ["--check-config-stdin"] && !environment_mode {
-        eprintln!(
-            "Usage: gateway --config-stdin | --check-config-stdin | --config-env | --check-config-env"
-        );
-        return ExitCode::FAILURE;
+    if args == ["--print-config-schema"] {
+        println!("{}", ai_platform_config_loader::versioned::schema());
+        return ExitCode::SUCCESS;
     }
+    let options = match ai_platform_gateway::migration_host::worker_roles::Arguments::parse(&args) {
+        Ok(options) => options,
+        Err(_) => {
+            eprintln!(
+                "Usage: gateway (--config-stdin | --check-config-stdin | --config-env | --check-config-env) [--role api|worker|eval|all]"
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let check_only = options.check_only;
+    let environment_mode = options.environment_mode;
     let mut bytes = Vec::new();
     if environment_mode {
         let resolved = match ai_platform_config_loader::load_gateway_document_from_process() {
@@ -39,15 +46,42 @@ fn main() -> ExitCode {
         eprintln!("Invalid or oversized gateway configuration input");
         return ExitCode::FAILURE;
     }
-    let document = match GatewayDocument::parse(&bytes) {
+    let mut document = match GatewayDocument::parse(&bytes) {
         Ok(v) => v,
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::FAILURE;
         }
     };
+    if let Some(role) = options.role {
+        document
+            .environment
+            .insert("GATEWAY_PROCESS_ROLE".into(), role.name().into());
+    }
+    if ai_platform_gateway::migration_host::worker_roles::ProcessRole::parse(
+        document
+            .environment
+            .get("GATEWAY_PROCESS_ROLE")
+            .map(String::as_str)
+            .unwrap_or("all"),
+    )
+    .is_err()
+    {
+        eprintln!("Invalid gateway_process_role");
+        return ExitCode::FAILURE;
+    }
     if check_only {
         let checked = document.settings().and_then(|settings| {
+            let role = ai_platform_gateway::migration_host::worker_roles::ProcessRole::parse(
+                document
+                    .environment
+                    .get("GATEWAY_PROCESS_ROLE")
+                    .map(String::as_str)
+                    .unwrap_or("all"),
+            )
+            .map_err(BootstrapError::Configuration)?;
+            role.validate_delivery(&settings.task_delivery_mode)
+                .map_err(BootstrapError::Configuration)?;
             document.project(&settings)?;
             document.policies()?;
             Ok(())

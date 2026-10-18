@@ -60,7 +60,7 @@ test("session history cannot turn an opaque ID into an off-origin or alternate-r
 test("missing or malformed session credentials fail before fetch without API-key fallback", async () => {
   for (const token of [null, "", "bad token", "bad\nvalue", "x".repeat(16_385)]) {
     const h = clientHost({ token });
-    await assert.rejects(h.client.list(), /Set AI_GATEWAY_SESSION_TOKEN/);
+    await assert.rejects(h.client.list(), /Gateway device login|AI_GATEWAY_SESSION_TOKEN/);
     assert.equal(h.requests.length, 0);
   }
 });
@@ -185,7 +185,7 @@ test("production Gateway history requires an explicit session credential and nev
   await assert.rejects(handle({ action: "history" }, {
     request() { assert.fail("Missing session token must not fall back to API key"); },
   }, h.client, {}, () => assert.fail("No history should be displayed"), () => assert.fail("No session change"),
-  () => assert.fail("No message replacement"), () => {}), /Set AI_GATEWAY_SESSION_TOKEN/);
+  () => assert.fail("No message replacement"), () => {}), /Gateway device login|AI_GATEWAY_SESSION_TOKEN/);
   assert.equal(h.requests.length, 0);
 });
 

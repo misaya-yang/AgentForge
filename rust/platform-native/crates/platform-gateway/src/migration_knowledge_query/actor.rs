@@ -4,6 +4,7 @@ use super::{
     auth::GatewayAuth,
     types::{QueryError, Result, UserContext},
 };
+use crate::migration_agent::control::execution_transport::WorkloadSend;
 
 use axum::{
     Json, Router,
@@ -138,7 +139,8 @@ impl HttpKnowledgeSourceAuthority {
                 "source authority requires gateway to knowledge-service HMAC v2".into(),
             ));
         }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .timeout(Duration::from_secs(5))
@@ -168,6 +170,7 @@ impl HttpKnowledgeSourceAuthority {
         }
         let bytes = serde_json::to_vec(&payload).map_err(|_| QueryError::DependenciesFailed)?;
         let signature = self.signer.sign("POST", path, "", &bytes, &headers)?;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
         let response = self
             .client
             .post(
@@ -179,15 +182,16 @@ impl HttpKnowledgeSourceAuthority {
             .header("x-gateway-secret", signature)
             .header("content-type", "application/json")
             .body(bytes)
-            .send()
+            .timeout(Duration::from_secs(5))
+            .workload_send()
             .await
             .map_err(|_| QueryError::DependenciesFailed)?;
         if !response.status().is_success() {
             return Err(QueryError::DependenciesFailed);
         }
-        response
-            .json()
+        tokio::time::timeout_at(deadline, response.json())
             .await
+            .map_err(|_| QueryError::DependenciesFailed)?
             .map_err(|_| QueryError::InvalidProviderResponse)
     }
 }
@@ -225,7 +229,8 @@ impl HttpAgentRuntimeKnowledge {
                 "runtime knowledge requires gateway to knowledge-service HMAC v2".into(),
             ));
         }
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(Duration::from_secs(2))
@@ -290,6 +295,7 @@ impl HttpAgentRuntimeKnowledge {
         let bytes = serde_json::to_vec(&json!({"dataset_ids":ids,"is_tenant_admin":admin}))
             .map_err(|_| QueryError::DependenciesFailed)?;
         let signature = self.signer.sign("POST", path, "", &bytes, &headers)?;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
         let response = self
             .client
             .post(
@@ -301,15 +307,16 @@ impl HttpAgentRuntimeKnowledge {
             .header("x-gateway-secret", signature)
             .header("content-type", "application/json")
             .body(bytes)
-            .send()
+            .timeout(Duration::from_secs(5))
+            .workload_send()
             .await
             .map_err(|_| QueryError::DependenciesFailed)?;
         if !response.status().is_success() {
             return Err(QueryError::DependenciesFailed);
         }
-        let value: Value = response
-            .json()
+        let value: Value = tokio::time::timeout_at(deadline, response.json())
             .await
+            .map_err(|_| QueryError::DependenciesFailed)?
             .map_err(|_| QueryError::InvalidProviderResponse)?;
         let allowed: BTreeSet<String> = value["allowed_dataset_ids"]
             .as_array()

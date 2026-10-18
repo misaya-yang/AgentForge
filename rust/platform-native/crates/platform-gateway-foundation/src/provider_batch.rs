@@ -10,6 +10,8 @@ pub enum BatchError {
     NotConfigured,
     InvalidPlan,
     Unavailable,
+    /// The lane rejected admission before polling any provider submission future.
+    NotDispatched,
     UnknownSubmission,
     BindingMismatch,
     NotTerminal,

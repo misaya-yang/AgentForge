@@ -37,7 +37,10 @@ pub struct Reranker {
 }
 impl Reranker {
     pub fn new(_client: Client, mut providers: BTreeMap<String, RerankProviderConfig>) -> Self {
-        for config in providers.values_mut() {config.api_key.clear();config.endpoint.clear();}
+        for config in providers.values_mut() {
+            config.api_key.clear();
+            config.endpoint.clear();
+        }
         Self {
             dashscope_base_url: None,
             local_backend: None,
@@ -64,9 +67,22 @@ impl Reranker {
             return self.rerank_local(&p, model, query, documents, top_n).await;
         }
         let model = normalize_model(&p, model);
-        let default=RerankProviderConfig{api_key:String::new(),endpoint:String::new(),request_schema:"auto".into(),instruct:None};
-        let config=self.providers.get(&p).unwrap_or(&default);
-        let schema=if config.request_schema=="auto" {if p!="dashscope" || model.starts_with("qwen3") {"flat"} else {"legacy"}} else {&config.request_schema};
+        let default = RerankProviderConfig {
+            api_key: String::new(),
+            endpoint: String::new(),
+            request_schema: "auto".into(),
+            instruct: None,
+        };
+        let config = self.providers.get(&p).unwrap_or(&default);
+        let schema = if config.request_schema == "auto" {
+            if p != "dashscope" || model.starts_with("qwen3") {
+                "flat"
+            } else {
+                "legacy"
+            }
+        } else {
+            &config.request_schema
+        };
         if !["flat", "legacy"].contains(&schema) {
             return Err(QueryError::Validation(
                 "DashScope rerank request_schema must be auto|legacy|flat".into(),
@@ -79,7 +95,12 @@ impl Reranker {
                 "rerank instruct is not supported by this model".into(),
             ));
         }
-        let profile=format!("gateway:v1:{}:{}:{}",super::model_plane::cache_scope_identity(),schema,config.instruct.as_deref().unwrap_or(""));
+        let profile = format!(
+            "gateway:v1:{}:{}:{}",
+            super::model_plane::cache_scope_identity(),
+            schema,
+            config.instruct.as_deref().unwrap_or("")
+        );
         let key = format!(
             "{:x}",
             Sha256::digest(
@@ -140,11 +161,29 @@ impl Reranker {
                 payload["parameters"]["instruct"] = json!(instruct)
             }
         }
-        let wire=if p=="dashscope" && schema=="legacy" {super::model_plane::ModelWire::DashscopeRerank} else {super::model_plane::ModelWire::Rerank};
-        let (code,data)=super::model_plane::execute(&p,&model,"",super::model_plane::ModelPurpose::Rerank,wire,payload,self.timeout).await?;
+        let wire = if p == "dashscope" && schema == "legacy" {
+            super::model_plane::ModelWire::DashscopeRerank
+        } else {
+            super::model_plane::ModelWire::Rerank
+        };
+        let (code, data) = super::model_plane::execute(
+            &p,
+            &model,
+            "",
+            super::model_plane::ModelPurpose::Rerank,
+            wire,
+            payload,
+            self.timeout,
+        )
+        .await?;
         if !(200..300).contains(&code) {
-            let permanent=[400,401,403,404,405,410,422].contains(&code);
-            self.fail(&health_key,code,Duration::from_secs(if permanent{300}else{30})).await;
+            let permanent = [400, 401, 403, 404, 405, 410, 422].contains(&code);
+            self.fail(
+                &health_key,
+                code,
+                Duration::from_secs(if permanent { 300 } else { 30 }),
+            )
+            .await;
             return Err(QueryError::Provider(code));
         }
         self.health
@@ -272,7 +311,13 @@ pub struct HttpLocalRerankBackend {
     pub use_fp16: bool,
 }
 impl HttpLocalRerankBackend {
-    pub fn gateway()->Self {Self{timeout:Duration::from_secs(30),device:"cpu".into(),use_fp16:true}}
+    pub fn gateway() -> Self {
+        Self {
+            timeout: Duration::from_secs(30),
+            device: "cpu".into(),
+            use_fp16: true,
+        }
+    }
     pub fn new(_client: Client, endpoint: reqwest::Url, _api_key: Option<String>) -> Result<Self> {
         if !["http", "https"].contains(&endpoint.scheme()) || endpoint.host_str().is_none() {
             return Err(QueryError::Validation(
@@ -287,7 +332,9 @@ impl HttpLocalRerankBackend {
     }
 }
 impl LocalRerankBackend for HttpLocalRerankBackend {
-    fn identity(&self)->String {format!("gateway-local-rerank:{}:{}",self.device,self.use_fp16)}
+    fn identity(&self) -> String {
+        format!("gateway-local-rerank:{}:{}", self.device, self.use_fp16)
+    }
     fn scores<'a>(
         &'a self,
         provider: &'a str,
@@ -298,8 +345,19 @@ impl LocalRerankBackend for HttpLocalRerankBackend {
         Box::pin(async move {
             let pairs: Vec<_> = documents.iter().map(|d| json!([query, d])).collect();
             let payload = json!({"provider":provider,"model":model,"pairs":pairs,"normalize":provider=="bge","device":self.device,"use_fp16":self.use_fp16});
-            let (status,v)=super::model_plane::execute(provider,model,"",super::model_plane::ModelPurpose::Rerank,super::model_plane::ModelWire::PairScores,payload,self.timeout).await?;
-            if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
+            let (status, v) = super::model_plane::execute(
+                provider,
+                model,
+                "",
+                super::model_plane::ModelPurpose::Rerank,
+                super::model_plane::ModelWire::PairScores,
+                payload,
+                self.timeout,
+            )
+            .await?;
+            if !(200..300).contains(&status) {
+                return Err(QueryError::Provider(status));
+            }
             let scores = if let Some(n) = v["scores"].as_f64() {
                 vec![n]
             } else {
@@ -339,7 +397,16 @@ impl Reranker {
         let key = format!(
             "{:x}",
             Sha256::digest(
-                json!([provider, model, backend.identity(), super::model_plane::cache_scope_identity(), query, documents, top_n]).to_string()
+                json!([
+                    provider,
+                    model,
+                    backend.identity(),
+                    super::model_plane::cache_scope_identity(),
+                    query,
+                    documents,
+                    top_n
+                ])
+                .to_string()
             )
         );
         {
@@ -467,5 +534,127 @@ mod region_tests {
                 .unwrap(),
             "https://chosen.invalid/rerank"
         );
+    }
+}
+
+/// Cascade inference always enters the governed plane, including the CPU first
+/// stage. It cannot invoke a process-local backend or download a model.
+pub(super) async fn governed(
+    stage: &super::retrieval_v2::RerankStage,
+    query: &str,
+    documents: &[String],
+    cpu: bool,
+    timeout: Duration,
+) -> Result<Vec<RerankResult>> {
+    if documents.is_empty() {
+        return Ok(Vec::new());
+    }
+    let (wire, payload) = if cpu {
+        (
+            super::model_plane::ModelWire::PairScores,
+            json!({"provider":stage.provider,"model":stage.model,"pairs":documents.iter().map(|d| json!([query,d])).collect::<Vec<_>>(),"normalize":true,"device":"cpu","use_fp16":false}),
+        )
+    } else {
+        (
+            super::model_plane::ModelWire::Rerank,
+            json!({"model":stage.model,"query":query,"documents":documents,"top_n":documents.len(),"return_documents":false}),
+        )
+    };
+    let (status, output) = super::model_plane::execute(
+        &stage.provider,
+        &stage.model,
+        &stage.revision,
+        super::model_plane::ModelPurpose::Rerank,
+        wire,
+        payload,
+        timeout,
+    )
+    .await?;
+    if !(200..300).contains(&status) {
+        return Err(QueryError::Provider(status));
+    }
+    cascade_scores(&output, documents.len(), cpu)
+}
+pub(super) async fn governed_vision(
+    stage: &super::retrieval_v2::RerankStage,
+    query: &str,
+    documents: &[Value],
+    timeout: Duration,
+) -> Result<Vec<RerankResult>> {
+    if stage.model != "qwen3-vl-rerank" {
+        return Err(QueryError::Validation(
+            "mixed rerank requires the pinned VL model".into(),
+        ));
+    }
+    let payload = json!({"model":stage.model,"query":{"text":query},"documents":documents,"top_n":documents.len(),"return_documents":false});
+    let (status, output) = super::model_plane::execute(
+        &stage.provider,
+        &stage.model,
+        &stage.revision,
+        super::model_plane::ModelPurpose::Rerank,
+        super::model_plane::ModelWire::Rerank,
+        payload,
+        timeout,
+    )
+    .await?;
+    if !(200..300).contains(&status) {
+        return Err(QueryError::Provider(status));
+    }
+    cascade_scores(&output, documents.len(), false)
+}
+fn cascade_scores(output: &Value, count: usize, cpu: bool) -> Result<Vec<RerankResult>> {
+    let mut results = Vec::new();
+    if cpu {
+        let scores = output["scores"]
+            .as_array()
+            .ok_or(QueryError::InvalidProviderResponse)?;
+        for (index, score) in scores.iter().enumerate() {
+            results.push(RerankResult {
+                index,
+                relevance_score: score
+                    .as_f64()
+                    .filter(|s| s.is_finite())
+                    .ok_or(QueryError::InvalidProviderResponse)?,
+            });
+        }
+    } else {
+        for row in output["results"]
+            .as_array()
+            .or(output["output"]["results"].as_array())
+            .ok_or(QueryError::InvalidProviderResponse)?
+        {
+            results.push(RerankResult {
+                index: row["index"]
+                    .as_u64()
+                    .and_then(|n| usize::try_from(n).ok())
+                    .ok_or(QueryError::InvalidProviderResponse)?,
+                relevance_score: row["relevance_score"]
+                    .as_f64()
+                    .filter(|s| s.is_finite())
+                    .ok_or(QueryError::InvalidProviderResponse)?,
+            });
+        }
+    }
+    let unique: std::collections::BTreeSet<_> = results.iter().map(|r| r.index).collect();
+    if results.len() != count || unique.len() != count || unique.iter().any(|i| *i >= count) {
+        return Err(QueryError::InvalidProviderResponse);
+    }
+    Ok(results)
+}
+#[cfg(test)]
+mod cascade_response_tests {
+    use super::*;
+    #[test]
+    fn cascade_rejects_partial_duplicate_out_of_range_and_nonnumeric_scores() {
+        for output in [
+            json!({"results":[]}),
+            json!({"results":[{"index":0,"relevance_score":1.},{"index":0,"relevance_score":0.}]}),
+            json!({"results":[{"index":0,"relevance_score":1.},{"index":3,"relevance_score":0.}]}),
+            json!({"results":[{"index":0,"relevance_score":1.},{"index":1,"relevance_score":"bad"}]}),
+        ] {
+            assert!(cascade_scores(&output, 2, false).is_err());
+        }
+        assert!(cascade_scores(&json!({"scores":[0.2,0.8]}), 2, true).is_ok());
+        assert!(cascade_scores(&json!({"scores":[null,0.8]}), 2, true).is_err());
     }
 }

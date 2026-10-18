@@ -4,7 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
-import axios, { AxiosError } from "axios";
+import fetchHttp, { HttpError } from '../../lib/fetchClient.ts';
 import { MutationObserver, QueryClient, QueryObserver, focusManager } from "@tanstack/react-query";
 
 // Mount the complete production Settings page and its editor with real TanStack
@@ -79,6 +79,8 @@ function host(options: { initialError?: boolean; realApi?: boolean } = {}) {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/components/PlatformCapabilities": { PlatformCapabilities: () => null },
+    "@/lib/consoleStepUp": { sensitiveMutationOptions: { retry: false } },
     react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
     "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en", resolvedLanguage: "en" } }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: ReturnType<typeof auth.getState>) => unknown) => select(auth.getState()), auth) },
@@ -122,7 +124,7 @@ function host(options: { initialError?: boolean; realApi?: boolean } = {}) {
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL("../../lib/api.ts", import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
       exports, require: (name: string) => {
         if (name === "@/observability/browserTelemetry") return { browserTraceparent: () => undefined };
-        if (name === "axios") return { __esModule: true, default: axios, AxiosError };
+        if (name === "@/lib/fetchClient") return { __esModule: true, default: fetchHttp, ...fetchHttp, HttpError };
         if (name === "@/config/runtime") return { getApiBaseUrlConfig: () => "" };
         if (name === "@/hooks/use-toast") return { toast: { warning() {} } };
         if (name === "@/i18n") return { __esModule: true, default: { t: (key: string) => key } };
@@ -130,13 +132,13 @@ function host(options: { initialError?: boolean; realApi?: boolean } = {}) {
         throw new Error(`Unexpected API import ${name}`);
       }, __hot: { dispose(stop: () => void) { subscriptions.push(stop); } }, localStorage: storage, sessionStorage: storage, window: { location: { pathname: "/settings", href: "" } }, Date, Error, console,
     });
-    const realApi = exports.api as ReturnType<typeof axios.create>;
+    const realApi = exports.api as ReturnType<typeof fetchHttp.create>;
     realApi.defaults.adapter = async request => {
       try {
         const response = await (request.method === "put" ? baseApi.put(request.url!, JSON.parse(request.data)) : baseApi.get(request.url!, request));
         return { ...(response as object), status: 200, statusText: "OK", config: request, headers: {} };
       } catch (error) {
-        if (axios.isAxiosError(error)) { error.config = request; if (error.response) error.response.config = request; }
+        if (fetchHttp.isHttpError(error)) { error.config = request; if (error.response) error.response.config = request; }
         throw error;
       }
     };
@@ -148,6 +150,7 @@ function host(options: { initialError?: boolean; realApi?: boolean } = {}) {
     vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
       exports, require: (name: string) => {
         if (name === "./settings/AuthSettings") return load("./AuthSettings.tsx");
+        if (name === "./PasskeyStepUp") return { PasskeyStepUp: () => null };
         if (name === "@/hooks/useAuthenticatedReadScope") return load("../../hooks/useAuthenticatedReadScope.ts");
         if (name === "./settings/LoadBalancerSettings") return load("./LoadBalancerSettings.tsx");
         if (name.startsWith("@/components/ui/")) return named;
@@ -351,7 +354,7 @@ test("a delayed read from the previous scope cannot replace the new editor", asy
   } finally { pending.resolve(config()); h.dispose(); }
 });
 
-// Production component + production Axios client integration regression.
+// Production component + production Fetch client integration regression.
 for (const boundary of ["account", "token", "permissions", "roles", "tier"]) {
 test(`old ${boundary} PUT returning 401 must not clear the new account or its draft`, async () => {
   const h = host({ realApi: true }); const pending = deferred<unknown>(); try {
@@ -364,7 +367,7 @@ test(`old ${boundary} PUT returning 401 must not clear the new account or its dr
     if (boundary === "tier") h.setAuth({ user: { ...h.auth.user, tier: "changed-tier" } });
     h.render(); await settle(); h.render(); h.choose("random");
     assert.equal(h.value("draft"), "random");
-    const failure = new AxiosError("synthetic unauthorized", "ERR_BAD_REQUEST", undefined, undefined, { status: 401, statusText: "Unauthorized", data: {}, headers: {}, config: {} as never });
+    const failure = new HttpError("synthetic unauthorized", "ERR_BAD_REQUEST", undefined, undefined, { status: 401, statusText: "Unauthorized", data: {}, headers: {}, config: {} as never });
     pending.reject(failure); await settle(); h.render();
     assert.equal(h.clearCount(), 0, "old PUT response cleared the new account");
     assert.equal(h.auth.token, boundary === "account" || boundary === "token" ? "synthetic-session-B" : "synthetic-session-A");
@@ -395,7 +398,7 @@ test("late old-account HTTP 500 cannot change new account draft or trigger reads
     h.setAuth({ token: "synthetic-session-B" }); h.setAuth({ user: { ...h.auth.user, user_id: "admin-B" } });
     h.render(); await settle(); h.render(); h.choose("random");
     const count = h.reads.length;
-    pending.reject(new AxiosError("synthetic failure", "ERR_BAD_RESPONSE", undefined, undefined, { status: 500, statusText: "Internal Server Error", data: {}, headers: {}, config: {} as never }));
+    pending.reject(new HttpError("synthetic failure", "ERR_BAD_RESPONSE", undefined, undefined, { status: 500, statusText: "Internal Server Error", data: {}, headers: {}, config: {} as never }));
     await settle(); h.render();
     assert.equal(h.value("draft"), "random"); assert.equal(h.clearCount(), 0); assert.equal(h.reads.length, count); assert.equal(h.writes.length, 1);
   } finally { pending.resolve({}); h.dispose(); }

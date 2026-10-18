@@ -10,22 +10,16 @@ const ASSISTANT_INCREMENT_GZIP_LIMIT = 220_000;
 const ASSISTANT_RESTORED_GZIP_LIMIT = 220_000;
 const ASSISTANT_GFM_GZIP_LIMIT = 220_000;
 const ROUTE_RAW_LIMIT = 500_000;
-const ROUTE_SOURCES = new Set([
-  "src/pages/dashboard/index.tsx",
-  "src/pages/Services.tsx",
-  "src/pages/playground/index.tsx",
-  "src/pages/tasks/index.tsx",
-  "src/pages/knowledge/index.ts",
-  "src/pages/assistant/index.tsx",
-  "src/pages/eval/index.tsx",
-  "src/pages/agents/index.ts",
-]);
-const EXISTING_ROUTE_EXCEPTIONS = new Set([
-  "src/pages/dashboard/index.tsx",
-  "src/pages/agents/index.ts",
-  "src/pages/eval/index.tsx",
-  "src/pages/knowledge/index.ts",
-]);
+// Derive the budget inventory from the actual router imports, including new
+// settings/public routes. A missing chunk is an error, never a silent exemption.
+const routerSource = fs.readFileSync(path.resolve("src/router.tsx"), "utf8");
+const ROUTE_SOURCES = new Set([...routerSource.matchAll(/import\("@\/pages\/([^"\n]+)"\)/g)].map(([, module]) => {
+  const base = `src/pages/${module}`;
+  const source = [`${base}.tsx`, `${base}.ts`, `${base}/index.tsx`, `${base}/index.ts`].find(file => fs.existsSync(file));
+  if (!source) throw new Error(`Router source missing for ${module}`);
+  return source;
+}));
+
 
 if (!fs.existsSync(MANIFEST_PATH)) {
   throw new Error("Vite manifest missing; run `pnpm -C web build` first");
@@ -133,7 +127,11 @@ const oversizedRoutes = Object.entries(manifest)
     ).raw,
   }))
   .filter((entry) => ROUTE_SOURCES.has(entry.source))
-  .filter((entry) => entry.raw > ROUTE_RAW_LIMIT && !EXISTING_ROUTE_EXCEPTIONS.has(entry.source));
+  .filter((entry) => entry.raw > ROUTE_RAW_LIMIT);
+
+for (const source of ROUTE_SOURCES) {
+  if (!entryForSource(source)) throw new Error(`Budgeted route missing from manifest: ${source}`);
+}
 
 const report = {
   publicEntry: publicBudget.size,
@@ -170,7 +168,7 @@ if (assistantGfmConversation.gzip > ASSISTANT_GFM_GZIP_LIMIT) {
   failures.push(`Assistant GFM conversation gzip ${assistantGfmConversation.gzip} > ${ASSISTANT_GFM_GZIP_LIMIT}`);
 }
 if (oversizedRoutes.length > 0) {
-  failures.push(`new route chunks exceed ${ROUTE_RAW_LIMIT} raw bytes`);
+  failures.push(`route chunks exceed ${ROUTE_RAW_LIMIT} raw bytes`);
 }
 if (failures.length > 0) {
   console.error(failures.join("\n"));

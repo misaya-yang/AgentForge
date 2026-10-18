@@ -4,18 +4,19 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
-import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
+import fetchHttp, { type FetchClient, type RequestConfig } from './fetchClient.ts';
 
-/** Real shared client, installed Axios pipeline and controlled adapter; no sockets. */
+/** Real shared client, installed Fetch pipeline and controlled adapter; no sockets. */
 function client() {
+  let runtimeBase = "";
   let cleared = 0; let removed = 0; let storageThrows = false; let authThrows = false;
   const user = { user_id: "actor-a", roles: ["platform_admin"], permissions: ["role:create"], tier: "normal" };
   const auth = createStore(() => ({ token: "synthetic-a" as string | null, user, isAuthenticated: true, csrfToken: "synthetic-csrf", clearAuth() { cleared++; auth.setState({ token: null, isAuthenticated: false }); } }));
   const location = { origin: "https://console.example", pathname: "/users/roles", href: "" };
   const storage = { getItem() { if (storageThrows) throw new Error("storage unavailable"); return null; }, removeItem() { removed++; } };
-  const modules: Record<string, unknown> = { axios,
+  const modules: Record<string, unknown> = { "@/lib/fetchClient": fetchHttp,
     "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
-    "@/config/runtime": { getApiBaseUrlConfig: () => "" },
+    "@/config/runtime": { getApiBaseUrlConfig: () => runtimeBase },
     "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
     "@/store/useAuthStore": { useAuthStore: { getState() { if (authThrows) throw new Error("auth unavailable"); return auth.getState(); }, subscribe: auth.subscribe } },
   };
@@ -26,11 +27,11 @@ function client() {
     }); return exports;
   }
   modules["@/lib/sdkAuthorityScope"] = load("./sdkAuthorityScope.ts");
-  const api = load("./api.ts").api as AxiosInstance;
-  const calls: InternalAxiosRequestConfig[] = [];
+  const api = load("./api.ts").api as FetchClient;
+  const calls: RequestConfig[] = [];
   let reject!: (error: unknown) => void;
   api.defaults.adapter = config => { calls.push(config); return new Promise((_resolve, fail) => { reject = fail; }); };
-  return { api, get state() { return auth.getState(); }, setState: auth.setState, calls, location, cleared: () => cleared, removed: () => removed,
+  return { api, setRuntimeBase(value: string) { runtimeBase = value; }, get state() { return auth.getState(); }, setState: auth.setState, calls, location, cleared: () => cleared, removed: () => removed,
     fail401() { reject({ config: calls.at(-1), response: { status: 401 } }); },
     storageFailure() { storageThrows = true; }, authFailure() { authThrows = true; },
   };
@@ -84,4 +85,18 @@ test("same-origin relative API base remains supported in the cookie BFF client",
 test("central client rejects old UI marker instead of substituting the new actor cookie",async()=>{
   const h=client();h.setState({token:"console-session:new"});
   await assert.rejects(h.api.post("/api/v1/items",{}, {headers:{Authorization:"Bearer console-session:old"}}),/session changed/);assert.equal(h.calls.length,0);
+});
+
+
+test("client reads runtime authority after JSON bootstrap instead of capturing the import-time fallback", async () => {
+  const h = client();
+  h.setRuntimeBase("/configured-api");
+  const pending = h.api.get("/api/v1/items");
+  assert.equal(h.calls[0].baseURL, "/configured-api");
+  h.fail401();
+  await assert.rejects(pending);
+  const foreign = client();
+  foreign.setRuntimeBase("https://foreign.invalid");
+  await assert.rejects(foreign.api.get("/api/v1/items"), /same origin/);
+  assert.equal(foreign.calls.length, 0);
 });

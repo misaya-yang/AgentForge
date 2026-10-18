@@ -24,7 +24,10 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum QdrantRole { ApiReadOnly, WorkerWrite }
+pub enum QdrantRole {
+    ApiReadOnly,
+    WorkerWrite,
+}
 
 #[derive(Clone)]
 pub struct QdrantStore {
@@ -58,7 +61,9 @@ pub struct VectorHit {
 mod security;
 impl QdrantStore {
     /// Clone the dedicated TLS client for service-owned health probes. No API key is installed in its defaults.
-    pub fn health_http_client(&self) -> Client { self.client.clone() }
+    pub fn health_http_client(&self) -> Client {
+        self.client.clone()
+    }
 
     /// Select the source client transport explicitly. No HTTP fallback on gRPC failure.
     pub fn set_prefer_grpc(&mut self, enabled: bool) -> Result<()> {
@@ -109,12 +114,9 @@ impl QdrantStore {
         let info = self.collection_info(collection).await?;
         let metadata = &info["config"]["metadata"];
         if let Some(scope) = metadata.get("knowledge_scope") {
-            if scope["schema_version"] != 1
-                || scope["tenant_id"] != dataset.tenant_id
-                || scope["dataset_id"] != dataset.dataset_id
-            {
+            if !self.owns_scope(dataset, scope)? {
                 return Err(QueryError::CollectionAuthority(
-                    "special point collection owner differs or is malformed".into(),
+                    "special collection owner differs".into(),
                 ));
             }
         }
@@ -335,7 +337,8 @@ impl QdrantStore {
         operation: &'static str,
         interactive: bool,
     ) -> Result<Value> {
-        match self.resilience
+        match self
+            .resilience
             .execute(&self.policy(), self.timeout, interactive, |timeout| {
                 let mut request = self
                     .client
@@ -443,10 +446,22 @@ impl QdrantStore {
         write: bool,
         interactive: bool,
     ) -> Result<Value> {
-        let read_operation = method == Method::GET || (method == Method::POST && matches!(suffix,
-            ["points"] | ["points", "query"] | ["points", "query", "batch"] | ["points", "scroll"] | ["points", "count"] | ["points", "search"] | ["points", "search", "batch"]));
+        let read_operation = method == Method::GET
+            || (method == Method::POST
+                && matches!(
+                    suffix,
+                    ["points"]
+                        | ["points", "query"]
+                        | ["points", "query", "batch"]
+                        | ["points", "scroll"]
+                        | ["points", "count"]
+                        | ["points", "search"]
+                        | ["points", "search", "batch"]
+                ));
         if !read_operation && self.is_read_only() {
-            return Err(QueryError::Validation("Qdrant mutation requires the durable Knowledge worker".into()));
+            return Err(QueryError::Validation(
+                "Qdrant mutation requires the durable Knowledge worker".into(),
+            ));
         }
         if let Some(grpc) = &self.grpc {
             let method = &method;
@@ -490,6 +505,23 @@ impl QdrantStore {
         .await
     }
     pub(super) async fn delete_collection_scoped(&self, dataset: &Dataset) -> Result<()> {
+        if self.collection_info(dataset.collection()?).await?["config"]["metadata"]["knowledge_scope"]
+            ["schema_version"]
+            == 2
+        {
+            let filter = Self::deletion_filter(dataset, None)?;
+            let result = self
+                .call(
+                    Method::POST,
+                    dataset.collection()?,
+                    &["points", "delete"],
+                    Some(&json!({"filter":filter})),
+                    true,
+                )
+                .await?;
+            return Self::completed(&result);
+        }
+
         let deleted = self
             .call(Method::DELETE, dataset.collection()?, &[], None, false)
             .await?;
@@ -544,15 +576,29 @@ impl QdrantStore {
             .call_interactive(Method::GET, name, &[], None, false)
             .await?;
         let metadata = &info["config"]["metadata"];
-        if let Some(scope) = metadata.get("knowledge_scope") {
-            if scope["schema_version"].as_u64() != Some(1)
-                || scope["tenant_id"].as_str() != Some(dataset.tenant_id.trim())
-                || scope["dataset_id"].as_str() != Some(dataset.dataset_id.trim())
-                || dataset.tenant_id.trim().is_empty()
-                || dataset.dataset_id.trim().is_empty()
+        if let Some(profile) =
+            super::serving_profile::require(dataset)?.filter(|p| p.index.is_some())
+        {
+            profile.verify_layout(&info)?;
+            if metadata["knowledge_serving"]["index_fingerprint"]
+                != super::lexical_v2::fingerprint(
+                    &serde_json::to_value(&profile.index).map_err(|_| QueryError::VectorStore)?,
+                )
             {
                 return Err(QueryError::CollectionAuthority(
-                    "collection immutable dataset/tenant scope mismatch".into(),
+                    "optimized index profile requires a measured blue-green collection migration"
+                        .into(),
+                ));
+            }
+        } else if metadata["knowledge_serving"]["index_fingerprint"].is_string() {
+            return Err(QueryError::CollectionAuthority(
+                "optimized index cannot be silently adopted by a legacy profile".into(),
+            ));
+        }
+        if let Some(scope) = metadata.get("knowledge_scope") {
+            if !self.owns_scope(dataset, scope)? {
+                return Err(QueryError::CollectionAuthority(
+                    "collection immutable scope differs".into(),
                 ));
             }
         } else if dataset.tenant_id.trim().is_empty() || dataset.dataset_id.trim().is_empty() {
@@ -617,6 +663,28 @@ impl QdrantStore {
                 "collection ownership and dimension are required".into(),
             ));
         }
+        if let Some(profile) = super::serving_profile::require(dataset)? {
+            if let Some(shared) = &profile.shared {
+                let requested = dataset
+                    .collection_name
+                    .as_deref()
+                    .filter(|name| {
+                        *name == shared.collection
+                            || *name == format!("{}_sections", shared.collection)
+                            || *name == format!("{}_summary", shared.collection)
+                    })
+                    .unwrap_or(&shared.collection);
+                let mut scoped = dataset.clone();
+                scoped.collection_name = Some(requested.into());
+                let info = self.require_collection_readable(&scoped).await?;
+                if info["config"]["params"]["vectors"]["size"].as_u64() != Some(dimension as u64) {
+                    return Err(QueryError::CollectionAuthority(
+                        "shared group model dimension differs".into(),
+                    ));
+                }
+                return Ok(requested.into());
+            }
+        }
         let sanitize = super::migration::sanitize;
         let desired = sanitize(dataset.collection_name.as_deref().unwrap_or(&format!(
             "kb_{}_{}",
@@ -649,7 +717,13 @@ impl QdrantStore {
             sparse["bm25_v2"] = json!({"modifier":"idf"});
             metadata["knowledge_lexical"] = lexical.collection_profile();
         }
-        let body = json!({"vectors":{"size":dimension,"distance":"Cosine"},"sparse_vectors":sparse,"metadata":metadata,"hnsw_config":{"m":16,"ef_construct":200,"full_scan_threshold":10000},"optimizers_config":{"indexing_threshold":20000}});
+        let mut body = json!({"vectors":{"size":dimension,"distance":"Cosine"},"sparse_vectors":sparse,"metadata":metadata,"hnsw_config":{"m":16,"ef_construct":200,"full_scan_threshold":10000},"optimizers_config":{"indexing_threshold":20000}});
+        if let Some(profile) = super::serving_profile::require(dataset)? {
+            profile.collection_config(&mut body);
+            if profile.index.is_some() {
+                body["metadata"]["knowledge_serving"] = json!({"schema":"knowledge-serving/v1","fingerprint":profile.fingerprint(dataset),"index_fingerprint":super::lexical_v2::fingerprint(&serde_json::to_value(&profile.index).map_err(|_|QueryError::VectorStore)?)});
+            }
+        }
         let created = self
             .call(Method::PUT, &actual, &[], Some(&body), false)
             .await?;
@@ -676,15 +750,29 @@ impl QdrantStore {
                 "section_title",
                 "metadata.topic",
                 "metadata.keywords",
+                "enabled",
+                "level",
+                "content_type",
+                "_rollback_backup",
+                "source_version",
+                "metadata.source_path",
             ] {
-                let schema = if field == "tenant_id" && lexical.shadow {
+                let schema = if field == "tenant_id" {
                     json!({"type":"keyword","is_tenant":true})
+                } else if field == "metadata.source_path"
+                    && dataset.index_config["serving_v2"]["index"].is_object()
+                {
+                    json!({"type":"keyword","prefix":{}})
+                } else if ["enabled", "_rollback_backup"].contains(&field) {
+                    json!("bool")
+                } else if ["level", "source_version"].contains(&field) {
+                    json!("integer")
                 } else if field == "authority_rank" {
                     json!("integer")
                 } else {
                     json!("keyword")
                 };
-                let _ = self
+                let installed = self
                     .call(
                         Method::PUT,
                         &actual,
@@ -693,6 +781,13 @@ impl QdrantStore {
                         true,
                     )
                     .await;
+                if dataset.index_config["serving_v2"]["index"].is_object()
+                    && !matches!(installed, Ok(Value::Bool(true)))
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "optimized collection payload index installation failed".into(),
+                    ));
+                }
             }
             if lexical.shadow {
                 self.ensure_filtering_profile(&actual, &lexical, true, Some(false), true)
@@ -723,6 +818,11 @@ impl QdrantStore {
             ));
         }
         let info = self.ensure_immutable_scope(&scoped, info).await?;
+        if super::serving_profile::Profile::from_dataset(dataset)?
+            .is_some_and(|p| p.index.is_some())
+        {
+            self.require_collection_readable(&scoped).await?;
+        }
         // Legacy sparse installation is best effort in the Python adapter.
         if info["config"]["params"]["sparse_vectors"]
             .get("bm25")
@@ -749,14 +849,43 @@ impl QdrantStore {
         .await?;
         Ok(())
     }
+    fn owns_scope(&self, dataset: &Dataset, scope: &Value) -> Result<bool> {
+        match scope["schema_version"].as_u64() {
+            Some(1) => {
+                if scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
+                    || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "malformed immutable collection scope".into(),
+                    ));
+                }
+                Ok(scope["tenant_id"] == dataset.tenant_id
+                    && scope["dataset_id"] == dataset.dataset_id)
+            }
+            Some(2) => {
+                if scope["group"]
+                    .as_str()
+                    .is_none_or(|s| !s.starts_with("kbs_"))
+                    || !scope["layout"].is_string()
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "malformed shared collection scope".into(),
+                    ));
+                }
+                Ok(super::serving_profile::require(dataset)?
+                    .and_then(|p| p.shared_scope(dataset))
+                    .as_ref()
+                    == Some(scope))
+            }
+            _ => Err(QueryError::CollectionAuthority(
+                "unknown immutable collection scope".into(),
+            )),
+        }
+    }
     fn require_write_scope(&self, dataset: &Dataset, info: &Value) -> Result<()> {
-        let s = &info["config"]["metadata"]["knowledge_scope"];
-        if s["schema_version"] != 1
-            || s["dataset_id"] != dataset.dataset_id
-            || s["tenant_id"] != dataset.tenant_id
-        {
+        if !self.owns_scope(dataset, &info["config"]["metadata"]["knowledge_scope"])? {
             return Err(QueryError::CollectionAuthority(
-                "collection is missing immutable dataset/tenant scope".into(),
+                "collection immutable scope differs".into(),
             ));
         }
         Ok(())
@@ -777,6 +906,16 @@ impl QdrantStore {
             must.push(json!({"should":[{"key":"enabled","match":{"value":true}},{"is_empty":{"key":"enabled"}}]}))
         }
         if let Some(r) = request {
+            if dataset.index_config["serving_v2"]["index"].is_object() {
+                if let Some(prefix) = r
+                    .extra
+                    .get("source_path_prefix")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty() && s.len() <= 1024)
+                {
+                    must.push(json!({"key":"metadata.source_path","match":{"prefix":prefix}}));
+                }
+            }
             for (key, value) in [
                 ("document_id", r.document_id.as_deref()),
                 ("source_type", r.source_type_filter.as_deref()),
@@ -814,6 +953,22 @@ impl QdrantStore {
         body: &Value,
         collection_dimension: Option<usize>,
     ) -> Result<Vec<VectorHit>> {
+        let mut body = body.clone();
+        if let Some(profile) = super::serving_profile::require(dataset)? {
+            if let Some(shard) = profile.shard_key() {
+                body["shard_key"] = shard;
+            }
+            let params = profile.search_params(dataset);
+            if !params.is_null() {
+                body["params"] = params.clone();
+                if let Some(prefetch) = body["prefetch"].as_array_mut() {
+                    for q in prefetch {
+                        q["params"] = params.clone();
+                    }
+                }
+            }
+        }
+        let body = &body;
         let query_dimension = Self::dense_query_dimension(body);
         let result = self
             .call_interactive(
@@ -953,6 +1108,14 @@ impl QdrantStore {
                 ("tenant_id", &dataset.tenant_id),
                 ("dataset_id", &dataset.dataset_id),
             ] {
+                if super::serving_profile::Profile::from_dataset(dataset)?
+                    .is_some_and(|p| p.shared.is_some())
+                    && p["payload"][key].as_str() != Some(expected.as_str())
+                {
+                    return Err(QueryError::CollectionAuthority(
+                        "shared snapshot lacks exact owner".into(),
+                    ));
+                }
                 if p["payload"][key]
                     .as_str()
                     .is_some_and(|v| !v.is_empty() && v != expected)
@@ -1155,12 +1318,17 @@ impl QdrantStore {
             _ => 4,
         };
         for batch in prepared.chunks(batch_size) {
+            let mut batch_body = json!({"points":batch});
+            if let Some(key) = super::serving_profile::require(dataset)?.and_then(|p| p.shard_key())
+            {
+                batch_body["shard_key"] = key;
+            }
             let result = self
                 .call(
                     Method::PUT,
                     dataset.collection()?,
                     &["points"],
-                    Some(&json!({"points":batch})),
+                    Some(&batch_body),
                     true,
                 )
                 .await?;
@@ -1229,7 +1397,13 @@ impl QdrantStore {
         let mut out = Vec::new();
         let mut offsets = BTreeSet::new();
         loop {
-            let body = json!({"filter":filter,"limit":256,"offset":offset,"with_payload":true,"with_vector":with_vectors});
+            let scoped_filter =
+                if super::serving_profile::require(dataset)?.is_some_and(|p| p.shared.is_some()) {
+                    json!({"must":[filter,Self::filter(dataset,None,false)]})
+                } else {
+                    filter.clone()
+                };
+            let body = json!({"filter":scoped_filter,"limit":256,"offset":offset,"with_payload":true,"with_vector":with_vectors});
             let result = self
                 .call(
                     Method::POST,
@@ -1363,6 +1537,9 @@ impl QdrantStore {
             json!({"key":"dataset_id","match":{"value":dataset.dataset_id}}),
             json!({"should":[{"key":"tenant_id","match":{"value":dataset.tenant_id}},{"is_empty":{"key":"tenant_id"}}]}),
         ];
+        if super::serving_profile::require(dataset)?.is_some_and(|p| p.shared.is_some()) {
+            must[1] = json!({"key":"tenant_id","match":{"value":dataset.tenant_id}});
+        }
         if let Some(document) = document {
             if document.trim().is_empty() {
                 return Err(QueryError::Validation(
@@ -1412,6 +1589,17 @@ impl QdrantStore {
             let metadata = info["config"]["metadata"].clone();
             let authoritative = authoritative_names.contains(&name);
             if let Some(scope) = metadata.get("knowledge_scope") {
+                if scope["schema_version"] == 2 {
+                    if self.owns_scope(dataset, scope)? {
+                        actions.push((name, false, metadata));
+                    } else if authoritative {
+                        return Err(QueryError::CollectionAuthority(
+                            "shared collection scope differs".into(),
+                        ));
+                    }
+                    continue;
+                }
+
                 if scope["schema_version"] != 1
                     || scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
                     || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
@@ -1489,15 +1677,21 @@ impl QdrantStore {
         for name in self.list_collection_names().await? {
             let info = self.collection_info(&name).await?;
             if let Some(scope) = info["config"]["metadata"].get("knowledge_scope") {
-                if scope["schema_version"] != 1 {
-                    return Err(QueryError::CollectionAuthority(
-                        "malformed immutable collection scope".into(),
-                    ));
-                }
-                if scope["tenant_id"] != dataset.tenant_id
-                    || scope["dataset_id"] != dataset.dataset_id
-                {
-                    continue;
+                if scope["schema_version"] == 2 {
+                    if !self.owns_scope(dataset, scope)? {
+                        continue;
+                    }
+                } else {
+                    if scope["schema_version"] != 1 {
+                        return Err(QueryError::CollectionAuthority(
+                            "malformed immutable collection scope".into(),
+                        ));
+                    }
+                    if scope["tenant_id"] != dataset.tenant_id
+                        || scope["dataset_id"] != dataset.dataset_id
+                    {
+                        continue;
+                    }
                 }
             } else if self.count_points(&name, Some(&filter)).await? == 0 {
                 continue;
@@ -1621,6 +1815,24 @@ impl QdrantStore {
             }
             searches.push(json!({"prefetch":[{"query":vector,"limit":dense_k,"filter":filter},{"query":sparse,"using":using,"limit":sparse_k,"filter":filter}],"query":{"rrf":rrf},"limit":top_k,"with_payload":true}));
         }
+        if let Some(profile) = super::serving_profile::require(d)? {
+            if let Some(shard) = profile.shard_key() {
+                for q in &mut searches {
+                    q["shard_key"] = shard.clone();
+                }
+            }
+            let params = profile.search_params(d);
+            if !params.is_null() {
+                for query in &mut searches {
+                    query["params"] = params.clone();
+                    if let Some(prefetch) = query["prefetch"].as_array_mut() {
+                        for q in prefetch {
+                            q["params"] = params.clone();
+                        }
+                    }
+                }
+            }
+        }
         let result = self
             .call_interactive(
                 Method::POST,
@@ -1712,18 +1924,24 @@ impl QdrantStore {
             let info = self.collection_info(&name).await?;
             let metadata = info["config"]["metadata"].clone();
             if let Some(scope) = metadata.get("knowledge_scope") {
-                if scope["schema_version"] != 1
-                    || scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
-                    || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
-                {
-                    return Err(QueryError::CollectionAuthority(
-                        "malformed immutable collection scope".into(),
-                    ));
-                }
-                if scope["tenant_id"] != dataset.tenant_id
-                    || scope["dataset_id"] != dataset.dataset_id
-                {
-                    continue;
+                if scope["schema_version"] == 2 {
+                    if !self.owns_scope(dataset, scope)? {
+                        continue;
+                    }
+                } else {
+                    if scope["schema_version"] != 1
+                        || scope["tenant_id"].as_str().is_none_or(|s| s.is_empty())
+                        || scope["dataset_id"].as_str().is_none_or(|s| s.is_empty())
+                    {
+                        return Err(QueryError::CollectionAuthority(
+                            "malformed immutable collection scope".into(),
+                        ));
+                    }
+                    if scope["tenant_id"] != dataset.tenant_id
+                        || scope["dataset_id"] != dataset.dataset_id
+                    {
+                        continue;
+                    }
                 }
             } else if self.count_points(&name, Some(filter)).await? == 0 {
                 continue;

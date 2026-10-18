@@ -1,3 +1,4 @@
+import type { RequestBody, RequestQuery } from "@/api/contracts";
 import { api } from "@/lib/api";
 import type {
   HealthStatus,
@@ -69,20 +70,20 @@ export async function getHealth() {
   return data;
 }
 
-export async function registerService(definition: Record<string, unknown>) {
-  const { data } = await api.post("/api/v1/services", definition);
+export async function registerService(definition: RequestBody<"POST /api/v1/services">) {
+  const { data } = await api.post("/api/v1/services", (definition satisfies RequestBody<"POST /api/v1/services">));
   return data;
 }
 
 /** Official-SDK create-only registration. Never fall back to legacy upsert. */
-export async function registerSdkService(definition: Record<string, unknown>) {
+export async function registerSdkService(definition: RequestBody<"POST /api/v1/service-registrations">) {
   try {
-    const { data } = await api.post("/api/v1/service-registrations", definition);
+    const { data } = await api.post("/api/v1/service-registrations", (definition satisfies RequestBody<"POST /api/v1/service-registrations">));
     return data;
   } catch (error) {
     const status = (error as { response?: { status?: number } } | null)?.response?.status;
     // Discard transport/body details, which can contain the write-only provider key.
-    // eslint-disable-next-line preserve-caught-error -- Axios causes can retain the write-only provider key.
+    // eslint-disable-next-line preserve-caught-error -- Fetch causes can retain the write-only provider key.
     throw new Error(status === 404 || status === 405 || status === 501
       ? "sdk_registration_unavailable" : status === 409
         ? "sdk_registration_conflict" : "sdk_registration_unconfirmed");
@@ -94,8 +95,8 @@ export async function getService(serviceId: string) {
   return data;
 }
 
-export async function updateService(serviceId: string, patch: Record<string, unknown>) {
-  const { data } = await api.put(`/api/v1/services/${serviceId}`, patch);
+export async function updateService(serviceId: string, patch: RequestBody<"PUT /api/v1/services/{service_id}">) {
+  const { data } = await api.put(`/api/v1/services/${serviceId}`, (patch satisfies RequestBody<"PUT /api/v1/services/{service_id}">));
   return data;
 }
 
@@ -105,7 +106,7 @@ export async function deleteService(serviceId: string) {
 }
 
 export async function invokeService(req: UnifiedRequest) {
-  const { data } = await api.post<UnifiedResponse>("/api/v1/invoke", req);
+  const { data } = await api.post<UnifiedResponse>("/api/v1/invoke", (req satisfies RequestBody<"POST /api/v1/invoke">));
   return data;
 }
 
@@ -125,12 +126,8 @@ export async function cancelTask(taskId: string) {
   return { task_id: taskId, status: "cancelled" as const };
 }
 
-export async function listTasks(params?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}, signal?: AbortSignal) {
-  const { data } = await api.get<Task[]>("/api/v1/tasks", { params, signal });
+export async function listTasks(params?: RequestQuery<"GET /api/v1/tasks">, signal?: AbortSignal) {
+  const { data } = await api.get<Task[]>("/api/v1/tasks", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/tasks">), signal });
   return data;
 }
 

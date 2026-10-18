@@ -90,9 +90,9 @@ function ToolInspector({ sessionId, onClose, isCurrent }: { sessionId: string; o
           </div>
           <p className="text-xs text-muted-foreground">{set === "catalog" ? t("assistant.toolsCatalogNote", "Catalog membership does not confirm that a tool is callable in this session.")
             : set === "estimate" ? data.next_turn_estimate.status === "unavailable" ? t("assistant.toolsEstimateUnavailable", "Current worker/configuration could not be checked; catalog entries are not confirmed callable.") : t("assistant.toolsEstimate", "Callable estimate if a turn started now; checked again at admission.")
-              : data.last_run_pinned ? t("assistant.toolsPinned", "Last run {{run}} ({{status}}) pinned {{count}} tools.", { run: data.last_run_pinned.run_id, status: data.last_run_pinned.status, count: data.last_run_pinned.tools.length }) : t("assistant.toolsNoPinned", "No pinned run was reported for this session.")}</p>
+              : data.last_run_pinned ? t("assistant.toolsPinned", "Last run {run} ({status}) pinned {count} tools.", { run: data.last_run_pinned.run_id, status: data.last_run_pinned.status, count: data.last_run_pinned.tools.length }) : t("assistant.toolsNoPinned", "No pinned run was reported for this session.")}</p>
           <Input aria-label={t("assistant.toolsSearch", "Filter tool names and descriptions")} value={filter} onChange={event => { if (active()) setFilter(event.target.value); }} />
-          <p role="status" className="text-xs text-muted-foreground">{t("assistant.toolsResultCount", "Showing {{shown}} of {{count}} returned tools", { shown: visible.length, count: tools.length })}</p>
+          <p role="status" className="text-xs text-muted-foreground">{t("assistant.toolsResultCount", "Showing {shown} of {count} returned tools", { shown: visible.length, count: tools.length })}</p>
           <div className="max-h-[45dvh] space-y-2 overflow-y-auto">
             {visible.length === 0 && <p className="text-sm">{t("assistant.toolsNoMatches", "No tools to display in this set with this filter.")}</p>}
             {visible.map((tool, index) => <div key={`${tool.name}:${index}`} className="rounded border p-3 text-sm">

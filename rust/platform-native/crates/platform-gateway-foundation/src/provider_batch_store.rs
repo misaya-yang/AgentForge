@@ -4,13 +4,22 @@ use crate::{
     postgres_operation::PgOperationStorage,
     protocol::UnifiedResponse,
     provider_batch::*,
-    task_delivery::{DeliveryClaim, DeliveryError, DeliveryIdentity},
+    task_delivery::{DeliveryClaim, DeliveryError, DeliveryIdentity, DeliveryTerminal},
     task_manager::TaskEnvelope,
 };
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row};
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 use uuid::Uuid;
+
+fn spawn_hold_release(
+    release: impl Future<Output = Result<(), BatchError>> + Send + 'static,
+) -> tokio::task::JoinHandle<Result<(), BatchError>> {
+    // Dropping the caller's JoinHandle detaches this task rather than aborting
+    // a known-safe release while it waits for the shared user or row locks.
+    tokio::spawn(release)
+}
+
 #[derive(Clone)]
 pub struct BatchCoordinator {
     pub(crate) pool: PgPool,
@@ -101,6 +110,12 @@ impl BatchCoordinator {
     /// INSERT is the one submission permission. It commits before HTTP. A lost
     /// INSERT/POST/confirmation response never permits another POST.
     pub async fn submit_claim(&self, claim: &DeliveryClaim) -> Result<(), DeliveryError> {
+        self.submit_claim_outcome(claim).await.map(|_| ())
+    }
+    pub(crate) async fn submit_claim_outcome(
+        &self,
+        claim: &DeliveryClaim,
+    ) -> Result<DeliveryTerminal, DeliveryError> {
         self.admit(&claim.envelope).await?;
         let identity = DeliveryIdentity::of(&claim.envelope);
         let plan = BatchPlan::from_envelope(&claim.envelope)
@@ -122,15 +137,24 @@ impl BatchCoordinator {
                 .bind(&saved.task_id).bind(&saved.request_id).bind(&saved.service_id).bind(&saved.user_id).bind(&saved.tenant_id).bind(claimed).bind(&stored.provider_id).bind(&stored.model_id).bind(&stored.input_file_id).bind(&stored.endpoint).bind(nonce).fetch_optional(connection).await?;Ok(row.is_some())
         })).await.map_err(|_|DeliveryError::StorageUnavailable)?;
         if !inserted {
-            return Ok(());
+            let stored = self.load(&identity, claimed).await?;
+            let released = crate::provider_batch_quota::was_released(
+                &self.pool,
+                &identity,
+                claimed,
+                stored.nonce,
+            )
+            .await
+            .map_err(|_| DeliveryError::StorageUnavailable)?;
+            return Ok(if released {
+                DeliveryTerminal::Failed("provider_batch_not_dispatched")
+            } else {
+                DeliveryTerminal::Unknown
+            });
         } // Retain existing intent; observation only thereafter.
         let provider = self
             .providers
             .get(&identity.tenant_id, &plan.provider_id)
-            .map_err(|_| DeliveryError::StorageUnavailable)?;
-        self.accounting
-            .reserve(&identity, claimed, &plan)
-            .await
             .map_err(|_| DeliveryError::StorageUnavailable)?;
         let service = self
             .preflight
@@ -143,14 +167,42 @@ impl BatchCoordinator {
             .snapshot()
             .dispatch_view()
             .map_err(|_| DeliveryError::InvalidEnvelope)?;
-        let receipt = self
+        self.accounting
+            .reserve(&identity, claimed, &plan)
+            .await
+            .map_err(|_| DeliveryError::StorageUnavailable)?;
+        let receipt = match self
             .lane
             .submit(claim, &service, provider, &plan, nonce)
             .await
-            .map_err(|_| DeliveryError::StorageUnavailable)?;
+        {
+            Ok(receipt) => receipt,
+            Err(BatchError::NotDispatched) => {
+                let pool = self.pool.clone();
+                let release_identity = identity.clone();
+                // Establish independent ownership before any further await:
+                // worker revocation can drop this invocation at its next poll.
+                let release = spawn_hold_release(async move {
+                    crate::provider_batch_quota::release_not_dispatched(
+                        &pool,
+                        &release_identity,
+                        claimed,
+                        nonce,
+                    )
+                    .await
+                });
+                release
+                    .await
+                    .map_err(|_| DeliveryError::StorageUnavailable)?
+                    .map_err(|_| DeliveryError::StorageUnavailable)?;
+                return Ok(DeliveryTerminal::Failed("provider_batch_not_dispatched"));
+            }
+            Err(_) => return Err(DeliveryError::StorageUnavailable),
+        };
         let job = verify_receipt(&receipt, &plan, nonce, None)
             .map_err(|_| DeliveryError::InvalidEnvelope)?;
-        self.confirm(&identity, claimed, nonce, &job).await
+        self.confirm(&identity, claimed, nonce, &job).await?;
+        Ok(DeliveryTerminal::Unknown)
     }
     async fn confirm(
         &self,
@@ -264,5 +316,40 @@ impl BatchCoordinator {
             response,
             observed_at: chrono::Utc::now(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::oneshot;
+
+    #[tokio::test]
+    async fn known_not_dispatched_release_survives_caller_cancellation_while_waiting() {
+        let (entered, waiting) = oneshot::channel();
+        let (unlock, locked) = oneshot::channel();
+        let (completed, completion) = oneshot::channel();
+        let caller = tokio::spawn(async move {
+            let release = spawn_hold_release(async move {
+                entered.send(()).unwrap();
+                locked.await.unwrap();
+                completed.send(()).unwrap();
+                Ok(())
+            });
+            release.await.unwrap()
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(1), waiting)
+            .await
+            .unwrap()
+            .unwrap();
+        caller.abort();
+        assert!(caller.await.unwrap_err().is_cancelled());
+        unlock
+            .send(())
+            .expect("owned release must retain its lock waiter");
+        tokio::time::timeout(std::time::Duration::from_secs(1), completion)
+            .await
+            .unwrap()
+            .unwrap();
     }
 }

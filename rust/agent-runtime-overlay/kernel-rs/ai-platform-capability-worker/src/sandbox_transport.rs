@@ -48,6 +48,7 @@ impl RemoteSandboxBroker {
         #[cfg(unix)]
         {
             let client = reqwest::Client::builder()
+                .retry(reqwest::retry::never())
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(5))

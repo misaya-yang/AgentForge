@@ -263,7 +263,7 @@ pub async fn parse_native(
 /// the existing execution fence and durable object-storage commit. No effect is
 /// published here, and every Gateway dispatch uses its existing settled receipt.
 /// A dispatch error (including unknown effect) is terminal: no retry/fallback.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProcessingScope {
     pub tenant_id: String,
     pub dataset_id: String,

@@ -20,6 +20,13 @@ pub trait ArtifactShareScope: Send + Sync {
         user: &'a ArtifactSharesIdentity,
         id: &'a str,
     ) -> ArtifactSharesFuture<'a, SourceReferences>;
+    /// Generic plugin bridge preserves the distinction between legacy reads and
+    /// public shares requiring a verifiable generation origin.
+    fn quiz_sources_with_origin<'a>(
+        &'a self, user: &'a ArtifactSharesIdentity, id: &'a str, _require_origin: bool,
+    ) -> ArtifactSharesFuture<'a, SourceReferences> {
+        self.quiz_sources(user, id)
+    }
     fn require_active<'a>(
         &'a self,
         user: &'a ArtifactSharesIdentity,
@@ -176,6 +183,11 @@ impl ArtifactShareScope for NativeArtifactShareScope {
         id: &'a str,
     ) -> ArtifactSharesFuture<'a, SourceReferences> {
         Box::pin(self.quiz_sources_with_origin(user, id, true))
+    }
+    fn quiz_sources_with_origin<'a>(
+        &'a self, user: &'a ArtifactSharesIdentity, id: &'a str, require_origin: bool,
+    ) -> ArtifactSharesFuture<'a, SourceReferences> {
+        Box::pin(NativeArtifactShareScope::quiz_sources_with_origin(self, user, id, require_origin))
     }
     fn require_active<'a>(
         &'a self,

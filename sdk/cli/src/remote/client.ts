@@ -12,6 +12,7 @@ import type { CLIConfig } from "../types/config.js";
 import type { StreamEvent } from "../types/events.js";
 import { EventType } from "../types/events.js";
 import { CLI_VERSION } from "../version.js";
+import { parseGatewayProblem, type GatewayProblem } from "./problem.js";
 
 export interface GatewayRequestOptions {
   signal?: AbortSignal;
@@ -27,6 +28,7 @@ export interface GatewayStreamOptions extends GatewayRequestOptions {
 }
 
 export class GatewayHttpError extends Error {
+  readonly problem: GatewayProblem | undefined;
   constructor(
     readonly status: number,
     readonly body: string,
@@ -34,6 +36,7 @@ export class GatewayHttpError extends Error {
   ) {
     super(`HTTP ${status}: ${body || "request failed"}`);
     this.name = "GatewayHttpError";
+    this.problem = parseGatewayProblem(status, body);
   }
 }
 
@@ -44,10 +47,11 @@ export class GatewayClient {
     this.config = config;
   }
 
-  private getHeaders(extra?: Record<string, string>): Record<string, string> {
+  private async getHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+    const token=this.config.access_token_provider ? await this.config.access_token_provider() : this.config.access_token;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-API-Key": this.config.api_key,
+      ...(token ? { Authorization: `Bearer ${token}` } : { "X-API-Key": this.config.api_key }),
       "X-Tenant-Id": this.config.tenant_id,
       "X-SDK-Version": `cli/${CLI_VERSION}`,
       "X-Request-Id": randomUUID(),
@@ -72,7 +76,7 @@ export class GatewayClient {
     options: GatewayRequestOptions = {},
   ): Promise<any> {
     const url = `${this.baseUrl()}${path}`;
-    const headers = this.getHeaders(options.headers);
+    const headers = await this.getHeaders(options.headers);
     const timeoutMs = options.timeoutMs ?? Math.max(1, this.config.timeout) * 1000;
     const controller = new AbortController();
     const forwardAbort = () => controller.abort(options.signal?.reason);
@@ -85,7 +89,7 @@ export class GatewayClient {
         headers,
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
-        ...(options.boundedJson && { redirect: "error" as const }),
+        redirect: "error",
       });
       if (options.boundedJson) {
         const body = await readBoundedJson(resp);
@@ -111,7 +115,7 @@ export class GatewayClient {
     options: GatewayStreamOptions = {},
   ): AsyncGenerator<StreamEvent> {
     const url = new URL(path, this.baseUrl());
-    const headers = this.getHeaders(options.headers);
+    const headers = await this.getHeaders(options.headers);
     headers["Accept"] = "text/event-stream";
 
     const payload = body === undefined ? undefined : JSON.stringify(body);

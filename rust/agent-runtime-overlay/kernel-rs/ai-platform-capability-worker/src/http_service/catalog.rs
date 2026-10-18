@@ -44,6 +44,8 @@ pub(super) async fn catalog(
     Ok(([("x-ai-platform-plugin-activation", activation)], Json(CapabilityCatalogV2 {
         schema_version: CAPABILITY_CATALOG_SCHEMA_VERSION.to_string(),
         capability_revision: request.capability_revision,
-        capabilities: state.capability_registry.values().cloned().collect(),
+        capabilities: state.capability_registry.values()
+            .filter(|descriptor| state.admits_plugin_descriptor(&scope.tenant_id, descriptor))
+            .cloned().collect(),
     })))
 }

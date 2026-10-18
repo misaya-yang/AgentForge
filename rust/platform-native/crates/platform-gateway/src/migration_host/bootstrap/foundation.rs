@@ -251,6 +251,13 @@ impl tool_inventory_api::ToolInventoryIdentityResolver for EndpointAdapters {
             })
         })
     }
+    fn tenant_id<'a>(&'a self, headers: &'a HeaderMap) -> service_config_api::ServiceConfigFuture<'a, String> {
+        Box::pin(async move {
+            self.content.resolve(headers).await.map(|user| user.tenant_id)
+                .map_err(|e| service_config_api::ServiceConfigError::detail(e.status, e.detail))
+        })
+    }
+
 }
 impl presign_api::PresignIdentityResolver for EndpointAdapters {
     fn resolve<'a>(

@@ -260,7 +260,9 @@ impl DocIR {
 }
 #[derive(Clone, Debug)]
 pub struct ParserConfig {
+    pub converters_enabled: bool,
     /// Explicit native executable paths supplied by the host; no PATH discovery.
+    pub sandbox: Option<super::parser_sandbox::SandboxPolicy>,
     pub pdftotext: Option<PathBuf>,
     pub pdftoppm: Option<PathBuf>,
     pub tesseract: Option<PathBuf>,
@@ -274,6 +276,8 @@ pub struct ParserConfig {
 impl ParserConfig {
     pub fn new(scratch_root: PathBuf) -> Self {
         Self {
+            sandbox: None,
+            converters_enabled: true,
             pdftotext: None,
             pdftoppm: None,
             tesseract: None,
@@ -304,7 +308,7 @@ impl ParserConfig {
 /// Native decoder boundary preserving the canonical pypdf-first/PyMuPDF-fallback
 /// decision. Implementations must enforce the supplied decompressed-stream cap.
 /// A decoder handle is local to one bounded worker, never shared across threads.
-pub use ai_platform_service_primitives::pdf_ports::parser::{PdfTextDocument,PdfTextBackend};
+pub use ai_platform_service_primitives::pdf_ports::parser::{PdfTextBackend, PdfTextDocument};
 fn collect_pdf_text(mut document: Box<dyn PdfTextDocument>) -> Result<String> {
     let count = document.page_count();
     if count > MAX_PAGES {
@@ -447,6 +451,11 @@ impl DocumentParser {
         })
     }
     fn extract_pdf(&self, bytes: &[u8]) -> Result<String> {
+        if !self.config.converters_enabled {
+            return Err(IngestError::Parser(
+                "converters require a parse worker role".into(),
+            ));
+        }
         preflight_pdf(bytes)?;
         if let Some(backend) = &self.pdf_backend {
             let first = backend
@@ -488,7 +497,14 @@ impl DocumentParser {
             input.to_string_lossy().into_owned(),
             "-".into(),
         ];
-        let text = run_bounded(exe, &args, self.config.timeout, MAX_TEXT_BYTES)?;
+        let text = run_bounded(
+            exe,
+            &args,
+            self.config.timeout,
+            MAX_TEXT_BYTES,
+            self.config.sandbox.as_ref(),
+            &scratch.0,
+        )?;
         let decoded =
             std::str::from_utf8(&text).map_err(|_| bad("PDF parser returned invalid UTF-8"))?;
         let pages: Vec<_> = decoded.split('\u{c}').collect();
@@ -515,6 +531,11 @@ impl DocumentParser {
         ))
     }
     pub fn ocr_image_bytes(&self, bytes: &[u8], fallback_to_eng: bool) -> Result<String> {
+        if !self.config.converters_enabled {
+            return Err(IngestError::Parser(
+                "converters require a parse worker role".into(),
+            ));
+        }
         if bytes.len() > MAX_SOURCE_BYTES {
             return Err(bad("OCR image source exceeds the parser byte limit"));
         }
@@ -544,6 +565,8 @@ impl DocumentParser {
                 &args,
                 self.config.timeout.min(Duration::from_secs(300)),
                 MAX_TEXT_BYTES,
+                self.config.sandbox.as_ref(),
+                &scratch.0,
             ) {
                 Ok(out) => {
                     let text = String::from_utf8_lossy(&out);
@@ -573,14 +596,58 @@ impl Drop for Scratch {
 }
 /// Drain stdout concurrently with the process deadline; a limit kills and waits
 /// for the child before returning. Stderr is deliberately not retained.
-fn run_bounded(exe: &Path, args: &[String], timeout: Duration, cap: usize) -> Result<Vec<u8>> {
+fn run_bounded(
+    exe: &Path,
+    args: &[String],
+    timeout: Duration,
+    cap: usize,
+    sandbox: Option<&super::parser_sandbox::SandboxPolicy>,
+    directory: &Path,
+) -> Result<Vec<u8>> {
     if !exe.is_absolute() {
         return Err(bad(
             "parser executable must be an absolute host-configured path",
         ));
     }
-    let mut child = Command::new(exe)
-        .args(args)
+    let mut command = if let Some(policy) = sandbox {
+        policy.command(
+            exe,
+            &args.iter().map(Into::into).collect::<Vec<_>>(),
+            directory,
+        )?
+    } else {
+        let mut command = Command::new(exe);
+        command.args(args);
+        command
+    };
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+        let cpu = timeout.as_secs().max(1).saturating_add(1);
+        let cap = cap as u64;
+        // Applied before exec; no Rust allocation or locks run in the child hook.
+        unsafe {
+            command.pre_exec(move || {
+                for (resource, value) in [
+                    (libc::RLIMIT_AS, 512 * 1024 * 1024u64),
+                    (libc::RLIMIT_CPU, cpu),
+                    (libc::RLIMIT_FSIZE, cap),
+                    (libc::RLIMIT_NOFILE, 128u64),
+                ] {
+                    let limit = libc::rlimit {
+                        rlim_cur: value as libc::rlim_t,
+                        rlim_max: value as libc::rlim_t,
+                    };
+                    if libc::setrlimit(resource, &limit) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                }
+                Ok(())
+            });
+        }
+    }
+    let mut child = command
+        .env_clear()
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

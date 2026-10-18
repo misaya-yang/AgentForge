@@ -1,7 +1,7 @@
 # Documentation Index
 
-Everything an agent or a new engineer needs is reachable from this page. If knowledge is not in
-this repository, it does not exist — see [`harness/README.md`](harness/README.md) §1.
+This page is navigation, not a mandatory reading list. Start from the user's task and
+[`AGENTS.md`](../AGENTS.md); open only the owning code and documentation you need.
 
 **Updated:** 2026-10-16
 
@@ -11,11 +11,11 @@ this repository, it does not exist — see [`harness/README.md`](harness/README.
 
 | You are | Read |
 | --- | --- |
-| An AI agent about to change code | [`AGENTS.md`](../AGENTS.md), then [`harness/`](harness/README.md) |
-| Using Claude Code specifically | [`CLAUDE.md`](../CLAUDE.md) |
+| An AI agent about to change code | [`AGENTS.md`](../AGENTS.md); use the [task harness](harness/README.md) when workflow detail is needed |
+| Using Codex, Claude Code or another agent | The same [`AGENTS.md`](../AGENTS.md); no separate agent rulebook |
 | Finding current Rust source | [Native workspace](../rust/platform-native/Cargo.toml), [Runtime overlay](../rust/agent-runtime-overlay/), [root layout](../README.md) |
 | Deployment and provider operations | [Operator guide](deployment/operator-guide.md) |
-| Current cleanup and acceptance continuation | [Repository checkpoint](../reports/repository-layout-20261016.md) |
+| Current upgrade implementation and acceptance | [Existing execution ledger](../deploy/runbooks/native-enterprise-upgrade/loop-state.json) |
 | Running the project for the first time | [`README.md`](../README.md) → `make doctor` → `make quickstart` |
 | Deploying to a server | [`DEPLOY.md`](../DEPLOY.md) |
 | Contributing a change | [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`harness/workflow.md`](harness/workflow.md) |
@@ -42,7 +42,7 @@ Rule of thumb: **design** says why, **plans** say what next, **runbooks** track 
 
 | Doc | Purpose |
 | --- | --- |
-| [`harness/README.md`](harness/README.md) | What the harness is, the five principles, how to change it |
+| [`harness/README.md`](harness/README.md) | Task routing, complete-module execution, one validation owner and result reuse |
 | [`harness/platform-architecture.md`](harness/platform-architecture.md) | The product law: kernel / contract / surfaces / extensions, and the admission table |
 | [`harness/architecture.md`](harness/architecture.md) | Topology, module ownership, dependency direction, contracts that must not drift |
 | [`harness/commands.md`](harness/commands.md) | Canonical command for every routine action; which gate to run for what |

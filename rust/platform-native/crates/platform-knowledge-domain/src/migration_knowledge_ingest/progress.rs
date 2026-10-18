@@ -48,7 +48,15 @@ impl KnowledgeWriteStore {
         if dataset.trim().is_empty() {
             return Err(IngestError::Validation("dataset_id is required".into()));
         }
-        Ok(sqlx::query_as("SELECT MIN(event_sequence),MAX(event_sequence) FROM knowledge.kb_document_progress_events WHERE dataset_id=$1").bind(dataset.trim()).fetch_one(&self.pool).await?)
+        let mut transaction = self.pool.begin().await?;
+        ai_platform_service_primitives::data_connection::append_store::enabled(
+            &mut transaction,
+            "knowledge.kb_document_progress_events",
+        )
+        .await?;
+        let result=sqlx::query_as("SELECT MIN(event_sequence),MAX(event_sequence) FROM knowledge.kb_document_progress_events WHERE dataset_id=$1").bind(dataset.trim()).fetch_one(&mut *transaction).await?;
+        transaction.commit().await?;
+        Ok(result)
     }
     pub async fn progress_events(
         &self,
@@ -68,13 +76,21 @@ impl KnowledgeWriteStore {
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect();
-        Ok(sqlx::query_scalar("SELECT to_jsonb(event) FROM(SELECT event_sequence,dataset_id,document_id,event_type,payload,created_at FROM knowledge.kb_document_progress_events WHERE dataset_id=$1 AND event_sequence>$2 AND ($3::varchar[] IS NULL OR document_id=ANY($3::varchar[])) ORDER BY event_sequence ASC LIMIT $4) event").bind(dataset.trim()).bind(cursor.max(0)).bind(if ids.is_empty(){None}else{Some(ids)}).bind(limit.clamp(1,500)).fetch_all(&self.pool).await?)
+        let mut transaction = self.pool.begin().await?;
+        ai_platform_service_primitives::data_connection::append_store::enabled(
+            &mut transaction,
+            "knowledge.kb_document_progress_events",
+        )
+        .await?;
+        let result=sqlx::query_scalar("SELECT to_jsonb(event) FROM(SELECT event_sequence,dataset_id,document_id,event_type,payload,created_at FROM knowledge.kb_document_progress_events WHERE dataset_id=$1 AND event_sequence>$2 AND ($3::varchar[] IS NULL OR document_id=ANY($3::varchar[])) ORDER BY event_sequence ASC LIMIT $4) event").bind(dataset.trim()).bind(cursor.max(0)).bind(if ids.is_empty(){None}else{Some(ids)}).bind(limit.clamp(1,500)).fetch_all(&mut *transaction).await?;
+        transaction.commit().await?;
+        Ok(result)
     }
     pub async fn get_pipeline_execution(&self, id: &str) -> Result<Option<Value>> {
         if id.trim().is_empty() {
             return Ok(None);
         }
-        Ok(sqlx::query_scalar("SELECT to_jsonb(execution) FROM(SELECT execution_id,document_id,dataset_id,action,trigger_source,triggered_by,process_rule_id,input_snapshot,manifest,status,error,created_at,completed_at FROM knowledge.document_pipeline_executions WHERE execution_id=$1) execution").bind(id.trim()).fetch_optional(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(execution) FROM(SELECT execution_id,document_id,dataset_id,action,trigger_source,triggered_by,process_rule_id,input_snapshot,manifest,status,error,created_at,completed_at FROM knowledge.document_pipeline_executions WHERE execution_id=$1) execution").bind(id.trim()).fetch_optional(crate::database::executor(&self.pool)).await?)
     }
 }
 pub async fn response(

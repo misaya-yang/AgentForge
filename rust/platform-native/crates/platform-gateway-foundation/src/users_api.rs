@@ -245,6 +245,52 @@ impl UsersApi {
         } else {
             None
         };
+        {
+            use ai_platform_auth::cedar::resources::{
+                self, ObjectAction, ObjectResource, ObjectSubject, ResourceKind,
+            };
+            let (target, action) = match &operation {
+                UsersOperation::Profile { user_id } => (user_id.as_str(), ObjectAction::Profile),
+                UsersOperation::List { .. } => ("*", ObjectAction::Read),
+                UsersOperation::Get { user_id } => (user_id.as_str(), ObjectAction::Read),
+                UsersOperation::Create => ("new", ObjectAction::Write),
+                UsersOperation::Update { user_id }
+                | UsersOperation::Delete { user_id }
+                | UsersOperation::ResetPassword { user_id }
+                | UsersOperation::Enable { user_id }
+                | UsersOperation::Disable { user_id } => (user_id.as_str(), ObjectAction::Write),
+            };
+            let subject = ObjectSubject {
+                tenant_id: identity.tenant_id.clone(),
+                user_id: identity.user_id.clone(),
+                roles: identity.roles.clone(),
+                ..Default::default()
+            };
+            let mut resource = ObjectResource::new(ResourceKind::User, target, &identity.tenant_id);
+            resource.required_permission = operation.permission().unwrap_or("").into();
+            let legacy = !identity.user_id.trim().is_empty()
+                && !identity.tenant_id.trim().is_empty()
+                && operation
+                    .permission()
+                    .is_none_or(|p| self.dependencies.rbac.has_permission(&identity.roles, p))
+                && match action {
+                    ObjectAction::Profile => target == identity.user_id,
+                    ObjectAction::Read => true,
+                    _ => identity
+                        .roles
+                        .iter()
+                        .any(|r| r == "admin" || r == "platform_admin"),
+                };
+            if legacy && !resources::compare_current(&subject, &resource, action, legacy) {
+                return Err(ServiceConfigError::detail(
+                    403,
+                    "User resource authorization denied",
+                ));
+            }
+            if !legacy {
+                let _ = resources::compare_current(&subject, &resource, action, false);
+            }
+        }
         if let Some(permission) = operation.permission() {
             self.dependencies
                 .rbac
@@ -255,12 +301,27 @@ impl UsersApi {
                 })?;
         }
         if identity.user_id.trim().is_empty() || identity.tenant_id.trim().is_empty() {
-            return Err(ServiceConfigError::detail(403, "Active tenant account required"));
+            return Err(ServiceConfigError::detail(
+                403,
+                "Active tenant account required",
+            ));
         }
-        let administering = !matches!(operation,
-            UsersOperation::List { .. } | UsersOperation::Get { .. } | UsersOperation::Profile { .. });
-        if administering && !identity.roles.iter().any(|role| matches!(role.as_str(), "admin" | "platform_admin")) {
-            return Err(ServiceConfigError::detail(403, "Tenant administrator role required"));
+        let administering = !matches!(
+            operation,
+            UsersOperation::List { .. }
+                | UsersOperation::Get { .. }
+                | UsersOperation::Profile { .. }
+        );
+        if administering
+            && !identity
+                .roles
+                .iter()
+                .any(|role| matches!(role.as_str(), "admin" | "platform_admin"))
+        {
+            return Err(ServiceConfigError::detail(
+                403,
+                "Tenant administrator role required",
+            ));
         }
         let tenant = &identity.tenant_id;
         match operation {
@@ -325,7 +386,10 @@ impl UsersApi {
             UsersOperation::Update { user_id } => {
                 let db = self.database()?;
                 let user = scoped(db, &user_id, tenant).await?;
-                let admin = identity.roles.iter().any(|r| matches!(r.as_str(), "admin" | "platform_admin"));
+                let admin = identity
+                    .roles
+                    .iter()
+                    .any(|r| matches!(r.as_str(), "admin" | "platform_admin"));
                 let privileged: Vec<_> = ["roles", "status", "tier"]
                     .into_iter()
                     .filter(|key| !body[*key].is_null())
@@ -428,7 +492,10 @@ impl UsersApi {
                         "Cannot delete system admin",
                     ));
                 }
-                if !db.delete_user_for_tenant(&user_id, tenant, &identity.user_id).await? {
+                if !db
+                    .delete_user_for_tenant(&user_id, tenant, &identity.user_id)
+                    .await?
+                {
                     return Err(missing());
                 }
                 self.dependencies.service_access.clear()?;
@@ -889,7 +956,12 @@ fn validate_pagination(page: &Value, page_size: &Value) -> Result<(i64, i64), Se
     let mut errors = vec![];
     for (field, input, default, max) in [
         ("page", page, contract::PAGE_DEFAULT, None),
-        ("page_size", page_size, contract::PAGE_SIZE_DEFAULT, Some(contract::PAGE_SIZE_MAX)),
+        (
+            "page_size",
+            page_size,
+            contract::PAGE_SIZE_DEFAULT,
+            Some(contract::PAGE_SIZE_MAX),
+        ),
     ] {
         if input.is_null() {
             values.push(default);
@@ -977,7 +1049,10 @@ async fn response(
     }
 }
 fn routed_operation(
-    route: &str, method: &str, user_id: String, uri: &axum::http::Uri,
+    route: &str,
+    method: &str,
+    user_id: String,
+    uri: &axum::http::Uri,
 ) -> Result<UsersOperation, Response> {
     Ok(match (route, method) {
         ("/api/v1/users", "GET") => {

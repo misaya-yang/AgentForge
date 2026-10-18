@@ -43,9 +43,12 @@ impl PostgresThreadStore {
         &self,
         event: PlatformLifecycleEvent,
     ) -> ThreadStoreResult<i64> {
-        let scope = self.member_scope(thread_uuid(event.kernel_thread_id)?).await?;
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
-        self.lock_root(&mut transaction, scope.root_thread_id).await?;
+        let scope = self
+            .member_scope(thread_uuid(event.kernel_thread_id)?)
+            .await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        self.lock_root(&mut transaction, scope.root_thread_id)
+            .await?;
         let sequence = self
             .append_platform_lifecycle_event_in_transaction(&mut transaction, &scope, event)
             .await?;
@@ -65,6 +68,9 @@ impl PostgresThreadStore {
                 message: "platform lifecycle identifiers are invalid".to_string(),
             });
         }
+        append_family_fence(&mut **transaction, "assistant.assistant_runtime_items")
+            .await
+            .map_err(store_error)?;
         let kernel_thread_uuid = thread_uuid(event.kernel_thread_id)?;
         let payload_hash = payload_hash(&event.payload)?;
         let digest = Sha256::digest(event.event_key.as_bytes());
@@ -118,8 +124,9 @@ impl PostgresThreadStore {
         turn_id: &str,
     ) -> ThreadStoreResult<Vec<Value>> {
         let kernel_thread_uuid = thread_uuid(kernel_thread_id)?;
-        let _scope = self.member_scope(kernel_thread_uuid).await?;
-        sqlx::query(
+        let scope = self.member_scope(kernel_thread_uuid).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        let rows = sqlx::query(
             r#"
             SELECT payload
               FROM assistant_runtime_items
@@ -131,12 +138,13 @@ impl PostgresThreadStore {
         )
         .bind(kernel_thread_uuid)
         .bind(turn_id)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await
-        .map_err(store_error)?
-        .into_iter()
-        .map(|row| row.try_get("payload").map_err(store_error))
-        .collect()
+        .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
+        rows.into_iter()
+            .map(|row| row.try_get("payload").map_err(store_error))
+            .collect()
     }
 
     pub(crate) async fn read_platform_lifecycle_turn_ids(
@@ -144,8 +152,9 @@ impl PostgresThreadStore {
         kernel_thread_id: ThreadId,
     ) -> ThreadStoreResult<Vec<String>> {
         let kernel_thread_uuid = thread_uuid(kernel_thread_id)?;
-        let _scope = self.member_scope(kernel_thread_uuid).await?;
-        sqlx::query(
+        let scope = self.member_scope(kernel_thread_uuid).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        let rows = sqlx::query(
             r#"
             SELECT DISTINCT turn_id
               FROM assistant_runtime_items
@@ -156,12 +165,13 @@ impl PostgresThreadStore {
             "#,
         )
         .bind(kernel_thread_uuid)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await
-        .map_err(store_error)?
-        .into_iter()
-        .map(|row| row.try_get("turn_id").map_err(store_error))
-        .collect()
+        .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
+        rows.into_iter()
+            .map(|row| row.try_get("turn_id").map_err(store_error))
+            .collect()
     }
 
     /// Admission check for a turn terminal. Every published call must have a
@@ -179,7 +189,9 @@ impl PostgresThreadStore {
         let unclosed = crate::platform_lifecycle::unclosed_tool_calls(&events);
         for call in &unclosed {
             self.append_platform_lifecycle_event(terminal_lifecycle_event(
-                kernel_thread_id, turn_id, call,
+                kernel_thread_id,
+                turn_id,
+                call,
             ))
             .await?;
         }
@@ -275,6 +287,7 @@ impl PostgresThreadStore {
         self.ensure_visible(kernel_thread_id, true).await?;
         let scope = self.member_scope(thread_uuid(kernel_thread_id)?).await?;
         self.check_write_health(ThreadId::from_u128(scope.root_thread_id.as_u128()))?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         let root_turn_id = if thread_uuid(kernel_thread_id)? == scope.root_thread_id {
             turn_id.to_string()
         } else {
@@ -292,7 +305,7 @@ impl PostgresThreadStore {
             .bind(thread_uuid(kernel_thread_id)?)
             .bind(scope.root_thread_id)
             .bind(turn_id)
-            .fetch_all(&self.pool)
+            .fetch_all(&mut *transaction)
             .await
             .map_err(store_error)?;
             if roots.len() != 1 {
@@ -310,7 +323,7 @@ impl PostgresThreadStore {
         .bind(&scope.tenant_id)
         .bind(&scope.user_id)
         .bind(&scope.session_id)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(store_error)?;
         if !valid {
@@ -319,6 +332,7 @@ impl PostgresThreadStore {
                     .to_string(),
             });
         }
+        transaction.commit().await.map_err(store_error)?;
         Ok(root_turn_id)
     }
 
@@ -365,11 +379,19 @@ impl PostgresThreadStore {
         event: &AssistantTurnEventV1,
     ) -> ThreadStoreResult<i64> {
         let scope = self.member_scope(thread_uuid(kernel_thread_id)?).await?;
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
-        self.lock_root(&mut transaction, scope.root_thread_id).await?;
-        let saved = self.append_v1_event_in_transaction(
-            &mut transaction, &scope, kernel_thread_id, event_id, event_key, event,
-        ).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        self.lock_root(&mut transaction, scope.root_thread_id)
+            .await?;
+        let saved = self
+            .append_v1_event_in_transaction(
+                &mut transaction,
+                &scope,
+                kernel_thread_id,
+                event_id,
+                event_key,
+                event,
+            )
+            .await?;
         transaction.commit().await.map_err(store_error)?;
         Ok(saved.sequence)
     }
@@ -390,12 +412,18 @@ impl PostgresThreadStore {
                 message: "runtime event key must contain 1 to 255 characters".to_string(),
             });
         }
+        append_family_fence(&mut **transaction, "assistant.assistant_runtime_items")
+            .await
+            .map_err(store_error)?;
         let kernel_thread_uuid = thread_uuid(kernel_thread_id)?;
         let payload = serde_json::to_value(event).map_err(json_error)?;
         let hash = payload_hash(&payload)?;
         let turn_id = event.data.get("run_id").and_then(Value::as_str);
-        let item_id = event.data.get("tool_call_id")
-            .or_else(|| event.data.get("item_id")).and_then(Value::as_str);
+        let item_id = event
+            .data
+            .get("tool_call_id")
+            .or_else(|| event.data.get("item_id"))
+            .and_then(Value::as_str);
         let status = event.data.get("status").and_then(Value::as_str);
         let visible: bool = sqlx::query_scalar(
             "SELECT EXISTS (SELECT 1 FROM assistant_runtime_thread_projections WHERE kernel_thread_id=$1 AND deleted_at IS NULL)",
@@ -443,7 +471,10 @@ impl PostgresThreadStore {
         .await
         .map_err(store_error)?;
         Self::notify_v1_event_in_transaction(transaction, scope.root_thread_id, sequence).await?;
-        Ok(SequencedAssistantTurnEventV1 { sequence, event: event.clone() })
+        Ok(SequencedAssistantTurnEventV1 {
+            sequence,
+            event: event.clone(),
+        })
     }
 
     /// Reads an ordered, bounded V1 cursor page for one platform root Thread.
@@ -459,6 +490,10 @@ impl PostgresThreadStore {
                     .to_string(),
             });
         }
+        let scope = self
+            .root_scope_with_deleted(thread_uuid(root_thread_id)?, true)
+            .await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         let rows = sqlx::query(
             r#"
             SELECT sequence, payload
@@ -473,9 +508,10 @@ impl PostgresThreadStore {
         .bind(thread_uuid(root_thread_id)?)
         .bind(after_sequence)
         .bind(limit)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await
         .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         rows.into_iter()
             .map(|row| {
                 let sequence = row.try_get("sequence").map_err(store_error)?;
@@ -534,4 +570,23 @@ mod replay_tests {
         replay.data["arguments_hash"] = serde_json::json!("changed-hash");
         assert!(!same_event_fact(&original, &replay));
     }
+}
+
+// Authority-only append activation; errors are propagated, never a legacy retry.
+async fn append_family_fence(
+    connection: &mut sqlx::PgConnection,
+    family: &str,
+) -> Result<(), sqlx::Error> {
+    let installed: bool = sqlx::query_scalar(
+        "SELECT to_regprocedure('partition_ops.family_enabled(text)') IS NOT NULL",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    if installed {
+        let _: bool = sqlx::query_scalar("SELECT partition_ops.family_enabled($1)")
+            .bind(family)
+            .fetch_one(connection)
+            .await?;
+    }
+    Ok(())
 }

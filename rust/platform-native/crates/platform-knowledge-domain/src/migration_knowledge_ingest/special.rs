@@ -333,6 +333,7 @@ impl SpecialPublicationCoordinator {
             .await?;
         let revision = publication.revision;
         let mut tx = publication.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let ex = string(manifest, "execution_id");
         let doc = string(manifest, "document_id");
         let generation = string(manifest, "generation_id");
@@ -443,6 +444,90 @@ impl SpecialPublicationCoordinator {
             .await?;
         publication.release().await
     }
+    // Parse workers persist bytes/structure only; embedding workers produce real
+    // vectors from the same immutable receipts. Index workers never infer.
+    async fn materialize_stage(&self, plan: &mut CandidatePlan, dataset: &Dataset) -> Result<()> {
+        let mut text: Vec<_> = plan
+            .segment_rows
+            .iter()
+            .filter(|r| r.content_type != "image")
+            .cloned()
+            .collect();
+        if plan.source_kind == "hierarchy" {
+            for row in &mut text {
+                row.text = row
+                    .summary
+                    .clone()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| {
+                        if row.level == 2 {
+                            super::summary::prefix(&row.text, 2000)
+                        } else {
+                            row.text.clone()
+                        }
+                    });
+            }
+        }
+        let mut points = self.service.indexer.prepare_chunks(dataset, &text).await?;
+        for row in plan
+            .segment_rows
+            .iter()
+            .filter(|r| r.content_type == "image")
+        {
+            let attachment = row
+                .image_attachment_id
+                .as_deref()
+                .ok_or_else(|| fail("page attachment missing"))?;
+            let filename = row
+                .image_filename
+                .as_deref()
+                .ok_or_else(|| fail("page filename missing"))?;
+            let key = AssetStorage::image_key(
+                &dataset.tenant_id,
+                &plan.document_id,
+                attachment,
+                filename,
+            )?;
+            let receipt = plan
+                .object_manifest
+                .iter()
+                .find(|r| string(r, "storage_key") == key)
+                .ok_or_else(|| fail("page receipt missing"))?;
+            let bytes = self.service.assets.download_original(&key).await?;
+            if sha256(&bytes) != string(receipt, "sha256") {
+                return Err(fail("page receipt bytes changed"));
+            }
+            let vector = self
+                .service
+                .indexer
+                .embeddings
+                .embed_image_with_context(dataset, &bytes, None)
+                .await?;
+            let payload = json!({"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":plan.document_id,"segment_id":row.segment_id,"position":row.position,"text":row.text,"content_type":"image","level":row.level,"image_mime_type":row.image_media_type,"image_width":row.metadata["width"],"image_height":row.metadata["height"],"image_page":row.metadata["page_number"],"generation_id":plan.generation_id});
+            let collection = dataset
+                .collection_name
+                .clone()
+                .ok_or_else(|| fail("page collection missing"))?;
+            points.entry(collection).or_default().push(json!({"id":row.vector_id.as_deref().unwrap_or(&row.segment_id),"vector":{"":vector},"payload":payload}));
+        }
+        // Display payloads retain source text even when the level-specific
+        // summary was the embedding input.
+        for collection in points.values_mut() {
+            for point in collection {
+                if let Some(row) = plan
+                    .segment_rows
+                    .iter()
+                    .find(|r| Some(r.segment_id.as_str()) == point["id"].as_str())
+                {
+                    point["payload"]["text"] = json!(row.text);
+                    point["payload"]["summary"] = json!(row.summary);
+                    point["payload"]["keywords"] = row.keywords.clone();
+                }
+            }
+        }
+        plan.points_by_collection = points;
+        Ok(())
+    }
     pub async fn publish(
         &self,
         plan: CandidatePlan,
@@ -470,6 +555,68 @@ impl SpecialPublicationCoordinator {
         metadata_patch: &Value,
         docir: Option<&super::parsing_v2::integration::Prepared>,
     ) -> Result<Vec<String>> {
+        if super::pipeline::stage() == super::pipeline::Stage::Parse {
+            let current:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE dataset_id=$1 AND document_id=$2").bind(&dataset.dataset_id).bind(&plan.document_id).fetch_one(crate::database::executor(&self.service.store.pool)).await?;
+            let pinned_index:Value=sqlx::query_scalar("SELECT input_snapshot->'index_config' FROM knowledge.document_pipeline_executions WHERE execution_id=$1 AND dataset_id=$2 AND document_id=$3 AND status='running'").bind(execution).bind(&dataset.dataset_id).bind(&plan.document_id).fetch_one(crate::database::executor(&self.service.store.pool)).await?;
+            let checkpoint = super::pipeline::SpecialParsed {
+                schema: "knowledge-special-parsed/v1".into(),
+                identity: dataset_ingestion_identity(&dataset.to_value()),
+                execution: execution.into(),
+                source_sha256: super::pipeline::source_identity(dataset, &current, &pinned_index),
+                plan: plan.clone(),
+                expected_content: expected_content.into(),
+                patch: metadata_patch.clone(),
+                docir: docir.cloned(),
+            };
+            self.service
+                .pipeline_checkpoint(
+                    "special_parsed",
+                    &checkpoint,
+                    Some(super::pipeline::Stage::Embed),
+                    execution,
+                )
+                .await?;
+        }
+        if matches!(
+            super::pipeline::stage(),
+            super::pipeline::Stage::Embed | super::pipeline::Stage::Index
+        ) {
+            let binding =
+                sha256(canonical_json(&serde_json::to_value(&plan.segment_rows)?).as_bytes());
+            if let Some(cached) = self
+                .service
+                .load_pipeline_checkpoint::<super::pipeline::Embedded>("special_embedded")
+                .await?
+            {
+                if cached.schema != "knowledge-special-embedded/v1"
+                    || cached.chunks_sha256 != binding
+                {
+                    return Err(IngestError::GenerationChanged);
+                }
+                plan.points_by_collection = cached.points;
+            } else {
+                if super::pipeline::stage() == super::pipeline::Stage::Index {
+                    return Err(IngestError::GenerationChanged);
+                }
+                self.materialize_stage(&mut plan, dataset).await?;
+                let checkpoint = super::pipeline::Embedded {
+                    schema: "knowledge-special-embedded/v1".into(),
+                    chunks_sha256: binding,
+                    points: plan.points_by_collection.clone(),
+                };
+                self.service
+                    .pipeline_checkpoint(
+                        "special_embedded",
+                        &checkpoint,
+                        Some(super::pipeline::Stage::Index),
+                        execution,
+                    )
+                    .await?;
+            }
+        }
+        let mut fence_connection = self.service.store.pool.acquire().await?;
+        super::pipeline::require_fence(&mut fence_connection).await?;
+        drop(fence_connection);
         let ids = point_plan(&plan)?;
         let objects = object_plan(&plan)?;
         let identity = dataset_ingestion_identity(&dataset.to_value());
@@ -485,14 +632,17 @@ impl SpecialPublicationCoordinator {
         let mut committed = false;
         let result=async{
             let old=self.service.indexer.vectors.document_point_ids_by_collection(dataset,&plan.document_id).await?;if ids.iter().any(|(name,ids)|ids.iter().any(|id|old.get(name).is_some_and(|v|v.contains(id)))){return Err(fail("special candidate would overwrite an old point"))}let mut collections=json!({});for name in ids.keys().chain(old.keys()).collect::<BTreeSet<_>>(){collections[name]=json!({"candidate_point_ids":ids.get(name).cloned().unwrap_or_default(),"old_point_ids":old.get(name).cloned().unwrap_or_default()})}
-            let current=KnowledgeWriteStore::document_on(publication.connection(),&dataset.dataset_id,&plan.document_id).await?;if string(&current,"content")!=expected_content{return Err(fail("special candidate source changed"))}let meta=object(&current["metadata"]);let content_hash=sha256(plan.content.as_bytes());let kind=source_kind(&plan,&objects)?;let pages=if kind=="vision"{vision_page_texts(&plan,&objects)?}else{vec![]};let pending=object(&meta["_document_pending_restore_version"]);let restore=!pending.as_object().unwrap().is_empty();let index=object(&dataset.index_config);let mut restore_source=json!({});let version_number;let previous_version=integer(&pending,"previous_version");let current_version=integer(&current,"current_version");let existing:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2").bind(&plan.document_id).bind(current_version as i32).fetch_optional(publication.connection()).await?;if existing.as_ref().is_some_and(|v|sha256(string(v,"content").as_bytes())!=string(v,"content_hash")){return Err(fail("old version content hash differs"))}let has_old=old.values().any(|v|!v.is_empty());let baseline=existing.is_none()&&has_old;if restore&&existing.is_none(){return Err(fail("restore has no active old version"))}
-            if restore{version_number=integer(&pending,"candidate_version");let v:Value=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2").bind(&plan.document_id).bind(version_number as i32).fetch_optional(publication.connection()).await?.ok_or_else(||fail("pending restore missing"))?;restore_source=object(&v["metadata"][SOURCE_MANIFEST_KEY]);if string(&v,"change_type")!="pending_restore"||string(&v,"content")!=plan.content||string(&v,"content_hash")!=content_hash||restore_source["source_kind"]!=kind||restore_source["source_hash"]!=plan.source_hash||restore_source["content_hash"]!=content_hash||restore_source["index_config"]!=index{return Err(fail("pending restore source identity differs"))}if kind=="vision"{let saved=restore_source["page_texts"].as_array().ok_or_else(||fail("restore page receipts absent"))?;let receipt=|p:&Value|json!([p["page_number"],p["text"],p["sha256"]]);if saved.iter().map(receipt).collect::<Vec<_>>()!=pages.iter().map(receipt).collect::<Vec<_>>(){return Err(fail("pending restore page receipts differ"))}}}else{let next:i32=sqlx::query_scalar(sql::CREATE_DOCUMENT_VERSION_0).bind(&plan.document_id).fetch_one(publication.connection()).await?;version_number=next as i64+i64::from(baseline);}
+            let current=KnowledgeWriteStore::document_on(publication.connection(),&dataset.dataset_id,&plan.document_id).await?;if string(&current,"content")!=expected_content{return Err(fail("special candidate source changed"))}let meta=object(&current["metadata"]);let content_hash=sha256(plan.content.as_bytes());let kind=source_kind(&plan,&objects)?;let pages=if kind=="vision"{vision_page_texts(&plan,&objects)?}else{vec![]};let pending=object(&meta["_document_pending_restore_version"]);let restore=!pending.as_object().unwrap().is_empty();let index=object(&dataset.index_config);let mut restore_source=json!({});let version_number;let previous_version=integer(&pending,"previous_version");let current_version=integer(&current,"current_version");let existing:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2").bind(&plan.document_id).bind(current_version as i32).fetch_optional(crate::database::connection(publication.connection())).await?;if existing.as_ref().is_some_and(|v|sha256(string(v,"content").as_bytes())!=string(v,"content_hash")){return Err(fail("old version content hash differs"))}let has_old=old.values().any(|v|!v.is_empty());let baseline=existing.is_none()&&has_old;if restore&&existing.is_none(){return Err(fail("restore has no active old version"))}
+            if restore{version_number=integer(&pending,"candidate_version");let v:Value=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2").bind(&plan.document_id).bind(version_number as i32).fetch_optional(crate::database::connection(publication.connection())).await?.ok_or_else(||fail("pending restore missing"))?;restore_source=object(&v["metadata"][SOURCE_MANIFEST_KEY]);if string(&v,"change_type")!="pending_restore"||string(&v,"content")!=plan.content||string(&v,"content_hash")!=content_hash||restore_source["source_kind"]!=kind||restore_source["source_hash"]!=plan.source_hash||restore_source["content_hash"]!=content_hash||restore_source["index_config"]!=index{return Err(fail("pending restore source identity differs"))}if kind=="vision"{let saved=restore_source["page_texts"].as_array().ok_or_else(||fail("restore page receipts absent"))?;let receipt=|p:&Value|json!([p["page_number"],p["text"],p["sha256"]]);if saved.iter().map(receipt).collect::<Vec<_>>()!=pages.iter().map(receipt).collect::<Vec<_>>(){return Err(fail("pending restore page receipts differ"))}}}else{let next:i32=sqlx::query_scalar(sql::CREATE_DOCUMENT_VERSION_0).bind(&plan.document_id).fetch_one(crate::database::connection(publication.connection())).await?;version_number=next as i64+i64::from(baseline);}
             let original=if restore{string(&restore_source,"original_source_key")}else{string(&meta,"original_file_key")};if kind=="vision"&&original.is_empty(){return Err(fail("vision original source key unavailable"))}let source=json!({"generation_id":plan.generation_id,"source_hash":plan.source_hash,"content_hash":content_hash,"source_kind":kind,"original_source_key":original,"index_config":index,"page_texts":pages,"objects":objects});let mut patch=object(metadata_patch);patch[SOURCE_MANIFEST_KEY]=source.clone();if kind=="text"{for(k,v)in [("processing_mode",json!("text_only")),("original_file_key",json!(original)),("extracted_images",json!([])),("image_count",json!(0)),("images_embedded",json!(false)),("embedded_image_count",json!(0)),("pages_processed",json!(0)),("total_pages",json!(0)),("l1_segments",json!(0)),("l2_segments",json!(0)),("l3_segments",json!(0)),("total_vectors",json!(plan.segment_ids.len())),("segments_created",json!(plan.segment_ids.len()))]{patch[k]=v}}
-            let old_source=if existing.is_some()||baseline{let mut prior=current.clone();if let Some(existing)=&existing{prior["content"]=existing["content"].clone()}Some(self.old_source(publication.connection(),dataset,&prior,&index).await?)}else{None};let disabled:BTreeSet<i32>=if kind=="text"{sqlx::query_scalar("SELECT position FROM knowledge.segments WHERE document_id=$1 AND content_type='text' AND disabled_by IS NOT NULL").bind(&plan.document_id).fetch_all(publication.connection()).await?.into_iter().collect()}else{BTreeSet::new()};let disabled_ids:BTreeSet<_>=plan.segment_rows.iter().filter(|r|disabled.contains(&r.position)).map(|r|r.segment_id.clone()).collect();for points in plan.points_by_collection.values_mut(){for p in points{p["payload"]["tenant_id"]=json!(dataset.tenant_id);p["payload"]["dataset_id"]=json!(dataset.dataset_id);p["payload"]["document_id"]=json!(plan.document_id);p["payload"]["source_version"]=json!(version_number);p["payload"]["source_hash"]=json!(content_hash);if p["id"].as_str().is_some_and(|id|disabled_ids.contains(id)){p["payload"]["enabled"]=json!(false)}}}for r in &mut plan.segment_rows{r.metadata["source_version"]=json!(version_number);r.metadata["source_hash"]=json!(content_hash)}let hash=plan_hash(&plan,&objects,&source);
-            {let mut tx=publication.connection().begin().await?;KnowledgeWriteStore::advance_special(&mut tx,execution,&plan.document_id,&dataset.dataset_id,&plan.generation_id,&plan.source_hash,Some(&hash),"preparing","prepared",Some(&collections),Some(&json!(objects))).await?;tx.commit().await?;}
-            for(name,points)in &plan.points_by_collection{if points.is_empty(){continue}let dimension=points[0]["vector"][""].as_array().map(Vec::len).or_else(||points[0]["vector"].as_array().map(Vec::len)).filter(|n|*n>0).ok_or_else(||fail("special candidate dense vectors required"))?;let mut scoped=dataset.clone();scoped.collection_name=Some(name.clone());self.service.indexer.vectors.ensure_collection(&scoped,dimension).await?;self.service.indexer.vectors.upsert_index_points(&scoped,points).await?;}
-            {let mut tx=publication.connection().begin().await?;KnowledgeWriteStore::advance_special(&mut tx,execution,&plan.document_id,&dataset.dataset_id,&plan.generation_id,&plan.source_hash,Some(&hash),"prepared","points_written",None,None).await?;tx.commit().await?;}
-            {let mut tx=publication.connection().begin().await?;KnowledgeWriteStore::require_identity(&mut tx,&dataset.dataset_id,Some(&identity)).await?;let latest:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 FOR UPDATE").bind(&plan.document_id).bind(&dataset.dataset_id).fetch_one(&mut *tx).await?;if string(&latest,"content")!=expected_content{return Err(fail("special source changed before commit"))}if restore&&(latest["metadata"]["_document_pending_restore_version"]!=pending||previous_version<=integer(&latest,"current_version")||version_number<=previous_version){return Err(fail("special restore candidate owner changed"))}KnowledgeWriteStore::insert_segments(&mut tx,&plan.segment_rows).await?;sqlx::query(sql::DELETE_SEGMENTS_BY_DOCUMENT_2).bind(&plan.document_id).bind(&plan.segment_ids).execute(&mut *tx).await?;sqlx::query(sql::ACTIVATE_STAGED_SEGMENTS_1).bind(&plan.document_id).bind(&plan.segment_ids).execute(&mut *tx).await?;sqlx::query("UPDATE knowledge.documents SET content=$3,metadata=COALESCE(metadata,'{}'::jsonb)||$4::jsonb,word_count=$5,segment_count=$6,status='completed',progress=100,error=NULL,completed_at=NOW(),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(&plan.document_id).bind(&dataset.dataset_id).bind(&plan.content).bind(&patch).bind(plan.content.split_whitespace().count() as i32).bind(plan.segment_rows.len() as i32).execute(&mut *tx).await?;
+            let old_source=if existing.is_some()||baseline{let mut prior=current.clone();if let Some(existing)=&existing{prior["content"]=existing["content"].clone()}Some(self.old_source(publication.connection(),dataset,&prior,&index).await?)}else{None};let disabled:BTreeSet<i32>=if kind=="text"{sqlx::query_scalar("SELECT position FROM knowledge.segments WHERE document_id=$1 AND content_type='text' AND disabled_by IS NOT NULL").bind(&plan.document_id).fetch_all(crate::database::connection(publication.connection())).await?.into_iter().collect()}else{BTreeSet::new()};let disabled_ids:BTreeSet<_>=plan.segment_rows.iter().filter(|r|disabled.contains(&r.position)).map(|r|r.segment_id.clone()).collect();for points in plan.points_by_collection.values_mut(){for p in points{p["payload"]["tenant_id"]=json!(dataset.tenant_id);p["payload"]["dataset_id"]=json!(dataset.dataset_id);p["payload"]["document_id"]=json!(plan.document_id);p["payload"]["source_version"]=json!(version_number);p["payload"]["source_hash"]=json!(content_hash);if p["id"].as_str().is_some_and(|id|disabled_ids.contains(id)){p["payload"]["enabled"]=json!(false)}}}for r in &mut plan.segment_rows{r.metadata["source_version"]=json!(version_number);r.metadata["source_hash"]=json!(content_hash)}let hash=plan_hash(&plan,&objects,&source);
+            {let mut tx=publication.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;KnowledgeWriteStore::advance_special(&mut tx,execution,&plan.document_id,&dataset.dataset_id,&plan.generation_id,&plan.source_hash,Some(&hash),"preparing","prepared",Some(&collections),Some(&json!(objects))).await?;tx.commit().await?;}
+            for(name,points)in &plan.points_by_collection{super::pipeline::require_fence(publication.connection()).await?;if points.is_empty(){continue}let dimension=points[0]["vector"][""].as_array().map(Vec::len).or_else(||points[0]["vector"].as_array().map(Vec::len)).filter(|n|*n>0).ok_or_else(||fail("special candidate dense vectors required"))?;let mut scoped=dataset.clone();scoped.collection_name=Some(name.clone());self.service.indexer.vectors.ensure_collection(&scoped,dimension).await?;self.service.indexer.vectors.upsert_index_points(&scoped,points).await?;}
+            {let mut tx=publication.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;KnowledgeWriteStore::advance_special(&mut tx,execution,&plan.document_id,&dataset.dataset_id,&plan.generation_id,&plan.source_hash,Some(&hash),"prepared","points_written",None,None).await?;tx.commit().await?;}
+            {let mut tx=publication.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;super::pipeline::require_fence(&mut tx).await?;KnowledgeWriteStore::require_identity(&mut tx,&dataset.dataset_id,Some(&identity)).await?;let latest:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 FOR UPDATE").bind(&plan.document_id).bind(&dataset.dataset_id).fetch_one(&mut *tx).await?;if string(&latest,"content")!=expected_content{return Err(fail("special source changed before commit"))}if restore&&(latest["metadata"]["_document_pending_restore_version"]!=pending||previous_version<=integer(&latest,"current_version")||version_number<=previous_version){return Err(fail("special restore candidate owner changed"))}KnowledgeWriteStore::insert_segments(&mut tx,&plan.segment_rows).await?;sqlx::query(sql::DELETE_SEGMENTS_BY_DOCUMENT_2).bind(&plan.document_id).bind(&plan.segment_ids).execute(&mut *tx).await?;sqlx::query(sql::ACTIVATE_STAGED_SEGMENTS_1).bind(&plan.document_id).bind(&plan.segment_ids).execute(&mut *tx).await?;sqlx::query("UPDATE knowledge.documents SET content=$3,metadata=COALESCE(metadata,'{}'::jsonb)||$4::jsonb,word_count=$5,segment_count=$6,status='completed',progress=100,error=NULL,completed_at=NOW(),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2").bind(&plan.document_id).bind(&dataset.dataset_id).bind(&plan.content).bind(&patch).bind(plan.content.split_whitespace().count() as i32).bind(plan.segment_rows.len() as i32).execute(&mut *tx).await?;
                 if let Some(summary)=&plan.summary_row{sqlx::query("INSERT INTO knowledge.document_summaries (document_id,summary,keywords,topics,vector_id) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (document_id) DO UPDATE SET summary=EXCLUDED.summary,keywords=EXCLUDED.keywords,topics=EXCLUDED.topics,vector_id=EXCLUDED.vector_id,updated_at=NOW()").bind(&plan.document_id).bind(string(summary,"summary")).bind(&summary["keywords"]).bind(&summary["topics"]).bind(string(summary,"vector_id")).execute(&mut *tx).await?;}else{sqlx::query("DELETE FROM knowledge.document_summaries WHERE document_id=$1").bind(&plan.document_id).execute(&mut *tx).await?;}
                 if let Some(old)=old_source{if baseline{let mut old_meta=meta.clone();old_meta[SOURCE_MANIFEST_KEY]=old;let v=KnowledgeWriteStore::create_version(&mut tx,&plan.document_id,expected_content,if current_version==0{"created"}else{"updated"},Some(string(&current,"title")),&old_meta,None,None,false).await?;if integer(&v,"version_number")!=version_number-1{return Err(fail("old serving source snapshot changed"))}}else{set_version_manifest(&mut tx,&plan.document_id,current_version,&old).await?;}}
                 if !restore{let v=KnowledgeWriteStore::create_version(&mut tx,&plan.document_id,&plan.content,if current_version==0{"created"}else{"updated"},Some(string(&current,"title")),&patch,None,None,true).await?;if integer(&v,"version_number")!=version_number{return Err(fail("special candidate version changed"))}}else{set_version_manifest(&mut tx,&plan.document_id,version_number,&source).await?;for(number,from,to,text)in [(previous_version,"pending_before_restore","updated",expected_content),(version_number,"pending_restore","restored",plan.content.as_str())]{if sqlx::query("UPDATE knowledge.document_versions SET change_type=$4 WHERE document_id=$1 AND version_number=$2 AND change_type=$3 AND content=$5 RETURNING version_id").bind(&plan.document_id).bind(number as i32).bind(from).bind(to).bind(text).fetch_optional(&mut *tx).await?.is_none(){return Err(fail("special restore snapshots changed"))}}sqlx::query("UPDATE knowledge.documents SET current_version=$2,metadata=(COALESCE(metadata,'{}'::jsonb)-'_document_pending_restore_version')||jsonb_build_object('_document_restored_source_version',$3::integer) WHERE document_id=$1").bind(&plan.document_id).bind(version_number as i32).bind(version_number as i32).execute(&mut *tx).await?;}
@@ -526,7 +676,7 @@ async fn set_version_manifest(
     version: i64,
     source: &Value,
 ) -> Result<()> {
-    let changed=sqlx::query("UPDATE knowledge.document_versions SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object($3::text,$4::jsonb) WHERE document_id=$1 AND version_number=$2 RETURNING version_id").bind(document).bind(version as i32).bind(SOURCE_MANIFEST_KEY).bind(source).fetch_optional(conn).await?;
+    let changed=sqlx::query("UPDATE knowledge.document_versions SET metadata=COALESCE(metadata,'{}'::jsonb)||jsonb_build_object($3::text,$4::jsonb) WHERE document_id=$1 AND version_number=$2 RETURNING version_id").bind(document).bind(version as i32).bind(SOURCE_MANIFEST_KEY).bind(source).fetch_optional(crate::database::connection(&mut *conn)).await?;
     if changed.is_none() {
         return Err(fail("special source version manifest could not be saved"));
     }

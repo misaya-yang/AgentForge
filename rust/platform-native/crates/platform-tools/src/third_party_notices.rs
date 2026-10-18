@@ -2,69 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::*;
 use std::collections::{BTreeMap, BTreeSet};
+mod materials;
+mod owned;
+use materials::*;
+mod sources;
+use sources::Sources;
 
 fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
     v[key]
         .as_str()
         .filter(|s| !s.is_empty())
         .ok_or_else(|| format!("missing dependency {key}").into())
-}
-fn notice_name(name: &str) -> bool {
-    let upper = name.to_ascii_uppercase();
-    let extension = upper.rsplit('.').next().unwrap_or("");
-    if [
-        "RS", "C", "CPP", "H", "JS", "TS", "TSX", "PY", "WASM", "MAP",
-    ]
-    .contains(&extension)
-    {
-        return false;
-    }
-    upper.contains("LICENSE")
-        || upper.contains("LICENCE")
-        || ["NOTICE", "COPYING", "COPYRIGHT", "OFL", "UFL", "AUTHORS"]
-            .iter()
-            .any(|prefix| {
-                upper == *prefix
-                    || upper.starts_with(&format!("{prefix}."))
-                    || upper.starts_with(&format!("{prefix}-"))
-            })
-}
-fn notice_files(
-    root: &Path,
-    dir: &Path,
-    depth: usize,
-    files: &mut BTreeMap<String, Value>,
-) -> Result<()> {
-    require(depth <= 32, "dependency notice tree exceeds depth limit")?;
-    let mut entries = std::fs::read_dir(dir)?.collect::<std::io::Result<Vec<_>>>()?;
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let ty = entry.file_type()?;
-        let path = entry.path();
-        // Never traverse dependency symlinks or nested dependency graphs here.
-        if ty.is_symlink() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if ty.is_dir() && !matches!(name.as_str(), "node_modules" | ".git" | "target") {
-            notice_files(root, &path, depth + 1, files)?;
-        } else if ty.is_file() && notice_name(&name) {
-            require(
-                entry.metadata()?.len() <= 4 * 1024 * 1024,
-                "dependency notice exceeds 4MiB",
-            )?;
-            let raw = std::fs::read(&path)?;
-            let content = std::str::from_utf8(&raw)
-                .map_err(|_| "dependency notice is not UTF-8; review required")?;
-            let relative = path
-                .strip_prefix(root)?
-                .to_str()
-                .ok_or("non-Unicode dependency notice path")?
-                .replace('\\', "/");
-            files.insert(relative, json!({"sha256":hash(&raw),"text":content}));
-        }
-    }
-    Ok(())
 }
 fn add_component(
     components: &mut BTreeMap<String, Value>,
@@ -74,20 +22,63 @@ fn add_component(
     license: Value,
     root: &Path,
     scope: &str,
+    repository: &Path,
+    sources: &Sources,
 ) -> Result<()> {
     let mut files = BTreeMap::new();
     notice_files(root, root, 0, &mut files)?;
-    let status = if license.is_null() || files.is_empty() {
+    let manifest = root.join(if scope == "cargo" {
+        "Cargo.toml"
+    } else {
+        "package.json"
+    });
+    sources.supplement(
+        repository, &id, name, version, &license, &manifest, &mut files,
+    )?;
+    let status = if license.is_null()
+        || license.as_str().is_some_and(|s| s.trim().is_empty())
+        || files.is_empty()
+    {
         "review_required_missing_declaration_or_text"
     } else {
         "collected_not_approved"
     };
-    let component = json!({"id":id,"name":name,"version":version,"ecosystem":scope,"declared_license":license,"notice_files":files,"status":status});
-    if let Some(old) = components.insert(id, component.clone()) {
+    let manifest_value: Value = if scope == "cargo" {
+        serde_json::to_value(toml::from_str::<toml::Value>(&std::fs::read_to_string(
+            &manifest,
+        )?)?)?
+    } else {
+        object(&manifest)?
+    };
+    let vcs_path = root.join(".cargo_vcs_info.json");
+    let vcs = if vcs_path.is_file() {
+        Some(object(&vcs_path)?)
+    } else {
+        None
+    };
+    let package_source = json!({"repository": if scope == "cargo" { &manifest_value["package"]["repository"] } else { &manifest_value["repository"] }, "authors":if scope == "cargo" { &manifest_value["package"]["authors"] } else { &manifest_value["author"] },"vcs":vcs});
+    let component = json!({"package_source":package_source,"package_manifest_sha256":[hash(&std::fs::read(manifest)?)],"id":id,"name":name,"version":version,"ecosystem":scope,"declared_license":license,"notice_files":files,"status":status});
+    if let Some(old) = components.get_mut(&id) {
+        let mut comparison = old.clone();
+        comparison["package_manifest_sha256"] = component["package_manifest_sha256"].clone();
         require(
-            old == component,
+            comparison == component,
             "same package identity has conflicting license contents",
         )?;
+        let hashes: BTreeSet<String> = old["package_manifest_sha256"]
+            .as_array()
+            .ok_or("manifest hashes missing")?
+            .iter()
+            .chain(
+                component["package_manifest_sha256"]
+                    .as_array()
+                    .ok_or("manifest hashes missing")?,
+            )
+            .map(|v| v.as_str().ok_or("manifest hash invalid").map(str::to_owned))
+            .collect::<std::result::Result<_, _>>()?;
+        old["package_manifest_sha256"] = json!(hashes);
+    } else {
+        components.insert(id, component);
     }
     Ok(())
 }
@@ -138,6 +129,26 @@ fn node_packages(
     }
     Ok(())
 }
+fn owned_path_package(root: &Path, package: &Value) -> Result<bool> {
+    let manifest = Path::new(text(package, "manifest_path")?).canonicalize()?;
+    let relative = manifest
+        .strip_prefix(root)?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let owned = matches!(
+        relative.as_str(),
+        "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/Cargo.toml"
+            | "agent-plugins/ai-quiz/native/Cargo.toml"
+            | "agent-plugins/ai-quiz/native/gateway/Cargo.toml"
+    );
+    if owned {
+        require(
+            package["license"] == "Apache-2.0",
+            "owned path dependency license differs from Apache-2.0",
+        )?;
+    }
+    Ok(owned)
+}
 /// Inputs are existing, real locked source data. Missing source/text produces
 /// review-required status or an error, never an invented permission grant.
 pub fn run(args: &Args) -> Result<Value> {
@@ -147,11 +158,24 @@ pub fn run(args: &Args) -> Result<Value> {
     let packages = metadata["packages"]
         .as_array()
         .ok_or("cargo metadata packages missing")?;
+    let owned = if args.flag("--check-all") {
+        Some(owned::check(&root)?)
+    } else {
+        None
+    };
+    let sources = Sources::load(&root)?;
     let mut components = BTreeMap::new();
+    let workspace: BTreeSet<&str> = metadata["workspace_members"]
+        .as_array()
+        .map(|xs| xs.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
     for package in packages {
-        // Workspace/path packages are owned by the project or handled through
-        // their upstream NOTICE. Registry/Git packages keep individual terms.
-        if package["source"].is_null() {
+        // Workspace/platform path packages are owned. Vendored third-party
+        // patches remain individual components with their original notices.
+        if package["source"].is_null()
+            && (workspace.contains(package["id"].as_str().unwrap_or(""))
+                || owned_path_package(&root, package)?)
+        {
             continue;
         }
         let name = text(package, "name")?;
@@ -160,19 +184,38 @@ pub fn run(args: &Args) -> Result<Value> {
         let package_root = manifest
             .parent()
             .ok_or("dependency manifest has no parent")?;
+        let source = if let Some(source) = package["source"].as_str() {
+            source.to_owned()
+        } else {
+            format!(
+                "path:{}",
+                package_root
+                    .canonicalize()?
+                    .strip_prefix(&root)?
+                    .to_str()
+                    .ok_or("non-Unicode path dependency")?
+                    .replace('\\', "/")
+            )
+        };
         add_component(
             &mut components,
-            format!("cargo:{}@{}#{}", name, version, text(package, "source")?),
+            format!("cargo:{name}@{version}#{source}"),
             name,
             version,
             package["license"].clone(),
             package_root,
             "cargo",
+            &root,
+            &sources,
         )?;
     }
     let mut roots = BTreeSet::new();
     let mut seen = BTreeSet::new();
-    for scope in ["web", "sdk/cli"] {
+    let mut scopes = vec!["web", "sdk/cli"];
+    if root.join("apps/external-a2a-agent/package.json").is_file() {
+        scopes.push("apps/external-a2a-agent");
+    }
+    for scope in &scopes {
         node_packages(
             &root.join(scope).join("node_modules"),
             &mut seen,
@@ -196,6 +239,8 @@ pub fn run(args: &Args) -> Result<Value> {
             license,
             &package_root,
             "npm",
+            &root,
+            &sources,
         )?;
     }
     require(!components.is_empty(), "dependency inventory is empty")?;
@@ -212,11 +257,32 @@ pub fn run(args: &Args) -> Result<Value> {
         )?;
         inputs.insert(path, hash(&std::fs::read(p)?));
     }
+    if scopes.contains(&"apps/external-a2a-agent") {
+        let path = "apps/external-a2a-agent/package-lock.json";
+        require(
+            root.join(path).is_file(),
+            "external A2A dependency lock missing",
+        )?;
+        inputs.insert(path, hash(&std::fs::read(root.join(path))?));
+    }
+    if let Some(digest) = &sources.digest {
+        inputs.insert(
+            "docs/security/third-party-license-sources.json",
+            digest.clone(),
+        );
+    }
     let review = components
         .values()
         .filter(|c| c["status"] != "collected_not_approved")
         .count();
-    let inventory = json!({"schema":"agentforge/third-party-notices/v1","license_policy":"not_evaluated; run cargo-deny and retain explicit approval records","scope":"native cargo metadata plus installed web and CLI packages, including development dependencies; Runtime upstream and OS/image packages require separate distribution SBOM","inputs":inputs,"components":components});
+    let missing: Vec<Value> = components
+        .values()
+        .filter(|c| c["status"] != "collected_not_approved")
+        .map(
+            |c| json!({"id":c["id"],"declared_license":c["declared_license"],"status":c["status"]}),
+        )
+        .collect();
+    let inventory = json!({"schema":"agentforge/third-party-notices/v1","license_policy":"not_evaluated; run cargo-deny and retain explicit approval records","scope":"native cargo metadata plus installed JavaScript workspace packages, including development dependencies; Runtime upstream and OS/image packages require separate distribution SBOM","javascript_scopes":scopes,"inputs":inputs,"supplemental_source_count":sources.entries.len(),"owned_declarations":owned,"components":components});
     let out = PathBuf::from(args.get("--output")?);
     require(
         !out.exists(),
@@ -244,97 +310,43 @@ pub fn run(args: &Args) -> Result<Value> {
         }
         notice.push('\n');
     }
+    if let Some(expected) = args.values.get("--check-bundle") {
+        let expected = Path::new(expected);
+        require(
+            std::fs::read(expected.join("inventory.json"))?
+                == (serde_json::to_string_pretty(&inventory)? + "\n").as_bytes()
+                && std::fs::read(expected.join("THIRD_PARTY_NOTICES.txt"))? == notice.as_bytes(),
+            "checked-in notice bundle is stale; regenerate from current locked sources",
+        )?;
+    }
+    require(
+        !args.flag("--require-zero") || review == 0,
+        format!(
+            "{review} components require declaration/text review; no complete bundle emitted: {}",
+            serde_json::to_string(&missing)?
+        ),
+    )?;
     std::fs::create_dir_all(&out)?;
     std::fs::write(
         out.join("inventory.json"),
         serde_json::to_string_pretty(&inventory)? + "\n",
     )?;
     std::fs::write(out.join("THIRD_PARTY_NOTICES.txt"), notice)?;
+    let requests: Vec<Value> = components
+        .values()
+        .filter(|c| c["status"] != "collected_not_approved")
+        .cloned()
+        .collect();
+    std::fs::write(
+        out.join("SOURCE_REQUESTS.json"),
+        serde_json::to_string_pretty(
+            &json!({"schema":"agentforge/notice-source-requests/v1","components":requests}),
+        )? + "\n",
+    )?;
     Ok(
-        json!({"result":"generated_not_approved","component_count":components.len(),"missing_declaration_or_text_count":review,"output":out}),
+        json!({"result":"generated_not_approved","component_count":components.len(),"missing_declaration_or_text_count":review,"review_required":missing,"output":out}),
     )
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn recognizes_license_material_without_matching_implementation_files() {
-        for name in [
-            "LICENSE",
-            "LICENSE-MIT",
-            "LICENSE.Apache-2.0",
-            "NOTICE.md",
-            "OFL.txt",
-            "COPYING.LESSER",
-            "UFL.txt",
-            "emoji-icon-font-mit-license.txt",
-        ] {
-            assert!(notice_name(name));
-        }
-        for name in ["license.rs", "main.rs", "package.json", "node_modules"] {
-            assert!(!notice_name(name));
-        }
-    }
-}
-
-#[cfg(test)]
-mod deterministic_tests {
-    use super::*;
-    #[test]
-    fn notice_inventory_is_deterministic_and_never_approves_unknown_terms() {
-        let root =
-            std::env::temp_dir().join(format!("agentforge-notice-test-{}", uuid::Uuid::new_v4()));
-        for path in [
-            "rust/platform-native",
-            "web/node_modules/demo",
-            "sdk/cli/node_modules/demo",
-        ] {
-            std::fs::create_dir_all(root.join(path)).unwrap();
-        }
-        for path in [
-            "rust/platform-native/Cargo.lock",
-            "web/pnpm-lock.yaml",
-            "sdk/cli/package-lock.json",
-        ] {
-            std::fs::write(root.join(path), b"fixture lock").unwrap();
-        }
-        for scope in ["web", "sdk/cli"] {
-            let package = root.join(scope).join("node_modules/demo");
-            std::fs::write(
-                package.join("package.json"),
-                r#"{"name":"demo","version":"1.0.0","license":"LicenseRef-Needs-Review"}"#,
-            )
-            .unwrap();
-            std::fs::write(package.join("LICENSE"), "Third-party rights retained.\n").unwrap();
-        }
-        let metadata = root.join("cargo.json");
-        std::fs::write(&metadata, r#"{"packages":[]}"#).unwrap();
-        let mut args = Args::default();
-        args.values
-            .insert("--repo-root".into(), root.to_string_lossy().into_owned());
-        args.values.insert(
-            "--cargo-metadata".into(),
-            metadata.to_string_lossy().into_owned(),
-        );
-        for output in ["one", "two"] {
-            args.values.insert(
-                "--output".into(),
-                root.join(output).to_string_lossy().into_owned(),
-            );
-            assert_eq!(run(&args).unwrap()["result"], "generated_not_approved");
-        }
-        for name in ["inventory.json", "THIRD_PARTY_NOTICES.txt"] {
-            assert_eq!(
-                std::fs::read(root.join("one").join(name)).unwrap(),
-                std::fs::read(root.join("two").join(name)).unwrap()
-            );
-        }
-        let inventory = object(&root.join("one/inventory.json")).unwrap();
-        assert_eq!(
-            inventory["components"]["npm:demo@1.0.0"]["status"],
-            "collected_not_approved"
-        );
-        assert!(run(&args).is_err());
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
+#[path = "third_party_notices/tests.rs"]
+mod closure_tests;

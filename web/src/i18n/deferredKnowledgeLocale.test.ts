@@ -1,3 +1,4 @@
+import ICU from "i18next-icu";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
@@ -27,6 +28,7 @@ function fixture(language = "en-US") {
     exports,
     require: (name: string) => {
       if (name === "i18next") return { __esModule: true, default: instance };
+      if (name === "i18next-icu") return { __esModule: true, default: ICU };
       if (name === "react-i18next") return { initReactI18next: { type: "3rdParty", init() {} } };
       if (name === "./localeOperationQueue") return queueExports;
       throw new Error(`Unexpected dependency: ${name}`);
@@ -218,4 +220,31 @@ test("a rejected batch cannot activate a late sibling after a language switch or
   await f.change("zh-CN");
   assert.deepEqual(f.instance.getResourceBundle("zh-CN", "translation").knowledge, expectedKnowledge("zh-CN"));
   assert.deepEqual(f.instance.getResourceBundle("zh-CN", "translation").eval, readLocale("eval-zh-CN"));
+});
+
+
+test("Tasks route translations defer both full bundles and follow the active locale", async () => {
+  for (const language of ["en-US", "zh-CN"]) {
+    const f = fixture(language);
+    await f.initialize();
+    assert.equal(f.instance.getResourceBundle(language, "translation").tasks, undefined);
+    assert.equal(f.imports.some(path => path.includes("tasks-")), false);
+    await Promise.all([f.load("tasks"), f.load("tasks")]);
+    assert.equal(f.imports.filter(path => path === `./locales/tasks-${language}.json`).length, 1);
+    assert.deepEqual(f.instance.getResourceBundle(language, "translation").tasks, readLocale(`tasks-${language}`));
+    const next = language === "en-US" ? "zh-CN" : "en-US";
+    await f.change(next);
+    assert.deepEqual(f.instance.getResourceBundle(next, "translation").tasks, readLocale(`tasks-${next}`));
+  }
+});
+
+test("Tasks chunk rejection stays retryable without publishing an incomplete namespace", async () => {
+  const f = fixture();
+  await f.initialize();
+  f.failures.add("./locales/tasks-en-US.json");
+  await assert.rejects(f.load("tasks"), /Chunk unavailable/);
+  assert.equal(f.instance.getResourceBundle("en-US", "translation").tasks, undefined);
+  f.failures.clear();
+  await f.load("tasks");
+  assert.deepEqual(f.instance.getResourceBundle("en-US", "translation").tasks, readLocale("tasks-en-US"));
 });

@@ -412,6 +412,38 @@ impl ModelAdminApi {
     fn require_write(user: &ResolvedModelUser) -> Result<(), ModelAdminError> {
         let rbac = Rbac::new(HashMap::from([("admin".into(), vec!["admin:*".into()])]));
         let capability = Capability::GatewayModelConfigWrite;
+        {
+            use ai_platform_auth::cedar::resources::{
+                self, ObjectAction, ObjectProfile, ObjectResource, ObjectSubject, ResourceKind,
+            };
+            let subject = ObjectSubject {
+                tenant_id: user.tenant_id.clone(),
+                user_id: user.user_id.clone(),
+                roles: user.roles.clone(),
+                anonymous: !user.is_authenticated,
+                ..Default::default()
+            };
+            let mut resource =
+                ObjectResource::new(ResourceKind::Model, "model-catalog", &user.tenant_id);
+            resource.profile = ObjectProfile::ModelAdministration;
+            resource.required_permissions = capability
+                .accepted_permissions()
+                .iter()
+                .map(|v| (*v).into())
+                .collect();
+            let legacy = check_capability(&rbac, &user.roles, &[], capability).allowed();
+            if legacy
+                && !resources::compare_current(&subject, &resource, ObjectAction::Admin, legacy)
+            {
+                return Err(ModelAdminError::detail(
+                    403,
+                    "Model resource authorization denied",
+                ));
+            }
+            if !legacy {
+                let _ = resources::compare_current(&subject, &resource, ObjectAction::Admin, false);
+            }
+        }
         if check_capability(&rbac, &user.roles, &[], capability).allowed() {
             Ok(())
         } else {
@@ -1683,3 +1715,6 @@ async fn http_toggle(
     .await
 }
 
+#[cfg(test)]
+#[path = "model_admin_cedar_tests.rs"]
+mod cedar_differential_tests;

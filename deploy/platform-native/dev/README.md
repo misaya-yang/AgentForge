@@ -203,3 +203,64 @@ normal test/build remain offline/network-none. The receipt's process args descri
 Cargo invocation; the fetch wrapper's printed compiler target records the resolved suffix.
 
 Source verification after the final fence integration: 18 standalone Rust tests passed. Real contention with the running Runtime/Worker export was rejected before any second compiler container started. The final default-controller success path, host-target fetch and service restart still require primary execution; earlier Docker tests do not prove these later branches.
+
+## Package the existing development binaries without recompiling
+
+`package` exports exactly one allowlisted debug executable from the **existing** native
+cache and optionally builds its development application image. It uses the same canonical
+`rust-build` fence as compile/prepare, without invoking Cargo, Cargo-chef, another target,
+another builder, or a registry pull. The output must be a new absolute directory outside
+the checkout, with existing nonsymlink parents. Existing exports are never overwritten.
+Use the existing retained lock-controller configuration, or pass `--lock-controller`.
+
+```sh
+# Existing debug builds are prerequisites; package never builds missing executables.
+# --build builds an image only. Omit it for an export-only inspection.
+scripts/new/native-container.sh package --component gateway \
+  --output "$HOME/.cache/agentforge-upgrade/dev-images/gateway-20261018" \
+  --tag agentforge-native-local:gateway-20261018 --build
+scripts/new/native-container.sh package --component knowledge \
+  --output "$HOME/.cache/agentforge-upgrade/dev-images/knowledge-20261018" \
+  --tag agentforge-native-local:knowledge-20261018 --build
+scripts/new/native-container.sh package --component migrate \
+  --output "$HOME/.cache/agentforge-upgrade/dev-images/migrate-20261018" \
+  --tag agentforge-native-local:migrate-20261018 --build
+scripts/new/native-container.sh package --component tools \
+  --output "$HOME/.cache/agentforge-upgrade/dev-images/tools-20261018" \
+  --tag agentforge-native-local:tools-20261018 --build
+```
+
+Create the external parent `dev-images` first. Each successful `--build` writes a public,
+secret-free `image.env` containing its exact existing Compose image variable:
+`GATEWAY_IMAGE`, `KNOWLEDGE_IMAGE`, `MIGRATE_IMAGE`, or `LOCAL_FRESH_TOOLS_IMAGE`.
+The optional `credentials` component packages only `workload-credentials` and emits
+`WORKLOAD_CREDENTIALS_IMAGE`; tools itself requires only `platform-tools`. SDK Worker and
+Runtime retain their existing controlled packaging paths. Image tags must use the
+`agentforge-native-local:` namespace. No service is started/replaced; feed these variables
+into the existing owned local Compose workflow, preserving its scoped env/volume/network
+configuration, read-only filesystem, dropped capabilities, and nonroot users. Never run
+`compose up --build` for these prepackaged native images.
+
+Export mounts only the owner-checked cache **read-only** and the fresh external directory
+writable. It rejects missing/non-ELF/nonexecutable/symlink cache artifacts. SHA-256 covers
+exact copied binary bytes. Public database distribution assets (Gateway/Migrate/Tools),
+LICENSE/NOTICE, the bounded packaging recipe and identity receipt are the only additional
+context files; no Rust source, compiler/cache or private env enters the context. The donor
+image remains the locally prepared compiler image, whose Debian Bookworm libraries match
+the cache's executables. It is a build-only donor: a fixed `ldd` dependency closure plus
+curl, OpenSSL, CA, Poppler programs/data/fonts and minimal shell/init utilities is copied
+into a **scratch** final image. No donor compiler, Cargo, source, registry or unrelated
+Runtime executable is copied. No apt/download is needed. Docker build uses `--pull=false`
+and `--network=none`, and checks all binary dependencies and SHA before finishing. A real
+nonroot rootfs smoke step runs curl/OpenSSL/Poppler and checks the CA bundle. Gateway and
+Knowledge retain `/health/ready` health checks; authority distribution mode is preserved.
+The production release Dockerfile and source-build flow are unchanged.
+
+`source-identity.json` records the cache volume/profile, exact binary SHA, immutable donor
+image ID/platform, observed HEAD and SHA-256 of the public build-input paths/content. Source
+must remain stable throughout export. Existing cache artifacts have no historical build
+attestation: the receipt explicitly marks their source binding **unattested**, and does
+not claim that observing current source proves which source produced an old binary.
+Run the intended native build first when freshness is required. `built-image.id` and
+`image.env` appear only after a successful actual image build; export-only is not image or
+release admission. App/DB/provider integration acceptance remains a separate operator run.

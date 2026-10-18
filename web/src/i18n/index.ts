@@ -1,10 +1,11 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import ICU from "i18next-icu";
 import { loadForFinalLocale, LocaleOperationQueue } from "./localeOperationQueue";
 
 export const APP_LOCALES = ["zh-CN", "en-US"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];
-export type DeferredTranslationNamespace = "eval" | "agents" | "knowledge";
+export type DeferredTranslationNamespace = "eval" | "agents" | "knowledge" | "tasks";
 
 const DEFAULT_LOCALE: AppLocale = "en-US";
 const APP_LOCALE_SET = new Set<string>(APP_LOCALES);
@@ -37,6 +38,12 @@ async function loadDeferredLocale(
   locale: AppLocale,
   namespace: DeferredTranslationNamespace,
 ): Promise<Record<string, unknown>> {
+  if (namespace === "tasks") {
+    const module = locale === "zh-CN"
+      ? await import("./locales/tasks-zh-CN.json")
+      : await import("./locales/tasks-en-US.json");
+    return module.default;
+  }
   if (namespace === "knowledge") {
     const module = locale === "zh-CN"
       ? await import("./locales/knowledge-zh-CN.json")
@@ -83,6 +90,7 @@ export function initializeI18n(): Promise<typeof i18n> {
     const mainResources = await loadMainLocale(initialLng);
     loadedBundles.add(`${initialLng}:main`);
     await i18n
+      .use(new ICU({ bindI18nStore: "added removed", memoize: true }))
       .use(initReactI18next)
       .init({
         lng: initialLng,

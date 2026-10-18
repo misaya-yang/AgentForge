@@ -23,16 +23,19 @@ use std::{
 };
 use tokio::process::{Child, Command};
 const TOKEN: &str = "offline-worker-fixture-token-1234567890";
-const KEY: &str = "offline-provider-fixture-key";
+#[path = "../../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/sdk_model_plane.rs"]
+mod model_plane;
 const RUN_ALLOW: &str = "00000000-0000-0000-0000-000000000001";
 const RUN_DENY: &str = "00000000-0000-0000-0000-000000000002";
 const REFUSAL: &str = "I cannot help with that request.";
 #[derive(Clone, Default)]
 struct Fixture {
     requests: Arc<Mutex<Vec<Value>>>,
+    launches: Arc<Mutex<HashMap<String, Value>>>,
     polls: Arc<Mutex<HashMap<String, usize>>>,
 }
-fn sse(events: Vec<Value>) -> Response {
+fn sse(mut events: Vec<Value>, receipt: Value) -> Response {
+    events.push(receipt);
     let body = events
         .iter()
         .map(|v| format!("data: {v}\n\n"))
@@ -45,14 +48,34 @@ fn completed(text: &str) -> Vec<Value> {
         json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":text}]}],"usage":{"input_tokens":3,"output_tokens":2,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0}}}}),
     ]
 }
-async fn provider(State(f): State<Fixture>, Json(body): Json<Value>) -> Response {
+async fn model_execute(
+    State(f): State<Fixture>,
+    headers: axum::http::HeaderMap,
+    Json(envelope): Json<Value>,
+) -> Response {
+    assert_eq!(
+        headers["authorization"],
+        format!("Bearer {}", "a".repeat(64))
+    );
+    assert!(!headers.contains_key("x-sdk-provider-key"));
+    assert_eq!(envelope["wire"], "responses_v1");
+    let run = envelope["run_id"].as_str().unwrap();
+    assert!(f.launches.lock().unwrap().contains_key(run));
+    let call = envelope["call_id"].as_str().unwrap();
+    assert!(call.starts_with(&format!("{run}:")));
+    let receipt = json!({"type":"sdk.model_receipt","settled":true,"run_id":run,"call_id":call,
+        "cost_nanos":7,"receipt_id":format!("fixture-{call}")});
+    let body = envelope["body"].clone();
     f.requests.lock().unwrap().push(body.clone());
     let model = body["model"].as_str().unwrap_or("");
     if model.starts_with("refusal") {
-        return sse(vec![
-            json!({"type":"response.refusal.delta","delta":REFUSAL}),
-            json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"refusal","refusal":REFUSAL}]}],"usage":{"input_tokens":3,"output_tokens":2}}}),
-        ]);
+        return sse(
+            vec![
+                json!({"type":"response.refusal.delta","delta":REFUSAL}),
+                json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"refusal","refusal":REFUSAL}]}],"usage":{"input_tokens":3,"output_tokens":2}}}),
+            ],
+            receipt,
+        );
     }
     if model == "cancel" {
         let stream = futures_util::stream::once(async {
@@ -81,17 +104,62 @@ async fn provider(State(f): State<Fixture>, Json(body): Json<Value>) -> Response
                 "failed"
             };
             assert_eq!(result["status"], expected);
-            return sse(completed(if model == "allow" {
-                "approved result"
-            } else {
-                "denied result"
-            }));
+            return sse(
+                completed(if model == "allow" {
+                    "approved result"
+                } else {
+                    "denied result"
+                }),
+                receipt,
+            );
         }
-        return sse(vec![
-            json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"function_call","call_id":"provider-call-1","name":"platform_capability_0","arguments":"{\"value\":\"fixture\"}"}],"usage":{"input_tokens":2,"output_tokens":1}}}),
-        ]);
+        return sse(
+            vec![
+                json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"function_call","call_id":"provider-call-1","name":"platform_capability_0","arguments":"{\"value\":\"fixture\"}"}],"usage":{"input_tokens":2,"output_tokens":1}}}),
+            ],
+            receipt,
+        );
     }
-    sse(completed("native answer"))
+    sse(completed("native answer"), receipt)
+}
+async fn model_lease(
+    State(f): State<Fixture>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    assert_eq!(
+        headers["authorization"],
+        format!("Bearer {}", "a".repeat(64))
+    );
+    assert!(!headers.contains_key("x-sdk-provider-key"));
+    let run = body["run_id"].as_str().unwrap();
+    let launches = f.launches.lock().unwrap();
+    let launch = launches.get(run).expect("authenticated fixture launch");
+    Json(
+        json!({"schema":"sdk-model-plane/v1","expires_at_epoch_ms":model_plane::now_ms()+60_000,
+        "binding_sha256":model_plane::launch_binding(launch)}),
+    )
+}
+async fn model_revocations(headers: axum::http::HeaderMap, Json(body): Json<Value>) -> Response {
+    assert_eq!(
+        headers["authorization"],
+        format!("Bearer {}", "a".repeat(64))
+    );
+    let run = body["run_id"].as_str().unwrap().to_owned();
+    let stream = futures_util::stream::unfold(run, |run| async move {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        Some((
+            Ok::<_, Infallible>(format!(
+                "data: {}\n\n",
+                json!({"type":"sdk.lease_heartbeat","run_id":run})
+            )),
+            run,
+        ))
+    });
+    Response::builder()
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(Body::from_stream(stream))
+        .unwrap()
 }
 async fn admit(Json(body): Json<Value>) -> Json<Value> {
     let _ = body;
@@ -130,16 +198,20 @@ async fn execute(State(f): State<Fixture>, Json(body): Json<Value>) -> Json<Valu
     Json(value)
 }
 fn launch(model: &str, session: &str, request: &str, stream: bool) -> Value {
-    json!({"protocol":"ai-platform/sdk-agent/v1","framework":"openai_agents","service_id":"service","tenant_id":"tenant","user_id":"user","request_id":request,"session_id":session,"agent":{"model":model,"instructions":"Fixture agent","max_turns":3},"input":"fixture question","stream":stream})
+    json!({"protocol":"ai-platform/sdk-agent/v1","framework":"openai_agents","service_id":"service","tenant_id":"tenant","user_id":"user","request_id":request,"session_id":session,"agent":{"model":model,"instructions":"Fixture agent","max_turns":3},"input":"fixture question","stream":stream,
+        "capability_bridge":{"grant":"a".repeat(64),"run_id":uuid::Uuid::new_v4().to_string(),"timeout_seconds":300,"tools":[]}})
 }
 fn capability(body: &mut Value, run: &str) {
     body["capability_bridge"] = json!({"grant":"a".repeat(64),"run_id":run,"timeout_seconds":1800,"tools":[{"name":"platform_capability_0","tool":"fixture_tool","namespace":null,"description":"fixture tool","input_schema":{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false},"id":"fixture-tool-id","schema_hash":format!("sha256:{}","b".repeat(64)),"effect":"write"}]});
 }
-async fn send(client: &reqwest::Client, body: &Value) -> reqwest::Response {
+async fn send(fixture: &Fixture, client: &reqwest::Client, body: &Value) -> reqwest::Response {
+    fixture.launches.lock().unwrap().insert(
+        body["capability_bridge"]["run_id"].as_str().unwrap().into(),
+        body.clone(),
+    );
     client
         .post("http://127.0.0.1:8096/v1/runs")
         .bearer_auth(TOKEN)
-        .header("x-sdk-provider-key", KEY)
         .json(body)
         .send()
         .await
@@ -188,7 +260,6 @@ async fn start_service(origin: &str) -> Service {
         .env("SDK_AGENT_RETENTION_SECONDS", "3600")
         .env("SDK_AGENT_ENGINE_PATH", engine)
         .env("SDK_AGENT_GATEWAY_URL", origin)
-        .env("OPENAI_BASE_URL", format!("{origin}/compatible-mode/v1"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -205,7 +276,12 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     drop(free);
     let fixture = Fixture::default();
     let router = Router::new()
-        .route("/compatible-mode/v1/responses", post(provider))
+        .route("/internal/v1/sdk-tools/models/execute", post(model_execute))
+        .route("/internal/v1/sdk-tools/models/lease", post(model_lease))
+        .route(
+            "/internal/v1/sdk-tools/models/revocations",
+            post(model_revocations),
+        )
         .route("/internal/v1/sdk-tools/capabilities/admit", post(admit))
         .route("/internal/v1/sdk-tools/capabilities/execute", post(execute))
         .with_state(fixture.clone());
@@ -243,13 +319,16 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     }
     // Actual nonstream child execution, durable receipt replay and history reload.
     let first = launch("text", "history-session", "request-1", false);
-    let r = send(&client, &first).await;
+    let r = send(&fixture, &client, &first).await;
     assert_eq!(r.status(), StatusCode::OK);
     let value: Value = r.json().await.unwrap();
     assert_eq!(value["text"], "native answer");
     assert_eq!(value["usage"]["input_tokens"], 3);
     let before = fixture.requests.lock().unwrap().len();
-    assert_eq!(send(&client, &first).await.status(), StatusCode::OK);
+    assert_eq!(
+        send(&fixture, &client, &first).await.status(),
+        StatusCode::OK
+    );
     assert_eq!(
         fixture.requests.lock().unwrap().len(),
         before,
@@ -257,7 +336,7 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     );
     let mut second = launch("text", "history-session", "request-2", true);
     second["input"] = json!("continued question");
-    let r = send(&client, &second).await;
+    let r = send(&fixture, &client, &second).await;
     assert_eq!(r.status(), StatusCode::OK);
     let events = parse_sse(&r.text().await.unwrap());
     assert!(events.iter().any(|v| v["event"] == "delta"));
@@ -273,7 +352,7 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     let mut destination_override =
         launch("text", "blocked-destination", "request-destination", false);
     destination_override["provider_base_url"] = json!("https://attacker.example/v1");
-    let rejected = send(&client, &destination_override).await;
+    let rejected = send(&fixture, &client, &destination_override).await;
     assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
     assert_eq!(fixture.requests.lock().unwrap().len(), before);
 
@@ -281,7 +360,7 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     // and native-history reload into the next provider turn.
     let mut refusal_stream = launch("refusal-stream", "refusal-history", "refusal-1", true);
     refusal_stream["input"] = json!("please answer");
-    let response = send(&client, &refusal_stream).await;
+    let response = send(&fixture, &client, &refusal_stream).await;
     assert_eq!(response.status(), StatusCode::OK);
     let events = parse_sse(&response.text().await.unwrap());
     assert!(
@@ -296,13 +375,13 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     let mut refusal_nonstream =
         launch("refusal-nonstream", "refusal-nonstream", "refusal-2", false);
     refusal_nonstream["input"] = json!("please answer");
-    let response = send(&client, &refusal_nonstream).await;
+    let response = send(&fixture, &client, &refusal_nonstream).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.json::<Value>().await.unwrap()["text"], REFUSAL);
 
     let mut continued = launch("text", "refusal-history", "refusal-3", false);
     continued["input"] = json!("follow up");
-    let response = send(&client, &continued).await;
+    let response = send(&fixture, &client, &continued).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.json::<Value>().await.unwrap()["text"],
@@ -335,7 +414,7 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     ] {
         let mut body = launch(model, model, "tool-request", true);
         capability(&mut body, run);
-        let r = send(&client, &body).await;
+        let r = send(&fixture, &client, &body).await;
         assert_eq!(r.status(), StatusCode::OK);
         let events = parse_sse(&r.text().await.unwrap());
         assert!(
@@ -356,14 +435,14 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
     }
     // Drop a real TCP SSE response while the native engine is consuming provider SSE.
     let cancelled = launch("cancel", "cancel-session", "cancel-request", true);
-    let mut response = send(&client, &cancelled).await;
+    let mut response = send(&fixture, &client, &cancelled).await;
     assert_eq!(response.status(), StatusCode::OK);
     let chunk = response.chunk().await.unwrap().unwrap();
     assert!(String::from_utf8_lossy(&chunk).contains("started"));
     drop(response);
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
-        let response = send(&client, &cancelled).await;
+        let response = send(&fixture, &client, &cancelled).await;
         let status = response.status();
         let v: Value = response.json().await.unwrap();
         if status == StatusCode::CONFLICT && v["code"] == "sdk_session_reconciliation_required" {
@@ -385,7 +464,10 @@ async fn actual_service_engine_provider_approval_cancel_and_history() {
         .await
         .unwrap();
     assert_eq!(r.status(), StatusCode::OK);
-    assert_eq!(send(&client, &cancelled).await.status(), StatusCode::GONE);
+    assert_eq!(
+        send(&fixture, &client, &cancelled).await.status(),
+        StatusCode::GONE
+    );
     // Graceful OS shutdown must complete without outstanding uncertain owners.
     unsafe {
         libc::kill(service.child.id().unwrap() as i32, libc::SIGTERM);

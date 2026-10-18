@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Native service build. All application processes below are Rust executables.
+# The optional verifier target requires an independently reviewed binary SHA at build time.
+ARG COSIGN_IMAGE=ghcr.io/sigstore/cosign/cosign:v3.1.3
+FROM ${COSIGN_IMAGE} AS cosign-distribution
 FROM rust:1.99.0-bookworm AS builder
 # Pin the dependency-layer tool independently of the application lockfile.
 ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
@@ -8,10 +11,14 @@ RUN cargo install cargo-chef --version 0.1.71 --locked
 FROM builder AS planner
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN cargo chef prepare --recipe-path /recipe.json
@@ -23,6 +30,7 @@ FROM builder AS cook-base
 WORKDIR /source
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 # Workspace excludes keep patched crates outside the cargo-chef recipe. Copy the
 # complete patch sources so `cargo chef cook` can resolve the workspace patches.
 COPY rust/platform-native/vendor/ rust/platform-native/vendor/
@@ -38,10 +46,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-gateway AS build-gateway
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -57,10 +69,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-knowledge AS build-knowledge
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -76,10 +92,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-migrate AS build-migrate
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -95,10 +115,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-sdk-worker AS build-sdk-worker
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -114,10 +138,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-local-node AS build-local-node
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -128,21 +156,26 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM cook-base AS deps-tools
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
-    cargo chef cook --locked --release --recipe-path /recipe.json -p ai-platform-tools --bin platform-tools
+    cargo chef cook --locked --release --recipe-path /recipe.json -p ai-platform-tools -p ai-platform-service-primitives --bin platform-tools --bin workload-credentials
 
 FROM deps-tools AS build-tools
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-target-rust-1-99,target=/source/rust/platform-native/target,sharing=locked \
-    cargo build --locked --release -p ai-platform-tools --bin platform-tools \
-    && install -D target/release/platform-tools /output/platform-tools
+    cargo build --locked --release -p ai-platform-tools -p ai-platform-service-primitives --bin platform-tools --bin workload-credentials \
+    && install -D target/release/platform-tools /output/platform-tools \
+    && install -D target/release/workload-credentials /output/workload-credentials
 
 FROM cook-base AS deps-release
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -152,10 +185,14 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM deps-release AS build-release
 WORKDIR /source
 COPY rust/platform-native/ rust/platform-native/
+COPY agent-plugins/ai-quiz/native/ agent-plugins/ai-quiz/native/
 COPY rust/agent-runtime-overlay/kernel-rs/Cargo.toml rust/agent-runtime-overlay/kernel-rs/Cargo.toml
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/
 COPY database/ database/
 COPY sdk/openapi/ sdk/openapi/
+COPY sdk/*.json sdk/
+COPY sdk/rust/generated_models.rs sdk/rust/generated_models.rs
 COPY docs/design/ docs/design/
 WORKDIR /source/rust/platform-native
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
@@ -166,6 +203,7 @@ RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/c
 FROM rust:1.99.0-bookworm AS engine-builder
 WORKDIR /engine
 COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/ ./
+COPY rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/ /ai-platform-capability-contract/
 ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
 RUN --mount=type=cache,id=platform-native-registry-rust-1-99,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=platform-native-engine-target,target=/engine/target,sharing=locked \
@@ -205,7 +243,8 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
     && install -d -m 0700 -o 10001 -g 10001 /var/lib/sdk-agent \
     && install -d -m 0755 /app/config /app/deploy/release /run/qdrant /run/sdk-worker /run/sdk-callback
 ARG VCS_REF=unknown
-LABEL org.opencontainers.image.revision="$VCS_REF" com.misaya.ai-platform.artifact="native-services"
+LABEL org.opencontainers.image.revision="$VCS_REF" org.opencontainers.image.licenses="Apache-2.0" com.misaya.ai-platform.artifact="native-services"
+COPY LICENSE NOTICE /usr/share/doc/agentforge/
 WORKDIR /app
 USER 1000:1000
 
@@ -256,7 +295,14 @@ COPY --from=build-local-node /output/local-node /usr/local/bin/local-node
 ENTRYPOINT ["/usr/local/bin/local-node"]
 
 FROM native-base AS tools
+# Offline credential import/rotation is an operations tool, separate from servers.
+USER root
+RUN apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+USER 1000:1000
 COPY --from=build-tools /output/platform-tools /usr/local/bin/platform-tools
+COPY --from=build-tools /output/workload-credentials /usr/local/bin/workload-credentials
 COPY database/ /app/database/
 ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
 ENTRYPOINT ["/usr/local/bin/platform-tools"]
@@ -266,6 +312,17 @@ COPY --from=build-release /output/platform-release /usr/local/bin/platform-relea
 COPY database/ /app/database/
 ENV AI_GATEWAY_DATABASE_DIR=/app/database AI_GATEWAY_AUTHORITY_SOURCE_MODE=distribution
 ENTRYPOINT ["/usr/local/bin/platform-release"]
+
+# Optional GitOps admission image. No default binary hash and no automatic publication.
+# A tag is not the trust boundary: the exact reviewed cosign binary SHA is mandatory.
+FROM tools AS delivery-verifier
+USER root
+ARG COSIGN_BINARY_SHA256
+COPY --from=cosign-distribution /ko-app/cosign /usr/local/bin/cosign
+RUN test "${#COSIGN_BINARY_SHA256}" -eq 64 \
+    && printf '%s  /usr/local/bin/cosign\n' "$COSIGN_BINARY_SHA256" | sha256sum --check --strict -
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/platform-tools"]
 
 # Preserve the root Dockerfile's default Gateway entrypoint.
 FROM runtime AS final

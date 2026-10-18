@@ -111,7 +111,7 @@ const CollapsibleContent = React.forwardRef<HTMLDivElement, CollapsibleContentPr
       <div
         ref={ref}
         className={cn(
-          "overflow-hidden transition-all duration-200 ease-out",
+          "ui-collapsible-slot-1",
           className
         )}
         style={{

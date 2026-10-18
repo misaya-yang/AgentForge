@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Verify vulnerability, signature and deployment rejection paths
@@ -24,6 +24,10 @@ jobs:
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test publish_workflow
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test dependency_policy_gate
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test yaml_backend_compatibility
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools delivery_policy::tests
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools delivery_policy::compose_profiles::tests
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools platform_fitness::tests
+          platform-tools platform-fitness --repo-root . --evidence-out "$RUNNER_TEMP/platform-fitness.json"
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 26.11.1
@@ -50,12 +54,38 @@ jobs:
         with:
           tool: cargo-deny@0.20.2
       - name: Check all advisories licenses retired crates and dependency sources
-        run: cargo deny --manifest-path rust/platform-native/Cargo.toml --locked check --config deploy/security/deny.toml advisories bans licenses sources
-      - uses: $/.github/actions/setup-native
+        run: cargo deny --manifest-path rust/platform-native/Cargo.toml --locked --config deploy/security/deny.toml check advisories bans licenses sources
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
       - name: Verify resolved maintained YAML alias and complete dependency graph
         run: bash scripts/harness/check_dependency_policy.sh
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.11.1"
+          package-manager-cache: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: "12.11.2"
+          run_install: false
+      - name: Install locked notice source trees
+        run: |
+          pnpm -C web install --frozen-lockfile --ignore-scripts
+          npm ci --prefix sdk/cli --ignore-scripts
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.14.0"
+          package-manager-cache: false
+      - name: Install locked external A2A notice sources
+        run: npm ci --prefix apps/external-a2a-agent --ignore-scripts
+      - name: Generate complete dependency notices
+        run: bash scripts/harness/check_third_party_notices.sh "$RUNNER_TEMP/third-party-notices"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: third-party-notices
+          path: ${{ runner.temp }}/third-party-notices
+          if-no-files-found: error
+          retention-days: 7
   workflow-lint:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -71,3 +101,27 @@ jobs:
           online-audits: false
           advanced-security: false
           min-severity: low
+
+  scorecard:
+    # Read-only repository assessment. Never publish to scorecard.dev or SARIF services.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Run official pinned OpenSSF Scorecard
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0, peeled official tag
+        with:
+          results_file: scorecard-results.json
+          results_format: json
+          publish_results: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scorecard-results
+          path: scorecard-results.json
+          if-no-files-found: error
+          retention-days: 7

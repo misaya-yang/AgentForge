@@ -112,7 +112,10 @@ fn tree(data: &[u8]) -> Result<Vec<Node>> {
                         if let Some(target) = target {
                             *target = Some(
                                 attribute
-                                    .decode_and_unescape_value(reader.decoder())
+                                    .decoded_and_normalized_value(
+                                        quick_xml::XmlVersion::Implicit1_0,
+                                        reader.decoder(),
+                                    )
                                     .map_err(|_| bad("DOCX XML attribute is malformed"))?
                                     .into_owned(),
                             );
@@ -367,4 +370,29 @@ pub(super) fn extract_document_xml(data: &[u8]) -> Result<String> {
         return Err(bad("DOCX parsed but no text extracted"));
     }
     sanitize_text(normalized.trim())
+}
+
+#[cfg(test)]
+mod xml_attribute_upgrade_tests {
+    use super::*;
+    #[test]
+    fn xml10_normalization_keeps_character_references_distinct_from_literal_whitespace() {
+        let xml = format!(
+            "<w:document xmlns:w=\"{}\" w:type=\"a\tb&#x9;c&amp;d\" w:val=\"&#50;\"/>",
+            String::from_utf8_lossy(WORD)
+        );
+        let nodes = tree(xml.as_bytes()).unwrap();
+        assert_eq!(nodes[1].kind.as_deref(), Some("a b\tc&d"));
+        assert_eq!(nodes[1].val.as_deref(), Some("2"));
+    }
+    #[test]
+    fn unbound_or_unknown_entity_attributes_remain_parser_errors() {
+        for attribute in ["w:type=\"&untrusted;\"", "bad:type=\"value\""] {
+            let xml = format!(
+                "<w:document xmlns:w=\"{}\" {attribute}/>",
+                String::from_utf8_lossy(WORD)
+            );
+            assert!(tree(xml.as_bytes()).is_err());
+        }
+    }
 }

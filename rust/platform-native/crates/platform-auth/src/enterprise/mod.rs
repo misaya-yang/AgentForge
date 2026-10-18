@@ -6,6 +6,7 @@ pub mod passkeys;
 pub mod policy;
 pub mod scim;
 mod session;
+pub mod step_up;
 mod transient;
 use crate::{
     browser_policy::BrowserPolicy,

@@ -176,12 +176,23 @@ impl PgBillingStore {
     }
     pub async fn try_usage_summary(&self, filter: &UsageFilter) -> Result<Value> {
         let mut query = summary_query(filter);
-        let row = query
-            .build_query_as::<SummaryRow>()
-            .fetch_one(&self.pool)
-            .await?;
-        let mut summary=row.into_value(filter)?;
-        crate::request_meter::annotate_summary(&self.pool,filter,&mut summary).await?;
+        let mut connection = self.pool.acquire().await?;
+        let row: SummaryRow = if query.sql().contains("FROM usage_records") {
+            ai_platform_service_primitives::data_connection::append_store::read_one(
+                &mut connection,
+                "gateway.usage_records",
+                query.build(),
+            )
+            .await?
+        } else {
+            query
+                .build_query_as::<SummaryRow>()
+                .fetch_one(&mut *connection)
+                .await?
+        };
+        drop(connection);
+        let mut summary = row.into_value(filter)?;
+        crate::request_meter::annotate_summary(&self.pool, filter, &mut summary).await?;
         Ok(summary)
     }
     /// Preserve Python's collection_error empty summary (including today's dates).
@@ -197,10 +208,20 @@ impl PgBillingStore {
         limit: i64,
     ) -> Result<Vec<Value>> {
         let mut query = breakdown_query(filter, dimension, limit);
-        let rows = query
-            .build_query_as::<BreakdownRow>()
-            .fetch_all(&self.pool)
-            .await?;
+        let mut connection = self.pool.acquire().await?;
+        let rows: Vec<BreakdownRow> = if query.sql().contains("FROM usage_records") {
+            ai_platform_service_primitives::data_connection::append_store::read_all(
+                &mut connection,
+                "gateway.usage_records",
+                query.build(),
+            )
+            .await?
+        } else {
+            query
+                .build_query_as::<BreakdownRow>()
+                .fetch_all(&mut *connection)
+                .await?
+        };
         let total = rows
             .iter()
             .try_fold(0_i64, |sum, row| checked_add(sum, integer(&row.cost)?))?;
@@ -227,10 +248,20 @@ impl PgBillingStore {
         granularity: Granularity,
     ) -> Result<Vec<Value>> {
         let mut query = timeseries_query(filter, granularity);
-        let rows = query
-            .build_query_as::<SeriesRow>()
-            .fetch_all(&self.pool)
-            .await?;
+        let mut connection = self.pool.acquire().await?;
+        let rows: Vec<SeriesRow> = if query.sql().contains("FROM usage_records") {
+            ai_platform_service_primitives::data_connection::append_store::read_all(
+                &mut connection,
+                "gateway.usage_records",
+                query.build(),
+            )
+            .await?
+        } else {
+            query
+                .build_query_as::<SeriesRow>()
+                .fetch_all(&mut *connection)
+                .await?
+        };
         rows.into_iter().map(SeriesRow::into_value).collect()
     }
     pub async fn get_usage_timeseries(

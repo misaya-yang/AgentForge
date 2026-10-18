@@ -459,7 +459,7 @@ export function ModelForm({
       capabilityProfile,
       baselineCapabilityProfileRef.current
     );
-    const capabilityOverrides = profileUnchanged ? undefined : capabilityProfile;
+    const capabilityOverrides = profileUnchanged ? undefined : { ...capabilityProfile };
 
     const submitData: ModelCreate | ModelUpdate = isEdit
       ? {

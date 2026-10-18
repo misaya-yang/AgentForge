@@ -5,6 +5,8 @@ mod binary_run;
 mod docker;
 #[path = "native-container-fence.rs"]
 mod fence;
+#[path = "native-container-package.rs"]
+mod package;
 #[path = "native-container-policy.rs"]
 mod policy;
 #[path = "native-container-registry.rs"]
@@ -62,13 +64,16 @@ fn run() -> Result<u8, String> {
         "build",
         "run",
         "install",
+        "package",
         "watch",
         "engine-build",
+        "engine-test",
+        "plugin-test",
         "engine-fetch",
     ]
     .contains(&action)
     {
-        return Err("usage: native-container.sh [plan|doctor|prepare [--fetch]|check|test|build] [bounded Cargo target options]".into());
+        return Err("usage: native-container.sh [plan|doctor|prepare [--fetch]|check|test|build|run|package|watch] [action options]".into());
     }
     let rest = if args.is_empty() { &[][..] } else { &args[1..] };
     if ["plan", "doctor"].contains(&action) && !rest.is_empty() {
@@ -94,8 +99,10 @@ fn run() -> Result<u8, String> {
     } else {
         None
     };
-    let cargo = if ["engine-build", "engine-fetch"].contains(&action) {
+    let cargo = if ["engine-build", "engine-test", "engine-fetch"].contains(&action) {
         policy::engine_args(action, rest)?
+    } else if action == "plugin-test" {
+        policy::plugin_args(rest)?
     } else if ["check", "test", "build"].contains(&action) {
         policy::cargo_args(action, rest)?
     } else {
@@ -114,6 +121,12 @@ fn run() -> Result<u8, String> {
         } else {
             return fence::delegate(&root, selected, &original_args);
         }
+    }
+    if action == "package" {
+        if public_registry.is_some() {
+            return Err("package takes no registry override".into());
+        }
+        return package::run(&root, rest);
     }
     println!(
         "project={} role=native-build image={} cache={} rust=1.99.0 jobs=1 debug=0 incremental=0 network=none source=read-only",

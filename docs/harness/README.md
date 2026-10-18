@@ -1,109 +1,79 @@
-# The AI Gateway Harness
+# AgentForge task harness
 
-> A *harness* is the structured environment — instructions, commands, contracts, gates, and docs —
-> that lets an agent work on this repository autonomously and get a comparable result on any
-> machine. It is the thing we maintain so that "which laptop is this running on" stops mattering.
+**Schema:** `harness/index/v2` · [项目约定](../../AGENTS.md) · [命令目录](commands.md) · [机器目录](../../harness.yml)
 
-**Schema:** `harness/index/v2` · **Contract:** [`harness.yml`](../../harness.yml) · **Gate:** `make harness-check`
+这个 harness 帮助 agent 完成用户任务，不自动派生全仓审计、文档维护或测试建设任务。
+用户当前请求确定目标；已有计划提供需求；当前代码和真实结果确定进度。
 
----
+## 1. 开始：只拿当前任务需要的信息
 
-## Read in this order
+读取 AGENTS.md；续接长任务时读取现有 `loop-state.json` 的当前事项，然后直接定位相关源码。
+只补读当前契约或操作需要的文档。不要通读 docs，不重新盘点全仓，不重复评审历史计划。
+在现有任务记录中明确结果、涉及模块和决定性的验证即可；普通改动不用新建任务模板。
 
-| # | File | What it gives you |
-| --- | --- | --- |
-| 1 | [`AGENTS.md`](../../AGENTS.md) | The contract: repo map, canonical commands, safety. Every agent reads this first. |
-| 1b | [`platform-architecture.md`](platform-architecture.md) | The product law: five layers, five rules, what may be added where. Read before proposing a new surface, extension mechanism, or `AgentSpec` field. |
-| 2 | [`architecture.md`](architecture.md) | Runtime topology, module ownership, dependency direction, contracts that must not drift. |
-| 3 | [`commands.md`](commands.md) | The canonical command for every routine action, and which gate to run for what. |
-| 4 | [`workflow.md`](workflow.md) | The task loop, definition of done, multi-phase program convention, git rules. |
-| 4b | [`work-packages.md`](work-packages.md) | Single-owner contract for architecture and repository-wide changes. |
-| 5 | [`runtime-and-secrets.md`](runtime-and-secrets.md) | Mandatory before any Docker, deploy, or E2E action. |
-| 5b | [`integration-and-rollback.md`](integration-and-rollback.md) | Singleton-runtime ownership, verification ladder, integration and rollback. |
-| 5c | [`repository-quality.md`](repository-quality.md) | Dead code/docs/tests, dependency, size and browser-evidence lifecycle. |
-| 5d | [`codex-upstream-upgrade.md`](codex-upstream-upgrade.md) | Immutable Codex source replay, host compatibility and verification. |
-| 6 | [`docs/README.md`](../README.md) | Index of everything else: designs, plans, runbooks, reports. |
-
-For a restored archive or local Codex continuation, use the existing
-[local acceptance handoff](../handoff/local-codex-acceptance.md) after the cold start.
-It is an operator procedure, not a second execution-status authority or permission
-to start services.
-
-`CLAUDE.md` adds Claude Code specifics on top of `AGENTS.md`. Agent, Cursor, and other tools read
-`AGENTS.md` directly.
-
-## The five principles
-
-1. **The repository is the system of record.** If an agent cannot reach it in-context from a
-   versioned file, it does not exist. No external directories, no "as discussed earlier",
-   no knowledge that lives only on one machine.
-2. **Progressive disclosure.** `AGENTS.md` is a short table of contents, not an encyclopedia.
-   Depth lives in `docs/`, one hop away, so context is spent on the task and not on preamble.
-3. **Boundaries become mechanical.** Architectural rules that only exist in prose decay. Every
-   invariant must name its real gate or a queued work package that will add one; prose must not
-   claim enforcement that does not yet exist.
-4. **Verification is a command, not a claim.** Each kind of change maps to a named gate in
-   `commands.md` §7. "Done" means that gate ran and passed.
-5. **Feedback gets encoded.** A correction that would apply to the next task becomes a rule, a
-   command, or a gate — see `workflow.md` §6.
-
-## What the harness is made of
-
-| Layer | Artifacts |
+| 当前问题 | 按需查阅 |
 | --- | --- |
-| Instructions | `AGENTS.md`, `CLAUDE.md`, `.claude/commands/*.md` |
-| Contract | `harness.yml` — canonical commands, required docs, loop stages |
-| Commands | `Makefile` targets backed by `scripts/new/*.sh` |
-| Gates | `make doctor`, `harness-check`, `validate*`, `status`, `test-isolation`, `eval-e1-gate`, `verify-*` |
-| CI | `.github/workflows/ci.yml` runs a current subset of gates on `main` and `dev`; ARC-00 closes the parity gap |
-| Knowledge | `docs/` (design + plans), `deploy/runbooks/` (programs), `reports/` (evidence) |
-| Observability | `/health/ready`, `/metrics`, `docker/monitoring/`, trace + eval console |
+| 找源码、调用方或接口归属 | [架构](architecture.md) |
+| 要新增服务、扩展机制或改变产品边界 | [产品边界](platform-architecture.md) |
+| 不确定具体命令 | [命令目录](commands.md)；只查相关段落 |
+| 任务续接或提交 | [工作流](workflow.md) |
+| 多模块所有权与进度 | [工作包](work-packages.md) |
+| 实际启动容器、数据库、浏览器或调用外部服务 | [运行与凭据](runtime-and-secrets.md) |
+| 本次任务确实要求联调、部署或回滚 | [集成与回滚](integration-and-rollback.md) |
+| 用户安排了仓库清理 | [仓库质量](repository-quality.md) |
+| 用户安排了 Codex 上游升级 | [上游升级](codex-upstream-upgrade.md) |
 
-## Truth hierarchy
+## 2. 实现：一个模块连续做完
 
-Different documents own different kinds of truth:
+沿真实调用链完成实现、接线和必要的测试代码，再检查这一完整批次。不要改一个函数就
+发消息、做一次审核或跑一轮测试；不要因发现与交付无关的小问题切换任务。
 
-| Question | Authority |
+若启用多代理，每个代理负责一个完整模块，任务一次交代结果、边界、共享文件和验证归属。
+默认由实现者完成本模块的一次自查，主代理做一次集成检查；不默认创建独立审计代理，
+不安排多个代理检查同一份代码，不做“审核审核结果”。只有用户明确要求、原验收要求
+或具体风险需要时，才安排一次有明确问题和范围的独立审核。
+
+每项检查只有一个执行者。子代理已有适用结果时主代理直接复用；主代理负责的集成检查
+由子代理提交代码等待统一运行。交付时一次说明改动、实际结果、未验证项；中途只沟通
+真正的阻塞或共享契约冲突。不轮询催报、不把一个模块拆成连续微任务。
+用户已停止的代理保持停止；新 agent 不自行恢复旧分工。
+
+## 3. 验证：先选覆盖，再去重
+
+优先使用能证明当前功能结果的已有检查。一个检查已覆盖某项断言，就不要为了形式再
+运行同义命令或补一层局部测试。局部测试只在复现具体缺陷、验证新业务分支、或难以用
+主流程覆盖的重要边界时增加；不逐函数补测，不复制实现逻辑，不为测试数或覆盖率补壳。
+
+| 本次任务 | 默认验证范围 |
 | --- | --- |
-| What runs and who owns it now? | [`architecture.md`](architecture.md) + current code/Compose |
-| What product boundary should outlive this implementation? | [`platform-architecture.md`](platform-architecture.md) + accepted ADRs |
-| What should be built next? | One queued/active plan linked from [`docs/README.md`](../README.md) |
-| What is executing now? | The one active program's `loop-state.json` |
-| What actually passed? | A dated receipt/report with command, SHA, environment and result |
-| How may a large change be divided? | [`work-packages.md`](work-packages.md) |
+| 文档、规则、注释 | 改动涉及的引用/配置检查；不编译业务服务 |
+| 一个模块的完整功能 | 一组已有行为/接口测试；仅补缺失的关键场景 |
+| 多模块调用接线 | 一次受影响组件的编译和接口/主流程验证；不让每个代理各跑全套 |
+| 权限、数据、计费、并发或恢复 | 对应的成功与关键拒绝/失败场景；不扩展成无关全仓安全扫描 |
+| 发布或原计划最终验收 | 执行原定验收集合；已有适用结果可复用，缺失项如实保留 |
 
-Queued plans are not current implementation facts. Historical reports and superseded runbooks are
-evidence, not instructions. If two programs claim the same domain, stop and resolve the lifecycle
-conflict before changing code.
+只有相关代码、契约、依赖、配置、测试数据或环境发生变化，或有具体新失败证据时，才
+重跑已有检查。无关文档变更、agent 交接或上下文压缩本身不使通过结果失效。使用已有
+命令和记录，不另造结果缓存、文件哈希登记系统或第二套测试调度器。
 
-## Keeping it honest
+检查失败后先解释失败原因并修复，再重跑相关检查；原因和输入未变化时不重复同一失败。
+环境不可用则记录“未运行/受阻”，继续可实施的代码工作。通过后结束该验证，不再扩大
+扫描范围寻找新事项。源代码编译、模拟测试与真实服务验收不能互相冒充。
 
-`make harness-check` currently verifies the structural harness has not rotted:
+## 4. 检查点与停止条件
 
-- every command declared in `harness.yml` still exists as a Make target;
-- every required doc exists and is non-empty;
-- `AGENTS.md` and `CLAUDE.md` stay within their line budgets (long instruction files measurably
-  reduce agent task success);
-- relative links inside the harness docs resolve.
+进度只进入现有执行账本，记录模块结果、实际检查、剩余事项和下一步。模块完成或事实
+变化时更新一次，不创建逐步冻结、交接、预检或审计报告。小任务在最终回复说明即可。
 
-It runs in CI as part of the *Compose and Harness* job. Static imports and core ownership have their
-own `architecture-boundary-gate` and `core-boundary-gate`; affected-gate selection and CI enforcement
-also exist. The structural check alone does not prove their results, program lifecycle semantics,
-or non-zero collection without unexpected skips. The current execution authority is
-[`native-enterprise-upgrade/loop-state.json`](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json);
-historical program receipts do not establish current acceptance.
-When the structural check fails, fix the harness — do not raise the budget.
+用户要求的结果实现且对应检查通过，当前任务即结束。非阻塞风格、命名、文件大小和
+推测性优化不扩大交付范围。整体计划只有原定必需验收完成才算完成；无需为一个已完成
+的小任务重跑整体计划。正常代码工作不以发布签名、历史升级演练或全仓健康为前置条件。
 
-## When to change the harness
+## 5. 命令和 CI 的边界
 
-| Situation | Change |
-| --- | --- |
-| A new service or package | `architecture.md` §2–3 + an isolation test |
-| A new routine command | `Makefile` + `commands.md` + `harness.yml` |
-| A recurring agent mistake | A rule in `AGENTS.md` (only if load-bearing) or the owning doc |
-| A new class of regression | A gate in the `Makefile`, wired into CI |
-| A boundary decision | An ADR in `docs/architecture/` |
-| Work spanning many sessions | A program under `deploy/runbooks/` (`workflow.md` §4) |
-| A cross-service or architecture change | A single-owner package sequence under [`work-packages.md`](work-packages.md) |
-| Dead code/docs/tests or generated evidence | [`repository-quality.md`](repository-quality.md) |
-| Docker/DB/provider integration or rollback | [`integration-and-rollback.md`](integration-and-rollback.md) |
+`harness.yml` 的 commands/gates 是命令和 CI/发布覆盖目录，不是 agent 每轮必须执行的
+清单。`affected-gates` 为一个完整候选差异选择 CI 覆盖，不在每次编辑、每个子代理或每次
+续接时重算。CI 门禁和正式安全/数据验收保持有效；日常开发按上面的实际覆盖选择验证。
+
+同一构建资源只安排一个执行者，复用已有 Docker 缓存。不要为了验证文档、目录或计划
+启动业务栈、下载编译器或重建镜像。详细的运行限制在真正执行相关操作时查阅。

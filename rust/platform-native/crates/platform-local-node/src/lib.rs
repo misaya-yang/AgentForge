@@ -4,13 +4,16 @@ pub mod config;
 #[cfg(unix)]
 pub mod macos;
 pub mod credentials;
+pub mod credential_lock;
 pub mod signing;
 pub mod identity;
+pub mod hardware_key;
 pub mod approvals;
 pub mod envelope;
 pub mod ledger;
 pub mod outbox;
 pub mod transport;
+pub mod control_stream;
 pub mod runner;
 #[cfg(unix)]
 pub mod workspace;

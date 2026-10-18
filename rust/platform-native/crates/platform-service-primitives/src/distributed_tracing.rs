@@ -6,21 +6,18 @@ use opentelemetry::{
     propagation::{Extractor, Injector, TextMapPropagator},
     trace::{FutureExt, SpanKind, Status, TraceContextExt, Tracer},
 };
-use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator, trace::Sampler};
-use std::{collections::HashMap, sync::OnceLock};
+use std::collections::HashMap;
 
-static PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
+#[path = "telemetry_pipeline.rs"]
+mod pipeline;
 pub use opentelemetry_sdk::trace::SdkTracerProvider;
+pub use pipeline::{TelemetryGuard, initialize_with_options};
 #[derive(Clone)]
 pub struct RequestId(pub String);
-/// Call inside the Tokio runtime, before starting any application tasks.
-/// Like the source, the explicit root ratio is 1.0; inherited sampling wins.
-pub fn initialize(service_name: &'static str) -> SdkTracerProvider {
+pub fn initialize(service_name: &'static str) -> TelemetryGuard {
     initialize_with_options(service_name, TracingOptions::default())
 }
-/// Explicit endpoint (including empty to disable export) takes precedence over
-/// the environment. Attributes are native OpenTelemetry values, not stringified.
 #[derive(Clone, Default)]
 pub struct TracingOptions {
     pub otlp_endpoint: Option<String>,
@@ -33,41 +30,12 @@ impl TracingOptions {
             .unwrap_or_else(|| std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_default())
     }
     pub fn resource(&self, service_name: &str) -> Resource {
-        Resource::builder()
+        Resource::builder_empty()
             .with_attribute(KeyValue::new("service.name", service_name.to_owned()))
+            .with_attribute(KeyValue::new("gen_ai.semconv.version", "1.37.0"))
             .with_attributes(self.resource_attributes.clone())
             .build()
     }
-}
-/// Process-wide, first successful initialization wins, matching `initialize`.
-/// A malformed exporter configuration remains nonfatal to service startup.
-pub fn initialize_with_options(service_name: &str, options: TracingOptions) -> SdkTracerProvider {
-    PROVIDER
-        .get_or_init(|| {
-            let mut builder = SdkTracerProvider::builder()
-                .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
-                    1.0,
-                ))))
-                .with_resource(options.resource(service_name));
-            let endpoint = options.resolved_endpoint();
-            if !endpoint.is_empty() {
-                match opentelemetry_otlp::SpanExporter::builder()
-                    .with_tonic()
-                    .with_endpoint(endpoint)
-                    .build()
-                {
-                    Ok(exporter) => builder = builder.with_batch_exporter(exporter),
-                    Err(_) => eprintln!(
-                        "{service_name} tracing exporter unavailable; retaining in-process spans"
-                    ),
-                }
-            }
-            let provider = builder.build();
-            global::set_text_map_propagator(TraceContextPropagator::new());
-            global::set_tracer_provider(provider.clone());
-            provider
-        })
-        .clone()
 }
 
 struct Headers<'a>(&'a HeaderMap);
@@ -97,36 +65,31 @@ pub async fn inbound(mut request: Request, next: Next) -> Response {
     let propagator = TraceContextPropagator::new();
     let parent = propagator.extract(&Headers(request.headers()));
     let tracer = global::tracer("ai_gateway_core.tracing");
-    let path = request.uri().path().to_owned();
-    let scheme = request.uri().scheme_str().unwrap_or("http");
-    let host = request
-        .headers()
-        .get("host")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("");
-    let url = if request.uri().authority().is_some() {
-        request.uri().to_string()
-    } else {
-        format!("{scheme}://{host}{}", request.uri())
+    // Route templates are bounded and never contain query, tenant IDs or content.
+    let route = request
+        .extensions()
+        .get::<axum::extract::MatchedPath>()
+        .map(|p| p.as_str().to_owned())
+        .unwrap_or_else(|| "unmatched".into());
+    let method = match request.method().as_str() {
+        "GET" => "GET",
+        "POST" => "POST",
+        "PUT" => "PUT",
+        "DELETE" => "DELETE",
+        "PATCH" => "PATCH",
+        "HEAD" => "HEAD",
+        "OPTIONS" => "OPTIONS",
+        "TRACE" => "TRACE",
+        "CONNECT" => "CONNECT",
+        _ => "_OTHER",
     };
-    let mut attributes = vec![
-        KeyValue::new("http.method", request.method().to_string()),
-        KeyValue::new("http.url", url),
-        KeyValue::new("http.target", path.clone()),
-        KeyValue::new("http.scheme", scheme.to_owned()),
+    let attributes = vec![
+        KeyValue::new("http.request.method", method),
+        KeyValue::new("http.route", route.clone()),
     ];
-    if let Some(agent) = request
-        .headers()
-        .get("user-agent")
-        .and_then(|h| h.to_str().ok())
-    {
-        attributes.push(KeyValue::new("http.user_agent", agent.to_owned()));
-    }
-    if let Some(context) = request.extensions().get::<RequestId>() {
-        attributes.push(KeyValue::new("request.id", context.0.clone()));
-    }
+    let started = std::time::Instant::now();
     let span = tracer
-        .span_builder(format!("{} {path}", request.method()))
+        .span_builder(format!("{method} {route}"))
         .with_kind(SpanKind::Server)
         .with_attributes(attributes)
         .start_with_context(&tracer, &parent);
@@ -138,7 +101,7 @@ pub async fn inbound(mut request: Request, next: Next) -> Response {
     // The response body is returned untouched, including SSE and large downloads.
     let response = next.run(request).with_context(context.clone()).await;
     context.span().set_attribute(KeyValue::new(
-        "http.status_code",
+        "http.response.status_code",
         response.status().as_u16() as i64,
     ));
     context
@@ -148,6 +111,20 @@ pub async fn inbound(mut request: Request, next: Next) -> Response {
         } else {
             Status::Ok
         });
+    let status = response.status().as_u16();
+    let _active = context.clone().attach();
+    global::meter("agentforge.http")
+        .f64_histogram("http.server.request.duration")
+        .with_unit("s")
+        .build()
+        .record(
+            started.elapsed().as_secs_f64(),
+            &[
+                KeyValue::new("http.route", route.clone()),
+                KeyValue::new("http.response.status_code", status as i64),
+            ],
+        );
+    pipeline::request_finished(&context, status);
     context.span().end();
     response
 }
@@ -160,11 +137,25 @@ mod tests {
     async fn inbound_propagates_active_span_and_never_buffers_body() {
         use axum::{Router, body::Body, routing::get};
         use tower::ServiceExt;
-        let provider = SdkTracerProvider::builder().build();
+        #[derive(Clone, Debug, Default)]
+        struct Capture(std::sync::Arc<std::sync::Mutex<Vec<opentelemetry_sdk::trace::SpanData>>>);
+        impl opentelemetry_sdk::trace::SpanExporter for Capture {
+            async fn export(
+                &self,
+                batch: Vec<opentelemetry_sdk::trace::SpanData>,
+            ) -> opentelemetry_sdk::error::OTelSdkResult {
+                self.0.lock().unwrap().extend(batch);
+                Ok(())
+            }
+        }
+        let capture = Capture::default();
+        let provider = SdkTracerProvider::builder()
+            .with_simple_exporter(capture.clone())
+            .build();
         global::set_tracer_provider(provider.clone());
         let app = Router::new()
             .route(
-                "/stream",
+                "/stream/{private_id}",
                 get(|request: Request| async move {
                     let carrier = request.extensions().get::<TraceCarrier>().unwrap();
                     assert_eq!(current_carrier().0, carrier.0);
@@ -184,7 +175,9 @@ mod tests {
             )
             .layer(axum::middleware::from_fn(inbound));
         let request = Request::builder()
-            .uri("/stream")
+            .uri("/stream/private-path-value?token=private-query-value")
+            .header("authorization", "Bearer private-credential-value")
+            .header("user-agent", "private-user-agent-value")
             .header(
                 "traceparent",
                 "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
@@ -200,6 +193,20 @@ mod tests {
         assert_eq!(response.status().as_u16(), 503);
         drop(response);
         provider.shutdown().unwrap();
+        let spans = capture.0.lock().unwrap();
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].name, "GET /stream/{private_id}");
+        assert_eq!(spans[0].parent_span_id.to_string(), "00f067aa0ba902b7");
+        let exported = format!("{:?}", spans[0]);
+        for seed in [
+            "private-path-value",
+            "private-query-value",
+            "private-credential-value",
+            "private-user-agent-value",
+        ] {
+            assert!(!exported.contains(seed));
+        }
+        assert!(spans[0].events.events.is_empty());
     }
     #[test]
     fn parent_trace_and_sampling_survive_sdk_carrier() {

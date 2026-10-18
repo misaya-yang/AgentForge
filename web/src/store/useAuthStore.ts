@@ -1,7 +1,7 @@
-import { clearUploadRecoverySession } from "@/lib/knowledgeUploadRecovery";
-import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 import { create } from "zustand";
 import { CONSOLE_SESSION_PREFIX, createConsoleFetch } from "@/lib/consoleSessionTransport";
+import { clearUploadRecoverySession } from "@/lib/knowledgeUploadRecovery";
+import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 
 export interface User {
   user_id: string;
@@ -64,13 +64,41 @@ function normalizeUser(user: User | Partial<User> | null | undefined): User | nu
 // Retire legacy persisted bearer credentials; never hydrate them into memory.
 export function clearLegacyAuthStorage(): void {
   for (const storage of [() => localStorage, () => sessionStorage]) {
-    try { storage().removeItem(STORAGE_KEY); } catch { /* Cookie sessions work without Web Storage. */ }
+    try {
+      storage().removeItem(STORAGE_KEY);
+    } catch {
+      // Cookie sessions work without Web Storage.
+    }
   }
 }
+
+function clearSessionPreferences(): void {
+  try {
+    const staleKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && (
+        key === "assistant.lastModelId.v1"
+        || key.startsWith("assistant.lastModelId.v1:")
+        || key === "setup-banner-dismissed"
+        || key.startsWith("setup-banner-dismissed:")
+      )) {
+        staleKeys.push(key);
+      }
+    }
+    staleKeys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Storage unavailable — auth is still cleared by the caller.
+  }
+}
+
 clearLegacyAuthStorage();
 let sessionSerial = 0;
 let authGeneration = 0;
-export function consoleAuthGeneration(): number { return authGeneration; }
+
+export function consoleAuthGeneration(): number {
+  return authGeneration;
+}
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
   // Initial state
@@ -86,7 +114,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   // Set authentication data after successful login
   setAuth: (csrfToken, user, forcePasswordChange, rememberMe = false) => {
-    if (!csrfToken || !user?.user_id) throw new Error("Invalid Console session bootstrap");
+    if (!csrfToken || !user?.user_id) {
+      throw new Error("Invalid Console session bootstrap");
+    }
     set({
       token: `${CONSOLE_SESSION_PREFIX}${++sessionSerial}`,
       csrfToken,
@@ -102,21 +132,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   // Clear authentication data on logout
   clearAuth: () => {
     authGeneration++; // Also retire pending bootstrap when already anonymous.
-    // Clear from both storages
     clearLegacyAuthStorage();
-    try {
-      const stale: string[] = [];
-      for (let i = 0; i < localStorage.length; i += 1) {
-        const key = localStorage.key(i);
-        if (key && (key === "assistant.lastModelId.v1" || key.startsWith("assistant.lastModelId.v1:")
-          || key === "setup-banner-dismissed" || key.startsWith("setup-banner-dismissed:"))) {
-          stale.push(key);
-        }
-      }
-      stale.forEach((key) => localStorage.removeItem(key));
-    } catch {
-      // Storage unavailable — auth is still cleared below.
-    }
+    clearSessionPreferences();
     set({
       token: null,
       csrfToken: null,
@@ -204,23 +221,35 @@ export const useIsAdmin = () => {
 // Upload recovery metadata belongs to one login/authority session. This observer
 // is global so leaving the Knowledge route cannot bypass logout cleanup.
 useAuthStore.subscribe((state, previous) => {
-  if (state.token !== previous.token || state.csrfToken !== previous.csrfToken || state.isAuthenticated !== previous.isAuthenticated
-    || sdkAuthorityScope(state.user) !== sdkAuthorityScope(previous.user)) {
-    authGeneration++;
-    clearUploadRecoverySession();
-  }
+  const sessionChanged = state.token !== previous.token
+    || state.csrfToken !== previous.csrfToken
+    || state.isAuthenticated !== previous.isAuthenticated
+    || sdkAuthorityScope(state.user) !== sdkAuthorityScope(previous.user);
+  if (!sessionChanged) return;
+
+  authGeneration++;
+  clearUploadRecoverySession();
 });
 
 // Legacy raw-fetch callers keep the non-secret marker as their UI ownership key.
 // The shared transport removes it from headers and supplies cookie + CSRF instead.
 if (typeof window !== "undefined" && typeof window.fetch === "function") {
   const originalFetch = window.fetch;
-  const wrapped = createConsoleFetch(originalFetch.bind(window), window.location.origin,
+  const wrapped = createConsoleFetch(
+    originalFetch.bind(window),
+    window.location.origin,
     () => ({ ...useAuthStore.getState(), generation: authGeneration }),
     () => {
       useAuthStore.getState().clearAuth();
-      if (!window.location.pathname.includes("/login")) window.location.href = "/login";
-    });
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+    },
+  );
   window.fetch = wrapped;
-  if (import.meta.hot) import.meta.hot.dispose(() => { if (window.fetch === wrapped) window.fetch = originalFetch; });
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      if (window.fetch === wrapped) window.fetch = originalFetch;
+    });
+  }
 }

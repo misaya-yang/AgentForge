@@ -14,7 +14,7 @@ pub struct SplitResult {
     pub path: PathBuf,
     pub size_bytes: u64,
 }
-pub use ai_platform_service_primitives::pdf_ports::pdf_splitter::{PdfSplitBackend};
+pub use ai_platform_service_primitives::pdf_ports::pdf_splitter::PdfSplitBackend;
 #[derive(Clone)]
 pub struct PdfSplitter {
     pub max_size_bytes: u64,

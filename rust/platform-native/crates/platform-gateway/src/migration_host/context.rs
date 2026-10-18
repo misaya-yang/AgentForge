@@ -28,22 +28,30 @@ tokio::task_local! {static OUTBOUND:OutboundContext; static COMMAND_BUDGET:Optio
 pub fn current() -> OutboundContext {
     OUTBOUND.try_with(Clone::clone).unwrap_or_default()
 }
-pub async fn scoped<T>(context: OutboundContext, future: impl Future<Output = T>) -> T {
+pub fn scoped<T>(
+    context: OutboundContext,
+    future: impl Future<Output = T>,
+) -> impl Future<Output = T> {
     let budget = COMMAND_BUDGET.try_with(Clone::clone).unwrap_or_default();
-    scoped_with_budget(context, budget, future).await
+    scoped_with_budget(context, budget, future)
 }
 /// Explicit capture for a same-request detached command; never read public headers.
 pub fn capture_budget() -> Option<Budget> {
     COMMAND_BUDGET.try_with(Clone::clone).unwrap_or_default()
 }
-pub async fn scoped_with_budget<T>(
+pub fn scoped_with_budget<T>(
     context: OutboundContext,
     budget: Option<Budget>,
     future: impl Future<Output = T>,
-) -> T {
-    COMMAND_BUDGET
-        .scope(budget, OUTBOUND.scope(context, future))
+) -> impl Future<Output = T> {
+    let policy = ai_platform_auth::cedar::resources::capture();
+    async move {
+        ai_platform_auth::cedar::resources::scoped(
+            policy,
+            COMMAND_BUDGET.scope(budget, OUTBOUND.scope(context, future)),
+        )
         .await
+    }
 }
 pub fn wall_ms() -> u64 {
     SystemTime::now()

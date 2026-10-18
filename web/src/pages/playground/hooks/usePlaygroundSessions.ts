@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 import { captureRequestSnapshot, persistedRequestSnapshot, restoreRequestSnapshot, serializeRequestSnapshot, type PlaygroundRequestCapture, type PlaygroundRequestSnapshot } from "../utils/requestSnapshot";
 import { restoreTokenObservation } from "@/features/chat/stream/tokenObservation";
@@ -155,9 +156,9 @@ export function usePlaygroundSessions({
       }
       try {
         // Keep the established API base URL and same-authority authentication behavior.
-        await api.patch(`/api/v1/sessions/${encodeURIComponent(snapshot.session_id!)}`, {
+        await api.patch(`/api/v1/sessions/${encodeURIComponent(snapshot.session_id!)}`, ({
           metadata: { playground_request: persistedRequestSnapshot(snapshot) },
-        }, { timeout: 10_000 });
+        } satisfies RequestBody<"PATCH /api/v1/sessions/{session_id}">), { timeout: 10_000 });
         setDiagnostic(current => current?.snapshot === snapshot && isCurrent() ? { ...current, status: "saved" } : current);
       } catch {
         setDiagnostic(current => current?.snapshot === snapshot && isCurrent() ? { ...current, status: "failed" } : current);
@@ -313,7 +314,7 @@ export function usePlaygroundSessions({
                 "Content-Type": "application/json",
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({ metadata: { gateway_session_id: id } }),
+              body: JSON.stringify(({ metadata: { gateway_session_id: id } } satisfies RequestBody<"POST /api/v1/proxy/{service_name}/threads">)),
             }
           )
             .then((resp) => (resp.ok ? resp.json() : null))
@@ -479,7 +480,7 @@ export function usePlaygroundSessions({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ metadata: { gateway_session_id: created.session_id } }),
+          body: JSON.stringify(({ metadata: { gateway_session_id: created.session_id } } satisfies RequestBody<"POST /api/v1/proxy/{service_name}/threads">)),
         })
           .then((resp) => (resp.ok ? resp.json() : null))
           .then((data) => {

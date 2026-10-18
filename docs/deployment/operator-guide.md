@@ -505,15 +505,11 @@ GATEWAY_SESSION__AUTHENTICATED_TTL_SECONDS=604800
 ## For agents
 
 Read [`AGENTS.md`](../../AGENTS.md) before changing the repository — it is the contract every coding
-agent follows here, and [`CLAUDE.md`](../../CLAUDE.md) adds the Claude Code specifics.
+agent follows here. Codex, Claude Code and other agents share that same project agreement.
 
-The full agent harness — architecture boundaries, canonical commands, gates, task loop, and the
-mandatory Docker/secret rules — lives in [`docs/harness/`](../harness/README.md), with the
-machine-readable contract in [`harness.yml`](../../harness.yml). Verify it with:
-
-```bash
-make harness-check
-```
+Use the [task harness](../harness/README.md) only for the workflow detail needed by the current
+task. [harness.yml](../../harness.yml) is the command/CI catalog, not a checklist to replay before
+each edit. Read Docker and secret-handling requirements when actually operating the runtime.
 
 Everything else is indexed from [`docs/README.md`](../README.md). Multi-session programs live in
 `deploy/runbooks/`, where each `loop-state.json` is the authoritative status.

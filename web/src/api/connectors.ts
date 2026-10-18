@@ -1,3 +1,4 @@
+import type { RequestBody, Defined } from "@/api/contracts";
 /**
  * Connector catalog API client.
  *
@@ -23,10 +24,7 @@ export interface ConnectorAuthConfig {
   redirect_uri?: string | null;
 }
 
-export interface ConnectorMcpToolInfo {
-  name?: string;
-  description?: string;
-}
+export type ConnectorMcpToolInfo = NonNullable<RequestBody<"POST /api/v1/connectors/admin/configs">["mcp_tools"]>[number];
 
 export interface ConnectorProvider {
   provider: string;
@@ -45,32 +43,9 @@ export interface ConnectorProvider {
   updated_at?: string | null;
 }
 
-export interface ConnectorProviderCreate {
-  provider: string;
-  display_name: string;
-  description?: string | null;
-  icon_url?: string | null;
-  mode?: ConnectorMode;
-  enabled?: boolean;
-  supports_sync?: boolean;
-  supports_search?: boolean;
-  auth?: ConnectorAuthConfig | null;
-  mcp_tools?: ConnectorMcpToolInfo[];
-  extra_config?: Record<string, unknown>;
-}
+export type ConnectorProviderCreate = Defined<RequestBody<"POST /api/v1/connectors/admin/configs">, "provider" | "display_name">;
 
-export interface ConnectorProviderUpdate {
-  display_name?: string;
-  description?: string | null;
-  icon_url?: string | null;
-  mode?: ConnectorMode;
-  enabled?: boolean;
-  supports_sync?: boolean;
-  supports_search?: boolean;
-  auth?: ConnectorAuthConfig | null;
-  mcp_tools?: ConnectorMcpToolInfo[];
-  extra_config?: Record<string, unknown>;
-}
+export type ConnectorProviderUpdate = RequestBody<"PUT /api/v1/connectors/admin/configs/{provider}">;
 
 export const connectorQueryKeys = {
   all: ["connectors"] as const,
@@ -91,7 +66,7 @@ export async function listConnectors(): Promise<ConnectorProvider[]> {
 export async function createConnector(
   payload: ConnectorProviderCreate
 ): Promise<ConnectorProvider> {
-  const { data } = await api.post<ConnectorProvider>("/api/v1/connectors/admin/configs", payload);
+  const { data } = await api.post<ConnectorProvider>("/api/v1/connectors/admin/configs", (payload satisfies RequestBody<"POST /api/v1/connectors/admin/configs">));
   return data;
 }
 
@@ -102,7 +77,7 @@ export async function updateConnector(
 ): Promise<ConnectorProvider> {
   const { data } = await api.put<ConnectorProvider>(
     `/api/v1/connectors/admin/configs/${encodeURIComponent(provider)}`,
-    payload
+    (payload satisfies RequestBody<"PUT /api/v1/connectors/admin/configs/{provider}">)
   );
   return data;
 }
@@ -111,7 +86,7 @@ export async function updateConnector(
 export async function toggleConnector(provider: string, enabled: boolean): Promise<ConnectorProvider> {
   const { data } = await api.patch<ConnectorProvider>(
     `/api/v1/connectors/admin/configs/${encodeURIComponent(provider)}/enabled`,
-    { enabled }
+    ({ enabled } satisfies RequestBody<"PATCH /api/v1/connectors/admin/configs/{provider}/enabled">)
   );
   return data;
 }

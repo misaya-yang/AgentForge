@@ -44,6 +44,9 @@ impl BrowserPolicy {
             origins: normalized,
         })
     }
+    pub(crate) fn origins(&self) -> Vec<String> {
+        self.origins.iter().cloned().collect()
+    }
     pub fn check_origin(&self, headers: &HeaderMap, required: bool) -> Result<(), ServiceError> {
         match unique(headers, "sec-fetch-site")? {
             Some("same-origin" | "same-site") => {}

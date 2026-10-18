@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/platform-rpc", "crates/platform-client-packaging", "crates/platform-knowledge-ops", "crates/platform-agent-plugins", "crates/platform-release", "crates/platform-eval", "crates/platform-tools", "crates/platform-config-loader", "crates/platform-knowledge-service", "crates/platform-knowledge-domain", "crates/platform-service-primitives", "crates/platform-local-node", "crates/platform-sdk-agent-worker", "crates/platform-migration-authority", "crates/platform-openapi", "crates/platform-client", "crates/platform-desktop", "crates/platform-auth", "crates/platform-gateway", "crates/platform-gateway-foundation", "crates/platform-gateway-integrations"]
+members = ["crates/platform-python-compat", "crates/platform-gateway-eval", "crates/platform-rpc", "crates/platform-client-packaging", "crates/platform-knowledge-ops", "crates/platform-agent-plugins", "crates/platform-release", "crates/platform-eval", "crates/platform-tools", "crates/platform-config-loader", "crates/platform-knowledge-service", "crates/platform-knowledge-domain", "crates/platform-service-primitives", "crates/platform-local-node", "crates/platform-sdk-agent-worker", "crates/platform-migration-authority", "crates/platform-openapi", "crates/platform-client", "crates/platform-desktop", "crates/platform-auth", "crates/platform-gateway", "crates/platform-gateway-foundation", "crates/platform-gateway-integrations"]
 resolver = "2"
 exclude = ["vendor/candle-core-0.11.0", "vendor/gemm-0.19.0", "vendor/gemm-common-0.19.0", "vendor/gemm-c32-0.19.0", "vendor/gemm-c64-0.19.0", "vendor/gemm-f16-0.19.0", "vendor/gemm-f32-0.19.0", "vendor/gemm-f64-0.19.0", "vendor/pulp-0.22.3", "vendor/tokenizers-0.22.2", "vendor/openidconnect-4.0.1"]
 [workspace.package]
@@ -7,6 +7,7 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 [workspace.dependencies]
+cedar-policy = { version = "=4.14.0", default-features = false, features = ["ipaddr", "decimal"] }
 scraper = "=0.27.0"
 ego-tree = "=0.11.0"
 ed25519-dalek = { version = "=2.2.0", features = ["pkcs8", "pem"] }
@@ -23,7 +24,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip", "unbounded_depth"] }
 serde_yaml = { package = "serde_norway", version = "=0.9.42" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "net", "signal", "io-util", "fs", "process"] }
-reqwest = { version = "=0.13.5", default-features = false, features = ["json", "rustls", "stream", "http2", "query", "form"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["json", "rustls", "stream", "http2", "query", "form", "blocking"] }
 openidconnect = { version = "=4.0.1", default-features = false }
 webauthn-rs = { version = "=0.5.5", features = ["danger-allow-state-serialisation", "danger-credential-internals"] }
 [profile.dev]

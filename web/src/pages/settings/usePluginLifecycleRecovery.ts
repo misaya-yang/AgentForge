@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { isAxiosError } from "axios";
+import { isHttpError } from '@/lib/fetchClient';
 import { updatePluginLifecycle, type PluginRegistry, type UpdatePluginLifecycle } from "@/api/plugins";
 import { pluginLifecycleReviewKey } from "./pluginLifecycleImpact";
 
@@ -58,7 +58,7 @@ export function usePluginLifecycleRecovery(options: Options) {
     try {
       await updatePluginLifecycle(pluginId, payload);
     } catch (error) {
-      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const status = isHttpError(error) ? error.response?.status : undefined;
       update(false, status === 409 ? "pluginRegistry.lifecycle.conflict"
         : status === 403 ? "pluginRegistry.lifecycle.forbidden" : "pluginRegistry.lifecycle.uncertain", true);
       return false;

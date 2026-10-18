@@ -5,8 +5,8 @@ use std::sync::Arc;
 /// Only signed gateway identities enter the Knowledge Service public operation
 /// surface. The independently proof-authorized capability route is separate.
 pub struct KnowledgeApplication {
-    pub model_plane:Arc<query::model_plane::ModelPlaneClient>,
-    pub model_scope:Arc<query::model_scope::ModelScopeAuthority>,
+    pub model_plane: Arc<query::model_plane::ModelPlaneClient>,
+    pub model_scope: Arc<query::model_scope::ModelScopeAuthority>,
     pub upload: crate::upload::UploadState,
     pub sources: Arc<crate::confluence::Sources>,
     pub service_auth: Arc<query::auth::GatewayAuth>,
@@ -22,6 +22,7 @@ pub struct KnowledgeApplication {
 impl KnowledgeApplication {
     pub fn into_router(self) -> query::types::Result<Router> {
         self.service_auth.validate_service_boundary()?;
+        let object_policy = self.writes.service.store.object_policy.clone();
         Ok(Router::new()
             .merge(crate::confluence::routes(
                 self.sources.clone(),
@@ -64,7 +65,17 @@ impl KnowledgeApplication {
                 self.service_auth.clone(),
             )?)
             .merge(query::actor::capability_router(self.capabilities))
-            .merge(query::model_scope::signed_router(self.model_scope,self.service_auth.clone())?)
-            .layer(axum::middleware::from_fn_with_state(self.model_plane,query::model_plane::request_context)))
+            .merge(query::model_scope::signed_router(
+                self.model_scope,
+                self.service_auth.clone(),
+            )?)
+            .layer(axum::middleware::from_fn_with_state(
+                self.model_plane,
+                query::model_plane::request_context,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                object_policy,
+                ai_platform_knowledge_domain::cedar_dataset_policy::request_context,
+            )))
     }
 }

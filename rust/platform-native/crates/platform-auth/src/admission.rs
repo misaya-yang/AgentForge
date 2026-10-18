@@ -191,7 +191,16 @@ pub struct AdmissionRequest<'a> {
 }
 impl AdmissionRequest<'_> {
     pub async fn resolve(&self) -> Result<&RequestPrincipal, AdmissionError> {
-        self.inner.resolve().await
+        let principal = self.inner.resolve().await?;
+        crate::cedar::resources::remember_subject(crate::cedar::resources::ObjectSubject {
+            tenant_id: principal.tenant_id().into(),
+            user_id: principal.user_id().into(),
+            roles: principal.roles().to_vec(),
+            permissions: principal.permissions().to_vec(),
+            tier: principal.tier().into(),
+            anonymous: false,
+        });
+        Ok(principal)
     }
     pub fn audit(&self) -> AdmissionAudit {
         self.inner.audit()

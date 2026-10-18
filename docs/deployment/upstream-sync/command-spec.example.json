@@ -1,0 +1,19 @@
+{
+  "schema": "agentforge/upstream-gate-command/v1",
+  "executable": "/external/composed-binaries/ai-platform-history-gate",
+  "executable_sha256": "REPLACE_WITH_ACTUAL_PREBUILT_EXECUTABLE_SHA256",
+  "argv": [
+    "--manifest", "/external/authenticated-corpus/corpus.json",
+    "--source-lock", "/workspace/deploy/agent-runtime-source/lock.json",
+    "--direction", "forward",
+    "--receipt", "/external/month/history-native-result.json"
+  ],
+  "receipt": "/external/month/history-native-result.json",
+  "timeout_seconds": 600,
+  "inputs": [
+    {
+      "path": "/external/authenticated-corpus/corpus.json",
+      "sha256": "REPLACE_WITH_ACTUAL_AUTHENTICATED_CORPUS_SHA256"
+    }
+  ]
+}

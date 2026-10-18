@@ -1,3 +1,4 @@
+import { StyleProvider } from "@ant-design/cssinjs";
 import { useEffect, useState } from 'react';
 import { ConfigProvider, App as AntApp, theme, type ConfigProviderProps } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +40,7 @@ export default function App() {
   }, [locale]);
 
   return (
+    <StyleProvider layer>
     <ConfigProvider
       locale={antdLocale}
       theme={{
@@ -51,5 +53,6 @@ export default function App() {
         <Toaster />
       </AntApp>
     </ConfigProvider>
+    </StyleProvider>
   );
 }

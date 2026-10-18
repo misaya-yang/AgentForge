@@ -65,7 +65,10 @@ async fn memory_principals(
         .bind(agent)
         .bind(cutoff)
         .bind(subject)
-        .fetch_all(&mut *conn)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::connection(
+            &mut *conn,
+            &actor.tenant_id,
+        ))
         .await?;
     let mut handles = BTreeSet::new();
     let mut add = |caller: &str, version: &str| {
@@ -93,11 +96,14 @@ async fn memory_principals(
         } else {
             sqlx::query_scalar("SELECT user_id FROM users WHERE tenant_id=$1")
                 .bind(&actor.tenant_id)
-                .fetch_all(&mut *conn)
+                .fetch_all(ai_platform_gateway_foundation::tenant_database::connection(
+                    &mut *conn,
+                    &actor.tenant_id,
+                ))
                 .await?
         };
-        let versions:Vec<String>=sqlx::query_scalar("SELECT agent_version_id::text FROM agent_versions WHERE tenant_id=$1 AND agent_id=$2::uuid AND created_at<=$3").bind(&actor.tenant_id).bind(agent).bind(cutoff).fetch_all(&mut *conn).await?;
-        let revision:Option<i64>=sqlx::query_scalar("SELECT revision::bigint FROM agent_drafts WHERE tenant_id=$1 AND agent_id=$2::uuid AND created_at<=$3").bind(&actor.tenant_id).bind(agent).bind(cutoff).fetch_optional(&mut *conn).await?;
+        let versions:Vec<String>=sqlx::query_scalar("SELECT agent_version_id::text FROM agent_versions WHERE tenant_id=$1 AND agent_id=$2::uuid AND created_at<=$3").bind(&actor.tenant_id).bind(agent).bind(cutoff).fetch_all(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?;
+        let revision:Option<i64>=sqlx::query_scalar("SELECT revision::bigint FROM agent_drafts WHERE tenant_id=$1 AND agent_id=$2::uuid AND created_at<=$3").bind(&actor.tenant_id).bind(agent).bind(cutoff).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?;
         for caller in callers {
             for v in &versions {
                 add(&caller, &format!("version:{v}"));
@@ -127,7 +133,9 @@ impl AgentRepository {
         if key.is_empty() || key.len() > 255 {
             return Err(error("AGENT_DATA_DELETION_IDEMPOTENCY_KEY_INVALID"));
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
         let sql = "SELECT to_jsonb(d) FROM agent_data_deletion_requests d WHERE tenant_id=$1 AND agent_id=$2::uuid AND scope=$3 AND idempotency_key=$4";
         if let Some(old) = sqlx::query_scalar::<_, Value>(sql)
             .bind(&actor.tenant_id)
@@ -144,7 +152,8 @@ impl AgentRepository {
                 return Ok(old);
             }
         }
-        authorized(&mut tx, actor, agent, "owner", true).await?;
+        self.authorize_object(&mut tx, actor, agent, "owner", true)
+            .await?;
         if let Some(old) = sqlx::query_scalar::<_, Value>(&format!("{sql} FOR UPDATE"))
             .bind(&actor.tenant_id)
             .bind(agent)
@@ -207,6 +216,7 @@ struct Claim {
     digest: String,
     row: Value,
     claimed: bool,
+    object_scope: ai_platform_auth::cedar::resources::PolicyScope,
 }
 impl Claim {
     async fn acquire(
@@ -225,7 +235,9 @@ impl Claim {
             .fetch_one(&mut conn)
             .await?;
         let mut tx = conn.begin().await?;
-        authorized(&mut tx, actor, agent, "owner", locked).await?;
+        repository
+            .authorize_object(&mut tx, actor, agent, "owner", locked)
+            .await?;
         let sql = format!(
             "SELECT to_jsonb(d) FROM agent_data_deletion_requests d WHERE tenant_id=$1 AND agent_id=$2::uuid AND deletion_id=$3::uuid {}",
             if locked { "FOR UPDATE" } else { "" }
@@ -295,6 +307,13 @@ impl Claim {
             digest: claim_digest,
             row,
             claimed,
+            object_scope: {
+                let mut scope = ai_platform_auth::cedar::resources::capture();
+                if repository.object_policy.is_some() {
+                    scope.point = repository.object_policy.clone();
+                }
+                scope
+            },
         })
     }
     async fn fence(&mut self) -> Result<(), AgentError> {
@@ -314,7 +333,11 @@ impl Claim {
     async fn freeze(&mut self, inventory: &Value) -> Result<(), AgentError> {
         self.fence().await?;
         let mut tx = self.conn.begin().await?;
-        authorized(&mut tx, &self.actor, &self.agent, "owner", true).await?;
+        ai_platform_auth::cedar::resources::scoped(
+            self.object_scope.clone(),
+            authorized(&mut tx, &self.actor, &self.agent, "owner", true),
+        )
+        .await?;
         let row:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM agent_data_deletion_requests d WHERE tenant_id=$1 AND agent_id=$2::uuid AND deletion_id=$3::uuid FOR UPDATE").bind(&self.actor.tenant_id).bind(&self.agent).bind(&self.id).fetch_one(&mut *tx).await?;
         let mut counts = object(&row["deleted_counts"])?;
         contract::validate_inventory(inventory, &counts["runtime_cleanup_plan"])?;
@@ -407,7 +430,11 @@ impl Claim {
     ) -> Result<Value, AgentError> {
         self.fence().await?;
         let mut tx = self.conn.begin().await?;
-        authorized(&mut tx, &self.actor, &self.agent, "owner", true).await?;
+        ai_platform_auth::cedar::resources::scoped(
+            self.object_scope.clone(),
+            authorized(&mut tx, &self.actor, &self.agent, "owner", true),
+        )
+        .await?;
         let row:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM agent_data_deletion_requests d WHERE tenant_id=$1 AND agent_id=$2::uuid AND deletion_id=$3::uuid FOR UPDATE").bind(&self.actor.tenant_id).bind(&self.agent).bind(&self.id).fetch_one(&mut *tx).await?;
         let mut counts = object(&row["deleted_counts"])?;
         let execution = &counts["cleanup_execution"];

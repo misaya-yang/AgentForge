@@ -222,6 +222,7 @@ impl UsageEventBus {
             let _alive = Alive(owner.alive.clone());
             let result = owner.consume(receive).await;
             if result.is_err() {
+                ai_platform_gateway_foundation::worker_lease::invalidate("usage_event_consumer");
                 eprintln!("usage_event_consumer_stopped_on_error");
             }
             result
@@ -296,15 +297,22 @@ impl UsageEventBus {
     }
     async fn consume(&self, stop: watch::Receiver<bool>) -> EventResult<()> {
         let mut connection = self.source.connect().await?;
-        Self::ensure_group(&mut connection).await?;
-        let reclaimed = self.reclaim(&mut connection).await?;
+        let reclaimed = ai_platform_gateway_foundation::worker_lease::with_effect(
+            "usage_event_consumer", async {
+                Self::ensure_group(&mut connection).await?;
+                self.reclaim(&mut connection).await
+            },
+        ).await.map_err(|_| EventError::Handler)??;
         for message in reclaimed {
             if *stop.borrow() {
                 return Ok(());
             }
-            self.handle_one(&mut connection, message).await?;
+            ai_platform_gateway_foundation::worker_lease::with_effect(
+                "usage_event_consumer", self.handle_one(&mut connection, message),
+            ).await.map_err(|_| EventError::Handler)??;
         }
         while !*stop.borrow() {
+            ai_platform_gateway_foundation::worker_lease::with_effect("usage_event_consumer", async {
             let entries: redis::RedisResult<StreamReadReply> = redis::cmd("XREADGROUP")
                 .arg("GROUP")
                 .arg(GROUP)
@@ -331,7 +339,7 @@ impl UsageEventBus {
             };
             if entries.keys.is_empty() {
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                continue;
+                return Ok(());
             }
             for key in entries.keys {
                 for message in key.ids {
@@ -341,6 +349,8 @@ impl UsageEventBus {
                     self.handle_one(&mut connection, message).await?;
                 }
             }
+                Ok::<(), EventError>(())
+            }).await.map_err(|_| EventError::Handler)??;
         }
         Ok(())
     }

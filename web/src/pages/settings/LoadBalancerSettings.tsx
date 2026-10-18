@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -69,7 +70,7 @@ function LoadBalancerEditor({ identity, isCurrent }: { identity: string; isCurre
       if (!before.data?.available_strategies.some(strategy => strategy.value === submitted.strategy)) return;
       let accepted = false;
       try {
-        await api.put(path, { strategy: submitted.strategy });
+        await api.put(path, ({ strategy: submitted.strategy } satisfies RequestBody<"PUT /api/v1/config/load-balancer">));
         accepted = true;
       } catch {
         // Both server profiles can mutate before an audit/transport failure.

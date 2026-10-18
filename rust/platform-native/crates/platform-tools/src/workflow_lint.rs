@@ -1,4 +1,4 @@
-//! Workflow security admission and old-actionlint compatibility copies.
+//! Workflow security admission and validated external actionlint input copies.
 use crate::*;
 #[path = "workflow_self_refs.rs"]
 mod self_refs;
@@ -12,7 +12,7 @@ pub fn run(args: &Args) -> Result<Value> {
     let count = self_refs::check(&args.root(), output.as_deref())?;
     Ok(
         json!({"status":"passed", "workflows":count, "actionlint_copy":output,
-        "semantics":"GitHub.com immutable running-commit self references",
-        "limit":"actionlint 1.7.12 requires the validated external compatibility copy"}),
+        "semantics":"standard GitHub local references to the running checkout",
+        "limit":"external copies are validated inputs, not syntax translations"}),
     )
 }

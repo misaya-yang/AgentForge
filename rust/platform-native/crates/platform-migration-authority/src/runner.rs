@@ -35,6 +35,7 @@ impl AuthorityPaths {
 }
 pub struct MigrationAuthority {
     dsn: String,
+    configured_options: Option<PgConnectOptions>,
     pub paths: AuthorityPaths,
     pub role_prefix: String,
     reconciliation_receipt: std::sync::Mutex<Option<Value>>,
@@ -46,11 +47,33 @@ impl MigrationAuthority {
         validate_role_prefix(&role_prefix)?;
         Ok(Self {
             dsn,
+            configured_options: None,
             paths,
             role_prefix,
             reconciliation_receipt: std::sync::Mutex::new(None),
             recovery_handlers: BTreeMap::new(),
         })
+    }
+    pub fn from_principal(
+        principal: &str,
+        paths: AuthorityPaths,
+        role_prefix: String,
+    ) -> Result<Self> {
+        let connection =
+            crate::credential_files::resolve(&std::env::vars().collect(), principal, &role_prefix)?;
+        let mut authority = Self::new(connection.dsn, paths, role_prefix)?;
+        authority.configured_options = Some(connection.options);
+        Ok(authority)
+    }
+    pub(crate) fn with_connect_options(
+        dsn: String,
+        options: PgConnectOptions,
+        paths: AuthorityPaths,
+        role_prefix: String,
+    ) -> Result<Self> {
+        let mut authority = Self::new(dsn, paths, role_prefix)?;
+        authority.configured_options = Some(options);
+        Ok(authority)
     }
     pub fn register_recovery_handler(
         &mut self,
@@ -72,11 +95,18 @@ impl MigrationAuthority {
             .clone()
     }
     pub async fn connect(&self, read_only: bool) -> Result<PgConnection> {
-        let options = PgConnectOptions::from_str(&self.dsn)?.application_name(&format!(
-            "ai_gateway_authority_{}",
-            &uuid::Uuid::new_v4().simple().to_string()[..8]
-        ));
-        let mut conn = PgConnection::connect_with(&options).await?;
+        let options = self
+            .configured_options
+            .clone()
+            .map(Ok)
+            .unwrap_or_else(|| PgConnectOptions::from_str(&self.dsn))?
+            .application_name(&format!(
+                "ai_gateway_authority_{}",
+                &uuid::Uuid::new_v4().simple().to_string()[..8]
+            ));
+        let mut conn = PgConnection::connect_with(&options).await.map_err(|_| {
+            AuthorityError::Refused("database authority connection failed; values withheld".into())
+        })?;
         if read_only {
             sqlx::query("SET default_transaction_read_only=on")
                 .execute(&mut conn)

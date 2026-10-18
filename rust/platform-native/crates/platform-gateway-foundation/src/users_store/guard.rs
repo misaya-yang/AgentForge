@@ -23,7 +23,10 @@ impl Denied {
             Self::Administrator => (403, "Tenant administrator role required"),
             Self::Missing => (404, "User not found"),
             Self::Protected => (403, "Platform operator accounts cannot be managed here"),
-            Self::SelfMutation => (400, "Use your profile or password settings to change your own account"),
+            Self::SelfMutation => (
+                400,
+                "Use your profile or password settings to change your own account",
+            ),
             Self::LastAdministrator => (409, "The tenant must retain an active administrator"),
             Self::InvalidRole => (422, "Roles must be existing non-platform roles"),
             Self::InvalidPermission => (422, "Unknown or invalid direct permission"),
@@ -37,7 +40,9 @@ pub(super) struct Snapshot {
     pub status: String,
 }
 pub(super) fn administrator(roles: &[String]) -> bool {
-    roles.iter().any(|role| matches!(role.as_str(), "admin" | "platform_admin"))
+    roles
+        .iter()
+        .any(|role| matches!(role.as_str(), "admin" | "platform_admin"))
 }
 /// Lock order is tenant, actor, target. All native account mutations use this
 /// order, so two administrators cannot concurrently remove each other's access.
@@ -47,26 +52,65 @@ pub(super) async fn actor(
     actor: &str,
     profile_only: bool,
 ) -> Result<Result<(), Denied>, sqlx::Error> {
-    if tenant.trim().is_empty() || actor.trim().is_empty() {
+    use ai_platform_auth::cedar::resources::{
+        self, ObjectAction, ObjectProfile, ObjectResource, ObjectSubject, ResourceKind,
+    };
+    let active: Option<String> = if tenant.trim().is_empty() || actor.trim().is_empty() {
+        None
+    } else {
+        sqlx::query_scalar("SELECT status FROM tenants WHERE tenant_id=$1 FOR UPDATE")
+            .bind(tenant)
+            .fetch_optional(&mut *connection)
+            .await?
+    };
+    let row = if active.as_deref() == Some("active") {
+        sqlx::query("SELECT roles,status FROM users WHERE user_id=$1 AND tenant_id=$2 FOR UPDATE")
+            .bind(actor)
+            .bind(tenant)
+            .fetch_optional(&mut *connection)
+            .await?
+    } else {
+        None
+    };
+    let (roles, account_active) = if let Some(row) = row {
+        (
+            row.try_get::<Vec<String>, _>("roles")?,
+            row.try_get::<String, _>("status")? == "active",
+        )
+    } else {
+        (vec![], false)
+    };
+    let current = if !profile_only && account_active {
+        sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1 AND role_name=ANY($2) AND role_name IN ('admin','platform_admin') AND (expires_at IS NULL OR expires_at>clock_timestamp()))").bind(actor).bind(&roles).fetch_one(&mut *connection).await?
+    } else {
+        profile_only
+    };
+    let mut subject = resources::current_subject().unwrap_or_default();
+    subject.tenant_id = tenant.into();
+    subject.user_id = actor.into();
+    subject.roles = roles.clone();
+    subject.anonymous = false;
+    resources::remember_subject(subject.clone());
+    let mut resource = ObjectResource::new(ResourceKind::User, actor, tenant);
+    resource.profile = ObjectProfile::UserActor;
+    resource.present = active.as_deref() == Some("active") && account_active;
+    resource.current_binding = current;
+    let legacy = resource.present && (profile_only || administrator(&roles) && current);
+    let decision = resources::compare_current(
+        &subject,
+        &resource,
+        if profile_only {
+            ObjectAction::Profile
+        } else {
+            ObjectAction::Write
+        },
+        legacy,
+    );
+    if !resource.present {
         return Ok(Err(Denied::Identity));
     }
-    let active: Option<String> = sqlx::query_scalar(
-        "SELECT status FROM tenants WHERE tenant_id=$1 FOR UPDATE",
-    ).bind(tenant).fetch_optional(&mut *connection).await?;
-    if active.as_deref() != Some("active") {
-        return Ok(Err(Denied::Identity));
-    }
-    let row = sqlx::query("SELECT roles,status FROM users WHERE user_id=$1 AND tenant_id=$2 FOR UPDATE")
-        .bind(actor).bind(tenant).fetch_optional(&mut *connection).await?;
-    let Some(row) = row else { return Ok(Err(Denied::Identity)); };
-    let roles: Vec<String> = row.try_get("roles")?;
-    if row.try_get::<String, _>("status")? != "active" {
-        return Ok(Err(Denied::Identity));
-    }
-    if !profile_only {
-        let current: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1 AND role_name=ANY($2) AND role_name IN ('admin','platform_admin') AND (expires_at IS NULL OR expires_at>clock_timestamp()))")
-            .bind(actor).bind(&roles).fetch_one(&mut *connection).await?;
-        if !administrator(&roles) || !current { return Ok(Err(Denied::Administrator)); }
+    if !legacy || !decision {
+        return Ok(Err(Denied::Administrator));
     }
     Ok(Ok(()))
 }
@@ -77,18 +121,67 @@ pub(super) async fn target(
     target: &str,
     profile_only: bool,
 ) -> Result<Result<Snapshot, Denied>, sqlx::Error> {
-    let row = sqlx::query("SELECT roles,status FROM users WHERE user_id=$1 AND tenant_id=$2 FOR UPDATE")
-        .bind(target).bind(tenant).fetch_optional(&mut *connection).await?;
-    let Some(row) = row else { return Ok(Err(Denied::Missing)); };
-    let snapshot = Snapshot { roles: row.try_get("roles")?, status: row.try_get("status")? };
+    use ai_platform_auth::cedar::resources::{
+        self, ObjectAction, ObjectProfile, ObjectResource, ResourceKind,
+    };
+    let row =
+        sqlx::query("SELECT roles,status FROM users WHERE user_id=$1 AND tenant_id=$2 FOR UPDATE")
+            .bind(target)
+            .bind(tenant)
+            .fetch_optional(&mut *connection)
+            .await?;
+    let snapshot = row
+        .map(|row| {
+            Ok::<_, sqlx::Error>(Snapshot {
+                roles: row.try_get("roles")?,
+                status: row.try_get("status")?,
+            })
+        })
+        .transpose()?;
+    let mut subject = resources::current_subject().unwrap_or_default();
+    subject.tenant_id = tenant.into();
+    subject.user_id = actor.into();
+    let mut resource = ObjectResource::new(ResourceKind::User, target, tenant);
+    resource.profile = ObjectProfile::UserMutation;
+    resource.present = snapshot.is_some();
+    resource.protected = target == "admin"
+        || snapshot
+            .as_ref()
+            .is_some_and(|s| s.roles.iter().any(|r| r == "platform_admin"));
+    let legacy = resource.present
+        && if profile_only {
+            actor == target
+        } else {
+            actor != target && !resource.protected
+        };
+    let decision = resources::compare_current(
+        &subject,
+        &resource,
+        if profile_only {
+            ObjectAction::Profile
+        } else {
+            ObjectAction::Write
+        },
+        legacy,
+    );
+    let Some(snapshot) = snapshot else {
+        return Ok(Err(Denied::Missing));
+    };
     if profile_only {
-        return Ok(if actor == target { Ok(snapshot) } else { Err(Denied::Identity) });
+        return Ok(if actor == target && decision {
+            Ok(snapshot)
+        } else {
+            Err(Denied::Identity)
+        });
     }
     if target == actor {
         return Ok(Err(Denied::SelfMutation));
     }
-    if target == "admin" || snapshot.roles.iter().any(|role| role == "platform_admin") {
+    if resource.protected {
         return Ok(Err(Denied::Protected));
+    }
+    if !decision {
+        return Ok(Err(Denied::Administrator));
     }
     Ok(Ok(snapshot))
 }
@@ -100,39 +193,74 @@ pub(super) async fn retain_administrator(
     after_roles: &[String],
     after_status: &str,
 ) -> Result<Result<(), Denied>, sqlx::Error> {
-    if before.status != "active" || !administrator(&before.roles)
-        || (after_status == "active" && administrator(after_roles)) {
+    if before.status != "active"
+        || !administrator(&before.roles)
+        || (after_status == "active" && administrator(after_roles))
+    {
         return Ok(Ok(()));
     }
     let remaining: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND user_id<>$2 AND status='active' AND (roles @> ARRAY['admin']::varchar[] OR roles @> ARRAY['platform_admin']::varchar[]) AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=users.user_id AND ur.role_name=ANY(users.roles) AND ur.role_name IN ('admin','platform_admin') AND (ur.expires_at IS NULL OR ur.expires_at>clock_timestamp())))")
         .bind(tenant).bind(target).fetch_one(connection).await?;
-    Ok(if remaining { Ok(()) } else { Err(Denied::LastAdministrator) })
+    Ok(if remaining {
+        Ok(())
+    } else {
+        Err(Denied::LastAdministrator)
+    })
 }
 pub(super) async fn roles(
     connection: &mut PgConnection,
     requested: &[String],
 ) -> Result<Result<(), Denied>, sqlx::Error> {
-    if requested.len() > 32 || requested.iter().any(|role|
-        role.is_empty() || role.len() > 50 || role == "platform_admin"
-        || !role.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'_')) {
+    if requested.len() > 32
+        || requested.iter().any(|role| {
+            role.is_empty()
+                || role.len() > 50
+                || role == "platform_admin"
+                || !role
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+        })
+    {
         return Ok(Err(Denied::InvalidRole));
     }
-    let found: Vec<String> = sqlx::query_scalar("SELECT role_name FROM rbac_roles WHERE role_name=ANY($1) FOR SHARE")
-        .bind(requested).fetch_all(connection).await?;
-    Ok(if requested.iter().all(|role| found.contains(role)) { Ok(()) } else { Err(Denied::InvalidRole) })
+    let found: Vec<String> =
+        sqlx::query_scalar("SELECT role_name FROM rbac_roles WHERE role_name=ANY($1) FOR SHARE")
+            .bind(requested)
+            .fetch_all(connection)
+            .await?;
+    Ok(if requested.iter().all(|role| found.contains(role)) {
+        Ok(())
+    } else {
+        Err(Denied::InvalidRole)
+    })
 }
 pub(super) async fn permissions(
     connection: &mut PgConnection,
     requested: &[String],
 ) -> Result<Result<(), Denied>, sqlx::Error> {
-    if requested.len() > 256 || requested.iter().any(|permission| permission.is_empty() || permission.len() > 100) {
+    if requested.len() > 256
+        || requested
+            .iter()
+            .any(|permission| permission.is_empty() || permission.len() > 100)
+    {
         return Ok(Err(Denied::InvalidPermission));
     }
-    let found: Vec<String> = sqlx::query_scalar("SELECT permission_code FROM permissions WHERE permission_code=ANY($1) FOR SHARE")
-        .bind(requested).fetch_all(connection).await?;
-    Ok(if requested.iter().all(|permission| permission == "admin:*" || found.contains(permission)) {
-        Ok(())
-    } else { Err(Denied::InvalidPermission) })
+    let found: Vec<String> = sqlx::query_scalar(
+        "SELECT permission_code FROM permissions WHERE permission_code=ANY($1) FOR SHARE",
+    )
+    .bind(requested)
+    .fetch_all(connection)
+    .await?;
+    Ok(
+        if requested
+            .iter()
+            .all(|permission| permission == "admin:*" || found.contains(permission))
+        {
+            Ok(())
+        } else {
+            Err(Denied::InvalidPermission)
+        },
+    )
 }
 pub(super) async fn audit(
     connection: &mut PgConnection,
@@ -143,8 +271,11 @@ pub(super) async fn audit(
 ) -> Result<(), sqlx::Error> {
     // Deliberately excludes passwords, email, profile values and credentials.
     sqlx::query("INSERT INTO login_audit(user_id,action,details) VALUES($1,$2,$3)")
-        .bind(target).bind(action).bind(json!({"actor_user_id":actor,"tenant_id":tenant}))
-        .execute(connection).await?;
+        .bind(target)
+        .bind(action)
+        .bind(json!({"actor_user_id":actor,"tenant_id":tenant}))
+        .execute(connection)
+        .await?;
     Ok(())
 }
 

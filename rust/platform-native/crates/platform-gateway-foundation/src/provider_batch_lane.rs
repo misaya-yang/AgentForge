@@ -49,7 +49,7 @@ impl BatchLane {
                 service_config: service.capacity_config.clone(),
                 resource_kind: "request".into(),
             })
-            .map_err(|_| BatchError::Unavailable)?;
+            .map_err(|_| BatchError::NotDispatched)?;
         let lease = self
             .admission
             .acquire_provider_batch(
@@ -61,13 +61,23 @@ impl BatchLane {
                 &claim.claim_id.to_string(),
             )
             .await
-            .map_err(|_| BatchError::Unavailable)?;
+            .map_err(|_| BatchError::NotDispatched)?;
         let cancellation = AdmissionCancellation::default();
         if lease.bind_owner(cancellation.clone()).is_err() {
             let _ = lease.release().await;
-            return Err(BatchError::Unavailable);
+            return Err(BatchError::UnknownSubmission);
         }
-        let result = tokio::select! {biased;_ = lease.wait_lost()=>Err(BatchError::UnknownSubmission),_ = cancellation.cancelled()=>Err(BatchError::UnknownSubmission),result=async{lease.mark_dispatched().await.map_err(|_|BatchError::Unavailable)?;provider.submit(plan,nonce).await}=>result};
+        let result = tokio::select! {
+            biased;
+            _ = lease.wait_lost() => Err(BatchError::UnknownSubmission),
+            _ = cancellation.cancelled() => Err(BatchError::UnknownSubmission),
+            result = async {
+                lease.mark_dispatched().await.map_err(|_| BatchError::UnknownSubmission)?;
+                // Only this lane can prove NotDispatched. Once polled, even a
+                // provider returning that variant must retain the unknown hold.
+                provider.submit(plan, nonce).await.map_err(|_| BatchError::UnknownSubmission)
+            } => result,
+        };
         // Even an accepted asynchronous job has no durable terminal usage yet.
         let marked = lease.mark_completion(DispatchSettlement::Unknown).await;
         let released = lease.release().await;

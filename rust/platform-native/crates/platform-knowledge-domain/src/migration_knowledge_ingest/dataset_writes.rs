@@ -9,6 +9,7 @@ use sqlx::{Connection, PgConnection};
 const CONFIG: &[&str] = &[
     "embedding_provider",
     "embedding_model",
+    "embedding_model_version",
     "embedding_dimension",
     "embedding_config",
     "index_config",
@@ -41,6 +42,7 @@ async fn patch_on(
         "visibility",
         "embedding_provider",
         "embedding_model",
+        "embedding_model_version",
         "embedding_dimension",
         "embedding_config",
         "index_config",
@@ -86,7 +88,7 @@ async fn patch_on(
         .bind(id)
         .bind(patch)
         .bind(expected.cloned().unwrap_or_else(|| json!({})))
-        .fetch_optional(conn)
+        .fetch_optional(crate::database::connection(&mut *conn))
         .await?)
 }
 impl IngestionService {
@@ -120,7 +122,15 @@ impl IngestionService {
     }
     pub async fn update_dataset(&self, actor: &Actor, id: &str, input: &Value) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            return super::vector_jobs::submit(&self.store.pool,actor,id,super::vector_jobs::Mutation::UpdateDataset { input: input.clone() }).await;
+            return super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                id,
+                super::vector_jobs::Mutation::UpdateDataset {
+                    input: input.clone(),
+                },
+            )
+            .await;
         }
         let before = self
             .store
@@ -170,6 +180,9 @@ impl IngestionService {
                 ));
             }
             config::validate_bounds(&patch["index_config"]["retrieval"])?;
+            crate::migration_knowledge_query::retrieval_v2::Profile::from_index_config(
+                &patch["index_config"],
+            )?;
             if super::service::contains_server_config(&patch["index_config"]["retrieval"]["rerank"])
             {
                 return Err(IngestError::Validation(
@@ -194,10 +207,17 @@ impl IngestionService {
         .contains(&string(&candidate, "embedding_provider"))
             || candidate["index_config"]["multimodal"]["enabled"].as_bool() == Some(true)
         {
-            return Err(IngestError::Validation(
-                "multimodal dataset profiles are disabled".into(),
-            ));
+            if !crate::migration_knowledge_query::serving_profile::multimodal(
+                &serde_json::from_value(candidate.clone())?,
+            )? {
+                return Err(IngestError::Validation(
+                    "multimodal dataset profiles are disabled".into(),
+                ));
+            }
         }
+        crate::migration_knowledge_query::serving_profile::require(&serde_json::from_value(
+            candidate.clone(),
+        )?)?;
         let identity_changed =
             dataset_ingestion_identity(&candidate) != dataset_ingestion_identity(&before);
         if identity_changed
@@ -205,7 +225,7 @@ impl IngestionService {
                 "SELECT EXISTS(SELECT 1 FROM knowledge.documents WHERE dataset_id=$1)",
             )
             .bind(id)
-            .fetch_one(&self.store.pool)
+            .fetch_one(crate::database::executor(&self.store.pool))
             .await?
         {
             let message = if [
@@ -351,6 +371,7 @@ impl IngestionService {
         }
         let mut lease = self.store.dataset_delete_lease(id).await?;
         let mut tx = lease.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let d:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.datasets d WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(id).fetch_optional(&mut *tx).await?.ok_or(IngestError::NotFound)?;
         let same = !actor.tenant_id.is_empty() && string(&d, "tenant_id") == actor.tenant_id;
         let grant:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM knowledge.dataset_permissions WHERE dataset_id=$1 AND permission='owner' AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND $3::boolean AND subject_tenant_id=$5 AND subject_id=ANY($4::text[]))) FOR SHARE)").bind(id).bind(&actor.user_id).bind(same).bind(&actor.roles).bind(&actor.tenant_id).fetch_one(&mut *tx).await?;
@@ -414,7 +435,7 @@ impl IngestionService {
                 "invalid permission subject or level".into(),
             ));
         }
-        sqlx::query("INSERT INTO knowledge.dataset_permissions(dataset_id,subject_type,subject_id,permission,subject_tenant_id) SELECT dataset_id,$2,$3,$4,CASE WHEN $2::varchar='tenant_role' THEN tenant_id ELSE NULL END FROM knowledge.datasets WHERE dataset_id=$1 ON CONFLICT(dataset_id,subject_type,subject_id) DO UPDATE SET permission=EXCLUDED.permission,updated_at=NOW()").bind(id).bind(if subject_type=="role"{"tenant_role"}else{subject_type}).bind(subject_id).bind(permission).execute(&self.store.pool).await?;
+        sqlx::query("INSERT INTO knowledge.dataset_permissions(dataset_id,subject_type,subject_id,permission,subject_tenant_id) SELECT dataset_id,$2,$3,$4,CASE WHEN $2::varchar='tenant_role' THEN tenant_id ELSE NULL END FROM knowledge.datasets WHERE dataset_id=$1 ON CONFLICT(dataset_id,subject_type,subject_id) DO UPDATE SET permission=EXCLUDED.permission,updated_at=NOW()").bind(id).bind(if subject_type=="role"{"tenant_role"}else{subject_type}).bind(subject_id).bind(permission).execute(crate::database::executor(&self.store.pool)).await?;
         Ok(())
     }
     pub async fn revoke_dataset_permission(
@@ -427,12 +448,12 @@ impl IngestionService {
         self.store
             .require_dataset_access(actor, id, "owner")
             .await?;
-        Ok(sqlx::query("DELETE FROM knowledge.dataset_permissions WHERE dataset_id=$1 AND subject_type=$2 AND subject_id=$3").bind(id).bind(if subject_type=="role"{"tenant_role"}else{subject_type}).bind(subject_id).execute(&self.store.pool).await?.rows_affected()>0)
+        Ok(sqlx::query("DELETE FROM knowledge.dataset_permissions WHERE dataset_id=$1 AND subject_type=$2 AND subject_id=$3").bind(id).bind(if subject_type=="role"{"tenant_role"}else{subject_type}).bind(subject_id).execute(crate::database::executor(&self.store.pool)).await?.rows_affected()>0)
     }
     pub async fn list_dataset_permissions(&self, actor: &Actor, id: &str) -> Result<Vec<Value>> {
         self.store
             .require_dataset_access(actor, id, "owner")
             .await?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM (SELECT id,dataset_id,CASE WHEN subject_type='tenant_role' THEN 'role' ELSE subject_type END AS subject_type,subject_id,permission,created_at,updated_at FROM knowledge.dataset_permissions WHERE dataset_id=$1 ORDER BY created_at ASC) p").bind(id).fetch_all(&self.store.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM (SELECT id,dataset_id,CASE WHEN subject_type='tenant_role' THEN 'role' ELSE subject_type END AS subject_type,subject_id,permission,created_at,updated_at FROM knowledge.dataset_permissions WHERE dataset_id=$1 ORDER BY created_at ASC) p").bind(id).fetch_all(crate::database::executor(&self.store.pool)).await?)
     }
 }

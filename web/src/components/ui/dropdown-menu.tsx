@@ -21,7 +21,7 @@ function DropdownMenuPortal({ children }: { children?: React.ReactNode }) { retu
 function DropdownMenuSub(_props: { children?: React.ReactNode }) { void _props; return null; }
 const DropdownMenuSubTrigger = DropdownMenuItem;
 const DropdownMenuSubContent = DropdownMenuContent;
-function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) { return <span {...props} className={cn("ml-auto text-xs tracking-widest opacity-60", className)} />; }
+function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) { return <span {...props} className={cn("ui-dropdown-menu-slot-1", className)} />; }
 
 type Radio = React.ComponentProps<typeof DropdownMenuRadioGroup>;
 function menuItems(children: React.ReactNode, close: () => void, path = "menu", radio?: Radio): NonNullable<MenuProps["items"]> {

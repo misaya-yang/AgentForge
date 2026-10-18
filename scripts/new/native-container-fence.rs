@@ -91,10 +91,13 @@ pub fn configured() -> Result<Option<PathBuf>, String> {
 pub fn heavy(action: &str) -> bool {
     [
         "prepare",
+        "package",
         "check",
         "test",
         "build",
         "engine-build",
+        "engine-test",
+        "plugin-test",
         "engine-fetch",
     ]
     .contains(&action)
@@ -285,6 +288,8 @@ mod tests {
             "test",
             "build",
             "engine-build",
+            "engine-test",
+            "plugin-test",
             "engine-fetch",
         ] {
             assert!(heavy(action));

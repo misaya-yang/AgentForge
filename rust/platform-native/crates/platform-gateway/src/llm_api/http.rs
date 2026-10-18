@@ -8,6 +8,7 @@ use axum::{
 };
 use futures_core::Stream;
 use futures_util::StreamExt;
+use sha2::{Digest, Sha256};
 use std::{
     io,
     sync::atomic::{AtomicBool, Ordering},
@@ -83,11 +84,48 @@ async fn handle(api: LlmApi, surface: Surface, request: Request) -> LlmResult<Re
     let body = to_bytes(body, 32 * 1024 * 1024)
         .await
         .map_err(|_| LlmError::new(413, "llm_request_too_large"))?;
-    let invocation = codec::parse(surface, body)?;
-    let prepared = api
+    let mut invocation = codec::parse(surface, body)?;
+    invocation.client_request_id = parts
+        .headers
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| uuid::Uuid::parse_str(v).is_ok())
+        .map(str::to_owned);
+    invocation.external_audit = parts
+        .headers
+        .get("x-agentforge-a2a-task-id")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| uuid::Uuid::parse_str(v).is_ok());
+    let audit_requested = invocation.external_audit;
+    let client_request_id = invocation.client_request_id.clone();
+    let request_sha256 = format!("{:x}", Sha256::digest(&invocation.body));
+    let request_id = invocation.request_id.clone();
+    let prepared = match api
         .backend
         .prepare(&actor, invocation, &parts.headers)
-        .await?;
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            if audit_requested {
+                wire_audit(
+                    &api,
+                    &actor.tenant,
+                    &actor.user,
+                    &request_id,
+                    None,
+                    "denied",
+                    error.status,
+                    client_request_id,
+                    Some(request_sha256),
+                )
+                .await?;
+            }
+            let status = error.status;
+            let (parts, body) = error.into_response().into_parts();
+            return Ok(response(status, parts.headers, body, &request_id));
+        }
+    };
     let cancel = AdmissionCancellation::default();
     let mut guard = CancelOnDrop(Some(cancel.clone()));
     let (reply, rx) = oneshot::channel();
@@ -175,7 +213,21 @@ async fn run(
             result=tokio::time::timeout(prepared.timeout,work)=>result.unwrap_or(Err(LlmError::new(504,"llm_deadline_outcome_unknown"))),
         }
     };
-    if outcome.is_err() {
+    if let Err(ref error) = outcome {
+        if prepared.invocation.external_audit {
+            let _ = wire_audit(
+                &api,
+                &prepared.record.tenant_id,
+                &prepared.record.user_id,
+                &prepared.invocation.request_id,
+                None,
+                "unknown",
+                error.status,
+                prepared.invocation.client_request_id.clone(),
+                Some(format!("{:x}", Sha256::digest(&prepared.invocation.body))),
+            )
+            .await;
+        }
         let _ = prepared
             .lease
             .mark_completion(DispatchSettlement::Unknown)
@@ -256,6 +308,29 @@ async fn pipeline(
             if (200..300).contains(&upstream.status) {
                 return Err(LlmError::new(502, "llm_terminal_usage_unknown"));
             }
+        }
+        let wire_id = serde_json::from_slice::<Value>(&bytes)
+            .ok()
+            .and_then(|v| v["id"].as_str().map(str::to_owned));
+        if prepared.invocation.external_audit {
+            wire_audit(
+                api,
+                &prepared.record.tenant_id,
+                &prepared.record.user_id,
+                &prepared.invocation.request_id,
+                wire_id,
+                if screened.is_err() {
+                    "denied"
+                } else if (200..300).contains(&upstream.status) {
+                    "completed"
+                } else {
+                    "denied"
+                },
+                upstream.status,
+                prepared.invocation.client_request_id.clone(),
+                Some(format!("{:x}", Sha256::digest(&prepared.invocation.body))),
+            )
+            .await?;
         }
         if let Err(error) = screened {
             if let Some(reply) = reply.take() {
@@ -367,4 +442,39 @@ async fn pipeline(
             .map_err(|_| LlmError::new(502, "llm_request_cancelled_unknown"))?;
     }
     Err(LlmError::new(502, "llm_stream_terminal_missing"))
+}
+
+async fn wire_audit(
+    api: &LlmApi,
+    tenant: &str,
+    user: &str,
+    request: &str,
+    wire: Option<String>,
+    outcome: &str,
+    status: u16,
+    client_request_id: Option<String>,
+    request_sha256: Option<String>,
+) -> LlmResult<()> {
+    if let Some(pool) = &api.audit_pool {
+        ai_platform_gateway_foundation::external_a2a_ledger::record(
+            pool,
+            tenant,
+            user,
+            &ai_platform_gateway_foundation::external_a2a_ledger::Receipt {
+                kind: ai_platform_gateway_foundation::external_a2a_ledger::Kind::Model,
+                request_id: request.into(),
+                client_request_id,
+                request_sha256,
+                wire_response_id: wire,
+                tool: None,
+                local_message_id: None,
+                remote_task_id: None,
+                outcome: outcome.into(),
+                http_status: status,
+            },
+        )
+        .await
+        .map_err(|_| LlmError::new(503, "llm_wire_audit_unconfirmed"))?;
+    }
+    Ok(())
 }

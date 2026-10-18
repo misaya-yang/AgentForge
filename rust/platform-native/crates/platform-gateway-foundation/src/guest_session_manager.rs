@@ -167,6 +167,22 @@ pub trait GuestSessionStorage: Send + Sync {
     fn get<'a>(&'a self, key: &'a str) -> SessionFuture<'a, Option<GuestSessionData>>;
     fn save<'a>(&'a self, key: &'a str, json: String, ttl: i64) -> SessionFuture<'a, ()>;
     fn delete<'a>(&'a self, key: &'a str) -> SessionFuture<'a, i64>;
+    /// Shared mode requires exact opaque snapshots and atomic non-resurrecting CAS.
+    fn atomic_capable(&self) -> bool {
+        false
+    }
+    fn raw_get<'a>(&'a self, _key: &'a str) -> SessionFuture<'a, Option<String>> {
+        Box::pin(async { Err(SessionError::InvalidConfig("guest_atomic_storage_required")) })
+    }
+    fn compare_exchange<'a>(
+        &'a self,
+        _key: &'a str,
+        _expected: String,
+        _replacement: Option<String>,
+        _ttl: i64,
+    ) -> SessionFuture<'a, bool> {
+        Box::pin(async { Err(SessionError::InvalidConfig("guest_atomic_storage_required")) })
+    }
 }
 
 /// Exact legacy `UserContext` data for the migration command. It is deliberately
@@ -245,6 +261,7 @@ impl SessionIds for GuestIds {
 pub struct GuestSessionManager {
     pub config: GuestSessionConfig,
     redis: Option<Arc<dyn GuestSessionStorage>>,
+    shared: bool,
     sessions: Mutex<HashMap<String, Arc<Mutex<GuestSession>>>>,
     clock: Arc<dyn SessionClock>,
     ids: Arc<dyn SessionIds>,
@@ -270,12 +287,57 @@ impl GuestSessionManager {
         Self {
             config,
             redis,
+            shared: false,
             sessions: Mutex::new(HashMap::new()),
             clock,
             ids,
         }
     }
 
+    pub fn shared(
+        config: GuestSessionConfig,
+        storage: Arc<dyn GuestSessionStorage>,
+    ) -> Result<Self, SessionError> {
+        if !storage.atomic_capable()
+            || config.session_ttl <= 0
+            || config.session_ttl > 604800
+            || config.max_threads_per_session < 1
+            || config.key_prefix.is_empty()
+        {
+            return Err(SessionError::InvalidConfig("guest_shared_configuration"));
+        }
+        let mut manager = Self::new(config, Some(storage));
+        manager.shared = true;
+        Ok(manager)
+    }
+    pub fn shared_authority_configured(&self) -> bool {
+        self.shared
+    }
+    async fn shared_snapshot(
+        &self,
+        id: &str,
+    ) -> Result<Option<(String, GuestSession)>, SessionError> {
+        let store = self
+            .redis
+            .as_ref()
+            .ok_or(SessionError::StorageUnavailable)?;
+        let Some(raw) = store.raw_get(&self.session_key(id)).await? else {
+            return Ok(None);
+        };
+        let value: Value = serde_json::from_str(&raw)
+            .map_err(|_| SessionError::InvalidData("guest_shared_corrupt"))?;
+        if value.get("_native_conversion").is_some() {
+            return Err(SessionError::InvalidData(
+                "guest_conversion_reconciliation_required",
+            ));
+        }
+        let session = GuestSession::from_dict(value)
+            .map_err(|_| SessionError::InvalidData("guest_shared_corrupt"))?;
+        if session.session_id != id {
+            return Err(SessionError::InvalidData("guest_shared_binding"));
+        }
+        Ok(Some((raw, session)))
+    }
     fn now(&self) -> SessionTimestamp {
         let now = self.clock.utc_now();
         SessionTimestamp::Aware(
@@ -315,6 +377,12 @@ impl GuestSessionManager {
         &self,
         session_id: &str,
     ) -> Result<Option<GuestSession>, SessionError> {
+        if self.shared {
+            return Ok(self
+                .shared_snapshot(session_id)
+                .await?
+                .map(|(_, session)| session));
+        }
         if let Some(redis) = &self.redis {
             let data = redis.get(&self.session_key(session_id)).await?;
             // Source catches decoding errors only, not failed Redis reads.
@@ -373,6 +441,9 @@ impl GuestSessionManager {
         user_id: &str,
         migrator: Option<&dyn GuestThreadMigrator>,
     ) -> Result<Value, SessionError> {
+        if self.shared {
+            return self.convert_shared(session_id, user_id, migrator).await;
+        }
         if self.redis.is_none() && migrator.is_none() {
             // Source's memory-only no-proxy path has no suspension point.
             // Snapshot and removal must stay atomic with respect to additions.
@@ -450,6 +521,69 @@ impl GuestSessionManager {
         }))
     }
 
+    async fn convert_shared(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        migrator: Option<&dyn GuestThreadMigrator>,
+    ) -> Result<Value, SessionError> {
+        let Some((raw, session)) = self.shared_snapshot(session_id).await? else {
+            return Ok(json!({"success":false,"error":"Session not found"}));
+        };
+        let mut claimed = session.to_dict();
+        claimed["_native_conversion"] =
+            json!({"claim":uuid::Uuid::new_v4().to_string(),"target_user":user_id});
+        let claimed = claimed.to_string();
+        let store = self
+            .redis
+            .as_ref()
+            .ok_or(SessionError::StorageUnavailable)?;
+        if !store
+            .compare_exchange(
+                &self.session_key(session_id),
+                raw,
+                Some(claimed.clone()),
+                self.config.session_ttl,
+            )
+            .await?
+        {
+            return Err(SessionError::InvalidData("guest_conversion_conflict"));
+        }
+        let mut migrated = Vec::new();
+        let mut failed = Vec::new();
+        for thread in session.thread_ids {
+            if let Some(migrator) = migrator {
+                let metadata = Map::from_iter([
+                    ("owner_id".into(), json!(user_id)),
+                    ("migrated_from_guest".into(), json!(session_id)),
+                    ("migrated_at".into(), json!(self.now())),
+                ]);
+                if migrator
+                    .update_thread(GuestMigrationContext { user_id }, &thread, metadata)
+                    .await
+                    .is_err()
+                {
+                    failed.push(thread);
+                    continue;
+                }
+            }
+            migrated.push(thread);
+        }
+        if !store
+            .compare_exchange(
+                &self.session_key(session_id),
+                claimed,
+                None,
+                self.config.session_ttl,
+            )
+            .await?
+        {
+            return Err(SessionError::StorageUnavailable);
+        }
+        Ok(
+            json!({"success":true,"user_id":user_id,"migrated_threads":migrated,"failed_threads":failed}),
+        )
+    }
     pub async fn cleanup_expired_sessions(&self) -> Result<usize, SessionError> {
         if self.redis.is_some() {
             return Ok(0);
@@ -504,6 +638,32 @@ impl GuestSessionManager {
         session_id: &str,
         mutation: Mutation<'_>,
     ) -> Result<bool, SessionError> {
+        if self.shared {
+            for _ in 0..16 {
+                let Some((raw, mut session)) = self.shared_snapshot(session_id).await? else {
+                    return Ok(false);
+                };
+                let (result, save) = self.apply_mutation(&mut session, mutation);
+                if !save {
+                    return Ok(result);
+                }
+                if self
+                    .redis
+                    .as_ref()
+                    .ok_or(SessionError::StorageUnavailable)?
+                    .compare_exchange(
+                        &self.session_key(session_id),
+                        raw,
+                        Some(session.to_dict().to_string()),
+                        self.config.session_ttl,
+                    )
+                    .await?
+                {
+                    return Ok(result);
+                }
+            }
+            return Err(SessionError::StorageUnavailable);
+        }
         if self.redis.is_some() {
             let Some(mut session) = self.get_session(session_id).await? else {
                 return Ok(false);
@@ -557,6 +717,7 @@ impl GuestSessionManager {
     }
 }
 
+#[derive(Clone, Copy)]
 enum Mutation<'a> {
     Refresh,
     Add(&'a str),
@@ -573,7 +734,10 @@ impl GuestSessionValidator<'_> {
         };
         // Source makes a second read and ignores a false refresh result, while
         // still propagating a backend error. It returns the first read's fields.
-        self.manager.refresh_session(session_id).await?;
+        let refreshed = self.manager.refresh_session(session_id).await?;
+        if self.manager.shared && !refreshed {
+            return Ok(None);
+        }
         Ok(Some(json!({
             "session_id": session.session_id,
             "created_at": session.created_at,
@@ -586,4 +750,3 @@ impl GuestSessionValidator<'_> {
 pub fn create_guest_session_validator(manager: &GuestSessionManager) -> GuestSessionValidator<'_> {
     GuestSessionValidator { manager }
 }
-

@@ -1,6 +1,7 @@
 //! Concrete process-owned resources, from Container.initialize/shutdown.
 //! No schema bootstrap is performed by the application process.
 use super::lifecycle::HostError;
+use ai_platform_service_primitives::data_connection::ConnectionConfig;
 use ai_platform_service_primitives::valkey::{
     CacheAvailability, CoordConnection, SplitConfig, SplitConnections,
 };
@@ -72,31 +73,66 @@ impl ConnectionResources {
         redis: &RedisSettings,
         split: Option<&SplitConfig>,
     ) -> Result<Self, HostError> {
+        Self::connect_split_with_database_files(database, redis, split, None).await
+    }
+    /// File-secret admission is explicit and fail-closed. Backend-pinned data
+    /// connections use direct/session pooling; cancellation remains direct.
+    pub async fn connect_split_with_database_files(
+        database: &DatabaseSettings,
+        redis: &RedisSettings,
+        split: Option<&SplitConfig>,
+        files: Option<(&ConnectionConfig, &ConnectionConfig)>,
+    ) -> Result<Self, HostError> {
         if database.auto_init
             || database.pool_max_size == 0
             || database.pool_min_size > database.pool_max_size
         {
             return Err(HostError::Configuration);
         }
-        let pool = if database.enabled {
-            PgPoolOptions::new()
-                .min_connections(database.pool_min_size)
-                .max_connections(database.pool_max_size)
-                .connect(&database.dsn)
-                .await
-                .ok()
+        let (pool, control) = if let Some((data, control)) = files {
+            use ai_platform_service_primitives::data_connection::{
+                ConnectionPurpose, DatabaseRole,
+            };
+            if !database.enabled
+                || data.role != DatabaseRole::Gateway
+                || control.role != DatabaseRole::Gateway
+                || data.purpose != ConnectionPurpose::BackendPinned
+                || control.purpose != ConnectionPurpose::CancellationControl
+                || data.physical_database != control.physical_database
+            {
+                return Err(HostError::Configuration);
+            }
+            let pool = data.connect().await.map_err(|_| HostError::Database)?;
+            let independent = match control.connect().await {
+                Ok(value) => value,
+                Err(_) => {
+                    pool.close().await;
+                    return Err(HostError::Database);
+                }
+            };
+            (Some(pool), Some(independent))
         } else {
-            None
-        };
-        let control = if pool.is_some() {
-            PgPoolOptions::new()
-                .min_connections(0)
-                .max_connections(2)
-                .connect(&database.dsn)
-                .await
-                .ok()
-        } else {
-            None
+            let pool = if database.enabled {
+                PgPoolOptions::new()
+                    .min_connections(database.pool_min_size)
+                    .max_connections(database.pool_max_size)
+                    .connect(&database.dsn)
+                    .await
+                    .ok()
+            } else {
+                None
+            };
+            let control = if pool.is_some() {
+                PgPoolOptions::new()
+                    .min_connections(0)
+                    .max_connections(2)
+                    .connect(&database.dsn)
+                    .await
+                    .ok()
+            } else {
+                None
+            };
+            (pool, control)
         };
         let (redis_connection, coordination, cache) = if let Some(split) = split {
             let connections = SplitConnections::connect(split)

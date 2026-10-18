@@ -4,10 +4,10 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
-import axios, { AxiosError } from "axios";
+import fetchHttp, { HttpError } from '../../lib/fetchClient.ts';
 import { MutationObserver, QueryClient, QueryObserver, focusManager } from "@tanstack/react-query";
 
-// Complete production Settings page/AuthSettings/shared auth scope and Axios.
+// Complete production Settings page/AuthSettings/shared auth scope and Fetch.
 // Real query observers; controlled React scheduling, HTTP and Radix-compatible
 // active/forceMount presence semantics. This is not DOM/browser acceptance.
 type Tree = { type: unknown; props: Record<string, unknown>; key?: string };
@@ -166,7 +166,7 @@ test("old-account 401 cannot clear a new account or its local draft", async () =
     h.setAuth({ token: "synthetic-session-B", user: { ...h.auth.user, user_id: "admin-B" } });
     h.render(); await settle(); h.render(); h.edit("jwt-issuer", "new-account-draft");
     const reads = h.reads.length;
-    wait.reject(new AxiosError("synthetic unauthorized", "ERR_BAD_REQUEST", undefined, undefined,
+    wait.reject(new HttpError("synthetic unauthorized", "ERR_BAD_REQUEST", undefined, undefined,
       { status: 401, statusText: "Unauthorized", data: {}, headers: {}, config: {} as never }));
     await settle(); h.render();
     assert.equal(h.clearCount(), 0); assert.equal(h.input("jwt-issuer").props.value, "new-account-draft");
@@ -308,10 +308,12 @@ function host(options: { initialError?: boolean } = {}) {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/components/PlatformCapabilities": { PlatformCapabilities: () => null },
     react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
     "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en", resolvedLanguage: "en" } }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: ReturnType<typeof auth.getState>) => unknown) => select(auth.getState()), auth) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: authority }, "@/lib/utils": { generateUUID: () => `scope-${++identity}` },
+    "@/lib/consoleStepUp": { sensitiveMutationOptions: { retry: false } },
     "@/lib/tenantGovernance": { canAdministerTenantPolicies: () => true }, "@/lib/clipboard": { copyToClipboard: () => {} },
     "@/lib/api": { api: {
       async get(path: string, options?: { signal?: AbortSignal }) {
@@ -351,7 +353,7 @@ function host(options: { initialError?: boolean } = {}) {
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL("../../lib/api.ts", import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
       exports, require: (name: string) => {
         if (name === "@/observability/browserTelemetry") return { browserTraceparent: () => undefined };
-        if (name === "axios") return { __esModule: true, default: axios, AxiosError };
+        if (name === "@/lib/fetchClient") return { __esModule: true, default: fetchHttp, ...fetchHttp, HttpError };
         if (name === "@/config/runtime") return { getApiBaseUrlConfig: () => "" };
         if (name === "@/hooks/use-toast") return { toast: { warning() {} } };
         if (name === "@/i18n") return { __esModule: true, default: { t: (key: string) => key } };
@@ -359,13 +361,13 @@ function host(options: { initialError?: boolean } = {}) {
         throw new Error(`Unexpected API import ${name}`);
       }, __hot: { dispose(stop: () => void) { subscriptions.push(stop); } }, localStorage: storage, sessionStorage: storage, window: { location: { pathname: "/settings", href: "" } }, Date, Error, console,
     });
-    const realApi = exports.api as ReturnType<typeof axios.create>;
+    const realApi = exports.api as ReturnType<typeof fetchHttp.create>;
     realApi.defaults.adapter = async request => {
       try {
         const response = await (request.method === "put" ? baseApi.put(request.url!, JSON.parse(request.data)) : baseApi.get(request.url!, request));
         return { ...(response as object), status: 200, statusText: "OK", config: request, headers: {} };
       } catch (error) {
-        if (axios.isAxiosError(error)) { error.config = request; if (error.response) error.response.config = request; }
+        if (fetchHttp.isHttpError(error)) { error.config = request; if (error.response) error.response.config = request; }
         throw error;
       }
     };
@@ -377,6 +379,7 @@ function host(options: { initialError?: boolean } = {}) {
     vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, {
       exports, require: (name: string) => {
         if (name === "./settings/AuthSettings") return load("./AuthSettings.tsx");
+        if (name === "./PasskeyStepUp") return { PasskeyStepUp: () => null };
         if (name === "@/hooks/useAuthenticatedReadScope") return load("../../hooks/useAuthenticatedReadScope.ts");
         if (name === "./settings/LoadBalancerSettings") return load("./LoadBalancerSettings.tsx");
         if (name.startsWith("@/components/ui/")) return named;

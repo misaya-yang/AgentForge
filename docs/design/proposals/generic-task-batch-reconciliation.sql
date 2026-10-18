@@ -51,7 +51,9 @@ BEGIN
  IF TG_OP='UPDATE' THEN
   IF (to_jsonb(NEW)-ARRAY['provider_job_id','confirmed_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['provider_job_id','confirmed_at'])
      OR (OLD.provider_job_id IS NOT NULL AND NEW.provider_job_id IS DISTINCT FROM OLD.provider_job_id)
-     OR NEW.provider_job_id IS NULL THEN RAISE EXCEPTION 'immutable batch intent'; END IF;
+     OR NEW.provider_job_id IS NULL
+     OR EXISTS(SELECT 1 FROM gateway.task_batch_quota_holds h WHERE h.task_id=OLD.task_id AND h.claim_id=OLD.claim_id AND h.state='released')
+  THEN RAISE EXCEPTION 'immutable batch intent'; END IF;
   RETURN NEW;
  END IF;
  IF NOT EXISTS(SELECT 1 FROM gateway.task_deliveries d
@@ -113,9 +115,10 @@ CREATE TABLE gateway.task_batch_quota_holds(
  tenant_id varchar(255) NOT NULL,user_id varchar(255) NOT NULL,
  request_count bigint NOT NULL CHECK(request_count BETWEEN 1 AND 50000),
  reserved_cost_cents bigint NOT NULL CHECK(reserved_cost_cents>=0),
- state text NOT NULL DEFAULT 'held' CHECK(state IN ('held','settled')),
- created_at timestamptz NOT NULL DEFAULT clock_timestamp(),settled_at timestamptz,
+ state text NOT NULL DEFAULT 'held' CHECK(state IN ('held','settled','released')),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),settled_at timestamptz,released_at timestamptz,
  CHECK((state='settled')=(settled_at IS NOT NULL)),
+ CHECK((state='released')=(released_at IS NOT NULL)),
  FOREIGN KEY(task_id,claim_id) REFERENCES gateway.task_provider_batches(task_id,claim_id)
 );
 CREATE INDEX task_batch_quota_pending ON gateway.task_batch_quota_holds(tenant_id,user_id) WHERE state='held';
@@ -123,8 +126,14 @@ CREATE FUNCTION gateway.task_batch_hold_binding() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $hold$
 BEGIN
  IF TG_OP='UPDATE' THEN
-  IF (to_jsonb(NEW)-ARRAY['state','settled_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','settled_at'])
-    OR OLD.state<>'held' OR NEW.state<>'settled' THEN RAISE EXCEPTION 'immutable batch hold'; END IF;
+  IF (to_jsonb(NEW)-ARRAY['state','settled_at','released_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','settled_at','released_at'])
+    OR OLD.state<>'held' OR NEW.state NOT IN ('settled','released') THEN RAISE EXCEPTION 'immutable batch hold'; END IF;
+  IF NEW.state='released' AND NOT EXISTS(SELECT 1 FROM gateway.task_provider_batches b
+    JOIN gateway.task_deliveries d ON d.task_id=b.task_id AND d.claim_id=b.claim_id
+      AND d.request_id=b.request_id AND d.service_id=b.service_id AND d.tenant_id=b.tenant_id AND d.user_id=b.user_id
+    WHERE b.task_id=NEW.task_id AND b.claim_id=NEW.claim_id AND b.tenant_id=NEW.tenant_id AND b.user_id=NEW.user_id
+      AND b.provider_job_id IS NULL AND b.confirmed_at IS NULL AND d.state IN ('claimed_unknown','cancelled'))
+  THEN RAISE EXCEPTION 'batch release requires unconfirmed retained claim'; END IF;
  ELSE
   IF NEW.state<>'held' OR NOT EXISTS(SELECT 1 FROM gateway.task_provider_batches b JOIN gateway.task_batch_inputs i
    ON i.tenant_id=b.tenant_id AND i.user_id=b.user_id AND i.service_id=b.service_id AND i.provider_id=b.provider_id AND i.input_file_id=b.input_file_id
@@ -144,7 +153,7 @@ BEGIN
  IF current_user !~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN RAISE EXCEPTION 'canonical owner required'; END IF;
  principal:=left(current_user,length(current_user)-length('owner'))||'gateway';
  EXECUTE format('GRANT SELECT,INSERT ON gateway.task_batch_quota_holds TO %I',principal);
- EXECUTE format('GRANT UPDATE(state,settled_at) ON gateway.task_batch_quota_holds TO %I',principal);
+ EXECUTE format('GRANT UPDATE(state,settled_at,released_at) ON gateway.task_batch_quota_holds TO %I',principal);
 END
 $hold_grants$;
 ALTER TABLE gateway.dispatch_token_reservations ADD CONSTRAINT dispatch_token_reservations_batch_type_check CHECK(request_type IN ('invoke','stream','provider_batch')) NOT VALID;

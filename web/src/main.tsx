@@ -1,10 +1,11 @@
+import { loadRuntimeConfig } from "./config/loadRuntimeConfig";
 import { initBrowserTelemetry } from "@/observability/browserTelemetry";
 import { RouteTelemetry } from "@/observability/RouteTelemetry";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AxiosError } from "axios";
+import { HttpError } from '@/lib/fetchClient';
 import "./index.css";
 import "./styles/tokens.css";
 import "./styles/themes.css";
@@ -20,7 +21,7 @@ const queryClient = new QueryClient({
       // Retry configuration
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors except 429 (rate limit)
-        if (error instanceof AxiosError) {
+        if (error instanceof HttpError) {
           const status = error.response?.status;
           // 429: retry with backoff
           if (status === 429) {
@@ -37,9 +38,9 @@ const queryClient = new QueryClient({
       // Delay between retries (respects Retry-After for 429)
       retryDelay: (attemptIndex, error) => {
         // For 429 errors, use Retry-After header if available
-        if (error instanceof AxiosError && error.response?.status === 429) {
+        if (error instanceof HttpError && error.response?.status === 429) {
           const retryAfter =
-            (error as AxiosError & { retryAfter?: number }).retryAfter ||
+            (error as HttpError & { retryAfter?: number }).retryAfter ||
             parseInt(error.response.headers["retry-after"] || "5", 10) * 1000;
           // Add some jitter to prevent thundering herd
           return retryAfter + Math.random() * 1000;
@@ -53,24 +54,17 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      // Similar retry logic for mutations
-      retry: (failureCount, error) => {
-        if (error instanceof AxiosError) {
-          const status = error.response?.status;
-          if (status === 429) {
-            return failureCount < 2; // Fewer retries for mutations
-          }
-          if (status && status >= 400 && status < 500) {
-            return false;
-          }
-        }
-        return failureCount < 2;
-      },
+      // A transport failure can follow a committed write. Reconciliation and
+      // explicit user actions own any later attempt, including 429 responses.
+      retry: false,
     },
   },
 });
 
 async function bootstrap() {
+  await loadRuntimeConfig(window.fetch.bind(window), config => {
+    window.__AI_GATEWAY_RUNTIME_CONFIG__ = config;
+  });
   initBrowserTelemetry();
   await initializeI18n();
   initInteractionTelemetry();

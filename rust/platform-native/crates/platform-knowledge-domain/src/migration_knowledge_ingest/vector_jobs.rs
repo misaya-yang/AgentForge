@@ -222,11 +222,11 @@ pub async fn submit(
         &payload,
     );
     sqlx::query("INSERT INTO knowledge.vector_mutation_jobs(job_id,tenant_id,dataset_id,requested_by,expected_generation,payload,expected_revision) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(job_id) DO UPDATE SET state='pending',error_class=NULL,updated_at=NOW() WHERE vector_mutation_jobs.state='failed'")
-        .bind(&id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).bind(&expected).bind(payload).bind(d["content_revision"].as_i64()).execute(pool).await?;
+        .bind(&id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).bind(&expected).bind(payload).bind(d["content_revision"].as_i64()).execute(crate::database::executor(pool)).await?;
     let deadline = Instant::now() + Duration::from_secs(90);
     loop {
         let row: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$2 AND requested_by=$3")
-            .bind(&id).bind(&actor.tenant_id).bind(&actor.user_id).fetch_one(pool).await?;
+            .bind(&id).bind(&actor.tenant_id).bind(&actor.user_id).fetch_one(crate::database::executor(pool)).await?;
         match string(&row, "state") {
             "succeeded" => return Ok(row["result"].clone()),
             "failed" => {
@@ -259,7 +259,7 @@ pub async fn status(pool: &PgPool, actor: &Actor, dataset: &str, id: &str) -> Re
         return Err(IngestError::Permission);
     }
     let row: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$2 AND dataset_id=$3 AND requested_by=$4")
-        .bind(id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).fetch_optional(pool).await?.ok_or(IngestError::NotFound)?;
+        .bind(id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).fetch_optional(crate::database::executor(pool)).await?.ok_or(IngestError::NotFound)?;
     let store = super::store::KnowledgeWriteStore::new(pool.clone());
     match store.require_dataset_access(actor, dataset, "viewer").await {
         Ok(_) => {}
@@ -275,10 +275,11 @@ pub async fn status(pool: &PgPool, actor: &Actor, dataset: &str, id: &str) -> Re
 }
 
 pub async fn dispatch_one(service: &IngestionService, actors: &RuntimeActorClient) -> Result<bool> {
+    crate::cedar_dataset_policy::scoped(service.store.object_policy.clone(),async {
     if service.indexer.vectors.is_read_only() {
         return Err(IngestError::Permission);
     }
-    let ids: Vec<String> = sqlx::query_scalar("SELECT job_id FROM knowledge.vector_mutation_jobs WHERE state IN ('pending','running') ORDER BY created_at,job_id LIMIT 32").fetch_all(&service.store.pool).await?;
+    let ids: Vec<String> = sqlx::query_scalar("SELECT job_id FROM knowledge.vector_mutation_jobs WHERE state IN ('pending','running') ORDER BY created_at,job_id LIMIT 32").fetch_all(crate::database::executor(&service.store.pool)).await?;
     for id in ids {
         let Ok(mut lease) =
             SessionLease::acquire(&service.store.pool, format!("knowledge-vector-job:{id}")).await
@@ -286,7 +287,7 @@ pub async fn dispatch_one(service: &IngestionService, actors: &RuntimeActorClien
             continue;
         };
         let row: Option<Value> = sqlx::query_scalar("UPDATE knowledge.vector_mutation_jobs SET state='running',attempts=attempts+1,updated_at=NOW() WHERE job_id=$1 AND state IN ('pending','running') RETURNING to_jsonb(vector_mutation_jobs)")
-            .bind(&id).fetch_optional(lease.connection()).await?;
+            .bind(&id).fetch_optional(crate::database::connection(lease.connection())).await?;
         let Some(row) = row else {
             let _ = lease.release().await;
             continue;
@@ -311,22 +312,14 @@ pub async fn dispatch_one(service: &IngestionService, actors: &RuntimeActorClien
         // leak through a durable status row. The typed class is sufficient.
         let class = error;
         sqlx::query("UPDATE knowledge.vector_mutation_jobs SET state=$2,result=$3,error_class=$4,updated_at=NOW() WHERE job_id=$1 AND state='running'")
-            .bind(&id).bind(state).bind(value).bind(class).execute(lease.connection()).await?;
+            .bind(&id).bind(state).bind(value).bind(class).execute(crate::database::connection(lease.connection())).await?;
         lease.release().await.map_err(|_| IngestError::Database)?;
         return Ok(true);
     }
     Ok(false)
+}).await
 }
-fn execute<'a>(service:&'a IngestionService,actors:&'a RuntimeActorClient,row:&'a Value)->std::pin::Pin<Box<dyn std::future::Future<Output=Result<Value>>+Send+'a>> {
-    Box::pin(async move {
-        if let Some(client)=service.model_plane.clone() {
-            let actor=actors.resolve(string(row,"tenant_id"),string(row,"requested_by")).await?;
-            let resource=crate::migration_knowledge_query::model_plane::ModelResource{dataset_id:Some(string(row,"dataset_id").into()),document_id:row["payload"]["document"].as_str().map(str::to_owned),execution_id:Some(string(row,"job_id").into())};
-            crate::migration_knowledge_query::model_plane::run_scoped(client,resource,actor,execute_inner(service,actors,row)).await
-        } else {execute_inner(service,actors,row).await}
-    })
-}
-fn execute_inner<'a>(
+fn execute<'a>(
     service: &'a IngestionService,
     actors: &'a RuntimeActorClient,
     row: &'a Value,
@@ -335,6 +328,33 @@ fn execute_inner<'a>(
         let actor = actors
             .resolve(string(row, "tenant_id"), string(row, "requested_by"))
             .await?;
+        ai_platform_service_primitives::knowledge_model::with_actor_scope(actor.clone(), async {
+            if let Some(client) = service.model_plane.clone() {
+                let resource = crate::migration_knowledge_query::model_plane::ModelResource {
+                    dataset_id: Some(string(row, "dataset_id").into()),
+                    document_id: row["payload"]["document"].as_str().map(str::to_owned),
+                    execution_id: Some(string(row, "job_id").into()),
+                };
+                crate::migration_knowledge_query::model_plane::run_scoped(
+                    client,
+                    resource,
+                    actor.clone(),
+                    execute_inner(service, &actor, row),
+                )
+                .await
+            } else {
+                execute_inner(service, &actor, row).await
+            }
+        })
+        .await
+    })
+}
+fn execute_inner<'a>(
+    service: &'a IngestionService,
+    actor: &'a Actor,
+    row: &'a Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value>> + Send + 'a>> {
+    Box::pin(async move {
         if actor.tenant_id != string(row, "tenant_id")
             || actor.user_id != string(row, "requested_by")
             || actor.anonymous()
@@ -345,7 +365,7 @@ fn execute_inner<'a>(
         let dataset = string(row, "dataset_id");
         if let Mutation::DeleteDataset { .. } = &mutation {
             let tombstone: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.datasets WHERE dataset_id=$1 AND tenant_id=$2 AND is_deleted=TRUE AND deleted_by=$3)")
-            .bind(dataset).bind(&actor.tenant_id).bind(&actor.user_id).fetch_one(&service.store.pool).await?;
+            .bind(dataset).bind(&actor.tenant_id).bind(&actor.user_id).fetch_one(crate::database::executor(&service.store.pool)).await?;
             if tombstone {
                 return Ok(json!(true));
             }
@@ -368,7 +388,7 @@ fn execute_inner<'a>(
         }
         match &mutation {
             Mutation::DeleteDocument { document } => {
-                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.documents WHERE dataset_id=$1 AND document_id=$2)").bind(dataset).bind(document).fetch_one(&service.store.pool).await?;
+                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.documents WHERE dataset_id=$1 AND document_id=$2)").bind(dataset).bind(document).fetch_one(crate::database::executor(&service.store.pool)).await?;
                 if !exists
                     && current["index_config"]["retrieval"]["_index_deletion_fence"].is_null()
                 {
@@ -376,7 +396,7 @@ fn execute_inner<'a>(
                 }
             }
             Mutation::DeleteSegment { segment } => {
-                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.segments WHERE dataset_id=$1 AND segment_id=$2)").bind(dataset).bind(segment).fetch_one(&service.store.pool).await?;
+                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.segments WHERE dataset_id=$1 AND segment_id=$2)").bind(dataset).bind(segment).fetch_one(crate::database::executor(&service.store.pool)).await?;
                 if !exists
                     && current["index_config"]["retrieval"]["_index_deletion_fence"].is_null()
                 {

@@ -171,6 +171,28 @@ pub struct ArtifactStorage {
     pub backend: Arc<dyn ObjectStorage>,
 }
 impl ArtifactStorage {
+    async fn upload_owned(
+        &self,
+        key: &str,
+        content: Vec<u8>,
+        mime: &str,
+        metadata: BTreeMap<String, String>,
+    ) -> Result<String, ContentError> {
+        if ai_platform_gateway_foundation::worker_lease::current_effect().is_none() {
+            return self.backend.upload(key, content, mime, metadata).await;
+        }
+        // LocalStorage hides a spawn_blocking write. Retain the real permit in
+        // an owned waiter until it finishes, including when the image job loses
+        // its lease and its caller is cancelled midway through an upload.
+        let backend = self.backend.clone();
+        let key = key.to_owned();
+        let mime = mime.to_owned();
+        ai_platform_gateway_foundation::worker_lease::finish_effect(async move {
+            backend.upload(&key, content, &mime, metadata).await
+        })
+        .await
+        .map_err(|_| ContentError::storage())?
+    }
     pub async fn get(&self, id: &str) -> Result<Option<Artifact>, ContentError> {
         let Some(db) = &self.database else {
             return Ok(None);
@@ -315,13 +337,7 @@ impl ArtifactStorage {
             ("tenant_id".into(), a.tenant_id.clone()),
             ("type".into(), a.kind.clone()),
         ]);
-        self.backend
-            .upload(
-                &a.storage_key,
-                content,
-                a.mime_type.as_deref().unwrap(),
-                metadata,
-            )
+        self.upload_owned(&a.storage_key, content, a.mime_type.as_deref().unwrap(), metadata)
             .await?;
         self.save(&a).await?;
         Ok(a)
@@ -524,7 +540,7 @@ impl ArtifactStorage {
         if content.is_empty() || content.len() > max || !mime.starts_with("image/") {
             return Err(ContentError::new(400, "image blob content is invalid"));
         }
-        self.backend.upload(key, content, mime, metadata).await?;
+        self.upload_owned(key, content, mime, metadata).await?;
         Ok(())
     }
 }

@@ -1,0 +1,5 @@
+# OFFLINE FIXTURE ONLY: fake syntax pins, not a native differential acceptance receipt.
+datasetAuthorization:
+  mode: shadow
+  expectedPolicySha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  expectedMatrixSha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

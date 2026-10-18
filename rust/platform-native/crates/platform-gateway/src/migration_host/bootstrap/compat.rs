@@ -75,7 +75,12 @@ impl CompatServices {
             limiter: Some(limiter),
             rate_config,
         });
-        let evaluations = Arc::new(EvalService::new(pools.data.clone(), Some(knowledge)));
+        let evaluations = Arc::new(EvalService::new(
+            pools.data.clone(),
+            Some(Arc::new(
+                crate::migration_host::eval_adapters::KnowledgeAdapter(knowledge),
+            )),
+        ));
         let ragas = Arc::new(
             KbRagasClient::new(
                 &config.ragas_origin,
@@ -83,7 +88,10 @@ impl CompatServices {
                 config.ragas_key_id,
                 Duration::from_secs(300),
             )
-            .map_err(|_| BootstrapError::Configuration("ragas_client"))?,
+            .map_err(|_| BootstrapError::Configuration("ragas_client"))?
+            .with_private_http(Arc::new(
+                crate::migration_host::eval_adapters::PrivateTransport,
+            )),
         );
         let eval_options = EvalHttpOptions {
             agent: Some(Arc::new(runtime.agent.clone())),

@@ -1,0 +1,110 @@
+# Explicit native SDK workload mTLS opt-in; no legacy callback bearer or public port.
+services:
+  gateway:
+    environment:
+      SDK_AGENT_WORKER_URL: https://sdk-agent-worker-workload:8456
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/agent-runtime,spiffe://agentforge.internal/service/agent-capability-worker,spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker,spiffe://agentforge.internal/service/sdk
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge","https://sdk-agent-worker-workload:8456":"spiffe://agentforge.internal/service/sdk"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge","https://sdk-agent-worker-workload:8456":"spiffe://agentforge.internal/service/sdk"}'
+  files-security-sdk-agent-worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - sdk-agent-worker
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete
+        first}/sdk-agent-worker
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-sdk-agent-worker:/output
+    restart: 'no'
+    pull_policy: never
+    profiles:
+    - sdk-agents
+  sdk-agent-worker:
+    image: ${SDK_AGENT_WORKER_IMAGE:?Select the admitted native SDK workload image}
+    profiles:
+    - sdk-agents
+    networks:
+      app:
+        aliases:
+        - sdk-agent-worker-workload
+    depends_on:
+      gateway:
+        condition: service_healthy
+      files-security-sdk-agent-worker:
+        condition: service_completed_successfully
+    environment:
+      SDK_AGENT_WORKER_BIND: 0.0.0.0:8096
+      SDK_AGENT_STATE_ROOT: /var/lib/sdk-agent
+      SDK_AGENT_RETENTION_SECONDS: ${SDK_AGENT_RETENTION_SECONDS:?Select finite SDK
+        retention}
+      SDK_AGENT_GATEWAY_URL: https://gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: sdk-agent-worker-workload:8456
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/sdk
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      NO_PROXY: localhost,127.0.0.1,gateway-workload
+      no_proxy: localhost,127.0.0.1,gateway-workload
+    volumes:
+    - sdk-agent-state-fresh:/var/lib/sdk-agent
+    - fresh-security-sdk-agent-worker:/run/security:ro
+    read_only: true
+    user: 10001:10001
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1777
+    pids_limit: 128
+    cpus: '1.0'
+    mem_limit: 768m
+    init: true
+    restart: unless-stopped
+    pull_policy: never
+    expose:
+    - '8456'
+    healthcheck:
+      test:
+      - CMD
+      - /usr/local/bin/sdk-agent-worker
+      - health
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native
+        secure-extend must complete first}
+volumes:
+  sdk-agent-state-fresh: {}
+  fresh-security-sdk-agent-worker: {}

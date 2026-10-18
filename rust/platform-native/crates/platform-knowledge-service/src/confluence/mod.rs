@@ -1,4 +1,5 @@
 //! Knowledge-owned Confluence source connections and admission. Never uses Gateway SQL.
+mod acl;
 mod bindings;
 pub mod catalog;
 mod client;
@@ -102,6 +103,7 @@ pub struct Sources {
     pub ingestion: Arc<ingest::IngestionService>,
     pub runtime: Arc<sync::Runtime>,
     pub enabled: bool,
+    pub refresh_enabled: bool,
     pub max_retries: u32,
     pub pool: PgPool,
     pub store: query::store::QueryStore,
@@ -127,18 +129,24 @@ impl Sources {
             .timeout(timeout)
             .build()
             .map_err(|_| Error::unavailable("Confluence client unavailable"))?;
+        let object_policy = ingestion.store.object_policy.clone();
         Ok(Self {
             ingestion,
             runtime: Arc::new(sync::Runtime::default()),
             enabled,
+            refresh_enabled: false,
             max_retries,
-            store: query::store::QueryStore::new(pool.clone()),
+            store: query::store::QueryStore::new(pool.clone()).with_object_policy(object_policy),
             pool,
             actors,
             encryption_key: Arc::new(key),
             client,
             image_vlm: None,
         })
+    }
+    pub fn with_acl_refresh(mut self, enabled: bool) -> Self {
+        self.refresh_enabled = enabled;
+        self
     }
     /// Optional source image-processor extension. The authoritative manual-sync
     /// entrypoint does not supply this, so normal composition leaves it off.
@@ -186,7 +194,7 @@ impl Sources {
             "SELECT to_jsonb(c) FROM confluence_connections c WHERE connection_id=$1",
         )
         .bind(id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?)
     }
     pub async fn binding(&self, id: &str) -> Result<Option<Value>> {
@@ -194,7 +202,7 @@ impl Sources {
             "SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE binding_id=$1",
         )
         .bind(id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?)
     }
 }
@@ -215,7 +223,9 @@ async fn locked_dataset(
         "SELECT to_jsonb(d) FROM datasets d WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE",
     )
     .bind(id)
-    .fetch_optional(&mut *conn)
+    .fetch_optional(ai_platform_knowledge_domain::database::connection(
+        &mut *conn,
+    ))
     .await?
     .ok_or_else(|| Error::forbidden())?;
     if text(&ds, "tenant_id") != actor.tenant_id || ds["is_archived"] == true {
@@ -225,7 +235,7 @@ async fn locked_dataset(
         || actor.user_tier == "admin"
         || actor.roles.iter().any(|r| r == "admin");
     if !owner_access {
-        let grants:Vec<String>=sqlx::query_scalar("SELECT permission FROM dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))").bind(id).bind(&actor.user_id).bind(&actor.roles).fetch_all(&mut *conn).await?;
+        let grants:Vec<String>=sqlx::query_scalar("SELECT permission FROM dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))").bind(id).bind(&actor.user_id).bind(&actor.roles).fetch_all(ai_platform_knowledge_domain::database::connection(&mut *conn)).await?;
         if !grants.iter().any(|p| p == "editor" || p == "owner") {
             return Err(Error::forbidden());
         }

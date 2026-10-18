@@ -4,7 +4,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
-import { AxiosError, isAxiosError } from "axios";
+import { HttpError, isHttpError } from '../../lib/fetchClient.ts';
 import { pluginLifecycleImpact, pluginLifecycleReviewKey } from "./pluginLifecycleImpact.ts";
 import type { PluginCapability, PluginRegistryEntry } from "../../api/plugins.ts";
 
@@ -57,7 +57,7 @@ function host() {
   const exports: any = {};
   const source = readFileSync(new URL("./PluginLifecycleControls.tsx", import.meta.url), "utf8");
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const require = (name: string) => ({ react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) }, axios: { isAxiosError }, "@/api/plugins": { updatePluginLifecycle: async (...args: any[]) => { writes.push(args); return write(...args); } }, "@/components/ui/button": { Button: "button" }, "./PluginImpactReview": { PluginImpactReview: "impact" }, "./pluginLifecycleImpact": { pluginLifecycleReviewKey } }[name]);
+  const require = (name: string) => ({ react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) }, "@/lib/fetchClient": { isHttpError }, "@/api/plugins": { updatePluginLifecycle: async (...args: any[]) => { writes.push(args); return write(...args); } }, "@/components/ui/button": { Button: "button" }, "./PluginImpactReview": { PluginImpactReview: "impact" }, "./pluginLifecycleImpact": { pluginLifecycleReviewKey } }[name]);
   vm.runInNewContext(code, { exports, require });
   const recovery: any = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL("./usePluginLifecycleRecovery.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: recovery, require });
@@ -118,10 +118,10 @@ test("production review renders complete before/after descriptor metadata and ex
 });
 
 for (const [status, message] of [[403, "forbidden"], [409, "conflict"], [503, "uncertain"]] as const) {
-  test(`production lifecycle classifies Axios ${status} and locks replay until registry refresh`, async () => {
+  test(`production lifecycle classifies Fetch ${status} and locks replay until registry refresh`, async () => {
     const h = host(); let reads = 0;
     h.setProps({ onSaved: async () => { reads++; return true; } });
-    const error = new AxiosError("controlled transport failure");
+    const error = new HttpError("controlled transport failure");
     error.response = { status, statusText: "controlled", data: {}, headers: {}, config: {} as any };
     h.setWrite(async () => { throw error; });
     h.choose(); h.review(); h.acknowledge(); h.save().props.onClick(); await settle();
@@ -132,7 +132,7 @@ for (const [status, message] of [[403, "forbidden"], [409, "conflict"], [503, "u
     h.save().props.onClick(); await settle(); assert.equal(h.writes.length, 1);
   });
 }
-test("production lifecycle classifies non-Axios rejection as uncertain without replay", async () => {
+test("production lifecycle classifies non-Fetch rejection as uncertain without replay", async () => {
   const h = host(); h.setWrite(async () => { throw new Error("controlled network failure"); });
   h.choose(); h.review(); h.acknowledge(); h.save().props.onClick(); await settle();
   assert.equal(h.render().find(n => n.props.role === "alert")?.props.children, "pluginRegistry.lifecycle.uncertain");

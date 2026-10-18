@@ -66,3 +66,51 @@ async fn correlation_discards_duplicate_or_orphan_trace_and_never_promotes_exist
     assert!(!headers.contains_key("baggage"));
     assert_eq!(headers["authorization"], "existing-auth");
 }
+
+#[tokio::test]
+async fn detached_future_captures_object_scope_and_budget_before_spawn_polls_it() {
+    use ai_platform_auth::cedar::resources::{self, ObjectSubject, PolicyScope};
+    let scope = PolicyScope {
+        request_id: "policy-a".into(),
+        trace_id: "trace-a".into(),
+        ..Default::default()
+    };
+    let future = resources::scoped(scope, async {
+        resources::remember_subject(ObjectSubject {
+            tenant_id: "t".into(),
+            user_id: "u".into(),
+            ..Default::default()
+        });
+        let now = wall_ms();
+        let budget =
+            Budget::admit(Duration::from_secs(2), now + 2000, now, Instant::now()).unwrap();
+        scoped_with_budget(
+            OutboundContext {
+                request_id: "outbound-a".into(),
+                ..Default::default()
+            },
+            Some(budget),
+            async {
+                scoped(
+                    OutboundContext {
+                        request_id: "detached-a".into(),
+                        ..Default::default()
+                    },
+                    async {
+                        assert_eq!(resources::capture().request_id, "policy-a");
+                        assert_eq!(resources::current_subject().unwrap().user_id, "u");
+                        assert!(capture_budget().is_some());
+                        assert_eq!(current().request_id, "detached-a");
+                    },
+                )
+            },
+        )
+        .await
+    })
+    .await;
+    assert!(resources::current_subject().is_none());
+    assert!(capture_budget().is_none());
+    tokio::spawn(future).await.unwrap();
+    assert!(resources::current_subject().is_none());
+    assert!(current().request_id.is_empty());
+}

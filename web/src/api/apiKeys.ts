@@ -1,3 +1,4 @@
+import type { RequestQuery } from "@/api/contracts";
 import { api } from "@/lib/api";
 
 export interface APIKeyListItem {
@@ -16,9 +17,9 @@ export interface APIKeyListItem {
 
 export async function listApiKeys(includeInactive = false): Promise<APIKeyListItem[]> {
   const response = await api.get<APIKeyListItem[]>("/api/v1/api-keys", {
-    params: {
+    params: ({
       include_inactive: includeInactive,
-    },
+    } satisfies RequestQuery<"GET /api/v1/api-keys">),
   });
   return response.data || [];
 }

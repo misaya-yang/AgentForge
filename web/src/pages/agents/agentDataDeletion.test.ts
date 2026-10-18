@@ -63,6 +63,7 @@ function host() {
     updateAgentGovernance: async () => policy, invalidateAgentCache: async () => ({ deleted_cache_rows: 0 }), revokeAllAgentCredentials: async () => ({}),
   };
   const modules: Record<string, unknown> = {
+    "@/components/DeferredTable": { DeferredTable: "Table" },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     "react-router-dom": { useParams: () => ({ agentId }), useNavigate: () => () => {}, Link: "Link" },
     "react-i18next": { useTranslation: () => ({ t, i18n: { resolvedLanguage: "en-US" } }) },

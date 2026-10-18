@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
+import { PasskeyStepUp } from "./PasskeyStepUp";
 
 interface Values {
   jwt_enabled: boolean;
@@ -126,7 +128,7 @@ function AuthEditor({ identity, isCurrent }: { identity: string; isCurrent: () =
       setSecret(""); setNeedsReview(true);
       let accepted = false;
       try {
-        const { data } = await api.put<{ status?: string }>(path, body);
+        const { data } = await api.put<{ status?: string }>(path, (body satisfies RequestBody<"PUT /api/v1/config/auth">));
         accepted = data?.status === "success";
       } catch {
         // Both profiles mutate before cache/audit. Even a failed response can
@@ -173,6 +175,7 @@ function AuthEditor({ identity, isCurrent }: { identity: string; isCurrent: () =
   </dl>;
 
   return <div className="space-y-4" aria-busy={busy || query.isFetching}>
+    <PasskeyStepUp key={identity} />
     <p className="text-sm text-muted-foreground">{t("settings.auth.recovery.scope")}</p>
     {query.isPending && <p role="status">{t("common.loading")}</p>}
     {query.isError && <p role="alert">{t("settings.auth.recovery.loadFailed")}</p>}

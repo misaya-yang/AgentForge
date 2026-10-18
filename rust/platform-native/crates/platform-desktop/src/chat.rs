@@ -117,7 +117,7 @@ impl Chat {
             }
             Message::Failed(e) => {
                 self.observing = false;
-                self.expired = matches!(e, Error::Status(401));
+                self.expired = e.status() == Some(401);
                 self.status = format!("{e}. No turn was automatically resubmitted.");
                 self.active = self.turn.is_some() && !self.expired;
                 if self.active {
@@ -130,7 +130,7 @@ impl Chat {
                     return;
                 }
                 self.stop_pending = false;
-                self.expired = matches!(&result, Err(Error::Status(401)));
+                self.expired = result.as_ref().err().and_then(Error::status) == Some(401);
                 self.status = match result {
                     Ok(()) => "Stop requested; awaiting terminal event".into(),
                     Err(e) => format!("Stop request failed: {e}"),
@@ -303,3 +303,56 @@ async fn observe(
     }
 }
 
+#[cfg(test)]
+mod problem_session_tests {
+    use super::*;
+    fn problem(status: u16) -> Error {
+        let bytes=serde_json::to_vec(&serde_json::json!({"type":"about:blank","title":"private-marker","status":status,"detail":"private-marker"})).unwrap();
+        Error::Problem(Box::new(
+            ai_platform_client::problem::RemoteProblem::decode(status, &bytes).unwrap(),
+        ))
+    }
+    fn active() -> Chat {
+        let mut chat = Chat::default();
+        chat.active = true;
+        chat.observing = true;
+        chat.thread = Some("thread-existing".into());
+        chat.turn = Some("turn-existing".into());
+        chat
+    }
+    #[test]
+    fn problem_unauthorized_observation_and_stop_trigger_existing_session_fence() {
+        let mut chat = active();
+        chat.handle_message(Message::Failed(problem(401)));
+        assert!(chat.expired && !chat.active && !chat.observing);
+        assert!(!chat.status.contains("private-marker"));
+        let mut chat = active();
+        chat.stop_pending = true;
+        chat.handle_message(Message::Stop("turn-existing".into(), Err(problem(401))));
+        assert!(chat.expired && !chat.stop_pending);
+        assert!(!chat.status.contains("private-marker"));
+    }
+    #[test]
+    fn non_auth_problem_and_unknown_errors_retain_existing_turn_without_resubmission() {
+        for error in [
+            problem(404),
+            problem(408),
+            problem(500),
+            problem(503),
+            Error::UnknownOutcome,
+        ] {
+            let mut chat = active();
+            chat.handle_message(Message::Failed(error));
+            assert!(!chat.expired && chat.active && !chat.observing);
+            assert_eq!(chat.turn.as_deref(), Some("turn-existing"));
+            assert_eq!(chat.thread.as_deref(), Some("thread-existing"));
+            assert!(
+                chat.status
+                    .contains("No turn was automatically resubmitted")
+            );
+            assert!(chat.status.contains("Remote outcome unresolved"));
+            assert!(!chat.status.contains("private-marker"));
+            assert!(chat.rx.try_recv().is_err());
+        }
+    }
+}

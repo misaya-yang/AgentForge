@@ -2,8 +2,7 @@
 //! authentication boundaries; no process is started by these factories.
 use crate::{
     migration_agent as agent, migration_compat as compat, migration_content as content,
-    migration_knowledge_query as query,
-    migration_local_node as local,
+    migration_knowledge_query as query, migration_local_node as local,
 };
 use ai_platform_auth::service::AuthService;
 use axum::Router;
@@ -13,6 +12,9 @@ use std::sync::Arc;
 /// Knowledge forwarding stays at the signed HTTP client boundary. Knowledge
 /// Service business routers belong only to the separate Knowledge service crate.
 pub struct GatewayApplication {
+    pub context_metrics: Arc<super::context_metrics::ContextMetricsCollector>,
+    pub control_plane: super::control_plane::config::Configuration,
+    pub rbac: Arc<ai_platform_auth::rbac::Rbac>,
     pub foundation: Router,
     pub auth: Arc<AuthService>,
     pub agent: agent::routes::AgentState,
@@ -34,12 +36,54 @@ pub struct GatewayApplication {
 }
 impl GatewayApplication {
     pub fn into_router(self) -> Result<Router, super::lifecycle::HostError> {
+        let protocol_admission = self.responses.auth.clone();
+        let protocol_audit_pool = self.responses.control.pool.clone();
+        let object_rbac = self.rbac.clone();
+        let dataset_pdp = self
+            .rbac
+            .decision_point
+            .clone()
+            .map(|point| {
+                super::control_plane::object_authorization::router(
+                    super::control_plane::object_authorization::DatasetPdp {
+                        point,
+                        verifier: self.knowledge_actor.verifier.clone(),
+                        actors: self.knowledge_actor.store.clone(),
+                    },
+                )
+            })
+            .transpose()?;
+
+        let external_agents = self
+            .control_plane
+            .a2a
+            .as_ref()
+            .map(|a| {
+                a.outbound
+                    .iter()
+                    .map(|p| p.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let a2a = self
+            .control_plane
+            .a2a
+            .map(|configuration| {
+                super::control_plane::a2a::Server::new(
+                    configuration,
+                    self.agent.clone(),
+                    protocol_admission.clone(),
+                    self.rbac.clone(),
+                )
+            })
+            .transpose()
+            .map_err(|_| super::lifecycle::HostError::Configuration)?;
         let access = self.content.access.clone();
         let context_metrics =
             super::context_metrics::router(super::context_metrics::ContextMetricsState {
                 access: access.clone(),
                 sessions: self.agent.sessions.clone(),
-                collector: super::context_metrics::ContextMetricsCollector::global(),
+                collector: self.context_metrics,
             })
             .layer(axum::middleware::from_fn_with_state(
                 access.clone(),
@@ -61,44 +105,63 @@ impl GatewayApplication {
         let langgraph_admission = self.responses.auth.clone();
         let actors = query::actor::gateway_actor_router(self.knowledge_actor)
             .map_err(|_| super::lifecycle::HostError::Configuration)?;
-        Ok(self
-            .foundation
-            .layer(axum::middleware::from_fn_with_state(
-                access.clone(),
-                content::access::request_context,
-            ))
-            .merge(
-                agent::routes::router(self.agent).layer(axum::middleware::from_fn_with_state(
-                    access,
+        let mut rest =
+            self.foundation
+                .layer(axum::middleware::from_fn_with_state(
+                    access.clone(),
                     content::access::request_context,
-                )),
-            )
-            .route("/openapi.json", axum::routing::get(openapi_document))
-            .merge(agent::model::router(self.model_plane))
-            .nest("/api/v1", content::router(self.content))
-            .merge(content::capabilities::router(self.content_capabilities))
-            .merge(content::read_broker::router(self.content_reads))
-            .merge(super::catalog::http::router(self.catalog))
-            .merge(session_tools)
-            .merge(context_metrics)
-            .merge(actors)
-            .merge(super::knowledge_proxy::router(self.knowledge_proxy))
-            .merge(compat::responses::router(self.responses))
-            .merge(compat::langgraph::router(
-                langgraph_admission,
-                self.langgraph,
-            ))
-            .merge(compat::eval::router_with_options(
-                self.auth,
-                self.evaluations,
-                self.eval_options,
-            ))
-            .merge(compat::mcp_invocation::router(
-                self.capability_authority,
-                self.mcp,
-            ))
-            .merge(compat::confluence::router(self.confluence))
-            .merge(local::broker::local_node_broker_router(self.local_node)))
+                ))
+                .merge(agent::routes::router(self.agent).layer(
+                    axum::middleware::from_fn_with_state(access, content::access::request_context),
+                ))
+                .route("/openapi.json", axum::routing::get(openapi_document))
+                .merge(agent::model::router(self.model_plane))
+                .nest("/api/v1", content::router(self.content))
+                .merge(content::capabilities::router(self.content_capabilities))
+                .merge(content::read_broker::router(self.content_reads))
+                .merge(super::catalog::http::router(self.catalog))
+                .merge(session_tools)
+                .merge(context_metrics)
+                .merge(actors)
+                .merge(super::knowledge_proxy::router(self.knowledge_proxy))
+                .merge(compat::responses::router(self.responses))
+                .merge(compat::langgraph::router(
+                    langgraph_admission,
+                    self.langgraph,
+                ))
+                .merge(compat::eval::router_with_options(
+                    self.auth,
+                    self.evaluations,
+                    self.eval_options,
+                ))
+                .merge(compat::mcp_invocation::router(
+                    self.capability_authority,
+                    self.mcp,
+                ))
+                .merge(compat::confluence::router(self.confluence))
+                .merge(local::broker::local_node_broker_router(self.local_node));
+        let published_agents = a2a.is_some();
+        if let Some(server) = a2a {
+            rest = rest.merge(super::control_plane::a2a::router(server));
+        }
+        if let Some(configuration) = self.control_plane.mcp {
+            let protocol = super::control_plane::mcp::router(
+                configuration,
+                rest.clone(),
+                protocol_admission,
+                published_agents,
+                external_agents,
+                protocol_audit_pool,
+            );
+            rest = rest.merge(protocol);
+        }
+        if let Some(router) = dataset_pdp {
+            rest = rest.merge(router);
+        }
+        Ok(rest.layer(axum::middleware::from_fn_with_state(
+            object_rbac,
+            super::control_plane::object_authorization::request_scope,
+        )))
     }
 }
 /// The same native declaration producer used by the offline contract gate.

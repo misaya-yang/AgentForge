@@ -18,6 +18,12 @@ function host(){
  const proposal={review_id:"r",provider_id:"p",state:"ready",changes:[{model_id:"m",kind:"change",changes:[{field:"display_name",before:"manual",after:"catalog"}],existing:{capability_overrides:{tools:false},access_level:"admin",input_price_per_1k:"3"},proposed:{},preserved_fields:["capability_overrides","access_level","input_price_per_1k"],new_model_policy:null}],retained_models:[],affected_references:[{agent_id:"a",name:"Visible Agent",model_id:"m",kind:"draft",match:"exact_provider"}],reference_coverage:"fixture",discovery_warnings:[],skipped_models:[],notice:""};
  modules["@/lib/api"]={api:{post:async(url:string,body?:unknown)=>{calls.push({url,body});return {data:url.endsWith("/preview")?proposal:{review_id:"r",provider_id:"p",state:"applied",result:{models:[]}}}},get:async(url:string)=>{calls.push({url});return {data:{review_id:"r",provider_id:"p",state:"applied",current:{models:[]}}}}}};
  function load(file:string){const exports:Record<string,unknown>={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file,import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require(name:string){if(name in modules)return modules[name];if(name.startsWith("@/components/ui/"))return new Proxy({},{get:(_,key)=>key});throw Error(name)}});return exports;}
+  modules["./generatedTransport"] = { request: async (operation: string, input: { path?: Record<string, string>; body?: unknown }) => {
+    const [method, template] = operation.split(" ");
+    const url = template.replace(/\{([^}]+)\}/g, (_: string, key: string) => encodeURIComponent(input.path![key]));
+    const client = (modules["@/lib/api"] as { api: Record<string, (url: string, body?: unknown) => Promise<{ data: unknown }>> }).api;
+    return (await client[method.toLowerCase()](url, input.body)).data;
+  } };
  modules["@/api/providers"]=load("../../api/providers.ts");const Component=load("./ProviderCatalogReview.tsx").ProviderCatalogReview as (p:unknown)=>unknown;
  function render(){cursor=0;const result=Component({provider:"p",onClose:()=>{},onReadback:()=>{}});for(const effect of effects.splice(0))effect();return result;}
  const click=(tree:unknown,key:string)=>{const button=nodes(tree,n=>n.props?.children===key)[0];assert.ok(button,key);assert.ok(!button.props.disabled,key+" disabled");(button.props.onClick as ()=>void)();};

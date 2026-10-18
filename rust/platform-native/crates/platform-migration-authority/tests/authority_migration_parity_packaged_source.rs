@@ -80,8 +80,8 @@ fn packaged_native_loader_keeps_historical_identity_without_python_preimages() {
     let epoch =
         manifest::load_epoch_manifest(&paths.epoch_dir(DEFAULT_BASELINE_ID).join("manifest.yml"))
             .unwrap();
-    assert_eq!(epoch.epoch, 28);
-    assert_eq!(epoch.changes.len(), 28);
+    assert_eq!(epoch.epoch, 29);
+    assert_eq!(epoch.changes.len(), 29);
     let mut applied = BTreeMap::new();
     assert_eq!(
         commands::expected_epoch_fingerprints(&paths, &baseline, &applied).unwrap(),

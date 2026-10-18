@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 import { sseFetch, waitForSseReconnect, type SSEConnectionState } from "@/lib/sse";
 import type { ChatRequest, StreamEvent } from "@/api/assistant";
@@ -43,7 +44,7 @@ async function createAgentThread(
   providerId?: string,
 ): Promise<AgentV2Thread> {
   const { data } = await api.post<{ thread: AgentV2Thread }>(
-    "/api/v2/agent/threads", buildAgentThreadPayload(sessionId, modelId, providerId),
+    "/api/v2/agent/threads", (buildAgentThreadPayload(sessionId, modelId, providerId) satisfies RequestBody<"POST /api/v2/agent/threads">),
   );
   return data.thread;
 }
@@ -58,7 +59,7 @@ async function startAgentTurn(
 ): Promise<{ turn?: { id?: string; events_url?: string } }> {
   const { data } = await api.post<{ turn?: { id?: string; events_url?: string } }>(
     `/api/v2/agent/threads/${encodeURIComponent(threadId)}/turns`,
-    buildAgentTurnPayload(message, modelId, reasoningOption, request),
+    (buildAgentTurnPayload(message, modelId, reasoningOption, request) satisfies RequestBody<"POST /api/v2/agent/threads/{thread}/turns">),
   );
   return data;
 }
@@ -66,7 +67,7 @@ async function startAgentTurn(
 async function interruptAgentTurn(threadId: string, turnId: string, reason = "client_interrupt") {
   const { data } = await api.post(
     `/api/v2/agent/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}:interrupt`,
-    { reason },
+    ({ reason } satisfies RequestBody<"POST /api/v2/agent/threads/{thread_id}/turns/{turn_id}:interrupt">),
   );
   return data;
 }
@@ -79,7 +80,7 @@ export async function decideAgentRuntimeApproval(
 ) {
   const { data } = await api.post(
     `/api/v2/agent/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(approvalId)}/decision`,
-    { approved, ...(reason ? { reason } : {}) },
+    ({ approved, ...(reason ? { reason } : {}) } satisfies RequestBody<"POST /api/v2/agent/threads/{thread}/approvals/{approval_id}/decision">),
   );
   return data;
 }
@@ -100,7 +101,7 @@ export async function getAgentRuntimeApproval(
   threadId: string,
   approvalId: string,
 ): Promise<{ approval: { status: string; tool_name?: string }; preview: AgentApprovalPreview }> {
-  const { data } = await api.get(
+  const { data } = await api.get<{ approval: { status: string; tool_name?: string }; preview: AgentApprovalPreview }>(
     `/api/v2/agent/threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(approvalId)}`,
   );
   return data;

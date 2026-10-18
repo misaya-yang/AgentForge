@@ -10,8 +10,8 @@ use wire::{CapabilityToken, Ceiling, Grant, PublicKeyring, SignedEnvelope};
 #[serde(deny_unknown_fields)]
 struct PrivateConfiguration {active_key_id:String,signing_seed_hex:String,verification:PublicKeyring}
 fn config()->Result<Option<PrivateConfiguration>,AgentError>{
-    let Some(path)=std::env::var_os("AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE") else{
-        if std::env::var("AI_PLATFORM_LEASE_TRUST_MODE").as_deref()==Ok("verify_only"){return Err(error())}
+    let Some(path)=ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE").ok() else{
+        if ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_LEASE_TRUST_MODE").as_deref()==Ok("verify_only"){return Err(error())}
         return Ok(None)
     };
     let bytes=std::fs::read(path).map_err(|_|error())?;
@@ -37,9 +37,9 @@ pub(super) fn verify_claims(purpose:&str,signature:&str,claims:&Value,now:u64)->
 }
 fn invalid()->AgentError{AgentError::code(401,"RUNTIME_MODEL_LEASE_SIGNATURE_INVALID")}
 pub(super) fn legacy_admitted(now:u64)->bool{
-    if std::env::var("AI_PLATFORM_LEASE_TRUST_MODE").as_deref()==Ok("verify_only"){return false}
-    if std::env::var_os("AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE").is_none(){return matches!(std::env::var("AI_PLATFORM_LEASE_TRUST_MODE").as_deref(),Err(_)|Ok("legacy_hmac"))}
-    std::env::var("AI_PLATFORM_LEASE_HMAC_ACCEPT_UNTIL_MS").ok().and_then(|v|v.parse::<u64>().ok())
+    if ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_LEASE_TRUST_MODE").as_deref()==Ok("verify_only"){return false}
+    if ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE").ok().is_none(){return matches!(ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_LEASE_TRUST_MODE").as_deref(),Err(_)|Ok("legacy_hmac"))}
+    ai_platform_capability_contract::broker_proof::setting("AI_PLATFORM_LEASE_HMAC_ACCEPT_UNTIL_MS").ok().and_then(|v|v.parse::<u64>().ok())
         .is_some_and(|deadline|now<deadline&&deadline<=now.saturating_add(86_400_000))
 }
 #[allow(clippy::too_many_arguments)]

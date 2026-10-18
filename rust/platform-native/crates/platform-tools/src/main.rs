@@ -8,38 +8,50 @@ mod ci;
 mod ci_capacity;
 mod ci_capacity_policy;
 mod compose_identity;
+mod container_security;
 mod database_identity;
+mod delivery_policy;
 mod dependency_policy;
 mod docs_truth;
 mod embed;
 mod evidence;
+mod external_a2a_acceptance;
 mod guard;
 mod harness;
+#[allow(dead_code)]
+#[path = "../../../../../deploy/helm/ai-gateway/tests/contracts.rs"]
+mod helm_chart;
 mod hygiene;
 mod image_size;
 mod inventory_generators;
 mod live_openapi;
 mod loc;
 mod local_dev_env;
+mod local_fresh;
+mod local_fresh_contract;
+mod local_fresh_files;
+mod local_fresh_security;
 mod native_gates;
+mod observability_contracts;
 mod packaging;
+mod platform_fitness;
+mod plugin_source;
+mod receipt_output;
 mod resource_lock;
 mod rollback_ops;
 mod rust_gate;
 mod selection;
 mod smoke_ops;
 mod source;
+mod source_batch;
+mod source_sync;
 mod supply_chain;
-mod topology;
-mod workflow_lint;
 mod third_party_notices;
-mod container_security;
+mod topology;
+mod upstream_sync;
 mod valkey_deployment;
-mod observability_contracts;
 mod valkey_material;
-#[allow(dead_code)]
-#[path = "../../../../../deploy/helm/ai-gateway/tests/contracts.rs"]
-mod helm_chart;
+mod workflow_lint;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -384,6 +396,8 @@ fn run() -> Result<bool> {
  "image-size-check"=>image_size::run(&args)?,
  "database-identity-gate"=>database_identity::run(&args)?,
  "dependency-policy"=>dependency_policy::run(&args)?,
+ "delivery-policy"=>delivery_policy::run(&args)?,
+ "platform-fitness"=>platform_fitness::run(&args)?,
  "workflow-lint"=>workflow_lint::run(&args)?,
  "third-party-notices"=>third_party_notices::run(&args)?,
  "container-security"=>container_security::run(&args)?,
@@ -398,10 +412,18 @@ fn run() -> Result<bool> {
  "ci-gate-enforcement"=>ci::run(&args)?,
  "ci-capacity"=>ci_capacity::run(&args)?,
  "local-dev-env"=>local_dev_env::run(&args)?,
+ "local-fresh-inputs"=>local_fresh::prepare(&args)?,
+ "local-fresh-contract"=>local_fresh_contract::validate(&args.root())?,
+ "local-fresh-qdrant-files"=>local_fresh::qdrant_files(&args)?,
+ "local-fresh-files"=>local_fresh_files::install(&args)?,
+ "local-fresh-security-extend"=>local_fresh_security::extend(&args)?,
+ "local-fresh-security-files"=>local_fresh_security::install(&args)?,
  "rust-changed-crate-gate"=>rust_gate::run(&args)?,
  "architecture-boundary"=>architecture::check(&root, args.values.get("--composed-workspace").map(Path::new))?,
  "python-inventory"=>architecture::python_inventory(&root,args.flag("--require-zero"))?,
  "source-lock"=>{match args.positionals.get(1).map(String::as_str).unwrap_or("validate"){
+  "sync-workload-source"=>source_sync::run(&args)?,
+  "sync-plugin-source"=>plugin_source::run(&args)?,
   "validate"=>source::validate_lock(&root,Path::new(args.get("--lock")?),args.flag("--require-runnable"),args.values.get("--require-artifact").map(String::as_str))?,
   "verify-local-images"=>source::verify_images(&args)?,
   "record-local-image"=>source::record_image(&args)?,
@@ -413,9 +435,20 @@ fn run() -> Result<bool> {
   _=>return Err("unsupported source-lock operation".into()),
  }},
  "source-candidate"=>source::candidate(&args)?,
+ "source-batch"=>source_batch::run(&args)?,
+ "upstream-sync"=>upstream_sync::run(&args)?,
+ "external-a2a-acceptance"=>external_a2a_acceptance::command(&std::env::args().skip(2).collect::<Vec<_>>())?,
  "recovery-archive"=>archive::verify(&args)?,
  "bundle-identity"=>source::bundle_identity(Path::new(args.get("--directory")?),args.flag("--overlay"))?,
- _=>return Err("usage: platform-tools {harness-check|architecture-boundary|python-inventory|source-lock validate|source-candidate verify|source-candidate assemble|recovery-archive verify|bundle-identity|buildx-resource-builder} [--repo-root PATH]".into())};
+ _=>return Err("usage: platform-tools {harness-check|architecture-boundary|python-inventory|source-lock validate|source-candidate verify|source-candidate assemble|upstream-sync {begin|compare|record-gate|verify|inspect}|recovery-archive verify|bundle-identity|buildx-resource-builder} [--repo-root PATH]".into())};
+    if matches!(
+        name,
+        "image-size-check" | "supply-chain" | "dependency-policy"
+    ) {
+        if let Some(path) = args.values.get("--evidence-out") {
+            receipt_output::write(Path::new(path), &value)?;
+        }
+    }
     if let Some(code) = value.get("_exit").and_then(Value::as_i64) {
         std::process::exit(code as i32);
     }

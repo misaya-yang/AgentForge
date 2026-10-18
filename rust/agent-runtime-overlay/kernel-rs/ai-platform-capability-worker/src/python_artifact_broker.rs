@@ -6,6 +6,7 @@
 //! durable capability execution in `side_effect_unknown` rather than risking a
 //! duplicate object write.
 
+use crate::workload_identity::WorkloadSend;
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -55,8 +56,8 @@ impl PythonArtifactBrokerConfig {
             || url.password().is_some()
             || url.query().is_some()
             || url.fragment().is_some()
-            || self.internal_token.len() < MIN_SECRET_BYTES
-            || self.proof_secret.len() < MIN_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < MIN_SECRET_BYTES)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_SECRET_BYTES)
         {
             return Err(PythonArtifactBrokerError::Configuration);
         }
@@ -230,7 +231,7 @@ impl PythonArtifactStore for ReqwestPythonArtifactStore {
         artifact: &CodeOutputArtifact,
     ) -> Result<PythonArtifactRecord, PythonArtifactBrokerError> {
         let body = Self::body(context, artifact)?;
-        let proof = self.proof(context, &body)?;
+        let proof = if crate::broker_proof::required() { crate::broker_proof::issue(PATH, &body).await.map_err(|_| PythonArtifactBrokerError::Configuration)? } else { self.proof(context, &body)? };
         let request = self
             .client
             .post(self.config.endpoint()?)
@@ -249,7 +250,7 @@ impl PythonArtifactStore for ReqwestPythonArtifactStore {
         )
         .json(&body)
         .timeout(Duration::from_secs(20))
-        .send()
+        .workload_send()
         .await
         .map_err(|_| PythonArtifactBrokerError::SideEffectUnknown)?;
         let status = response.status();

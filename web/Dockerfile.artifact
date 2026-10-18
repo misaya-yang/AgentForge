@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+# Local integration only: context is produced by package-frontend-artifact.mjs.
+# The normal production Dockerfile remains the source/dependency build entry.
+ARG NGINX_BASE_IMAGE=nginxinc/nginx-unprivileged:1.30-alpine
+FROM ${NGINX_BASE_IMAGE} AS runtime
+
+ARG APP_VERSION=2.0.0
+ARG VCS_REF=unknown
+ARG FRONTEND_ARTIFACT_SHA256
+ARG FRONTEND_SOURCE_SHA256
+LABEL org.opencontainers.image.title="AI Gateway Web (local verified artifact)" \
+      org.opencontainers.image.source="https://github.com/misaya-yang/AI--Platfform" \
+      org.opencontainers.image.version="$APP_VERSION" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      io.agentforge.frontend.artifact.sha256="$FRONTEND_ARTIFACT_SHA256" \
+      io.agentforge.frontend.checkout.sha256="$FRONTEND_SOURCE_SHA256"
+
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-precompressed-assets.conf /etc/nginx/nginx-precompressed-assets.conf
+COPY --chmod=755 docker-entrypoint.d/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
+COPY --chmod=755 docker-entrypoint.d/45-security-headers.sh /docker-entrypoint.d/45-security-headers.sh
+COPY dist/ /usr/share/nginx/html/
+COPY artifact-identity.json /usr/share/agentforge/frontend-artifact.json
+
+ENV RUNTIME_CONFIG_OUTPUT_PATH=/tmp/runtime-config.json
+USER 101:101
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+CMD ["nginx", "-g", "daemon off;"]

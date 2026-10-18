@@ -69,8 +69,9 @@ function file(size: number, type = "image/png", name = "image.png") {
 function uploaded(f: Awaited<ReturnType<typeof fixture>>, index = 0): File {
   const [path, body, options] = f.http.calls[index];
   assert.equal(path, "/api/v1/files/upload");
-  assert.equal(options.headers["Content-Type"], "multipart/form-data");
-  return body.get("file");
+  assert.equal(options.headers, undefined, "the generated codec must own the multipart boundary");
+  assert.deepEqual(Object.keys(body), ["file"]);
+  return body.file;
 }
 
 test("file utilities do not load the image codec", async t => {

@@ -51,7 +51,7 @@ pub fn extend_document(document: &mut Value) {
         "get_session_metrics_api_v1_assistant_sessions__session_id__metrics_get",
         vec![path("session_id"), query("limit", 50, 200)],
         object(
-            json!({"session_id":{"type":"string"},"request_count":{"type":"integer"},"avg_tokens":{"type":"integer"},"avg_utilization":{"type":"number"},"avg_compression_ratio":{"type":"number"},"avg_cache_hit_rate":{"type":"number"},"total_tokens_used":{"type":["integer","null"]}}),
+            json!({"session_id":{"type":"string"},"request_count":{"type":"integer"},"avg_tokens":{"type":"integer"},"avg_utilization":{"type":"number"},"avg_compression_ratio":{"type":["number","null"]},"avg_cache_hit_rate":{"type":["number","null"]},"total_tokens_used":{"type":["integer","null"]},"calculation":{"type":["object","null"],"required":["source","token_kind","context_window","non_text_tokens_unknown"],"properties":{"source":{"type":"string","const":"prepared_provider_request"},"token_kind":{"type":"string","const":"codepoint_estimate"},"context_window":{"type":"integer","minimum":1},"non_text_tokens_unknown":{"type":"boolean"}},"additionalProperties":false}}),
         ),
     );
     document["paths"][TENANT_METRICS]["get"] = get(
@@ -139,6 +139,10 @@ pub fn extend_document(document: &mut Value) {
             include_bytes!("../migration_compat/proxy_http.rs").as_slice(),
         ),
         (
+            "migration_host/context_metrics/producer.rs",
+            include_bytes!("context_metrics/producer.rs").as_slice(),
+        ),
+        (
             "migration_host/bootstrap/graph.rs",
             include_bytes!("bootstrap/graph.rs").as_slice(),
         ),
@@ -165,6 +169,21 @@ mod tests {
             d["paths"][TENANT_METRICS]["get"]["parameters"][0]["schema"]["maximum"],
             168
         );
+        let metrics = &d["paths"][SESSION_METRICS]["get"]["responses"]["200"]["content"]["application/json"]
+            ["schema"];
+        assert_eq!(
+            metrics["properties"]["avg_cache_hit_rate"]["type"],
+            json!(["number", "null"])
+        );
+        assert_eq!(
+            metrics["properties"]["avg_compression_ratio"]["type"],
+            json!(["number", "null"])
+        );
+        assert_eq!(
+            metrics["properties"]["calculation"]["properties"]["token_kind"]["const"],
+            "codepoint_estimate"
+        );
+        assert!(d["x-native-public-diagnostics"]["source_sha256"]["migration_host/context_metrics/producer.rs"].as_str().is_some_and(|s|s.len()==64));
         assert_eq!(d["x-native-public-diagnostics"]["complete"], false);
     }
 }

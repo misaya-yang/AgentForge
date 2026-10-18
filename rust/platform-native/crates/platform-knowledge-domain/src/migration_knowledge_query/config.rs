@@ -315,18 +315,20 @@ pub fn resolve(dataset: &Dataset, request: &RetrieveRequest) -> Result<ResolvedC
     if !(1..=4096).contains(&request.query.trim().chars().count()) {
         return Err(validation("query must contain 1-4096 characters"));
     }
-    if request.extra.iter().any(|(k, v)| match k.as_str() {
-        "include_images"
-        | "include_associated_images"
-        | "multimodal_rerank"
-        | "image_search_enabled"
-        | "use_separate_thresholds" => v.as_bool() == Some(true),
-        "vlm_rerank_weight" | "image_boost" | "image_score_threshold" => !v.is_null(),
-        "content_type_filter" => v
-            .as_str()
-            .is_some_and(|s| !s.is_empty() && !s.eq_ignore_ascii_case("text")),
-        _ => false,
-    }) {
+    if !super::serving_profile::multimodal(dataset)?
+        && request.extra.iter().any(|(k, v)| match k.as_str() {
+            "include_images"
+            | "include_associated_images"
+            | "multimodal_rerank"
+            | "image_search_enabled"
+            | "use_separate_thresholds" => v.as_bool() == Some(true),
+            "vlm_rerank_weight" | "image_boost" | "image_score_threshold" => !v.is_null(),
+            "content_type_filter" => v
+                .as_str()
+                .is_some_and(|s| !s.is_empty() && !s.eq_ignore_ascii_case("text")),
+            _ => false,
+        })
+    {
         return Err(validation(
             "multimodal retrieval is not enabled for this release",
         ));
@@ -340,6 +342,14 @@ pub fn resolve(dataset: &Dataset, request: &RetrieveRequest) -> Result<ResolvedC
         ));
     }
     validate_bounds(&serde_json::to_value(request).map_err(|_| validation("invalid request"))?)?;
+    let v2 = super::retrieval_v2::Profile::from_dataset(dataset)?;
+    if let Some(profile) = &v2 {
+        if request.hierarchical && !profile.options().is_empty() {
+            return Err(validation(
+                "retrieval.v2 quality options require standard retrieval",
+            ));
+        }
+    }
     let d = &dataset.index_config["retrieval"];
     validate_bounds(d)?;
     server_owned_config(&dataset.embedding_config)?;
@@ -412,7 +422,7 @@ pub fn resolve(dataset: &Dataset, request: &RetrieveRequest) -> Result<ResolvedC
             "fusion weights must be finite and non-negative with a positive value",
         ));
     }
-    let weighted_rrf = r.dense_weight.is_some()
+    let mut weighted_rrf = r.dense_weight.is_some()
         || r.bm25_weight.is_some()
         || r.alpha.is_some()
         || r.rrf_weights
@@ -427,6 +437,25 @@ pub fn resolve(dataset: &Dataset, request: &RetrieveRequest) -> Result<ResolvedC
         || d["adaptive_weights"].as_bool() == Some(true);
     if mode == "hybrid" && d["adaptive_weights"].as_bool().unwrap_or(true) {
         (dw, bw) = super::lexical::language_weights(&request.query, dw, bw)
+    }
+    if let Some(profile) = &v2 {
+        if mode == "hybrid"
+            && profile.query.detect_language
+            && r.dense_weight.is_none()
+            && r.bm25_weight.is_none()
+            && r.alpha.is_none()
+            && r.rrf_weights.is_none()
+        {
+            if let Some(weights) = profile
+                .query
+                .language_weights
+                .get(super::retrieval_v2::language(&request.query))
+            {
+                dw = weights[0];
+                bw = weights[1];
+                weighted_rrf = true;
+            }
+        }
     }
     let mut vk = r
         .vector_top_k
@@ -500,6 +529,16 @@ pub fn resolve(dataset: &Dataset, request: &RetrieveRequest) -> Result<ResolvedC
                     .ok_or_else(|| validation("summary_index.prepend_summary must be boolean"))?,
             })
         };
+    if let Some(stage) = v2
+        .as_ref()
+        .and_then(|p| p.cascade.as_ref())
+        .and_then(|c| c.stages.first())
+    {
+        vk = vk.max(stage.candidates);
+        kk = kk.max(stage.candidates);
+        ck = ck.max(stage.candidates);
+        pk = pk.max(stage.candidates);
+    }
     let rk = &d["rerank"];
     let mmr = &d["mmr"];
     let mmr_policy = mmr["fill_policy"]

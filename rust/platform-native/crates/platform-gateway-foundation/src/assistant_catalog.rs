@@ -8,10 +8,14 @@
 //!
 //! `data/assistant_catalog_v1.json` is a byte-for-byte packaging snapshot of
 //! `rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json`.
-//! Source SHA-256: 478175466f8c9f13e578ac0440eaaeaa5501cf56d49faf742feb37e2a2e4785d.
+//! Source SHA-256: 4f0d848eab8e2e0359598f8a1d8d67313af35b57333fb9f195ed43faf9da3a7e.
 //! Keep that snapshot in sync with the canonical worker data; the optional source
 //! equality test checks this in the full repository without requiring the overlay
 //! to compile or run the independent native source bundle.
+
+#[path = "assistant_publisher_admission.rs"]
+mod publisher_admission;
+pub use publisher_admission::publisher_admitted;
 
 #[path = "assistant_plugins.rs"]
 pub mod plugins;
@@ -417,6 +421,12 @@ impl CapabilityCatalog {
         Self::from_bytes(&bytes)
     }
     pub fn records(&self) -> &[Value] { &self.records }
+    /// Filter only availability; the original snapshot remains the deployment identity.
+    pub fn for_tenant(&self, tenant: &str) -> Self {
+        let mut catalog = self.clone();
+        catalog.records.retain(|record| publisher_admitted(record, tenant));
+        catalog
+    }
     pub fn revision(&self) -> u64 {
         self.revision
     }
@@ -943,8 +953,9 @@ async fn list_tools(State(state): State<CatalogState>, headers: HeaderMap) -> Re
         Ok(denied) => denied,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin policy is unavailable"),
     };
+    let tenant_catalog = catalog.for_tenant(&principal.tenant_id);
     match project_tools(
-        catalog,
+        &tenant_catalog,
         true,
         &principal.tier,
         &principal.roles,

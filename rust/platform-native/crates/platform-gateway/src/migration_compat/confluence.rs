@@ -1322,6 +1322,7 @@ pub fn router(broker: Arc<ConfluenceBroker>) -> Router {
             "/internal/v2/agent-capabilities/confluence/write",
             post(write),
         )
+        .layer(axum::middleware::from_fn(crate::migration_content::capabilities::scope_authenticated_workload))
         .with_state(broker)
 }
 async fn read(

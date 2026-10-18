@@ -130,7 +130,7 @@ export function QuizResult({
               {pq.correct
                 ? t("assistant.quiz.correct", "Correct")
                 : t("assistant.quiz.wrongDetail", {
-                    defaultValue: "Wrong (you: {{user}}, answer: {{correct}})",
+                    defaultValue: "Wrong (you: {user}, answer: {correct})",
                     user: pq.user_answer,
                     correct: pq.correct_answer,
                   })}

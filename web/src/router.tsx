@@ -44,11 +44,14 @@ const EnterpriseDashboard = lazyNamed(
 const WorkbenchPage = lazyNamed(() => import("@/pages/workbench"), "WorkbenchPage");
 const ServicesPage = lazyNamed(() => import("@/pages/Services"), "ServicesPage");
 const PlaygroundPage = lazyNamed(() => import("@/pages/playground"), "PlaygroundPage");
-const TasksPage = lazyNamed(() => import("@/pages/tasks"), "TasksPage");
+const TasksPage = lazyNamedWithNamespaces(() => import("@/pages/tasks"), "TasksPage", "tasks");
 const SettingsPage = lazyNamed(() => import("@/pages/Settings"), "SettingsPage");
 const GuardrailsSettingsPage = lazyNamed(() => import("@/pages/settings/GuardrailsSettings"), "GuardrailsSettingsPage");
 const TenantGovernanceSettingsPage = lazyNamed(() => import("@/pages/settings/TenantGovernanceSettings"), "TenantGovernanceSettingsPage");
 const RoleManagementPage = lazyNamed(() => import("@/pages/settings/RoleManagement"), "RoleManagementPage");
+const RoutingPolicySettings = lazyNamed(() => import("@/pages/settings/RoutingPolicySettings"), "RoutingPolicySettings");
+const EnterpriseIdentitySettings = lazyNamed(() => import("@/pages/settings/EnterpriseIdentitySettings"), "EnterpriseIdentitySettings");
+const McpRegistrySettings = lazyNamed(() => import("@/pages/settings/McpRegistrySettings"), "McpRegistrySettings");
 const KnowledgeApiKeysPage = lazyNamed(() => import("@/pages/settings/KnowledgeApiKeys"), "KnowledgeApiKeysPage");
 const PluginsSettingsPage = lazyNamed(() => import("@/pages/settings/PluginsSettings"), "PluginsSettingsPage");
 const ConnectionsPage = lazyNamed(() => import("@/pages/Connections"), "ConnectionsPage");
@@ -58,15 +61,15 @@ const ConnectorsSettingsPage = lazyNamed(
 );
 const UserManagementPage = lazyNamed(() => import("@/pages/UserManagement"), "UserManagementPage");
 const UserEditPage = lazyNamed(() => import("@/pages/UserEdit"), "UserEditPage");
-const KnowledgeDatasetsPage = lazyNamed(() => import("@/pages/knowledge"), "KnowledgeDatasetsPage");
-const KnowledgeDatasetDetailPage = lazyNamedWithNamespaces(() => import("@/pages/knowledge"), "KnowledgeDatasetDetailPage", "knowledge", "eval");
+const KnowledgeDatasetsPage = lazyNamed(() => import("@/pages/knowledge/Datasets"), "KnowledgeDatasetsPage");
+const KnowledgeDatasetDetailPage = lazyNamedWithNamespaces(() => import("@/pages/knowledge/DatasetDetail"), "KnowledgeDatasetDetailPage", "knowledge", "eval");
 const DatasetCreatePage = lazyNamedWithNamespaces(() => import("@/pages/knowledge/DatasetCreate"), "default", "knowledge");
 const AssistantPage = lazyNamed(() => import("@/pages/assistant"), "AssistantPage");
 const EvalPage = lazyNamedWithNamespaces(() => import("@/pages/eval"), "EvalPage", "eval", "knowledge");
-const AgentListPage = lazyNamedWithNamespaces(() => import("@/pages/agents"), "AgentListPage", "agents");
-const AgentCreatePage = lazyNamedWithNamespaces(() => import("@/pages/agents"), "AgentCreatePage", "agents");
-const AgentStudioPage = lazyNamedWithNamespaces(() => import("@/pages/agents"), "AgentStudioPage", "agents");
-const AgentAnalyticsPage = lazyNamedWithNamespaces(() => import("@/pages/agents"), "AgentAnalyticsPage", "agents");
+const AgentListPage = lazyNamedWithNamespaces(() => import("@/pages/agents/AgentListPage"), "AgentListPage", "agents");
+const AgentCreatePage = lazyNamedWithNamespaces(() => import("@/pages/agents/AgentCreatePage"), "AgentCreatePage", "agents");
+const AgentStudioPage = lazyNamedWithNamespaces(() => import("@/pages/agents/AgentStudioPage"), "AgentStudioPage", "agents");
+const AgentAnalyticsPage = lazyNamedWithNamespaces(() => import("@/pages/agents/AgentAnalyticsPage"), "AgentAnalyticsPage", "agents");
 const AgentHostedPage = lazyNamedWithNamespaces(() => import("@/pages/agent-public"), "AgentHostedPage", "agents");
 
 function RouteFallback() {
@@ -203,6 +206,9 @@ export function AppRouter() {
             }
           />
           <Route path="/users/roles" element={<ProtectedRoute requiredPermission="role:list"><RoleManagementPage /></ProtectedRoute>} />
+          <Route path="/settings/routing" element={<ProtectedRoute requiredPermission="routing:manage"><RoutingPolicySettings /></ProtectedRoute>} />
+          <Route path="/settings/identity" element={<ProtectedRoute requiredPermission="console:settings:view"><EnterpriseIdentitySettings /></ProtectedRoute>} />
+          <Route path="/settings/mcp-registry" element={<ProtectedRoute requiredPermission="console:settings:view"><McpRegistrySettings /></ProtectedRoute>} />
           <Route path="/settings/guardrails" element={<ProtectedRoute requiredPermission="console:settings:view"><GuardrailsSettingsPage /></ProtectedRoute>} />
           <Route path="/settings/governance" element={<ProtectedRoute requiredPermission="console:settings:view"><TenantGovernanceSettingsPage /></ProtectedRoute>} />
           <Route path="/settings/knowledge-api-keys" element={<ProtectedRoute requiredPermission="console:settings:view"><KnowledgeApiKeysPage /></ProtectedRoute>} />

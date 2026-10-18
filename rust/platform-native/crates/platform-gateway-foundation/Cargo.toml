@@ -4,17 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+ai-platform-python-compat = { version = "0.1.0", path = "../platform-python-compat" }
 ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
 rustls.workspace = true
 webpki-roots = "1"
-opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "grpc-tonic", "tls-roots"] }
 ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
 axum = { workspace = true, features = ["multipart", "ws"] }
 serde.workspace = true
 serde_json.workspace = true
-sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest.workspace = true
 tokio.workspace = true
@@ -51,5 +49,6 @@ unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 
 [dev-dependencies]
+opentelemetry = { version = "=0.32.0", default-features = false, features = ["trace"] }
 # Exercise the mounted callback Router in-process; already locked transitively.
 tower = { version = "0.5", features = ["util"] }

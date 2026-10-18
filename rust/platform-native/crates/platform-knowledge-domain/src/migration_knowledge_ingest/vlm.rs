@@ -22,9 +22,24 @@ pub struct VlmService {
     pub timeout: Duration,
 }
 impl VlmService {
-    pub fn new(_api_key:String,model:String,_base_url:Option<&str>,timeout:Duration,max_retries:usize)->Result<Self> {
-        if model.trim().is_empty() || timeout.is_zero() {return Err(IngestError::Validation("VLM model and deadline are required".into()));}
-        Ok(Self{model,endpoint:String::new(),max_retries,timeout})
+    pub fn new(
+        _api_key: String,
+        model: String,
+        _base_url: Option<&str>,
+        timeout: Duration,
+        max_retries: usize,
+    ) -> Result<Self> {
+        if model.trim().is_empty() || timeout.is_zero() {
+            return Err(IngestError::Validation(
+                "VLM model and deadline are required".into(),
+            ));
+        }
+        Ok(Self {
+            model,
+            endpoint: String::new(),
+            max_retries,
+            timeout,
+        })
     }
     pub fn detect_media_type(bytes: &[u8]) -> &'static str {
         if bytes.len() < 8 {
@@ -66,41 +81,50 @@ impl VlmService {
         let mime = Self::detect_media_type(bytes);
         let uri = format!("data:{mime};base64,{}", STANDARD.encode(bytes));
         let payload = json!({"model":self.model,"input":{"messages":[{"role":"user","content":[{"image":uri},{"text":prompt}]}]},"parameters":{"max_tokens":max_tokens}});
-        use crate::migration_knowledge_query::model_plane::{self,ModelPurpose,ModelWire};
-        let (status,value)=model_plane::execute("dashscope",&self.model,"",ModelPurpose::Vision,ModelWire::DashscopeVision,payload,self.timeout).await?;
-            if status >= 400 || value["status_code"].as_u64().is_some_and(|n| n >= 400) {
-                return Err(IngestError::Index(format!(
-                    "VLM API error: {status} {} {}",
-                    value["code"].as_str().unwrap_or(""),
-                    value["message"].as_str().unwrap_or("")
-                )));
-            }
-            let output = value
-                .get("output")
-                .filter(|v| !v.is_null())
-                .ok_or_else(|| IngestError::Index("VLM response missing output".into()))?;
-            let choices = output["choices"]
-                .as_array()
-                .filter(|v| !v.is_empty())
-                .ok_or_else(|| IngestError::Index("VLM response has no choices".into()))?;
-            let items = choices[0]["message"]["content"]
-                .as_array()
-                .ok_or_else(|| IngestError::Index("VLM response has no text content".into()))?;
-            let text = items
-                .iter()
-                .filter_map(|v| v["text"].as_str().or(v.as_str()))
-                .collect::<String>();
-            if text.is_empty() {
-                return Err(IngestError::Index(
-                    "VLM response has no text content".into(),
-                ));
-            }
-            return Ok(ImageDescription {
-                description: text.trim().into(),
-                model: self.model.clone(),
-                tokens_used: value["usage"]["total_tokens"].as_i64().unwrap_or(0),
-                metadata: json!({"image_type":image_type,"media_type":mime,"image_size":bytes.len()}),
-            });
+        use crate::migration_knowledge_query::model_plane::{self, ModelPurpose, ModelWire};
+        let (status, value) = model_plane::execute(
+            "dashscope",
+            &self.model,
+            "",
+            ModelPurpose::Vision,
+            ModelWire::DashscopeVision,
+            payload,
+            self.timeout,
+        )
+        .await?;
+        if status >= 400 || value["status_code"].as_u64().is_some_and(|n| n >= 400) {
+            return Err(IngestError::Index(format!(
+                "VLM API error: {status} {} {}",
+                value["code"].as_str().unwrap_or(""),
+                value["message"].as_str().unwrap_or("")
+            )));
+        }
+        let output = value
+            .get("output")
+            .filter(|v| !v.is_null())
+            .ok_or_else(|| IngestError::Index("VLM response missing output".into()))?;
+        let choices = output["choices"]
+            .as_array()
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| IngestError::Index("VLM response has no choices".into()))?;
+        let items = choices[0]["message"]["content"]
+            .as_array()
+            .ok_or_else(|| IngestError::Index("VLM response has no text content".into()))?;
+        let text = items
+            .iter()
+            .filter_map(|v| v["text"].as_str().or(v.as_str()))
+            .collect::<String>();
+        if text.is_empty() {
+            return Err(IngestError::Index(
+                "VLM response has no text content".into(),
+            ));
+        }
+        return Ok(ImageDescription {
+            description: text.trim().into(),
+            model: self.model.clone(),
+            tokens_used: value["usage"]["total_tokens"].as_i64().unwrap_or(0),
+            metadata: json!({"image_type":image_type,"media_type":mime,"image_size":bytes.len()}),
+        });
     }
     pub async fn describe_images_batch(
         &self,
@@ -137,16 +161,18 @@ impl VlmService {
                 .cloned()
                 .unwrap_or("general".into());
             let context = contexts.and_then(|p| p.get(index)).cloned();
-            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
-                let _permit = semaphore
-                    .acquire_owned()
-                    .await
-                    .map_err(|_| IngestError::Cancelled)?;
-                let result = service
-                    .describe_image(&bytes, prompt.as_deref(), &kind, context.as_deref(), 1500)
-                    .await;
-                Ok::<_, IngestError>((index, result))
-            }));
+            tasks.spawn(crate::migration_knowledge_query::model_plane::inherit(
+                async move {
+                    let _permit = semaphore
+                        .acquire_owned()
+                        .await
+                        .map_err(|_| IngestError::Cancelled)?;
+                    let result = service
+                        .describe_image(&bytes, prompt.as_deref(), &kind, context.as_deref(), 1500)
+                        .await;
+                    Ok::<_, IngestError>((index, result))
+                },
+            ));
         }
         let mut ordered = std::collections::BTreeMap::new();
         while let Some(result) = tasks.join_next().await {

@@ -1,3 +1,4 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 /**
  * Skills API client.
  */
@@ -19,16 +20,15 @@ export interface Skill {
   config?: Record<string, unknown>;
 }
 
-export async function listSkills(params?: { enabled_only?: boolean }) {
-  const { data } = await api.get<{ skills: Skill[]; total: number }>("/api/v1/skills", { params });
+export async function listSkills(params?: RequestQuery<"GET /api/v1/skills">) {
+  const { data } = await api.get<{ skills: Skill[]; total: number }>("/api/v1/skills", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/skills">) });
   return data;
 }
 
 
 export async function uploadSkill(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const { data } = await api.post<{ name: string; status: string }>("/api/v1/skills/upload", formData);
+  const upload: RequestBody<"POST /api/v1/skills/upload"> = { file };
+  const { data } = await api.post<{ name: string; status: string }>("/api/v1/skills/upload", upload);
   return data;
 }
 

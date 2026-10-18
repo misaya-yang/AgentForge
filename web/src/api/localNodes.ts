@@ -1,3 +1,4 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 
 // Local Nodes are a Gateway-owned control plane, not a legacy assistant route
@@ -148,7 +149,7 @@ export async function listLocalNodeGrants(deviceId: string): Promise<LocalNodeGr
 export async function listLocalNodeEvents(deviceId: string): Promise<LocalNodeEvent[]> {
   const { data } = await api.get<{ events: LocalNodeEvent[] }>(
     devicePath(deviceId, "/events"),
-    { params: { after_sequence: 0, limit: 100 } },
+    { params: ({ after_sequence: 0 } satisfies RequestQuery<"GET /api/v1/local-nodes/{device_id}/events">) },
   );
   return data.events;
 }
@@ -159,7 +160,7 @@ export async function listLocalNodeEventsAfter(
 ): Promise<LocalNodeEvent[]> {
   const { data } = await api.get<{ events: LocalNodeEvent[] }>(
     devicePath(deviceId, "/events"),
-    { params: { after_sequence: afterSequence, limit: 100 } },
+    { params: ({ after_sequence: afterSequence } satisfies RequestQuery<"GET /api/v1/local-nodes/{device_id}/events">) },
   );
   return data.events;
 }
@@ -174,7 +175,7 @@ export async function revokeLocalNodeGrant(
 export async function createLocalNodePairingChallenge(): Promise<PairingChallenge> {
   const { data } = await api.post<PairingChallenge>(
     `${LOCAL_NODES_PATH}/pairing/challenges`,
-    { expires_in_seconds: 180 },
+    ({ expires_in_seconds: 180 } satisfies RequestBody<"POST /api/v1/local-nodes/pairing/challenges">),
   );
   return data;
 }

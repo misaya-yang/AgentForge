@@ -24,6 +24,8 @@ pub(super) fn parse(surface: Surface, body: Bytes) -> LlmResult<Invocation> {
         _ => {}
     }
     Ok(Invocation {
+        client_request_id: None,
+        external_audit: false,
         surface,
         body,
         payload,

@@ -24,21 +24,23 @@ If your env file lives outside the repo, use `ENV_FILE=/path/to/.env` with Make 
 
 ## Useful Checks
 
-Run the checks that match your change:
+Select the checks needed for the current task using the [task harness](docs/harness/README.md).
+The commands below are alternatives for different work, not a sequence to replay after each edit:
 
 ```bash
 git diff --check
 make validate-example-config
 make harness-check
-CARGO_TARGET_DIR=/absolute/external/target make native-check
+make native-check
 pnpm -C web type-check
 pnpm -C web lint
 pnpm -C web build
 ```
 
 Use the pinned toolchains and affected tests in [the command catalog](docs/harness/commands.md).
-Keep plans in tracked `docs/plans/`, execution status in the owning `deploy/runbooks/` ledger,
-and durable verification receipts in `reports/`. Build output and private captures stay external.
+Keep plans in `docs/plans/` and execution status in the existing program ledger. Reuse applicable
+test results; only release/data/security requirements need separate durable evidence in `reports/`.
+Build output and private captures stay external.
 
 If a check cannot run locally, include the exact command, the blocker, and what a passing result would prove.
 

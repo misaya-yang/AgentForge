@@ -1,10 +1,12 @@
 import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { AxiosError } from "axios";
+import type { HttpError } from './fetchClient';
+function httpFailure(error: unknown): error is HttpError<Record<string, unknown>> {
+  return Boolean(error && typeof error === "object" && (error as { isHttpError?: boolean }).isHttpError === true);
+}
 import type { TFunction } from "i18next";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return clsx(inputs);
 }
 
 /**
@@ -30,16 +32,16 @@ export function generateUUID(): string {
 
 /**
  * Extract user-friendly error message from various error types.
- * Handles axios errors, standard errors, and unknown error types.
+ * Handles fetchHttp errors, standard errors, and unknown error types.
  */
 export function getErrorMessage(error: unknown): string {
-  // Handle axios errors - extract the detail from response
-  if (error instanceof AxiosError) {
+  // Handle fetchHttp errors - extract the detail from response
+  if (httpFailure(error)) {
     const detail = error.response?.data?.detail;
     if (detail) {
       return typeof detail === "string" ? detail : JSON.stringify(detail);
     }
-    // Fallback to status text or axios message
+    // Fallback to status text or fetchHttp message
     return error.response?.statusText || error.message;
   }
 
@@ -117,7 +119,7 @@ function isInternalModelRuntimeError(text: string): boolean {
 }
 
 function extractStatus(error: unknown, raw: string): number | undefined {
-  if (error instanceof AxiosError) {
+  if (httpFailure(error)) {
     return toNumber(error.response?.status);
   }
 

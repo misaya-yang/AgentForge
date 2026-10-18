@@ -1,3 +1,4 @@
+import { verifyReleaseSignature } from "./release_signature.mjs";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 
@@ -8,6 +9,8 @@ export interface NativeSourceIdentity {
   schema_version: string;
   upstream_sha: string;
   overlay_sha256: string;
+  release_keys?: Record<string,string>;
+  release_version?: string;
 }
 
 export interface NativeArtifactReceipt {
@@ -26,6 +29,7 @@ export function verifyNativeArtifact(
   platform: NodeJS.Platform,
   arch: string,
   expectedSource?: NativeSourceIdentity,
+  binaryName?: string,
 ): void {
   const stat = lstatSync(binaryPath);
   if (!stat.isFile() || stat.isSymbolicLink()) {
@@ -45,16 +49,18 @@ export function verifyNativeArtifact(
     validateNativeSourceIdentity(expectedSource);
     if (receipt.upstream_sha !== expectedSource.upstream_sha) throw new Error("Native Agent Runtime upstream SHA mismatch");
     if (receipt.overlay_sha256 !== expectedSource.overlay_sha256) throw new Error("Native Agent Runtime overlay SHA mismatch");
+    if (expectedSource.release_version && (receipt as NativeArtifactReceipt & {release_version?:string}).release_version!==expectedSource.release_version) throw new Error("Native release version mismatch");
   }
   if (receipt.target_system !== expectedSystem || receipt.target_arch !== arch) {
     throw new Error(`Native Agent Runtime target mismatch: expected ${expectedSystem}-${arch}`);
   }
-  const expectedName = platform === "win32" ? "codex.exe" : "codex";
+  const expectedName = binaryName ?? (platform === "win32" ? "codex.exe" : "codex");
   if (receipt.binary !== expectedName) throw new Error("Native Agent Runtime binary name mismatch");
   const digest = createHash("sha256").update(readFileSync(binaryPath)).digest("hex");
   if (!/^[0-9a-f]{64}$/.test(receipt.sha256) || digest !== receipt.sha256) {
     throw new Error("Native Agent Runtime binary SHA-256 mismatch");
   }
+  if (expectedSource) verifyReleaseSignature(receipt, expectedSource.release_keys);
 }
 
 export function readNativeSourceIdentity(path: string): NativeSourceIdentity {

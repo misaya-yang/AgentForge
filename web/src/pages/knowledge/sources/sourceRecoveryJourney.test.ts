@@ -101,6 +101,7 @@ function sourcePage(sourceQuery: Data) {
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const jsx = (type: unknown, props: Data) => ({ type, props });
   const modules: Record<string, unknown> = {
+    "@/components/deferComponent": { deferComponent: (_load: unknown, name: string) => name },
     react: { useState: (initial: unknown) => [typeof initial === "function" ? initial() : initial, () => {}], useMemo: (f: () => unknown) => f(), useRef: (current: unknown) => ({ current }), useEffect: () => {} },
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },

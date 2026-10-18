@@ -37,7 +37,9 @@ pub use ai_platform_client::ApiRequest;
 impl From<ai_platform_client::Error> for ApiError {
     fn from(error: ai_platform_client::Error) -> Self {
         match error {
-            ai_platform_client::Error::UnknownOutcome => Self::Contract("Submission outcome unknown; do not automatically resubmit"),
+            ai_platform_client::Error::UnknownOutcome => {
+                Self::Contract("Submission outcome unknown; do not automatically resubmit")
+            }
             ai_platform_client::Error::Origin => Self::Origin,
             ai_platform_client::Error::Request => Self::Request,
             ai_platform_client::Error::Authentication => Self::Authentication,
@@ -45,6 +47,28 @@ impl From<ai_platform_client::Error> for ApiError {
             ai_platform_client::Error::Response => Self::Response,
             ai_platform_client::Error::Contract(message) => Self::Contract(message),
             ai_platform_client::Error::Status(status) => Self::Status(status),
+            ai_platform_client::Error::Problem(problem) => Self::Status(problem.status),
+        }
+    }
+}
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+
+    #[test]
+    fn structured_errors_preserve_desktop_status_branches_without_rendering_details() {
+        for status in [401, 403, 404, 409, 429, 503] {
+            let problem = ai_platform_client::problem::RemoteProblem {
+                problem_type: "about:blank".into(),
+                title: "private-marker".into(),
+                status,
+                detail: json!({"message": "private-marker"}),
+                instance: None,
+            };
+            let error = ApiError::from(ai_platform_client::Error::Problem(Box::new(problem)));
+            assert!(matches!(error, ApiError::Status(actual) if actual == status));
+            assert_eq!(error.to_string(), format!("Server returned HTTP {status}"));
+            assert!(!format!("{error:?}").contains("private-marker"));
         }
     }
 }

@@ -59,9 +59,14 @@ pub async fn init(service: &'static str) -> Result<Option<TelemetryGuard>, Strin
     {
         return Ok(None);
     }
-    tokio::task::spawn_blocking(move || init_enabled(service))
-        .await
-        .map_err(|_| "otel_init_task_failed".to_owned())?
+    match tokio::task::spawn_blocking(move || init_enabled(service)).await {
+        Ok(Ok(guard)) => Ok(guard),
+        _ => {
+            // Telemetry configuration/transport must never reject business startup.
+            tracing::warn!(code = "OTEL_INIT_FAILED", "telemetry export unavailable");
+            Ok(None)
+        }
+    }
 }
 fn init_enabled(service: &'static str) -> Result<Option<TelemetryGuard>, String> {
     let endpoint =
@@ -167,10 +172,12 @@ pub struct Operation {
     start: Instant,
     kind: OperationKind,
     completed: bool,
+    dimensions: Vec<KeyValue>,
+    first_chunk: bool,
 }
 impl Operation {
     pub fn start(parent: Option<&str>, state: Option<&str>, kind: OperationKind) -> Self {
-        let parent = remote_context(parent, state).unwrap_or_default();
+        let parent = remote_context(parent, state).unwrap_or_else(Context::current);
         let tracer = global::tracer_with_scope(
             opentelemetry::InstrumentationScope::builder(SCOPE)
                 .with_schema_url(SCHEMA_URL)
@@ -185,6 +192,8 @@ impl Operation {
             start: Instant::now(),
             kind,
             completed: false,
+            dimensions: Vec::new(),
+            first_chunk: false,
         }
     }
     pub fn traceparent(&self) -> Option<String> {
@@ -206,35 +215,93 @@ impl Operation {
     pub fn context(&self) -> Context {
         self.context.clone()
     }
+    pub fn with_tenant(mut self, tenant: &str) -> Self {
+        use sha2::{Digest, Sha256};
+        if !tenant.trim().is_empty() && tenant.len() <= 255 && !tenant.chars().any(char::is_control)
+        {
+            self.dimensions.push(KeyValue::new(
+                "agentforge.tenant.id",
+                format!("sha256:{:x}", Sha256::digest(tenant.as_bytes())),
+            ));
+        }
+        self
+    }
+    pub fn with_model(mut self, model: &str) -> Self {
+        if !model.is_empty()
+            && model.len() <= 128
+            && model
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"._:/-".contains(&b))
+        {
+            self.dimensions
+                .push(KeyValue::new("gen_ai.request.model", model.to_owned()));
+        }
+        self
+    }
+    pub fn inherit_tenant(&mut self, parent: &Self) {
+        self.dimensions.extend(
+            parent
+                .dimensions
+                .iter()
+                .filter(|a| a.key.as_str() == "agentforge.tenant.id")
+                .cloned(),
+        );
+    }
+    pub fn first_chunk(&mut self) {
+        if !self.first_chunk {
+            self.first_chunk = true;
+            let _active = self.context.clone().attach();
+            let mut dimensions = self.dimensions.clone();
+            dimensions.push(KeyValue::new("gen_ai.operation.name", self.kind.name()));
+            global::meter(SCOPE)
+                .f64_histogram("gen_ai.client.operation.time_to_first_chunk")
+                .with_unit("s")
+                .build()
+                .record(self.start.elapsed().as_secs_f64(), &dimensions);
+        }
+    }
     pub fn tokens(&self, input: u64, output: u64) {
+        let _active = self.context.clone().attach();
+        for (key, count) in [
+            ("gen_ai.usage.input_tokens", input),
+            ("gen_ai.usage.output_tokens", output),
+        ] {
+            self.context
+                .span()
+                .set_attribute(KeyValue::new(key, i64::try_from(count).unwrap_or(i64::MAX)));
+        }
         let counter = global::meter(SCOPE)
             .u64_histogram("gen_ai.client.token.usage")
             .with_unit("{token}")
             .build();
         for (kind, count) in [("input", input), ("output", output)] {
-            counter.record(count, &[KeyValue::new("gen_ai.token.type", kind)]);
+            let mut dimensions = self.dimensions.clone();
+            dimensions.push(KeyValue::new("gen_ai.token.type", kind));
+            dimensions.push(KeyValue::new("gen_ai.operation.name", self.kind.name()));
+            counter.record(count, &dimensions);
         }
     }
 }
 impl Drop for Operation {
     fn drop(&mut self) {
+        let _active = self.context.clone().attach();
         let outcome = if self.completed { "ok" } else { "incomplete" };
         if !self.completed {
             self.context
                 .span()
                 .set_status(Status::error("operation_incomplete"));
         }
+        self.context.span().set_attributes(self.dimensions.clone());
+        let mut dimensions = self.dimensions.clone();
+        dimensions.extend([
+            KeyValue::new("gen_ai.operation.name", self.kind.name()),
+            KeyValue::new("outcome", outcome),
+        ]);
         global::meter(SCOPE)
             .f64_histogram("gen_ai.client.operation.duration")
             .with_unit("s")
             .build()
-            .record(
-                self.start.elapsed().as_secs_f64(),
-                &[
-                    KeyValue::new("gen_ai.operation.name", self.kind.name()),
-                    KeyValue::new("outcome", outcome),
-                ],
-            );
+            .record(self.start.elapsed().as_secs_f64(), &dimensions);
         if let Some(provider) = LOGS.get() {
             let logger = provider.logger(SCOPE);
             let mut record = logger.create_log_record();
@@ -317,6 +384,32 @@ mod tests {
         }
     }
     #[test]
+    fn tenant_and_model_dimensions_never_export_raw_tenant_or_prompt() {
+        let operation = Operation::start(None, None, OperationKind::Chat)
+            .with_tenant("private-tenant-name")
+            .with_model("provider/model-v1");
+        let labels = format!("{:?}", operation.dimensions);
+        assert!(labels.contains("sha256:"));
+        assert!(!labels.contains("private-tenant-name"));
+        assert!(labels.contains("provider/model-v1"));
+        assert!(
+            Operation::start(None, None, OperationKind::Chat)
+                .with_tenant("\nprivate")
+                .with_model("private prompt text")
+                .dimensions
+                .is_empty()
+        );
+    }
+    #[test]
+    fn first_chunk_observation_is_once_only() {
+        let mut operation = Operation::start(None, None, OperationKind::Chat);
+        assert!(!operation.first_chunk);
+        operation.first_chunk();
+        operation.first_chunk();
+        assert!(operation.first_chunk);
+        operation.success();
+    }
+    #[test]
     fn operation_vocabulary_cannot_capture_content() {
         assert_eq!(OperationKind::Chat.name(), "chat");
         assert_eq!(SEMCONV_VERSION, "1.37.0");
@@ -346,7 +439,7 @@ mod export_tests {
             self.spans.lock().unwrap().extend(batch);
             Ok(())
         }
-        fn shutdown_with_timeout(&mut self, _: Duration) -> OTelSdkResult {
+        fn shutdown_with_timeout(&self, _: Duration) -> OTelSdkResult {
             self.shutdowns.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -382,6 +475,8 @@ mod export_tests {
                 kind: OperationKind::Chat,
                 start: Instant::now(),
                 completed: false,
+                dimensions: Vec::new(),
+                first_chunk: false,
             };
             operation.success();
             drop(operation);
@@ -413,6 +508,8 @@ mod export_tests {
             kind: OperationKind::ExecuteTool,
             start: Instant::now(),
             completed: false,
+            dimensions: Vec::new(),
+            first_chunk: false,
         });
         provider.shutdown().unwrap();
         let spans = capture.spans.lock().unwrap();

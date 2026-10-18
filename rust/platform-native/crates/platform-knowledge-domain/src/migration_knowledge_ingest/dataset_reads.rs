@@ -26,7 +26,7 @@ fn permission(rank: i32) -> Value {
 }
 impl IngestionService {
     async fn statistics_batch(&self, ids: &[String]) -> Result<BTreeMap<String, Value>> {
-        let rows:Vec<Value>=sqlx::query_scalar("WITH document_stats AS(SELECT dataset_id,COUNT(*)::bigint AS document_count,COUNT(*) FILTER(WHERE status='completed' AND enabled=TRUE AND archived=FALSE)::bigint AS available_document_count,COALESCE(SUM(word_count),0)::bigint AS word_count FROM knowledge.documents WHERE dataset_id=ANY($1) GROUP BY dataset_id),segment_stats AS(SELECT dataset_id,COUNT(*)::bigint AS segment_count,COUNT(*) FILTER(WHERE enabled=TRUE AND status='completed')::bigint AS available_segment_count,COALESCE(SUM(hit_count),0)::bigint AS hit_count FROM knowledge.segments WHERE dataset_id=ANY($1) GROUP BY dataset_id) SELECT to_jsonb(result) FROM(SELECT d.dataset_id,COALESCE(doc.document_count,0) AS document_count,COALESCE(doc.available_document_count,0) AS available_document_count,COALESCE(doc.word_count,0) AS word_count,COALESCE(seg.segment_count,0) AS segment_count,COALESCE(seg.available_segment_count,0) AS available_segment_count,COALESCE(seg.hit_count,0) AS hit_count FROM knowledge.datasets d LEFT JOIN document_stats doc ON doc.dataset_id=d.dataset_id LEFT JOIN segment_stats seg ON seg.dataset_id=d.dataset_id WHERE d.dataset_id=ANY($1) AND d.is_deleted=FALSE) result").bind(ids).fetch_all(&self.store.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("WITH document_stats AS(SELECT dataset_id,COUNT(*)::bigint AS document_count,COUNT(*) FILTER(WHERE status='completed' AND enabled=TRUE AND archived=FALSE)::bigint AS available_document_count,COALESCE(SUM(word_count),0)::bigint AS word_count FROM knowledge.documents WHERE dataset_id=ANY($1) GROUP BY dataset_id),segment_stats AS(SELECT dataset_id,COUNT(*)::bigint AS segment_count,COUNT(*) FILTER(WHERE enabled=TRUE AND status='completed')::bigint AS available_segment_count,COALESCE(SUM(hit_count),0)::bigint AS hit_count FROM knowledge.segments WHERE dataset_id=ANY($1) GROUP BY dataset_id) SELECT to_jsonb(result) FROM(SELECT d.dataset_id,COALESCE(doc.document_count,0) AS document_count,COALESCE(doc.available_document_count,0) AS available_document_count,COALESCE(doc.word_count,0) AS word_count,COALESCE(seg.segment_count,0) AS segment_count,COALESCE(seg.available_segment_count,0) AS available_segment_count,COALESCE(seg.hit_count,0) AS hit_count FROM knowledge.datasets d LEFT JOIN document_stats doc ON doc.dataset_id=d.dataset_id LEFT JOIN segment_stats seg ON seg.dataset_id=d.dataset_id WHERE d.dataset_id=ANY($1) AND d.is_deleted=FALSE) result").bind(ids).fetch_all(crate::database::executor(&self.store.pool)).await?;
         let mut result: BTreeMap<String, Value> =
             ids.iter().map(|id| (id.clone(), zero_stats())).collect();
         for mut row in rows {
@@ -90,7 +90,7 @@ impl IngestionService {
             .push(" OFFSET 0");
         let mut rows: Vec<Value> = query
             .build_query_scalar()
-            .fetch_all(&self.store.pool)
+            .fetch_all(crate::database::executor(&self.store.pool))
             .await?;
         let more = rows.len() > limit as usize;
         rows.truncate(limit as usize);
@@ -120,6 +120,34 @@ impl IngestionService {
             .store
             .catalog_permissions_batch(actor, &auth_rows)
             .await?;
+        let cedar_ranks = if let Some(policy) = self
+            .store
+            .object_policy
+            .clone()
+            .or_else(crate::cedar_dataset_policy::current)
+        {
+            let checks = auth_rows
+                .iter()
+                .map(|row| {
+                    let permissions = grants
+                        .get(string(row, "dataset_id"))
+                        .cloned()
+                        .unwrap_or_default();
+                    let rank =
+                        super::store::dataset_permission_from_grants(actor, row, &permissions);
+                    crate::cedar_dataset_policy::facts(row, permissions, rank)
+                })
+                .collect();
+            Some(
+                policy
+                    .ranks(actor, checks)
+                    .await
+                    .map_err(|_| IngestError::Permission)?,
+            )
+        } else {
+            None
+        };
+        let mut resource_index = 0usize;
         let mut visible = vec![];
         for (mut row, auth_row) in rows.into_iter().zip(auth_rows.iter()) {
             let permissions = grants
@@ -127,6 +155,12 @@ impl IngestionService {
                 .map(Vec::as_slice)
                 .unwrap_or(&[]);
             let rank = super::store::dataset_permission_from_grants(actor, auth_row, permissions);
+            let rank = if let Some(ranks) = &cedar_ranks {
+                *ranks.get(resource_index).ok_or(IngestError::Permission)?
+            } else {
+                rank
+            };
+            resource_index += 1;
             if rank >= if archived { 3 } else { 1 } {
                 row["my_permission"] = permission(rank);
                 visible.push(row);
@@ -310,7 +344,7 @@ impl IngestionService {
             .require_dataset_access(actor, dataset, "viewer")
             .await?;
         let expected = super::document_reads::generation(&d)?;
-        let counts:Vec<(Option<String>,i64)>=sqlx::query_as("SELECT source_type,COUNT(*) FROM knowledge.documents WHERE dataset_id=$1 GROUP BY source_type").bind(dataset).fetch_all(&self.store.pool).await?;
+        let counts:Vec<(Option<String>,i64)>=sqlx::query_as("SELECT source_type,COUNT(*) FROM knowledge.documents WHERE dataset_id=$1 GROUP BY source_type").bind(dataset).fetch_all(crate::database::executor(&self.store.pool)).await?;
         let counts: BTreeMap<_, _> = counts
             .into_iter()
             .map(|(key, n)| (key.unwrap_or_else(|| "unknown".into()), n))
@@ -318,7 +352,7 @@ impl IngestionService {
         let mut bindings = vec![];
         let mut connector_status = "not_configured";
         if self.confluence_sources_enabled {
-            let rows:std::result::Result<Vec<Value>,sqlx::Error>=sqlx::query_scalar("SELECT to_jsonb(binding) FROM knowledge.confluence_space_bindings binding WHERE dataset_id=$1 ORDER BY created_at DESC LIMIT 100").bind(dataset).fetch_all(&self.store.pool).await;
+            let rows:std::result::Result<Vec<Value>,sqlx::Error>=sqlx::query_scalar("SELECT to_jsonb(binding) FROM knowledge.confluence_space_bindings binding WHERE dataset_id=$1 ORDER BY created_at DESC LIMIT 100").bind(dataset).fetch_all(crate::database::executor(&self.store.pool)).await;
             match rows {
                 Ok(rows) => {
                     connector_status = "available";
@@ -517,6 +551,11 @@ pub fn revision_fingerprint(dataset: &Value) -> Option<String> {
         "vector_top_k",
     ];
     let mut safe = fingerprint_projection(&retrieval, keys);
+    if let Ok(Some(profile)) =
+        crate::migration_knowledge_query::retrieval_v2::Profile::parse(&retrieval["v2"])
+    {
+        safe["v2"] = json!({"fingerprint":profile.fingerprint()});
+    }
     if retrieval["fusion"].is_object() {
         safe["fusion"] = fingerprint_projection(
             &retrieval["fusion"],

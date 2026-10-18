@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -54,9 +55,9 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
 
     try {
       // Update profile via API
-      await api.put(`/api/v1/users/${user?.user_id}/profile`, {
+      await api.put(`/api/v1/users/${user?.user_id}/profile`, ({
         display_name: displayName.trim(),
-      });
+      } satisfies RequestBody<"PUT /api/v1/users/{user_id}/profile">));
 
       // Update local state
       updateUser({ display_name: displayName.trim() });
@@ -67,8 +68,8 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
         onClose();
       }, 1000);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { detail?: string } } };
-      setError(axiosError.response?.data?.detail || t("user.profileUpdateFailed"));
+      const httpError = err as { response?: { data?: { detail?: string } } };
+      setError(httpError.response?.data?.detail || t("user.profileUpdateFailed"));
     } finally {
       setIsLoading(false);
     }

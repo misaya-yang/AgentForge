@@ -1,7 +1,7 @@
 ---
 name: quiz-generation
-description: Create an interactive quiz from knowledge-base content, conversation context, or uploaded files using the assistant's built-in generate_quiz tool.
-compatibility: Requires the AI Gateway assistant runtime with the generate_quiz built-in tool.
+description: Create an interactive quiz from knowledge-base content, conversation context, or uploaded files using the activated ai-quiz plugin's generate_quiz capability.
+compatibility: Requires the signed ai-quiz plugin activation and tenant publisher approval for generate_quiz.
 allowed-tools: generate_quiz
 ---
 

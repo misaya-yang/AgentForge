@@ -52,7 +52,9 @@ impl LegacyManagement {
             "SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE binding_id=$1",
         )
         .bind(id)
-        .fetch_optional(&self.sources.pool)
+        .fetch_optional(ai_platform_knowledge_domain::database::executor(
+            &self.sources.pool,
+        ))
         .await?)
     }
     pub async fn get_binding(&self, id: &str, user: &UserContext) -> Result<Value> {
@@ -76,7 +78,9 @@ impl LegacyManagement {
         let row: Value =
             sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE id=$1")
                 .bind(id)
-                .fetch_optional(&self.sources.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(
+                    &self.sources.pool,
+                ))
                 .await?
                 .ok_or_else(|| Error::missing("Page record not found"))?;
         self.get_binding(text(&row, "binding_id"), user).await?;
@@ -88,7 +92,7 @@ impl LegacyManagement {
         tenant: Option<&str>,
         dataset: Option<&str>,
     ) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE ($1::text IS NULL OR connection_id=$1) AND ($2::text IS NULL OR tenant_id=$2) AND ($3::text IS NULL OR dataset_id=$3) ORDER BY created_at DESC LIMIT 100").bind(present(connection)).bind(present(tenant)).bind(present(dataset)).fetch_all(&self.sources.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE ($1::text IS NULL OR connection_id=$1) AND ($2::text IS NULL OR tenant_id=$2) AND ($3::text IS NULL OR dataset_id=$3) ORDER BY created_at DESC LIMIT 100").bind(present(connection)).bind(present(tenant)).bind(present(dataset)).fetch_all(ai_platform_knowledge_domain::database::executor(&self.sources.pool)).await?)
     }
     pub async fn list_bindings(
         &self,
@@ -126,7 +130,7 @@ impl LegacyManagement {
         offset: i64,
         synced_only: bool,
     ) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(cp) || jsonb_build_object('document_status',d.status,'document_progress',d.progress,'effective_status',CASE WHEN cp.status='synced' AND cp.document_id IS NOT NULL AND (d.document_id IS NULL OR COALESCE(d.segment_count,0)=0) THEN 'needs_resync' ELSE cp.status END) FROM confluence_pages cp LEFT JOIN documents d ON cp.document_id=d.document_id WHERE cp.binding_id=$1 AND ($2::text IS NULL OR cp.status=$2) AND (NOT $3 OR cp.document_id IS NOT NULL) ORDER BY cp.title ASC LIMIT $4 OFFSET $5").bind(binding).bind(present(status)).bind(synced_only).bind(limit).bind(offset).fetch_all(&self.sources.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(cp) || jsonb_build_object('document_status',d.status,'document_progress',d.progress,'effective_status',CASE WHEN cp.status='synced' AND cp.document_id IS NOT NULL AND (d.document_id IS NULL OR COALESCE(d.segment_count,0)=0) THEN 'needs_resync' ELSE cp.status END) FROM confluence_pages cp LEFT JOIN documents d ON cp.document_id=d.document_id WHERE cp.binding_id=$1 AND ($2::text IS NULL OR cp.status=$2) AND (NOT $3 OR cp.document_id IS NOT NULL) ORDER BY cp.title ASC LIMIT $4 OFFSET $5").bind(binding).bind(present(status)).bind(synced_only).bind(limit).bind(offset).fetch_all(ai_platform_knowledge_domain::database::executor(&self.sources.pool)).await?)
     }
     pub async fn list_pages(
         &self,
@@ -146,7 +150,9 @@ impl LegacyManagement {
         let deleted =
             sqlx::query("DELETE FROM confluence_pages WHERE binding_id=$1 AND document_id IS NULL")
                 .bind(binding)
-                .execute(&self.sources.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(
+                    &self.sources.pool,
+                ))
                 .await?
                 .rows_affected();
         Ok(json!({"binding_id":binding,"deleted":deleted}))
@@ -166,7 +172,7 @@ impl LegacyManagement {
         if let Some(binding) = binding {
             self.get_binding(binding, user).await?;
         }
-        let mut tasks:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE ($1::text IS NULL OR binding_id=$1) AND ($2::text IS NULL OR status=$2) ORDER BY priority DESC,created_at ASC LIMIT $3").bind(binding).bind(present(status)).bind(limit).fetch_all(&self.sources.pool).await?;
+        let mut tasks:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE ($1::text IS NULL OR binding_id=$1) AND ($2::text IS NULL OR status=$2) ORDER BY priority DESC,created_at ASC LIMIT $3").bind(binding).bind(present(status)).bind(limit).fetch_all(ai_platform_knowledge_domain::database::executor(&self.sources.pool)).await?;
         if binding.is_none() && user.user_tier != "admin" {
             let bindings = self.list_bindings(user, None, None, None).await?;
             let ids = bindings
@@ -181,7 +187,9 @@ impl LegacyManagement {
         let row: Option<Value> =
             sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE task_id=$1")
                 .bind(id)
-                .fetch_optional(&self.sources.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(
+                    &self.sources.pool,
+                ))
                 .await?;
         if let Some(row) = &row {
             if text(row, "binding_id").is_empty() {
@@ -322,7 +330,9 @@ impl LegacyManagement {
         sqlx::query(&statement)
             .bind(id)
             .bind(updates)
-            .execute(&self.sources.pool)
+            .execute(ai_platform_knowledge_domain::database::executor(
+                &self.sources.pool,
+            ))
             .await?;
         Ok(())
     }
@@ -386,7 +396,7 @@ impl LegacyManagement {
         self.verify_credentials(request.domain, request.email, request.api_token)
             .await?;
         let id = uuid::Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO confluence_connections(connection_id,tenant_id,name,domain,email,api_token,sync_mode,polling_interval_minutes,status,last_sync_at,last_error,created_by,owner_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active',NULL,NULL,$9,$9)").bind(&id).bind(request.tenant_id).bind(request.name).bind(request.domain).bind(request.email).bind(request.api_token).bind(request.sync_mode).bind(request.polling_interval_minutes).bind(request.created_by).execute(&self.sources.pool).await?;
+        sqlx::query("INSERT INTO confluence_connections(connection_id,tenant_id,name,domain,email,api_token,sync_mode,polling_interval_minutes,status,last_sync_at,last_error,created_by,owner_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active',NULL,NULL,$9,$9)").bind(&id).bind(request.tenant_id).bind(request.name).bind(request.domain).bind(request.email).bind(request.api_token).bind(request.sync_mode).bind(request.polling_interval_minutes).bind(request.created_by).execute(ai_platform_knowledge_domain::database::executor(&self.sources.pool)).await?;
         self.sources
             .connection(&id)
             .await?
@@ -452,7 +462,9 @@ impl LegacyManagement {
             sqlx::query(&statement)
                 .bind(id)
                 .bind(updates)
-                .execute(&self.sources.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(
+                    &self.sources.pool,
+                ))
                 .await?;
         }
         self.sources
@@ -471,7 +483,9 @@ impl LegacyManagement {
         Ok(
             sqlx::query("DELETE FROM confluence_connections WHERE connection_id=$1")
                 .bind(id)
-                .execute(&self.sources.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(
+                    &self.sources.pool,
+                ))
                 .await?
                 .rows_affected()
                 > 0,
@@ -483,7 +497,7 @@ impl LegacyManagement {
         tenant: Option<&str>,
         status: Option<&str>,
     ) -> Result<Vec<Value>> {
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(c) FROM confluence_connections c WHERE ($1::text IS NULL OR tenant_id=$1) AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC LIMIT 100").bind(present(tenant)).bind(present(status)).fetch_all(&self.sources.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(c) FROM confluence_connections c WHERE ($1::text IS NULL OR tenant_id=$1) AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC LIMIT 100").bind(present(tenant)).bind(present(status)).fetch_all(ai_platform_knowledge_domain::database::executor(&self.sources.pool)).await?;
         Ok(rows
             .into_iter()
             .filter(|c| user.user_tier == "admin" || owner(c) == user.user_id)

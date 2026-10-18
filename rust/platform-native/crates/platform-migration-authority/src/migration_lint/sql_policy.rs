@@ -16,6 +16,9 @@ use super::{
 
 pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, &'static str)> {
     let statements = split_statements(sql)?;
+    let reviewed029 = super::reviewed_schema::exact029(sql, change);
+    let staged_not_null = super::reviewed_schema::staged_not_null(sql, change);
+    let reviewed_partition_installer = super::reviewed_schema::partition_installer(sql, change);
     let mut findings = Vec::new();
     let mut concurrent_unique_indexes = BTreeSet::new();
     let mut pending_validation = Vec::new();
@@ -27,14 +30,15 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
         let statement_index = offset + 1;
         let statement_words = ddl_words(statement);
         let allow_role_prefix_grants =
-            if starts_with(&statement_words, &["DO"]) && statement.len() == 2 {
-                match &statement[1].kind {
-                    TokenKind::Body(body) => is_approved_role_prefix_grant_body(body, change)?,
-                    _ => false,
-                }
-            } else {
-                false
-            };
+            super::reviewed_schema::grant_body(reviewed029, statement_index)
+                || if starts_with(&statement_words, &["DO"]) && statement.len() == 2 {
+                    match &statement[1].kind {
+                        TokenKind::Body(body) => is_approved_role_prefix_grant_body(body, change)?,
+                        _ => false,
+                    }
+                } else {
+                    false
+                };
         if let Some(code) = timeout_override(statement, &words(statement)) {
             push_finding(&mut findings, "blocked", code, statement_index);
         }
@@ -73,7 +77,14 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
                 split_timeout_override_in_body(
                     body,
                     statement_index,
-                    allow_role_prefix_grants,
+                    allow_role_prefix_grants
+                        || (reviewed_partition_installer
+                            && (starts_with(&statement_words, &["CREATE", "FUNCTION"])
+                                || starts_with(
+                                    &statement_words,
+                                    &["CREATE", "OR", "REPLACE", "FUNCTION"],
+                                )
+                                || starts_with(&statement_words, &["DO"]))),
                     &mut findings,
                 )?;
                 if starts_with(&statement_words, &["DO"])
@@ -285,10 +296,11 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
         }
 
         if starts_with(&statement_words, &["ALTER", "TABLE"]) {
-            if has_phrase(&statement_words, &["DROP", "COLUMN"])
+            if (has_phrase(&statement_words, &["DROP", "COLUMN"])
                 || has_phrase(&statement_words, &["DROP", "CONSTRAINT"])
                 || has_phrase(&statement_words, &["RENAME", "COLUMN"])
-                || has_phrase(&statement_words, &["RENAME", "TO"])
+                || has_phrase(&statement_words, &["RENAME", "TO"]))
+                && !super::reviewed_schema::validated_widening(reviewed029, statement_index)
             {
                 has_contraction = true;
                 push_finding(
@@ -316,6 +328,7 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
             }
             if has_phrase(&statement_words, &["ADD", "COLUMN"])
                 && has_phrase(&statement_words, &["NOT", "NULL"])
+                && !super::reviewed_schema::new_empty_table_alter(reviewed029, statement_index)
             {
                 push_finding(
                     &mut findings,
@@ -344,13 +357,16 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
                 has_expansion = true;
             }
             if has_phrase(&statement_words, &["SET", "NOT", "NULL"]) {
+                if staged_not_null {
+                    has_contraction = true;
+                }
                 let has_validated_check = pending_validation.iter().any(|(name, add_statement)| {
                     *add_statement < statement_index
                         && validated_constraints.get(name).is_some_and(|validated_at| {
                             *validated_at > *add_statement && *validated_at < statement_index
                         })
                 });
-                if !has_validated_check {
+                if !has_validated_check && !staged_not_null {
                     push_finding(
                         &mut findings,
                         "blocked",
@@ -409,7 +425,12 @@ pub(super) fn lint_sql(sql: &str, change: &ChangeSpec) -> Result<(Vec<Finding>, 
                         .windows(2)
                         .position(|window| window[0] == "USING" && window[1] == "INDEX")
                         .and_then(|index| kind_words.get(index + 2));
-                    if using_index.is_none_or(|name| !concurrent_unique_indexes.contains(name)) {
+                    if using_index.is_none_or(|name| !concurrent_unique_indexes.contains(name))
+                        && !super::reviewed_schema::new_empty_table_alter(
+                            reviewed029,
+                            statement_index,
+                        )
+                    {
                         push_finding(
                             &mut findings,
                             "blocked",

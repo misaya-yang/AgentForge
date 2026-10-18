@@ -2,7 +2,6 @@ use crate::*;
 use std::collections::BTreeSet;
 const LINKS: &[&str] = &[
     "AGENTS.md",
-    "CLAUDE.md",
     "docs/README.md",
     "docs/harness/README.md",
     "docs/harness/platform-architecture.md",
@@ -134,6 +133,19 @@ pub fn check(root: &Path) -> Result<Value> {
         serde_yaml::from_slice(&std::fs::read(root.join(".github/workflows/ci.yml"))?)?;
     let mut errors = vec![];
     let mut warnings = vec![];
+    let fitness = crate::platform_fitness::source(root)?;
+    for check in fitness["checks"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|v| v["result"] != "pass")
+    {
+        errors.push(format!(
+            "platform fitness {}: {}",
+            check["check"].as_str().unwrap_or("unknown"),
+            check["reason"].as_str().unwrap_or("check failed")
+        ));
+    }
     if let Err(error) = compose_identity::source_contract(root) {
         errors.push(format!("Compose image identity: {error}"));
     }
@@ -386,7 +398,7 @@ pub fn check(root: &Path) -> Result<Value> {
             }
         }
     }
-    let receipt = json!({"gate":"harness-check","tier":"L0","result":if errors.is_empty(){"pass"}else{"fail"},"structural":{"required_docs":docs.len(),"budgeted_files":budgets.len(),"links_resolved":n_links,"workspace_files_scanned":files.len(),"errors":structural},"semantic":{"make_targets_referenced":commands.len(),"gate_schemas_validated":gates.len(),"programs_inspected":programs,"errors":errors.len()-structural},"errors":errors,"warnings":warnings});
+    let receipt = json!({"gate":"harness-check","tier":"L0","result":if errors.is_empty(){"pass"}else{"fail"},"structural":{"required_docs":docs.len(),"budgeted_files":budgets.len(),"links_resolved":n_links,"workspace_files_scanned":files.len(),"errors":structural},"semantic":{"make_targets_referenced":commands.len(),"gate_schemas_validated":gates.len(),"programs_inspected":programs,"errors":errors.len()-structural},"platform_fitness":fitness,"errors":errors,"warnings":warnings});
     let _ = write_json(&root.join("tmp/gate-evidence/harness-check.json"), &receipt);
     Ok(receipt)
 }

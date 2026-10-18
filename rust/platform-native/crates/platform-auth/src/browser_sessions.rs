@@ -27,7 +27,7 @@ pub fn opaque() -> String {
         )
     )
 }
-fn key(id: &str) -> Result<String, StoreError> {
+pub(super) fn key(id: &str) -> Result<String, StoreError> {
     if id.len() != 64
         || !id
             .bytes()

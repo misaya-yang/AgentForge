@@ -98,11 +98,19 @@ impl PostgresThreadStore {
             return Err(conflict("recovery terminal owner is not this process"));
         }
         let root_id = thread_uuid(claim.thread_id)?;
-        crate::http_service::recovery_fault::terminal_pause("terminal_before_transaction", claim.run_id).await;
-        let mut tx = self.pool.begin().await.map_err(store_error)?;
+        let identity = self.root_scope_with_deleted(root_id, true).await?;
+        crate::http_service::recovery_fault::terminal_pause(
+            "terminal_before_transaction",
+            claim.run_id,
+        )
+        .await;
+        let mut tx = self.tenant_transaction(&identity.tenant_id).await?;
         let row = sqlx::query(LOCK_RUN)
-            .bind(claim.run_id).bind(root_id)
-            .fetch_optional(&mut *tx).await.map_err(store_error)?
+            .bind(claim.run_id)
+            .bind(root_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(store_error)?
             .ok_or_else(|| conflict("recovery terminal run/thread identity mismatch"))?;
         let scope = MemberScope {
             root_thread_id: root_id,
@@ -116,15 +124,28 @@ impl PostgresThreadStore {
         // Match claim/cancel order: run -> root -> owner. Do not call lock_root:
         // its process-local live-claim check cannot authorize expired closure.
         let root: Option<Uuid> = sqlx::query_scalar(LOCK_ROOT)
-            .bind(root_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id)
-            .fetch_optional(&mut *tx).await.map_err(store_error)?;
+            .bind(root_id)
+            .bind(&scope.tenant_id)
+            .bind(&scope.user_id)
+            .bind(&scope.session_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(store_error)?;
         if root.is_none() {
-            return Err(ThreadStoreError::ThreadNotFound { thread_id: claim.thread_id });
+            return Err(ThreadStoreError::ThreadNotFound {
+                thread_id: claim.thread_id,
+            });
         }
-        let owner = sqlx::query(LOCK_OWNER).bind(claim.run_id)
-            .fetch_optional(&mut *tx).await.map_err(store_error)?
+        let owner = sqlx::query(LOCK_OWNER)
+            .bind(claim.run_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(store_error)?
             .ok_or_else(|| conflict("recovery terminal owner missing"))?;
-        let same_owner = owner.try_get::<Uuid, _>("runtime_thread_id").map_err(store_error)? == root_id
+        let same_owner = owner
+            .try_get::<Uuid, _>("runtime_thread_id")
+            .map_err(store_error)?
+            == root_id
             && owner.try_get::<Uuid, _>("owner_id").map_err(store_error)? == claim.owner_id
             && owner.try_get::<i64, _>("fence").map_err(store_error)? == claim.fence
             && owner.try_get::<Value, _>("context").map_err(store_error)? == claim.context;
@@ -137,7 +158,9 @@ impl PostgresThreadStore {
         }
         let event_key = match mode {
             RecoveryTerminalMode::Owned => format!("compat/recovery/{}/terminal", claim.run_id),
-            RecoveryTerminalMode::ExpiredAuthority => format!("compat/recovery/{}/authority-expired", claim.run_id),
+            RecoveryTerminalMode::ExpiredAuthority => {
+                format!("compat/recovery/{}/authority-expired", claim.run_id)
+            }
         };
         let saved_status: String = row.try_get("status").map_err(store_error)?;
         if !matches!(saved_status.as_str(), "running" | "awaiting_approval") {
@@ -147,67 +170,130 @@ impl PostgresThreadStore {
             let exists: bool = sqlx::query_scalar(
                 "SELECT EXISTS (SELECT 1 FROM assistant_runtime_items \
                  WHERE runtime_thread_id=$1 AND kernel_thread_id=$1 AND event_key=$2)",
-            ).bind(root_id).bind(&event_key).fetch_one(&mut *tx).await.map_err(store_error)?;
-            if saved_status != status || row.try_get::<Option<String>, _>("error").map_err(store_error)?.as_deref() != error || !exists {
+            )
+            .bind(root_id)
+            .bind(&event_key)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(store_error)?;
+            if saved_status != status
+                || row
+                    .try_get::<Option<String>, _>("error")
+                    .map_err(store_error)?
+                    .as_deref()
+                    != error
+                || !exists
+            {
                 return if mode == RecoveryTerminalMode::ExpiredAuthority {
                     Ok(None)
                 } else {
-                    Err(conflict("recovery terminal already changed or receipt missing"))
+                    Err(conflict(
+                        "recovery terminal already changed or receipt missing",
+                    ))
                 };
             }
-            let saved = self.append_v1_event_in_transaction(
-                &mut tx, &scope, claim.thread_id, claim.run_id, &event_key, event,
-            ).await?;
+            let saved = self
+                .append_v1_event_in_transaction(
+                    &mut tx,
+                    &scope,
+                    claim.thread_id,
+                    claim.run_id,
+                    &event_key,
+                    event,
+                )
+                .await?;
             tx.commit().await.map_err(store_error)?;
             return Ok(Some(saved));
         }
         let expired: bool = owner.try_get("expired").map_err(store_error)?;
         if mode == RecoveryTerminalMode::ExpiredAuthority {
-            if !expired || sqlx::query_scalar::<_, bool>(AUTHORITY_IS_LIVE)
-                .bind(claim.run_id).fetch_one(&mut *tx).await.map_err(store_error)? {
+            if !expired
+                || sqlx::query_scalar::<_, bool>(AUTHORITY_IS_LIVE)
+                    .bind(claim.run_id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(store_error)?
+            {
                 return Ok(None);
             }
         } else {
             sqlx::query("SELECT assert_runtime_execution($1,$2,$3)")
-                .bind(claim.run_id).bind(claim.owner_id).bind(claim.fence)
-                .execute(&mut *tx).await.map_err(store_error)?;
+                .bind(claim.run_id)
+                .bind(claim.owner_id)
+                .bind(claim.fence)
+                .execute(&mut *tx)
+                .await
+                .map_err(store_error)?;
         }
         // The held root lock prevents new lifecycle facts racing admission.
         // Dispatched writes/unknown effects keep the existing immutable unknown
         // result classifier. No Worker reservation, dispatch or replay occurs.
         self.admit_turn_terminal_in_transaction(
-            &mut tx, &scope, claim.thread_id, &claim.run_id.to_string(),
-        ).await?;
+            &mut tx,
+            &scope,
+            claim.thread_id,
+            &claim.run_id.to_string(),
+        )
+        .await?;
         if mode == RecoveryTerminalMode::ExpiredAuthority {
             sqlx::query(
                 "UPDATE assistant_tool_approvals SET status='cancelled', \
                  reason='recovery_authority_expired',approved_at=clock_timestamp() \
                  WHERE run_id=$1 AND tenant_id=$2 AND user_id=$3 AND session_id=$4 \
                  AND status IN ('pending','approved')",
-            ).bind(claim.run_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id)
-                .execute(&mut *tx).await.map_err(store_error)?;
+            )
+            .bind(claim.run_id)
+            .bind(&scope.tenant_id)
+            .bind(&scope.user_id)
+            .bind(&scope.session_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(store_error)?;
         }
         let changed = sqlx::query(UPDATE_TERMINAL)
-            .bind(claim.run_id).bind(status).bind(error).bind(claim.owner_id).bind(claim.fence)
+            .bind(claim.run_id)
+            .bind(status)
+            .bind(error)
+            .bind(claim.owner_id)
+            .bind(claim.fence)
             .bind(mode == RecoveryTerminalMode::ExpiredAuthority)
-            .execute(&mut *tx).await.map_err(store_error)?;
+            .execute(&mut *tx)
+            .await
+            .map_err(store_error)?;
         if changed.rows_affected() != 1 {
             return Err(conflict("recovery terminal transition lost its fence"));
         }
-        crate::http_service::recovery_fault::terminal_pause("terminal_after_row_update", claim.run_id).await;
-        let saved = self.append_v1_event_in_transaction(
-            &mut tx, &scope, claim.thread_id, claim.run_id, &event_key, event,
-        ).await?;
-        crate::http_service::recovery_fault::terminal_pause("terminal_after_event", claim.run_id).await;
+        crate::http_service::recovery_fault::terminal_pause(
+            "terminal_after_row_update",
+            claim.run_id,
+        )
+        .await;
+        let saved = self
+            .append_v1_event_in_transaction(
+                &mut tx,
+                &scope,
+                claim.thread_id,
+                claim.run_id,
+                &event_key,
+                event,
+            )
+            .await?;
+        crate::http_service::recovery_fault::terminal_pause("terminal_after_event", claim.run_id)
+            .await;
         if mode == RecoveryTerminalMode::Owned {
             // Do not commit after an append blocked past the owner's lease.
             sqlx::query("SELECT assert_runtime_execution_fence($1,$2,$3)")
-                .bind(claim.run_id).bind(claim.owner_id).bind(claim.fence)
-                .execute(&mut *tx).await.map_err(store_error)?;
+                .bind(claim.run_id)
+                .bind(claim.owner_id)
+                .bind(claim.fence)
+                .execute(&mut *tx)
+                .await
+                .map_err(store_error)?;
         }
         tx.commit().await.map_err(store_error)?;
         // Durable SSE replay remains authoritative if the process dies here.
-        crate::http_service::recovery_fault::terminal_pause("terminal_after_commit", claim.run_id).await;
+        crate::http_service::recovery_fault::terminal_pause("terminal_after_commit", claim.run_id)
+            .await;
         Ok(Some(saved))
     }
 }
@@ -217,16 +303,23 @@ fn validate_terminal<'a>(
     event: &'a AssistantTurnEventV1,
     mode: RecoveryTerminalMode,
 ) -> ThreadStoreResult<(&'a str, Option<&'a str>)> {
-    let status = event.data.get("status").and_then(Value::as_str)
+    let status = event
+        .data
+        .get("status")
+        .and_then(Value::as_str)
         .ok_or_else(|| conflict("recovery terminal status missing"))?;
     let expected_type = match status {
         "succeeded" => "run_finished",
         "failed" | "cancelled" => "run_error",
         _ => return Err(conflict("recovery terminal status is not canonical")),
     };
-    if event.schema_version != "assistant-turn-contract/v1" || event.event_type != expected_type
-        || event.data.get("run_id").and_then(Value::as_str) != Some(claim.run_id.to_string().as_str())
-        || event.data.get("thread_id").and_then(Value::as_str) != Some(claim.thread_id.to_string().as_str()) {
+    if event.schema_version != "assistant-turn-contract/v1"
+        || event.event_type != expected_type
+        || event.data.get("run_id").and_then(Value::as_str)
+            != Some(claim.run_id.to_string().as_str())
+        || event.data.get("thread_id").and_then(Value::as_str)
+            != Some(claim.thread_id.to_string().as_str())
+    {
         return Err(conflict("recovery terminal envelope identity mismatch"));
     }
     let error = match event.data.get("error_code") {
@@ -235,14 +328,19 @@ fn validate_terminal<'a>(
         _ => return Err(conflict("recovery terminal error code invalid")),
     };
     if mode == RecoveryTerminalMode::ExpiredAuthority
-        && (status != "failed" || error != Some("RUNTIME_RECOVERY_AUTHORITY_EXPIRED")) {
-        return Err(conflict("expired authority cannot produce another terminal outcome"));
+        && (status != "failed" || error != Some("RUNTIME_RECOVERY_AUTHORITY_EXPIRED"))
+    {
+        return Err(conflict(
+            "expired authority cannot produce another terminal outcome",
+        ));
     }
     Ok((status, error))
 }
 
 fn conflict(message: &str) -> ThreadStoreError {
-    ThreadStoreError::Conflict { message: message.to_string() }
+    ThreadStoreError::Conflict {
+        message: message.to_string(),
+    }
 }
 
 #[cfg(test)]

@@ -63,12 +63,13 @@ async fn catalog(State(state): State<CatalogHttpState>, request: Request) -> Res
             .unwrap_or("")
     };
     let token = header("x-ai-platform-internal-token");
-    if state.internal_token.is_empty()
-        || token.is_empty()
-        || !crate::migration_content::capabilities::constant_time_equal(
-            &state.internal_token,
-            token,
-        )
+    if !crate::workload_tls::mutual_tls(&parts.extensions)
+        && (state.internal_token.is_empty()
+            || token.is_empty()
+            || !crate::migration_content::capabilities::constant_time_equal(
+                &state.internal_token,
+                token,
+            ))
     {
         return response(401, "internal authorization failed");
     }

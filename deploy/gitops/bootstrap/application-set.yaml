@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: agentforge-candidates
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: [missingkey=error]
+  # No Applications exist until an owner explicitly adds a reviewed candidate.
+  generators:
+  - list:
+      elements: []
+  template:
+    metadata:
+      name: '{{ .name }}'
+    spec:
+      project: agentforge-candidate
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: agentforge-candidate
+      sources:
+      - repoURL: https://github.com/misaya-yang/AgentForge.git
+        targetRevision: '{{ if not (regexMatch "^[0-9a-f]{40}$" .revision) }}{{ fail "exact reviewed Git commit required" }}{{ end }}{{ .revision }}'
+        path: deploy/helm/ai-gateway
+        helm:
+          releaseName: '{{ .name }}'
+          valueFiles: ['$values/{{ .valuesFile }}']
+      - repoURL: https://github.com/misaya-yang/AgentForge.git
+        targetRevision: '{{ .revision }}'
+        path: deploy/gitops/chart
+        helm:
+          releaseName: '{{ .name }}-delivery'
+          valuesObject: {enabled: true}
+          valueFiles: ['$values/{{ .deliveryValuesFile }}']
+      - repoURL: https://github.com/misaya-yang/AgentForge.git
+        targetRevision: '{{ .revision }}'
+        ref: values
+      syncPolicy:
+        # Intentionally no automated sync/prune/self-heal, namespace creation or finalizer.
+        syncOptions: [CreateNamespace=false]

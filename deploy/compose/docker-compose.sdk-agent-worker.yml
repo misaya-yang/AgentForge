@@ -50,9 +50,7 @@ services:
       SDK_AGENT_WORKER_TOKEN: "${SDK_AGENT_WORKER_TOKEN:?SDK_AGENT_WORKER_TOKEN must be an operator-only secret}"
       SDK_AGENT_GATEWAY_URL: "${SDK_AGENT_GATEWAY_URL:-https://gateway-sdk-callback:8097}"
       SDK_AGENT_GATEWAY_TLS_CA_FILE: /run/sdk-callback/ca.pem
-      # Operator-controlled provider origins, forwarded only after native validation.
-      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
-      ANTHROPIC_BASE_URL: "${ANTHROPIC_BASE_URL:-}"
+      # Provider configuration belongs exclusively to Gateway model-plane.
       SDK_AGENT_STATE_ROOT: /var/lib/sdk-agent
       SDK_AGENT_RETENTION_SECONDS: "${SDK_AGENT_RETENTION_SECONDS:?Choose finite retention in seconds (3600 to 7776000)}"
     volumes:

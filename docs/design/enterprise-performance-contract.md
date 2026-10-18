@@ -1,6 +1,6 @@
 # Enterprise Gateway performance acceptance contract
 
-**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+**Last verified:** 2026-10-18 (source/command review; no live acceptance claim).
 
 Status: executable exploratory harness, not a measured performance result or an
 accepted release. Owner: Gateway control/data-plane maintainers, with Runtime,
@@ -159,6 +159,21 @@ read measurements completed; it is not a production-readiness or enterprise-SLO
 pass.
 
 ## 4. Verification and reproduction
+
+The separate [native accepted-build controller](../performance/native-baseline-controller.md)
+now has source for deterministic upstream, actual authenticated Gateway model
+requests, correlated Gateway/Knowledge timing, bounded fixture ingestion and
+per-service process sampling. Its standalone CLI is
+`platform-performance-baseline plan|run`; it does not change the fixed-GET
+`performance.rs` library or the original `gateway-performance-baseline` plan.
+Missing accepted build, current identity, fixture or observed stage evidence
+remains BLOCKED/partial/unknown. This is workflow source, not a measured baseline.
+
+Offline controller plan (no network or service action):
+
+```sh
+platform-performance-baseline plan
+```
 
 Offline plan, no network or service action:
 

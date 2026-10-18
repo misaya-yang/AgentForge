@@ -63,12 +63,12 @@ Delete or repair tests that:
   assertion.
 
 Do not delete a failing test merely because the implementation changed. First decide whether the
-test expresses the current contract. Oversized test files may be split by scenario, but test
-movement and production refactoring use separate commits.
+test expresses the current contract. Split test files only when the assigned work needs it;
+file size does not automatically create a refactoring task or a separate commit.
 
 Do not turn a failing required test into `skip` or `xfail` to complete cleanup. Allowed skip/xfail
-requires gate allowlist, owner, reason and expiry; xfail is strict. A deletion receipt records where
-each removed failure mode remains covered. “Self-proving” can be mechanically flagged, but a reviewer
+requires gate allowlist, owner, reason and expiry; xfail is strict. For a behavior-affecting test
+deletion, record retained coverage in the existing task result. “Self-proving” can be mechanically flagged, but a reviewer
 makes the semantic decision.
 
 ### Documentation
@@ -153,6 +153,11 @@ read-only; `artifact-cleanup` is separate from CI. Broad recursive deletion of `
 
 Line count is a guardrail, not an architecture metric.
 
+Apply size checks in the module's consolidated review. Do not repeatedly split, rename or reformat
+working code during feature implementation solely to satisfy a line counter. Use a justified
+existing exception where appropriate; keep unresolved quality work visible without relabelling
+failed checks as passing. Never churn the upstream harness for local style or size rules.
+
 - Record a post-RAG LOC baseline for production and test files.
 - Existing files over the threshold may not grow without a dated exception, owner, reason, and
   removal condition.
@@ -207,10 +212,9 @@ Together the quality gates cover:
 The first post-RAG run creates a new baseline. Do not copy the counts from the 2026-08-13 hygiene
 report: most of its largest dead paths have already been removed.
 
-ARC-00 makes the minimal hygiene gate, evidence policy, size no-growth, dependency and shim ledger
-effective before ARC-01 changes code. ARC-07 re-audits those gates and clears the historical backlog;
-it does not postpone quality rules until the end.
+The ARC-00/ARC-07 sequence belongs to its historical architecture program. It is not a prerequisite
+to current feature work and does not instruct agents to restart repository audits.
 
-Every deletion produces a receipt with candidate/class, tracked-versus-local ownership, static and
-dynamic checks, public-contract decision, successor test, before/after commands and counts, removed
-paths, recovery method and reviewer verdict.
+Use the existing task result or ledger for cleanup scope and applicable checks. Separate evidence
+is needed only when an actual data, security, release or rollback requirement calls for it. Routine
+dead-code removal and generated-output cleanup do not require a new receipt or review agent.

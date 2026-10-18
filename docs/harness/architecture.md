@@ -5,9 +5,9 @@
 > isolated SQL evidence and live release acceptance are different facts.
 
 **Schema:** `harness/architecture/v3`
-**Last verified:** 2026-10-17 (source review of `22d9ce0` plus U-PE-01).
-This describes the native source and configuration; current image and live acceptance remain
-open in the execution ledger. The Rust-native successor decision is proposed in
+This is the implementation design, not a deployment receipt. Current source observations,
+compilation and live acceptance are recorded separately in the execution ledger.
+The Rust-native successor decision is proposed in
 [P-ADR-1](../architecture/proposals/rust-native-platform-baseline.md).
 
 The active implementation/evidence authority is
@@ -20,6 +20,12 @@ product-layer contract, subject to the explicit bounded SDK-service amendment be
 
 A process role, Rust crate or migration batch is not automatically a new bounded
 context or independently deployable service.
+
+The three business contexts remain **Gateway control, Agent execution and Knowledge**.
+The upgrade plan's six modules are delivery assignments, not six additional microservices.
+API/worker roles reuse their owning implementation; replicas are a deployment choice.
+The console is a client, the database authority is an operator tool, and a local CLI is a
+separate product surface. None requires a new always-on platform service merely to track work.
 
 | Context / role | Current source | Owner and boundary |
 | --- | --- | --- |
@@ -41,9 +47,9 @@ First-party Python services are retired; only the optional Python user-code sand
 Gateway and managed Runtime remain single-instance release assumptions until
 specific multi-instance ownership/recovery/affinity gates pass. Capability and
 Knowledge worker replication need their own real claim/cancel/recovery evidence.
-Official SDK Worker currently owns one private state volume and filesystem session
-locks; Gateway provenance grants are process-local. It is not a replicated or
-cross-Gateway restart-resumable session store.
+Optional SDK execution must separately establish session ownership, provenance-grant recovery
+and restart behavior before claiming replication. These properties do not follow from managed
+Runtime failover support or from source implementation alone.
 
 ## 2. Allowed runtime edges
 
@@ -75,8 +81,9 @@ replace them with an unscoped universal bearer simply to reduce code.
 
 Native Cargo dependencies and source imports are checked by `make architecture-boundary-gate`
 and `make core-boundary-gate` (the same native checker). The gate resolves renamed/path/workspace
-and target dependencies, rejects cross-context implementation edges, and records one explicit
-transitional Knowledge-to-Gateway exception. The partial upstream overlay requires an
+and target dependencies and rejects cross-context implementation edges. Knowledge domain/service
+manifests no longer depend on Gateway implementation crates; shared authentication and neutral
+contracts retain their own ownership. The partial upstream overlay requires an
 identity-verified composed workspace. Passing the graph gate does not prove runtime isolation.
 `src/` and `packages/` retain static catalogs/evaluation resources, not Python services.
 
@@ -84,8 +91,8 @@ Native `platform-client` is a transport/client boundary shared by desktop and
 platformctl. It must not acquire Gateway stores, policy or Agent execution logic.
 Native Gateway foundation/integrations currently contain substantial domain
 implementation; they are compilation boundaries, not pure cross-service contract
-packages. Knowledge lives in that crate graph but constructs its own process,
-connections and signed actor client. Avoid further arbitrary domain growth in shared
+packages. Knowledge constructs its own process, connections and signed actor client;
+Gateway uses its public signed transport and neutral contracts. Avoid arbitrary domain growth in shared
 modules. Extract a domain only when ownership or measured build/change cost justifies
 it, preserving existing ports and wire contracts.
 
@@ -100,9 +107,22 @@ configuration dependencies. ADR-011 records the existing bounded admissions.
 Every persistent object must have a migration owner, permitted mutations/readers
 and tenant-isolation evidence. Some assistant tables intentionally span admission,
 execution and accounting: specify engine/field/function ownership, not only schema
-names. Scoped roles and canonical grants exist. The local runtime profile selects scoped DSNs,
-while the public base Compose still uses bootstrap-superuser defaults (U-DATA-02 remains open).
-A role never substitutes for tenant predicates, object authorization or owner fences.
+names. Application connections use per-service roles and schema-scoped search paths;
+bootstrap administration belongs only to the authority. Deployment and SQL checks must establish
+these properties for the selected profile. A role never substitutes for tenant predicates,
+object authorization or owner fences.
+
+For a new development database, the native authority's `fresh_schema` path installs the complete
+current schema in one transaction: tables, fields, constraints, indexes, functions and grants.
+Historical upgrade rehearsals are not prerequisites for this empty-database path. Existing data
+still requires the compatible authority upgrade path; never silently reset it or rewrite frozen
+inputs. Application startup checks the authority's matching contract rather than creating tables.
+Schema identity is an internal compatibility check, not a separate development work stream.
+
+Tenant access binds verified tenant identity to the database transaction. Background work uses
+persisted job ownership and bounded control functions; request parameters cannot choose a broader
+tenant scope. RLS definitions and their callers must be adopted through the authority together.
+The unactivated SQL proposal is not evidence that a running database enforces RLS.
 
 File and tenant-policy administration must distinguish tenant `admin` / `file_admin`
 from explicit platform administrator roles. Ordinary administrators may only act
@@ -116,10 +136,10 @@ Targeted upload deletion remains available to same-tenant administrators.
 
 - Gateway owns identity, policy, immutable admission snapshots/model leases and
   accounting. Runtime is the target authority for managed execution terminal facts.
-- Existing managed run completion is still split: Runtime emits ordinary terminal
-  events, Gateways project them into assistant_runs, while recovery/cancel can write
-  terminal state in Runtime. Treat this as named convergence debt, not permission
-  for new independent execution writers.
+- Runtime commits the owner-fenced terminal fact and event atomically. Gateway projects that fact
+  for public reads/accounting; observation failure cannot create a competing execution terminal.
+  Ordinary completion, recovery and cancellation must use the same owner/fence semantics.
+  Source implementation of this contract still requires the prescribed crash/race acceptance.
 - SDK runs have separate engine-scoped parent/owner/tool-call records. Gateway's SDK
   authority, official worker receipt and Runtime capability-only broker do not create
   a second managed Thread/Turn identity.
@@ -135,8 +155,7 @@ Targeted upload deletion remains available to same-tenant administrators.
   durable cancellation/fencing acknowledgement and quarantine. Neither observation
   failure nor cancellation acknowledgement alone proves external-effect cessation.
 - Generic `/api/v1/tasks`, scheduled Agent tasks, SDK runs and managed turns are different
-  contracts. The default native memory task profile uses destructive in-process dequeue
-  and does not survive process loss. The explicit durable-delivery mode uses atomic
+  contracts. An in-memory task profile does not survive process loss. Durable delivery uses atomic
   task/envelope publication and a claimed-unknown barrier. Its source guard requires the
   appropriate schema successor; isolated evidence does not prove deployed restart recovery.
   Do not transfer guarantees from scheduled Agent, SDK or managed execution ledgers to
@@ -157,17 +176,12 @@ fence. Accounting may be interrupted, while recording work already independently
 owned by UsageRecorder may continue. Neither cancellation nor resource release
 establishes durable final billing or exactly-once charging.
 
-Canonical migrations remain immutable. Gateway and Knowledge perform application-role,
-read-only schema admission before providers, workers and readiness. For the current epoch-22
-source, windows are Gateway 18–22, durable Gateway 20–22, Knowledge API 19–22 and Knowledge
-Worker 21–22. Admission checks the frozen baseline marker, exact migration-prefix checksums
-and unresolved attempts; full structural/ACL/extension/reference fingerprint recomputation
-belongs to `database-authority verify`.
-
-Runtime/Capability Worker are not covered by that application guard yet. Their authority CLI
-startup branches retain a legacy 2–10 window and cannot certify epoch 22. U-GW-20 owns this gap,
-including real wrong-baseline/missing-ledger/out-of-window rejection and process startup evidence.
-The source epoch and source windows do not prove the schema of a running database.
+Canonical historical migrations remain immutable. Gateway, Knowledge, Runtime and Capability
+Worker must complete application-role, read-only schema admission before providers, workers
+and readiness. Matching source contracts live with the authority and each application's startup
+admission; do not copy changing epoch numbers into this design. Full structural/ACL/extension
+verification belongs to `database-authority verify`. Wrong baseline, missing authority state and
+incompatible schema must fail closed. Source contracts do not prove a running database's state.
 
 ## 5. Managed and optional SDK execution contract
 
@@ -206,24 +220,22 @@ A rollback requires a real compatible native code/schema/data bundle and a paire
 Deleted Python services are not an available rollback target. Preserve historical evidence
 without treating old source, source locks or registry tags as an accepted running release.
 
-## 7. Current prioritized debt
+## 7. Delivery and deployment decisions
 
-1. Managed recovery terminal semantics and crash atomicity: canonical success/failure
-   mapping, then owner-fenced terminal fact+event transaction and Gateway convergence.
-2. Complete per-process schema/profile admission for Runtime/Worker and prove all process
-   startup refusals; retain the implemented Gateway/Knowledge guards and deployment readiness.
-   Helm and Compose use `/health/ready`; the retained Helm chart still
-   needs a reviewed managed-Runtime/native deployment profile (see `DEPLOY.md`).
-3. Explicit release/topology identity for retained/candidate/optional implementations,
-   including SDK Worker when selected. Current release manifest is draft.
-4. Native Gateway→Runtime request/trace propagation and separate long-SSE transport
-   budget; preserve GET cursor reconnect without POST retry.
-5. Engine-aware client fixture coverage and generic async-task durability semantics.
-6. Measured native domain extraction after correctness gates, not broad file splitting.
+| Design choice | Implementation consequence |
+| --- | --- |
+| One managed kernel, upstream Codex unchanged | Platform integration belongs in the owned overlay; SDK execution is explicitly selected, never implicit fallback |
+| One public client contract | Web, desktop, platformctl and SDKs consume generated contracts; reconnect observes the original run rather than resubmitting it |
+| Model authority in Gateway | Runtime, Knowledge and optional SDK execution use governed model calls; provider credentials, route decisions and receipts stay in Gateway |
+| Control and sandbox separation | Credential-bearing control work stays outside the credential-free user-code/parser sandbox; strong isolation activates only with its required deployment prerequisites |
+| Shared persistent data services | Reuse PostgreSQL, vector/object storage and the required coordination/cache roles; delivery modules do not create duplicate data stacks |
+| One native build cache | Controlled Docker builds produce per-binary images; Runtime/Worker remain a compatible pair; no second host server build tree |
+| Optional deployments are explicit | SDK worker, strong sandbox pools and observability profiles are selected by the task and their requirements, not started just because their code exists |
 
-Preserve existing work and sequence one coherent implementation slice at a time.
-No Runtime executable, provider, browser or production claim follows from a source
-review or a successful unrelated build.
+Implementation gaps, applicable verification and the next action live only in the
+[execution ledger](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json).
+Continue existing code under the plan's source → consolidated build/interface → real acceptance
+batches. Do not turn this architecture into another status checklist or restart a review on resume.
 
 ## 8. Historical decisions and guardrails
 
@@ -232,12 +244,12 @@ silently rewriting prior decisions. Key records: ADR-006/007 (managed kernel/dat
 ADR-008 (bounded contexts/deployment), ADR-009 (independent local CLI), ADR-010 (tenant/Knowledge authority), ADR-011
 (pure contracts), and proposed ADR-012 (optional official SDK scope).
 
-Read [`work-packages.md`](work-packages.md) and
-[`repository-quality.md`](repository-quality.md) for source ownership and hygiene.
-One product-scale change has one primary writer; parallel reviewers stage externally.
-Line count is a review trigger, not architecture proof. Prefer the smallest change
-that fixes an observed boundary defect; keep public contracts stable unless an
-explicit versioned migration is the task.
+Consult [work-packages.md](work-packages.md) for shared ownership and
+[repository-quality.md](repository-quality.md) when cleanup is the assigned task.
+One primary integrator owns a product change. If agents are enabled, they implement disjoint
+modules directly; reviews and duplicate validation are not automatic parallel roles.
+Complete the requested behavior while preserving public contracts. Line count alone does not
+justify a split, extra review or a new task. Use the [task harness](README.md) for execution.
 
 
 ## Native HTTP request governance (2026-10-15)

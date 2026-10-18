@@ -368,6 +368,7 @@ impl AuthService {
             .await
             .map_err(|_| ServiceError::Unavailable)?
             .ok_or(ServiceError::Credentials)?;
+        crate::device_flow::validate_parent(self, &session, now).await?;
         if session.get("user_id").and_then(|value| value.as_str()) != Some(claims.sub.as_str()) {
             return Err(ServiceError::Credentials);
         }

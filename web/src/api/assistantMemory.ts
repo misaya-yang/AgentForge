@@ -1,3 +1,4 @@
+import type { RequestBody, RequestQuery } from "@/api/contracts";
 import { api } from "@/lib/api";
 
 export interface AssistantMemoryItem {
@@ -23,14 +24,14 @@ export async function getAssistantMemory(): Promise<AssistantMemoryState> {
 }
 
 export async function setAssistantMemoryEnabled(enabled: boolean): Promise<boolean> {
-  const { data } = await api.patch<{ enabled: boolean }>("/api/v1/assistant/memory", { enabled });
+  const { data } = await api.patch<{ enabled: boolean }>("/api/v1/assistant/memory", ({ enabled } satisfies RequestBody<"PATCH /api/v1/assistant/memory">));
   return data.enabled;
 }
 
 export async function updateAssistantMemoryItem(key: string, value: string): Promise<void> {
-  await api.put("/api/v1/assistant/memory/items", { key, value });
+  await api.put("/api/v1/assistant/memory/items", ({ key, value } satisfies RequestBody<"PUT /api/v1/assistant/memory/items">));
 }
 
 export async function deleteAssistantMemoryItem(key: string): Promise<void> {
-  await api.delete("/api/v1/assistant/memory/items", { params: { key } });
+  await api.delete("/api/v1/assistant/memory/items", { params: ({ key } satisfies RequestQuery<"DELETE /api/v1/assistant/memory/items">) });
 }

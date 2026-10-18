@@ -50,6 +50,7 @@ function host(engine = "custom") {
     "@/config/runtime": { isSseDebugEnabled: () => false },
     "@/lib/api": { getAuthToken: () => "fixture-token" },
     "./sseEventParser": { parseSseEventPart },
+    "./fetchClient.ts": { sendStreamRequest: async () => { requests++; return new Response(wire, { headers: { "Content-Type": "text/event-stream" } }); } },
   };
   vm.runInNewContext(ts.transpileModule(wireSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
     { exports: wireExports, require: (name: string) => { assert.ok(name in wireModules, name); return wireModules[name]; },

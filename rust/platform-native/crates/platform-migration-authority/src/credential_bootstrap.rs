@@ -139,7 +139,11 @@ pub async fn verify_local_target(
     prefix: &str,
     expected: &str,
 ) -> Result<()> {
-    let plan = plan(&std::env::vars().collect(), prefix, expected)?;
+    let plan = plan(
+        &crate::credential_files::bootstrap_values(&std::env::vars().collect(), prefix)?,
+        prefix,
+        expected,
+    )?;
     // Local opt-in is source-bound. An environment artifact-path override must not
     // redefine which checkout's containers are trusted for database mutations.
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -261,7 +265,10 @@ pub async fn initialize(
     verify_local_target(&authority.paths, &authority.role_prefix, expected).await?;
     // Validate all targets before opening an administrator connection.
     let plan = plan(
-        &std::env::vars().collect(),
+        &crate::credential_files::bootstrap_values(
+            &std::env::vars().collect(),
+            &authority.role_prefix,
+        )?,
         &authority.role_prefix,
         expected,
     )?;
@@ -477,7 +484,10 @@ async fn deployment_bootstrap_inner(
     expected_admin: &str,
 ) -> Result<serde_json::Value> {
     let plan = deployment_plan(
-        &std::env::vars().collect(),
+        &crate::credential_files::bootstrap_values(
+            &std::env::vars().collect(),
+            &authority.role_prefix,
+        )?,
         &authority.role_prefix,
         expected,
         expected_admin,

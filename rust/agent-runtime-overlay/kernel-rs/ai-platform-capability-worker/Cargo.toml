@@ -33,6 +33,10 @@ name = "ai-platform-python-sandbox-health"
 path = "src/bin/ai-platform-python-sandbox-health.rs"
 
 [dependencies]
+ai-platform-plugin-quiz = { version = "1.1.0", path = "../ai-platform-plugin-quiz", features = ["executor"] }
+ed25519-dalek = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
 ai-platform-capability-contract = { path = "../ai-platform-capability-contract" }
 ai-platform-office = { path = "../ai-platform-office" }
 anyhow = { workspace = true }
@@ -46,7 +50,7 @@ hex = { workspace = true }
 globset = { workspace = true }
 hmac = { workspace = true }
 libc = { workspace = true }
-reqwest = { workspace = true, features = ["blocking", "json", "stream"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["blocking", "json", "stream", "rustls", "http2"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -57,9 +61,9 @@ sqlx-sqlite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync"] }
 tracing = { workspace = true }
-opentelemetry = { workspace = true, features = ["trace", "metrics", "logs"] }
-opentelemetry_sdk = { workspace = true, features = ["trace", "metrics", "logs"] }
-opentelemetry-otlp = { workspace = true, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics", "logs"] }
+opentelemetry = { version = "=0.32.0", features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "=0.32.1", features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { version = "=0.32.0", features = ["http-proto", "reqwest-blocking-client", "trace", "metrics", "logs"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 typst-assets = { workspace = true }
 uuid = { workspace = true, features = ["v7", "serde"] }

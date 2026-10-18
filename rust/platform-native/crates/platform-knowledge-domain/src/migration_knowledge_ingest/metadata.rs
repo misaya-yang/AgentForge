@@ -227,6 +227,7 @@ impl IngestionService {
         }
         let fields = validate_fields(fields, current["fields"].as_array().unwrap())?;
         let mut tx = self.store.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let config:Value=sqlx::query_scalar("SELECT COALESCE(index_config,'null'::jsonb) FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_optional(&mut *tx).await?.ok_or(IngestError::NotFound)?;
         if normalize_registry(&config)?["revision"] != revision {
             return Err(invalid(REVISION_CONFLICT));
@@ -246,6 +247,7 @@ impl IngestionService {
     ) -> Result<Value> {
         let mut lease = self.store.document_lease(dataset, document).await?;
         let result=async{let mut tx=lease.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;
             let config:Value=sqlx::query_scalar("SELECT COALESCE(index_config,'null'::jsonb) FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR SHARE").bind(dataset).fetch_optional(&mut *tx).await?.ok_or(IngestError::NotFound)?;let registry=normalize_registry(&config)?;if registry["revision"]!=revision{return Err(invalid(REVISION_CONFLICT))}
             let(patch,remove)=normalize_patch(&registry,patch,remove)?;let doc=KnowledgeWriteStore::document_on(&mut tx,dataset,document).await?;let mut metadata=if doc["metadata"].is_null(){json!({})}else{doc["metadata"].clone()};if !metadata.is_object(){return Err(invalid("document metadata is malformed"))}
             let fields=metadata.as_object_mut().unwrap();fields.retain(|key,_|!super::source_metadata_key(key));for name in remove{fields.remove(&name);}fields.extend(patch.as_object().unwrap().clone());bounded(&metadata,"document user metadata")?;

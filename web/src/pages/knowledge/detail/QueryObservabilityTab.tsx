@@ -118,7 +118,7 @@ export function QueryObservabilityTab({ datasetId, permission, onTestQuestion, o
   const [mode, setMode] = useState("all");
   const history = useObservationPages<QueryHistoryItem>(scope, JSON.stringify([resultFilter, mode]), async cursor => {
     const page = await listDatasetQueries(datasetId!, { limit: 50,
-      zeroResults: resultFilter === "all" ? undefined : resultFilter === "zero",
+      zero_results: resultFilter === "all" ? undefined : resultFilter === "zero",
       mode: mode === "all" ? undefined : mode, cursor });
     return { rows: page.queries, cursor: page.next_cursor || null, more: page.has_more };
   }, accessChanged);

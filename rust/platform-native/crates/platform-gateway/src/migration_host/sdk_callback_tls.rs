@@ -101,6 +101,9 @@ fn allowed(method: &Method, path: &str) -> bool {
                 | "/internal/v1/sdk-tools/capabilities/execute"
                 | "/internal/v1/sdk-tools/knowledge/retrieve"
                 | "/internal/v1/sdk-tools/knowledge/admit"
+                | "/internal/v1/sdk-tools/models/lease"
+                | "/internal/v1/sdk-tools/models/execute"
+                | "/internal/v1/sdk-tools/models/revocations"
         )
 }
 async fn scope(request: Request<Body>, next: Next) -> Response {
@@ -116,6 +119,20 @@ pub fn restrict(assembled: Router) -> Router {
 mod tests {
     use super::*;
     use tower::ServiceExt;
+    #[test]
+    fn model_plane_callbacks_preserve_exact_method_and_path_scope() {
+        for path in [
+            "/internal/v1/sdk-tools/models/lease",
+            "/internal/v1/sdk-tools/models/execute",
+            "/internal/v1/sdk-tools/models/revocations",
+        ] {
+            assert!(allowed(&Method::POST, path));
+            assert!(!allowed(&Method::GET, path));
+            assert!(!allowed(&Method::PUT, path));
+            assert!(!allowed(&Method::POST, &format!("{path}/extra")));
+        }
+        assert!(!allowed(&Method::POST, "/internal/v1/sdk-tools/models"));
+    }
     #[test]
     fn default_off_partial_unknown_public_and_relative_inputs_fail_closed() {
         assert!(

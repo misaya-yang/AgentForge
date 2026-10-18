@@ -1,30 +1,12 @@
-export interface AgentTurnRequestOptions {
-  provider_id?: string;
-  max_tokens?: number;
-  temperature?: number;
-  kb_dataset_ids?: string[];
-  kb_mode?: "auto" | "tool" | "off";
-  kb_top_k?: number;
-  kb_score_threshold?: number;
-  web_search_enabled?: boolean;
-  web_search_max_results?: number;
-  file_paths?: string[];
-  execution_profile?: "safe" | "balanced" | "power";
-  memory_mode?: "auto" | "strict" | "off";
-  system_prompt?: string;
-  os_agent_enabled?: boolean;
-  local_node_device_id?: string;
-  local_node_grant_ids?: string[];
-  resume_run_id?: string;
-  resume_approval_id?: string;
-}
+import type { RequestBody } from "@/api/contracts";
+export type AgentTurnRequestOptions = Pick<RequestBody<"POST /api/v2/agent/threads/{thread}/turns">, "provider_id" | "max_tokens" | "temperature" | "kb_dataset_ids" | "kb_mode" | "kb_top_k" | "kb_score_threshold" | "web_search_enabled" | "web_search_max_results" | "file_paths" | "execution_profile" | "memory_mode" | "system_prompt" | "os_agent_enabled" | "local_node_device_id" | "local_node_grant_ids" | "resume_run_id" | "resume_approval_id">;
 
 export function buildAgentTurnPayload(
   message: string,
   modelId?: string,
   reasoningOption?: string,
   request?: AgentTurnRequestOptions,
-) {
+): RequestBody<"POST /api/v2/agent/threads/{thread}/turns"> {
   return {
     message,
     ...(modelId ? { model_id: modelId } : {}),
@@ -50,7 +32,7 @@ export function buildAgentTurnPayload(
   };
 }
 
-export function buildAgentThreadPayload(sessionId?: string, modelId?: string, providerId?: string) {
+export function buildAgentThreadPayload(sessionId?: string, modelId?: string, providerId?: string): RequestBody<"POST /api/v2/agent/threads"> {
   return {
     ...(sessionId ? { session_id: sessionId } : {}),
     ...(modelId ? { model_id: modelId } : {}),

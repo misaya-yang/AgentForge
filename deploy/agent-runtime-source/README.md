@@ -155,6 +155,23 @@ paths or a target lockfile with the old upstream pin.
 
 ### Generate evidence for a verified composed candidate
 
+The shared workload TLS implementation is maintained only in
+`rust/platform-native/crates/platform-service-primitives/src/workload_identity/`.
+Its exact generated source copy lives under the platform-owned capability contract
+at `src/shared_workload_identity/`, so composing the upstream checkout does not
+leave Rust source references outside the reviewed build context. This adds no
+upstream modification or second compiler cache.
+
+After changing that canonical implementation, run `make source-workload-sync`,
+then `make source-workload-check` before regenerating the source unit and its
+receipts. The native synchronizer copies only the seven registered Rust files,
+records their actual SHA-256 values, and refuses independently edited generated
+files, unknown files or symlinks. The source-candidate and platform fitness gates
+check exact equality; a changed copy is not accepted by refreshing metadata.
+All generated files and their provenance are part of the ordinary overlay/source
+identity. Existing image identities remain invalid until the complete source
+evidence and controlled builds are regenerated and verified.
+
 The separate offline `generate-composed` command retains clean immutable upstream
 provenance while deriving dependency identities from the exact reviewed overlay
 and resolved composed lock. It does not relax `generate`'s clean-fork requirement
@@ -249,3 +266,24 @@ history evidence blocks release. See
 for decoder build/run inputs, frozen N-1 rollback gating and stop-write/data-restore
 rules. The checked-in corpus manifest is deliberately blocked rather than using
 projection reports or generated turns as historical evidence.
+
+### Compiled plugin source inputs
+
+The Quiz implementation is maintained in `agent-plugins/ai-quiz/native`, with generic
+Python rendering maintained in `platform-python-compat`. Run `make source-plugin-sync`
+after changes and `make source-plugin-check` before source admission. The generated
+sibling crates carry exact source and output SHA-256 inventories; the only manifest
+adaptation binds sibling paths and the composed workspace SQLx version. This keeps
+Worker executor and pool types consistent while excluding the Gateway-only adapter.
+Independent edits in generated inputs are refused and must be preserved and resolved.
+These sources are platform owned; upstream Codex source is unchanged. Source
+synchronization does not admit an image or a signed plugin activation.
+
+The same exact-source gate also packages `data_connection/config.rs` for Runtime
+and Worker file-DSN/DB mTLS initialization. It retains the native role and pool
+identity checks while compiling against the composed workspace SQLx dependency.
+
+The model bridge serves both workload `dual` and `required` modes. The upstream
+model client reaches its explicit loopback endpoint with a dedicated local token;
+the platform bridge performs the actual SVID connection. Remote callers cannot
+use that loopback bridge on either the private TLS listener or the health listener.

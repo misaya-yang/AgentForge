@@ -64,7 +64,8 @@ function host(language = "en-US") {
     }, ...globals });
     return exports;
   };
-  const helper = load("../lib/authenticatedDownload.ts", { "@/lib/api": { api } });
+  const binary = { readApiBlob: async (url: string) => (await api.get(url, { responseType: "blob" })).data };
+  const helper = load("../lib/authenticatedDownload.ts", { "@/api/generatedTransport": binary });
   const getArtifactDownloadUrl = (id: string) => `/api/v1/assistant/artifacts/${id}/download`;
   const resolver = load("../features/chat/sessionArtifactHydration.ts", {});
   const hydration = load("../pages/assistant/artifactHydration.ts", {
@@ -77,7 +78,7 @@ function host(language = "en-US") {
     "react-markdown": { __esModule: true, default: "markdown", defaultUrlTransform: (value: string) => value },
     "lucide-react": { ImageIcon: "image", Download: "download", ExternalLink: "external", FileDown: "file" },
     "@/hooks/useLatexCopy": { useLatexCopy() {} }, "react-i18next": { useTranslation: () => ({ t }) },
-    "@/lib/api": { api }, "@/api/assistant": { getArtifactDownloadUrl },
+    "@/lib/api": { api }, "@/api/generatedTransport": binary, "@/api/assistant": { getArtifactDownloadUrl },
     "@/lib/authenticatedDownload": helper, "@/hooks/use-toast": { toast: { error: (...args: string[]) => notifications.push(args) } },
     "./gfmDetection": { needsGfmPlugin: (text: string) => text.includes("| table |") },
     "./streamingMarkdown": { splitStreamingMarkdownBlocks: (text: string) => [text] },

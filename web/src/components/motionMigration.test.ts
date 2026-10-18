@@ -78,17 +78,18 @@ test("production source imports only the successor motion entry", () => {
   assert.equal(manifest.dependencies.motion, "^12.40.0");
 });
 
-test("active class-merging dependency preserves real button and dialog overrides", () => {
+test("primitive defaults use the component cascade layer while caller utilities remain intact", () => {
   const utilities = load("../lib/utils.ts", {});
-  const cn = utilities.cn as unknown as (...values: unknown[]) => string;
   const button = load("./ui/button.tsx", { "@/lib/utils": utilities, "./composition": {} });
   const variants = button.buttonVariants as unknown as (options: Props) => string;
-  // These are existing defaults and caller overrides, not a replacement merge implementation.
-  const buttonClasses = variants({ size: "default", className: "h-8 px-0" }).split(" ");
-  assert.ok(buttonClasses.includes("h-8")); assert.ok(buttonClasses.includes("px-0"));
-  assert.ok(!buttonClasses.includes("h-9")); assert.ok(!buttonClasses.includes("px-4"));
-  const dialogClasses = cn("max-w-lg p-5 sm:p-6", "max-w-2xl p-0 sm:p-0").split(" ");
-  assert.deepEqual(dialogClasses, ["max-w-2xl", "p-0", "sm:p-0"]);
+  const classes = variants({ size: "default", className: "h-8 px-0" }).split(" ");
+  assert.ok(classes.includes("ui-button-size-default"));
+  assert.ok(classes.includes("h-8")); assert.ok(classes.includes("px-0"));
+  const css = readFileSync(new URL("../styles/ui-primitives.css", import.meta.url), "utf8");
+  assert.match(css, /@layer components/);
+  assert.match(css, /\.ui-button-size-default\s*\{ @apply h-9 px-4 py-2/);
+  assert.match(css, /\.ui-dialog-slot-1[^\n]*max-w-lg[^\n]*p-5/);
+  assert.doesNotMatch(readFileSync(new URL("../lib/utils.ts", import.meta.url), "utf8"), /tailwind-merge|twMerge/);
 });
 
 test("installed Motion successor exports the used React API and renders an accessible element", async () => {
@@ -99,4 +100,11 @@ test("installed Motion successor exports the used React API and renders an acces
   }, "Continue"));
   assert.match(html, /<button/); assert.match(html, /aria-label="Continue"/); assert.match(html, /disabled/);
   assert.match(html, /opacity:1/); assert.match(html, />Continue<\/button>/);
+});
+
+test("antd defaults and shared primitives use ordered CSS layers so caller utilities override them", () => {
+  const css = readFileSync(new URL("../index.css", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+  assert.match(css, /@layer theme, base, antd, components, utilities;/);
+  assert.match(app, /<StyleProvider layer>/);
 });

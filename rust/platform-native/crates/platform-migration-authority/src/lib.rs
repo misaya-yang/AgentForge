@@ -42,3 +42,9 @@ pub mod source_tools;
 pub mod application_guard;
 
 mod producer_provenance;
+
+pub mod credential_files;
+
+pub mod deployment_file_admission;
+
+pub mod fresh_schema;

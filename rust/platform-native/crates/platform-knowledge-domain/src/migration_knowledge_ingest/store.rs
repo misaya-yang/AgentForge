@@ -87,10 +87,21 @@ fn catalog_permission_ids<'a>(
 #[derive(Clone)]
 pub struct KnowledgeWriteStore {
     pub pool: PgPool,
+    pub object_policy: Option<std::sync::Arc<dyn crate::cedar_dataset_policy::DatasetObjectPolicy>>,
 }
 impl KnowledgeWriteStore {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            object_policy: crate::cedar_dataset_policy::current(),
+        }
+    }
+    pub fn with_object_policy(
+        mut self,
+        policy: Option<std::sync::Arc<dyn crate::cedar_dataset_policy::DatasetObjectPolicy>>,
+    ) -> Self {
+        self.object_policy = policy;
+        self
     }
     pub async fn get_dataset(&self, id: &str) -> Result<Value> {
         Self::dataset_on(&mut *self.pool.acquire().await?, id).await
@@ -100,7 +111,7 @@ impl KnowledgeWriteStore {
             "SELECT to_jsonb(d) FROM knowledge.datasets d WHERE dataset_id=$1 AND is_deleted=FALSE",
         )
         .bind(id)
-        .fetch_optional(conn)
+        .fetch_optional(crate::database::connection(&mut *conn))
         .await?
         .ok_or(IngestError::NotFound)
     }
@@ -110,7 +121,7 @@ impl KnowledgeWriteStore {
         )
         .bind(id)
         .bind(dataset_id)
-        .fetch_optional(conn)
+        .fetch_optional(crate::database::connection(&mut *conn))
         .await?
         .ok_or(IngestError::NotFound)
     }
@@ -134,13 +145,29 @@ impl KnowledgeWriteStore {
         actor: &Actor,
         dataset: &Value,
     ) -> Result<i32> {
-        if let Some(permission) = dataset_permission_short_circuit(actor, dataset) {
-            return Ok(permission);
+        let mut grants = vec![];
+        let rank = if let Some(rank) = dataset_permission_short_circuit(actor, dataset) {
+            rank
+        } else {
+            let same = same_dataset_tenant(actor, dataset);
+            grants=sqlx::query_scalar::<_,String>("SELECT permission FROM knowledge.dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))").bind(string(dataset,"dataset_id")).bind(&actor.user_id).bind(if same{actor.roles.clone()}else{vec![]}).fetch_all(crate::database::executor(&self.pool)).await?;
+            dataset_permission_from_grants(actor, dataset, &grants)
+        };
+        if let Some(policy) = self
+            .object_policy
+            .clone()
+            .or_else(crate::cedar_dataset_policy::current)
+        {
+            let rows = policy
+                .ranks(
+                    actor,
+                    vec![crate::cedar_dataset_policy::facts(dataset, grants, rank)],
+                )
+                .await
+                .map_err(|_| IngestError::Permission)?;
+            return rows.first().copied().ok_or(IngestError::Permission);
         }
-        let same = same_dataset_tenant(actor, dataset);
-        let permissions: Vec<String> = sqlx::query_scalar("SELECT permission FROM knowledge.dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))")
-            .bind(string(dataset,"dataset_id")).bind(&actor.user_id).bind(if same {actor.roles.clone()} else {vec![]}).fetch_all(&self.pool).await?;
-        Ok(dataset_permission_from_grants(actor, dataset, &permissions))
+        Ok(rank)
     }
     pub(crate) async fn catalog_permissions_batch(
         &self,
@@ -154,7 +181,7 @@ impl KnowledgeWriteStore {
         // One statement snapshot per bounded catalog page; no cross-request cache.
         let rows: Vec<(String, String)> = sqlx::query_as(
             "SELECT dataset_id, permission FROM knowledge.dataset_permissions WHERE dataset_id=ANY($1::text[]) AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND dataset_id=ANY($3::text[]) AND subject_id=ANY($4::text[])))"
-        ).bind(&ids).bind(&actor.user_id).bind(&role_ids).bind(&actor.roles).fetch_all(&self.pool).await?;
+        ).bind(&ids).bind(&actor.user_id).bind(&role_ids).bind(&actor.roles).fetch_all(crate::database::executor(&self.pool)).await?;
         let mut grants: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for (id, permission) in rows {
             grants.entry(id).or_default().push(permission);
@@ -181,6 +208,7 @@ impl KnowledgeWriteStore {
             return Err(IngestError::Validation("owner_user_id is required".into()));
         }
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let result = sqlx::query(sql::INSERT_DATASET_ROW_0)
             .bind(string(d, "dataset_id"))
             .bind(string(d, "name"))
@@ -209,6 +237,18 @@ impl KnowledgeWriteStore {
             }
             return Err(e.into());
         }
+        if let Some(revision) = d["embedding_model_version"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+        {
+            sqlx::query(
+                "UPDATE knowledge.datasets SET embedding_model_version=$2 WHERE dataset_id=$1",
+            )
+            .bind(string(d, "dataset_id"))
+            .bind(revision)
+            .execute(&mut *tx)
+            .await?;
+        }
         sqlx::query("INSERT INTO knowledge.dataset_permissions (dataset_id,subject_type,subject_id,permission) VALUES ($1,'user',$2,'owner')").bind(string(d,"dataset_id")).bind(owner).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(true)
@@ -218,11 +258,11 @@ impl KnowledgeWriteStore {
             "SELECT EXISTS(SELECT 1 FROM knowledge.datasets WHERE dataset_id=$1)",
         )
         .bind(id)
-        .fetch_one(&self.pool)
+        .fetch_one(crate::database::executor(&self.pool))
         .await?)
     }
     pub async fn collection_in_use(&self, name: &str) -> Result<bool> {
-        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.datasets WHERE collection_name=$1 AND is_deleted=FALSE)").bind(name).fetch_one(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.datasets WHERE collection_name=$1 AND is_deleted=FALSE)").bind(name).fetch_one(crate::database::executor(&self.pool)).await?)
     }
     pub async fn insert_document(&self, d: &Value, expected: &str) -> Result<()> {
         let dataset = string(d, "dataset_id");
@@ -232,6 +272,7 @@ impl KnowledgeWriteStore {
             ));
         }
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         sqlx::query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))")
             .bind(format!("knowledge-dataset-index:{dataset}"))
             .execute(&mut *tx)
@@ -257,8 +298,14 @@ impl KnowledgeWriteStore {
             .bind(object(&d["metadata"]))
             .bind(Option::<chrono::NaiveDateTime>::None)
             .bind(Option::<chrono::NaiveDateTime>::None)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
+        if string(d, "status") == "waiting" {
+            sqlx::query("SELECT pg_notify('knowledge_pipeline_ready',$1)")
+                .bind(string(d, "dataset_id"))
+                .execute(crate::database::connection(&mut *conn))
+                .await?;
+        }
         Ok(())
     }
     pub async fn finalize_upload(
@@ -267,13 +314,15 @@ impl KnowledgeWriteStore {
         generation: &str,
         expected: &str,
     ) -> Result<bool> {
-        Self::require_identity(conn, string(d, "dataset_id"), Some(expected)).await?;
+        let mut tx = sqlx::Connection::begin(conn).await?;
+        crate::database::bind_current(&mut tx).await?;
+        Self::require_identity(&mut tx, string(d, "dataset_id"), Some(expected)).await?;
         let mut metadata = object(&d["metadata"]);
         metadata
             .as_object_mut()
             .unwrap()
             .remove("_document_upload_generation");
-        Ok(sqlx::query(sql::FINALIZE_DOCUMENT_UPLOAD_0)
+        let admitted = sqlx::query(sql::FINALIZE_DOCUMENT_UPLOAD_0)
             .bind(string(d, "document_id"))
             .bind(string(d, "dataset_id"))
             .bind(string(d, "title"))
@@ -290,9 +339,17 @@ impl KnowledgeWriteStore {
             .bind(Option::<chrono::NaiveDateTime>::None)
             .bind("_document_upload_generation")
             .bind(generation)
-            .fetch_optional(conn)
+            .fetch_optional(&mut *tx)
             .await?
-            .is_some())
+            .is_some();
+        if admitted {
+            sqlx::query("SELECT pg_notify('knowledge_pipeline_ready',$1)")
+                .bind(string(d, "dataset_id"))
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(admitted)
     }
     pub async fn document_lease(&self, dataset: &str, document: &str) -> Result<DocumentLease> {
         if dataset.trim().is_empty() || document.trim().is_empty() {
@@ -397,28 +454,44 @@ impl KnowledgeWriteStore {
             }
             Some(p)
         };
-        Ok(sqlx::query(sql::CLAIM_DOCUMENT_FOR_ENQUEUE_0)
+        let admitted = sqlx::query(sql::CLAIM_DOCUMENT_FOR_ENQUEUE_0)
             .bind(document)
             .bind(dataset)
             .bind(patch)
             .bind(action.unwrap_or(""))
             .bind(pin_rule)
             .bind(execution)
-            .fetch_optional(conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
-            .is_some())
+            .is_some();
+        if admitted {
+            sqlx::query("SELECT pg_notify('knowledge_pipeline_ready',$1)")
+                .bind(dataset)
+                .execute(crate::database::connection(&mut *conn))
+                .await?;
+        }
+        Ok(admitted)
     }
     pub async fn list_queued(&self, limit: i64, cursor: &str) -> Result<Vec<Value>> {
-        let query = format!(
-            "SELECT to_jsonb(q) FROM ({}) q",
-            sql::LIST_QUEUED_DOCUMENTS_0
-        );
+        let query = if crate::database::control_enabled(
+            &self.pool,
+            "knowledge.queued_documents_v1(bigint,text,double precision,text[])",
+        )
+        .await?
+        {
+            "SELECT * FROM knowledge.queued_documents_v1($1,$2,$3,$4)".into()
+        } else {
+            format!(
+                "SELECT to_jsonb(q) FROM ({}) q",
+                sql::LIST_QUEUED_DOCUMENTS_0
+            )
+        };
         Ok(sqlx::query_scalar(&query)
             .bind(limit.clamp(1, 1000))
             .bind(cursor)
             .bind(300.0f64)
             .bind(vec!["recover", "reembed", "reprocess", "retry"])
-            .fetch_all(&self.pool)
+            .fetch_all(crate::database::executor(&self.pool))
             .await?)
     }
     pub async fn claim_processing(
@@ -430,7 +503,7 @@ impl KnowledgeWriteStore {
         Ok(sqlx::query(sql::CLAIM_QUEUED_DOCUMENT_FOR_PROCESSING_0)
             .bind(document)
             .bind(dataset)
-            .fetch_optional(conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
             .is_some())
     }
@@ -442,7 +515,7 @@ impl KnowledgeWriteStore {
         Ok(sqlx::query(sql::REQUEUE_CANCELLED_DOCUMENT_GENERATION_0)
             .bind(document)
             .bind(dataset)
-            .fetch_optional(conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
             .is_some())
     }
@@ -456,7 +529,7 @@ impl KnowledgeWriteStore {
             .bind(document)
             .bind(dataset)
             .bind(execution)
-            .fetch_optional(conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
             .is_some())
     }
@@ -499,7 +572,7 @@ impl KnowledgeWriteStore {
             .bind(status)
             .bind(progress)
             .bind(error)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         Ok(())
     }
@@ -509,14 +582,14 @@ impl KnowledgeWriteStore {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE dataset_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3").bind(dataset).bind(limit.clamp(1,200)).bind(offset.max(0)).fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE dataset_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3").bind(dataset).bind(limit.clamp(1,200)).bind(offset.max(0)).fetch_all(crate::database::executor(&self.pool)).await?)
     }
     pub async fn segments_on(
         conn: &mut PgConnection,
         dataset: &str,
         document: &str,
     ) -> Result<Vec<Chunk>> {
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(s) FROM knowledge.segments s WHERE dataset_id=$1 AND document_id=$2 ORDER BY position").bind(dataset).bind(document).fetch_all(conn).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(s) FROM knowledge.segments s WHERE dataset_id=$1 AND document_id=$2 ORDER BY position").bind(dataset).bind(document).fetch_all(crate::database::connection(&mut *conn)).await?;
         rows.into_iter()
             .map(|v| serde_json::from_value(v).map_err(Into::into))
             .collect()
@@ -559,7 +632,7 @@ impl KnowledgeWriteStore {
                 .bind(&s.image_filename)
                 .bind(&s.image_media_type)
                 .bind(s.image_file_size)
-                .execute(&mut *conn)
+                .execute(crate::database::connection(&mut *conn))
                 .await?;
         }
         Ok(())
@@ -577,7 +650,7 @@ impl KnowledgeWriteStore {
     ) -> Result<Value> {
         let next: i32 = sqlx::query_scalar(sql::CREATE_DOCUMENT_VERSION_0)
             .bind(document)
-            .fetch_one(&mut *conn)
+            .fetch_one(crate::database::connection(&mut *conn))
             .await?;
         let id = uuid::Uuid::new_v4().to_string();
         let count = content.split_whitespace().count() as i32;
@@ -595,13 +668,13 @@ impl KnowledgeWriteStore {
             .bind(change_type)
             .bind(reason)
             .bind(actor)
-            .execute(&mut *conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         if activate {
             sqlx::query(sql::CREATE_DOCUMENT_VERSION_2)
                 .bind(next)
                 .bind(document)
-                .execute(&mut *conn)
+                .execute(crate::database::connection(&mut *conn))
                 .await?;
         }
         Ok(
@@ -614,7 +687,7 @@ impl KnowledgeWriteStore {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(v) FROM (SELECT version_id,document_id,version_number,content_hash,confluence_version,confluence_updated_at,title,word_count,change_type,change_reason,changed_by,created_at FROM knowledge.document_versions) v WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore') ORDER BY version_number DESC LIMIT $2 OFFSET $3").bind(document).bind(limit.clamp(1,100)).bind(offset.max(0)).fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(v) FROM (SELECT version_id,document_id,version_number,content_hash,confluence_version,confluence_updated_at,title,word_count,change_type,change_reason,changed_by,created_at FROM knowledge.document_versions) v WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore') ORDER BY version_number DESC LIMIT $2 OFFSET $3").bind(document).bind(limit.clamp(1,100)).bind(offset.max(0)).fetch_all(crate::database::executor(&self.pool)).await?)
     }
     pub async fn get_version(
         &self,
@@ -622,7 +695,7 @@ impl KnowledgeWriteStore {
         version: i32,
         include_pending: bool,
     ) -> Result<Value> {
-        sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND ($3 OR change_type NOT IN ('pending_restore','pending_before_restore'))").bind(document).bind(version).bind(include_pending).fetch_optional(&self.pool).await?.ok_or(IngestError::NotFound)
+        sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND ($3 OR change_type NOT IN ('pending_restore','pending_before_restore'))").bind(document).bind(version).bind(include_pending).fetch_optional(crate::database::executor(&self.pool)).await?.ok_or(IngestError::NotFound)
     }
     pub async fn record_process_rule(
         conn: &mut PgConnection,
@@ -635,7 +708,7 @@ impl KnowledgeWriteStore {
             .bind(dataset)
             .bind(mode)
             .bind(rules)
-            .fetch_optional(&mut *conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
         {
             return Ok(id);
@@ -647,7 +720,7 @@ impl KnowledgeWriteStore {
             .bind(mode)
             .bind(rules)
             .bind(actor)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         Ok(id)
     }
@@ -678,12 +751,12 @@ impl KnowledgeWriteStore {
             .bind(actor)
             .bind(rule)
             .bind(snapshot)
-            .execute(&mut *conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         sqlx::query(sql::LINK_PIPELINE_EXECUTION_0)
             .bind(document)
             .bind(&id)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         Ok(id)
     }
@@ -704,7 +777,7 @@ impl KnowledgeWriteStore {
             .bind(status)
             .bind(error)
             .bind(manifest)
-            .fetch_optional(conn)
+            .fetch_optional(crate::database::connection(&mut *conn))
             .await?
             .is_some())
     }
@@ -735,6 +808,7 @@ impl KnowledgeWriteStore {
             .await?;
         let conn = lease.connection();
         let mut tx = sqlx::Connection::begin(conn).await?;
+        crate::database::bind_current(&mut tx).await?;
         Self::require_identity(&mut tx, dataset, Some(expected)).await?;
         let old:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_one(&mut *tx).await?;
         let revision = if old < 0 {
@@ -768,7 +842,7 @@ impl KnowledgeWriteStore {
     ) -> Result<i64> {
         Ok(sqlx::query_scalar(sql::FINISH_INDEX_PUBLICATION_0)
             .bind(dataset)
-            .fetch_one(publication.connection())
+            .fetch_one(crate::database::connection(publication.connection()))
             .await?)
     }
 }
@@ -877,7 +951,7 @@ impl KnowledgeWriteStore {
         let marker =
             json!({"operation":operation,"target_id":target,"status":"pending","version":1});
         sqlx::query("UPDATE knowledge.datasets SET index_config=jsonb_set(COALESCE(index_config,'{}'::jsonb),'{retrieval}',(CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)||jsonb_build_object('_index_deletion_fence',$2::jsonb),TRUE),content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE AND jsonb_typeof(COALESCE(index_config,'{}'::jsonb))='object' AND NOT ((CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)?'_index_deletion_fence')")
-            .bind(dataset).bind(&marker).execute(&mut *conn).await?;
+            .bind(dataset).bind(&marker).execute(crate::database::connection(&mut *conn)).await?;
         let current = Self::dataset_on(conn, dataset).await?;
         if current["index_config"]["retrieval"]["_index_deletion_fence"] != marker {
             return Err(IngestError::Validation(
@@ -894,7 +968,7 @@ impl KnowledgeWriteStore {
     ) -> Result<bool> {
         let marker =
             json!({"operation":operation,"target_id":target,"status":"pending","version":1});
-        Ok(sqlx::query("UPDATE knowledge.datasets SET index_config=jsonb_set(COALESCE(index_config,'{}'::jsonb),'{retrieval}',(CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)-'_index_deletion_fence',TRUE),content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE AND jsonb_typeof(COALESCE(index_config,'{}'::jsonb))='object' AND (CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)->'_index_deletion_fence'=$2::jsonb RETURNING dataset_id").bind(dataset).bind(marker).fetch_optional(conn).await?.is_some())
+        Ok(sqlx::query("UPDATE knowledge.datasets SET index_config=jsonb_set(COALESCE(index_config,'{}'::jsonb),'{retrieval}',(CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)-'_index_deletion_fence',TRUE),content_revision=COALESCE(content_revision,0)+1,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE AND jsonb_typeof(COALESCE(index_config,'{}'::jsonb))='object' AND (CASE WHEN jsonb_typeof(index_config->'retrieval')='object' THEN index_config->'retrieval' ELSE '{}'::jsonb END)->'_index_deletion_fence'=$2::jsonb RETURNING dataset_id").bind(dataset).bind(marker).fetch_optional(crate::database::connection(&mut *conn)).await?.is_some())
     }
 }
 
@@ -1086,3 +1160,100 @@ mod catalog_permission_tests {
 
 #[path = "store_text_publication.rs"]
 mod text_publication;
+
+#[cfg(test)]
+mod cedar_integration_tests {
+    use super::*;
+    use crate::cedar_dataset_policy::{self, DatasetObjectPolicy, PolicyFuture};
+    use ai_platform_service_primitives::object_authorization::DatasetRankCheck;
+    use std::sync::Arc;
+    struct Policy {
+        fail: bool,
+    }
+    impl DatasetObjectPolicy for Policy {
+        fn ranks<'a>(
+            &'a self,
+            actor: &'a Actor,
+            checks: Vec<DatasetRankCheck>,
+        ) -> PolicyFuture<'a, Vec<i32>> {
+            Box::pin(async move {
+                assert_eq!(actor.user_id, "owner");
+                assert_eq!(checks.len(), 1);
+                assert_eq!(checks[0].resource.id, "dataset");
+                assert_eq!(checks[0].resource.owner_id, "owner");
+                assert_eq!(
+                    checks[0].legacy_rank,
+                    if checks[0].resource.archived { 0 } else { 3 }
+                );
+                if self.fail { Err(()) } else { Ok(vec![0]) }
+            })
+        }
+    }
+    fn actor() -> Actor {
+        Actor {
+            tenant_id: "t".into(),
+            user_id: "owner".into(),
+            user_tier: "normal".into(),
+            user_type: "user".into(),
+            roles: vec![],
+            is_authenticated: true,
+        }
+    }
+    fn pool() -> PgPool {
+        sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
+            .unwrap()
+    }
+    #[tokio::test]
+    async fn owner_and_archive_short_circuits_still_enter_configured_dataset_pdp() {
+        let store = KnowledgeWriteStore::new(pool())
+            .with_object_policy(Some(Arc::new(Policy { fail: false })));
+        for archived in [false, true] {
+            let facts = json!({"dataset_id":"dataset","tenant_id":"t","created_by":"owner","is_archived":archived});
+            assert_eq!(
+                store
+                    .effective_dataset_permission(&actor(), &facts)
+                    .await
+                    .unwrap(),
+                0
+            );
+        }
+    }
+    #[tokio::test]
+    async fn fresh_stores_inherit_only_policy_and_failure_cannot_fall_back_to_owner_allow() {
+        let pool = pool();
+        let before_scope = KnowledgeWriteStore::new(pool.clone());
+        assert!(before_scope.object_policy.is_none());
+        let facts = json!({"dataset_id":"dataset","tenant_id":"t","created_by":"owner"});
+        assert_eq!(
+            before_scope
+                .effective_dataset_permission(&actor(), &facts)
+                .await
+                .unwrap(),
+            3
+        );
+        cedar_dataset_policy::scoped(Some(Arc::new(Policy { fail: true })), async {
+            let current = KnowledgeWriteStore::new(pool);
+            assert!(current.object_policy.is_some());
+            assert!(matches!(
+                current.effective_dataset_permission(&actor(), &facts).await,
+                Err(IngestError::Permission)
+            ));
+            assert!(matches!(
+                before_scope
+                    .effective_dataset_permission(&actor(), &facts)
+                    .await,
+                Err(IngestError::Permission)
+            ));
+        })
+        .await;
+        assert!(cedar_dataset_policy::current().is_none());
+        assert_eq!(
+            before_scope
+                .effective_dataset_permission(&actor(), &facts)
+                .await
+                .unwrap(),
+            3
+        );
+    }
+}

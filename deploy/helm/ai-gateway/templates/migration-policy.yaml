@@ -17,8 +17,8 @@ spec:
   ingress: []
   egress:
   - to:
-    - {{ toYaml .Values.data.postgres.peer | nindent 6 }}
-    ports: [{protocol: TCP, port: {{ .Values.data.postgres.port }}}]
+    - {{ toYaml (ternary .Values.dataSecurity.directPostgres.peer .Values.data.postgres.peer (and .Values.dataSecurity.enabled (eq .Values.dataSecurity.mode "session"))) | nindent 6 }}
+    ports: [{protocol: TCP, port: {{ ternary .Values.dataSecurity.directPostgres.port .Values.data.postgres.port (and .Values.dataSecurity.enabled (eq .Values.dataSecurity.mode "session")) }}}]
   - to:
     - namespaceSelector:
         matchLabels: {kubernetes.io/metadata.name: {{ .Values.network.dnsNamespace | quote }}}

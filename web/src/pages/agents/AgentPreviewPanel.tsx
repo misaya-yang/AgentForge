@@ -296,7 +296,7 @@ export function AgentPreviewPanel({
           setApproval(recovered.approval);
           setRunUnsettled(!previewRunIsTerminal(recovered.status));
           if (["failed", "cancelled", "timeout"].includes(recovered.status)) {
-            setError(t("agents.preview.runNotSuccessful", { status: recovered.status, defaultValue: "Preview ended with status {{status}}. Check the trace before publishing." }));
+            setError(t("agents.preview.runNotSuccessful", { status: recovered.status, defaultValue: "Preview ended with status {status}. Check the trace before publishing." }));
           }
         } catch {
           if (!active) return;
@@ -349,7 +349,7 @@ export function AgentPreviewPanel({
         setRunUnsettled(false);
         setCancelRequested(false);
         setError(["failed", "cancelled", "timeout"].includes(result.status)
-          ? t("agents.preview.runNotSuccessful", { status: result.status, defaultValue: "Preview ended with status {{status}}. Check the trace before publishing." })
+          ? t("agents.preview.runNotSuccessful", { status: result.status, defaultValue: "Preview ended with status {status}. Check the trace before publishing." })
           : null);
       } else if (result.kind === "unavailable") {
         setError(t("agents.preview.statusUnavailable", "The saved run status could not be verified. Refresh its status or start a new Preview."));
@@ -453,7 +453,7 @@ export function AgentPreviewPanel({
           setApproval(null);
           const status = String(data.status || event.status || "");
           if (status && !["completed", "succeeded", "success"].includes(status)) {
-            setError(t("agents.preview.runNotSuccessful", { status, defaultValue: "Preview ended with status {{status}}. Check the trace before publishing." }));
+            setError(t("agents.preview.runNotSuccessful", { status, defaultValue: "Preview ended with status {status}. Check the trace before publishing." }));
           }
         } else if (type === "cancelled") {
           terminal = true;
@@ -570,7 +570,7 @@ export function AgentPreviewPanel({
       setRunUnsettled(!terminal);
       if (terminal) setCancelRequested(false);
       setError(["failed", "cancelled", "timeout"].includes(recovered.status)
-        ? t("agents.preview.runNotSuccessful", { status: recovered.status, defaultValue: "Preview ended with status {{status}}. Check the trace before publishing." })
+        ? t("agents.preview.runNotSuccessful", { status: recovered.status, defaultValue: "Preview ended with status {status}. Check the trace before publishing." })
         : null);
     } catch {
       if (sessionIdRef.current === sessionId) {
@@ -671,12 +671,12 @@ export function AgentPreviewPanel({
         onChange={switchTarget}
         options={[
           { value: "draft", label: t("agents.common.draftLabel", { revision: draftRevision }) },
-          ...previousDrafts.map((key) => ({ value: key, label: t("agents.preview.priorDraft", { revision: Number(key.slice(6)), defaultValue: "Earlier draft r{{revision}} · view only" }) })),
+          ...previousDrafts.map((key) => ({ value: key, label: t("agents.preview.priorDraft", { revision: Number(key.slice(6)), defaultValue: "Earlier draft r{revision} · view only" }) })),
           ...versions.map((version) => ({ value: version.agent_version_id, label: t("agents.common.versionLabel", { version: version.version_number }) })),
         ]}
       />
 
-      {staleDraft && <Alert className="agent-preview-notice" type="warning" showIcon title={t("agents.preview.staleDraft", { old: pinnedRevision, current: draftRevision, defaultValue: "This session is pinned to saved draft r{{old}}. Current draft is r{{current}}. Review the old run here; start a new Preview for another turn." })} />}
+      {staleDraft && <Alert className="agent-preview-notice" type="warning" showIcon title={t("agents.preview.staleDraft", { old: pinnedRevision, current: draftRevision, defaultValue: "This session is pinned to saved draft r{old}. Current draft is r{current}. Review the old run here; start a new Preview for another turn." })} />}
       <Alert
         className="agent-preview-notice"
         type={dirty ? "warning" : "info"}
@@ -691,7 +691,7 @@ export function AgentPreviewPanel({
         <span>{t("agents.preview.summaryCapabilities", { count: effectiveSpec.capabilities.length })}</span>
         <span>{t("agents.preview.summaryKnowledge", { count: effectiveSpec.knowledge.length })}</span>
         <span>{t("agents.preview.summaryMemory", { mode: memoryModeLabel })}</span>
-        {effectiveNative && (effectiveNative.length > 0 || !hasNativeBindings) && <span>{t("agents.preview.effectiveNative", { count: effectiveNative.length, defaultValue: "{{count}} platform tools authorized for this session" })}</span>}
+        {effectiveNative && (effectiveNative.length > 0 || !hasNativeBindings) && <span>{t("agents.preview.effectiveNative", { count: effectiveNative.length, defaultValue: "{count} platform tools authorized for this session" })}</span>}
       </div> : <div className="agent-effective-summary">{t("agents.preview.oldSummaryUnavailable", "Earlier draft configuration is not available in this page. Inspect the run trace for its recorded version and model.")}</div>}
 
       <div className="agent-preview-transcript" aria-live="polite">

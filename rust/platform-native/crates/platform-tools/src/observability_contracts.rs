@@ -131,7 +131,7 @@ impl Inputs {
         for (names, endpoint) in [
             (
                 &["gateway", "knowledge-service", "knowledge-worker"][..],
-                "http://otel-collector:4317",
+                "http://otel-collector:4318",
             ),
             (
                 &["agent-runtime", "agent-capability-worker"][..],

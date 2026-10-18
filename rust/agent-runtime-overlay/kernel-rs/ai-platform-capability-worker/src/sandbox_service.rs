@@ -55,17 +55,25 @@ struct TenantExecutor {
     base: LocalPythonSandboxBroker,
     config: LocalPythonSandboxConfig,
     policy: Option<crate::python_package_policy::TenantPackagePolicy>,
+    strong: Option<Arc<crate::sandbox_tier::StrongTierAdmission>>,
 }
 #[async_trait::async_trait]
 impl SandboxExecutor for TenantExecutor {
     fn available(&self) -> bool {
         self.base.isolation_available()
+            && self
+                .strong
+                .as_ref()
+                .is_none_or(|admission| admission.available())
     }
     async fn execute(
         &self,
         request: PythonCodeExecutionRequest,
         cancel: Arc<AtomicBool>,
     ) -> Result<PythonCodeExecutionResult, CodeExecutionError> {
+        if !self.available() {
+            return Err(CodeExecutionError::IsolationUnavailable);
+        }
         let mut config = self.config.clone();
         config.package_roots = match &self.policy {
             Some(policy) => policy
@@ -84,6 +92,7 @@ pub struct SandboxServiceConfig {
     pub local: LocalPythonSandboxConfig,
     pub journal_root: PathBuf,
     pub package_policy: Option<PathBuf>,
+    pub strong_tier: Option<crate::sandbox_tier::StrongTierConfig>,
     pub concurrency: usize,
     pub max_records: usize,
     pub retention_ms: u64,
@@ -94,6 +103,7 @@ impl Default for SandboxServiceConfig {
             local: Default::default(),
             journal_root: "/var/lib/agentforge-sandbox/jobs".into(),
             package_policy: None,
+            strong_tier: None,
             concurrency: 2,
             max_records: 1024,
             retention_ms: 3_600_000,
@@ -129,9 +139,10 @@ pub struct SandboxService {
     slots: Arc<Semaphore>,
     max_records: usize,
     retention_ms: u64,
+    single_use: bool,
     _journal_lock: Arc<File>,
 }
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct ServiceError {
     error: &'static str,
 }
@@ -149,6 +160,7 @@ impl SandboxService {
         verifier: SandboxJobVerifier,
     ) -> Result<Self, &'static str> {
         credential_free_preflight()?;
+        crate::python_package_policy::verify_python_runtime(&config.local.python_binary)?;
         let policy = config
             .package_policy
             .as_ref()
@@ -159,11 +171,18 @@ impl SandboxService {
                 )
             })
             .transpose()?;
+        let strong = config
+            .strong_tier
+            .as_ref()
+            .map(crate::sandbox_tier::StrongTierAdmission::load)
+            .transpose()?
+            .map(Arc::new);
         let executor = Arc::new(TenantExecutor {
             base: LocalPythonSandboxBroker::new(config.local.clone())
                 .map_err(|_| "sandbox_config_invalid")?,
             config: config.local.clone(),
             policy,
+            strong,
         });
         Self::from_parts(config, verifier, executor)
     }
@@ -172,6 +191,9 @@ impl SandboxService {
         verifier: SandboxJobVerifier,
         executor: Arc<dyn SandboxExecutor>,
     ) -> Result<Self, &'static str> {
+        if config.strong_tier.is_some() && (config.concurrency != 1 || config.max_records != 1) {
+            return Err("strong_sandbox_requires_one_execution");
+        }
         if !config.journal_root.is_absolute()
             || config.concurrency == 0
             || config.concurrency > 32
@@ -255,6 +277,7 @@ impl SandboxService {
             slots: Arc::new(Semaphore::new(config.concurrency)),
             max_records: config.max_records,
             retention_ms: config.retention_ms,
+            single_use: config.strong_tier.is_some(),
             _journal_lock: Arc::new(journal_lock),
         })
     }
@@ -330,6 +353,12 @@ impl SandboxService {
             let record = entry.record.clone();
             drop(entries);
             return self.reply(&record).await;
+        }
+        if self.single_use && !entries.is_empty() {
+            return Err(failure(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "strong_sandbox_already_used",
+            ));
         }
         let request = local_request(&job)
             .map_err(|_| failure(StatusCode::BAD_REQUEST, "sandbox_job_invalid"))?;
@@ -430,7 +459,9 @@ impl SandboxService {
     }
 }
 async fn ready(State(service): State<SandboxService>) -> StatusCode {
-    if service.executor.available() {
+    if service.executor.available()
+        && (!service.single_use || service.entries.lock().await.is_empty())
+    {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE

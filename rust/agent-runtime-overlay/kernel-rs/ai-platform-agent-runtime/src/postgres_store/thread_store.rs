@@ -227,7 +227,12 @@ impl ThreadStore for PostgresThreadStore {
     fn delete_thread(&self, params: DeleteThreadParams) -> ThreadStoreFuture<'_, ()> {
         Box::pin(async move {
             let kernel_thread_id = thread_uuid(params.thread_id)?;
-            let mut transaction = self.pool.begin().await.map_err(store_error)?;
+            let scope = match self.member_scope_with_deleted(kernel_thread_id, true).await {
+                Ok(scope) => scope,
+                Err(ThreadStoreError::ThreadNotFound { .. }) => return Ok(()),
+                Err(error) => return Err(error),
+            };
+            let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
             let root_id: Option<uuid::Uuid> = sqlx::query_scalar(
                 "SELECT runtime_thread_id FROM assistant_runtime_thread_members WHERE kernel_thread_id=$1",
             )

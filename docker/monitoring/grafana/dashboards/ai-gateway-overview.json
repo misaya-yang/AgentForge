@@ -135,6 +135,94 @@
           "expr": "histogram_quantile(0.95, sum by (le) (rate(gateway_request_duration_ms_bucket[5m])))"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Provider first text chunk P95 (s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gen_ai_client_operation_time_to_first_chunk_seconds_bucket[5m])))",
+          "legendFormat": "{{gen_ai_operation_name}} {{agentforge_tenant_id}} {{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Agent/retrieval/ingestion P95 (s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,gen_ai_operation_name) (rate(gen_ai_client_operation_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{gen_ai_operation_name}} {{agentforge_tenant_id}} {{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Settled cost rate by opaque tenant/model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agentforge_tenant_id,gen_ai_request_model) (rate({__name__=~\"agentforge_gen_ai_cost.*_total\"}[5m]))",
+          "legendFormat": "{{gen_ai_operation_name}} {{agentforge_tenant_id}} {{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Settled token rate by tenant/model/direction",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agentforge_tenant_id,gen_ai_request_model,gen_ai_token_type) (rate({__name__=~\"agentforge_gen_ai_token_usage.*_total\"}[5m]))",
+          "legendFormat": "{{gen_ai_operation_name}} {{agentforge_tenant_id}} {{gen_ai_request_model}} {{gen_ai_token_type}}"
+        }
+      ]
     }
   ]
 }

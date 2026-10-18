@@ -1,11 +1,13 @@
+import type { RequestBody } from "../api/contracts";
 /** The wire format deliberately has no free-text message, URL, prompt, user or tenant fields. */
 export type RouteName = "/" | "/assistant" | "/playground" | "/knowledge/:id" | "/agents/:id" | "/eval/:id" | "/settings" | "/dashboard" | "/tasks" | "/other";
 export type MetricName = "INP" | "LCP" | "CLS" | "route_commit" | "api_headers" | "chat_first_token" | "chat_duration";
 export type ErrorName = "Error" | "TypeError" | "RangeError" | "ReferenceError" | "SyntaxError" | "UnhandledRejection" | "RenderError";
-export interface ErrorFrame { asset: string; line: number; column: number }
+type WireRecord = RequestBody<"POST /api/v1/telemetry/browser">["records"][number];
+export type ErrorFrame = Extract<WireRecord, { kind: "error" }>["frames"][number];
 export type TelemetryRecord =
-  | { kind: "metric"; name: MetricName; route: RouteName; value: number; quality?: "native" | "observed"; trace_id?: string; span_id?: string; http_status?: number }
-  | { kind: "error"; name: ErrorName; route: RouteName; frames: ErrorFrame[]; trace_id?: string };
+  | (Extract<WireRecord, { kind: "metric" }> & { name: MetricName; route: RouteName; quality?: "native" | "observed" })
+  | (Extract<WireRecord, { kind: "error" }> & { name: ErrorName; route: RouteName });
 export interface TelemetryAuthority { key: string; token: string | null; authenticated: boolean; sessionType?: "cookie"; csrfToken?: string | null }
 export const TELEMETRY_PATH = "/api/v1/telemetry/browser";
 const ERROR_NAMES = new Set(["Error", "TypeError", "RangeError", "ReferenceError", "SyntaxError"]);
@@ -145,10 +147,10 @@ export function createTelemetryClient(options: { origin: string; authority: () =
     if (!valid()) { queue = []; return; }
     if (!queue.length) return;
     const batch = queue; queue = []; const active = session!; const authority = options.authority();
-    let body = JSON.stringify({ session_id: active.id, records: batch });
+    let body = JSON.stringify({ session_id: active.id, records: batch } satisfies RequestBody<"POST /api/v1/telemetry/browser">);
     // The allowlisted wire format is ASCII; cap below the server's 16 KiB body limit.
     while (body.length > 15 * 1024 && batch.length > 1) {
-      queue.unshift(batch.pop()!); body = JSON.stringify({ session_id: active.id, records: batch });
+      queue.unshift(batch.pop()!); body = JSON.stringify({ session_id: active.id, records: batch } satisfies RequestBody<"POST /api/v1/telemetry/browser">);
     }
     const controller = new AbortController(); controllers.add(controller);
     const timeout = setTimeout(() => controller.abort(), 5000);

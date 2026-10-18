@@ -58,6 +58,8 @@ impl PostgresThreadStore {
         DateTime<Utc>,
         DateTime<Utc>,
     )> {
+        let scope = self.member_scope(thread_uuid(thread_id)?).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         let row = sqlx::query(
             r#"
             SELECT projection.projection, projection.archived_at, projection.deleted_at,
@@ -70,10 +72,11 @@ impl PostgresThreadStore {
             "#,
         )
         .bind(thread_uuid(thread_id)?)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(store_error)?
         .ok_or(ThreadStoreError::ThreadNotFound { thread_id })?;
+        transaction.commit().await.map_err(store_error)?;
         let archived_at: Option<DateTime<Utc>> = row.try_get("archived_at").map_err(store_error)?;
         let deleted_at: Option<DateTime<Utc>> = row.try_get("deleted_at").map_err(store_error)?;
         if deleted_at.is_some() || (archived_at.is_some() && !include_archived) {
@@ -103,6 +106,14 @@ impl PostgresThreadStore {
         archived: bool,
     ) -> ThreadStoreResult<()> {
         let kernel_thread_id = thread_uuid(thread_id)?;
+        let scope = self.member_scope(kernel_thread_id).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        let root: Option<Uuid> = sqlx::query_scalar(
+            "SELECT runtime_thread_id FROM assistant_runtime_threads WHERE runtime_thread_id=$1 AND deleted_at IS NULL FOR UPDATE",
+        ).bind(scope.root_thread_id).fetch_optional(&mut *transaction).await.map_err(store_error)?;
+        if root.is_none() {
+            return Err(ThreadStoreError::ThreadNotFound { thread_id });
+        }
         let result = sqlx::query(
             r#"
             UPDATE assistant_runtime_thread_projections
@@ -112,7 +123,7 @@ impl PostgresThreadStore {
         )
         .bind(kernel_thread_id)
         .bind(archived)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(store_error)?;
         if result.rows_affected() == 0 {
@@ -127,9 +138,10 @@ impl PostgresThreadStore {
         )
         .bind(kernel_thread_id)
         .bind(archived)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         Ok(())
     }
 }

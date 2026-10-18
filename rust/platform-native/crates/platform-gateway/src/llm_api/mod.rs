@@ -101,6 +101,8 @@ struct Actor {
     routing: Option<Arc<crate::migration_host::routing_policy_v1::RoutingAuthority>>,
 }
 struct Invocation {
+    client_request_id: Option<String>,
+    external_audit: bool,
     surface: Surface,
     body: Bytes,
     payload: Value,
@@ -139,6 +141,7 @@ trait Backend: Send + Sync {
 pub struct LlmApi {
     backend: Arc<dyn Backend>,
     transport: Arc<dyn transport::Transport>,
+    audit_pool: Option<sqlx::PgPool>,
 }
 impl LlmApi {
     #[allow(clippy::too_many_arguments)]
@@ -185,6 +188,7 @@ impl LlmApi {
             return Err(LlmError::new(503, "llm_binding_invalid"));
         }
         Ok(Self {
+            audit_pool: Some(pool.clone()),
             backend: Arc::new(native::NativeBackend::new(
                 auth, pool, preflight, admission, capacity, providers, bindings, routing,
             )),

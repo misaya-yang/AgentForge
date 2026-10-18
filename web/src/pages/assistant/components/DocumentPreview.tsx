@@ -244,7 +244,7 @@ function DocumentContent({
         </ReactMarkdown>
       ) : format === "html" ? (
         // Sanitize HTML to prevent XSS attacks
-        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }} />
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { RETURN_TRUSTED_TYPE: true }) }} />
       ) : (
         <pre className="whitespace-pre-wrap font-sans">{content}</pre>
       )}

@@ -57,7 +57,7 @@ function host(language = "en-US") {
   const download = {} as DownloadModule;
   const source = readFileSync(new URL("./authenticatedDownload.ts", import.meta.url), "utf8");
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
-    { exports: download, require: (name: string) => { assert.equal(name, "@/lib/api"); return { api }; }, ...browser });
+    { exports: download, require: (name: string) => { assert.equal(name, "@/api/generatedTransport"); return { readApiBlob: async (url: string) => (await api.get(url, { responseType: "blob" })).data }; }, ...browser });
 
   const locale = JSON.parse(readFileSync(new URL(`../i18n/locales/${language}.json`, import.meta.url), "utf8"));
   const translate = (key: string, fallback?: string) => key.split(".").reduce((value, part) => value?.[part], locale) ?? fallback ?? key;
@@ -95,6 +95,7 @@ function host(language = "en-US") {
     "@/lib/format": { formatFileSize: String, getFormatLabel: (format: string) => format },
     "@/lib/clipboard": { copyToClipboard: async () => {} },
     "@/lib/api": { api },
+    "@/api/generatedTransport": { readApiBlob: async (url: string) => (await api.get(url, { responseType: "blob" })).data },
     "@/lib/authenticatedDownload": download,
   };
   const panel: { ArtifactsPanel?: (props: Record<string, unknown>) => Tree } = {};

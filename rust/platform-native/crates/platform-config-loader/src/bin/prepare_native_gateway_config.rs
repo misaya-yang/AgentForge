@@ -45,7 +45,37 @@ fn sdk_profile(environment: &Environment) -> bool {
         _ => false,
     }
 }
+/// This exporter validates the selected local profile. The real Gateway still
+/// loads the private generation, pins every peer and admits the schema at startup.
+fn required_profile(environment: &Environment, native: &Value) -> bool {
+    let e = |key: &str| environment.get(key).map(String::as_str).unwrap_or("");
+    if native["allow_private_knowledge_http"] != false
+        || !e("AI_PLATFORM_INTERNAL_TOKEN").is_empty()
+        || environment.contains_key("AI_PLATFORM_INTERNAL_TOKEN_FILE")
+        || !e("AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN").is_empty()
+        || environment.contains_key("AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE")
+    {
+        return false;
+    }
+    for (key, expected) in [
+        ("KB_SERVICE_URL", "https://knowledge-service:8452"),
+        (
+            "AI_PLATFORM_AGENT_RUNTIME_URL",
+            "https://agent-runtime:8454",
+        ),
+        (
+            "AI_PLATFORM_CAPABILITY_WORKER_URL",
+            "https://agent-capability-worker:8455",
+        ),
+    ] {
+        if e(key) != expected {
+            return false;
+        }
+    }
+    !e("INTERNAL_AUTH_KEYS").is_empty() || Path::new(e("INTERNAL_AUTH_KEYS_FILE")).is_absolute()
+}
 fn prepare(environment: Environment, native: Value) -> Result<Value> {
+    let environment = ai_platform_config_loader::versioned::resolve_secret_files(environment)?;
     let settings = resolve_settings(&environment)?;
     require(!serde_json::to_string(&native)?.contains('<'))?;
     let e = |k: &str| environment.get(k).map(String::as_str).unwrap_or("");
@@ -64,15 +94,19 @@ fn prepare(environment: Environment, native: Value) -> Result<Value> {
         )?;
     }
     require(settings["database"]["auto_init"] == false)?;
-    require(
-        e("KB_SERVICE_URL") == "http://knowledge-service:8092"
-            && e("AI_PLATFORM_AGENT_RUNTIME_URL") == "http://agent-runtime:8094"
-            && e("AI_PLATFORM_CAPABILITY_WORKER_URL") == "http://agent-capability-worker:8095",
-    )?;
-    require(
-        native["allow_private_knowledge_http"] == true
-            && e("AI_PLATFORM_INTERNAL_TOKEN").chars().count() >= 16,
-    )?;
+    if e("AI_PLATFORM_WORKLOAD_MTLS_MODE") == "required" {
+        require(required_profile(&environment, &native))?;
+    } else {
+        require(
+            e("KB_SERVICE_URL") == "http://knowledge-service:8092"
+                && e("AI_PLATFORM_AGENT_RUNTIME_URL") == "http://agent-runtime:8094"
+                && e("AI_PLATFORM_CAPABILITY_WORKER_URL") == "http://agent-capability-worker:8095",
+        )?;
+        require(
+            native["allow_private_knowledge_http"] == true
+                && e("AI_PLATFORM_INTERNAL_TOKEN").chars().count() >= 16,
+        )?;
+    }
     require(
         native["kernel_revision"]
             .as_str()
@@ -193,6 +227,44 @@ mod tests {
         );
         env.insert("SDK_AGENT_WORKER_TLS_CA_FILE".into(), "relative.pem".into());
         assert!(!sdk_profile(&env));
+    }
+    #[test]
+    fn required_profile_has_explicit_https_origins_and_no_bearer_substitution() {
+        let mut env = Environment::from([
+            (
+                "KB_SERVICE_URL".into(),
+                "https://knowledge-service:8452".into(),
+            ),
+            (
+                "AI_PLATFORM_AGENT_RUNTIME_URL".into(),
+                "https://agent-runtime:8454".into(),
+            ),
+            (
+                "AI_PLATFORM_CAPABILITY_WORKER_URL".into(),
+                "https://agent-capability-worker:8455".into(),
+            ),
+            (
+                "INTERNAL_AUTH_KEYS_FILE".into(),
+                "/run/domain/knowledge-keyring".into(),
+            ),
+        ]);
+        let native = json!({"allow_private_knowledge_http":false});
+        assert!(required_profile(&env, &native));
+        for key in [
+            "AI_PLATFORM_INTERNAL_TOKEN",
+            "AI_PLATFORM_INTERNAL_TOKEN_FILE",
+            "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",
+            "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE",
+        ] {
+            env.insert(key.into(), "retired-credential".into());
+            assert!(!required_profile(&env, &native));
+            env.remove(key);
+        }
+        env.insert(
+            "KB_SERVICE_URL".into(),
+            "http://knowledge-service:8092".into(),
+        );
+        assert!(!required_profile(&env, &native));
     }
     #[test]
     fn objects_only() {

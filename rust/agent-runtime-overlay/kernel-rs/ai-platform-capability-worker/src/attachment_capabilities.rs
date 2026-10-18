@@ -5,6 +5,7 @@
 //! Gateway performs the scoped fetch and format parser. Provider credentials
 //! and storage URLs never cross this boundary.
 
+use crate::workload_identity::WorkloadSend;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ai_platform_capability_contract::{RuntimeCapabilityLeaseV1, canonical_json_hash};
@@ -61,8 +62,8 @@ impl AttachmentCapabilityConfig {
             || url.password().is_some()
             || url.query().is_some()
             || url.fragment().is_some()
-            || self.internal_token.len() < MIN_SECRET_BYTES
-            || self.proof_secret.len() < MIN_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < MIN_SECRET_BYTES)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_SECRET_BYTES)
         {
             return Err(AttachmentCapabilityError::Configuration);
         }
@@ -175,7 +176,7 @@ impl AttachmentCapabilityBroker {
             return Err(AttachmentCapabilityError::Arguments);
         }
         let (arguments, body) = normalize_bound_arguments(raw_arguments, &lease.arguments_hash)?;
-        let proof = self.proof(&lease, &execution_id, &body)?;
+        let proof = if crate::broker_proof::required() { crate::broker_proof::issue(PATH, &body).await.map_err(|_| AttachmentCapabilityError::Unavailable)? } else { self.proof(&lease, &execution_id, &body)? };
         let request = self
             .client
             .post(self.config.endpoint()?)
@@ -189,7 +190,7 @@ impl AttachmentCapabilityBroker {
             crate::trace_context::apply(request, &lease.run_id, &lease.run_id, &execution_id)
                 .json(&body)
                 .timeout(Duration::from_secs(PROOF_TTL_SECONDS + 10))
-                .send()
+                .workload_send()
                 .await
                 .map_err(|_| AttachmentCapabilityError::SideEffectUnknown)?;
         if response.status().is_server_error() {

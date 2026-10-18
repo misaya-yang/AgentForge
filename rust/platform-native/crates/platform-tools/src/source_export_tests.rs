@@ -194,3 +194,53 @@ fn legacy_host_exports_cannot_opt_into_arbitrary_path_aliases() {
             .unwrap()
     );
 }
+
+#[test]
+fn batch_v3_is_explicit_and_cannot_launder_into_old_v2_admission() {
+    let mut fixture = Fixture::new();
+    let check = |fixture: &Fixture| {
+        paths_batch(
+            &fixture.evidence,
+            &fixture.unit,
+            &"d".repeat(64),
+            &fixture.source,
+            &fixture.schema,
+            &|name| Ok(fixture.root.join(name)),
+            &[&fixture.runs[0], &fixture.runs[1]],
+        )
+    };
+    assert!(check(&fixture).is_err());
+    fixture.evidence["schema"] = json!("ai-platform/composed-source-export/v3");
+    assert!(fixture.check().is_err());
+    let mapping = check(&fixture).unwrap();
+    mapping
+        .validate_runs(&[&fixture.runs[0], &fixture.runs[1]])
+        .unwrap();
+    assert!(mapping.workspace_matches("/source/codex-rs").unwrap());
+    std::fs::write(
+        fixture.source.join("codex-rs/crate/Cargo.toml"),
+        "changed source",
+    )
+    .unwrap();
+    assert!(check(&fixture).is_err());
+}
+#[test]
+fn batch_v3_keeps_exact_path_and_command_source_binding_checks() {
+    for field in ["host_source_root", "container_cwd", "source_binding"] {
+        let mut fixture = Fixture::new();
+        fixture.evidence["schema"] = json!("ai-platform/composed-source-export/v3");
+        fixture.evidence["execution"][field] = json!("forged");
+        assert!(
+            paths_batch(
+                &fixture.evidence,
+                &fixture.unit,
+                &"d".repeat(64),
+                &fixture.source,
+                &fixture.schema,
+                &|name| Ok(fixture.root.join(name)),
+                &[&fixture.runs[0], &fixture.runs[1]]
+            )
+            .is_err()
+        );
+    }
+}

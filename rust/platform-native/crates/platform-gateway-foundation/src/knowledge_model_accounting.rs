@@ -8,6 +8,16 @@ pub async fn settle_in_transaction(
     transaction: &mut Transaction<'_, Postgres>,
     record: &UsageRecord,
 ) -> Result<(), UsageRecorderError> {
+    settle_observed_in_transaction(transaction, record)
+        .await
+        .map(|_| ())
+}
+
+/// Newly claimed quota deltas, to be observed only after the caller commits.
+pub async fn settle_observed_in_transaction(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &UsageRecord,
+) -> Result<Vec<UsageRecord>, UsageRecorderError> {
     // The canonical recorder uses this cumulative observation to calculate an exact
     // delta and to suppress replay independently for all three accounting stages.
     let mut observation = record.clone();
@@ -27,18 +37,31 @@ pub async fn settle_in_transaction(
             .metadata
             .insert(crate::request_meter::METADATA_KEY.into(), units.clone());
     }
-    if let Some(cost)=record.metadata.get("request_cost_nanos"){observation.metadata.insert("request_cost_nanos".into(),cost.clone());}
+    if let Some(cost) = record.metadata.get("request_cost_nanos") {
+        observation
+            .metadata
+            .insert("request_cost_nanos".into(), cost.clone());
+    }
     observation.trace_steps.clear();
     let mut accounting = record.clone();
     accounting
         .metadata
         .insert("_price_book_v2_cumulative".into(), json!(observation));
+    let mut observations = Vec::new();
     for stage in [
         AccountingStage::QuotaCounters,
         AccountingStage::DailyAggregates,
         AccountingStage::HourlyAggregates,
     ] {
-        stage_receipts::apply_in_transaction(transaction, stage, &[accounting.clone()]).await?;
+        let accepted = stage_receipts::apply_observed_in_transaction(
+            transaction,
+            stage,
+            &[accounting.clone()],
+        )
+        .await?;
+        if stage == AccountingStage::QuotaCounters {
+            observations = accepted;
+        }
     }
-    Ok(())
+    Ok(observations)
 }

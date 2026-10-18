@@ -32,8 +32,10 @@ impl IngestionService {
             streaming_ocr_enabled: true,
             streaming_ocr: None,
             streaming_ocr_strategy: "hybrid".into(),
-            image_extractor: crate::migration_knowledge_ingest::images::DocumentImageExtractor::default(),
-            structured_backends: crate::migration_knowledge_ingest::structured::BackendRegistry::default(),
+            image_extractor:
+                crate::migration_knowledge_ingest::images::DocumentImageExtractor::default(),
+            structured_backends:
+                crate::migration_knowledge_ingest::structured::BackendRegistry::default(),
             cpu: Arc::new(Semaphore::new(cpu_workers.max(1))),
         })
     }

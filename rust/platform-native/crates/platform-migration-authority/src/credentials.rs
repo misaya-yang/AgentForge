@@ -33,18 +33,23 @@ pub fn role_prefix_from_env() -> Result<String> {
     validate_role_prefix(&prefix)?;
     Ok(prefix)
 }
+pub fn connection_for_principal(
+    principal: &str,
+) -> Result<crate::credential_files::PrincipalConnection> {
+    crate::credential_files::resolve(
+        &std::env::vars().collect(),
+        principal,
+        &role_prefix_from_env()?,
+    )
+}
 pub fn dsn_for_principal(principal: &str) -> Result<String> {
-    if !ALL_PRINCIPALS.contains(&principal) {
-        return Err(AuthorityError::Refused("unknown database principal".into()));
-    }
-    let key = format!("AI_GATEWAY_DATABASE_{}_DSN", principal.to_ascii_uppercase());
-    std::env::var(&key)
-        .ok()
-        .filter(|v| !v.is_empty())
-        .ok_or_else(|| {
-            AuthorityError::Refused(format!(
-                "{key} is required; shared or inferred database credentials are forbidden"
-            ))
+    Ok(connection_for_principal(principal)?.dsn)
+}
+pub async fn connect_principal(principal: &str) -> Result<PgConnection> {
+    PgConnection::connect_with(&connection_for_principal(principal)?.options)
+        .await
+        .map_err(|_| {
+            AuthorityError::Refused("database principal connection failed; values withheld".into())
         })
 }
 pub async fn verify_role_connections(
@@ -52,18 +57,37 @@ pub async fn verify_role_connections(
     expected_database: Option<&str>,
 ) -> Result<usize> {
     validate_role_prefix(prefix)?;
-    let mut dsns = BTreeMap::new();
+    let mut dsns: BTreeMap<&str, crate::credential_files::PrincipalConnection> = BTreeMap::new();
+    let mut tls_keys = std::collections::BTreeSet::new();
     for &principal in ALL_PRINCIPALS {
-        let dsn = dsn_for_principal(principal)?;
-        if dsns.values().any(|v| v == &dsn) {
+        let connection = connection_for_principal(principal)?;
+        if let Some(key) = &connection.tls_key_identity {
+            if !tls_keys.insert(key.clone()) {
+                return Err(AuthorityError::Refused(
+                    "database principals require distinct TLS client keys".into(),
+                ));
+            }
+        }
+        if dsns.values().any(|v| v.dsn == connection.dsn) {
             return Err(AuthorityError::Refused(
                 "database role DSNs must be distinct".into(),
             ));
         }
-        dsns.insert(principal, dsn);
+        dsns.insert(principal, connection);
     }
-    for (principal, dsn) in &dsns {
-        let mut conn = PgConnection::connect(dsn).await?;
+    if !tls_keys.is_empty() && tls_keys.len() != ALL_PRINCIPALS.len() {
+        return Err(AuthorityError::Refused(
+            "file TLS role verification cannot mix legacy plaintext connections".into(),
+        ));
+    }
+    for (principal, connection) in &dsns {
+        let mut conn = PgConnection::connect_with(&connection.options)
+            .await
+            .map_err(|_| {
+                AuthorityError::Refused(
+                    "database principal connection failed; values withheld".into(),
+                )
+            })?;
         let row = sqlx::query("SELECT current_user::text AS current_user, session_user::text AS session_user, current_database()::text AS database_name, current_setting('is_superuser', true) = 'on' AS is_superuser").fetch_one(&mut conn).await?;
         let current: String = row.try_get("current_user")?;
         let session: String = row.try_get("session_user")?;

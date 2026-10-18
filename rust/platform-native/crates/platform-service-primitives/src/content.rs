@@ -114,3 +114,5 @@ pub fn percent_encode(s: &str) -> String {
         })
         .collect()
 }
+
+pub mod storage_policy;

@@ -37,6 +37,7 @@ fn parse<T: serde::de::DeserializeOwned>(bytes: &Bytes, message: &str) -> Result
 }
 pub fn routes(sources: Arc<Sources>, auth: Arc<query::auth::GatewayAuth>) -> Router {
     Router::new()
+        .route("/api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/delta",post(delta))
         .route("/api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/sync", post(start_sync))
         .route("/api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/sync/{request_id}", get(sync_status))
     .route("/api/v1/knowledge/{dataset_id}/sources/confluence/connections",get(connections).post(create_connection))
@@ -176,4 +177,17 @@ async fn sync_status(
         )
     })?;
     Ok(Json(s.sync_status(&u, &d, &b, &id.to_string()).await?))
+}
+
+async fn delta(
+    State(s): State<Arc<Sources>>,
+    Extension(u): Extension<UserContext>,
+    Path((dataset, binding)): Path<(String, String)>,
+    bytes: Bytes,
+) -> Result<(StatusCode, Json<Value>)> {
+    let event: crate::connector::DeltaEvent = parse(&bytes, "Invalid connector delta event")?;
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(s.start_page_sync(&u, &dataset, &binding, &event).await?),
+    ))
 }

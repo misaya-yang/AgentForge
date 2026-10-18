@@ -36,6 +36,17 @@ fn task(value: Value, expected: Option<&str>) -> Result<Value, Error> {
     }
     Ok(value)
 }
+/// A definitive client rejection keeps the original redacted typed error.
+/// Admission uncertainty never supplies a task ID or permits resubmission.
+fn async_image_admission(result: Result<Value, Error>) -> Result<Value, Error> {
+    match result {
+        Ok(value) => task(value, None).map_err(|_| Error::UnknownOutcome),
+        Err(error) if matches!(error.status(), Some(400..=499)) && error.status() != Some(408) => {
+            Err(error)
+        }
+        Err(_) => Err(Error::UnknownOutcome),
+    }
+}
 impl Client {
     pub async fn assistant_chat(&self, mut body: Value) -> Result<Value, Error> {
         if body["message"].as_str().is_none() {
@@ -75,13 +86,7 @@ impl Client {
         if !asynchronous {
             return result;
         }
-        match result {
-            Ok(value) => task(value, None).map_err(|_| Error::UnknownOutcome),
-            Err(Error::Status(status)) if (400..500).contains(&status) && status != 408 => {
-                Err(Error::Status(status))
-            }
-            Err(_) => Err(Error::UnknownOutcome),
-        }
+        async_image_admission(result)
     }
     pub async fn assistant_image_task(&self, task_id: &str) -> Result<Value, Error> {
         id(task_id)?;
@@ -478,5 +483,58 @@ impl Client {
         Ok(
             json!({"document_id":document,"version_number":version,"source_hash":hash,"title":value["title"],"content":content}),
         )
+    }
+}
+
+#[cfg(test)]
+mod problem_admission_tests {
+    use super::*;
+    fn problem(status: u16) -> Error {
+        let body=serde_json::to_vec(&json!({"type":"urn:agentforge:problem:test","title":"private-marker","status":status,"detail":{"token":"private-marker"},"instance":"https://private-marker.invalid/request"})).unwrap();
+        Error::Problem(Box::new(
+            crate::problem::RemoteProblem::decode(status, &body).unwrap(),
+        ))
+    }
+    #[test]
+    fn problem_client_rejections_keep_status_and_typed_error() {
+        for status in [400, 401, 403, 404, 409, 422, 429, 499] {
+            let error = async_image_admission(Err(problem(status))).unwrap_err();
+            assert_eq!(error.status(), Some(status));
+            assert!(matches!(&error, Error::Problem(_)));
+            assert!(!format!("{error:?} {error}").contains("private-marker"));
+            assert_eq!(
+                async_image_admission(Err(Error::Status(status)))
+                    .unwrap_err()
+                    .status(),
+                Some(status)
+            );
+        }
+    }
+    #[test]
+    fn problem_deadline_server_and_missing_receipts_keep_unknown_effect_barrier() {
+        for status in [408, 500, 501, 502, 503, 504, 599] {
+            for error in [problem(status), Error::Status(status)] {
+                assert!(matches!(
+                    async_image_admission(Err(error)),
+                    Err(Error::UnknownOutcome)
+                ));
+            }
+        }
+        for error in [
+            Error::Transport,
+            Error::Response,
+            Error::UnknownOutcome,
+            Error::Status(302),
+        ] {
+            assert!(matches!(
+                async_image_admission(Err(error)),
+                Err(Error::UnknownOutcome)
+            ));
+        }
+        assert!(matches!(
+            async_image_admission(Ok(json!({"status":"queued"}))),
+            Err(Error::UnknownOutcome)
+        ));
+        assert!(async_image_admission(Ok(json!({"task_id":"t","status":"queued"}))).is_ok());
     }
 }

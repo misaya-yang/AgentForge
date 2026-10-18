@@ -1,0 +1,2391 @@
+{
+  "schema": "agentforge/generated-sdk/v2",
+  "openapi": "3.2.0",
+  "source_sha256": "709d71dfdeddc810cf9cfa000344bafee63f216a4438f3c9ec0a706ddd0ef3ce",
+  "operations": 590,
+  "schema_models": 82,
+  "stream_operations": [
+    "POST /api/v1/agent-runtime/{public_id}/chat/stream",
+    "POST /api/v1/agents/{agent}/preview/chat/stream",
+    "POST /api/v1/agents/{agent}/versions/{version}/preview/chat/stream",
+    "POST /api/v1/knowledge/{dataset_id}/qa/stream",
+    "POST /api/v1/proxy/{service_name}/runs/stream",
+    "POST /api/v1/proxy/{service_name}/threads/{thread_id}/runs/stream",
+    "POST /api/v1/public/agents/{public_id}/chat/stream",
+    "POST /api/v1/stream",
+    "GET /api/v2/agent/threads/{thread}/events",
+    "POST /internal/v1/sdk-tools/models/execute",
+    "POST /internal/v1/sdk-tools/models/revocations",
+    "POST /v1/chat/completions",
+    "POST /v1/messages"
+  ],
+  "operation_methods": {
+    "DELETE /api/auth/enterprise/passkeys/{id}": {
+      "request": "operation_deleteapiapiauthenterprisepasskeysid_b7dae6fe7c63",
+      "stream": null
+    },
+    "DELETE /api/auth/enterprise/scim-credentials/{id}": {
+      "request": "operation_deleteapiapiauthenterprisescimcredentialsid_f458d3204974",
+      "stream": null
+    },
+    "DELETE /api/auth/session": {
+      "request": "operation_browser_session_logout_67c1b257f82c",
+      "stream": null
+    },
+    "DELETE /api/v1/admin/tenant-policies/mcp-configs/{tenant_id}": {
+      "request": "operation_native_28_delete_mcp_config_delete__api_v1_admin_tenant_policies_mcp_configs_ten_473ae981e390",
+      "stream": null
+    },
+    "DELETE /api/v1/admin/tenant-policies/tool-policies/{tenant_id}": {
+      "request": "operation_native_28_delete_tool_policy_delete__api_v1_admin_tenant_policies_tool_policies__9cf0b0a6e695",
+      "stream": null
+    },
+    "DELETE /api/v1/agents/{agent}": {
+      "request": "operation_native_8_studio_delete__api_v1_agents_agent_510ef02d1696",
+      "stream": null
+    },
+    "DELETE /api/v1/agents/{agent}/members/{kind}/{principal}": {
+      "request": "operation_native_8_studio_delete__api_v1_agents_agent_members_kind_principal_716cf47b45bb",
+      "stream": null
+    },
+    "DELETE /api/v1/api-keys/{key_id}": {
+      "request": "operation_delete_api_key_api_v1_api_keys__key_id__delete_85f6cce14540",
+      "stream": null
+    },
+    "DELETE /api/v1/artifact-shares/{share_id}": {
+      "request": "operation_native_49_item_delete__api_v1_artifact_shares_share_id_ec08ca11c864",
+      "stream": null
+    },
+    "DELETE /api/v1/assistant/artifacts/{artifact_id}": {
+      "request": "operation_native_2_delete_delete__api_v1_assistant_artifacts_artifact_id_5af6d7968998",
+      "stream": null
+    },
+    "DELETE /api/v1/assistant/memory/items": {
+      "request": "operation_native_40_delete_memory_item_delete__api_v1_assistant_memory_items_8fa0a1c5d976",
+      "stream": null
+    },
+    "DELETE /api/v1/assistant/quiz/{quiz_id}": {
+      "request": "operation_console_delete_api_v1_assistant_quiz__quiz_id_8e4e05138692",
+      "stream": null
+    },
+    "DELETE /api/v1/assistant/sessions/{session_id}": {
+      "request": "operation_delete_session_api_v1_assistant_sessions__session_id__delete_2b3b3f0596b0",
+      "stream": null
+    },
+    "DELETE /api/v1/assistant/shares/{code}": {
+      "request": "operation_native_4_revoke_delete__api_v1_assistant_shares_code_f374ac3cbf91",
+      "stream": null
+    },
+    "DELETE /api/v1/config/rate-limits/{scope}/{scope_id}": {
+      "request": "operation_native_32_delete_rate_limit_delete__api_v1_config_rate_limits_scope_scope_id_e9f03342df93",
+      "stream": null
+    },
+    "DELETE /api/v1/config/services/langgraph": {
+      "request": "operation_native_26_http_delete_langgraph_delete__api_v1_config_services_langgraph_6e381fdd1968",
+      "stream": null
+    },
+    "DELETE /api/v1/config/services/{service_id}": {
+      "request": "operation_native_26_delete_service_delete__api_v1_config_services_service_id_46f67667750d",
+      "stream": null
+    },
+    "DELETE /api/v1/connectors/admin/configs/{provider}": {
+      "request": "operation_native_20_delete_connector_config_delete__api_v1_connectors_admin_configs_provid_e03715d69fa0",
+      "stream": null
+    },
+    "DELETE /api/v1/connectors/{provider}": {
+      "request": "operation_disconnect_connector_api_v1_connectors__provider__delete_c9805258ebe4",
+      "stream": null
+    },
+    "DELETE /api/v1/conversations/{id}": {
+      "request": "operation_native_3_delete_delete__api_v1_conversations_id_af770ba2b0db",
+      "stream": null
+    },
+    "DELETE /api/v1/eval/datasets/{dataset_id}/examples/{example_id}": {
+      "request": "operation_console_delete_api_v1_eval_datasets__dataset_id__examples__example_id_89fc4cac858e",
+      "stream": null
+    },
+    "DELETE /api/v1/files/admin/user/{user}": {
+      "request": "operation_native_0_delete_user_delete__api_v1_files_admin_user_user_c11f504c9625",
+      "stream": null
+    },
+    "DELETE /api/v1/files/{id}": {
+      "request": "operation_native_0_remove_delete__api_v1_files_id_1528e60551f8",
+      "stream": null
+    },
+    "DELETE /api/v1/kb-tools/{path}": {
+      "request": "operation_proxy_kb_tools_api_v1_kb_tools__path__delete_8a418853fb59",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/datasets/{dataset_id}": {
+      "request": "operation_console_delete_api_v1_knowledge_datasets__dataset_id_f711950632f4",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/datasets/{dataset_id}/permissions": {
+      "request": "operation_console_delete_api_v1_knowledge_datasets__dataset_id__permissions_20dbaef08e6c",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/{dataset_id}/documents/{document_id}": {
+      "request": "operation_console_delete_api_v1_knowledge__dataset_id__documents__document_id_bf07d81fbf82",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/{dataset_id}/segments/{segment_id}": {
+      "request": "operation_console_delete_api_v1_knowledge__dataset_id__segments__segment_id_40a34bbf1eba",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_api_v1_knowledge__path__delete_efd87f657bf2",
+      "stream": null
+    },
+    "DELETE /api/v1/local-nodes/{device_id}/grants/{grant_id}": {
+      "request": "operation_console_delete_api_v1_local_nodes__device_id__grants__grant_id_49981758f59f",
+      "stream": null
+    },
+    "DELETE /api/v1/mcp/connections/{connection_id}": {
+      "request": "operation_native_22_revoke_mcp_connection_delete__api_v1_mcp_connections_connection_id_2e780184033b",
+      "stream": null
+    },
+    "DELETE /api/v1/mcp/servers/{server_id}": {
+      "request": "operation_native_22_delete_mcp_server_delete__api_v1_mcp_servers_server_id_b7f1e8e31912",
+      "stream": null
+    },
+    "DELETE /api/v1/models/{model_id}": {
+      "request": "operation_delete_model_api_v1_models__model_id__delete_9b100ad647f2",
+      "stream": null
+    },
+    "DELETE /api/v1/providers/from-template": {
+      "request": "operation_native_36_http_reserved_delete_delete__api_v1_providers_from_template_7df2d654b54c",
+      "stream": null
+    },
+    "DELETE /api/v1/providers/{provider_id}": {
+      "request": "operation_delete_provider_api_v1_providers__provider_id__delete_05aed58b4521",
+      "stream": null
+    },
+    "DELETE /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_7b9297d29940",
+      "stream": null
+    },
+    "DELETE /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_af6a1bc71ad8",
+      "stream": null
+    },
+    "DELETE /api/v1/publications/{publication}/tokens/{token}": {
+      "request": "operation_native_48_tokens_route_delete__api_v1_publications_publication_tokens_token_e1bd7ff635b1",
+      "stream": null
+    },
+    "DELETE /api/v1/roles/{role_name}": {
+      "request": "operation_delete_role_api_v1_roles__role_name__delete_b504dc5eeec6",
+      "stream": null
+    },
+    "DELETE /api/v1/services/{service_id}": {
+      "request": "operation_delete_service_api_v1_services__service_id__delete_8b5e9485e17b",
+      "stream": null
+    },
+    "DELETE /api/v1/sessions/{session_id}": {
+      "request": "operation_console_delete_api_v1_sessions__session_id_c6eca894e0f1",
+      "stream": null
+    },
+    "DELETE /api/v1/skills/{name}": {
+      "request": "operation_delete_skill_api_v1_skills__name__delete_800509f47641",
+      "stream": null
+    },
+    "DELETE /api/v1/tasks/{task_id}": {
+      "request": "operation_cancel_task_api_v1_tasks__task_id__delete_1f718868f769",
+      "stream": null
+    },
+    "DELETE /api/v1/users/{user_id}": {
+      "request": "operation_delete_user_api_v1_users__user_id__delete_bd9cd1b7c047",
+      "stream": null
+    },
+    "DELETE /api/v1/{device_id}/grants/{grant_id}": {
+      "request": "operation_native_41_grants_revoke_delete__api_v1_device_id_grants_grant_id_84b0ed153405",
+      "stream": null
+    },
+    "DELETE /scim/v2/{tenant}/Groups/{id}": {
+      "request": "operation_deleteapiscimv2tenantgroupsid_32fa11a109e8",
+      "stream": null
+    },
+    "DELETE /scim/v2/{tenant}/Users/{id}": {
+      "request": "operation_deleteapiscimv2tenantusersid_b2646a39bef0",
+      "stream": null
+    },
+    "DELETE /v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_v1_knowledge__path__delete_43ac16846266",
+      "stream": null
+    },
+    "GET /.well-known/jwks.json": {
+      "request": "operation_api_access_public_keys_83432a91297a",
+      "stream": null
+    },
+    "GET /api/auth/device": {
+      "request": "operation_device_approval_page_df885c02c91e",
+      "stream": null
+    },
+    "GET /api/auth/device/request": {
+      "request": "operation_device_approval_review_adb7fd1282ab",
+      "stream": null
+    },
+    "GET /api/auth/enterprise/oidc/callback": {
+      "request": "operation_getapiapiauthenterpriseoidccallback_a21845bbe674",
+      "stream": null
+    },
+    "GET /api/auth/session": {
+      "request": "operation_browser_session_current_3b6b9cf5a376",
+      "stream": null
+    },
+    "GET /api/auth/session/step-up": {
+      "request": "operation_browser_session_step_up_status_b142f7d6ac77",
+      "stream": null
+    },
+    "GET /api/v1/admin/architecture-status": {
+      "request": "operation_architecture_status_api_v1_admin_architecture_status_get_a88e9c8f6a27",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/audit-log": {
+      "request": "operation_native_28_query_audit_log_get__api_v1_admin_tenant_policies_audit_log_747bbc24d91d",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/config-audit-log": {
+      "request": "operation_query_config_audit_log_7955a93ba1a0",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/mcp-configs": {
+      "request": "operation_native_28_list_mcp_configs_get__api_v1_admin_tenant_policies_mcp_configs_36a792a1d12d",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/mcp-configs/{tenant_id}": {
+      "request": "operation_native_28_get_mcp_config_get__api_v1_admin_tenant_policies_mcp_configs_tenant_id_94af54a4c34f",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/tool-policies": {
+      "request": "operation_native_28_list_tool_policies_get__api_v1_admin_tenant_policies_tool_policies_5debd9bef873",
+      "stream": null
+    },
+    "GET /api/v1/admin/tenant-policies/tool-policies/{tenant_id}": {
+      "request": "operation_native_28_get_tool_policy_get__api_v1_admin_tenant_policies_tool_policies_tenant_e6186c1d7d25",
+      "stream": null
+    },
+    "GET /api/v1/agent-runtime/{public_id}": {
+      "request": "operation_native_48_dispatch_inner_get__api_v1_agent_runtime_public_id_0b3043157986",
+      "stream": null
+    },
+    "GET /api/v1/agents": {
+      "request": "operation_native_8_studio_get__api_v1_agents_5de91a1660cc",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_0e2c5f5f1e56",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/analytics": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_analytics_c700464698ee",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/audit-events": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_audit_events_f7bf174845b9",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/draft": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_draft_47857d5985a1",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/evals": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_evals_47c8b2341d50",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/evals/{evaluation}": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_evals_evaluation_33dd2f9715fd",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/evals/{evaluation}/diff": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_evals_evaluation_diff_e4ef354122f4",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/governance": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_governance_50433668e18e",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/members": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_members_6fd2ff98c22a",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/preview/sessions/{session}": {
+      "request": "operation_native_8_preview_route_get__api_v1_agents_agent_preview_sessions_session_408cb377790d",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/publications": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_publications_e668f979a125",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/publish-events": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_publish_events_58f58933ffbe",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/versions": {
+      "request": "operation_native_8_studio_get__api_v1_agents_agent_versions_fb7b3cfad93e",
+      "stream": null
+    },
+    "GET /api/v1/agents/{agent}/versions/{version}/preview/sessions/{session}": {
+      "request": "operation_native_8_preview_route_get__api_v1_agents_agent_versions_version_preview_session_a43c3a57b3fd",
+      "stream": null
+    },
+    "GET /api/v1/api-keys": {
+      "request": "operation_list_api_keys_api_v1_api_keys_get_96852b707530",
+      "stream": null
+    },
+    "GET /api/v1/api-keys/{key_id}": {
+      "request": "operation_get_api_key_detail_api_v1_api_keys__key_id__get_c21db4222466",
+      "stream": null
+    },
+    "GET /api/v1/artifact-shares": {
+      "request": "operation_native_49_collection_get__api_v1_artifact_shares_ef6feb31b824",
+      "stream": null
+    },
+    "GET /api/v1/assistant/approvals/{approval_id}": {
+      "request": "operation_console_get_api_v1_assistant_approvals__approval_id_a64ef9217110",
+      "stream": null
+    },
+    "GET /api/v1/assistant/artifacts/{artifact_id}": {
+      "request": "operation_native_2_read_get__api_v1_assistant_artifacts_artifact_id_aa3de6ccf8b8",
+      "stream": null
+    },
+    "GET /api/v1/assistant/artifacts/{artifact_id}/download": {
+      "request": "operation_native_2_download_get__api_v1_assistant_artifacts_artifact_id_download_1e6522719992",
+      "stream": null
+    },
+    "GET /api/v1/assistant/artifacts/{artifact_id}/download-url": {
+      "request": "operation_native_1_download_url_get__api_v1_assistant_artifacts_artifact_id_download_url_be28e0a7a3df",
+      "stream": null
+    },
+    "GET /api/v1/assistant/config": {
+      "request": "operation_console_get_api_v1_assistant_config_27d8b796118a",
+      "stream": null
+    },
+    "GET /api/v1/assistant/datasets": {
+      "request": "operation_console_get_api_v1_assistant_datasets_c7e3519a7540",
+      "stream": null
+    },
+    "GET /api/v1/assistant/image-sessions/{id}": {
+      "request": "operation_native_1_session_get__api_v1_assistant_image_sessions_id_f6645a2d8806",
+      "stream": null
+    },
+    "GET /api/v1/assistant/image-task/{id}": {
+      "request": "operation_native_1_task_get__api_v1_assistant_image_task_id_d91d0c09c2da",
+      "stream": null
+    },
+    "GET /api/v1/assistant/mcp/servers": {
+      "request": "operation_native_22_list_legacy_mcp_servers_get__api_v1_assistant_mcp_servers_ec3040377204",
+      "stream": null
+    },
+    "GET /api/v1/assistant/mcp/tools": {
+      "request": "operation_native_22_list_legacy_mcp_tools_get__api_v1_assistant_mcp_tools_b94587cbc757",
+      "stream": null
+    },
+    "GET /api/v1/assistant/memory": {
+      "request": "operation_native_40_get_memory_get__api_v1_assistant_memory_a10a172cdd67",
+      "stream": null
+    },
+    "GET /api/v1/assistant/metrics/tenant": {
+      "request": "operation_get_tenant_metrics_api_v1_assistant_metrics_tenant_get_5e3123a4f6c8",
+      "stream": null
+    },
+    "GET /api/v1/assistant/models": {
+      "request": "operation_list_models_api_v1_assistant_models_get_4faf6ddb50af",
+      "stream": null
+    },
+    "GET /api/v1/assistant/plugins": {
+      "request": "operation_list_assistant_plugins_3c1d263a6883",
+      "stream": null
+    },
+    "GET /api/v1/assistant/quiz/{quiz_id}": {
+      "request": "operation_console_get_api_v1_assistant_quiz__quiz_id_b7e44e096b16",
+      "stream": null
+    },
+    "GET /api/v1/assistant/quiz/{quiz_id}/attempts": {
+      "request": "operation_console_get_api_v1_assistant_quiz__quiz_id__attempts_c2d8004e4c39",
+      "stream": null
+    },
+    "GET /api/v1/assistant/quiz/{quiz_id}/attempts/{attempt_id}": {
+      "request": "operation_console_get_api_v1_assistant_quiz__quiz_id__attempts__attempt_id_8de1751235b3",
+      "stream": null
+    },
+    "GET /api/v1/assistant/runs/{run_id}": {
+      "request": "operation_console_get_api_v1_assistant_runs__run_id_2f1d68d4fd7b",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions": {
+      "request": "operation_list_sessions_api_v1_assistant_sessions_get_83c23a27df43",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}": {
+      "request": "operation_get_session_api_v1_assistant_sessions__session_id__get_4ee5bf5ac01e",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}/artifacts": {
+      "request": "operation_native_2_list_get__api_v1_assistant_sessions_session_id_artifacts_1b680b5d06d3",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}/history": {
+      "request": "operation_get_session_history_api_v1_assistant_sessions__session_id__history_get_8f1f00070ae3",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}/metrics": {
+      "request": "operation_get_session_metrics_api_v1_assistant_sessions__session_id__metrics_get_44965e71c1c8",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}/share-preview": {
+      "request": "operation_native_4_preview_get__api_v1_assistant_sessions_session_id_share_preview_a391605723e1",
+      "stream": null
+    },
+    "GET /api/v1/assistant/sessions/{session_id}/tools": {
+      "request": "operation_get_session_tools_api_v1_assistant_sessions__session_id__tools_get_e90b32992e0d",
+      "stream": null
+    },
+    "GET /api/v1/assistant/shares": {
+      "request": "operation_native_4_list_get__api_v1_assistant_shares_4a6e5c204071",
+      "stream": null
+    },
+    "GET /api/v1/assistant/shares/{code}": {
+      "request": "operation_native_4_view_get__api_v1_assistant_shares_code_dbb5df8b04a5",
+      "stream": null
+    },
+    "GET /api/v1/assistant/shares/{code}/artifact/{id}": {
+      "request": "operation_native_4_download_get__api_v1_assistant_shares_code_artifact_id_f6ce8c04b89c",
+      "stream": null
+    },
+    "GET /api/v1/assistant/tools": {
+      "request": "operation_console_get_api_v1_assistant_tools_0b9e3ccd21fd",
+      "stream": null
+    },
+    "GET /api/v1/auth/me": {
+      "request": "operation_get_current_user_api_v1_auth_me_get_413f053051f9",
+      "stream": null
+    },
+    "GET /api/v1/config/api-keys": {
+      "request": "operation_native_19_list_api_keys_get__api_v1_config_api_keys_15b91e535b10",
+      "stream": null
+    },
+    "GET /api/v1/config/auth": {
+      "request": "operation_native_18_get_auth_config_get__api_v1_config_auth_edd67a58a398",
+      "stream": null
+    },
+    "GET /api/v1/config/load-balancer": {
+      "request": "operation_console_get_api_v1_config_load_balancer_dfb5512fa279",
+      "stream": null
+    },
+    "GET /api/v1/config/rate-limits": {
+      "request": "operation_native_32_list_rate_limits_get__api_v1_config_rate_limits_a5cc519de604",
+      "stream": null
+    },
+    "GET /api/v1/config/services/{service_id}/config": {
+      "request": "operation_native_26_get_service_config_get__api_v1_config_services_service_id_config_2f869d78b5cc",
+      "stream": null
+    },
+    "GET /api/v1/config/status": {
+      "request": "operation_console_get_api_v1_config_status_aec75d21c982",
+      "stream": null
+    },
+    "GET /api/v1/connectors/admin/configs": {
+      "request": "operation_native_20_list_connector_configs_get__api_v1_connectors_admin_configs_6eb630c0e998",
+      "stream": null
+    },
+    "GET /api/v1/connectors/auth/{provider}": {
+      "request": "operation_initiate_oauth_api_v1_connectors_auth__provider__get_ecf1cb0a9f53",
+      "stream": null
+    },
+    "GET /api/v1/connectors/available": {
+      "request": "operation_list_available_connectors_api_v1_connectors_available_get_ff956115beee",
+      "stream": null
+    },
+    "GET /api/v1/connectors/callback/{provider}": {
+      "request": "operation_oauth_callback_api_v1_connectors_callback__provider__get_d822e644edea",
+      "stream": null
+    },
+    "GET /api/v1/connectors/mine": {
+      "request": "operation_list_my_connectors_api_v1_connectors_mine_get_3927a40ef0c6",
+      "stream": null
+    },
+    "GET /api/v1/connectors/{provider}/mcp-status": {
+      "request": "operation_console_get_api_v1_connectors__provider__mcp_status_12db6bf3e223",
+      "stream": null
+    },
+    "GET /api/v1/connectors/{provider}/principals": {
+      "request": "operation_console_get_api_v1_connectors__provider__principals_fe214dce9b6e",
+      "stream": null
+    },
+    "GET /api/v1/conversations": {
+      "request": "operation_native_3_list_get__api_v1_conversations_14d0d63add87",
+      "stream": null
+    },
+    "GET /api/v1/conversations/{id}": {
+      "request": "operation_native_3_read_get__api_v1_conversations_id_b10c1efd0628",
+      "stream": null
+    },
+    "GET /api/v1/conversations/{id}/messages": {
+      "request": "operation_native_3_history_get__api_v1_conversations_id_messages_056987cd95e2",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/alerts": {
+      "request": "operation_native_38_get_alerts_get__api_v1_dashboard_alerts_3deddf6caea9",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/breakdown": {
+      "request": "operation_native_38_get_usage_breakdown_get__api_v1_dashboard_breakdown_09ab871c8a4b",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/realtime": {
+      "request": "operation_native_38_get_realtime_dashboard_get__api_v1_dashboard_realtime_efe72d24c931",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/summary": {
+      "request": "operation_native_38_get_dashboard_summary_get__api_v1_dashboard_summary_4946e594dd49",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/timeseries/{metric}": {
+      "request": "operation_native_38_get_timeseries_get__api_v1_dashboard_timeseries_metric_caf6714d39dc",
+      "stream": null
+    },
+    "GET /api/v1/dashboard/user/{user_id}": {
+      "request": "operation_native_38_get_user_dashboard_get__api_v1_dashboard_user_user_id_f26b98454722",
+      "stream": null
+    },
+    "GET /api/v1/debug/tools": {
+      "request": "operation_native_29_list_registered_tools_get__api_v1_debug_tools_9d39f4005d36",
+      "stream": null
+    },
+    "GET /api/v1/eval/dashboard": {
+      "request": "operation_native_47_handle_get__api_v1_eval_dashboard_cd78ca1c46bf",
+      "stream": null
+    },
+    "GET /api/v1/eval/datasets": {
+      "request": "operation_console_get_api_v1_eval_datasets_b0608199ab64",
+      "stream": null
+    },
+    "GET /api/v1/eval/datasets/{dataset_id}/examples": {
+      "request": "operation_console_get_api_v1_eval_datasets__dataset_id__examples_ed7acf389534",
+      "stream": null
+    },
+    "GET /api/v1/eval/datasets/{dataset_id}/examples:export": {
+      "request": "operation_console_get_api_v1_eval_datasets__dataset_id__examples_export_22f001d56fe7",
+      "stream": null
+    },
+    "GET /api/v1/eval/datasets/{dataset_id}/kb-failures/{case_id}": {
+      "request": "operation_console_get_api_v1_eval_datasets__dataset_id__kb_failures__case_id_b8725056690d",
+      "stream": null
+    },
+    "GET /api/v1/eval/datasets/{id}": {
+      "request": "operation_console_get_api_v1_eval_datasets__id_72e77b1c3c0d",
+      "stream": null
+    },
+    "GET /api/v1/eval/evaluators": {
+      "request": "operation_console_get_api_v1_eval_evaluators_670e8df3d17b",
+      "stream": null
+    },
+    "GET /api/v1/eval/evaluators/{id}": {
+      "request": "operation_console_get_api_v1_eval_evaluators__id_4136eb39db3f",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiment-runs": {
+      "request": "operation_console_get_api_v1_eval_experiment_runs_0e5b1055286f",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiment-runs/{id}": {
+      "request": "operation_console_get_api_v1_eval_experiment_runs__id_fdc8bef43371",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiment-runs/{run_id}/results": {
+      "request": "operation_console_get_api_v1_eval_experiment_runs__run_id__results_e1234dc0c3b8",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiment-runs:compare": {
+      "request": "operation_console_get_api_v1_eval_experiment_runs_compare_479b79931472",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiments": {
+      "request": "operation_console_get_api_v1_eval_experiments_8c322e4fe4fd",
+      "stream": null
+    },
+    "GET /api/v1/eval/experiments/{id}": {
+      "request": "operation_console_get_api_v1_eval_experiments__id_8b12a6ab414d",
+      "stream": null
+    },
+    "GET /api/v1/eval/knowledge/summary": {
+      "request": "operation_console_get_api_v1_eval_knowledge_summary_508f4d42b638",
+      "stream": null
+    },
+    "GET /api/v1/eval/summary": {
+      "request": "operation_native_47_handle_get__api_v1_eval_summary_10239fda47cd",
+      "stream": null
+    },
+    "GET /api/v1/eval/threads/{id}": {
+      "request": "operation_native_47_handle_get__api_v1_eval_threads_id_a214294ddba5",
+      "stream": null
+    },
+    "GET /api/v1/eval/traces": {
+      "request": "operation_native_47_handle_get__api_v1_eval_traces_4fa07bbf7709",
+      "stream": null
+    },
+    "GET /api/v1/eval/traces/{id}": {
+      "request": "operation_native_47_handle_get__api_v1_eval_traces_id_bb15adc5be1c",
+      "stream": null
+    },
+    "GET /api/v1/eval/traces/{id}/export": {
+      "request": "operation_native_47_handle_get__api_v1_eval_traces_id_export_dbc839a1feab",
+      "stream": null
+    },
+    "GET /api/v1/files": {
+      "request": "operation_native_0_list_get__api_v1_files_7e6ecee8b62d",
+      "stream": null
+    },
+    "GET /api/v1/files/admin/stats": {
+      "request": "operation_native_0_stats_get__api_v1_files_admin_stats_c5925c77eeb3",
+      "stream": null
+    },
+    "GET /api/v1/files/{id}": {
+      "request": "operation_native_0_info_get__api_v1_files_id_e086cc3fb390",
+      "stream": null
+    },
+    "GET /api/v1/guardrails/decisions/{request_id}": {
+      "request": "operation_getapiapiv1guardrailsdecisionsrequestid_77420befafaf",
+      "stream": null
+    },
+    "GET /api/v1/guardrails/policy": {
+      "request": "operation_getapiapiv1guardrailspolicy_fe56ff5f7e5c",
+      "stream": null
+    },
+    "GET /api/v1/health": {
+      "request": "operation_gateway_health_api_v1_health_get_40a58bbb0e61",
+      "stream": null
+    },
+    "GET /api/v1/health/providers": {
+      "request": "operation_all_providers_health_api_v1_health_providers_get_60ab50f7cd35",
+      "stream": null
+    },
+    "GET /api/v1/health/services": {
+      "request": "operation_all_services_health_api_v1_health_services_get_8fb54dbc1437",
+      "stream": null
+    },
+    "GET /api/v1/health/services/{service_id}": {
+      "request": "operation_service_health_api_v1_health_services__service_id__get_502804c45726",
+      "stream": null
+    },
+    "GET /api/v1/kb-tools/{path}": {
+      "request": "operation_proxy_kb_tools_api_v1_kb_tools__path__delete_8ee39b20a20f",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets": {
+      "request": "operation_console_get_api_v1_knowledge_datasets_ae2dc4c8ea30",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id_fa7787361397",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}/embedding-migration": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id__embedding_migration_c008e2f6088c",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/jobs/{job_id}": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id__embedding_migration__migratio_2813d351b4ef",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}/impact": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id__impact_581aa9db64df",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}/permissions": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id__permissions_967ea3dad91f",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/datasets/{dataset_id}/vector-mutations/{job_id}": {
+      "request": "operation_console_get_api_v1_knowledge_datasets__dataset_id__vector_mutations__job_id_8920d4f22586",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/images/{segment_id}": {
+      "request": "operation_console_get_api_v1_knowledge_images__segment_id_6e3cd08232c1",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/retrieval/presets": {
+      "request": "operation_console_get_api_v1_knowledge_retrieval_presets_ea425c297fd3",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/worker/status": {
+      "request": "operation_console_get_api_v1_knowledge_worker_status_9eba7e5644cd",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/config": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__config_a9ca30ec20b7",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/debug": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__debug_aa6291daa49d",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/document-batches/{operation_id}": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__document_batches__operation_id_b1720e8aee12",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents_3f9c38bc80c6",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/progress": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents_progress_a77df22f8811",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id_a49a0cca66f5",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/executions/{execution_id}": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__executions__ex_12da5b6528c9",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/source": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__source_4597721cb0a3",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/statistics": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__statistics_133653836a19",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__versions_0ac872b75c68",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/compare": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__versions_compa_ac3710fae2ec",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__versions__vers_d912967d0eec",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}/source": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__documents__document_id__versions__vers_158a36a9c10c",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/feedback": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__feedback_038bfb80e736",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/metadata-schema": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__metadata_schema_3c0aaef20156",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/queries": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__queries_16339b6168d2",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/segments": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__segments_4ab58ef5847a",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__sources_9fc6a615d451",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/bindings/{binding_id}": {
+      "request": "operation_get_source_binding_api_v1_knowledge__dataset_id__sources_confluence_bindings__bi_14d8b842e464",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections": {
+      "request": "operation_list_source_connections_api_v1_knowledge__dataset_id__sources_confluence_connect_7fab4fdc9f1d",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/manage": {
+      "request": "operation_list_managed_connections_api_v1_knowledge__dataset_id__sources_confluence_connec_0481fa5e8260",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}": {
+      "request": "operation_get_source_connection_api_v1_knowledge__dataset_id__sources_confluence_connectio_8c34e9ff9dc4",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control": {
+      "request": "operation_get_connection_impact_api_v1_knowledge__dataset_id__sources_confluence_connectio_279f9a1764df",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/space": {
+      "request": "operation_get_source_space_api_v1_knowledge__dataset_id__sources_confluence_connections__c_fad3544ac2e2",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/sync/{request_id}": {
+      "request": "operation_get_manual_sync_api_v1_knowledge__dataset_id__sources_confluence__binding_id__sy_b36f2319ad10",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{dataset_id}/statistics": {
+      "request": "operation_console_get_api_v1_knowledge__dataset_id__statistics_24be9c8c5eab",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_api_v1_knowledge__path__delete_802f1152b97d",
+      "stream": null
+    },
+    "GET /api/v1/langgraph/assistants": {
+      "request": "operation_native_11_http_get__api_v1_langgraph_assistants_8254f1371a81",
+      "stream": null
+    },
+    "GET /api/v1/langgraph/assistants/{id}": {
+      "request": "operation_native_11_http_get__api_v1_langgraph_assistants_id_9ad9d58a27d5",
+      "stream": null
+    },
+    "GET /api/v1/langgraph/store/namespaces": {
+      "request": "operation_native_11_http_get__api_v1_langgraph_store_namespaces_c95271cea19c",
+      "stream": null
+    },
+    "GET /api/v1/langgraph/threads/{id}": {
+      "request": "operation_native_11_http_get__api_v1_langgraph_threads_id_20169a9703b9",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes": {
+      "request": "operation_console_get_api_v1_local_nodes_27da8797ac49",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes/{device_id}/capabilities": {
+      "request": "operation_console_get_api_v1_local_nodes__device_id__capabilities_d6d5aa40833a",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes/{device_id}/doctor": {
+      "request": "operation_console_get_api_v1_local_nodes__device_id__doctor_a2ec8c129950",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes/{device_id}/events": {
+      "request": "operation_console_get_api_v1_local_nodes__device_id__events_5b6e6fe24cd8",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes/{device_id}/grants": {
+      "request": "operation_console_get_api_v1_local_nodes__device_id__grants_835f2e203d26",
+      "stream": null
+    },
+    "GET /api/v1/local-nodes/{device_id}/status": {
+      "request": "operation_console_get_api_v1_local_nodes__device_id__status_35218fb08d59",
+      "stream": null
+    },
+    "GET /api/v1/mcp/servers": {
+      "request": "operation_native_22_list_mcp_servers_get__api_v1_mcp_servers_3336d7fe230f",
+      "stream": null
+    },
+    "GET /api/v1/mcp/servers/{server_id}": {
+      "request": "operation_native_22_get_mcp_server_get__api_v1_mcp_servers_server_id_28267ace85f2",
+      "stream": null
+    },
+    "GET /api/v1/mcp/servers/{server_id}/connections": {
+      "request": "operation_native_22_list_mcp_connections_get__api_v1_mcp_servers_server_id_connections_7a4df602a706",
+      "stream": null
+    },
+    "GET /api/v1/mcp/servers/{server_id}/tools": {
+      "request": "operation_native_22_list_mcp_tools_get__api_v1_mcp_servers_server_id_tools_2bd3371645e8",
+      "stream": null
+    },
+    "GET /api/v1/metrics/breakdown": {
+      "request": "operation_native_39_http_breakdown_get__api_v1_metrics_breakdown_a9e8c95fb1db",
+      "stream": null
+    },
+    "GET /api/v1/metrics/security/breakdown": {
+      "request": "operation_native_39_http_security_breakdown_get__api_v1_metrics_security_breakdown_c947d4e298e9",
+      "stream": null
+    },
+    "GET /api/v1/metrics/security/timeseries": {
+      "request": "operation_native_39_http_security_timeseries_get__api_v1_metrics_security_timeseries_2c74abc2d2ab",
+      "stream": null
+    },
+    "GET /api/v1/metrics/summary": {
+      "request": "operation_native_39_http_summary_get__api_v1_metrics_summary_fb0ca3e20acf",
+      "stream": null
+    },
+    "GET /api/v1/metrics/timeseries": {
+      "request": "operation_native_39_http_timeseries_get__api_v1_metrics_timeseries_6b3e32bec7e9",
+      "stream": null
+    },
+    "GET /api/v1/metrics/tokens": {
+      "request": "operation_native_39_http_tokens_get__api_v1_metrics_tokens_099977ea73d2",
+      "stream": null
+    },
+    "GET /api/v1/model-capability-adapters": {
+      "request": "operation_list_capability_adapters_api_v1_model_capability_adapters_get_084183ff724d",
+      "stream": null
+    },
+    "GET /api/v1/model-capability-adapters/{adapter_id:path}/schema": {
+      "request": "operation_native_33_get_capability_adapter_schema_get__api_v1_model_capability_adapters_ad_27a862079f18",
+      "stream": null
+    },
+    "GET /api/v1/model-capability-adapters/{adapter_id}/schema": {
+      "request": "operation_get_capability_adapter_schema_api_v1_model_capability_adapters__adapter_id__sche_c5c6ef6cacec",
+      "stream": null
+    },
+    "GET /api/v1/models": {
+      "request": "operation_list_models_api_v1_models_get_0510c17540f5",
+      "stream": null
+    },
+    "GET /api/v1/models/{model_id}": {
+      "request": "operation_get_model_api_v1_models__model_id__get_9f4fb48e2078",
+      "stream": null
+    },
+    "GET /api/v1/presign/status/{task_id}": {
+      "request": "operation_native_23_get_task_status_get__api_v1_presign_status_task_id_76a1503fa12a",
+      "stream": null
+    },
+    "GET /api/v1/provider-templates": {
+      "request": "operation_list_templates_api_v1_provider_templates_get_5f3defa35fd7",
+      "stream": null
+    },
+    "GET /api/v1/providers": {
+      "request": "operation_list_providers_api_v1_providers_get_25fe9542094f",
+      "stream": null
+    },
+    "GET /api/v1/providers/from-template": {
+      "request": "operation_native_36_http_reserved_get_get__api_v1_providers_from_template_d00fc0425560",
+      "stream": null
+    },
+    "GET /api/v1/providers/{provider_id}": {
+      "request": "operation_get_provider_api_v1_providers__provider_id__get_9a179e2a9433",
+      "stream": null
+    },
+    "GET /api/v1/providers/{provider_id}/models/sync/reviews/{review_id}": {
+      "request": "operation_read_provider_model_catalog_review_e7d78f15a82d",
+      "stream": null
+    },
+    "GET /api/v1/proxy": {
+      "request": "operation_list_proxy_services_api_v1_proxy_get_3202bdaf2466",
+      "stream": null
+    },
+    "GET /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_ed35fd47367f",
+      "stream": null
+    },
+    "GET /api/v1/proxy/{service_name}/_health": {
+      "request": "operation_proxy_service_health_api_v1_proxy__service_name___health_get_44fc8a756074",
+      "stream": null
+    },
+    "GET /api/v1/proxy/{service_name}/_selftest": {
+      "request": "operation_proxy_service_selftest_api_v1_proxy__service_name___selftest_get_f5460a14eefb",
+      "stream": null
+    },
+    "GET /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_80f8172943b1",
+      "stream": null
+    },
+    "GET /api/v1/public/agents/{public_id}": {
+      "request": "operation_native_48_dispatch_inner_get__api_v1_public_agents_public_id_1a77789372ce",
+      "stream": null
+    },
+    "GET /api/v1/publications/{publication}/tokens": {
+      "request": "operation_native_48_tokens_route_get__api_v1_publications_publication_tokens_7869e3718689",
+      "stream": null
+    },
+    "GET /api/v1/quiz/shared/{share_code}": {
+      "request": "operation_console_get_api_v1_quiz_shared__share_code_33cd111b64f3",
+      "stream": null
+    },
+    "GET /api/v1/quota/alerts/list": {
+      "request": "operation_native_37_http_alerts_get__api_v1_quota_alerts_list_9af397194339",
+      "stream": null
+    },
+    "GET /api/v1/quota/summary": {
+      "request": "operation_native_37_http_summary_get__api_v1_quota_summary_b008fef793a8",
+      "stream": null
+    },
+    "GET /api/v1/quota/users-overview": {
+      "request": "operation_native_37_http_overview_get__api_v1_quota_users_overview_016c65d7c071",
+      "stream": null
+    },
+    "GET /api/v1/quota/{user_id}": {
+      "request": "operation_native_37_http_get_get__api_v1_quota_user_id_f7ca00f617bb",
+      "stream": null
+    },
+    "GET /api/v1/quota/{user_id}/check": {
+      "request": "operation_native_37_http_check_get__api_v1_quota_user_id_check_d789be0ff29f",
+      "stream": null
+    },
+    "GET /api/v1/quota/{user_id}/forecast": {
+      "request": "operation_native_37_http_forecast_get__api_v1_quota_user_id_forecast_51373e64596d",
+      "stream": null
+    },
+    "GET /api/v1/roles": {
+      "request": "operation_list_roles_api_v1_roles_get_d38f5e7f7bf6",
+      "stream": null
+    },
+    "GET /api/v1/roles/permissions": {
+      "request": "operation_list_permissions_api_v1_roles_permissions_get_c48e666f7596",
+      "stream": null
+    },
+    "GET /api/v1/roles/{role_name}": {
+      "request": "operation_get_role_api_v1_roles__role_name__get_ff8ce9890514",
+      "stream": null
+    },
+    "GET /api/v1/roles/{role_name}/users": {
+      "request": "operation_get_role_users_api_v1_roles__role_name__users_get_31a00076defa",
+      "stream": null
+    },
+    "GET /api/v1/routing/decisions/{id}": {
+      "request": "operation_console_get_api_v1_routing_decisions__id_ebfd0e8dd99c",
+      "stream": null
+    },
+    "GET /api/v1/routing/policies/{id}/versions/{version}": {
+      "request": "operation_console_get_api_v1_routing_policies__id__versions__version_3164774b9bae",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-task-notifications": {
+      "request": "operation_list_scheduled_task_notifications_92306ac1fcf2",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-task-notifications/summary": {
+      "request": "operation_summarize_scheduled_task_notifications_495185afa354",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-task-notifications/{notification_id}": {
+      "request": "operation_get_scheduled_task_notification_ba96d0fef1da",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-tasks": {
+      "request": "operation_list_scheduled_tasks_bf3b12b5ea96",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-tasks/{task_id}": {
+      "request": "operation_get_scheduled_task_e5d9d7933dec",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-tasks/{task_id}/executions": {
+      "request": "operation_list_scheduled_task_executions_db6e704d64cc",
+      "stream": null
+    },
+    "GET /api/v1/scheduled-tasks/{task_id}/executions/{execution_id}": {
+      "request": "operation_get_scheduled_task_execution_8cc2d22b238f",
+      "stream": null
+    },
+    "GET /api/v1/services": {
+      "request": "operation_list_services_api_v1_services_get_75870c67ba3d",
+      "stream": null
+    },
+    "GET /api/v1/services/{service_id}": {
+      "request": "operation_get_service_api_v1_services__service_id__get_2e320532ee4d",
+      "stream": null
+    },
+    "GET /api/v1/services/{service_id}/schema": {
+      "request": "operation_get_service_schema_api_v1_services__service_id__schema_get_7c5768791b09",
+      "stream": null
+    },
+    "GET /api/v1/sessions": {
+      "request": "operation_console_get_api_v1_sessions_1079bd1aab2f",
+      "stream": null
+    },
+    "GET /api/v1/sessions/{session_id}": {
+      "request": "operation_console_get_api_v1_sessions__session_id_30a2e931203c",
+      "stream": null
+    },
+    "GET /api/v1/sessions/{session_id}/history": {
+      "request": "operation_console_get_api_v1_sessions__session_id__history_d53e203fa333",
+      "stream": null
+    },
+    "GET /api/v1/setup/state": {
+      "request": "operation_setup_state_api_v1_setup_state_get_d5bc7ca89c86",
+      "stream": null
+    },
+    "GET /api/v1/skills": {
+      "request": "operation_list_skills_api_v1_skills_get_5f6d8d29f54c",
+      "stream": null
+    },
+    "GET /api/v1/skills/{name}": {
+      "request": "operation_get_skill_api_v1_skills__name__get_7a6317cbd990",
+      "stream": null
+    },
+    "GET /api/v1/tasks": {
+      "request": "operation_list_tasks_api_v1_tasks_get_81a84314a978",
+      "stream": null
+    },
+    "GET /api/v1/tasks/{task_id}": {
+      "request": "operation_get_task_api_v1_tasks__task_id__get_9e3bc52bb8f3",
+      "stream": null
+    },
+    "GET /api/v1/tasks/{task_id}/result": {
+      "request": "operation_get_task_result_api_v1_tasks__task_id__result_get_131fab637ee6",
+      "stream": null
+    },
+    "GET /api/v1/telemetry/browser/config": {
+      "request": "operation_console_configuration_browser_telemetry_83a41fc13d01",
+      "stream": null
+    },
+    "GET /api/v1/usage/breakdown": {
+      "request": "operation_native_34_get_usage_breakdown_get__api_v1_usage_breakdown_712626927dd6",
+      "stream": null
+    },
+    "GET /api/v1/usage/export": {
+      "request": "operation_native_34_export_usage_get__api_v1_usage_export_0a7411769080",
+      "stream": null
+    },
+    "GET /api/v1/usage/failure-breakdown": {
+      "request": "operation_native_34_get_failure_breakdown_get__api_v1_usage_failure_breakdown_1e33a2379a78",
+      "stream": null
+    },
+    "GET /api/v1/usage/models": {
+      "request": "operation_native_34_get_model_usage_get__api_v1_usage_models_46c95de557ca",
+      "stream": null
+    },
+    "GET /api/v1/usage/performance-breakdown": {
+      "request": "operation_native_34_get_performance_breakdown_get__api_v1_usage_performance_breakdown_fbc2af1d24ce",
+      "stream": null
+    },
+    "GET /api/v1/usage/summary": {
+      "request": "operation_native_34_get_usage_summary_get__api_v1_usage_summary_a9f9335c1c53",
+      "stream": null
+    },
+    "GET /api/v1/usage/timeseries": {
+      "request": "operation_native_34_get_usage_timeseries_get__api_v1_usage_timeseries_eed2eb397438",
+      "stream": null
+    },
+    "GET /api/v1/usage/traces": {
+      "request": "operation_native_34_list_request_traces_get__api_v1_usage_traces_5a740d7e32d0",
+      "stream": null
+    },
+    "GET /api/v1/usage/traces/{request_id}": {
+      "request": "operation_native_34_get_request_trace_get__api_v1_usage_traces_request_id_8161f35be12c",
+      "stream": null
+    },
+    "GET /api/v1/usage/user/{user_id}": {
+      "request": "operation_native_34_get_user_usage_get__api_v1_usage_user_user_id_7b725845986b",
+      "stream": null
+    },
+    "GET /api/v1/users": {
+      "request": "operation_list_users_api_v1_users_get_040a2eafd625",
+      "stream": null
+    },
+    "GET /api/v1/users/{user_id}": {
+      "request": "operation_get_user_api_v1_users__user_id__get_aba67cc29cbd",
+      "stream": null
+    },
+    "GET /api/v1/{device_id}/capabilities": {
+      "request": "operation_native_41_device_capabilities_get__api_v1_device_id_capabilities_244de2994fe8",
+      "stream": null
+    },
+    "GET /api/v1/{device_id}/doctor": {
+      "request": "operation_native_41_device_doctor_get__api_v1_device_id_doctor_4872831d0dcf",
+      "stream": null
+    },
+    "GET /api/v1/{device_id}/events": {
+      "request": "operation_native_41_events_list_get__api_v1_device_id_events_af7e49236c2e",
+      "stream": null
+    },
+    "GET /api/v1/{device_id}/grants": {
+      "request": "operation_native_41_grants_list_get__api_v1_device_id_grants_cba59e75d800",
+      "stream": null
+    },
+    "GET /api/v1/{device_id}/status": {
+      "request": "operation_native_41_device_status_get__api_v1_device_id_status_b912c8fe489b",
+      "stream": null
+    },
+    "GET /api/v2/agent/threads/{thread}": {
+      "request": "operation_native_8_v2_get__api_v2_agent_threads_thread_5f2823b3c5de",
+      "stream": null
+    },
+    "GET /api/v2/agent/threads/{thread}/approvals/{approval_id}": {
+      "request": "operation_native_8_v2_get__api_v2_agent_threads_thread_approvals_approval_id_a80de2166e7e",
+      "stream": null
+    },
+    "GET /api/v2/agent/threads/{thread}/events": {
+      "request": null,
+      "stream": "operation_native_8_v2_get__api_v2_agent_threads_thread_events_67101e65f1f5"
+    },
+    "GET /embed/agents/{public_id}": {
+      "request": "operation_native_48_dispatch_inner_get__embed_agents_public_id_534397a6e864",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/Groups": {
+      "request": "operation_getapiscimv2tenantgroups_8e1d35ca6d61",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/Groups/{id}": {
+      "request": "operation_getapiscimv2tenantgroupsid_ed7b1c52ae19",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/ResourceTypes": {
+      "request": "operation_getapiscimv2tenantresourcetypes_913c6599dcc2",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/Schemas": {
+      "request": "operation_getapiscimv2tenantschemas_1ca36a83fc65",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/ServiceProviderConfig": {
+      "request": "operation_getapiscimv2tenantserviceproviderconfig_fe7fd6c7eb70",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/Users": {
+      "request": "operation_getapiscimv2tenantusers_006e5f0bfd5f",
+      "stream": null
+    },
+    "GET /scim/v2/{tenant}/Users/{id}": {
+      "request": "operation_getapiscimv2tenantusersid_59499b682556",
+      "stream": null
+    },
+    "GET /v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_v1_knowledge__path__delete_70c819e9cf51",
+      "stream": null
+    },
+    "GET /v1/models": {
+      "request": "operation_native_llm_models_01a9ecdc3c66",
+      "stream": null
+    },
+    "GET /v1/models/{model}": {
+      "request": "operation_native_llm_model_b693c0006574",
+      "stream": null
+    },
+    "HEAD /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_6ea09b357441",
+      "stream": null
+    },
+    "HEAD /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_7b596eb41832",
+      "stream": null
+    },
+    "OPTIONS /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_3ff51c391a42",
+      "stream": null
+    },
+    "OPTIONS /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_a800254323fa",
+      "stream": null
+    },
+    "PATCH /api/v1/agents/{agent}": {
+      "request": "operation_native_8_studio_patch__api_v1_agents_agent_5463e9a74442",
+      "stream": null
+    },
+    "PATCH /api/v1/assistant/memory": {
+      "request": "operation_native_40_update_memory_preference_patch__api_v1_assistant_memory_57855db4a318",
+      "stream": null
+    },
+    "PATCH /api/v1/connectors/admin/configs/{provider}/enabled": {
+      "request": "operation_native_20_toggle_connector_config_patch__api_v1_connectors_admin_configs_provide_0d9427ae58af",
+      "stream": null
+    },
+    "PATCH /api/v1/eval/datasets/{dataset_id}/examples/{example_id}": {
+      "request": "operation_console_patch_api_v1_eval_datasets__dataset_id__examples__example_id_96616fef5e4a",
+      "stream": null
+    },
+    "PATCH /api/v1/kb-tools/{path}": {
+      "request": "operation_proxy_kb_tools_api_v1_kb_tools__path__delete_75a8ba0e6bfc",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/datasets/{dataset_id}/archive": {
+      "request": "operation_console_patch_api_v1_knowledge_datasets__dataset_id__archive_71286c133be8",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/documents/metadata/batch": {
+      "request": "operation_console_patch_api_v1_knowledge__dataset_id__documents_metadata_batch_8d0d15705759",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}": {
+      "request": "operation_console_patch_api_v1_knowledge__dataset_id__documents__document_id_10ab07cd202d",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}/archive": {
+      "request": "operation_console_patch_api_v1_knowledge__dataset_id__documents__document_id__archive_b92c4a6dcedc",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}/status": {
+      "request": "operation_console_patch_api_v1_knowledge__dataset_id__documents__document_id__status_88f85984f156",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/segments/{segment_id}/status": {
+      "request": "operation_console_patch_api_v1_knowledge__dataset_id__segments__segment_id__status_ef3a1d83d18a",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control": {
+      "request": "operation_control_source_connection_api_v1_knowledge__dataset_id__sources_confluence_conne_75e70353a106",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_api_v1_knowledge__path__delete_3085418c12ab",
+      "stream": null
+    },
+    "PATCH /api/v1/mcp/servers/{server_id}": {
+      "request": "operation_native_22_update_mcp_server_patch__api_v1_mcp_servers_server_id_eb8e2bb7eb9d",
+      "stream": null
+    },
+    "PATCH /api/v1/models/{model_id}/toggle": {
+      "request": "operation_toggle_model_api_v1_models__model_id__toggle_patch_6f3243e6688a",
+      "stream": null
+    },
+    "PATCH /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_3fbea2465981",
+      "stream": null
+    },
+    "PATCH /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_10461db1c978",
+      "stream": null
+    },
+    "PATCH /api/v1/sessions/{session_id}": {
+      "request": "operation_console_patch_api_v1_sessions__session_id_b58d206c37e8",
+      "stream": null
+    },
+    "PATCH /api/v1/skills/{name}": {
+      "request": "operation_update_skill_api_v1_skills__name__patch_1437c6f81122",
+      "stream": null
+    },
+    "PATCH /scim/v2/{tenant}/Groups/{id}": {
+      "request": "operation_patchapiscimv2tenantgroupsid_291fc470edcf",
+      "stream": null
+    },
+    "PATCH /scim/v2/{tenant}/Users/{id}": {
+      "request": "operation_patchapiscimv2tenantusersid_8c98130ad93f",
+      "stream": null
+    },
+    "PATCH /v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_v1_knowledge__path__delete_a945aad73853",
+      "stream": null
+    },
+    "POST /a2a/{publication}/message:send": {
+      "request": "operation_a2a_send_message_ccb7cebeb208",
+      "stream": null
+    },
+    "POST /api/auth/device": {
+      "request": "operation_device_approval_decide_b2caa6496619",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/identities": {
+      "request": "operation_postapiapiauthenterpriseidentities_75ad8a2f9c33",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/oidc/{provider}/begin": {
+      "request": "operation_postapiapiauthenterpriseoidcproviderbegin_514a2573a1a7",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/authenticate/finish": {
+      "request": "operation_postapiapiauthenterprisepasskeysauthenticatefinish_2e6cab21d6b7",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/authenticate/start": {
+      "request": "operation_postapiapiauthenterprisepasskeysauthenticatestart_9c4c058b9f91",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/register/finish": {
+      "request": "operation_postapiapiauthenterprisepasskeysregisterfinish_ae4ea5a43b86",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/register/start": {
+      "request": "operation_postapiapiauthenterprisepasskeysregisterstart_4efb62be575c",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/step-up/finish": {
+      "request": "operation_postapiapiauthenterprisepasskeysstepupfinish_e587930c602f",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/passkeys/step-up/start": {
+      "request": "operation_postapiapiauthenterprisepasskeysstepupstart_e6cfa7a39e18",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/recovery": {
+      "request": "operation_postapiapiauthenterpriserecovery_910a8504bad0",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/recovery/rotate": {
+      "request": "operation_postapiapiauthenterpriserecoveryrotate_f193681a67e1",
+      "stream": null
+    },
+    "POST /api/auth/enterprise/scim-credentials": {
+      "request": "operation_postapiapiauthenterprisescimcredentials_410308ffde9f",
+      "stream": null
+    },
+    "POST /api/auth/session": {
+      "request": "operation_browser_session_login_61b6c378771e",
+      "stream": null
+    },
+    "POST /api/auth/session/password": {
+      "request": "operation_browser_session_password_d27779465ea7",
+      "stream": null
+    },
+    "POST /api/v1/agent-runtime/{public_id}/attachments": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_agent_runtime_public_id_attachments_992717b1eb2d",
+      "stream": null
+    },
+    "POST /api/v1/agent-runtime/{public_id}/chat/stream": {
+      "request": null,
+      "stream": "operation_native_48_dispatch_inner_post__api_v1_agent_runtime_public_id_chat_stream_2632637d76fc"
+    },
+    "POST /api/v1/agent-runtime/{public_id}/feedback": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_agent_runtime_public_id_feedback_dfda4060923a",
+      "stream": null
+    },
+    "POST /api/v1/agent-runtime/{public_id}/sessions": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_agent_runtime_public_id_sessions_c08f1527bfec",
+      "stream": null
+    },
+    "POST /api/v1/agents": {
+      "request": "operation_native_8_studio_post__api_v1_agents_db0c031767c0",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/archive": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_archive_a624a9d5f08b",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/copy": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_copy_8ab5dcfa57f6",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/evals": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_evals_7d0039b274e9",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/evals/{evaluation}/cancel": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_evals_evaluation_cancel_69736253f57d",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/evals/{evaluation}/execute": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_evals_evaluation_execute_c7704ca10bd2",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/governance/cache:invalidate": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_governance_cache_invalidate_75779a15e9af",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/governance/credentials:revoke": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_governance_credentials_revoke_c85e00f649f5",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/governance/data-deletions": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_governance_data_deletions_2f790ab76c4b",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/preview/chat/stream": {
+      "request": null,
+      "stream": "operation_native_8_preview_route_post__api_v1_agents_agent_preview_chat_stream_ab518718a183"
+    },
+    "POST /api/v1/agents/{agent}/preview/sessions": {
+      "request": "operation_native_8_preview_route_post__api_v1_agents_agent_preview_sessions_b2151fa8c86e",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/publish": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_publish_48026c72e2f7",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/validate": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_validate_21fc83022f71",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/versions": {
+      "request": "operation_native_8_studio_post__api_v1_agents_agent_versions_7340c53b85cb",
+      "stream": null
+    },
+    "POST /api/v1/agents/{agent}/versions/{version}/preview/chat/stream": {
+      "request": null,
+      "stream": "operation_native_8_preview_route_post__api_v1_agents_agent_versions_version_preview_chat_s_707fd662da15"
+    },
+    "POST /api/v1/agents/{agent}/versions/{version}/preview/sessions": {
+      "request": "operation_native_8_preview_route_post__api_v1_agents_agent_versions_version_preview_sessio_367e794e3140",
+      "stream": null
+    },
+    "POST /api/v1/api-keys": {
+      "request": "operation_create_api_key_api_v1_api_keys_post_e9ab87de17e5",
+      "stream": null
+    },
+    "POST /api/v1/api-keys/{key_id}/revoke": {
+      "request": "operation_revoke_api_key_api_v1_api_keys__key_id__revoke_post_5ce64fbc4e98",
+      "stream": null
+    },
+    "POST /api/v1/artifact-shares": {
+      "request": "operation_native_49_collection_post__api_v1_artifact_shares_0a947a40d80e",
+      "stream": null
+    },
+    "POST /api/v1/assistant/approvals/{approval_id}": {
+      "request": "operation_console_post_api_v1_assistant_approvals__approval_id_a09a27a9ffa1",
+      "stream": null
+    },
+    "POST /api/v1/assistant/artifacts": {
+      "request": "operation_native_2_create_post__api_v1_assistant_artifacts_2e2c530c09fe",
+      "stream": null
+    },
+    "POST /api/v1/assistant/generate-image": {
+      "request": "operation_native_1_generate_post__api_v1_assistant_generate_image_17afbdf80ada",
+      "stream": null
+    },
+    "POST /api/v1/assistant/generate-image-async": {
+      "request": "operation_native_1_submit_post__api_v1_assistant_generate_image_async_2d838347af9b",
+      "stream": null
+    },
+    "POST /api/v1/assistant/image-blobs/complete": {
+      "request": "operation_native_1_blob_complete_post__api_v1_assistant_image_blobs_complete_25a794101b12",
+      "stream": null
+    },
+    "POST /api/v1/assistant/image-blobs/fetch-url": {
+      "request": "operation_native_1_blob_fetch_post__api_v1_assistant_image_blobs_fetch_url_6be515386463",
+      "stream": null
+    },
+    "POST /api/v1/assistant/image-blobs/upload-url": {
+      "request": "operation_native_1_blob_upload_post__api_v1_assistant_image_blobs_upload_url_dd7c251def31",
+      "stream": null
+    },
+    "POST /api/v1/assistant/mcp/servers/{server_name}/refresh": {
+      "request": "operation_native_22_refresh_legacy_mcp_server_post__api_v1_assistant_mcp_servers_server_na_9bd0a885cf4f",
+      "stream": null
+    },
+    "POST /api/v1/assistant/quiz/{quiz_id}/submit": {
+      "request": "operation_console_post_api_v1_assistant_quiz__quiz_id__submit_7caaecf106fb",
+      "stream": null
+    },
+    "POST /api/v1/assistant/runs/{run_id}/resume": {
+      "request": "operation_console_post_api_v1_assistant_runs__run_id__resume_ef556678f0ea",
+      "stream": null
+    },
+    "POST /api/v1/assistant/sessions": {
+      "request": "operation_create_session_api_v1_assistant_sessions_post_51ad11aba2a9",
+      "stream": null
+    },
+    "POST /api/v1/assistant/sessions/{session_id}/share": {
+      "request": "operation_native_4_create_post__api_v1_assistant_sessions_session_id_share_6a65b6d9eb03",
+      "stream": null
+    },
+    "POST /api/v1/assistant/shares/{code}/quiz/{quiz}/submit": {
+      "request": "operation_native_4_submit_post__api_v1_assistant_shares_code_quiz_quiz_submit_7e9dee3ebdf0",
+      "stream": null
+    },
+    "POST /api/v1/assistant/tasks/{task_id}/cancel": {
+      "request": "operation_console_post_api_v1_assistant_tasks__task_id__cancel_7c8f902b4b98",
+      "stream": null
+    },
+    "POST /api/v1/auth/change-password": {
+      "request": "operation_change_password_api_v1_auth_change_password_post_5fd9e6fcccc4",
+      "stream": null
+    },
+    "POST /api/v1/auth/device/authorize": {
+      "request": "operation_device_authorize_e83d620fab38",
+      "stream": null
+    },
+    "POST /api/v1/auth/device/revoke": {
+      "request": "operation_device_revoke_42353ce666b0",
+      "stream": null
+    },
+    "POST /api/v1/auth/device/token": {
+      "request": "operation_device_token_79702211a7ba",
+      "stream": null
+    },
+    "POST /api/v1/auth/login": {
+      "request": "operation_login_api_v1_auth_login_post_a9fe6cce1db0",
+      "stream": null
+    },
+    "POST /api/v1/auth/logout": {
+      "request": "operation_logout_api_v1_auth_logout_post_66ebac9459f0",
+      "stream": null
+    },
+    "POST /api/v1/auth/validate-token": {
+      "request": "operation_validate_token_api_v1_auth_validate_token_post_f700688e94b5",
+      "stream": null
+    },
+    "POST /api/v1/config/api-keys": {
+      "request": "operation_native_19_create_api_key_post__api_v1_config_api_keys_076bc757adeb",
+      "stream": null
+    },
+    "POST /api/v1/config/rate-limits": {
+      "request": "operation_native_32_create_rate_limit_post__api_v1_config_rate_limits_e066d6ec24dd",
+      "stream": null
+    },
+    "POST /api/v1/config/services/langgraph": {
+      "request": "operation_native_26_create_langgraph_service_post__api_v1_config_services_langgraph_9acbccfc45c8",
+      "stream": null
+    },
+    "POST /api/v1/connectors/admin/configs": {
+      "request": "operation_native_20_create_connector_config_post__api_v1_connectors_admin_configs_457e6e698bc5",
+      "stream": null
+    },
+    "POST /api/v1/connectors/{provider}/activate": {
+      "request": "operation_console_post_api_v1_connectors__provider__activate_3fd775284519",
+      "stream": null
+    },
+    "POST /api/v1/conversations": {
+      "request": "operation_native_3_create_post__api_v1_conversations_2a2301f724dc",
+      "stream": null
+    },
+    "POST /api/v1/conversations/guest/session": {
+      "request": "operation_native_3_guest_post__api_v1_conversations_guest_session_795d8e3694ff",
+      "stream": null
+    },
+    "POST /api/v1/conversations/{id}/messages": {
+      "request": "operation_native_3_send_post__api_v1_conversations_id_messages_40a24349eb6b",
+      "stream": null
+    },
+    "POST /api/v1/conversations/{id}/stream": {
+      "request": "operation_native_3_stream_post__api_v1_conversations_id_stream_c97f0be5e040",
+      "stream": null
+    },
+    "POST /api/v1/eval/datasets": {
+      "request": "operation_console_post_api_v1_eval_datasets_f4f6d833cbb9",
+      "stream": null
+    },
+    "POST /api/v1/eval/datasets/{dataset_id}/examples:from-trace": {
+      "request": "operation_console_post_api_v1_eval_datasets__dataset_id__examples_from_trace_fee980f9dfad",
+      "stream": null
+    },
+    "POST /api/v1/eval/datasets/{dataset_id}/examples:import": {
+      "request": "operation_console_post_api_v1_eval_datasets__dataset_id__examples_import_7ce8358a4d80",
+      "stream": null
+    },
+    "POST /api/v1/eval/datasets/{dataset_id}/kb-failures:save": {
+      "request": "operation_console_post_api_v1_eval_datasets__dataset_id__kb_failures_save_8bf0c2bd9987",
+      "stream": null
+    },
+    "POST /api/v1/eval/evaluators": {
+      "request": "operation_console_post_api_v1_eval_evaluators_62f524bd5bf2",
+      "stream": null
+    },
+    "POST /api/v1/eval/evaluators/{evaluator_id}:run-async": {
+      "request": "operation_console_post_api_v1_eval_evaluators__evaluator_id__run_async_4c4b7739b27b",
+      "stream": null
+    },
+    "POST /api/v1/eval/experiment-runs/{run_id}:cancel": {
+      "request": "operation_console_post_api_v1_eval_experiment_runs__run_id__cancel_e26a7b8bfda8",
+      "stream": null
+    },
+    "POST /api/v1/eval/experiment-runs/{run_id}:retry-failed": {
+      "request": "operation_console_post_api_v1_eval_experiment_runs__run_id__retry_failed_69cd84203c80",
+      "stream": null
+    },
+    "POST /api/v1/eval/experiments": {
+      "request": "operation_console_post_api_v1_eval_experiments_1d319bc3effc",
+      "stream": null
+    },
+    "POST /api/v1/eval/experiments/{experiment_id}:promote-baseline": {
+      "request": "operation_console_post_api_v1_eval_experiments__experiment_id__promote_baseline_b78ffc42f781",
+      "stream": null
+    },
+    "POST /api/v1/eval/experiments/{experiment_id}:run": {
+      "request": "operation_console_post_api_v1_eval_experiments__experiment_id__run_27c3b05b52cd",
+      "stream": null
+    },
+    "POST /api/v1/eval/gates:dry-run": {
+      "request": "operation_console_post_api_v1_eval_gates_dry_run_0462a83ab868",
+      "stream": null
+    },
+    "POST /api/v1/eval/ingest/traces": {
+      "request": "operation_native_47_handle_post__api_v1_eval_ingest_traces_cefdac58684f",
+      "stream": null
+    },
+    "POST /api/v1/eval/knowledge/score-retrieval": {
+      "request": "operation_console_post_api_v1_eval_knowledge_score_retrieval_6127ca05f0c8",
+      "stream": null
+    },
+    "POST /api/v1/eval/knowledge/{dataset_id}/batch-score": {
+      "request": "operation_console_post_api_v1_eval_knowledge__dataset_id__batch_score_aed988ab6d31",
+      "stream": null
+    },
+    "POST /api/v1/eval/traces/{id}/scores": {
+      "request": "operation_native_47_handle_post__api_v1_eval_traces_id_scores_b716d7f623d5",
+      "stream": null
+    },
+    "POST /api/v1/files/admin/cleanup": {
+      "request": "operation_native_0_cleanup_post__api_v1_files_admin_cleanup_f85d06fd11cf",
+      "stream": null
+    },
+    "POST /api/v1/files/upload": {
+      "request": "operation_native_0_upload_post__api_v1_files_upload_a7f734d35e7d",
+      "stream": null
+    },
+    "POST /api/v1/files/upload/multiple": {
+      "request": "operation_native_0_multiple_post__api_v1_files_upload_multiple_f80538ea00da",
+      "stream": null
+    },
+    "POST /api/v1/invoke": {
+      "request": "operation_invoke_api_v1_invoke_post_372aea8868ce",
+      "stream": null
+    },
+    "POST /api/v1/kb-tools/{path}": {
+      "request": "operation_proxy_kb_tools_api_v1_kb_tools__path__delete_16f3f76ff19e",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets": {
+      "request": "operation_console_post_api_v1_knowledge_datasets_9b27448b8760",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/start": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration_start_21ed2d46387a",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/abort": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_330ef3a9aee7",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/backfill": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_5360e0006fcf",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/cutover": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_b02c331de799",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/gate": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_60bd5d9ea08b",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/rollback": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_c162baa692fb",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/verify": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__embedding_migration__migrati_a6890bb8f787",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/datasets/{dataset_id}/permissions": {
+      "request": "operation_console_post_api_v1_knowledge_datasets__dataset_id__permissions_00a93886c86a",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/preview": {
+      "request": "operation_console_post_api_v1_knowledge_preview_866ca8c7c9d2",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/chunk/preview": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__chunk_preview_2a30353289e9",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/batch": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_batch_460352bbf4a0",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/batch-delete": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_batch_delete_6bf50bb9a14a",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/batch-reindex": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_batch_reindex_5a72e109fbf6",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/batch-upload": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_batch_upload_33852900416e",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/images": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_images_57f5c34a686a",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/text": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_text_c9be15196962",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/upload": {
+      "request": "operation_upload_document_api_v1_knowledge__dataset_id__documents_upload_post_e9b895f0968d",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/url": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents_url_7f26983db2ea",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/enable": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__enable_5323f08982be",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/force-complete": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__force_complet_80d290a1c4f3",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/recover": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__recover_1d968e0d29cc",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/reindex": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__reindex_77720d081b64",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/reprocess": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__reprocess_04ac23646ce9",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/retry": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__retry_be2bdfa5c6b8",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/segments": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__segments_4203c3bb986b",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}/restore": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__documents__document_id__versions__ver_b5e08017aa18",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/hit_test": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__hit_test_4a032b65850d",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/maintenance/dedupe": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__maintenance_dedupe_df314c65f07c",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/preview-chunks": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__preview_chunks_bcb24751bcf0",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/qa": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__qa_fc5dbb14fcab",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/qa/batch": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__qa_batch_e6eacdabe594",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/qa/stream": {
+      "request": null,
+      "stream": "operation_console_post_api_v1_knowledge__dataset_id__qa_stream_e628ab34713a"
+    },
+    "POST /api/v1/knowledge/{dataset_id}/retrieve": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__retrieve_7096a97764a2",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/retrieve_batch": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__retrieve_batch_792a38beb8ce",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/retrieve_evaluate": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__retrieve_evaluate_45779389cfa2",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/segments/batch/enable": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__segments_batch_enable_5ff7dbb45f72",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/segments/{segment_id}/enable": {
+      "request": "operation_console_post_api_v1_knowledge__dataset_id__segments__segment_id__enable_1eb15fe152e7",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/sources/confluence/bindings": {
+      "request": "operation_create_source_binding_api_v1_knowledge__dataset_id__sources_confluence_bindings__0baeae39fb26",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections": {
+      "request": "operation_create_source_connection_api_v1_knowledge__dataset_id__sources_confluence_connec_6648edf6b71c",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/credentials": {
+      "request": "operation_replace_source_credentials_api_v1_knowledge__dataset_id__sources_confluence_conn_095b22599dc9",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/sync": {
+      "request": "operation_start_manual_sync_api_v1_knowledge__dataset_id__sources_confluence__binding_id___982de0f81606",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_api_v1_knowledge__path__delete_bcb08fc6c2fc",
+      "stream": null
+    },
+    "POST /api/v1/langgraph/assistants": {
+      "request": "operation_native_11_http_post__api_v1_langgraph_assistants_b26cabb88f85",
+      "stream": null
+    },
+    "POST /api/v1/langgraph/threads": {
+      "request": "operation_native_11_http_post__api_v1_langgraph_threads_270f9a373e1f",
+      "stream": null
+    },
+    "POST /api/v1/local-nodes/pairing/challenges": {
+      "request": "operation_console_post_api_v1_local_nodes_pairing_challenges_1c69663a81c8",
+      "stream": null
+    },
+    "POST /api/v1/mcp/servers": {
+      "request": "operation_native_22_create_mcp_server_post__api_v1_mcp_servers_436b01c5080a",
+      "stream": null
+    },
+    "POST /api/v1/mcp/servers/{server_id}/connections": {
+      "request": "operation_native_22_create_mcp_connection_post__api_v1_mcp_servers_server_id_connections_2a610ae83e34",
+      "stream": null
+    },
+    "POST /api/v1/mcp/servers/{server_id}/discover": {
+      "request": "operation_native_22_discover_mcp_server_post__api_v1_mcp_servers_server_id_discover_8505da071a30",
+      "stream": null
+    },
+    "POST /api/v1/models": {
+      "request": "operation_create_model_api_v1_models_post_de9054590251",
+      "stream": null
+    },
+    "POST /api/v1/models/{model_id}/capabilities/reset": {
+      "request": "operation_reset_model_capabilities_api_v1_models__model_id__capabilities_reset_post_7f7092420010",
+      "stream": null
+    },
+    "POST /api/v1/pairing/challenges": {
+      "request": "operation_native_41_pairing_create_post__api_v1_pairing_challenges_a2bbc6044642",
+      "stream": null
+    },
+    "POST /api/v1/pairing/challenges/{challenge_id}/complete": {
+      "request": "operation_native_41_pairing_complete_post__api_v1_pairing_challenges_challenge_id_complete_ad2ff259131e",
+      "stream": null
+    },
+    "POST /api/v1/presign/confirm": {
+      "request": "operation_native_23_confirm_upload_post__api_v1_presign_confirm_99d521409357",
+      "stream": null
+    },
+    "POST /api/v1/presign/upload": {
+      "request": "operation_native_23_get_presigned_upload_url_post__api_v1_presign_upload_fd8c720aa1fc",
+      "stream": null
+    },
+    "POST /api/v1/providers": {
+      "request": "operation_create_provider_api_v1_providers_post_e70aa05a988a",
+      "stream": null
+    },
+    "POST /api/v1/providers/from-template": {
+      "request": "operation_create_provider_from_template_api_v1_providers_from_template_post_cb04a7726541",
+      "stream": null
+    },
+    "POST /api/v1/providers/{provider_id}/models/sync": {
+      "request": "operation_sync_provider_models_api_v1_providers__provider_id__models_sync_post_e59d66658f56",
+      "stream": null
+    },
+    "POST /api/v1/providers/{provider_id}/models/sync/apply": {
+      "request": "operation_apply_provider_model_catalog_4fc167ab6d38",
+      "stream": null
+    },
+    "POST /api/v1/providers/{provider_id}/models/sync/preview": {
+      "request": "operation_preview_provider_model_catalog_d367f549624e",
+      "stream": null
+    },
+    "POST /api/v1/providers/{provider_id}/test": {
+      "request": "operation_test_provider_connection_api_v1_providers__provider_id__test_post_03f764b226fc",
+      "stream": null
+    },
+    "POST /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_8a8ce1c607ba",
+      "stream": null
+    },
+    "POST /api/v1/proxy/{service_name}/runs/stream": {
+      "request": null,
+      "stream": "operation_console_post_api_v1_proxy__service_name__runs_stream_c1a3f01ffc91"
+    },
+    "POST /api/v1/proxy/{service_name}/threads": {
+      "request": "operation_console_post_api_v1_proxy__service_name__threads_293191be07a6",
+      "stream": null
+    },
+    "POST /api/v1/proxy/{service_name}/threads/{thread_id}/runs/stream": {
+      "request": null,
+      "stream": "operation_console_post_api_v1_proxy__service_name__threads__thread_id__runs_stream_83fa06e3bb8c"
+    },
+    "POST /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_c7b5dd163698",
+      "stream": null
+    },
+    "POST /api/v1/public/agents/{public_id}/attachments": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_public_agents_public_id_attachments_d288d67ee703",
+      "stream": null
+    },
+    "POST /api/v1/public/agents/{public_id}/chat/stream": {
+      "request": null,
+      "stream": "operation_native_48_dispatch_inner_post__api_v1_public_agents_public_id_chat_stream_23b9e71c11d6"
+    },
+    "POST /api/v1/public/agents/{public_id}/feedback": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_public_agents_public_id_feedback_42dcced58322",
+      "stream": null
+    },
+    "POST /api/v1/public/agents/{public_id}/sessions": {
+      "request": "operation_native_48_dispatch_inner_post__api_v1_public_agents_public_id_sessions_5b7ab0d5e917",
+      "stream": null
+    },
+    "POST /api/v1/publications/{publication}/rollback": {
+      "request": "operation_native_48_tokens_route_post__api_v1_publications_publication_rollback_9a672253feb6",
+      "stream": null
+    },
+    "POST /api/v1/publications/{publication}/tokens": {
+      "request": "operation_native_48_tokens_route_post__api_v1_publications_publication_tokens_28af046f5a3d",
+      "stream": null
+    },
+    "POST /api/v1/publications/{publication}/tokens/{token}/rotate": {
+      "request": "operation_native_48_tokens_route_post__api_v1_publications_publication_tokens_token_rotate_750afd6d32dc",
+      "stream": null
+    },
+    "POST /api/v1/quiz/public/{share_code}/attempts/result": {
+      "request": "operation_console_post_api_v1_quiz_public__share_code__attempts_result_410c10f9cf1c",
+      "stream": null
+    },
+    "POST /api/v1/quiz/public/{share_code}/attempts/start": {
+      "request": "operation_console_post_api_v1_quiz_public__share_code__attempts_start_c8ca5827ed01",
+      "stream": null
+    },
+    "POST /api/v1/quiz/shared/{share_code}/submit": {
+      "request": "operation_console_post_api_v1_quiz_shared__share_code__submit_2430a603d199",
+      "stream": null
+    },
+    "POST /api/v1/quota/alerts/{alert_id}/acknowledge": {
+      "request": "operation_native_37_http_ack_post__api_v1_quota_alerts_alert_id_acknowledge_9d7324c63274",
+      "stream": null
+    },
+    "POST /api/v1/quota/{user_id}/block": {
+      "request": "operation_native_37_http_block_post__api_v1_quota_user_id_block_51e3c8bce0c3",
+      "stream": null
+    },
+    "POST /api/v1/quota/{user_id}/reset": {
+      "request": "operation_native_37_http_reset_post__api_v1_quota_user_id_reset_dbb485936553",
+      "stream": null
+    },
+    "POST /api/v1/quota/{user_id}/unblock": {
+      "request": "operation_native_37_http_unblock_post__api_v1_quota_user_id_unblock_cf320337bb5e",
+      "stream": null
+    },
+    "POST /api/v1/responses": {
+      "request": "operation_native_10_create_response_post__api_v1_responses_d863a886100e",
+      "stream": null
+    },
+    "POST /api/v1/roles": {
+      "request": "operation_create_role_api_v1_roles_post_f86852075127",
+      "stream": null
+    },
+    "POST /api/v1/routing/policies": {
+      "request": "operation_console_post_api_v1_routing_policies_df6436441228",
+      "stream": null
+    },
+    "POST /api/v1/routing/policies/{id}/activate": {
+      "request": "operation_console_post_api_v1_routing_policies__id__activate_c690b6ee3511",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-task-notifications/read": {
+      "request": "operation_mark_scheduled_task_notifications_read_f33820ef76c1",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-task-notifications/{notification_id}/read": {
+      "request": "operation_mark_scheduled_task_notification_read_c6eb9e390e68",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-task-notifications/{notification_id}/unread": {
+      "request": "operation_mark_scheduled_task_notification_unread_5246a3f1b30a",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-tasks": {
+      "request": "operation_create_scheduled_task_f28f445c4c92",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-tasks/{task_id}/cancel": {
+      "request": "operation_cancel_scheduled_task_03887bf3f0ce",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-tasks/{task_id}/pause": {
+      "request": "operation_pause_scheduled_task_10ef2cbcb340",
+      "stream": null
+    },
+    "POST /api/v1/scheduled-tasks/{task_id}/resume": {
+      "request": "operation_resume_scheduled_task_36a01285ce39",
+      "stream": null
+    },
+    "POST /api/v1/service-registrations": {
+      "request": "operation_create_service_registration_dc5e54f2b0dc",
+      "stream": null
+    },
+    "POST /api/v1/services": {
+      "request": "operation_register_service_api_v1_services_post_fc2f4f134f43",
+      "stream": null
+    },
+    "POST /api/v1/sessions": {
+      "request": "operation_console_post_api_v1_sessions_4da2cfa2aa41",
+      "stream": null
+    },
+    "POST /api/v1/sessions/{session_id}/messages": {
+      "request": "operation_console_post_api_v1_sessions__session_id__messages_efd908df4c88",
+      "stream": null
+    },
+    "POST /api/v1/skills/upload": {
+      "request": "operation_upload_skill_api_v1_skills_upload_post_c7a75b3bf5da",
+      "stream": null
+    },
+    "POST /api/v1/skills/{name}/disable": {
+      "request": "operation_disable_skill_api_v1_skills__name__disable_post_9393abf66955",
+      "stream": null
+    },
+    "POST /api/v1/skills/{name}/enable": {
+      "request": "operation_enable_skill_api_v1_skills__name__enable_post_68bb8ec1012b",
+      "stream": null
+    },
+    "POST /api/v1/skills/{name}/test": {
+      "request": "operation_test_skill_api_v1_skills__name__test_post_d316b10065b4",
+      "stream": null
+    },
+    "POST /api/v1/stream": {
+      "request": null,
+      "stream": "operation_stream_api_v1_stream_post_2ec3608481c7"
+    },
+    "POST /api/v1/submit": {
+      "request": "operation_submit_api_v1_submit_post_eaec2a3b4df4",
+      "stream": null
+    },
+    "POST /api/v1/telemetry/browser": {
+      "request": "operation_console_collect_browser_telemetry_7a12bc11bce0",
+      "stream": null
+    },
+    "POST /api/v1/users": {
+      "request": "operation_create_user_api_v1_users_post_4b041254817d",
+      "stream": null
+    },
+    "POST /api/v1/users/{user_id}/disable": {
+      "request": "operation_disable_user_api_v1_users__user_id__disable_post_b7ba758be625",
+      "stream": null
+    },
+    "POST /api/v1/users/{user_id}/enable": {
+      "request": "operation_enable_user_api_v1_users__user_id__enable_post_8504777b566e",
+      "stream": null
+    },
+    "POST /api/v1/users/{user_id}/reset-password": {
+      "request": "operation_reset_user_password_api_v1_users__user_id__reset_password_post_a58a3fe3bd1a",
+      "stream": null
+    },
+    "POST /api/v1/{device_id}/grants": {
+      "request": "operation_native_41_grants_create_post__api_v1_device_id_grants_d1c998967290",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads": {
+      "request": "operation_native_8_v2_post__api_v2_agent_threads_2048b6706273",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads/{thread_id}/turns/{turn_id}:interrupt": {
+      "request": "operation_console_post_api_v2_agent_threads__thread_id__turns__turn_id__interrupt_3219824bd354",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads/{thread_id}/turns/{turn_id}:recover": {
+      "request": "operation_console_post_api_v2_agent_threads__thread_id__turns__turn_id__recover_4cdc3aeb67f9",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads/{thread}/approvals/{approval_id}/decision": {
+      "request": "operation_native_8_v2_post__api_v2_agent_threads_thread_approvals_approval_id_decision_70cbae031ca5",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads/{thread}/turns": {
+      "request": "operation_native_8_v2_post__api_v2_agent_threads_thread_turns_60a15d19bdc4",
+      "stream": null
+    },
+    "POST /api/v2/agent/threads/{thread}/turns/{turn}": {
+      "request": "operation_native_8_v2_post__api_v2_agent_threads_thread_turns_turn_e90d70ef5263",
+      "stream": null
+    },
+    "POST /internal/v1/agent-model-plane/responses": {
+      "request": "operation_native_9_responses_post__internal_v1_agent_model_plane_responses_24cda7ae1692",
+      "stream": null
+    },
+    "POST /internal/v1/sdk-tools/models/execute": {
+      "request": null,
+      "stream": "operation_sdk_model_execute_25256a2196cb"
+    },
+    "POST /internal/v1/sdk-tools/models/lease": {
+      "request": "operation_sdk_model_lease_56397567a705",
+      "stream": null
+    },
+    "POST /internal/v1/sdk-tools/models/revocations": {
+      "request": null,
+      "stream": "operation_sdk_model_revocations_4eaef08054e7"
+    },
+    "POST /internal/v2/agent-capabilities/artifacts/{id}/read": {
+      "request": "operation_native_7_read_post__internal_v2_agent_capabilities_artifacts_id_read_d7b89c117b86",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/attachments/read": {
+      "request": "operation_native_6_attachment_post__internal_v2_agent_capabilities_attachments_read_c297eb524cbb",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/catalog": {
+      "request": "operation_native_15_catalog_post__internal_v2_agent_capabilities_catalog_30c80f5a89b0",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/confluence/read": {
+      "request": "operation_native_14_read_post__internal_v2_agent_capabilities_confluence_read_c8d358f78d7d",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/confluence/write": {
+      "request": "operation_native_14_write_post__internal_v2_agent_capabilities_confluence_write_61301b709f7e",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/image/generate": {
+      "request": "operation_native_6_image_post__internal_v2_agent_capabilities_image_generate_d7ff073a12f4",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/local-node/action": {
+      "request": "operation_native_50_dispatch_action_post__internal_v2_agent_capabilities_local_node_action_f29ad03fcc12",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/local-node/receipts": {
+      "request": "operation_native_50_record_receipt_post__internal_v2_agent_capabilities_local_node_receipt_40ee5d19217c",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/mcp/read": {
+      "request": "operation_native_13_invoke_post__internal_v2_agent_capabilities_mcp_read_2748b9c75a5f",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/office/artifacts": {
+      "request": "operation_native_6_office_post__internal_v2_agent_capabilities_office_artifacts_bb1c6dc33916",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/python/artifacts": {
+      "request": "operation_native_6_python_artifact_post__internal_v2_agent_capabilities_python_artifacts_97f94c46f32b",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/python/execute": {
+      "request": "operation_native_6_python_execute_post__internal_v2_agent_capabilities_python_execute_1b1590389165",
+      "stream": null
+    },
+    "POST /internal/v2/agent-capabilities/web-search": {
+      "request": "operation_native_7_search_post__internal_v2_agent_capabilities_web_search_1b009edcd88f",
+      "stream": null
+    },
+    "POST /mcp": {
+      "request": "operation_platform_mcp_2e315fa5c67a",
+      "stream": null
+    },
+    "POST /scim/v2/{tenant}/Groups": {
+      "request": "operation_postapiscimv2tenantgroups_a48edfb68748",
+      "stream": null
+    },
+    "POST /scim/v2/{tenant}/Users": {
+      "request": "operation_postapiscimv2tenantusers_a67449bfd50f",
+      "stream": null
+    },
+    "POST /v1/chat/completions": {
+      "request": "operation_native_llm_chat_completions_18674ab494f1",
+      "stream": "operation_native_llm_chat_completions_18674ab494f1_stream"
+    },
+    "POST /v1/embeddings": {
+      "request": "operation_native_llm_embeddings_def569146a1a",
+      "stream": null
+    },
+    "POST /v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_v1_knowledge__path__delete_d0ff4bd10c66",
+      "stream": null
+    },
+    "POST /v1/messages": {
+      "request": "operation_native_llm_anthropic_messages_bb9724a600c7",
+      "stream": "operation_native_llm_anthropic_messages_bb9724a600c7_stream"
+    },
+    "POST /v1/responses": {
+      "request": "operation_native_10_create_response_post__v1_responses_2eddca714d40",
+      "stream": null
+    },
+    "PUT /api/v1/admin/tenant-policies/mcp-configs": {
+      "request": "operation_native_28_upsert_mcp_config_put__api_v1_admin_tenant_policies_mcp_configs_f9c7f1191b9a",
+      "stream": null
+    },
+    "PUT /api/v1/admin/tenant-policies/tool-policies": {
+      "request": "operation_native_28_upsert_tool_policy_put__api_v1_admin_tenant_policies_tool_policies_19495d599eb7",
+      "stream": null
+    },
+    "PUT /api/v1/agents/{agent}/draft": {
+      "request": "operation_native_8_studio_put__api_v1_agents_agent_draft_1f1d87a09e16",
+      "stream": null
+    },
+    "PUT /api/v1/agents/{agent}/governance": {
+      "request": "operation_native_8_studio_put__api_v1_agents_agent_governance_8afd110c1ea7",
+      "stream": null
+    },
+    "PUT /api/v1/agents/{agent}/members/{kind}/{principal}": {
+      "request": "operation_native_8_studio_put__api_v1_agents_agent_members_kind_principal_aafdb0288620",
+      "stream": null
+    },
+    "PUT /api/v1/assistant/memory/items": {
+      "request": "operation_native_40_put_memory_item_put__api_v1_assistant_memory_items_4a922b3cff3a",
+      "stream": null
+    },
+    "PUT /api/v1/assistant/plugins/{plugin_id}/lifecycle": {
+      "request": "operation_update_assistant_plugin_lifecycle_93c38ff8970b",
+      "stream": null
+    },
+    "PUT /api/v1/config/auth": {
+      "request": "operation_native_18_update_auth_config_put__api_v1_config_auth_c50f21386a6b",
+      "stream": null
+    },
+    "PUT /api/v1/config/load-balancer": {
+      "request": "operation_console_put_api_v1_config_load_balancer_ffe50911600c",
+      "stream": null
+    },
+    "PUT /api/v1/config/services/{service_id}/config": {
+      "request": "operation_native_26_update_service_config_put__api_v1_config_services_service_id_config_ec458420306a",
+      "stream": null
+    },
+    "PUT /api/v1/connectors/admin/configs/{provider}": {
+      "request": "operation_native_20_update_connector_config_put__api_v1_connectors_admin_configs_provider_21a3a342e65e",
+      "stream": null
+    },
+    "PUT /api/v1/guardrails/policy": {
+      "request": "operation_putapiapiv1guardrailspolicy_fe01a6a5ea85",
+      "stream": null
+    },
+    "PUT /api/v1/kb-tools/{path}": {
+      "request": "operation_proxy_kb_tools_api_v1_kb_tools__path__delete_ad63107bdcb8",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/datasets/{dataset_id}": {
+      "request": "operation_console_put_api_v1_knowledge_datasets__dataset_id_eba49b35ec90",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{dataset_id}/config": {
+      "request": "operation_console_put_api_v1_knowledge__dataset_id__config_b92b90bbd161",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{dataset_id}/feedback": {
+      "request": "operation_console_put_api_v1_knowledge__dataset_id__feedback_0e5db5542e47",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{dataset_id}/metadata-schema": {
+      "request": "operation_console_put_api_v1_knowledge__dataset_id__metadata_schema_a48edce0f97c",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{dataset_id}/segments/{segment_id}": {
+      "request": "operation_console_put_api_v1_knowledge__dataset_id__segments__segment_id_50bab02cbd97",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_api_v1_knowledge__path__delete_82d70417f919",
+      "stream": null
+    },
+    "PUT /api/v1/mcp/connections/{connection_id}/channel-grants": {
+      "request": "operation_native_22_grant_mcp_channel_put__api_v1_mcp_connections_connection_id_channel_gr_2a7fc3404ff3",
+      "stream": null
+    },
+    "PUT /api/v1/models/{model_id}": {
+      "request": "operation_update_model_api_v1_models__model_id__put_e8c95c32ca64",
+      "stream": null
+    },
+    "PUT /api/v1/providers/from-template": {
+      "request": "operation_native_36_http_reserved_update_put__api_v1_providers_from_template_2cf1c408765d",
+      "stream": null
+    },
+    "PUT /api/v1/providers/{provider_id}": {
+      "request": "operation_update_provider_api_v1_providers__provider_id__put_0263a992b442",
+      "stream": null
+    },
+    "PUT /api/v1/proxy/{service_name}": {
+      "request": "operation_transparent_proxy_root_handler_api_v1_proxy__service_name__delete_c26ef63fca69",
+      "stream": null
+    },
+    "PUT /api/v1/proxy/{service_name}/{path}": {
+      "request": "operation_transparent_proxy_handler_api_v1_proxy__service_name___path__delete_2c7f5189d2f7",
+      "stream": null
+    },
+    "PUT /api/v1/quota/summary": {
+      "request": "operation_native_37_http_set_summary_put__api_v1_quota_summary_ff4c583dab6c",
+      "stream": null
+    },
+    "PUT /api/v1/quota/users-overview": {
+      "request": "operation_native_37_http_set_overview_put__api_v1_quota_users_overview_6d40c109460f",
+      "stream": null
+    },
+    "PUT /api/v1/quota/{user_id}": {
+      "request": "operation_native_37_http_set_put__api_v1_quota_user_id_367bbd53f741",
+      "stream": null
+    },
+    "PUT /api/v1/roles/{role_name}": {
+      "request": "operation_update_role_api_v1_roles__role_name__put_653e4aef75ac",
+      "stream": null
+    },
+    "PUT /api/v1/services/{service_id}": {
+      "request": "operation_update_service_api_v1_services__service_id__put_9043e0caa541",
+      "stream": null
+    },
+    "PUT /api/v1/users/{user_id}": {
+      "request": "operation_update_user_api_v1_users__user_id__put_2b964c53d257",
+      "stream": null
+    },
+    "PUT /api/v1/users/{user_id}/profile": {
+      "request": "operation_update_user_profile_api_v1_users__user_id__profile_put_d9ebfe79eb91",
+      "stream": null
+    },
+    "PUT /scim/v2/{tenant}/Groups/{id}": {
+      "request": "operation_putapiscimv2tenantgroupsid_2f9b621acaaa",
+      "stream": null
+    },
+    "PUT /scim/v2/{tenant}/Users/{id}": {
+      "request": "operation_putapiscimv2tenantusersid_a0be8b52dae7",
+      "stream": null
+    },
+    "PUT /v1/knowledge/{path}": {
+      "request": "operation_proxy_knowledge_v1_knowledge__path__delete_81066a83195d",
+      "stream": null
+    }
+  },
+  "generator": "ai-platform-openapi codegen",
+  "transports": "caller-owned authentication, CSRF, authority, cancellation, retries and stream parsing; no embedded credentials or URL",
+  "limits": [
+    "types preserve schema structure, not runtime range/pattern validation",
+    "Python TypedDict describes declared keys; unknown keys remain transport data",
+    "allOf must resolve to compatible object schemas; conflicts fail closed"
+  ]
+}

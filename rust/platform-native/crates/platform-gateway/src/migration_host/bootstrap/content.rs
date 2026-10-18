@@ -32,6 +32,7 @@ pub struct LangGraphConfiguration {
     pub coordination_only: bool,
 }
 pub struct ContentBackends {
+    pub shared_coordination: Option<ConnectionManager>,
     /// Must implement the source PDF text extraction, never a fake empty parse.
     pub pdf: Arc<dyn PdfAttachmentParser>,
 }
@@ -94,10 +95,23 @@ impl ContentGraph {
         langgraph.limiter = Some(limiter);
         langgraph.rate_config = rate_config;
         let langgraph = Arc::new(langgraph);
-        let guest_storage = redis.map(|r| {
-            Arc::new(RedisGuestSessionStorage::canonical_storage(r)) as Arc<dyn GuestSessionStorage>
+        let guests = Arc::new(if let Some(coordination) = backends.shared_coordination {
+            GuestSessionManager::shared(
+                config.guests,
+                Arc::new(
+                    ai_platform_gateway_foundation::multi_instance::guest::AtomicGuestStorage::new(
+                        coordination,
+                    ),
+                ),
+            )
+            .map_err(|_| BootstrapError::Construction("ha_guest_cas"))?
+        } else {
+            let guest_storage = redis.map(|r| {
+                Arc::new(RedisGuestSessionStorage::canonical_storage(r))
+                    as Arc<dyn GuestSessionStorage>
+            });
+            GuestSessionManager::new(config.guests, guest_storage)
         });
-        let guests = Arc::new(GuestSessionManager::new(config.guests, guest_storage));
         let database = ContentDatabase::new(pools.data.clone(), pools.control.clone())
             .map_err(|_| BootstrapError::Construction("content_database"))?;
         let sandbox = if config.sandbox_url.is_empty() && config.sandbox_token.is_empty() {

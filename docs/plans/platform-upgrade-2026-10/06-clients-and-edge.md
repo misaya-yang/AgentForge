@@ -1,70 +1,34 @@
 # 06 Clients and edge (Local Node, desktop, platformctl, independent CLI, SDKs)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-These units run outside the server deployment. They hold the platform's most exposed credentials
-(devices, laptops, CI systems) and define how third parties integrate. Each one consumes server
-facts and never becomes an authority for them.
+让 Local Node、CLI、desktop 和生成 SDK 通过同一身份与协议完成真实任务，不为每个客户端重建一套后端契约。
 
-| Unit | Source | Purpose |
+| 交付部分 | 原需求 ID | 连通的结果 |
 | --- | --- | --- |
-| Local Node | `platform-local-node` (8.3k lines) | Outbound-only companion that gives agents governed access to a user's workspace, processes and (on macOS) desktop UI |
-| Desktop | `platform-desktop` (13.6k lines, egui/eframe 0.33) | Native console and Local Node companion UI |
-| platformctl and Rust SDK | `platform-client` (5.8k lines) | Typed `AssistantClient` and an operator CLI |
-| Independent CLI | `sdk/cli` (`ai-gateway-cli` 1.5.0, TypeScript) | Launcher for the composed native Codex CLI with CLI-owned provider profiles (ADR-009) |
-| SDKs | `sdk/java` (15 files), `sdk/dart` (8 files); Python retired in favour of the Rust client | Third-party integration |
-| API description | `platform-openapi` (4.9k lines) → `sdk/openapi.json` (OpenAPI 3.1.0, 349 paths, 400 schemas) | Contract for SDKs, console and conformance |
+| 设备与控制链 | `U-CL-02`, `U-CL-03`, `U-CL-07`, `U-CL-08` | 设备登录、安全存储、撤销、事件控制和停止/重连接到 Gateway。 |
+| 客户端发布 | `U-CL-01`, `U-CL-05` | 按既有 shell 决策完成桌面/CLI 产物；签名、公证和更新在正式发行阶段验证。 |
+| 统一 SDK 契约 | `U-CL-09`, `U-CL-10` | OpenAPI 生产、生成客户端和共享流式 fixture 作为一个交付单元。 |
+| 编辑器接入 | `U-CL-06` | ACP 接入复用现有本地受控会话。 |
+| 按需 OS 能力 | `U-CL-04` | Windows/Linux computer use 仅按原产品需求触发。 |
 
-## 2. Current architecture (SRC)
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-- **Local Node.** Protocol `ai-platform.local-node.v2` over one HTTPS control path, outbound only:
-  no listener, no redirects, no POST replay. The platform signs challenges with pinned Ed25519 keys
-  that carry key IDs. The device identity and device credential are stored in the macOS Keychain;
-  any other OS gets `UnavailableStore` and fails closed, so the node runs only on macOS
-  ([credentials.rs](../../../rust/platform-native/crates/platform-local-node/src/credentials.rs)).
-  A heartbeat poll runs every 5 s by default (1–300 s allowed). Capabilities: workspace file grants
-  with an approval helper, processes, a watcher, an outbox and a ledger, and macOS computer use
-  through AX/CGEvent with Keychain-backed approval of the exact intent. The scoped device
-  credentials and TLS composition (successor 023) are staged but not active (program blocker
-  `local-node-023-and-control`).
-- **Desktop.** egui/eframe with AccessKit, delegating server calls to `platform-client`. vNext
-  DEC-07 treats Tauri as a candidate, not a settled choice.
-- **platformctl and the Rust SDK.** `AssistantClient` covers chat, sessions, knowledge, images,
-  artifacts, tools, skills, runs, threads and MCP. Its models are hand-written. Unknown mutation
-  outcomes surface as `Error::UnknownOutcome`, never as blind retries
-  ([SDK.md](../../../rust/platform-native/crates/platform-client/SDK.md)).
-- **Independent CLI.** A thin TypeScript/Ink launcher over the lock-pinned native CLI with an
-  isolated home (`~/.ai-gateway-cli`). The package declares `os: linux` and `cpu: x64` only. The
-  pre-1.5 remote client remains behind `ai-gateway gateway --api-key …`
-  ([package.json](../../../sdk/cli/package.json), [legacy_gateway.tsx](../../../sdk/cli/src/legacy_gateway.tsx)).
-- **SDKs and OpenAPI.** A custom producer emits OpenAPI 3.1. Java (Jackson 2.17) and Dart SDKs
-  are hand-written. `sdk/openapi-profiles.json` still has a `python_paths` profile. Shared
-  event fixtures in `sdk/fixtures` are the conformance basis.
+## 2. 接线与真实依赖
 
-## 3. Assessment
+复用 Gateway 的设备授权和 API、Runtime 的事件契约及已有 OS 安全存储。先完成实际调用链，再集中做对应 OS 和分发验证；不因尚未发行而阻塞已支持平台的功能实现。
 
-Strengths to keep: the Local Node's outbound-only design with signed challenges, explicit grants
-and fail-closed secure storage; exact-intent local approval for computer use; ADR-009's clean
-split (the CLI never borrows the hosted Runtime); unknown-outcome semantics in the Rust SDK;
-shared fixtures.
+## 3. 一次集中验证与收尾边界
 
-Gaps:
+共享契约 fixture 执行一次，客户端补其独有消费行为。Local Node 统一验证配对、批准读写、远程停止和离线重连；各 OS 凭据隔离、签名与发布验收按原范围保留。
 
-1. **Platform reach.** Local Node is macOS-only; the CLI is Linux x64-only; desktop GA waits for a
-   shell decision (P-ADR-8).
-2. **Device credentials.** Requests carry the device credential as a bearer value
-   (`Authorization: Device …`, [transport.rs:99](../../../rust/platform-native/crates/platform-local-node/src/transport.rs)).
-   The pairing key is an Ed25519 key derived from a Keychain-stored secret, not a non-exportable
-   hardware key, so anything that can read the secret can replay or impersonate the device.
-3. **Control latency.** Remote cancel and emergency stop wait for the next heartbeat poll.
-4. **SDK coverage (F-28).** No Python or TypeScript SDK although these are the main languages of
-   AI developers; Java and Dart drift by hand; no machine-checked SDK conformance.
-5. **API description.** OpenAPI 3.1 cannot describe SSE item schemas; the custom producer carries
-   Python-era profiles.
-6. **CLI credentials.** The legacy remote mode takes an API key as a flag, which ends up in shell
-   history and process listings.
+没有测量理由不更换 desktop shell；命令输出外观、模块命名和重复 SDK 封装不占当前关键路径。
+
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -149,7 +113,12 @@ rollout.
 | API description | OpenAPI 3.1.0, custom producer | OpenAPI 3.2.0 with `itemSchema`, breaking-change gate | WEB |
 | SDKs | Rust (hand-written models), Java, Dart | Generated TypeScript, Python, Rust models; Java/Dart generated or deprecated | Shared fixtures as conformance |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -164,7 +133,12 @@ rollout.
 | U-CL-09 | Generated TypeScript, Python and Rust-model SDKs; Java/Dart decision | P2 | Ph2 | All SDKs pass the shared fixture suite in CI |
 | U-CL-10 | OpenAPI 3.2 producer with `itemSchema`; breaking-change gate (F-28) | P2 | Ph2 | Spec validates against 3.2; the diff gate blocks an unversioned breaking change |
 
+</details>
+
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - **Device security.** Credential extraction and replay attempts per OS; behaviour when the
   secure store is missing; key rotation and revocation of a lost device.

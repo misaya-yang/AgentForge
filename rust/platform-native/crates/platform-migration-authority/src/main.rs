@@ -18,11 +18,15 @@ async fn run() -> Result<()> {
     })?;
     if matches!(command.as_str(), "--help" | "-h") {
         println!(
-            "usage: database-authority {{migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections,initialize-local-credentials,deployment-bootstrap}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--expected-admin NAME] [--no-adoption] [--reconciliation-evidence-out PATH]"
+            "usage: database-authority {{fresh-development-init,fresh-development-verify,fresh-development-contract,migrate,init-fresh,status,source-kind,verify,startup-check,fingerprint,provision-roles,provision-extensions,bootstrap-ledger-acl,prepare-cutover-ownership,cutover,verify-role-connections,initialize-local-credentials,deployment-bootstrap,deployment-file-admission}} [--baseline ID] [--principal NAME] [--expected-database NAME] [--expected-admin NAME] [--no-adoption] [--reconciliation-evidence-out PATH] [--phase pre-migration|post-migration]"
         );
         return Ok(());
     }
     if ![
+        "fresh-development-init",
+        "fresh-development-verify",
+        "fresh-development-contract",
+        "fresh-development-acceptance",
         "migrate",
         "init-fresh",
         "status",
@@ -38,6 +42,7 @@ async fn run() -> Result<()> {
         "verify-role-connections",
         "initialize-local-credentials",
         "deployment-bootstrap",
+        "deployment-file-admission",
     ]
     .contains(&command.as_str())
     {
@@ -49,6 +54,8 @@ async fn run() -> Result<()> {
     let mut expected_admin = None;
     let mut no_adoption = false;
     let mut evidence = None;
+    let mut phase = None;
+    let mut principal_selected = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--baseline" => {
@@ -57,6 +64,7 @@ async fn run() -> Result<()> {
                     .ok_or_else(|| AuthorityError::Refused("--baseline requires a value".into()))?
             }
             "--principal" => {
+                principal_selected = true;
                 principal = args
                     .next()
                     .ok_or_else(|| AuthorityError::Refused("--principal requires a value".into()))?
@@ -71,6 +79,18 @@ async fn run() -> Result<()> {
                     AuthorityError::Refused("--expected-admin requires a value".into())
                 })?);
             }
+            "--phase" => {
+                if phase.is_some() {
+                    return Err(AuthorityError::Refused("duplicate phase".into()));
+                }
+                phase = Some(
+                    ai_platform_migration_authority::deployment_file_admission::Phase::parse(
+                        &args.next().ok_or_else(|| {
+                            AuthorityError::Refused("phase value required".into())
+                        })?,
+                    )?,
+                );
+            }
             "--no-adoption" => no_adoption = true,
             "--reconciliation-evidence-out" => {
                 evidence = Some(std::path::PathBuf::from(args.next().ok_or_else(|| {
@@ -79,6 +99,79 @@ async fn run() -> Result<()> {
             }
             _ => return Err(AuthorityError::Refused("unknown authority argument".into())),
         }
+    }
+    if command.starts_with("fresh-development-") {
+        if principal_selected
+            || expected_admin.is_some()
+            || no_adoption
+            || evidence.is_some()
+            || phase.is_some()
+            || baseline != DEFAULT_BASELINE_ID
+        {
+            return Err(AuthorityError::Refused(
+                "fresh development entry does not accept legacy/adoption/admin-TCP flags".into(),
+            ));
+        }
+        let value = if command == "fresh-development-contract" {
+            if expected.is_some() {
+                return Err(AuthorityError::Refused(
+                    "fresh contract takes no database arguments".into(),
+                ));
+            }
+            ai_platform_migration_authority::fresh_schema::admission_contract()
+        } else {
+            let expected = expected.as_deref().ok_or_else(|| {
+                AuthorityError::Refused(
+                    "fresh development entry requires --expected-database gateway_dev_fresh".into(),
+                )
+            })?;
+            if command == "fresh-development-init" {
+                ai_platform_migration_authority::fresh_schema::initialize_with_local_operator(
+                    expected,
+                    &ai_platform_migration_authority::fresh_schema::LocalOperator::from_env()?,
+                )
+                .await?
+            } else if command == "fresh-development-acceptance" {
+                ai_platform_migration_authority::fresh_schema::acceptance(expected).await?
+            } else {
+                ai_platform_migration_authority::fresh_schema::verify(expected).await?
+            }
+        };
+        println!("{value}");
+        return Ok(());
+    }
+    if command == "deployment-file-admission" {
+        if expected.as_deref().is_none_or(str::is_empty)
+            || expected_admin.is_some()
+            || principal_selected
+            || no_adoption
+            || evidence.is_some()
+            || std::env::var("AI_PLATFORM_LOCAL_DEV_CREDENTIALS").as_deref() == Ok("true")
+        {
+            return Err(AuthorityError::Refused("deployment-file-admission requires expected-database, optional phase, six file/mTLS roles and no admin/local/migration flags".into()));
+        }
+        let prefix = credentials::role_prefix_from_env()?;
+        let paths = commands::default_paths();
+        commands::verify_source(&paths, &baseline)?;
+        println!(
+            "{}",
+            ai_platform_migration_authority::deployment_file_admission::run(
+                paths,
+                prefix,
+                &baseline,
+                expected.as_deref().unwrap(),
+                phase.unwrap_or(
+                    ai_platform_migration_authority::deployment_file_admission::Phase::PreMigration
+                )
+            )
+            .await?
+        );
+        return Ok(());
+    }
+    if phase.is_some() {
+        return Err(AuthorityError::Refused(
+            "phase only applies to deployment-file-admission".into(),
+        ));
     }
     if !credentials::APPLICATION_PRINCIPALS.contains(&principal.as_str()) {
         return Err(AuthorityError::Refused(
@@ -140,8 +233,7 @@ async fn run() -> Result<()> {
         "startup-check" => principal.as_str(),
         _ => "migrator",
     };
-    let authority =
-        MigrationAuthority::new(credentials::dsn_for_principal(identity)?, paths, prefix)?;
+    let authority = MigrationAuthority::from_principal(identity, paths, prefix)?;
     let outcome: Result<()> = async {
         match command.as_str() {
             "deployment-bootstrap" => println!(

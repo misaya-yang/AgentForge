@@ -1,7 +1,7 @@
 //! Complete compiled test collection and per-test outcomes, bound to the source unit.
 use super::*;
 const LEGACY_TARGET: &str = "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d";
-const REQUIRED: &[&str] = &[
+pub(super) const REQUIRED: &[&str] = &[
     "tests::canonical_hash_is_independent_of_object_key_order",
     "tests::lease_signature_binds_scope_and_arguments",
     "tests::write_lease_requires_bound_approval",

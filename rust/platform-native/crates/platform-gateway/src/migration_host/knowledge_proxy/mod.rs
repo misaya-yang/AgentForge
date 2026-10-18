@@ -4,6 +4,7 @@ mod contract;
 mod forwarding;
 mod management;
 pub mod sdk_capabilities;
+pub mod sdk_models;
 mod sdk_reads;
 use crate::migration_content::{
     ContentAccess, ContentDatabase, ContentError, ContentIdentity, access::NativeContentAccess,
@@ -61,6 +62,7 @@ impl ProxyConfig {
     }
 }
 pub struct KnowledgeProxy {
+    pub context_metrics: Option<Arc<super::context_metrics::ContextMetricsCollector>>,
     retrieval_rpc: Option<ai_platform_rpc::RetrievalClient>,
     pub sdk_reads: Option<sdk_reads::SdkReads>,
     pub sdk_control: Option<Arc<crate::migration_agent::control::RuntimeControlPlane>>,
@@ -84,6 +86,11 @@ impl KnowledgeProxy {
         origin: String,
         config: ai_platform_rpc::RpcConfig,
     ) -> Result<()> {
+        // The current RPC adapter has no authenticated workload peer transport.
+        // An explicit RPC selection must never bypass required mTLS.
+        if crate::migration_agent::control::execution_transport::tls_enabled() {
+            return Err(unavailable());
+        }
         let parsed = reqwest::Url::parse(&origin).map_err(|_| unavailable())?;
         let loopback = parsed
             .host_str()
@@ -159,6 +166,7 @@ impl KnowledgeProxy {
             .build()
             .map_err(|_| unavailable())?;
         Ok(Self {
+            context_metrics: None,
             retrieval_rpc: None,
             sdk_reads: None,
             sdk_control: None,
@@ -213,6 +221,7 @@ pub fn router(state: Arc<KnowledgeProxy>) -> Router {
     }
     router
         .with_state(state.clone())
+        .merge(sdk_models::router(state.clone()))
         .layer(axum::middleware::from_fn_with_state(
             state.access.clone(),
             crate::migration_content::access::request_context,

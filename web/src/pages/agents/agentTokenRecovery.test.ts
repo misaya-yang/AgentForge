@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
-import { AxiosError, isAxiosError } from "axios";
+import { HttpError, isHttpError } from '../../lib/fetchClient.ts';
 import { sdkAuthorityScope } from "../../lib/sdkAuthorityScope.ts";
 
 type Tree = { type: unknown; key?: string; props: Record<string, unknown> };
@@ -25,7 +25,7 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-function denied(status = 403) { return new AxiosError("fixture-secret", "ERR_BAD_REQUEST", undefined, undefined, { status, data: { detail: null, token: "fixture-secret" }, statusText: "Denied", headers: {}, config: {} as never }); }
+function denied(status = 403) { return new HttpError("fixture-secret", "ERR_BAD_REQUEST", undefined, undefined, { status, data: { detail: null, token: "fixture-secret" }, statusText: "Denied", headers: {}, config: {} as never }); }
 const token = { token_id: "token-a", name: "Existing token", scopes: ["chat:write"], revoked_at: null };
 const prefix = "agents.studio.channels.";
 function host(wrapper = false) {
@@ -56,7 +56,7 @@ function host(wrapper = false) {
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const api = Object.fromEntries(["createAgentApiToken", "rotateAgentApiToken", "revokeAgentApiToken"].map(name => [name, (...args: unknown[]) => { writes.push([name, ...args]); return write(); }]));
   const modules: Record<string, unknown> = {
-    react, axios: { isAxiosError }, "@/store/useAuthStore": { useAuthStore: authStore }, "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/utils": { generateUUID: () => `scope-${++uuid}` }, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
+    react, "@/lib/fetchClient": { isHttpError }, "@/store/useAuthStore": { useAuthStore: authStore }, "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/utils": { generateUUID: () => `scope-${++uuid}` }, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     antd: { ...Object.fromEntries(["Alert", "Button", "Modal", "Tag"].map(name => [name, name])), Empty: { PRESENTED_IMAGE_SIMPLE: "empty" }, Input: { Password: "Password" }, App: { useApp: () => ({ message: { success: (value: string) => notifications.push(value) } }) } },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
     "@/api/agents": { ...api, listAgentApiTokens: () => { readCalls++; return read(); } },

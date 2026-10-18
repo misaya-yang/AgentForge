@@ -5,6 +5,9 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 [dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 anyhow = "1"
 chrono = "0.4"
 hex = "0.4"
@@ -12,7 +15,7 @@ reqwest = { version = "=0.13.5", default-features = false, features = ["json", "
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
-tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time", "io-util"] }
 uuid = { version = "1", features = ["v4"] }
 rusqlite = { version = "0.32", features = ["bundled", "limits"] }
 [dev-dependencies]

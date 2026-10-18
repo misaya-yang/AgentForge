@@ -54,7 +54,16 @@ impl AgentModelPlane {
                 return Err(e);
             }
         };
-        let claimed=sqlx::query("UPDATE assistant_runtime_model_calls SET status='dispatched',dispatched_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status='reserved'").bind(&call.call_id).execute(&self.pool).await?.rows_affected();
+        // Actual final context, after provider translation and input guardrails.
+        // Write before claiming dispatch or posting any provider side effect.
+        if let Some(metrics) = &self.context_metrics {
+            if let Err(error) = metrics.observe_prepared(&call, &prepared.body).await {
+                self.fail_call(&call.call_id, "context_metrics_unavailable", false)
+                    .await?;
+                return Err(error);
+            }
+        }
+        let claimed=sqlx::query("UPDATE assistant_runtime_model_calls SET status='dispatched',dispatched_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status='reserved'").bind(&call.call_id).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &call.scope.tenant_id)).await?.rows_affected();
         if claimed != 1 {
             return Err(AgentError::code(
                 409,

@@ -53,7 +53,9 @@ async fn metrics(State(state): State<MetricsHttpState>, request: Request) -> Res
     }
     (
         [(CONTENT_TYPE, "text/plain; charset=utf-8")],
-        state.collector.to_prometheus(),
+        format!("{}\n# HELP gateway_worker_fence_rejections_total Rejected singleton side-effect attempts\n# TYPE gateway_worker_fence_rejections_total counter\ngateway_worker_fence_rejections_total {}\n",
+            state.collector.to_prometheus(),
+            ai_platform_gateway_foundation::worker_lease::fence_rejections()),
     )
         .into_response()
 }

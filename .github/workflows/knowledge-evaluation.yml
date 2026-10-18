@@ -23,7 +23,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-knowledge-ops
       - name: Verify positive and negative promotion fixtures

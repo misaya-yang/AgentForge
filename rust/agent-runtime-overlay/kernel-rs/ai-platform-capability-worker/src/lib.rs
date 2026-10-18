@@ -1,9 +1,7 @@
 //! Durable capability execution worker. It deliberately contains no Agent
 //! loop, provider client, or long-lived connector credential.
-pub mod python_package_policy;
-pub mod sandbox_service;
-pub mod sandbox_transport;
 pub mod attachment_capabilities;
+pub mod broker_proof;
 pub mod confluence_write_broker;
 pub mod external_write_capabilities;
 pub mod http_service;
@@ -16,15 +14,20 @@ pub mod plugin_packs;
 pub mod postgres_store;
 pub mod python_artifact_broker;
 pub mod python_code_execution;
-pub mod quiz_capabilities;
+pub mod python_package_policy;
+pub use ai_platform_plugin_quiz::executor as quiz_capabilities;
 pub mod read_capabilities;
-mod trace_context;
-#[path="../../ai-platform-agent-runtime/src/telemetry.rs"]
+pub mod sandbox_service;
+pub mod sandbox_pool;
+pub mod sandbox_attestor;
+pub mod sandbox_tier;
+pub mod sandbox_transport;
+#[path = "../../ai-platform-agent-runtime/src/telemetry.rs"]
 pub mod telemetry;
+mod trace_context;
+#[path = "../../ai-platform-capability-contract/src/workload_identity.rs"]
+pub mod workload_identity;
 pub mod write_capabilities;
-use std::collections::BTreeMap;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use ai_platform_capability_contract::{
     ApprovalPolicy, CAPABILITY_DESCRIPTOR_SCHEMA_VERSION, CAPABILITY_EVENT_SCHEMA_VERSION,
     CapabilityDescriptorV2, CapabilityEffect, CapabilityEventPageV2, CapabilityEventV2,
@@ -34,6 +37,9 @@ use ai_platform_capability_contract::{
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -487,7 +493,10 @@ fn same_reservation(record: &ExecutionRecord, requested: &NewExecution) -> bool 
         && left.arguments_hash == right.arguments_hash
         && left.idempotency_key == right.idempotency_key
         && left.effect == right.effect
-        && crate::read_capabilities::transport::bindings_match(&record.resource_binding, &requested.resource_binding)
+        && crate::read_capabilities::transport::bindings_match(
+            &record.resource_binding,
+            &requested.resource_binding,
+        )
         && record.arguments == requested.arguments
 }
 
@@ -653,7 +662,8 @@ impl ExecutionStore for MemoryStore {
     }
 
     async fn reserve(&self, requested: NewExecution) -> Result<ReserveOutcome, StoreError> {
-        self.reserve_admitted_owned(requested, None, None, &mut || Ok(())).await
+        self.reserve_admitted_owned(requested, None, None, &mut || Ok(()))
+            .await
     }
 
     async fn reserve_admitted_owned(

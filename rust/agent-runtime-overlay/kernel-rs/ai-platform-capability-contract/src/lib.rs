@@ -3,6 +3,7 @@
 //! Agent-loop implementation.
 
 pub mod sandbox_job;
+pub mod broker_proof;
 pub mod lease_v3;
 pub mod private_transport;
 
@@ -1345,6 +1346,8 @@ fn canonicalize(value: &Value) -> Value {
         Value::Object(map) => Value::Object(
             map.iter()
                 .map(|(key, value)| (key.clone(), canonicalize(value)))
+                .collect::<BTreeMap<_, _>>()
+                .into_iter()
                 .collect::<Map<_, _>>(),
         ),
         Value::Array(values) => Value::Array(values.iter().map(canonicalize).collect()),

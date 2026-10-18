@@ -1,5 +1,5 @@
 //! Non-serializable dispatch-owned proof that the current logical request has
-//! already consumed quota RPM in the combined admission script. Never carried
+//! passed quota admission, consuming RPM only when limited. Never carried
 //! in user JSON, request headers, task payloads or cross-request mutable caches.
 use crate::billing::MinuteQuotaCheck;
 use std::future::Future;
@@ -10,7 +10,15 @@ pub struct AdmittedQuota {
     decision: MinuteQuotaCheck,
 }
 impl AdmittedQuota {
-    pub(super) fn new(tenant: String, user: String, decision: MinuteQuotaCheck) -> Self {
+    pub(super) fn new(tenant: String, user: String, rpm_used: Option<i64>) -> Self {
+        let decision = match rpm_used {
+            Some(used) => MinuteQuotaCheck {
+                allowed: true,
+                used,
+                retry_after_seconds: 0,
+            },
+            None => MinuteQuotaCheck::default(),
+        };
         Self {
             tenant,
             user,
@@ -37,15 +45,7 @@ mod tests {
     #[tokio::test]
     async fn proof_is_scoped_to_future_and_exact_authority() {
         assert!(decision("t", "u").is_none());
-        let proof = AdmittedQuota::new(
-            "t".into(),
-            "u".into(),
-            MinuteQuotaCheck {
-                allowed: true,
-                used: 7,
-                retry_after_seconds: 0,
-            },
-        );
+        let proof = AdmittedQuota::new("t".into(), "u".into(), Some(7));
         scope(Some(proof), async {
             assert_eq!(decision("t", "u").unwrap().used, 7);
             assert!(decision("foreign", "u").is_none());
@@ -59,5 +59,23 @@ mod tests {
         })
         .await;
         assert!(decision("t", "u").is_none());
+    }
+
+    #[tokio::test]
+    async fn unlimited_rpm_retains_a_successful_authority_bound_proof() {
+        for configured_limit in [None, Some(0), Some(-1)] {
+            assert!(crate::billing::normalize_limit(configured_limit).is_none());
+            let proof = AdmittedQuota::new("tenant".into(), "user".into(), None);
+            scope(Some(proof), async {
+                assert_eq!(
+                    decision("tenant", "user"),
+                    Some(MinuteQuotaCheck::default())
+                );
+                assert!(decision("other-tenant", "user").is_none());
+                assert!(decision("tenant", "other-user").is_none());
+            })
+            .await;
+            assert!(decision("tenant", "user").is_none());
+        }
     }
 }

@@ -1,3 +1,4 @@
+import * as nativeHttp from '../../lib/fetchClient.ts';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -23,7 +24,7 @@ function render(message: Partial<ChatMessage> = {}, locale = "en-US", visible = 
   const dictionary = JSON.parse(readFileSync(new URL(`../../i18n/locales/${locale}.json`, import.meta.url), "utf8"));
   const t = (key: string) => key.split(".").reduce((value, part) => value[part], dictionary);
   const utils = load("../../lib/utils.ts", {
-    clsx: require("clsx"), "tailwind-merge": require("tailwind-merge"), axios: require("axios"),
+    clsx: require("clsx"), "@/lib/fetchClient": nativeHttp,
   });
   const realReact = require("react");
   // Real hooks and rendering; lazy children suspend so their existing fallback is visible.

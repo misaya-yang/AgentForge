@@ -114,6 +114,8 @@ test("durable snapshot preserves approval rejection across duplicate replay and 
   t.mock.method(globalThis, "fetch", async (url: string) => {
     const query = new URL(url, "http://fixture").searchParams;
     assert.equal(query.get("turn_id"), "turn-1");
+    assert.equal(query.get("limit"), "1000", "durable snapshots retain the real Runtime replay page size");
+    assert.equal(query.get("after_sequence"), "0");
     return stream.response;
   });
   const snapshot = await getAgentRuntimeV2RunSnapshot("thread-1", "turn-1");

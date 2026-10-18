@@ -89,7 +89,8 @@ pub(super) async fn run_execution(
         .unwrap_or(requested_fence);
     // Check again at actual dispatch, including restart recovery. Never replay
     // an old descriptor using a replacement plugin activation or implementation.
-    let pack_bound = descriptor.tags.iter().any(|tag| tag.starts_with("plugin-"))
+    let pack_bound = descriptor.id == ai_platform_plugin_quiz::CAPABILITY_ID
+        || descriptor.tags.iter().any(|tag| tag.starts_with("plugin-"))
         || state.plugin_activation.as_ref().is_some_and(|active| active.managed.contains(&descriptor.id))
         || !dispatch.record.resource_binding["plugin_activation"].is_null();
     let saved_descriptor = dispatch.record.resource_binding.get("descriptor").cloned()
@@ -98,7 +99,7 @@ pub(super) async fn run_execution(
         || descriptor.id != capability_id
         || descriptor.id != dispatch.record.execution.capability_id
         || descriptor.effect != dispatch.record.execution.effect
-        || !state.admits_plugin_descriptor(&descriptor)
+        || !state.admits_plugin_descriptor(&scope.tenant_id, &descriptor)
         || (pack_bound && saved_descriptor.as_ref() != Some(&descriptor))
     {
         let payload = BTreeMap::from([(
@@ -578,9 +579,25 @@ pub(super) async fn run_execution(
                             "quiz_capability_executor_unavailable".to_string(),
                         ));
                     };
+                    let active = state.plugin_activation.as_ref().ok_or_else(||
+                        OperationError::Failed("plugin_activation_required".into()))?;
+                    let binding = active.execution_binding(&write_context.tenant_id, &capability_id)
+                        .map_err(|_| OperationError::Failed("plugin_publisher_not_admitted".into()))?;
+                    if binding.package_id != ai_platform_plugin_quiz::PLUGIN_ID {
+                        return Err(OperationError::Failed("plugin_package_mismatch".into()));
+                    }
+                    let plugin_context = quiz_execution_context(
+                        &write_context,
+                        &dispatch.record.resource_binding,
+                        crate::quiz_capabilities::QuizPluginBinding {
+                            activation_id: binding.activation_id,
+                            artifact_sha256: binding.artifact_sha256,
+                            publisher_id: binding.publisher_id,
+                        },
+                    ).map_err(|error| OperationError::Failed(error.to_string()))?;
                     executor
                         .persist(
-                            &write_context,
+                            &plugin_context,
                             &dispatch.record.execution.tool_call_id,
                             &dispatch.record.execution.arguments_hash,
                             arguments,
@@ -655,6 +672,7 @@ pub(super) async fn run_execution(
             )),
         }
     };
+    let operation = crate::broker_proof::scope(&dispatch.record.resource_binding, &fence, operation);
     tokio::pin!(operation);
     let result = tokio::select! {
         _ = cancellation.notified() => {
@@ -757,6 +775,31 @@ pub(super) async fn run_execution(
     }
     state.forget_cancellation(&execution_id).await;
 }
+
+fn quiz_execution_context(
+    write: &WriteCapabilityContext,
+    resource: &Value,
+    plugin: crate::quiz_capabilities::QuizPluginBinding,
+) -> Result<crate::quiz_capabilities::QuizExecutionContext, crate::quiz_capabilities::QuizPersistenceError> {
+    let context = crate::quiz_capabilities::QuizExecutionContext {
+        tenant_id: write.tenant_id.clone(),
+        user_id: write.user_id.clone(),
+        session_id: write.session_id.clone(),
+        execution_id: write.execution_id.clone(),
+        run_id: write.run_id.clone(),
+        capability_revision: write.capability_revision,
+        bound_dataset_ids: write.bound_dataset_ids.clone(),
+        plugin,
+    };
+    // write was derived from this persisted binding. Strict comparison rejects
+    // missing/malformed grants instead of the generic parser's best-effort set.
+    context.validate_resource_scope(resource)?;
+    Ok(context)
+}
+
+#[cfg(test)]
+#[path = "quiz_context_tests.rs"]
+mod quiz_context_tests;
 
 fn local_node_scope(record: &crate::ExecutionRecord) -> Option<LocalNodeScope> {
     let binding = &record.resource_binding;

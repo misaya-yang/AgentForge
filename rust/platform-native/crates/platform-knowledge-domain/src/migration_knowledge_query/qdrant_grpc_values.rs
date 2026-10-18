@@ -56,6 +56,7 @@ fn floats(v: &Value) -> Result<Vec<f32>> {
             n.as_f64()
                 .filter(|n| n.is_finite())
                 .map(|n| n as f32)
+                .filter(|n| n.is_finite())
                 .ok_or(Failure::Permanent(QueryError::VectorStore))
         })
         .collect()
@@ -78,10 +79,11 @@ fn sparse(v: &Value) -> Result<q::SparseVector> {
                 .ok_or(Failure::Permanent(QueryError::VectorStore))
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(q::SparseVector {
-        indices,
-        values: floats(&v["values"])?,
-    })
+    let values = floats(&v["values"])?;
+    if indices.len() != values.len() {
+        return invalid();
+    }
+    Ok(q::SparseVector { indices, values })
 }
 pub fn vector(v: &Value) -> Result<q::Vector> {
     let variant = if v.is_array() {
@@ -124,6 +126,18 @@ pub fn vector_json(v: q::VectorOutput) -> Value {
         None => {
             if let Some(indices) = v.indices {
                 json!({"indices":indices.data,"values":v.data})
+            } else if let Some(count) = v.vectors_count {
+                // 1.18 legacy protobuf flattens multivectors. Preserve rows;
+                // never divide/chunk by zero on a malformed remote response.
+                let count = count as usize;
+                if count == 0 || v.data.is_empty() || v.data.len() % count != 0 {
+                    return Value::Null;
+                }
+                json!(
+                    v.data
+                        .chunks_exact(v.data.len() / count)
+                        .collect::<Vec<_>>()
+                )
             } else {
                 json!(v.data)
             }
@@ -191,6 +205,8 @@ fn condition(v: &Value) -> Result<q::Condition> {
                 } else {
                     M::Keyword(string(x)?)
                 }
+            } else if let Some(prefix) = m.get("prefix") {
+                M::Prefix(string(prefix)?)
             } else if let Some(a) = m.get("any").and_then(Value::as_array) {
                 if a.iter().all(Value::is_string) {
                     M::Keywords(q::RepeatedStrings {
@@ -274,6 +290,53 @@ pub fn query(v: &Value) -> Result<Option<q::Query>> {
     };
     Ok(Some(q::Query { variant: Some(q) }))
 }
+pub fn shard_selector(v: &Value) -> Result<Option<q::ShardKeySelector>> {
+    if v.is_null() {
+        return Ok(None);
+    }
+    let key = |v: &Value| -> Result<q::ShardKey> {
+        Ok(q::ShardKey {
+            key: Some(q::shard_key::Key::Keyword(string(v)?)),
+        })
+    };
+    if v.is_string() {
+        return Ok(Some(q::ShardKeySelector {
+            shard_keys: vec![key(v)?],
+            fallback: None,
+        }));
+    }
+    Ok(Some(q::ShardKeySelector {
+        shard_keys: vec![key(&v["target"])?],
+        fallback: Some(key(&v["fallback"])?),
+    }))
+}
+pub fn search_params(v: &Value) -> Result<Option<q::SearchParams>> {
+    if v.is_null() {
+        return Ok(None);
+    }
+    let idf = if v["idf"].is_null() {
+        None
+    } else {
+        Some(q::IdfParams {
+            corpus: filter(&v["idf"]["corpus"])?,
+        })
+    };
+    Ok(Some(q::SearchParams {
+        hnsw_ef: v["hnsw_ef"].as_u64(),
+        exact: v["exact"].as_bool(),
+        indexed_only: v["indexed_only"].as_bool(),
+        idf,
+        quantization: (!v["quantization"].is_null()).then(|| q::QuantizationSearchParams {
+            ignore: v["quantization"]["ignore"].as_bool(),
+            rescore: v["quantization"]["rescore"].as_bool(),
+            oversampling: v["quantization"]["oversampling"].as_f64(),
+        }),
+        acorn: (!v["acorn"].is_null()).then(|| q::AcornSearchParams {
+            enable: v["acorn"]["enable"].as_bool(),
+            max_selectivity: v["acorn"]["max_selectivity"].as_f64(),
+        }),
+    }))
+}
 pub fn prefetch(v: &Value) -> Result<Vec<q::PrefetchQuery>> {
     if v.is_null() {
         return Ok(vec![]);
@@ -285,6 +348,7 @@ pub fn prefetch(v: &Value) -> Result<Vec<q::PrefetchQuery>> {
         .map(|v| {
             Ok(q::PrefetchQuery {
                 query: query(&v["query"])?,
+                params: search_params(&v["params"])?,
                 prefetch: prefetch(&v["prefetch"])?,
                 using: v["using"].as_str().map(str::to_owned),
                 filter: filter(&v["filter"])?,
@@ -355,5 +419,98 @@ mod tests {
         assert!(
             matches!(v.vectors_options,Some(q::vectors::VectorsOptions::Vectors(v)) if v.vectors.len()==2)
         );
+    }
+}
+#[cfg(test)]
+mod optimized_search_tests {
+    use super::*;
+    #[test]
+    fn typed_search_keeps_tenant_idf_acorn_prefix_and_fallback() {
+        let p=search_params(&json!({"hnsw_ef":128,"quantization":{"rescore":true,"oversampling":2.0},"acorn":{"enable":true,"max_selectivity":0.4},"idf":{"corpus":{"must":[{"key":"tenant_id","match":{"value":"t"}},{"key":"dataset_id","match":{"value":"d"}}]}}})).unwrap().unwrap();
+        assert_eq!(p.hnsw_ef, Some(128));
+        assert_eq!(p.quantization.unwrap().rescore, Some(true));
+        assert_eq!(p.idf.unwrap().corpus.unwrap().must.len(), 2);
+        assert_eq!(p.acorn.unwrap().enable, Some(true));
+        let selector = shard_selector(&json!({"target":"tenant","fallback":"shared"}))
+            .unwrap()
+            .unwrap();
+        assert_eq!(selector.shard_keys.len(), 1);
+        assert!(selector.fallback.is_some());
+        let c =
+            condition(&json!({"key":"metadata.source_path","match":{"prefix":"manual/"}})).unwrap();
+        assert!(matches!(
+            c.condition_one_of,
+            Some(q::condition::ConditionOneOf::Field(q::FieldCondition {
+                r#match: Some(q::Match {
+                    match_value: Some(q::r#match::MatchValue::Prefix(_))
+                }),
+                ..
+            }))
+        ));
+    }
+}
+
+#[cfg(test)]
+mod output_protocol_upgrade_tests {
+    use super::*;
+    #[test]
+    #[allow(deprecated)] // Exercise actual 1.18 peer fields during the 1.19 transition.
+    fn legacy_and_119_multivectors_have_identical_rows() {
+        let expected = json!([[1., 2., 3.], [4., 5., 6.]]);
+        let old = q::VectorOutput {
+            data: vec![1., 2., 3., 4., 5., 6.],
+            vectors_count: Some(2),
+            ..Default::default()
+        };
+        let new = q::VectorOutput {
+            vector: Some(q::vector_output::Vector::MultiDense(q::MultiDenseVector {
+                vectors: vec![
+                    q::DenseVector {
+                        data: vec![1., 2., 3.],
+                    },
+                    q::DenseVector {
+                        data: vec![4., 5., 6.],
+                    },
+                ],
+            })),
+            ..Default::default()
+        };
+        assert_eq!(vector_json(old), expected);
+        assert_eq!(vector_json(new), expected);
+    }
+    #[test]
+    #[allow(deprecated)]
+    fn malformed_legacy_multivector_never_panics_or_changes_shape() {
+        for (data, count) in [
+            (vec![1., 2.], 0),
+            (vec![], 2),
+            (vec![1., 2., 3.], 2),
+            (vec![1.], 3),
+        ] {
+            assert!(
+                vector_json(q::VectorOutput {
+                    data,
+                    vectors_count: Some(count),
+                    ..Default::default()
+                })
+                .is_null()
+            );
+        }
+        let conflicting = q::VectorOutput {
+            data: vec![9.],
+            vectors_count: Some(0),
+            vector: Some(q::vector_output::Vector::Dense(q::DenseVector {
+                data: vec![1., 2.],
+            })),
+            ..Default::default()
+        };
+        assert_eq!(vector_json(conflicting), json!([1., 2.]));
+    }
+    #[test]
+    fn sparse_alignment_and_float32_range_are_validated_before_wire_dispatch() {
+        assert!(vector(&json!({"indices":[1,2],"values":[1.]})).is_err());
+        assert!(vector(&json!([1e100])).is_err());
+        assert!(vector(&json!({"indices":[4294967296u64],"values":[1.]})).is_err());
+        assert!(vector(&json!({"indices":[1,2],"values":[1.,2.]})).is_ok());
     }
 }

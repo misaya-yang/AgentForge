@@ -1,83 +1,34 @@
 # 02 Gateway (gateway-control)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-The Gateway is the public API and the control authority for identity, tenant policy,
-provider/model admission, quotas and accounting, immutable launch and lease signing, and the
-Gateway-owned brokers (MCP, connectors, images, artifacts, Local Node). It must not own model or
-tool iteration, compaction, cancellation state, approval transitions or event ordering (platform
-law L5).
+把身份、模型请求、计费和工具入口接成一条可用调用链；一次完成 API、后台角色、持久化和调用方接线。
 
-## 2. Current architecture (SRC)
-
-**Process.** `gateway --config-env` ([bin/gateway.rs](../../../rust/platform-native/crates/platform-gateway/src/bin/gateway.rs))
-resolves a typed `GatewayDocument`. [`GatewayGraph::new`](../../../rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/graph.rs)
-then constructs every service from explicit inputs (data and control pools, Redis, signed
-Knowledge authorities), and the host serves an Axum router plus lifecycle-owned workers (eval
-outbox, billing scheduler, image worker, file expiry, retention, optional usage-stream consumer).
-Construction order follows the deleted Python `src/container.py`
-([bootstrap README](../../../rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/README.md)).
-
-**Crates.**
-
-| Crate | Size | Contents |
+| 交付部分 | 原需求 ID | 连通的结果 |
 | --- | --- | --- |
-| `platform-gateway` | ~97k lines | `migration_agent` (agents, Studio, publications, model plane, approvals, schedules; 15k), `migration_compat` (Responses, transparent proxy, billing stream, MCP invocation, LangGraph, Confluence, **eval 10k**), `migration_content` (files, images, skills, artifacts, shares), `migration_host` (bootstrap, middleware, identity, metrics, Local Node channel, knowledge proxy; 25k), `migration_trace`, quiz |
-| `platform-gateway-foundation` | ~98k lines, ~136 flat modules | Users/roles/API keys, tenant policies, quotas, rate limits, capacity admission, load shedding, dispatch, provider/model catalog and routing, usage/billing, MCP registry/broker, connectors, Local Node stores, tasks, sessions, assistant memory/plugins, quiz grading, Python-compat helpers |
-| `platform-gateway-integrations` | ~52k lines | Provider adapters (LangGraph, Dify, SDK), **Knowledge ingest/query domain**, Local Node transport, content storage, ChatGPT-plan OAuth |
-| `platform-auth` | ~2.5k lines | HS256 JWT + Redis allowlist sessions, credential revision, bcrypt, API keys, RBAC, admission |
+| 身份与信任 | `U-GW-02`, `U-GW-03`, `U-GW-04`, `U-GW-13`, `U-GW-19`, `U-GW-20` | 登录/会话、服务身份、策略与配置在入口生效；权限撤销和 readiness 使用真实状态。 |
+| 模型请求与账务 | `U-GW-01`, `U-GW-05`, `U-GW-06`, `U-GW-07`, `U-GW-08`, `U-GW-09`, `U-GW-17`, `U-GW-21`, `U-GW-22` | 请求经过路由、准入、guardrails、provider 和结算；保留流式协议、预算与错误语义。 |
+| 后台任务与多实例 | `U-GW-11`, `U-GW-12`, `U-GW-14`, `U-GW-23` | 持久任务、租约、恢复和 eval/billing/schedule/batch 在既有进程角色中工作。 |
+| 协议与平台能力 | `U-GW-10`, `U-GW-15`, `U-GW-18`, `U-GW-24` | MCP、A2A、插件 Quiz 和平台能力接到同一身份、审批与执行边界。 |
+| 条件实验 | `U-GW-16` | 语义缓存只按原条件试验，未触发不进入当前必需交付。 |
 
-**Request path.** Middleware order: request governance (concurrency permits, header and body-idle
-deadlines) → body limits → request context → security headers → graceful drain → identity →
-tracing. A single HTTP rate authority charges multiple dimensions through a Redis sorted-set
-sliding-window Lua script ([rate.rs](../../../rust/platform-native/crates/platform-gateway/src/migration_host/rate.rs),
-[rate_limits.rs](../../../rust/platform-native/crates/platform-gateway-foundation/src/rate_limits.rs)).
-Capacity admission uses Redis leases with renewal and a local bounded queue
-([capacity_admission.rs](../../../rust/platform-native/crates/platform-gateway-foundation/src/capacity_admission.rs)).
-A latency-window load shedder sits alongside.
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-**Model plane.** The Runtime calls a private, lease-authorized single-provider plane
-([migration_agent/model.rs](../../../rust/platform-native/crates/platform-gateway/src/migration_agent/model.rs)).
-Leases are HMAC-SHA256 over a canonical JSON form. Wire protocols: `responses_v1` and
-`chat_completions`. Provider selection and failover assemble untyped `Value` records
-([provider_routing.rs](../../../rust/platform-native/crates/platform-gateway-foundation/src/provider_routing.rs),
-[model_failover.rs](../../../rust/platform-native/crates/platform-gateway-foundation/src/model_failover.rs)).
-The dispatcher retries only safe methods and classifies uncertain unsafe failures as
-`UpstreamOutcomeUnknown` ([dispatcher.rs:140–195](../../../rust/platform-native/crates/platform-gateway-foundation/src/dispatcher.rs)).
+## 2. 接线与真实依赖
 
-**Accounting.** `UsageRecorder` buffers in process and batch-writes PostgreSQL with frozen
-pricing receipts. Price lookup falls back to the global `model_pricing` table, keyed by model
-name only (F-03).
+先约定数据角色、令牌/租约及公开 API 契约；Gateway 与 Runtime、Knowledge、Web/SDK 可按契约同时实现。后端入口与调用方在同一批次接通，不以另起服务或新 ADR 作为普通接线的前置条件。
 
-**Public LLM surface.** `/v1/responses` plus registered transparent-proxy services under
-`/api/v1/proxy`, `/api/v1/invoke` and `/api/v1/stream` (F-29).
+## 3. 一次集中验证与收尾边界
 
-## 3. Assessment
+复用身份/协议/计费的已有行为测试，整批编译后验证“请求→路由→预留→调用→结算”和拒绝/撤销路径。跨服务的租户、流式、审批与恢复由统一联调覆盖；实现者结果仍适用时主任务不重跑。
 
-Strengths: explicit construction with no hidden I/O; fail-closed configuration; strong separation
-of admission, model plane and execution; body-lifetime permits; disciplined retry semantics;
-tenant-scoped API keys; credential revision invalidating sessions; a single rate authority (the
-dual limiter of the Python era is gone).
+内部命名、无行为收益的 crate 再拆分和文档补写不阻塞模型调用链；规范化与类型约束中影响签名、金额或契约的部分随功能完成。
 
-Gaps, in order of consequence:
-
-1. **Trust** (F-04, F-07, F-08). Symmetric secrets shared with verifiers, a static internal
-   bearer, HS256 user tokens kept in browser storage, no SSO, SCIM or MFA.
-2. **Money** (F-03, F-33). Prices are keyed by model name only; Knowledge-side model spend
-   bypasses Gateway accounting; usage buffers are process-local until flushed.
-3. **Type safety and Python residue** (F-16). `Value` records, `python_json`, Python float and
-   integer semantics, a wall-clock breaker behind a Tokio mutex, hand-written
-   `Pin<Box<dyn Future>>` aliases, `std::sync::Mutex` poisoning ignored
-   (`unwrap_or_else(|e| e.into_inner())`), JSON error objects returned as success values.
-4. **Capability** (F-29, F-30, F-32). Narrow inbound LLM API, no guardrail stage, a hard-pinned
-   MCP revision, no token-aware admission, no prompt-cache passthrough or cached-token
-   accounting.
-5. **Structure** (F-15, F-17). Migration-batch crate boundaries; Knowledge and quiz domains in
-   Gateway crates; eval (10k lines plus LLM-judge workloads) shares the API process.
-6. **Scale-out** (declared). Single instance; some process-local state (quota RPM, context-metrics
-   collector, provenance grants, in-memory task queue).
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -238,7 +189,12 @@ Profile before optimizing (OTel profiles, `samply`, `pprof`). Expected wins, in 
 | Async traits | Hand-written `Pin<Box<dyn Future>>` aliases | Native `async fn` in traits for static dispatch; boxing only at `dyn` boundaries | Readability; fewer allocations |
 | Errors | `{"detail": …}` bodies, JSON error values in `Ok` | Typed `thiserror` errors at domain boundaries. HTTP errors become RFC 9457 Problem Details while keeping `detail`, so existing clients still parse them. | Backward-compatible enrichment |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -267,7 +223,12 @@ Profile before optimizing (OTel profiles, `samply`, `pprof`). Expected wins, in 
 | U-GW-23 | Eval subsystem in its own crate and worker role | P2 | Ph2 | Judge load no longer affects API p99 (measured A/B) |
 | U-GW-24 | Platform MCP server (knowledge retrieval, published agents, read-only admin) | P2 | Ph2–Ph3 | MCP conformance on `2026-07-28`; OAuth audience tests; same policy decisions as the REST equivalents |
 
+</details>
+
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - Contract: OpenAPI and event diffs against `sdk/openapi.json` and shared fixtures (no unversioned
   breaking change); SSE framing fixtures; passthrough byte-equality fixtures.

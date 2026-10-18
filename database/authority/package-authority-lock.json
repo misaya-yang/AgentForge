@@ -166,7 +166,7 @@
     "migrations/2026_08_post_kb_v1/019_verification.json": "c2242553ad6579bf633c3bf8f57f55f4c75cfdbfa134342583a0423786e98d4b",
     "migrations/2026_08_post_kb_v1/020_gateway_task_deliveries.sql": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
     "migrations/2026_08_post_kb_v1/020_verification.json": "ec021f78081800e3ee3b20b186fda536fcec499f71b8d39ae6c2b917e6b1b2b2",
-    "migrations/2026_08_post_kb_v1/manifest.yml": "988f445e7faf70e604938d98eeaf798c1ac99a242c0c22ded6c478108e81fab9",
+    "migrations/2026_08_post_kb_v1/manifest.yml": "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_ACTIVATION.json": "e15a270db4d2bb6d4b11e98b80421459008f1ce8ff145df2807281e25b102561",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_MEASUREMENT.json": "0cc2f885fdbf430091b834b3e491f2561cd333e18983402f3db240541558dab2",
     "migrations/legacy-manifest.yml": "26c94878bf39861ff810c2608f6359425e695da64b0100e453b4d63c90765664",
@@ -210,7 +210,11 @@
     "migrations/2026_08_post_kb_v1/028_price_book_v2_contract.sql": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4",
     "migrations/2026_08_post_kb_v1/028_verification.json": "a0ae5dee780ca0fc429b8523502bd8c1f337f5e5d3c08d65ad33c54070c8372a",
     "migrations/2026_08_post_kb_v1/SUCCESSOR_028_MEASUREMENT.json": "c2c8e2b2552480a0c8fae3a8558f8133a127bde3f52e73f2daa5718039745851",
-    "migrations/2026_08_post_kb_v1/SUCCESSOR_028_ACTIVATION.json": "2d045bb350077ed94e0027527ca5af3e7f4dddaa0f0b6a68f83eeb8f30a5ee1b"
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_028_ACTIVATION.json": "2d045bb350077ed94e0027527ca5af3e7f4dddaa0f0b6a68f83eeb8f30a5ee1b",
+    "migrations/2026_08_post_kb_v1/029_gateway_workers_and_batch.sql": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745",
+    "migrations/2026_08_post_kb_v1/029_verification.json": "358f374d5bbe79a946d2aba860fbe07c6b2e87df3775d01d9f4d408c50fa07a0",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_029_MEASUREMENT.json": "d8e766e1fa1141ffab3d8f13ab692d4b475a9b3dd0d78688025cc011d34a47b9",
+    "migrations/2026_08_post_kb_v1/SUCCESSOR_029_ACTIVATION.json": "847086885f59742d1f68ccd12c91cb93c88b20a8ac512db13ec9f785e8c0a430"
   },
   "schema": "migration-authority/source-distribution/v1"
 }

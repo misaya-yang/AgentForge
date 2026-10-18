@@ -11,6 +11,7 @@ pub struct ModelStream {
     lease: ModelLease,
     data: String,
     settled: bool,
+    deadline: Option<super::model_plane::ResponseDeadline>,
 }
 impl ModelStream {
     pub fn new(call: ModelCall, lease: ModelLease, response: reqwest::Response) -> Result<Self> {
@@ -22,6 +23,10 @@ impl ModelStream {
         {
             return Err(QueryError::InvalidProviderResponse);
         }
+        let deadline = response
+            .extensions()
+            .get::<super::model_plane::ResponseDeadline>()
+            .copied();
         let lines = Lines::new(HttpResponse {
             response,
             permit: None,
@@ -33,6 +38,7 @@ impl ModelStream {
             lease,
             data: String::new(),
             settled: false,
+            deadline,
         })
     }
     pub async fn next(&mut self) -> Result<Option<Value>> {
@@ -40,12 +46,16 @@ impl ModelStream {
             return Ok(None);
         }
         loop {
-            let Some(line) = self
-                .lines
-                .next()
-                .await
-                .map_err(|_| QueryError::DependenciesFailed)?
-            else {
+            let next = self.lines.next();
+            let line = if let Some(deadline) = self.deadline {
+                tokio::time::timeout_at(deadline.0, next)
+                    .await
+                    .map_err(|_| QueryError::DependenciesFailed)?
+            } else {
+                next.await
+            }
+            .map_err(|_| QueryError::DependenciesFailed)?;
+            let Some(line) = line else {
                 return Err(QueryError::DependenciesFailed);
             };
             if !line.is_empty() {

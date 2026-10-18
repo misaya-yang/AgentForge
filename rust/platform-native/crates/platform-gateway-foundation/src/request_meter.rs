@@ -189,8 +189,19 @@ pub async fn annotate_summary(
     filter: &crate::billing_store::UsageFilter,
     summary: &mut Value,
 ) -> Result<(), sqlx::Error> {
-    let (records,requests,cost_nanos):(i64,i64,i64)=sqlx::query_as("SELECT COUNT(*),COALESCE(SUM(CASE WHEN metadata->'measured_units'->>'requests' ~ '^[0-9]+$' THEN (metadata->'measured_units'->>'requests')::bigint ELSE 0 END),0)::bigint,COALESCE(SUM(CASE WHEN metadata->>'request_cost_nanos' ~ '^[0-9]+$' THEN (metadata->>'request_cost_nanos')::bigint ELSE 0 END),0)::bigint FROM gateway.usage_records WHERE tenant_id=$1 AND created_at::date>=$2 AND created_at::date<=$3 AND metadata->'measured_units'->>'meter'='requests' AND ($4::text IS NULL OR user_id=$4) AND ($5::text IS NULL OR model=$5) AND ($6::text IS NULL OR service_id=$6) AND ($7::text IS NULL OR assistant_id=$7) AND ($8::text IS NULL OR provider=$8)")
-  .bind(&filter.tenant_id).bind(filter.start_date).bind(filter.end_date).bind(&filter.user_id).bind(&filter.model).bind(&filter.service_id).bind(&filter.assistant_id).bind(&filter.provider).fetch_one(pool).await?;
+    let mut connection = pool.acquire().await?;
+    let sql=ai_platform_service_primitives::data_connection::append_store::pruning_sql(&mut connection,"gateway.usage_records","SELECT COUNT(*),COALESCE(SUM(CASE WHEN metadata->'measured_units'->>'requests' ~ '^[0-9]+$' THEN (metadata->'measured_units'->>'requests')::bigint ELSE 0 END),0)::bigint,COALESCE(SUM(CASE WHEN metadata->>'request_cost_nanos' ~ '^[0-9]+$' THEN (metadata->>'request_cost_nanos')::bigint ELSE 0 END),0)::bigint FROM gateway.usage_records WHERE tenant_id=$1 AND created_at::date>=$2 AND created_at::date<=$3 AND metadata->'measured_units'->>'meter'='requests' AND ($4::text IS NULL OR user_id=$4) AND ($5::text IS NULL OR model=$5) AND ($6::text IS NULL OR service_id=$6) AND ($7::text IS NULL OR assistant_id=$7) AND ($8::text IS NULL OR provider=$8)").await?;
+    let (records, requests, cost_nanos): (i64, i64, i64) = sqlx::query_as(&sql)
+        .bind(&filter.tenant_id)
+        .bind(filter.start_date)
+        .bind(filter.end_date)
+        .bind(&filter.user_id)
+        .bind(&filter.model)
+        .bind(&filter.service_id)
+        .bind(&filter.assistant_id)
+        .bind(&filter.provider)
+        .fetch_one(&mut *connection)
+        .await?;
     if records > 0 {
         summary["metering"] = json!({"schema":"agentforge.usage-metering/v1","token_totals_scope":"reported_token_usage_only","request_priced_invocations":requests,"tokens_not_applicable_records":records,"request_priced_cost_nanos":cost_nanos,"legacy_cost_projection":"USD half-even to 1e-6"});
     }

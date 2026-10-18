@@ -39,7 +39,7 @@ export function ScheduledNotificationTabLabel() {
     {t("tasks.notifications.tab", "Updates")}
     {current?.unread != null && current.unread > 0 && <span
       className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground"
-      aria-label={t("tasks.notifications.unreadCount", { count: current.unread, defaultValue: "{{count}} unread" })}
+      aria-label={t("tasks.notifications.unreadCount", { count: current.unread, defaultValue: "{count} unread" })}
     >{current.unread > 99 ? "99+" : current.unread}</span>}
     {current?.failed && <span aria-label={t("tasks.notifications.countUnavailable", "Unread count unavailable")}>?</span>}
   </span>;

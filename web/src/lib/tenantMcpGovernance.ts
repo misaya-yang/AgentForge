@@ -1,9 +1,5 @@
-export interface TenantMcpConfig {
-  tenant_id: string;
-  allowed_servers: string[];
-  server_overrides: Record<string, unknown> | null;
-  max_connections: number;
-}
+import type { RequestBody } from "@/api/contracts";
+export type TenantMcpConfig = Required<Pick<RequestBody<"PUT /api/v1/admin/tenant-policies/mcp-configs">, "tenant_id" | "allowed_servers" | "server_overrides" | "max_connections">>;
 export interface McpConfigDraft { tenant_id: string; allowed_servers: string; max_connections: string }
 
 /** asyncpg-compatible APIs return JSONB as text; never coerce malformed overrides to null. */

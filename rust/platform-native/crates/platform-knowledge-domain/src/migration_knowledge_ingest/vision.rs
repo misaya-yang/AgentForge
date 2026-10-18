@@ -9,9 +9,9 @@ use super::{
     sha256,
 };
 use crate::migration_knowledge_query::embedding::EmbeddingManager;
+pub use ai_platform_service_primitives::pdf_ports::vision::{PdfRasterBackend, RenderedPage};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, sync::Arc};
-pub use ai_platform_service_primitives::pdf_ports::vision::{RenderedPage,PdfRasterBackend};
 #[derive(Clone)]
 pub struct VisionProcessor {
     pub backend: Arc<dyn PdfRasterBackend>,
@@ -228,7 +228,16 @@ impl VisionProcessor {
                 ));
                 images.push(image.png);
             }
-            let vectors = self.embeddings.embed_images(dataset, &images).await?;
+            let vectors = if super::pipeline::stage() == super::pipeline::Stage::Parse {
+                vec![None; images.len()]
+            } else {
+                self.embeddings
+                    .embed_images(dataset, &images)
+                    .await?
+                    .into_iter()
+                    .map(Some)
+                    .collect()
+            };
             if vectors.len() != batch.len() {
                 return Err(IngestError::Index(
                     "scanned candidate image embedding incomplete".into(),
@@ -239,12 +248,17 @@ impl VisionProcessor {
                 vector,
             ) in batch.into_iter().zip(vectors)
             {
-                if vector.is_empty() || vector.iter().any(|v| !v.is_finite()) {
+                if vector
+                    .as_ref()
+                    .is_some_and(|v| v.is_empty() || v.iter().any(|x| !x.is_finite()))
+                {
                     return Err(IngestError::Index(
                         "scanned candidate image embedding invalid".into(),
                     ));
                 }
-                points.push(json!({"id":id,"vector":{"":vector},"payload":{"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":document,"segment_id":id,"position":position,"text":text,"content_type":"image","image_id":format!("{document}_page_{number}"),"image_mime_type":"image/png","image_width":width,"image_height":height,"image_page":number,"generation_id":generation}}));
+                if let Some(vector) = vector {
+                    points.push(json!({"id":id,"vector":{"":vector},"payload":{"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":document,"segment_id":id,"position":position,"text":text,"content_type":"image","image_id":format!("{document}_page_{number}"),"image_mime_type":"image/png","image_width":width,"image_height":height,"image_page":number,"generation_id":generation}}));
+                }
                 rows.push(Chunk{segment_id:id.clone(),document_id:document.into(),dataset_id:dataset.dataset_id.clone(),position,text,content_type:"image".into(),image_url:Some(url),image_attachment_id:Some(attachment),image_filename:Some(filename),image_media_type:Some("image/png".into()),image_file_size:Some(size as i64),vector_id:Some(id),enabled:false,status:"indexing".into(),metadata:json!({"page_number":number,"width":width,"height":height,"source_position":position-self.position_offset,"generation_id":generation}),..Chunk::default()});
             }
         }

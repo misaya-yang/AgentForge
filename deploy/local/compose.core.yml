@@ -1,0 +1,1981 @@
+# Fresh core: required workload mTLS, exact HTTPS BFF origin and independent HTTP health.
+# Database-only projection remains independent of all application security/image inputs.
+services:
+  postgres:
+    cap_drop: &id001
+    - ALL
+    read_only: true
+    security_opt: &id002
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 70:70
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=70,gid=70,mode=1777
+    networks:
+    - data-postgres
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${LOCAL_FRESH_SOURCE_DATABASE:?Native prepare records original database}
+      POSTGRES_PASSWORD_FILE: /run/data-tls/bootstrap-password
+    ports:
+    - 127.0.0.1:${POSTGRES_PORT}:5432
+    volumes:
+    - postgres:/var/lib/postgresql/data
+    - fresh-postgres-tls:/run/data-tls:ro
+    - fresh-postgres-socket:/var/run/postgresql
+    mem_limit: 512m
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    command:
+    - postgres
+    - -c
+    - ssl=on
+    - -c
+    - ssl_min_protocol_version=TLSv1.3
+    - -c
+    - ssl_cert_file=/run/data-tls/postgres.crt
+    - -c
+    - ssl_key_file=/run/data-tls/postgres.key
+    - -c
+    - ssl_ca_file=/run/data-tls/ca-bundle.pem
+    - -c
+    - hba_file=/run/data-tls/pg_hba.conf
+    - -c
+    - password_encryption=scram-sha-256
+    depends_on:
+      files-postgres:
+        condition: service_completed_successfully
+      files-socket:
+        condition: service_completed_successfully
+  redis:
+    cap_drop: *id001
+    read_only: true
+    security_opt: *id002
+    pids_limit: 256
+    user: 999:1000
+    tmpfs: &id003
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    networks:
+    - data-redis
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_MAXMEMORY: 128mb
+    command:
+    - /bin/sh
+    - /opt/redis-entrypoint.sh
+    ports:
+    - 127.0.0.1:${REDIS_PORT}:6379
+    volumes:
+    - redis:/data
+    - ./scripts/new/redis-entrypoint.sh:/opt/redis-entrypoint.sh:ro
+    mem_limit: 192m
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  qdrant:
+    cap_drop: *id001
+    read_only: true
+    security_opt: *id002
+    pids_limit: 256
+    user: 1000:1000
+    tmpfs: *id003
+    networks:
+    - data
+    image: qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?Provision the Qdrant writer key}
+      QDRANT__SERVICE__READ_ONLY_API_KEY: ${QDRANT_READ_ONLY_API_KEY:?Provision a distinct Qdrant read-only key}
+      QDRANT__SERVICE__ENABLE_TLS: 'true'
+      QDRANT__TLS__CERT: /run/qdrant/tls.crt
+      QDRANT__TLS__KEY: /run/qdrant/tls.key
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /qdrant/storage/snapshots
+      QDRANT__STORAGE__TEMP_PATH: /qdrant/storage/snapshots_temp
+      QDRANT_INIT_FILE_PATH: /qdrant/storage/.qdrant-initialized
+    ports:
+    - 127.0.0.1:${QDRANT_HTTP_PORT}:6333
+    - 127.0.0.1:${QDRANT_GRPC_PORT}:6334
+    volumes:
+    - qdrant-fresh:/qdrant/storage
+    - qdrant-tls-private:/run/qdrant:ro
+    mem_limit: 512m
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - 'bash -o pipefail -ec ''printf "GET /healthz HTTP/1.1\r\nHost: qdrant\r\nConnection: close\r\n\r\n" | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername
+        qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca-bundle.pem 2>/dev/null | grep -q "healthz check passed"'''
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      qdrant-files:
+        condition: service_completed_successfully
+      files-qdrant-storage:
+        condition: service_completed_successfully
+  object-store:
+    cap_drop: *id001
+    read_only: true
+    security_opt: *id002
+    pids_limit: 256
+    user: 10001:10001
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1777
+    - /logs:rw,noexec,nosuid,nodev,size=32m,uid=10001,gid=10001,mode=0750
+    networks:
+    - data-object-store
+    image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${LOCAL_S3_SECRET_KEY}
+    ports:
+    - 127.0.0.1:${LOCAL_S3_PORT}:9000
+    - 127.0.0.1:${LOCAL_S3_CONSOLE_PORT}:9001
+    volumes:
+    - object-store:/data
+    mem_limit: 512m
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:9000/health
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  agent-capability-worker:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 10001:10001
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    networks:
+      app:
+        aliases:
+        - agent-capability-worker-workload
+      data-postgres: {}
+      data-object-store: {}
+    image: ${AGENT_CAPABILITY_WORKER_IMAGE:?Set the root-selected local capability-worker image}
+    pull_policy: never
+    expose:
+    - '8455'
+    ports:
+    - 127.0.0.1:${AI_PLATFORM_CAPABILITY_WORKER_HOST_PORT:-8095}:8095
+    environment:
+      HTTP_PROXY: ${CONTAINER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      ALL_PROXY: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      http_proxy: ${CONTAINER_HTTP_PROXY:-}
+      https_proxy: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      all_proxy: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      AI_PLATFORM_CAPABILITY_WORKER_BIND: 0.0.0.0:8095
+      AI_PLATFORM_CAPABILITY_WORKER_FIXTURES_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_FIXTURES_ENABLED:-false}
+      AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED:-true}
+      AI_PLATFORM_OFFICE_FONT_PATHS: ${AI_PLATFORM_OFFICE_FONT_PATHS:-/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc}
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_CAPABILITY_WORKSPACE_ROOT: /workspace
+      AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE: ${AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE:-4}
+      DATA_CAPABILITY_WORKER_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_CAPABILITY_WORKER_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_CAPABILITY_WORKER_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_CAPABILITY_WORKER_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_CAPABILITY_WORKER_MODE: direct
+      DATA_CAPABILITY_WORKER_EXPECTED_HOST: postgres
+      DATA_CAPABILITY_WORKER_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_CAPABILITY_WORKER_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_CAPABILITY_WORKER_POOL_MAX: '4'
+      DATA_CAPABILITY_WORKER_REPLICAS: '1'
+      DATA_CAPABILITY_WORKER_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_CAPABILITY_WORKER_POOLED_BACKEND_LIMIT: '8'
+      DATA_CAPABILITY_WORKER_STATEMENT_TIMEOUT_MS: '30000'
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/model/gateway-public.json
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-capability-worker-workload:8455
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+    volumes:
+    - agent-capability-workspaces-fresh:/workspace
+    - fresh-data-capability_worker:/run/data/credentials:ro
+    - fresh-model-runtime:/run/model:ro
+    - fresh-security-agent-capability-worker:/run/security:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gateway-init:
+        condition: service_completed_successfully
+      knowledge-service:
+        condition: service_healthy
+      database-fresh:
+        condition: service_completed_successfully
+      files-capability_worker:
+        condition: service_completed_successfully
+      files-model-runtime:
+        condition: service_completed_successfully
+      files-security-agent-capability-worker:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - ai-platform-capability-worker-health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    mem_limit: ${AGENT_CAPABILITY_WORKER_MEMORY_LIMIT:-1g}
+    cpus: ${AGENT_CAPABILITY_WORKER_CPUS:-1.0}
+    init: true
+    deploy:
+      replicas: 1
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  agent-runtime:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 10001:10001
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=1777
+    - /workspace:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=10001,mode=0700
+    networks:
+      app:
+        aliases:
+        - agent-runtime-workload
+      data-postgres: {}
+      data-object-store: {}
+    image: ${AI_PLATFORM_AGENT_RUNTIME_IMAGE:?Build and select the local Runtime image}
+    pull_policy: never
+    expose:
+    - '8454'
+    ports:
+    - 127.0.0.1:${AI_PLATFORM_AGENT_RUNTIME_HOST_PORT:-8094}:8094
+    environment:
+      HTTP_PROXY: ${CONTAINER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      ALL_PROXY: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      http_proxy: ${CONTAINER_HTTP_PROXY:-}
+      https_proxy: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      all_proxy: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      AI_PLATFORM_CAPABILITY_PLANE_URL: https://gateway-workload:8443/internal/v2/agent-capabilities
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_CAPABILITY_WORKER_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_ENABLED:-true}
+      AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED:-true}
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: https://gateway-workload:8443/internal/v1/agent-model-plane
+      AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION: ${AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION:?AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION is required}
+      AI_PLATFORM_RUNTIME_BIND: 0.0.0.0:8094
+      AI_PLATFORM_RUNTIME_WORKDIR: /workspace
+      CODEX_HOME: /var/lib/ai-platform-agent-runtime/runtime-home
+      AI_PLATFORM_AGENT_HOME: /var/lib/ai-platform-agent-runtime/runtime-home
+      AI_PLATFORM_RUNTIME_DB_POOL_MAX_SIZE: ${AI_PLATFORM_AGENT_RUNTIME_DB_POOL_MAX_SIZE:-10}
+      AI_PLATFORM_RUNTIME_CHANNEL_CAPACITY: ${AI_PLATFORM_AGENT_RUNTIME_CHANNEL_CAPACITY:-256}
+      DATA_RUNTIME_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_RUNTIME_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_RUNTIME_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_RUNTIME_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_RUNTIME_MODE: direct
+      DATA_RUNTIME_EXPECTED_HOST: postgres
+      DATA_RUNTIME_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_RUNTIME_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_RUNTIME_POOL_MAX: '4'
+      DATA_RUNTIME_REPLICAS: '1'
+      DATA_RUNTIME_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_RUNTIME_POOLED_BACKEND_LIMIT: '8'
+      DATA_RUNTIME_STATEMENT_TIMEOUT_MS: '30000'
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/model/gateway-public.json
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-runtime-workload:8454
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_RUNTIME_MODEL_PROXY_BASE_URL: http://127.0.0.1:8094/internal/v1/model-proxy
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+    volumes:
+    - agent-runtime-home-fresh:/var/lib/ai-platform-agent-runtime/runtime-home
+    - fresh-data-runtime:/run/data/credentials:ro
+    - fresh-model-runtime:/run/model:ro
+    - fresh-security-agent-runtime:/run/security:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      agent-capability-worker:
+        condition: service_healthy
+      database-fresh:
+        condition: service_completed_successfully
+      files-runtime:
+        condition: service_completed_successfully
+      files-model-runtime:
+        condition: service_completed_successfully
+      files-security-agent-runtime:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8094/health/ready
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    mem_limit: ${AI_PLATFORM_AGENT_RUNTIME_MEMORY_LIMIT:-512m}
+    init: true
+    deploy:
+      replicas: 1
+    env_file:
+    - ${LOCAL_FRESH_RUNTIME_BRIDGE_ENV_FILE:?Native secure-extend must complete first}
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  gateway-init:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 1000:1000
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    image: ${GATEWAY_IMAGE:?Select the admitted native Gateway image}
+    command:
+    - mkdir -p /app/data/images /app/logs /app/agent-memory && test -w /app/data && test -w /app/logs && test -w /app/agent-memory && chmod 700 /app/agent-memory
+    volumes:
+    - gateway-logs-fresh:/app/logs
+    - gateway-data-fresh:/app/data
+    - assistant-memory-data-fresh:/app/agent-memory
+    network_mode: none
+    restart: 'no'
+    pull_policy: never
+    entrypoint:
+    - /bin/sh
+    - -ec
+    mem_limit: 96m
+  gateway:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 1000:1000
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    image: ${GATEWAY_IMAGE:?Select the admitted native Gateway image}
+    environment:
+      HTTP_PROXY: ${CONTAINER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      ALL_PROXY: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      http_proxy: ${CONTAINER_HTTP_PROXY:-}
+      https_proxy: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      all_proxy: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      GATEWAY_NATIVE_CONFIG: /app/config/native-gateway.json
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_PORT: '8080'
+      GATEWAY_TASK_WORKER_CONCURRENCY: ${GATEWAY_TASK_WORKER_CONCURRENCY:-1}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-qwen3.8-flash}
+      MODEL_SETUP_MODE: ${MODEL_SETUP_MODE:-ui}
+      GATEWAY_DATABASE__ENABLED: 'true'
+      GATEWAY_DATABASE__POOL_MAX_SIZE: ${GATEWAY_DATABASE_POOL_MAX_SIZE:-10}
+      GATEWAY_DATABASE__AUTO_INIT: 'false'
+      GATEWAY_REDIS__ENABLED: 'true'
+      GATEWAY_REDIS__URL: redis://:${REDIS_PASSWORD:?Reuse the existing Redis credential}@redis:6379/11
+      GATEWAY_AUTHENTICATION__JWT__ENABLED: 'true'
+      GATEWAY_AUTHENTICATION__JWT__ALGORITHMS: '["HS256"]'
+      GATEWAY_AUTHENTICATION__API_KEY__ENABLED: ${GATEWAY_AUTHENTICATION__API_KEY__ENABLED:-false}
+      AUTH_ALLOWED_EMAIL_DOMAIN: ${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}
+      CONSOLE_PUBLIC_BASE_URL: ${LOCAL_FRESH_CONSOLE_ORIGIN:?Native secure-extend must complete first}
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:?DEFAULT_USER_PASSWORD is required}
+      RATE_LIMIT_IP_ENABLED: ${RATE_LIMIT_IP_ENABLED:-true}
+      RATE_LIMIT_IP_LIMIT: ${RATE_LIMIT_IP_LIMIT:-500}
+      RATE_LIMIT_ANONYMOUS_LIMIT: ${RATE_LIMIT_ANONYMOUS_LIMIT:-200}
+      RATE_LIMIT_NORMAL_LIMIT: ${RATE_LIMIT_NORMAL_LIMIT:-300}
+      RATE_LIMIT_PREMIUM_LIMIT: ${RATE_LIMIT_PREMIUM_LIMIT:-1000}
+      RATE_LIMIT_ENTERPRISE_LIMIT: ${RATE_LIMIT_ENTERPRISE_LIMIT:-5000}
+      RATE_LIMIT_ADMIN_LIMIT: ${RATE_LIMIT_ADMIN_LIMIT:-10000}
+      RATE_LIMIT_ASSISTANT_CHAT_LIMIT: ${RATE_LIMIT_ASSISTANT_CHAT_LIMIT:-240}
+      GATEWAY_LANGGRAPH__ENABLED: ${GATEWAY_LANGGRAPH__ENABLED:-false}
+      GATEWAY_LANGGRAPH__INSTANCE_URLS: ${GATEWAY_LANGGRAPH__INSTANCE_URLS:-}
+      GATEWAY_LANGGRAPH__AUTH_TOKEN: ${GATEWAY_LANGGRAPH__AUTH_TOKEN:-}
+      GATEWAY_KNOWLEDGE__ENABLED: 'true'
+      GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY: ${GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY:-2}
+      GATEWAY_KNOWLEDGE__QDRANT__ENABLED: 'false'
+      GATEWAY_KNOWLEDGE__DASHSCOPE__API_KEY: ${DASHSCOPE_EMBEDDING_API_KEY:-${DASHSCOPE_API_KEY:-}}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_CHAT_API_KEY: ${DASHSCOPE_CHAT_API_KEY:-}
+      DASHSCOPE_IMAGE_API_KEY: ${DASHSCOPE_IMAGE_API_KEY:-}
+      DASHSCOPE_EMBEDDING_API_KEY: ${DASHSCOPE_EMBEDDING_API_KEY:-}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-}
+      DASHSCOPE_CHAT_BASE_URL: ${DASHSCOPE_CHAT_BASE_URL:-}
+      DASHSCOPE_CHAT_WIRE_PROTOCOL: ${DASHSCOPE_CHAT_WIRE_PROTOCOL:-responses_v1}
+      DASHSCOPE_EMBEDDING_BASE_URL: ${DASHSCOPE_EMBEDDING_BASE_URL:-}
+      DASHSCOPE_IMAGE_BASE_URL: ${DASHSCOPE_IMAGE_BASE_URL:-}
+      DASHSCOPE_IMAGE_MODEL: ${DASHSCOPE_IMAGE_MODEL:-wan2.6-t2i}
+      DASHSCOPE_IMAGE_PROTOCOL: ${DASHSCOPE_IMAGE_PROTOCOL:-wan26}
+      DASHSCOPE_IMAGE_SUBMIT_PATH: ${DASHSCOPE_IMAGE_SUBMIT_PATH:-/services/aigc/image-generation/generation}
+      IMAGE_GENERATION_PROVIDER: ${IMAGE_GENERATION_PROVIDER:-}
+      IMAGE_GENERATION_RESULT_HOST_SUFFIXES: ${IMAGE_GENERATION_RESULT_HOST_SUFFIXES:-aliyuncs.com,alibabacloud.com,volces.com}
+      DASHSCOPE_RERANK_BASE_URL: ${DASHSCOPE_RERANK_BASE_URL:-}
+      DASHSCOPE_RERANK_REQUEST_SCHEMA: ${DASHSCOPE_RERANK_REQUEST_SCHEMA:-auto}
+      DASHSCOPE_RERANK_INSTRUCT: ${DASHSCOPE_RERANK_INSTRUCT:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_API_BACKEND: ${GOOGLE_API_BACKEND:-}
+      GOOGLE_CHAT_BACKEND: ${GOOGLE_CHAT_BACKEND:-}
+      GOOGLE_IMAGE_BACKEND: ${GOOGLE_IMAGE_BACKEND:-}
+      GOOGLE_IMAGE_MODEL: ${GOOGLE_IMAGE_MODEL:-gemini-3.1-flash-image-preview}
+      VERTEX_API_KEY: ${VERTEX_API_KEY:-}
+      VERTEX_CHAT_API_KEY: ${VERTEX_CHAT_API_KEY:-}
+      VERTEX_IMAGE_API_KEY: ${VERTEX_IMAGE_API_KEY:-}
+      ARK_API_KEY: ${ARK_API_KEY:-}
+      ARK_BASE_URL: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      DOUBAO_IMAGE_MODEL: ${DOUBAO_IMAGE_MODEL:-doubao-seedream-5-0-260128}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_WIRE_PROTOCOL: ${OPENAI_WIRE_PROTOCOL:-chat_completions}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      GATEWAY_PROXY__ENABLED: 'true'
+      GATEWAY_PROXY__BILLING_ENABLED: ${PROXY_BILLING_ENABLED:-false}
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: https://gateway-workload:8443/internal/v1/agent-model-plane
+      AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION: ${AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION:-}
+      AI_PLATFORM_AGENT_RUNTIME_URL: https://agent-runtime-workload:8454
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH: /app/deploy/release/compatibility-manifest.json
+      AI_PLATFORM_RELEASE_ID: ${AI_PLATFORM_RELEASE_ID:-}
+      AI_PLATFORM_GIT_SHA: ${VCS_REF:-}
+      AI_PLATFORM_IMAGE_DIGEST: ${GATEWAY_IMAGE_DIGEST:-}
+      AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_WRITES_ENABLED:-true}
+      AI_PLATFORM_CAPABILITY_WORKER_ENABLED: ${AI_PLATFORM_CAPABILITY_WORKER_ENABLED:-true}
+      AGENT_RUNTIME_MEMORY_DIR: ${AGENT_RUNTIME_MEMORY_DIR:-/app/agent-memory}
+      AGENT_STUDIO_RUNTIME_ENABLED: ${AGENT_STUDIO_RUNTIME_ENABLED:-true}
+      AGENT_STUDIO_MANAGEMENT_ENABLED: ${AGENT_STUDIO_MANAGEMENT_ENABLED:-true}
+      AGENT_STUDIO_PUBLISH_ENABLED: ${AGENT_STUDIO_PUBLISH_ENABLED:-true}
+      AGENT_STUDIO_MCP_ENABLED: ${AGENT_STUDIO_MCP_ENABLED:-true}
+      AGENT_STUDIO_SKILLS_ENABLED: ${AGENT_STUDIO_SKILLS_ENABLED:-true}
+      ASSISTANT_E2E_STUB_LLM: ${ASSISTANT_E2E_STUB_LLM:-false}
+      KB_SERVICE_URL: https://knowledge-service-workload:8452
+      KB_PROXY_CONNECT_TIMEOUT_SECONDS: ${KB_PROXY_CONNECT_TIMEOUT_SECONDS:-5}
+      KB_PROXY_READ_TIMEOUT_SECONDS: ${KB_PROXY_READ_TIMEOUT_SECONDS:-30}
+      KB_PROXY_WRITE_TIMEOUT_SECONDS: ${KB_PROXY_WRITE_TIMEOUT_SECONDS:-10}
+      KB_PROXY_POOL_TIMEOUT_SECONDS: ${KB_PROXY_POOL_TIMEOUT_SECONDS:-10}
+      KB_PROXY_MAX_CONNECTIONS: ${KB_PROXY_MAX_CONNECTIONS:-50}
+      KB_PROXY_MAX_KEEPALIVE_CONNECTIONS: ${KB_PROXY_MAX_KEEPALIVE_CONNECTIONS:-10}
+      INTERNAL_COMM_STATE_BACKEND: ${INTERNAL_COMM_STATE_BACKEND:-redis}
+      INTERNAL_COMM_REDIS_URL: ${INTERNAL_COMM_REDIS_URL:?Native prepare isolates fresh internal state}
+      INTERNAL_AUTH_VERSION: ${INTERNAL_AUTH_VERSION:-v2}
+      INTERNAL_AUTH_ACTIVE_KEY_ID: ${INTERNAL_AUTH_ACTIVE_KEY_ID:-local}
+      SERVICE_RETRY_MAX_ATTEMPTS: ${SERVICE_RETRY_MAX_ATTEMPTS:-2}
+      SERVICE_RETRY_BASE_DELAY_MS: ${SERVICE_RETRY_BASE_DELAY_MS:-50}
+      SERVICE_RETRY_MAX_DELAY_MS: ${SERVICE_RETRY_MAX_DELAY_MS:-500}
+      SERVICE_RETRY_BUDGET_RATIO: ${SERVICE_RETRY_BUDGET_RATIO:-0.1}
+      SERVICE_BREAKER_THRESHOLD: ${SERVICE_BREAKER_THRESHOLD:-3}
+      SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS: ${SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS:-30}
+      INTERNAL_SERVICE_RATE_LIMITS: ${INTERNAL_SERVICE_RATE_LIMITS:-knowledge-service=100:100,agent-runtime=50:50,agent-capability-worker=50:50}
+      SERVICE_STREAMING_MAX_CONNECTIONS: ${SERVICE_STREAMING_MAX_CONNECTIONS:-16}
+      ADMISSION_TENANT_SHARE_RATIO: ${ADMISSION_TENANT_SHARE_RATIO:-0.2}
+      ADAPTIVE_LOAD_SHEDDING_WINDOW_SECONDS: ${ADAPTIVE_LOAD_SHEDDING_WINDOW_SECONDS:-30}
+      ADAPTIVE_LOAD_SHEDDING_LOW_THRESHOLD_MS: ${ADAPTIVE_LOAD_SHEDDING_LOW_THRESHOLD_MS:-5000}
+      ADAPTIVE_LOAD_SHEDDING_NORMAL_THRESHOLD_MS: ${ADAPTIVE_LOAD_SHEDDING_NORMAL_THRESHOLD_MS:-10000}
+      ADAPTIVE_LOAD_SHEDDING_HIGH_THRESHOLD_MS: ${ADAPTIVE_LOAD_SHEDDING_HIGH_THRESHOLD_MS:-20000}
+      INTERNAL_IDEMPOTENCY_BACKEND: redis
+      INTERNAL_IDEMPOTENCY_TTL_SECONDS: ${INTERNAL_IDEMPOTENCY_TTL_SECONDS:-86400}
+      ADAPTER_BULKHEAD_LIMITS: ${ADAPTER_BULKHEAD_LIMITS:-langgraph:8,openai:16,comfyui:4}
+      GATEWAY_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      AI_PLATFORM_DEPLOYMENT_MODE: ${AI_PLATFORM_DEPLOYMENT_MODE:-single-instance}
+      GATEWAY_STORAGE__LOCAL_BASE_PATH: ${GATEWAY_STORAGE__LOCAL_BASE_PATH:-/app/data/images}
+      GATEWAY_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      GATEWAY_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      GATEWAY_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      GATEWAY_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      GATEWAY_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      GATEWAY_STORAGE__URL_EXPIRY_SECONDS: ${GATEWAY_STORAGE__URL_EXPIRY_SECONDS:-900}
+      GATEWAY_STORAGE__KEY_PREFIX: ${GATEWAY_STORAGE__KEY_PREFIX:-dev}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-50}
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_TOPOLOGY_MODE: full
+      DATA_GATEWAY_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_GATEWAY_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_GATEWAY_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_GATEWAY_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_GATEWAY_MODE: direct
+      DATA_GATEWAY_EXPECTED_HOST: postgres
+      DATA_GATEWAY_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_POOL_MAX: '4'
+      DATA_GATEWAY_REPLICAS: '1'
+      DATA_GATEWAY_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_GATEWAY_POOLED_BACKEND_LIMIT: '8'
+      DATA_GATEWAY_STATEMENT_TIMEOUT_MS: '30000'
+      DATA_GATEWAY_CONTROL_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_GATEWAY_CONTROL_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_GATEWAY_CONTROL_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_GATEWAY_CONTROL_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_GATEWAY_CONTROL_MODE: direct
+      DATA_GATEWAY_CONTROL_EXPECTED_HOST: postgres
+      DATA_GATEWAY_CONTROL_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_CONTROL_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_CONTROL_POOL_MAX: '2'
+      DATA_GATEWAY_CONTROL_REPLICAS: '1'
+      DATA_GATEWAY_CONTROL_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_GATEWAY_CONTROL_POOLED_BACKEND_LIMIT: '8'
+      DATA_GATEWAY_CONTROL_STATEMENT_TIMEOUT_MS: '30000'
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE: /run/model/lease-private.json
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/model/gateway-public.json
+      AI_PLATFORM_KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE: /run/model/knowledge-public.json
+      AI_PLATFORM_KNOWLEDGE_MODEL_PRICE_BOOK_REVISION: ${KNOWLEDGE_MODEL_PRICE_BOOK_REVISION:?Native preparation required}
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/agent-runtime,spiffe://agentforge.internal/service/agent-capability-worker,spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_KNOWLEDGE_CLIENT_IDS: spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      GATEWAY_AUTHENTICATION__JWT__SECRET_FILE: /run/security/application/jwt-secret
+      GATEWAY_ENCRYPTION_KEY_FILE: /run/security/application/encryption-key
+      INTERNAL_AUTH_KEYS_FILE: /run/security/application/internal-auth-keys
+      AI_PLATFORM_API_EDDSA_CONFIG_FILE: /run/security/application/api-config.json
+      AI_PLATFORM_BFF_ORIGINS: ${LOCAL_FRESH_BFF_ORIGINS:?Native secure-extend must complete first}
+      AI_PLATFORM_AGENT_RUNTIME_HEALTH_ORIGIN: http://agent-runtime:8094
+      AI_PLATFORM_CAPABILITY_WORKER_HEALTH_ORIGIN: http://agent-capability-worker:8095
+      KNOWLEDGE_SERVICE_HEALTH_ORIGIN: http://knowledge-service:8092
+      KNOWLEDGE_WORKER_HEALTH_ORIGIN: http://knowledge-worker:8092
+    ports:
+    - 127.0.0.1:${GATEWAY_PORT:-8080}:8080
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_NATIVE_OPTIONS_FILE:?Native secure-extend must complete first}
+      target: /app/config/native-gateway.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - gateway-logs-fresh:/app/logs
+    - gateway-data-fresh:/app/data
+    - assistant-memory-data-fresh:/app/agent-memory
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-gateway:/run/data/credentials:ro
+    - fresh-model-gateway:/run/model:ro
+    - fresh-security-gateway:/run/security:ro
+    networks:
+      edge: {}
+      app:
+        aliases:
+        - gateway-workload
+      data-postgres: {}
+      data-redis: {}
+      data-object-store: {}
+    depends_on:
+      gateway-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      knowledge-service:
+        condition: service_healthy
+      agent-runtime:
+        condition: service_healthy
+      agent-capability-worker:
+        condition: service_healthy
+      database-fresh:
+        condition: service_completed_successfully
+      files-gateway:
+        condition: service_completed_successfully
+      files-model-gateway:
+        condition: service_completed_successfully
+      files-security-gateway:
+        condition: service_completed_successfully
+      admin-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8080/health/ready
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    mem_limit: ${GATEWAY_MEMORY_LIMIT:-384m}
+    init: true
+    pull_policy: never
+    deploy:
+      replicas: 1
+    expose:
+    - '8443'
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  knowledge-service:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 1000:1000
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    image: ${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}
+    environment:
+      HTTP_PROXY: ${CONTAINER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      ALL_PROXY: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      http_proxy: ${CONTAINER_HTTP_PROXY:-}
+      https_proxy: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      all_proxy: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      KNOWLEDGE_RUNTIME_ROLE: api
+      KNOWLEDGE_QDRANT_INTERACTIVE_DEADLINE_SECONDS: ${KNOWLEDGE_QDRANT_INTERACTIVE_DEADLINE_SECONDS:-3}
+      KNOWLEDGE_CORS__ALLOW_ORIGINS: ${KNOWLEDGE_CORS_ALLOW_ORIGINS_JSON:-["http://localhost:80","http://localhost:3000","http://localhost:8081"]}
+      KNOWLEDGE_APP__HOST: 0.0.0.0
+      KNOWLEDGE_APP__PORT: '8092'
+      KNOWLEDGE_APP__ALLOW_ANONYMOUS: ${KNOWLEDGE_APP__ALLOW_ANONYMOUS:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-}
+      KNOWLEDGE_DATABASE__POOL_MAX_SIZE: ${KNOWLEDGE_DATABASE_POOL_MAX_SIZE:-10}
+      KNOWLEDGE_REDIS__ENABLED: 'true'
+      KNOWLEDGE_REDIS__URL: redis://:${REDIS_PASSWORD:?Reuse the existing Redis credential}@redis:6379/12
+      KNOWLEDGE_QDRANT__URL: https://qdrant:6333
+      KNOWLEDGE_QDRANT__API_KEY: ${QDRANT_READ_ONLY_API_KEY:?Provision the distinct read-only Knowledge API key}
+      KNOWLEDGE_QDRANT__PREFER_GRPC: 'false'
+      KNOWLEDGE_QDRANT__TLS_CA_FILE: /run/qdrant/ca-bundle.pem
+      SSL_CERT_FILE: /run/qdrant/ca-bundle.pem
+      KNOWLEDGE_QDRANT__BM25_V2_ENABLED: ${KB_BM25_V2_ENABLED:-false}
+      KNOWLEDGE_QDRANT__BM25_V2_CAPABILITY_TTL_SECONDS: ${KB_BM25_V2_CAPABILITY_TTL_SECONDS:-300}
+      KNOWLEDGE_QDRANT__BM25_V2_READINESS_TTL_SECONDS: ${KB_BM25_V2_READINESS_TTL_SECONDS:-5}
+      KNOWLEDGE_QDRANT__BM25_V2_CUTOVER_TEST_TENANTS: ${KB_BM25_V2_CUTOVER_TEST_TENANTS:-}
+      KNOWLEDGE_EMBEDDINGS__PROVIDER: ${KB_EMBEDDING_PROVIDER:-dashscope}
+      DASHSCOPE_CHAT_WIRE_PROTOCOL: ${DASHSCOPE_CHAT_WIRE_PROTOCOL:-responses_v1}
+      DASHSCOPE_RERANK_REQUEST_SCHEMA: ${DASHSCOPE_RERANK_REQUEST_SCHEMA:-auto}
+      DASHSCOPE_RERANK_INSTRUCT: ${DASHSCOPE_RERANK_INSTRUCT:-}
+      KNOWLEDGE_EMBEDDINGS__MODEL: ${KB_EMBEDDING_MODEL:-text-embedding-v4}
+      KNOWLEDGE_EMBEDDINGS__DIMENSION: ${KB_EMBEDDING_DIMENSION:-1024}
+      KNOWLEDGE_RAGAS_EVAL__PROVIDER: ${KB_RAGAS_JUDGE_PROVIDER:-dashscope}
+      KNOWLEDGE_RAGAS_EVAL__MODEL: ${KB_RAGAS_JUDGE_MODEL:-qwen3.7-plus}
+      KNOWLEDGE_RAGAS_EVAL__ALLOWED_PROVIDERS: ${KB_RAGAS_ALLOWED_PROVIDERS_JSON:-["dashscope"]}
+      KNOWLEDGE_RAGAS_EVAL__ALLOWED_MODELS: ${KB_RAGAS_ALLOWED_MODELS_JSON:-["qwen3.7-plus"]}
+      KNOWLEDGE_RAGAS_EVAL__TIMEOUT_SECONDS: ${KB_RAGAS_JUDGE_TIMEOUT_SECONDS:-60}
+      KNOWLEDGE_RAGAS_EVAL__REQUEST_TIMEOUT_SECONDS: ${KB_RAGAS_REQUEST_TIMEOUT_SECONDS:-180}
+      KNOWLEDGE_PROCESSING__WORKER_CONCURRENCY: ${GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY:-1}
+      KB_MAX_FILE_SIZE_MB: ${KB_MAX_FILE_SIZE_MB:-16}
+      KB_MAX_BATCH_SIZE_MB: ${KB_MAX_BATCH_SIZE_MB:-32}
+      KB_PDF_SPLIT_MAX_SIZE_MB: ${KB_PDF_SPLIT_MAX_SIZE_MB:-20}
+      KB_PDF_SPLIT_PAGES_PER_PART: ${KB_PDF_SPLIT_PAGES_PER_PART:-500}
+      KB_PDF_MAX_PAGES: ${KB_PDF_MAX_PAGES:-2000}
+      KB_PDF_SPLIT_MAX_OUTPUT_BYTES: ${KB_PDF_SPLIT_MAX_OUTPUT_BYTES:-100663296}
+      AI_PLATFORM_DEPLOYMENT_MODE: ${AI_PLATFORM_DEPLOYMENT_MODE:-single-instance}
+      KNOWLEDGE_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      KNOWLEDGE_STORAGE__LOCAL_BASE_PATH: ${KNOWLEDGE_STORAGE__LOCAL_BASE_PATH:-/app/data/files}
+      KNOWLEDGE_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      KNOWLEDGE_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      KNOWLEDGE_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      KNOWLEDGE_STORAGE__KEY_PREFIX: ${GATEWAY_STORAGE__KEY_PREFIX:-dev}
+      AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH: /app/deploy/release/compatibility-manifest.json
+      AI_PLATFORM_RELEASE_ID: ${AI_PLATFORM_RELEASE_ID:-}
+      AI_PLATFORM_GIT_SHA: ${VCS_REF:-}
+      AI_PLATFORM_IMAGE_DIGEST: ${KNOWLEDGE_IMAGE_DIGEST:-}
+      INTERNAL_COMM_STATE_BACKEND: ${INTERNAL_COMM_STATE_BACKEND:-redis}
+      INTERNAL_COMM_REDIS_URL: ${INTERNAL_COMM_REDIS_URL:?Native prepare isolates fresh internal state}
+      INTERNAL_AUTH_VERSION: ${INTERNAL_AUTH_VERSION:-v2}
+      INTERNAL_AUTH_ACTIVE_KEY_ID: ${INTERNAL_AUTH_ACTIVE_KEY_ID:-local}
+      SERVICE_RETRY_MAX_ATTEMPTS: ${SERVICE_RETRY_MAX_ATTEMPTS:-2}
+      SERVICE_RETRY_BASE_DELAY_MS: ${SERVICE_RETRY_BASE_DELAY_MS:-50}
+      SERVICE_RETRY_MAX_DELAY_MS: ${SERVICE_RETRY_MAX_DELAY_MS:-500}
+      SERVICE_RETRY_BUDGET_RATIO: ${SERVICE_RETRY_BUDGET_RATIO:-0.1}
+      SERVICE_BREAKER_THRESHOLD: ${SERVICE_BREAKER_THRESHOLD:-3}
+      SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS: ${SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS:-30}
+      INTERNAL_SERVICE_RATE_LIMITS: ${INTERNAL_SERVICE_RATE_LIMITS:-knowledge-service=100:100,agent-runtime=50:50,agent-capability-worker=50:50}
+      SERVICE_STREAMING_MAX_CONNECTIONS: ${SERVICE_STREAMING_MAX_CONNECTIONS:-16}
+      INTERNAL_IDEMPOTENCY_BACKEND: redis
+      INTERNAL_IDEMPOTENCY_TTL_SECONDS: ${INTERNAL_IDEMPOTENCY_TTL_SECONDS:-86400}
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_KNOWLEDGE_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_KNOWLEDGE_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_KNOWLEDGE_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_KNOWLEDGE_MODE: direct
+      DATA_KNOWLEDGE_EXPECTED_HOST: postgres
+      DATA_KNOWLEDGE_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_KNOWLEDGE_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_KNOWLEDGE_POOL_MAX: '4'
+      DATA_KNOWLEDGE_REPLICAS: '1'
+      DATA_KNOWLEDGE_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_KNOWLEDGE_POOLED_BACKEND_LIMIT: '8'
+      DATA_KNOWLEDGE_STATEMENT_TIMEOUT_MS: '30000'
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/model/workload.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS:-{}}
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-service-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      INTERNAL_AUTH_KEYS_FILE: /run/security/application/internal-auth-keys
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/security/application/storage-signing-key
+    entrypoint:
+    - /usr/local/bin/platform-knowledge-service
+    command: []
+    volumes:
+    - kb-data-fresh:/app/data
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}
+      target: /run/qdrant/ca-bundle.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-knowledge_api:/run/data/credentials:ro
+    - fresh-model-knowledge-api:/run/model:ro
+    - fresh-security-knowledge-service:/run/security:ro
+    ports:
+    - 127.0.0.1:${KNOWLEDGE_SERVICE_PORT:-8092}:8092
+    networks:
+      app:
+        aliases:
+        - knowledge-service-workload
+      data-postgres: {}
+      data-redis: {}
+      data: {}
+      data-object-store: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      database-fresh:
+        condition: service_completed_successfully
+      files-knowledge_api:
+        condition: service_completed_successfully
+      files-model-knowledge-api:
+        condition: service_completed_successfully
+      files-security-knowledge-service:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8092/health/ready
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: ${KNOWLEDGE_MEMORY_LIMIT:-512m}
+    init: true
+    pull_policy: never
+    expose:
+    - '8452'
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  knowledge-worker:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 1000:1000
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    image: ${KNOWLEDGE_IMAGE:?Select the admitted native Knowledge image}
+    environment:
+      HTTP_PROXY: ${CONTAINER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      ALL_PROXY: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      NO_PROXY: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      http_proxy: ${CONTAINER_HTTP_PROXY:-}
+      https_proxy: ${CONTAINER_HTTPS_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      all_proxy: ${CONTAINER_ALL_PROXY:-${CONTAINER_HTTP_PROXY:-}}
+      no_proxy: ${CONTAINER_NO_PROXY:-localhost,127.0.0.1,::1},gateway,knowledge-service,knowledge-worker,agent-runtime,agent-capability-worker,postgres,redis,qdrant,object-store,gateway-workload,agent-runtime-workload,agent-capability-worker-workload,knowledge-service-workload,knowledge-worker-workload
+      KNOWLEDGE_RUNTIME_ROLE: worker
+      KNOWLEDGE_QDRANT_INTERACTIVE_DEADLINE_SECONDS: ${KNOWLEDGE_QDRANT_INTERACTIVE_DEADLINE_SECONDS:-3}
+      KNOWLEDGE_CORS__ALLOW_ORIGINS: ${KNOWLEDGE_CORS_ALLOW_ORIGINS_JSON:-["http://localhost:80","http://localhost:3000","http://localhost:8081"]}
+      KNOWLEDGE_APP__HOST: 0.0.0.0
+      KNOWLEDGE_APP__PORT: '8092'
+      KNOWLEDGE_APP__ALLOW_ANONYMOUS: ${KNOWLEDGE_APP__ALLOW_ANONYMOUS:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-}
+      KNOWLEDGE_DATABASE__POOL_MAX_SIZE: ${KNOWLEDGE_DATABASE_POOL_MAX_SIZE:-10}
+      KNOWLEDGE_REDIS__ENABLED: 'true'
+      KNOWLEDGE_REDIS__URL: redis://:${REDIS_PASSWORD:?Reuse the existing Redis credential}@redis:6379/12
+      KNOWLEDGE_QDRANT__URL: https://qdrant:6333
+      KNOWLEDGE_QDRANT__API_KEY: ${QDRANT_API_KEY:?Provision the Knowledge worker write key}
+      KNOWLEDGE_QDRANT__PREFER_GRPC: 'false'
+      KNOWLEDGE_QDRANT__TLS_CA_FILE: /run/qdrant/ca-bundle.pem
+      SSL_CERT_FILE: /run/qdrant/ca-bundle.pem
+      KNOWLEDGE_QDRANT__BM25_V2_ENABLED: ${KB_BM25_V2_ENABLED:-false}
+      KNOWLEDGE_QDRANT__BM25_V2_CAPABILITY_TTL_SECONDS: ${KB_BM25_V2_CAPABILITY_TTL_SECONDS:-300}
+      KNOWLEDGE_QDRANT__BM25_V2_READINESS_TTL_SECONDS: ${KB_BM25_V2_READINESS_TTL_SECONDS:-5}
+      KNOWLEDGE_QDRANT__BM25_V2_CUTOVER_TEST_TENANTS: ${KB_BM25_V2_CUTOVER_TEST_TENANTS:-}
+      KNOWLEDGE_EMBEDDINGS__PROVIDER: ${KB_EMBEDDING_PROVIDER:-dashscope}
+      DASHSCOPE_CHAT_WIRE_PROTOCOL: ${DASHSCOPE_CHAT_WIRE_PROTOCOL:-responses_v1}
+      DASHSCOPE_RERANK_REQUEST_SCHEMA: ${DASHSCOPE_RERANK_REQUEST_SCHEMA:-auto}
+      DASHSCOPE_RERANK_INSTRUCT: ${DASHSCOPE_RERANK_INSTRUCT:-}
+      KNOWLEDGE_EMBEDDINGS__MODEL: ${KB_EMBEDDING_MODEL:-text-embedding-v4}
+      KNOWLEDGE_EMBEDDINGS__DIMENSION: ${KB_EMBEDDING_DIMENSION:-1024}
+      KNOWLEDGE_RAGAS_EVAL__PROVIDER: ${KB_RAGAS_JUDGE_PROVIDER:-dashscope}
+      KNOWLEDGE_RAGAS_EVAL__MODEL: ${KB_RAGAS_JUDGE_MODEL:-qwen3.7-plus}
+      KNOWLEDGE_RAGAS_EVAL__ALLOWED_PROVIDERS: ${KB_RAGAS_ALLOWED_PROVIDERS_JSON:-["dashscope"]}
+      KNOWLEDGE_RAGAS_EVAL__ALLOWED_MODELS: ${KB_RAGAS_ALLOWED_MODELS_JSON:-["qwen3.7-plus"]}
+      KNOWLEDGE_RAGAS_EVAL__TIMEOUT_SECONDS: ${KB_RAGAS_JUDGE_TIMEOUT_SECONDS:-60}
+      KNOWLEDGE_RAGAS_EVAL__REQUEST_TIMEOUT_SECONDS: ${KB_RAGAS_REQUEST_TIMEOUT_SECONDS:-180}
+      KNOWLEDGE_PROCESSING__WORKER_CONCURRENCY: ${GATEWAY_KNOWLEDGE__WORKER_CONCURRENCY:-1}
+      KB_MAX_FILE_SIZE_MB: ${KB_MAX_FILE_SIZE_MB:-16}
+      KB_MAX_BATCH_SIZE_MB: ${KB_MAX_BATCH_SIZE_MB:-32}
+      KB_PDF_SPLIT_MAX_SIZE_MB: ${KB_PDF_SPLIT_MAX_SIZE_MB:-20}
+      KB_PDF_SPLIT_PAGES_PER_PART: ${KB_PDF_SPLIT_PAGES_PER_PART:-500}
+      KB_PDF_MAX_PAGES: ${KB_PDF_MAX_PAGES:-2000}
+      KB_PDF_SPLIT_MAX_OUTPUT_BYTES: ${KB_PDF_SPLIT_MAX_OUTPUT_BYTES:-100663296}
+      AI_PLATFORM_DEPLOYMENT_MODE: ${AI_PLATFORM_DEPLOYMENT_MODE:-single-instance}
+      KNOWLEDGE_STORAGE__BACKEND: ${LOCAL_CONTAINER_STORAGE_BACKEND:-local}
+      KNOWLEDGE_STORAGE__LOCAL_BASE_PATH: ${KNOWLEDGE_STORAGE__LOCAL_BASE_PATH:-/app/data/files}
+      KNOWLEDGE_STORAGE__S3__BUCKET: ${LOCAL_S3_BUCKET:-${S3_BUCKET:-}}
+      KNOWLEDGE_STORAGE__S3__REGION: ${LOCAL_S3_REGION:-us-east-1}
+      KNOWLEDGE_STORAGE__S3__ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__SECRET_KEY: ${LOCAL_S3_SECRET_KEY:?Reuse the existing local object-store credential}
+      KNOWLEDGE_STORAGE__S3__ENDPOINT_URL: http://object-store:9000
+      KNOWLEDGE_STORAGE__KEY_PREFIX: ${GATEWAY_STORAGE__KEY_PREFIX:-dev}
+      AI_PLATFORM_COMPATIBILITY_MANIFEST_PATH: /app/deploy/release/compatibility-manifest.json
+      AI_PLATFORM_RELEASE_ID: ${AI_PLATFORM_RELEASE_ID:-}
+      AI_PLATFORM_GIT_SHA: ${VCS_REF:-}
+      AI_PLATFORM_IMAGE_DIGEST: ${KNOWLEDGE_IMAGE_DIGEST:-}
+      INTERNAL_COMM_STATE_BACKEND: ${INTERNAL_COMM_STATE_BACKEND:-redis}
+      INTERNAL_COMM_REDIS_URL: ${INTERNAL_COMM_REDIS_URL:?Native prepare isolates fresh internal state}
+      INTERNAL_AUTH_VERSION: ${INTERNAL_AUTH_VERSION:-v2}
+      INTERNAL_AUTH_ACTIVE_KEY_ID: ${INTERNAL_AUTH_ACTIVE_KEY_ID:-local}
+      SERVICE_RETRY_MAX_ATTEMPTS: ${SERVICE_RETRY_MAX_ATTEMPTS:-2}
+      SERVICE_RETRY_BASE_DELAY_MS: ${SERVICE_RETRY_BASE_DELAY_MS:-50}
+      SERVICE_RETRY_MAX_DELAY_MS: ${SERVICE_RETRY_MAX_DELAY_MS:-500}
+      SERVICE_RETRY_BUDGET_RATIO: ${SERVICE_RETRY_BUDGET_RATIO:-0.1}
+      SERVICE_BREAKER_THRESHOLD: ${SERVICE_BREAKER_THRESHOLD:-3}
+      SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS: ${SERVICE_BREAKER_RECOVERY_TIMEOUT_SECONDS:-30}
+      INTERNAL_SERVICE_RATE_LIMITS: ${INTERNAL_SERVICE_RATE_LIMITS:-knowledge-service=100:100,agent-runtime=50:50,agent-capability-worker=50:50}
+      SERVICE_STREAMING_MAX_CONNECTIONS: ${SERVICE_STREAMING_MAX_CONNECTIONS:-16}
+      INTERNAL_IDEMPOTENCY_BACKEND: redis
+      INTERNAL_IDEMPOTENCY_TTL_SECONDS: ${INTERNAL_IDEMPOTENCY_TTL_SECONDS:-86400}
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_KNOWLEDGE_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_KNOWLEDGE_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_KNOWLEDGE_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_KNOWLEDGE_MODE: direct
+      DATA_KNOWLEDGE_EXPECTED_HOST: postgres
+      DATA_KNOWLEDGE_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_KNOWLEDGE_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_KNOWLEDGE_POOL_MAX: '4'
+      DATA_KNOWLEDGE_REPLICAS: '1'
+      DATA_KNOWLEDGE_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_KNOWLEDGE_POOLED_BACKEND_LIMIT: '8'
+      DATA_KNOWLEDGE_STATEMENT_TIMEOUT_MS: '30000'
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/model/workload.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS:-{}}
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-worker-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/security/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      INTERNAL_AUTH_KEYS_FILE: /run/security/application/internal-auth-keys
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/security/application/storage-signing-key
+    entrypoint:
+    - /usr/local/bin/platform-knowledge-service
+    command: []
+    volumes:
+    - kb-data-fresh:/app/data
+    - type: bind
+      source: ${AGENTFORGE_REPOSITORY_ROOT:?Select the absolute repository root}/deploy/release/compatibility-manifest.json
+      target: /app/deploy/release/compatibility-manifest.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${QDRANT_CA_BUNDLE_FILE:?Select the existing complete public CA bundle}
+      target: /run/qdrant/ca-bundle.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-knowledge_worker:/run/data/credentials:ro
+    - fresh-model-knowledge-worker:/run/model:ro
+    - fresh-security-knowledge-worker:/run/security:ro
+    networks:
+      app:
+        aliases:
+        - knowledge-worker-workload
+      data-postgres: {}
+      data-redis: {}
+      data: {}
+      data-object-store: {}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      database-fresh:
+        condition: service_completed_successfully
+      files-knowledge_worker:
+        condition: service_completed_successfully
+      files-model-knowledge-worker:
+        condition: service_completed_successfully
+      files-security-knowledge-worker:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8092/health/ready
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: ${KNOWLEDGE_WORKER_MEMORY_LIMIT:-512m}
+    init: true
+    pull_policy: never
+    expose:
+    - '8452'
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  frontend:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 128
+    user: 101:101
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=101,gid=101,mode=1770
+    image: ${FRONTEND_IMAGE:?Select the admitted frontend image}
+    environment:
+      VITE_API_URL: ''
+      VITE_API_BASE_URL: ''
+      VITE_AUTH_EMAIL_DOMAIN: ${VITE_AUTH_EMAIL_DOMAIN:-${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}
+      VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-admin@${AUTH_ALLOWED_EMAIL_DOMAIN:-example.com}}
+      VITE_TELEMETRY_ENDPOINT: ${VITE_TELEMETRY_ENDPOINT:-}
+      VITE_SSE_DEBUG: ${VITE_SSE_DEBUG:-}
+      VITE_AGENT_STUDIO_ENABLED: ${VITE_AGENT_STUDIO_ENABLED:-true}
+      FRONTEND_CSP_MODE: ${FRONTEND_CSP_MODE:-report-only}
+      FRONTEND_CONNECT_ORIGINS: ${FRONTEND_CONNECT_ORIGINS:-}
+      FRONTEND_IMAGE_ORIGINS: ${FRONTEND_IMAGE_ORIGINS:-}
+    ports:
+    - 127.0.0.1:${FRONTEND_PORT:-8081}:8443
+    networks:
+    - edge
+    depends_on:
+      gateway:
+        condition: service_healthy
+      files-security-frontend:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --no-verbose
+      - --tries=1
+      - --spider
+      - http://127.0.0.1:8080/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-96m}
+    pull_policy: never
+    command:
+    - nginx
+    - -c
+    - /run/security/current/nginx.conf
+    - -g
+    - daemon off;
+    volumes:
+    - fresh-security-frontend:/run/security:ro
+    labels:
+      io.agentforge.local.security-generation: ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+  database-fresh:
+    image: ${MIGRATE_IMAGE:?Select the owned native authority image}
+    pull_policy: never
+    user: 70:70
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    networks:
+    - data-postgres
+    environment:
+      AI_GATEWAY_ROLE_PREFIX: ai_gateway_
+      AI_GATEWAY_FRESH_OPERATOR_USER: ${POSTGRES_USER:?Existing Unix operator identity required}
+      AI_GATEWAY_FRESH_OPERATOR_SOCKET_DIRECTORY: /var/run/postgresql
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN_FILE: /run/data/authority/migrator/dsn
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CA_FILE: /run/data/authority/migrator/ca-bundle.pem
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CERT_FILE: /run/data/authority/migrator/tls.crt
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_KEY_FILE: /run/data/authority/migrator/tls.key
+      AI_GATEWAY_DATABASE_GATEWAY_DSN_FILE: /run/data/authority/gateway/dsn
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CA_FILE: /run/data/authority/gateway/ca-bundle.pem
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CERT_FILE: /run/data/authority/gateway/tls.crt
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_KEY_FILE: /run/data/authority/gateway/tls.key
+      AI_GATEWAY_DATABASE_RUNTIME_DSN_FILE: /run/data/authority/runtime/dsn
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CA_FILE: /run/data/authority/runtime/ca-bundle.pem
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CERT_FILE: /run/data/authority/runtime/tls.crt
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_KEY_FILE: /run/data/authority/runtime/tls.key
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN_FILE: /run/data/authority/capability_worker/dsn
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CA_FILE: /run/data/authority/capability_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CERT_FILE: /run/data/authority/capability_worker/tls.crt
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_KEY_FILE: /run/data/authority/capability_worker/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN_FILE: /run/data/authority/knowledge_api/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CA_FILE: /run/data/authority/knowledge_api/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CERT_FILE: /run/data/authority/knowledge_api/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_KEY_FILE: /run/data/authority/knowledge_api/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN_FILE: /run/data/authority/knowledge_worker/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CA_FILE: /run/data/authority/knowledge_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CERT_FILE: /run/data/authority/knowledge_worker/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_KEY_FILE: /run/data/authority/knowledge_worker/tls.key
+      AI_GATEWAY_DATABASE_MIGRATOR_PASSWORD_FILE: /run/data/authority/migrator/password
+      AI_GATEWAY_DATABASE_MIGRATOR_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_MIGRATOR_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_MIGRATOR_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_MIGRATOR_EXPECTED_ROLE: ai_gateway_migrator
+      AI_GATEWAY_DATABASE_MIGRATOR_MODE: direct
+      AI_GATEWAY_DATABASE_GATEWAY_PASSWORD_FILE: /run/data/authority/gateway/password
+      AI_GATEWAY_DATABASE_GATEWAY_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_GATEWAY_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_GATEWAY_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_GATEWAY_EXPECTED_ROLE: ai_gateway_gateway
+      AI_GATEWAY_DATABASE_GATEWAY_MODE: direct
+      AI_GATEWAY_DATABASE_RUNTIME_PASSWORD_FILE: /run/data/authority/runtime/password
+      AI_GATEWAY_DATABASE_RUNTIME_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_RUNTIME_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_RUNTIME_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_RUNTIME_EXPECTED_ROLE: ai_gateway_runtime
+      AI_GATEWAY_DATABASE_RUNTIME_MODE: direct
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_PASSWORD_FILE: /run/data/authority/capability_worker/password
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_EXPECTED_ROLE: ai_gateway_capability_worker
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_MODE: direct
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_PASSWORD_FILE: /run/data/authority/knowledge_api/password
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_EXPECTED_ROLE: ai_gateway_knowledge_api
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_MODE: direct
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_PASSWORD_FILE: /run/data/authority/knowledge_worker/password
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_EXPECTED_ROLE: ai_gateway_knowledge_worker
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_MODE: direct
+    entrypoint:
+    - /usr/local/bin/database-authority
+    command:
+    - fresh-development-init
+    - --expected-database
+    - ${POSTGRES_DB:?Select explicit fresh database}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      files-authority:
+        condition: service_completed_successfully
+    restart: 'no'
+    volumes:
+    - fresh-authority:/run/data/authority:ro
+    - fresh-postgres-socket:/var/run/postgresql:ro
+    mem_limit: 256m
+    pids_limit: 64
+  qdrant-files:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Select the admitted native tools image}
+    pull_policy: never
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-qdrant-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_QDRANT_DIRECTORY:?Native TLS material path}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - qdrant-tls-private:/output
+    restart: 'no'
+    mem_limit: 96m
+    pids_limit: 64
+  files-postgres:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - postgres
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-postgres-tls:/output
+  files-socket:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint: &id004
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - socket
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop: &id005
+    - ALL
+    cap_add: &id006
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt: &id007
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - fresh-postgres-socket:/output
+  files-gateway:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - gateway
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-gateway:/output
+  files-model-gateway:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - model-gateway
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_MODEL_DIRECTORY:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-model-gateway:/output
+  files-runtime:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - runtime
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-runtime:/output
+  files-model-runtime:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - model-runtime
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_MODEL_DIRECTORY:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-model-runtime:/output
+  files-capability_worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - capability_worker
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-capability_worker:/output
+  files-knowledge_api:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - knowledge_api
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-knowledge_api:/output
+  files-model-knowledge-api:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - model-knowledge-api
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_MODEL_DIRECTORY:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-model-knowledge-api:/output
+  files-knowledge_worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - knowledge_worker
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-data-knowledge_worker:/output
+  files-model-knowledge-worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - model-knowledge-worker
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_MODEL_DIRECTORY:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-model-knowledge-worker:/output
+  files-authority:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - authority
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-authority:/output
+  files-qdrant-storage:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint: *id004
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - qdrant-storage
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop: *id005
+    cap_add: *id006
+    security_opt: *id007
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - qdrant-fresh:/output
+  files-security-gateway:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - gateway
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/gateway
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-gateway:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-agent-runtime:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - agent-runtime
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/agent-runtime
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-agent-runtime:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-agent-capability-worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - agent-capability-worker
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/agent-capability-worker
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-agent-capability-worker:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-knowledge-service:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - knowledge-service
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/knowledge-service
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-knowledge-service:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-knowledge-worker:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - knowledge-worker
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/knowledge-worker
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-knowledge-worker:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-frontend:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint: &id008
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - frontend
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop: &id009
+    - ALL
+    cap_add: &id010
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt: &id011
+    - no-new-privileges:true
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/frontend
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-frontend:/output
+    restart: 'no'
+    pull_policy: never
+  files-security-administrator:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native secure-extend must complete first}
+    entrypoint: *id008
+    command:
+    - local-fresh-security-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --role
+    - administrator
+    - --generation
+    - ${LOCAL_FRESH_SECURITY_GENERATION:?Native secure-extend must complete first}
+    user: 0:0
+    read_only: true
+    cap_drop: *id009
+    cap_add: *id010
+    security_opt: *id011
+    network_mode: none
+    pids_limit: 64
+    mem_limit: 96m
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_SECURITY_DIRECTORY:?Native secure-extend must complete first}/administrator
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-security-administrator:/output
+    restart: 'no'
+    pull_policy: never
+  admin-bootstrap:
+    image: ${ADMIN_BOOTSTRAP_IMAGE:?Select the admitted native first-account one-shot image}
+    user: 1000:1000
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - exec /usr/local/bin/admin-create --fresh-development < /run/initial-admin/input.json
+    environment:
+      DATA_GATEWAY_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_GATEWAY_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_GATEWAY_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_GATEWAY_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_GATEWAY_MODE: direct
+      DATA_GATEWAY_EXPECTED_HOST: postgres
+      DATA_GATEWAY_DATABASE_ALIAS: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_PHYSICAL_DATABASE: ${POSTGRES_DB:?Native preparation required}
+      DATA_GATEWAY_POOL_MAX: '4'
+      DATA_GATEWAY_REPLICAS: '1'
+      DATA_GATEWAY_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_GATEWAY_POOLED_BACKEND_LIMIT: '8'
+      DATA_GATEWAY_STATEMENT_TIMEOUT_MS: '30000'
+      AUTH_ALLOWED_EMAIL_DOMAIN: ${AUTH_ALLOWED_EMAIL_DOMAIN:?Selected account domain required}
+    networks:
+    - data-postgres
+    volumes:
+    - fresh-data-gateway:/run/data/credentials:ro
+    - fresh-security-administrator:/run/initial-admin:ro
+    depends_on:
+      database-fresh:
+        condition: service_completed_successfully
+      files-gateway:
+        condition: service_completed_successfully
+      files-security-administrator:
+        condition: service_completed_successfully
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,uid=1000,gid=1000,mode=1777
+    pids_limit: 64
+    mem_limit: 256m
+    restart: 'no'
+    pull_policy: never
+networks:
+  edge:
+    driver: bridge
+  app:
+    driver: bridge
+  data-postgres:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+      - subnet: ${DATA_CLIENT_CIDR:?Native preparation required}
+  data-redis:
+    driver: bridge
+    internal: true
+  data:
+    driver: bridge
+    internal: true
+  data-object-store:
+    driver: bridge
+    internal: true
+volumes:
+  postgres: null
+  redis: null
+  object-store: null
+  qdrant-tls-private: {}
+  qdrant-fresh: null
+  agent-runtime-home-fresh: {}
+  agent-capability-workspaces-fresh: {}
+  gateway-logs-fresh: {}
+  gateway-data-fresh: {}
+  assistant-memory-data-fresh: {}
+  kb-data-fresh: {}
+  fresh-postgres-tls: {}
+  fresh-postgres-socket: {}
+  fresh-data-capability_worker: {}
+  fresh-model-runtime: {}
+  fresh-data-runtime: {}
+  fresh-data-gateway: {}
+  fresh-model-gateway: {}
+  fresh-data-knowledge_api: {}
+  fresh-model-knowledge-api: {}
+  fresh-data-knowledge_worker: {}
+  fresh-model-knowledge-worker: {}
+  fresh-authority: {}
+  fresh-security-gateway: {}
+  fresh-security-agent-runtime: {}
+  fresh-security-agent-capability-worker: {}
+  fresh-security-knowledge-service: {}
+  fresh-security-knowledge-worker: {}
+  fresh-security-frontend: {}
+  fresh-security-administrator: {}

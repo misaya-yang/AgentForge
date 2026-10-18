@@ -65,7 +65,10 @@ impl NativeStudioResources {
                 .bind(&actor.tenant_id)
                 .bind(ids.iter().cloned().collect::<Vec<_>>())
                 .bind(&actor.user_id)
-                .fetch_all(&mut *conn)
+                .fetch_all(ai_platform_gateway_foundation::tenant_database::connection(
+                    &mut *conn,
+                    &actor.tenant_id,
+                ))
                 .await?;
             for row in rows {
                 let manifest = manifest_from_artifact(&row).map_err(|e| {
@@ -203,7 +206,9 @@ async fn validate_binding(
             .bind(resource)
             .bind(connection)
             .bind(principal)
-            .fetch_optional(&mut *conn)
+            .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+                &mut *conn, tenant,
+            ))
             .await?;
         let Some(tool) = tool else {
             return Ok(Some("MCP_CAPABILITY_UNAVAILABLE"));
@@ -255,7 +260,9 @@ async fn validate_binding(
             .bind(grant)
             .bind(provider)
             .bind(principal)
-            .fetch_optional(&mut *conn)
+            .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+                &mut *conn, tenant,
+            ))
             .await?;
         let Some(row) = row else {
             return Ok(Some("CONNECTOR_CAPABILITY_UNAVAILABLE"));
@@ -286,7 +293,9 @@ async fn validate_binding(
     let row: Option<Value> = sqlx::query_scalar(&query)
         .bind(provider)
         .bind(tenant)
-        .fetch_optional(conn)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+            &mut *conn, tenant,
+        ))
         .await?;
     let Some(row) = row else {
         return Ok(Some("CONNECTOR_CATALOG_UNAVAILABLE"));

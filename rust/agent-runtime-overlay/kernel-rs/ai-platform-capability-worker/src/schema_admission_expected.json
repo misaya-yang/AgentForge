@@ -11,7 +11,7 @@
       "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98"
     }
   ],
-  "epoch": 28,
+  "epoch": 29,
   "changes": [
     {
       "baseline_id": "2026_08_post_kb_v1",
@@ -180,6 +180,12 @@
       "sequence": 28,
       "name": "platform_upgrade_price_book_contract_028",
       "checksum_sha256": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 29,
+      "name": "platform_upgrade_gateway_workers_batch_029",
+      "checksum_sha256": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745"
     }
   ],
   "has_attempts": false,

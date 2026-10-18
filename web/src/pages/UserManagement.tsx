@@ -1,3 +1,4 @@
+import { requestDepartment } from "@/api/users";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -255,7 +256,7 @@ function UserManagementContent() {
       return;
     }
     if (await mutation.run(() => createUser({ email: formEmail, display_name: formDisplayName,
-      department: formDepartment || undefined, roles: formRoles }))) {
+      department: requestDepartment(formDepartment), roles: formRoles }))) {
       setShowCreateModal(false); resetForm(); await loadUsers();
     }
   };
@@ -264,7 +265,7 @@ function UserManagementContent() {
     if (isLoading || actionError || !selectedUser || !canEdit || isProtectedAccount(selectedUser, currentUser?.user_id)) return;
     setFormError("");
     if (await mutation.run(() => updateUser(selectedUser.user_id, {
-      display_name: formDisplayName, department: formDepartment || undefined,
+      display_name: formDisplayName, department: requestDepartment(formDepartment),
       roles: formRoles, extra_permissions: formExtraPermissions, status: formStatus,
     }))) { setShowEditModal(false); resetForm(); await loadUsers(); }
   };

@@ -170,8 +170,8 @@ const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
           else if (ref) ref.current = node;
         }}
         className={cn(
-          "z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2 text-popover-foreground shadow-xl",
-          "animate-in fade-in-0 zoom-in-95",
+          "ui-popover-slot-1",
+          "ui-popover-slot-2",
           className
         )}
         style={{

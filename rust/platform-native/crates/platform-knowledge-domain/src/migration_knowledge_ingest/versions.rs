@@ -17,7 +17,17 @@ impl IngestionService {
         reason: Option<&str>,
     ) -> Result<Value> {
         if self.indexer.vectors.is_read_only() {
-            return super::vector_jobs::submit(&self.store.pool,actor,dataset,super::vector_jobs::Mutation::RestoreVersion { document:document.into(),version,reason:reason.map(str::to_owned) }).await;
+            return super::vector_jobs::submit(
+                &self.store.pool,
+                actor,
+                dataset,
+                super::vector_jobs::Mutation::RestoreVersion {
+                    document: document.into(),
+                    version,
+                    reason: reason.map(str::to_owned),
+                },
+            )
+            .await;
         }
         let d = self
             .store
@@ -37,6 +47,7 @@ impl IngestionService {
         require_index_writable(&authoritative)?;
         let typed: Dataset = serde_json::from_value(authoritative.clone())?;
         let mut tx = lease.connection().begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let doc = KnowledgeWriteStore::document_on(&mut tx, dataset, document).await?;
         let metadata = object(&doc["metadata"]);
         if doc["enabled"].as_bool() == Some(false)

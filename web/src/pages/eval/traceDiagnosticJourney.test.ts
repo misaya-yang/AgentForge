@@ -113,7 +113,8 @@ function host(initial = "tab=traces&family=assistant&trace_id=linked", options: 
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const jsx = (type: unknown, props: Record<string, unknown>) => ({ type, props });
   const modules: Record<string, unknown> = {
-    react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
+    "@/components/deferComponent": { deferComponent: (_loader: unknown, name: string) => name },
+    react: { ...react, Suspense: "Suspense", useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
     antd: { ...Object.fromEntries(["Alert", "Button", "Descriptions", "Input", "InputNumber", "Pagination", "Progress", "Select", "Space", "Tabs"].map((key) => [key, key])), App: { useApp: () => ({ message: { success: (v: unknown) => notices.push(v), error: (v: unknown) => notices.push(v) }, modal: {} }) } },
     "lucide-react": named,
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },

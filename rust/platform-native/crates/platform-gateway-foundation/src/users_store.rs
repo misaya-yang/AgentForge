@@ -6,6 +6,8 @@
 //! tenant-account-administration architecture document for authority boundaries.
 //! Hosts must join aborted callers and drain_cancelled before releasing pools.
 mod guard;
+#[path = "users_store/object_policy.rs"]
+mod object_policy;
 
 use crate::{
     postgres_operation::{PgOperationError, PgOperationStorage},
@@ -396,12 +398,17 @@ impl UsersDatabase for PgUsersDatabase {
     }
     fn save_user_with_password<'a>(&'a self, input: &'a NewUser) -> UsersFuture<'a, ()> {
         Box::pin(async move {
-            let operations = self.operations.as_ref()
+            let operations = self
+                .operations
+                .as_ref()
                 .ok_or_else(|| ServiceConfigError::detail(503, "Database not available"))?;
             let u = input.user.clone();
-            let user_id = input.user["user_id"].as_str().ok_or(ServiceConfigError::Internal)?.to_owned();
+            let user_id = input.user["user_id"]
+                .as_str()
+                .ok_or(ServiceConfigError::Internal)?
+                .to_owned();
             let hash = input.password_hash.clone();
-            operations.acquire().await.map_err(error)?.execute(move |connection| Box::pin(async move {
+            object_policy::execute(operations,move |connection| Box::pin(async move {
                 let tenant = string(&u, "tenant_id", None)?.ok_or_else(binding_error)?;
                 let actor = string(&u, "created_by", None)?.ok_or_else(binding_error)?;
                 let id = string(&u, "user_id", None)?.ok_or_else(binding_error)?;
@@ -440,10 +447,17 @@ impl UsersDatabase for PgUsersDatabase {
         actor_id: &'a str,
     ) -> UsersFuture<'a, bool> {
         Box::pin(async move {
-            let operations = self.operations.as_ref()
+            let operations = self
+                .operations
+                .as_ref()
                 .ok_or_else(|| ServiceConfigError::detail(503, "Database not available"))?;
-            let (id, tenant, hash, actor) = (user_id.to_owned(), tenant_id.to_owned(), hash.to_owned(), actor_id.to_owned());
-            operations.acquire().await.map_err(error)?.execute(move |connection| Box::pin(async move {
+            let (id, tenant, hash, actor) = (
+                user_id.to_owned(),
+                tenant_id.to_owned(),
+                hash.to_owned(),
+                actor_id.to_owned(),
+            );
+            object_policy::execute(operations,move |connection| Box::pin(async move {
                 authorize!(guard::actor(connection, &tenant, &actor, false).await);
                 authorize!(guard::target(connection, &tenant, &actor, &id, false).await);
                 sqlx::query("UPDATE users SET password_hash=$1,force_password_change=TRUE,password_changed_at=clock_timestamp(),login_attempts=0,locked_until=NULL,updated_at=NOW() WHERE user_id=$2 AND tenant_id=$3")
@@ -460,23 +474,52 @@ impl UsersDatabase for PgUsersDatabase {
         mutation: &'a UserMutation,
     ) -> UsersFuture<'a, bool> {
         Box::pin(async move {
-            let operations = self.operations.as_ref()
+            let operations = self
+                .operations
+                .as_ref()
                 .ok_or_else(|| ServiceConfigError::detail(503, "Database not available"))?;
-            let (id, tenant, mutation) = (user_id.to_owned(), tenant_id.to_owned(), mutation.clone());
-            let actor = mutation.granted_by.clone().filter(|v| !v.is_empty())
+            let (id, tenant, mutation) =
+                (user_id.to_owned(), tenant_id.to_owned(), mutation.clone());
+            let actor = mutation
+                .granted_by
+                .clone()
+                .filter(|v| !v.is_empty())
                 .ok_or_else(|| guard::Denied::Identity.response())?;
-            let allowed: &[&str] = if mutation.profile_only { &["display_name"] }
-                else { &["display_name", "department", "tier", "status", "metadata"] };
-            if mutation.fields.keys().any(|field| !allowed.contains(&field.as_str()))
-                || (mutation.profile_only && (mutation.roles.is_some() || mutation.extra_permissions.is_some())) {
-                return Err(ServiceConfigError::detail(422, "Unsupported account fields"));
+            let allowed: &[&str] = if mutation.profile_only {
+                &["display_name"]
+            } else {
+                &["display_name", "department", "tier", "status", "metadata"]
+            };
+            if mutation
+                .fields
+                .keys()
+                .any(|field| !allowed.contains(&field.as_str()))
+                || (mutation.profile_only
+                    && (mutation.roles.is_some() || mutation.extra_permissions.is_some()))
+            {
+                return Err(ServiceConfigError::detail(
+                    422,
+                    "Unsupported account fields",
+                ));
             }
-            if mutation.fields.get("status").is_some_and(|v| !matches!(v.as_str(), Some("active" | "disabled")))
-                || mutation.fields.get("tier").is_some_and(|v| !matches!(v.as_str(), Some("normal" | "premium" | "enterprise" | "admin"))) {
-                return Err(ServiceConfigError::detail(422, "Invalid account status or tier"));
+            if mutation
+                .fields
+                .get("status")
+                .is_some_and(|v| !matches!(v.as_str(), Some("active" | "disabled")))
+                || mutation.fields.get("tier").is_some_and(|v| {
+                    !matches!(
+                        v.as_str(),
+                        Some("normal" | "premium" | "enterprise" | "admin")
+                    )
+                })
+            {
+                return Err(ServiceConfigError::detail(
+                    422,
+                    "Invalid account status or tier",
+                ));
             }
             let invalidate = mutation.roles.is_some() || mutation.extra_permissions.is_some();
-            let updated = operations.acquire().await.map_err(error)?.execute(move |connection| Box::pin(async move {
+            let updated = object_policy::execute(operations,move |connection| Box::pin(async move {
                 authorize!(guard::actor(connection, &tenant, &actor, mutation.profile_only).await);
                 let before = authorize!(guard::target(connection, &tenant, &actor, &id, mutation.profile_only).await);
                 if let Some(roles) = &mutation.roles { authorize!(guard::roles(connection, roles).await); }
@@ -526,7 +569,9 @@ impl UsersDatabase for PgUsersDatabase {
                 guard::audit(connection, &tenant, &actor, &id, if mutation.profile_only { "user_profile_updated" } else { "user_updated" }).await?;
                 Ok(Ok(true))
             })).await.map_err(error)?.map_err(guard::Denied::response)?;
-            if updated && invalidate { self.invalidation.invalidate(user_id).await?; }
+            if updated && invalidate {
+                self.invalidation.invalidate(user_id).await?;
+            }
             Ok(updated)
         })
     }
@@ -537,22 +582,61 @@ impl UsersDatabase for PgUsersDatabase {
         actor_id: &'a str,
     ) -> UsersFuture<'a, bool> {
         Box::pin(async move {
-            let operations = self.operations.as_ref()
+            let operations = self
+                .operations
+                .as_ref()
                 .ok_or_else(|| ServiceConfigError::detail(503, "Database not available"))?;
-            let (id, tenant, actor) = (user_id.to_owned(), tenant_id.to_owned(), actor_id.to_owned());
-            let deleted = operations.acquire().await.map_err(error)?.execute(move |connection| Box::pin(async move {
-                authorize!(guard::actor(connection, &tenant, &actor, false).await);
-                let before = authorize!(guard::target(connection, &tenant, &actor, &id, false).await);
-                authorize!(guard::retain_administrator(connection, &tenant, &id, &before, &[], "disabled").await);
-                sqlx::query("DELETE FROM user_roles WHERE user_id=$1").bind(&id).execute(&mut *connection).await?;
-                sqlx::query("DELETE FROM user_permissions WHERE user_id=$1").bind(&id).execute(&mut *connection).await?;
-                sqlx::query("UPDATE api_keys SET enabled=FALSE WHERE user_id=$1 AND tenant_id=$2")
-                    .bind(&id).bind(&tenant).execute(&mut *connection).await?;
-                sqlx::query("DELETE FROM users WHERE user_id=$1 AND tenant_id=$2").bind(&id).bind(&tenant).execute(&mut *connection).await?;
-                guard::audit(connection, &tenant, &actor, &id, "user_deleted").await?;
-                Ok(Ok(true))
-            })).await.map_err(error)?.map_err(guard::Denied::response)?;
-            if deleted { self.invalidation.invalidate(user_id).await?; }
+            let (id, tenant, actor) = (
+                user_id.to_owned(),
+                tenant_id.to_owned(),
+                actor_id.to_owned(),
+            );
+            let deleted = object_policy::execute(operations, move |connection| {
+                Box::pin(async move {
+                    authorize!(guard::actor(connection, &tenant, &actor, false).await);
+                    let before =
+                        authorize!(guard::target(connection, &tenant, &actor, &id, false).await);
+                    authorize!(
+                        guard::retain_administrator(
+                            connection,
+                            &tenant,
+                            &id,
+                            &before,
+                            &[],
+                            "disabled"
+                        )
+                        .await
+                    );
+                    sqlx::query("DELETE FROM user_roles WHERE user_id=$1")
+                        .bind(&id)
+                        .execute(&mut *connection)
+                        .await?;
+                    sqlx::query("DELETE FROM user_permissions WHERE user_id=$1")
+                        .bind(&id)
+                        .execute(&mut *connection)
+                        .await?;
+                    sqlx::query(
+                        "UPDATE api_keys SET enabled=FALSE WHERE user_id=$1 AND tenant_id=$2",
+                    )
+                    .bind(&id)
+                    .bind(&tenant)
+                    .execute(&mut *connection)
+                    .await?;
+                    sqlx::query("DELETE FROM users WHERE user_id=$1 AND tenant_id=$2")
+                        .bind(&id)
+                        .bind(&tenant)
+                        .execute(&mut *connection)
+                        .await?;
+                    guard::audit(connection, &tenant, &actor, &id, "user_deleted").await?;
+                    Ok(Ok(true))
+                })
+            })
+            .await
+            .map_err(error)?
+            .map_err(guard::Denied::response)?;
+            if deleted {
+                self.invalidation.invalidate(user_id).await?;
+            }
             Ok(deleted)
         })
     }

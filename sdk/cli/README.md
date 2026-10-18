@@ -23,43 +23,50 @@ converter, not a second Agent loop.
 
 ## Native Runtime binary
 
-Published packages place the composed native binary under
-`vendor/<platform>-<arch>/codex`. During development, point the launcher to a
-trusted binary built from the pinned source plus this repository's overlay:
+Node.js **24 or newer** is required. The source release matrix contains Linux
+x64/arm64, macOS x64/arm64, and Windows x64. Each optional native package is named
+`@agentforge/cli-<platform>-<arch>` and carries the composed `codex` binary, the
+portable `platformctl` credential helper, their independent signed receipts and
+locked attribution/SBOM/source materials. Embedded `vendor/<target>/` directories
+remain usable for candidate staging. Windows executable names end in `.exe`.
 
-```bash
-export AI_GATEWAY_AGENT_RUNTIME_BIN=/absolute/path/to/codex
-export AI_GATEWAY_AGENT_RUNTIME_RECEIPT=/absolute/path/to/artifact.json
+Normal launch verifies target, source identity, SHA-256, release version and an
+Ed25519 signature against public keys embedded in the main CLI package's
+`dist/native-source.json`. Replacing a binary and its hash receipt does not satisfy
+the signature check. `verify:native` also checks ELF, Mach-O or PE architecture
+and every locked material. Optional-package keys cannot replace the main package's
+trusted keys. A signed helper is required for device login and OS-vault access.
+
+This repository's `release/trusted-keys.json` deliberately starts empty. A release
+owner must add reviewed public keys and supply the corresponding private key only
+to an authorized signing job. Empty pins, an unknown signer, stale source/version,
+missing targets/helpers or changed materials fail closed. No production signing
+key, notarized artifact, published npm package or five-OS acceptance is implied by
+these source changes.
+
+Offline staging validates all inputs before creating a new external directory:
+
+```text
+node sdk/cli/scripts/stage-native-release.mjs \
+  --target darwin-arm64 --binary /external/codex --platformctl /external/platformctl \
+  --materials /external/locked-materials --output /external/new-cli-darwin-arm64 \
+  --signing-key-file /private/release-key.pem --key-id reviewed-release-key \
+  --os-signing-policy-file /private/os-signing-policy.json
 ```
 
-For an unreceipted development binary, the additional
-`AI_GATEWAY_UNSAFE_DEV_RUNTIME=1` opt-in is required and is never release
-evidence.
+The command never downloads, publishes or deletes existing targets. Its output is
+a target npm package ready for an explicitly authorized `npm pack`/distribution
+job. Perform Apple signing/notarization or Windows Authenticode signing on native
+binaries **before** staging their hashes and Ed25519 receipts. Homebrew/winget
+publication remains a release-owner action against those verified archives.
+The client-only hosted CI matrix checks source contracts on all five targets;
+it does not publish packages or establish hardware/editor acceptance.
 
-Explicit binary overrides are development-only even when they carry a receipt.
-Release packages execute only the platform artifact assembled under `vendor/`.
-
-The canonical Docker-contained Linux build is:
-
-```bash
-AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/clean/codex-harness \
-  scripts/harness/build_agent_runtime_cli_package.sh
-```
-
-The Docker build installs the Linux artifact and receipt into the matching
-`sdk/cli/vendor/linux-<node-arch>/` package layout. The current tag workflow
-stages and verifies Linux x64. Darwin and Windows hosted native build jobs are
-still release work; the package must not be represented as supporting a target
-until its binary and receipt are assembled into the corresponding directory.
-
-Each target directory also carries the upstream `LICENSE` and `NOTICE`, platform
-attribution, the source SBOM, and source receipt. Their hashes are recorded in
-`artifact.json` and checked against the same source lock by `verify:native`.
-Missing binaries/materials, a changed binary, a non-executable file, the wrong
-ELF architecture, or a stale overlay fail packaging. These checks establish
-package identity; executing the native binary in Docker remains a separate gate.
-
-Host Cargo is not an accepted build or verification path in this repository.
+For development, an explicit native override still requires
+`AI_GATEWAY_UNSAFE_DEV_RUNTIME=1`; an optional
+`AI_GATEWAY_AGENT_RUNTIME_RECEIPT` checks its identity but does not turn it into a
+release. Default CLI mode continues to use its isolated provider profile and
+local App Server, with no hosted Gateway credential injected into that Runtime.
 
 ## Configure
 
@@ -159,26 +166,37 @@ provider:
 ai-gateway --cli-provider qwen-responses exec "Run the tests"
 ```
 
-The pre-1.5 hosted Gateway chat/MCP/knowledge-base client remains available as
-an explicit compatibility surface and continues to use its original
-`~/.ai-gateway/config.json` file:
+The explicit hosted Gateway mode uses device authorization and the native OS
+vault. Public settings remain in `~/.ai-gateway/config.json`; saving settings
+strips both legacy API keys and access tokens. Existing plaintext credentials are
+not used as an implicit fallback. No browser is opened automatically:
 
-```bash
-ai-gateway gateway --api-key gw_xxx --base-url https://gateway.example
+```text
+ai-gateway gateway auth login --base-url https://gateway.example
+ai-gateway gateway auth status --base-url https://gateway.example
+ai-gateway gateway --base-url https://gateway.example
+ai-gateway gateway auth logout --base-url https://gateway.example
 ```
 
-It is not an alternate provider mode for the independent Agent CLI and never
-reads `~/.ai-gateway-cli/providers.json`.
+Open the printed same-origin verification URI and approve the displayed code in
+your existing browser session. The public client is `agentforge-cli`, with the
+`platform` scope and S256 PKCE. Tenant and user come from that approval, rather
+than command-line identity selectors. Refresh cannot change that binding.
+Native vault backends are macOS Keychain, Windows Credential Manager/CurrentUser
+DPAPI and Linux Secret Service; missing or locked storage fails closed.
 
-The current Rust Gateway's session routes require an account JWT, distinct from
-the API key used for model requests. The token and model API key must belong to
-the same Gateway account for a later model call to access the selected session.
-Supply an existing account session token only
-through `AI_GATEWAY_SESSION_TOKEN` in the CLI process environment. It is never
-written to CLI configuration, put in URLs/arguments, or sent by model requests.
-Missing/invalid credentials fail session reads without an API-key fallback. No
-login, token refresh, or credential acquisition flow is added. Do not paste the
-token into chat, command arguments, or either CLI configuration file.
+Interactive hosted requests share a single refresh provider. Independent native
+processes serialize refreshes with OS-released locks. A durable in-flight marker
+prevents reuse of a rotating refresh token after a crash or unknown response;
+explicit login is then required. Logout attempts remote revocation once and
+always deletes the local session. A lost revoke response remains uncertain.
+Server-side parent-session, tenant, account and revocation checks remain required.
+
+CI may use `AI_GATEWAY_API_KEY` or `--api-key-file /private/key`; API keys in
+`--api-key`, `-k` or URLs are rejected before parsing/persistence. Device login
+also supplies owner session/history reads. Explicit `AI_GATEWAY_SESSION_TOKEN`
+remains available for API-key CI sessions without becoming a model API key.
+The independent provider mode never reads these hosted credentials.
 
 Hosted JSON requests keep the configured timeout active through response-body
 consumption and settlement of the JSON promise, including successful responses.
@@ -340,7 +358,7 @@ completed receipt, `1` unavailable/read failure/definite rejection/failed or
 cancelled task, `2` invalid arguments or local configuration, `3` uncertain
 submission or exact-task read. Automation must inspect `outcome`/task status;
 exit 0 for pending is not completion. Raw provider/HTTP errors are not printed.
-The transport uses the saved API-key/tenant conventions, rejects credentialed
+The transport uses OS-vault device login or explicit CI environment/file keys, rejects credentialed
 URLs and non-TLS non-loopback origins, refuses redirects, bounds each response
 to 8 MiB and the request to at most 300 seconds. The existing model/session
 transports keep their original defaults.
@@ -381,9 +399,39 @@ Exit codes are `0` for no observed blocking local prerequisite, `1` for a blocke
 check, and `2` for invalid doctor arguments. Neither exit0 nor a matching artifact
 hash proves provider connectivity or runtime protocol readiness. Unsafe development
 binary/system selection is explicitly unverified; current release support remains
-Linux x64. Directory access is an observation without a write probe.
+the five source release targets; installed artifacts require signature checks. Directory access is an observation without a write probe.
 
 Reports contain fixed check codes and instructions, not raw exceptions, private
 paths, environment values, profile URLs or prompt/history data. Use `ai-gateway
 config path` separately when you need the private local configuration location.
 Nothing is uploaded or auto-fixed. Gateway compatibility commands remain separate.
+
+
+## ACP editor entrypoint
+
+Configure a custom ACP agent in Zed or a JetBrains ACP client to launch
+`ai-gateway acp --cli-provider PROFILE` with the selected provider's environment
+variables. It speaks ACP v1 JSON-RPC on stdin/stdout and opens the CLI-owned
+composed App Server over private stdio. No hosted Runtime or new Agent loop is
+introduced. Provider selection, sandbox and approval policy remain CLI-owned.
+
+The implemented profile supports initialize, session/new, session/load,
+text session/prompt, streamed assistant text/tool status, exact-session/turn local
+permission requests and session/cancel. Runtime command/file approvals offer
+allow-once or reject; unknown requests, foreign sessions/turns and late approvals
+fail closed. Frames, pending calls, sessions and output buffers are bounded.
+Cancellation interrupts the existing turn and never restarts or replays it.
+
+Images, embedded context, editor-supplied MCP server configuration and permission
+policy changes are not advertised or accepted. Configure optional tools through
+the existing trusted CLI configuration. Unit tests exercise the real bridge with
+isolated stdio peers; actual Zed and JetBrains governed-session acceptance has not
+run. This is an ACP v1 text/local-tools profile, not a claim of every optional ACP
+extension or arbitrary editor-MCP interoperability.
+
+The offline [release source workflow](release/README.md) verifies Apple
+team/Gatekeeper, Authenticode signer, or offline Sigstore identity before staging
+Ed25519-signed native receipts. It also generates reviewable Homebrew/winget
+metadata from real immutable signed asset URLs. Production trust pins, composed
+artifacts, a real MSI and five-target installation acceptance are release inputs;
+no publishing or installer execution is performed by source tests.

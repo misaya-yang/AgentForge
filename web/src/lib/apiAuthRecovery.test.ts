@@ -4,11 +4,11 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
-import axios, { AxiosError, AxiosHeaders, type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
+import fetchHttp, { HttpError, HttpHeaders, type FetchClient, type RequestConfig } from './fetchClient.ts';
 import { createTelemetryClient } from "../observability/telemetryCore.ts";
 import { sdkAuthorityScope } from "./sdkAuthorityScope.ts";
 
-// Real production Axios interceptors and adapter dispatch; synthetic transport
+// Real production Fetch interceptors and adapter dispatch; synthetic transport
 // only. The fixtures are deliberately fake credentials and never contact a server.
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -37,14 +37,14 @@ function host(token: string | null = "synthetic-token-A", userId: string | undef
   }));
   let dispose: (() => void) | undefined;
   const modules: Record<string, unknown> = {
-    axios: { ...axios, default: axios, AxiosError },
+    "@/lib/fetchClient": { ...fetchHttp, default: fetchHttp, HttpError },
     "@/observability/browserTelemetry": { browserTraceparent: trace },
     "@/config/runtime": { getApiBaseUrlConfig: () => "" },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
     "@/hooks/use-toast": { toast: { warning: () => {} } }, "@/i18n": { default: { t: (key: string) => key } },
     "@/store/useAuthStore": { useAuthStore: auth },
   };
-  const exports: { api?: AxiosInstance } = {};
+  const exports: { api?: FetchClient } = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL("./api.ts", import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText, { exports, require: (name: string) => { assert.ok(name in modules, name); return modules[name]; },
@@ -52,13 +52,13 @@ function host(token: string | null = "synthetic-token-A", userId: string | undef
     __hot: { dispose(callback: () => void) { dispose = callback; } } });
   const api = exports.api!;
   function pending401(method: "get" | "put" = "put") {
-    const entered = deferred<InternalAxiosRequestConfig>(); const finish = deferred<void>();
-    let responseError: AxiosError;
+    const entered = deferred<RequestConfig>(); const finish = deferred<void>();
+    let responseError: HttpError;
     const result = api.request({ method, url: "/api/v1/config/load-balancer", data: { strategy: "weighted" },
       adapter: async config => {
         entered.resolve(config); await finish.promise;
-        responseError = new AxiosError("synthetic unauthorized", "ERR_BAD_REQUEST", config, undefined,
-          { status: 401, statusText: "Unauthorized", config, headers: new AxiosHeaders(), data: {} });
+        responseError = new HttpError("synthetic unauthorized", "ERR_BAD_REQUEST", config, undefined,
+          { status: 401, statusText: "Unauthorized", config, headers: new HttpHeaders(), data: {} });
         throw responseError;
       },
     }).then(() => { throw new Error("401 must remain a rejected request"); }, error => error);
@@ -125,8 +125,8 @@ test("current 401 on the login route does not redirect again", async () => {
 });
 test("a non-auth error stays rejected without touching current authentication", async () => {
   const h = host(); const error = await h.api.get("/api/v1/config/load-balancer", { adapter: async config => {
-    throw new AxiosError("synthetic forbidden", "ERR_BAD_REQUEST", config, undefined,
-      { status: 403, statusText: "Forbidden", config, headers: new AxiosHeaders(), data: {} });
+    throw new HttpError("synthetic forbidden", "ERR_BAD_REQUEST", config, undefined,
+      { status: 403, statusText: "Forbidden", config, headers: new HttpHeaders(), data: {} });
   } }).catch(error => error);
   assert.equal(error.response.status, 403); assert.equal(h.clears, 0); assert.equal(h.state.token, "synthetic-token-A");
 });
@@ -176,9 +176,9 @@ test("profile and loading changes retain current-request 401 recovery", async ()
 
 test("network errors retain their identity and never clear current authentication", async () => {
   const h = host(); h.seed("synthetic-token-A"); const persisted = h.local.getItem("agent-gateway-auth");
-  let transportError: AxiosError | undefined;
+  let transportError: HttpError | undefined;
   const result = await h.api.get("/controlled", { adapter: async config => {
-    transportError = new AxiosError("synthetic network failure", "ERR_NETWORK", config);
+    transportError = new HttpError("synthetic network failure", "ERR_NETWORK", config);
     throw transportError;
   } }).catch(error => error);
   assert.equal(result, transportError); assert.equal(h.clears, 0);
@@ -197,17 +197,17 @@ test("hot disposal retires pending requests even after authentication returns to
   assert.ok(h.local.getItem("agent-gateway-auth")); assert.ok(h.session.getItem("agent-gateway-auth"));
 });
 
-test("an explicit Axios retry acquires the new request generation", async () => {
+test("an explicit Fetch retry acquires the new request generation", async () => {
   const h = host(); const request = h.pending401(); const initialConfig = await request.entered;
   h.setState({ token: "synthetic-token-B" }); h.seed("synthetic-token-B");
   await request.reject(); assert.equal(h.clears, 0);
-  let retryError: AxiosError | undefined;
+  let retryError: HttpError | undefined;
   const result = await h.api.request({ ...initialConfig, adapter: async config => {
     assert.notEqual(config, initialConfig);
     assert.equal(config.headers.Authorization, undefined);
     assert.equal(config.headers["X-CSRF-Token"], "synthetic-csrf");
-    retryError = new AxiosError("synthetic retry unauthorized", "ERR_BAD_REQUEST", config, undefined,
-      { status: 401, statusText: "Unauthorized", config, headers: new AxiosHeaders(), data: {} });
+    retryError = new HttpError("synthetic retry unauthorized", "ERR_BAD_REQUEST", config, undefined,
+      { status: 401, statusText: "Unauthorized", config, headers: new HttpHeaders(), data: {} });
     throw retryError;
   } }).catch(error => error);
   assert.equal(result, retryError); assert.equal(h.clears, 1); assert.equal(h.state.token, null);
@@ -217,11 +217,11 @@ test("an explicit Axios retry acquires the new request generation", async () => 
 for (const ownership of ["missing", "cloned"] as const) {
   test(`401 with ${ownership} request config cannot clear authentication`, async () => {
     const h = host(); h.seed("synthetic-token-A"); const persisted = h.local.getItem("agent-gateway-auth");
-    let responseError: AxiosError | undefined;
+    let responseError: HttpError | undefined;
     const result = await h.api.get("/controlled", { adapter: async config => {
-      responseError = new AxiosError("synthetic unowned unauthorized", "ERR_BAD_REQUEST",
+      responseError = new HttpError("synthetic unowned unauthorized", "ERR_BAD_REQUEST",
         ownership === "missing" ? undefined : { ...config }, undefined,
-        { status: 401, statusText: "Unauthorized", config, headers: new AxiosHeaders(), data: {} });
+        { status: 401, statusText: "Unauthorized", config, headers: new HttpHeaders(), data: {} });
       throw responseError;
     } }).catch(error => error);
     assert.equal(result, responseError); assert.equal(h.clears, 0);
@@ -232,11 +232,11 @@ for (const ownership of ["missing", "cloned"] as const) {
 }
 
 
-test("real Axios dispatch propagates a sampled trace only to same-origin API URLs", async () => {
+test("real Fetch dispatch propagates a sampled trace only to same-origin API URLs", async () => {
   const client = createTelemetryClient({ origin: "https://console.example", authority: () => ({ key: "scope-a", token: "synthetic-token-A", authenticated: true }), fetch: async () => new Response(JSON.stringify({ enabled: true, sampled: true, sessionId: "0123456789abcdef0123456789abcdef", sampleRate: 0.01, ttlSeconds: 900 })) });
   await client.configure();
   const h = host("synthetic-token-A", "user-A", url => client.traceparent(url));
-  const request = async (url: string, headers?: Record<string, string>) => h.api.get(url, { headers, adapter: async config => ({ config, status: 200, statusText: "OK", headers: new AxiosHeaders(), data: config.headers.toJSON() }) });
+  const request = async (url: string, headers?: Record<string, string>) => h.api.get(url, { headers, adapter: async config => ({ config, status: 200, statusText: "OK", headers: new HttpHeaders(), data: config.headers.toJSON() }) });
   assert.match((await request("/api/v1/services?query=PRIVATE")).data.traceparent, /^00-0123456789abcdef0123456789abcdef-[a-f0-9]{16}-01$/);
   assert.equal((await request("https://outside.example/api/v1/services")).data.traceparent, undefined);
   assert.equal((await request("/api/v1/services", { traceparent: "existing-context" })).data.traceparent, "existing-context");

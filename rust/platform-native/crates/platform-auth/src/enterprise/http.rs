@@ -35,6 +35,14 @@ pub fn router(service: EnterpriseService) -> Router {
             post(authenticate_finish),
         )
         .route("/api/auth/enterprise/passkeys/{id}", delete(remove_passkey))
+        .route(
+            "/api/auth/enterprise/passkeys/step-up/start",
+            post(step_up_start),
+        )
+        .route(
+            "/api/auth/enterprise/passkeys/step-up/finish",
+            post(step_up_finish),
+        )
         .route("/api/auth/enterprise/recovery", post(recovery))
         .route(
             "/api/auth/enterprise/recovery/rotate",
@@ -224,6 +232,16 @@ async fn remove_passkey(
     let p = s.principal(&headers).await?;
     s.remove_passkey(&p, &id).await?;
     response(json!({"message":"Passkey removed; sign in again"}), None)
+}
+async fn step_up_start(State(s): State<EnterpriseService>, headers: HeaderMap) -> Result<Response> {
+    response(s.step_up_start(&headers).await?, None)
+}
+async fn step_up_finish(
+    State(s): State<EnterpriseService>,
+    headers: HeaderMap,
+    Json(input): Json<passkeys::AuthenticationFinish>,
+) -> Result<Response> {
+    response(s.step_up_finish(&headers, input).await?, None)
 }
 async fn recovery(
     State(s): State<EnterpriseService>,

@@ -39,7 +39,10 @@ fn digest_entries(mut entries: Vec<(String, String)>) -> Result<Value> {
     )
 }
 impl LexicalLifecycle {
-    pub(crate) fn with_job_fence(mut self, row: Value) -> Self { self.job_fence = Some(row); self }
+    pub(crate) fn with_job_fence(mut self, row: Value) -> Self {
+        self.job_fence = Some(row);
+        self
+    }
     async fn check_job_fence(&self, id: &str) -> Result<()> {
         if let Some(row) = &self.job_fence {
             let current = serde_json::to_value(self.store.dataset(id).await?)
@@ -64,7 +67,7 @@ impl LexicalLifecycle {
                 "SELECT to_jsonb(l) FROM kb_bm25_v2_lifecycle l WHERE dataset_id=$1",
             )
             .bind(id)
-            .fetch_optional(&self.store.pool)
+            .fetch_optional(crate::database::executor(&self.store.pool))
             .await?,
         )
     }
@@ -144,6 +147,7 @@ impl LexicalLifecycle {
     }
     pub async fn authority(&self, d: &Dataset) -> Result<Value> {
         let mut tx = self.store.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             .execute(&mut *tx)
             .await?;
@@ -272,7 +276,7 @@ impl LexicalLifecycle {
             .as_i64()
             .filter(|r| *r > 0)
             .ok_or_else(|| conflict("publication authority revision must be positive"))?;
-        let epoch:Option<i64>=sqlx::query_scalar("UPDATE kb_bm25_v2_lifecycle SET epoch=epoch+1,authority_content_revision=$4,manifest_sha256=$5,post_evidence=$6,last_error=NULL,updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$2 AND epoch=$3 AND state='active_v2' AND transition_kind IS NULL AND lock_token IS NULL RETURNING epoch").bind(&context.dataset.dataset_id).bind(&context.dataset.tenant_id).bind(certification["expected_epoch"].as_i64()).bind(revision).bind(certification["manifest_sha256"].as_str().unwrap_or("")).bind(&certification["post_evidence"]).fetch_optional(connection).await?;
+        let epoch:Option<i64>=sqlx::query_scalar("UPDATE kb_bm25_v2_lifecycle SET epoch=epoch+1,authority_content_revision=$4,manifest_sha256=$5,post_evidence=$6,last_error=NULL,updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$2 AND epoch=$3 AND state='active_v2' AND transition_kind IS NULL AND lock_token IS NULL RETURNING epoch").bind(&context.dataset.dataset_id).bind(&context.dataset.tenant_id).bind(certification["expected_epoch"].as_i64()).bind(revision).bind(certification["manifest_sha256"].as_str().unwrap_or("")).bind(&certification["post_evidence"]).fetch_optional(crate::database::connection(&mut *connection)).await?;
         epoch.ok_or_else(|| conflict("active publication epoch CAS failed"))
     }
     pub async fn verify_cross_authority(&self, id: &str) -> Result<Value> {
@@ -301,14 +305,14 @@ impl LexicalLifecycle {
         }
     }
     async fn ensure_recover(&self, d: &Dataset) -> Result<Value> {
-        sqlx::query("INSERT INTO kb_bm25_v2_lifecycle(dataset_id,tenant_id) VALUES($1,$2) ON CONFLICT(dataset_id) DO NOTHING").bind(&d.dataset_id).bind(&d.tenant_id).execute(&self.store.pool).await?;
+        sqlx::query("INSERT INTO kb_bm25_v2_lifecycle(dataset_id,tenant_id) VALUES($1,$2) ON CONFLICT(dataset_id) DO NOTHING").bind(&d.dataset_id).bind(&d.tenant_id).execute(crate::database::executor(&self.store.pool)).await?;
         let actual = self.store.dataset(&d.dataset_id).await?;
         let steady = if LexicalProfile::from_dataset(&actual)?.active {
             "active_v2"
         } else {
             "shadow"
         };
-        sqlx::query("UPDATE kb_bm25_v2_lifecycle SET state=$2,epoch=epoch+1,transition_kind=NULL,lock_token=NULL,last_error='reconciled by barrier-winning executor with PostgreSQL lexical profile',updated_at=NOW() WHERE dataset_id=$1 AND state<>$2").bind(&d.dataset_id).bind(steady).execute(&self.store.pool).await?;
+        sqlx::query("UPDATE kb_bm25_v2_lifecycle SET state=$2,epoch=epoch+1,transition_kind=NULL,lock_token=NULL,last_error='reconciled by barrier-winning executor with PostgreSQL lexical profile',updated_at=NOW() WHERE dataset_id=$1 AND state<>$2").bind(&d.dataset_id).bind(steady).execute(crate::database::executor(&self.store.pool)).await?;
         self.state(&d.dataset_id).await?.ok_or(QueryError::Database)
     }
     async fn begin(&self, d: &Dataset, kind: &str, revision: i64) -> Result<(i64, String)> {
@@ -318,7 +322,7 @@ impl LexicalLifecycle {
             &uuid::Uuid::new_v4().simple().to_string()[..16]
         );
         let state = format!("{kind}_in_progress");
-        let epoch:Option<i64>=sqlx::query_scalar("UPDATE kb_bm25_v2_lifecycle SET state=$3,epoch=epoch+1,transition_kind=$4,lock_token=$5,authority_content_revision=$6,manifest_sha256='',pre_evidence='{}'::jsonb,post_evidence='{}'::jsonb,last_error=NULL,updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$2 AND state=$7 RETURNING epoch").bind(&d.dataset_id).bind(&d.tenant_id).bind(state).bind(kind).bind(&token).bind(revision).bind(if kind=="cutover"{"shadow"}else{"active_v2"}).fetch_optional(&self.store.pool).await?;
+        let epoch:Option<i64>=sqlx::query_scalar("UPDATE kb_bm25_v2_lifecycle SET state=$3,epoch=epoch+1,transition_kind=$4,lock_token=$5,authority_content_revision=$6,manifest_sha256='',pre_evidence='{}'::jsonb,post_evidence='{}'::jsonb,last_error=NULL,updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$2 AND state=$7 RETURNING epoch").bind(&d.dataset_id).bind(&d.tenant_id).bind(state).bind(kind).bind(&token).bind(revision).bind(if kind=="cutover"{"shadow"}else{"active_v2"}).fetch_optional(crate::database::executor(&self.store.pool)).await?;
         Ok((
             epoch.ok_or_else(|| conflict("lexical lifecycle begin CAS failed"))?,
             token,
@@ -337,7 +341,7 @@ impl LexicalLifecycle {
         revision: Option<i64>,
         error: Option<String>,
     ) -> Result<()> {
-        let changed=sqlx::query("UPDATE kb_bm25_v2_lifecycle SET state=$3,epoch=epoch+1,transition_kind=NULL,lock_token=NULL,authority_content_revision=COALESCE($7,CASE WHEN $3='shadow' THEN NULL ELSE authority_content_revision END),manifest_sha256=CASE WHEN $8='' THEN manifest_sha256 ELSE $8 END,pre_evidence=COALESCE($5,pre_evidence),post_evidence=COALESCE($6,post_evidence),last_error=$9,updated_at=NOW() WHERE dataset_id=$1 AND epoch=$2 AND lock_token=$4 AND state=$10").bind(&d.dataset_id).bind(epoch).bind(state).bind(token).bind(pre).bind(post).bind(revision).bind(manifest).bind(error.map(|s|s.chars().take(2000).collect::<String>())).bind(format!("{kind}_in_progress")).execute(&self.store.pool).await?.rows_affected();
+        let changed=sqlx::query("UPDATE kb_bm25_v2_lifecycle SET state=$3,epoch=epoch+1,transition_kind=NULL,lock_token=NULL,authority_content_revision=COALESCE($7,CASE WHEN $3='shadow' THEN NULL ELSE authority_content_revision END),manifest_sha256=CASE WHEN $8='' THEN manifest_sha256 ELSE $8 END,pre_evidence=COALESCE($5,pre_evidence),post_evidence=COALESCE($6,post_evidence),last_error=$9,updated_at=NOW() WHERE dataset_id=$1 AND epoch=$2 AND lock_token=$4 AND state=$10").bind(&d.dataset_id).bind(epoch).bind(state).bind(token).bind(pre).bind(post).bind(revision).bind(manifest).bind(error.map(|s|s.chars().take(2000).collect::<String>())).bind(format!("{kind}_in_progress")).execute(crate::database::executor(&self.store.pool)).await?.rows_affected();
         if changed != 1 {
             return Err(conflict("lexical lifecycle settlement CAS failed"));
         }
@@ -351,13 +355,13 @@ impl LexicalLifecycle {
         shadow: bool,
         revision: i64,
     ) -> Result<Value> {
-        let row:Option<Value>=sqlx::query_scalar("UPDATE datasets SET index_config=jsonb_set(jsonb_set(index_config,'{retrieval,lexical,active_version}',to_jsonb($3::text),FALSE),'{retrieval,lexical,bm25_v2,shadow_write_enabled}',to_jsonb($4::boolean),FALSE),updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$6 AND is_deleted=FALSE AND content_revision=$5 AND NOT(COALESCE(index_config->'retrieval','{}'::jsonb) ? '_index_deletion_fence') AND index_config#>'{retrieval,lexical}' IS NOT NULL AND COALESCE(index_config#>>'{retrieval,lexical,active_version}','lexical_v1')=$2 RETURNING jsonb_build_object('content_revision',content_revision,'lexical',index_config#>'{retrieval,lexical}')").bind(&d.dataset_id).bind(from).bind(to).bind(shadow).bind(revision).bind(&d.tenant_id).fetch_optional(&self.store.pool).await?;
+        let row:Option<Value>=sqlx::query_scalar("UPDATE datasets SET index_config=jsonb_set(jsonb_set(index_config,'{retrieval,lexical,active_version}',to_jsonb($3::text),FALSE),'{retrieval,lexical,bm25_v2,shadow_write_enabled}',to_jsonb($4::boolean),FALSE),updated_at=NOW() WHERE dataset_id=$1 AND tenant_id=$6 AND is_deleted=FALSE AND content_revision=$5 AND NOT(COALESCE(index_config->'retrieval','{}'::jsonb) ? '_index_deletion_fence') AND index_config#>'{retrieval,lexical}' IS NOT NULL AND COALESCE(index_config#>>'{retrieval,lexical,active_version}','lexical_v1')=$2 RETURNING jsonb_build_object('content_revision',content_revision,'lexical',index_config#>'{retrieval,lexical}')").bind(&d.dataset_id).bind(from).bind(to).bind(shadow).bind(revision).bind(&d.tenant_id).fetch_optional(crate::database::executor(&self.store.pool)).await?;
         row.ok_or_else(|| conflict("dataset lexical revision/selection CAS failed"))
     }
     async fn quiesce(&self, id: &str) -> Result<()> {
         let until = Instant::now() + self.quiesce_timeout;
         loop {
-            let n:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status NOT IN ('completed','error','waiting')").bind(id).fetch_one(&self.store.pool).await?;
+            let n:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status NOT IN ('completed','error','waiting')").bind(id).fetch_one(crate::database::executor(&self.store.pool)).await?;
             if n == 0 {
                 return Ok(());
             }
@@ -370,8 +374,8 @@ impl LexicalLifecycle {
     pub async fn get_lifecycle_state(&self, id: &str) -> Result<Value> {
         let d = self.store.dataset(id).await?;
         let info = self.vectors.collection_info(d.collection()?).await?;
-        let busy:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status NOT IN ('completed','error','waiting')").bind(id).fetch_one(&self.store.pool).await?;
-        let queued:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status='waiting' AND NOT(COALESCE(metadata,'{}'::jsonb) ?| ARRAY['_document_upload_generation','_document_upload_failed','_confluence_sync_generation'])").bind(id).fetch_one(&self.store.pool).await?;
+        let busy:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status NOT IN ('completed','error','waiting')").bind(id).fetch_one(crate::database::executor(&self.store.pool)).await?;
+        let queued:i64=sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE dataset_id=$1 AND status='waiting' AND NOT(COALESCE(metadata,'{}'::jsonb) ?| ARRAY['_document_upload_generation','_document_upload_failed','_confluence_sync_generation'])").bind(id).fetch_one(crate::database::executor(&self.store.pool)).await?;
         let row = self.state(id).await?;
         Ok(
             json!({"dataset_id":id,"tenant_id":d.tenant_id,"collection_name":d.collection_name,"content_revision":d.content_revision,"state":row.as_ref().and_then(|r|r["state"].as_str()).unwrap_or("shadow"),"lifecycle":row,"postgres_profile":LexicalProfile::from_dataset(&d)?.collection_profile(),"collection_profile":info["config"]["metadata"]["knowledge_lexical"],"receipt_status":info["config"]["metadata"]["knowledge_bm25_v2_backfill"]["status"],"busy_documents":busy,"dispatchable_documents":queued}),

@@ -27,6 +27,7 @@ function host() {
     "@/pages/assistant/sse-events": { SSEEventType: {} }, "motion/react": { motion: named, AnimatePresence: "AnimatePresence" }, "lucide-react": named,
     "@/lib/utils": { cn: (...values: unknown[]) => values.filter(Boolean).join(" ") }, "@/hooks/use-toast": { toast: { error: noop } },
     "@/lib/format": { formatFileSize: () => "1 KB", getFormatLabel: () => "file" }, "@/lib/clipboard": { copyToClipboard: noop },
+    "@/api/generatedTransport": { readApiBlob: async () => { throw new Error("Artifact list recovery must not fetch file bytes"); } },
     "@/lib/authenticatedDownload": { artifactAccessErrorKey: () => "error", downloadAssistantArtifact: noop, openAssistantArtifact: noop },
   };
   function compile(path: string) { const exports: Record<string, (props: unknown) => unknown> = {}; vm.runInNewContext(ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8").replaceAll("import.meta.env", "({})"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, AbortController, require: (id: string) => { assert.ok(id in modules, id); return modules[id]; } }); return exports; }

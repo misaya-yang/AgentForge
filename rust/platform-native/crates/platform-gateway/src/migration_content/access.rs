@@ -72,6 +72,9 @@ pub async fn request_context(
         viewer.anonymous_id = host.anonymous_id.clone();
     }
     request.extensions_mut().insert(viewer.clone());
+    request.extensions_mut().insert(quiz_rate::QuizRequestContext {
+        direct_client_host: Some(ip.clone()), counted_dimensions: counted.clone(),
+    });
     let ctx = ContentRequestContext {
         path: request.uri().path().into(),
         client_ip: ip,

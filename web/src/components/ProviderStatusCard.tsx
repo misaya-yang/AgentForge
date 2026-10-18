@@ -1,3 +1,4 @@
+import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
 // web/src/components/ProviderStatusCard.tsx
 // Provider table — 1:1 port of design-handoff dashboard.jsx ProviderTable.
 // Uses letter avatars, 10-bar health meter, status pills, mono numerics.
@@ -13,7 +14,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { listModels as listAssistantModels, type ModelInfo } from "@/api/assistant";
 import type { ProviderStatus } from "@/api/gateway";
 import { listModels as listConfiguredModels, type LLMModel } from "@/api/models";
-import { listProviders, type Provider as LLMProvider } from "@/api/providers";
+import { providersOptions, type Provider as LLMProvider } from "@/api/providers";
 import { getUsageBreakdown, type UsageBreakdownItem } from "@/api/usage";
 import { useDashboardContext } from "@/pages/dashboard/DashboardContext";
 import { FONT_FAMILY, LAYOUT, getColors } from "@/pages/dashboard/styles";
@@ -530,6 +531,7 @@ function ProviderDetailModal({
 
 // ── Public table ───────────────────────────────────────────────────
 export function ProviderStatusCard() {
+  const providerReadScope = useAuthenticatedReadScope();
   const { t, i18n } = useTranslation();
   const { darkMode } = useAppStore();
   const c = getColors(darkMode);
@@ -547,8 +549,8 @@ export function ProviderStatusCard() {
     refetchInterval: 60000,
   });
   const providerConfigsQuery = useQuery({
-    queryKey: ["provider-status-provider-configs"],
-    queryFn: () => listProviders(true),
+    ...providersOptions(providerReadScope.id, true),
+    enabled: providerReadScope.isCurrent(),
     staleTime: 30000,
     refetchInterval: 60000,
   });

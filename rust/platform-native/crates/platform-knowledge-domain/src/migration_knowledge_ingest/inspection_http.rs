@@ -57,7 +57,7 @@ async fn image_segment(
         let row: Value = sqlx::query_scalar(&query)
             .bind(segment.trim())
             .bind(actor.tenant_id.trim())
-            .fetch_optional(&s.service.store.pool)
+            .fetch_optional(crate::database::executor(&s.service.store.pool))
             .await?
             .ok_or_else(|| IngestError::Validation("Image not found".into()))?;
         let id = string(&row, "dataset_id");
@@ -74,19 +74,54 @@ async fn image_segment(
             .bind(segment.trim())
             .bind(string(&dataset, "tenant_id").trim())
             .bind(id)
-            .fetch_optional(&s.service.store.pool)
+            .fetch_optional(crate::database::executor(&s.service.store.pool))
             .await?
             .ok_or_else(|| IngestError::Validation("Image not found".into()))?;
         if current["content_type"] != "image" {
             return Err(IngestError::Validation("Image not found".into()));
         }
-        Ok::<_, IngestError>(())
+        let typed: super::Dataset = serde_json::from_value(dataset.clone())?;
+        if !crate::migration_knowledge_query::serving_profile::multimodal(&typed)? {
+            return Err(IngestError::Validation(
+                "Multimodal image serving has not passed its promotion gate".into(),
+            ));
+        }
+        s.service
+            .get_document(&actor, id, string(&current, "document_id"))
+            .await?;
+        let key = super::assets::AssetStorage::image_key(
+            &actor.tenant_id,
+            string(&current, "document_id"),
+            string(&current, "image_attachment_id"),
+            string(&current, "image_filename"),
+        )?;
+        let generation = typed.generation()?;
+        let bytes = s.service.assets.download_original(&key).await?;
+        s.service
+            .indexer
+            .store
+            .require_generation(&actor, id, &generation)
+            .await?;
+        let mime = string(&current, "image_media_type");
+        if !["image/png", "image/jpeg", "image/webp"].contains(&mime) {
+            return Err(IngestError::Validation(
+                "Unsupported image media type".into(),
+            ));
+        }
+        Ok::<_, IngestError>((mime.to_owned(), bytes))
     }
     .await;
     match result {
-        Ok(()) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({"detail":"Multimodal image serving is not enabled for this release."})),
+        Ok((mime, bytes)) => (
+            [
+                (axum::http::header::CONTENT_TYPE, mime),
+                (
+                    axum::http::header::CACHE_CONTROL,
+                    "private, no-store".into(),
+                ),
+                (axum::http::header::X_CONTENT_TYPE_OPTIONS, "nosniff".into()),
+            ],
+            bytes,
         )
             .into_response(),
         Err(error) => read_error(error, StatusCode::NOT_FOUND, false),
@@ -98,10 +133,7 @@ async fn execution(
     Path((dataset, document, execution)): Path<(String, String, String)>,
 ) -> Response {
     let result = async {
-        s.service
-            .store
-            .require_dataset_access(&actor, &dataset, "viewer")
-            .await?;
+        s.service.get_document(&actor, &dataset, &document).await?;
         let row = s
             .service
             .store

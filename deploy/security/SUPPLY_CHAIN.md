@@ -101,31 +101,30 @@ Release Node caches are explicitly disabled using setup-node v6's documented
 `package-manager-cache: false`; Maven release cache is omitted. pnpm installation
 uses an official commit-pinned action and keeps version 12.11.2/frozen installs.
 
-GitHub.com's documented `$/` syntax pins all local action and reusable-workflow
-references to the running workflow commit. It is unsupported by GitHub Enterprise
-Server and by the current official actionlint 1.7.12 release. The repository's
-Rust `platform-tools workflow-lint self-ref` and its tests validate exact syntax,
-target kind, existence and symlink rejection. For local actionlint compatibility only, a temporary copy can translate
-these validated references to `./`; the actual checked-in workflows retain `$/`.
-An actionlint pass on that copy does not establish hosted execution of the new
-syntax. zizmor 1.31.1 scans the original files, including both composite actions.
+Local steps and reusable workflows use GitHub's standard `./.github/...` references.
+The running checkout supplies local actions; reusable workflows resolve with the calling
+repository commit. External actions remain full commit-SHA pinned. The earlier `$/` workaround
+and instructions to preserve that spelling are retired. The integration owner must align the
+shared workflow-reference linter and tests with this source correction; checked-in workflows
+must not be reverted to satisfy an obsolete local parser.
 
-Official references verified for this migration:
-- https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsuses
-- https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_iduses
-- https://github.com/actions/setup-node/blob/249970729cb0ef3589644e2896645e5dc5ba9c38/action.yml
-- https://github.com/pnpm/action-setup/blob/b906affcce14559ad1aafd4ab0e942779e9f58b1/action.yml
-- https://docs.npmjs.com/trusted-publishers/
+## Remaining release artifact gaps now covered in source
 
-The Rust gate can create an external compatibility copy after validating every
-workflow and rejecting symlinks throughout `.github`:
+`platform-tools delivery-policy` layers the existing signature/critical-scanning gate with
+signed current-policy license predicates, signed SPDX documents bound by canonical content
+hash, and signed native release provenance for both platform inputs. `docker-publish.yml`
+generates and verifies those artifacts before release tags are assigned. No cargo-deny license
+allowlist, exception, VEX waiver, critical ceiling or image byte ceiling is relaxed. GPL utilities
+and the documented denied Rust/font/data terms still block their actual distributions until
+properly resolved by their owners. Root LICENSE/NOTICE are now included in native images; these
+two files do not replace complete distribution-specific notices/source obligations.
 
-```sh
-platform-tools workflow-lint self-ref --actionlint-copy "$RUNNER_TEMP/workflow-actionlint-copy"
-actionlint "$RUNNER_TEMP/workflow-actionlint-copy/.github/workflows/"*.yml
-```
+OpenSSF Scorecard runs read-only without publishing results or requiring SARIF/Advanced Security.
+Its v2.5.0 action commit `fa7117db83c52d787ae5a89f350999701505d78e` was read from the peeled official
+tag and its checked-out action metadata; the action's own container uses its upstream versioned
+image. This pins action source, and does not claim that every transitive remote tool image has
+become immutable. The root action inventory must record this newly used official commit.
 
-The output path must be absolute, external to the repository and absent. Existing
-destinations, invalid references and missing targets fail before copying; no
-checked-in file is normalized. The gate's operational implementation and tests
-are Rust; no Python interpreter is required.
+See [GitOps admission, canary and Compose include contracts](../gitops/README.md). The candidate
+ApplicationSet has an empty element list and no automatic sync. A source-only delivery guard is
+not deployment acceptance, SLSA Build Level 3, a license decision, or a real rollback drill.

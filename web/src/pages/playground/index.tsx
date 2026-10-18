@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 /**
  * Playground page – slim orchestration layer.
  *
@@ -572,7 +573,7 @@ export function PlaygroundPage() {
                 const resp = await fetch(`/api/v1/assistant/sessions/${encodeURIComponent(activeSessionId)}/share`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ include_artifacts: true }),
+                  body: JSON.stringify(({ include_artifacts: true } satisfies RequestBody<"POST /api/v1/assistant/sessions/{session_id}/share">)),
                 });
                 if (!resp.ok) {
                   const errText = await resp.text();

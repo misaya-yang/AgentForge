@@ -1,6 +1,11 @@
 # Merge AFTER root docker-compose.yml; Compose >= 2.24.4 required. Opt in only.
 services:
   otel-collector:
+    user: "10001:10001"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
     image: otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806
     profiles:
     - observability
@@ -23,6 +28,11 @@ services:
       loki:
         condition: service_started
   prometheus:
+    user: "65534:65534"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
     image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
     profiles:
     - observability
@@ -45,6 +55,11 @@ services:
     - --storage.tsdb.retention.time=24h
     - --storage.tsdb.retention.size=512MB
   grafana:
+    user: "472:472"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
     image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
     profiles:
     - observability
@@ -63,6 +78,7 @@ services:
     - monitoring-grafana:/var/lib/grafana
     - ${MONITORING_GRAFANA_PASSWORD_FILE:?set Grafana admin password file}:/run/secrets/grafana-admin:ro
     environment:
+      GF_PATHS_LOGS: /var/lib/grafana/log
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin
       GF_AUTH_ANONYMOUS_ENABLED: 'false'
       GF_USERS_ALLOW_SIGN_UP: 'false'
@@ -71,6 +87,11 @@ services:
     ports:
     - 127.0.0.1:${MONITORING_GRAFANA_PORT:-3001}:3000
   loki:
+    user: "10001:10001"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
     image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
     profiles:
     - observability
@@ -89,6 +110,11 @@ services:
     command:
     - -config.file=/etc/loki/config.yaml
   alertmanager:
+    user: "65534:65534"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
     image: prom/alertmanager:v0.34.1@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
     profiles:
     - observability
@@ -107,6 +133,13 @@ services:
     command:
     - --config.file=/etc/alertmanager/alertmanager.yml
   tempo:
+    user: "10001:10001"
+    read_only: true
+    pids_limit: 256
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
     profiles:
     - observability
@@ -118,13 +151,13 @@ services:
     - tempo-data:/var/tempo
   gateway:
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
   knowledge-service:
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
   knowledge-worker:
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
   agent-runtime:
     environment:
       AI_PLATFORM_OTEL_ENABLED: 'true'

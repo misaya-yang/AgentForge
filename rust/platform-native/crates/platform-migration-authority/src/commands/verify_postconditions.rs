@@ -5,6 +5,9 @@ use crate::{
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+#[path = "verify_postconditions_batch.rs"]
+mod batch;
+
 const EXPANSION_SEQUENCE: i32 = 27;
 const CONTRACT_SEQUENCE: i32 = 28;
 const EXPANSION_SQL_SHA256: &str =
@@ -113,7 +116,7 @@ pub(super) fn for_applied_prefix(
         .find(|change| change.sequence == EXPANSION_SEQUENCE)
         .ok_or_else(|| refused("027 expansion change disappeared"))?;
     expansion.postconditions[EXPANSION_POSTCONDITION_INDEX] = replacement.clone();
-    Ok(changes)
+    batch::for_applied_prefix(epoch, applied, changes)
 }
 
 #[cfg(test)]

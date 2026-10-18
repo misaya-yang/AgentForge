@@ -1,3 +1,5 @@
+import type { RequestBody, RequestQuery } from "@/api/contracts";
+import type { ApiRequest } from "../../../sdk/typescript/generated";
 /**
  * LLM Models API client.
  *
@@ -92,40 +94,9 @@ export interface LLMModel {
   updated_at: string;
 }
 
-export interface ModelCreate {
-  model_id: string;
-  provider_id: string;
-  display_name: string;
-  context_window?: number;
-  max_output_tokens?: number;
-  supports_vision?: boolean;
-  supports_tools?: boolean;
-  input_price_per_1k?: number;
-  output_price_per_1k?: number;
-  access_level?: ModelAccessLevel;
-  is_enabled?: boolean;
-  sort_order?: number;
-  capability_overrides?: Partial<ModelCapabilityProfile>;
-}
+export type ModelCreate = ApiRequest<"POST /api/v1/models">["body"];
 
-export interface ModelUpdate {
-  // Renames are allowed — the server will UPDATE the primary key when this
-  // differs from the path's model_id. Passing the same value (or omitting it)
-  // is a no-op.
-  model_id?: string;
-  display_name?: string;
-  context_window?: number;
-  max_output_tokens?: number;
-  supports_vision?: boolean;
-  supports_tools?: boolean;
-  input_price_per_1k?: number;
-  output_price_per_1k?: number;
-  access_level?: ModelAccessLevel;
-  is_enabled?: boolean;
-  sort_order?: number;
-  capability_overrides?: Partial<ModelCapabilityProfile>;
-  expected_capability_revision?: number;
-}
+export type ModelUpdate = ApiRequest<"PUT /api/v1/models/{model_id}">["body"];
 
 export const modelQueryKeys = {
   all: ["models"] as const,
@@ -157,7 +128,7 @@ export async function listModels(
  * Create a new model.
  */
 export async function createModel(model: ModelCreate): Promise<LLMModel> {
-  const { data } = await api.post<LLMModel>("/api/v1/models", model);
+  const { data } = await api.post<LLMModel>("/api/v1/models", (model satisfies RequestBody<"POST /api/v1/models">));
   return data;
 }
 
@@ -175,7 +146,7 @@ export async function updateModel(
 ): Promise<LLMModel> {
   const { data } = await api.put<LLMModel>(
     `/api/v1/models/${encodeURIComponent(modelId)}`,
-    updates,
+    (updates satisfies RequestBody<"PUT /api/v1/models/{model_id}">),
     providerId ? { params: { provider_id: providerId } } : undefined
   );
   return data;
@@ -186,7 +157,7 @@ export async function updateModel(
  */
 export async function deleteModel(modelId: string, providerId?: string): Promise<void> {
   await api.delete(`/api/v1/models/${encodeURIComponent(modelId)}`, {
-    params: providerId ? { provider_id: providerId } : undefined,
+    params: ((providerId ? { provider_id: providerId } : {}) satisfies RequestQuery<"DELETE /api/v1/models/{model_id}">),
   });
 }
 
@@ -198,14 +169,14 @@ export async function toggleModel(
   isEnabled: boolean,
   providerId?: string
 ): Promise<LLMModel> {
-  const params: Record<string, string | boolean> = { is_enabled: isEnabled };
+  const params: RequestQuery<"PATCH /api/v1/models/{model_id}/toggle"> = { is_enabled: isEnabled };
   if (providerId) {
     params.provider_id = providerId;
   }
   const { data } = await api.patch<LLMModel>(
     `/api/v1/models/${encodeURIComponent(modelId)}/toggle`,
     undefined,
-    { params }
+    { params: ((params ?? {}) satisfies RequestQuery<"PATCH /api/v1/models/{model_id}/toggle">) }
   );
   return data;
 }
@@ -222,7 +193,7 @@ export async function resetModelCapabilities(
   capabilityRevision: number,
   providerId?: string
 ): Promise<LLMModel> {
-  const params: Record<string, string | number> = {
+  const params: RequestQuery<"POST /api/v1/models/{model_id}/capabilities/reset"> = {
     expected_capability_revision: capabilityRevision,
   };
   if (providerId) {
@@ -231,7 +202,7 @@ export async function resetModelCapabilities(
   const { data } = await api.post<LLMModel>(
     `/api/v1/models/${encodeURIComponent(modelId)}/capabilities/reset`,
     undefined,
-    { params }
+    { params: ((params ?? {}) satisfies RequestQuery<"POST /api/v1/models/{model_id}/capabilities/reset">) }
   );
   return data;
 }

@@ -72,7 +72,11 @@ fn doctor_report(endpoint: Option<&str>, config: Option<&OperatorConfig>) -> Val
         (_, Some(config)) => endpoint_status(&config.endpoint),
         _ => ("needs_action", "unavailable", "needs_action"),
     };
-    let mac = cfg!(target_os = "macos");
+    let vault_adapter = cfg!(any(
+        target_os = "macos",
+        target_os = "windows",
+        target_os = "linux"
+    ));
     let configured_keys = config.map_or(0, |value| value.trusted_platform_keys.len());
     let configured_grants = config.map_or(0, |value| value.workspace_grants.len());
     json!({
@@ -82,8 +86,10 @@ fn doctor_report(endpoint: Option<&str>, config: Option<&OperatorConfig>) -> Val
         "listener":"disabled",
         "endpoint":endpoint_status,
         "transport":transport,
-        "secure_credential_storage":if mac {"available_adapter_not_probed"} else {"unavailable"},
-        "device_pairing_signer":if mac {"available_after_secure_identity_injection"} else {"unavailable"},
+        "secure_credential_storage":if vault_adapter {"available_adapter_not_probed"} else {"unavailable"},
+        "device_key_policy":config.map(|c|c.device_key_policy),
+        "hardware_attestation":"not_claimed",
+        "device_pairing_signer":if vault_adapter {"available_after_secure_identity_injection"} else {"unavailable"},
         "platform_signature_verifier":if configured_keys>0 {"pinned_keys_configured_not_probed"} else {"unavailable"},
         "trusted_local_approval":if config.is_some_and(|value|value.approval_helper.is_some()) {"helper_configured_not_probed"} else {"unavailable"},
         "file_dispatcher":if cfg!(unix)&&configured_grants>0 {"explicit_grants_configured_not_opened"} else {"unavailable"},
@@ -253,9 +259,12 @@ async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'sta
     }
     let identity = DeviceIdentity::load_or_create(&config.state_directory, identity_store.as_ref())
         .map_err(|_| "native secure device identity unavailable")?;
-    let signer = identity
-        .pairing_signer()
-        .map_err(|_| "native pairing signer unavailable")?;
+    let signer = ai_platform_local_node::hardware_key::select(
+        config.device_key_policy,
+        &config.state_directory,
+        &identity,
+    )
+    .map_err(|_| "configured device signing key unavailable")?;
     let user_code = read_pairing_code_from_pipe()?;
     // Pin/check configured roots before sending the device proof; this call touches
     // only roots explicitly supplied in the operator config.
@@ -275,7 +284,7 @@ async fn run_pair(config_path: &Path, challenge_id: &str) -> Result<Value, &'sta
     let credential = transport
         .redeem_pairing(
             request,
-            &signer,
+            signer.as_ref(),
             outbound_store.as_ref(),
             &credential_reference,
             &verifier,
@@ -370,11 +379,13 @@ async fn run_serve(config_path: &Path) -> Result<Value, &'static str> {
     .map_err(|_| "durable approval nonce store unavailable")?;
     let runner_verifier = pinned_platform_verifier(&config)?;
 
-    let transport = transport(&config)?.with_device_signer(std::sync::Arc::new(
-        identity
-            .pairing_signer()
-            .map_err(|_| "device possession signer unavailable")?,
-    ));
+    let signer = ai_platform_local_node::hardware_key::select(
+        config.device_key_policy,
+        &config.state_directory,
+        &identity,
+    )
+    .map_err(|_| "configured device signing key unavailable")?;
+    let transport = transport(&config)?.with_device_signer(signer);
     let doctor = json!({
         "status":"ready",
         "operating_system":platform_name(),

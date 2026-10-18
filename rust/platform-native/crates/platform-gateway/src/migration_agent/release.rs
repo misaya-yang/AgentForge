@@ -3,7 +3,7 @@ use super::{
     Actor, AgentError, release_contract as contract,
     routes::AgentState,
     spec,
-    studio::{AgentRepository, audit, authorized},
+    studio::{AgentRepository, audit},
     text,
 };
 use serde_json::{Value, json};
@@ -63,7 +63,9 @@ async fn dataset(
     let d: Value = sqlx::query_scalar(&sql)
         .bind(tenant)
         .bind(super::uuid(id)?)
-        .fetch_optional(&mut *conn)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+            &mut *conn, tenant,
+        ))
         .await?
         .ok_or_else(|| error("AGENT_EVAL_DATASET_NOT_FOUND"))?;
     let sql = format!(
@@ -73,7 +75,9 @@ async fn dataset(
     let examples: Vec<Value> = sqlx::query_scalar(&sql)
         .bind(tenant)
         .bind(id)
-        .fetch_all(&mut *conn)
+        .fetch_all(ai_platform_gateway_foundation::tenant_database::connection(
+            &mut *conn, tenant,
+        ))
         .await?;
     let manifest = crate::migration_compat::eval_queue::build_eval_dataset_manifest(&d, &examples);
     Ok(
@@ -85,7 +89,7 @@ async fn eval_result(
     tenant: &str,
     mut row: Value,
 ) -> Result<Value, AgentError> {
-    let events:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_release_evaluation_events e WHERE tenant_id=$1 AND evaluation_id=$2::uuid ORDER BY sequence").bind(tenant).bind(text(&row,"evaluation_id")).fetch_all(conn).await?;
+    let events:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_release_evaluation_events e WHERE tenant_id=$1 AND evaluation_id=$2::uuid ORDER BY sequence").bind(tenant).bind(text(&row,"evaluation_id")).fetch_all(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, tenant)).await?;
     row["events"] = json!(events);
     if row["stale"].is_null() {
         row["stale"] = false.into();
@@ -105,7 +109,7 @@ async fn eval_event(
     status: &str,
     summary: &Value,
 ) -> Result<(), AgentError> {
-    sqlx::query("INSERT INTO agent_release_evaluation_events(tenant_id,evaluation_id,sequence,status,summary) SELECT $1,$2::uuid,COALESCE(MAX(sequence),0)+1,$3,$4::jsonb FROM agent_release_evaluation_events WHERE tenant_id=$1 AND evaluation_id=$2::uuid").bind(tenant).bind(id).bind(status).bind(summary).execute(conn).await?;
+    sqlx::query("INSERT INTO agent_release_evaluation_events(tenant_id,evaluation_id,sequence,status,summary) SELECT $1,$2::uuid,COALESCE(MAX(sequence),0)+1,$3,$4::jsonb FROM agent_release_evaluation_events WHERE tenant_id=$1 AND evaluation_id=$2::uuid").bind(tenant).bind(id).bind(status).bind(summary).execute(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, tenant)).await?;
     Ok(())
 }
 async fn release_result(
@@ -119,16 +123,20 @@ async fn release_result(
     )
     .bind(tenant)
     .bind(text(request, "result_version_id"))
-    .fetch_optional(&mut *conn)
+    .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+        &mut *conn, tenant,
+    ))
     .await?
     .ok_or_else(|| error("AGENT_RELEASE_RESULT_UNAVAILABLE"))?;
-    let p:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_publications p WHERE tenant_id=$1 AND publication_id=$2::uuid").bind(tenant).bind(text(request,"result_publication_id")).fetch_optional(&mut *conn).await?.ok_or_else(||error("AGENT_RELEASE_RESULT_UNAVAILABLE"))?;
+    let p:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_publications p WHERE tenant_id=$1 AND publication_id=$2::uuid").bind(tenant).bind(text(request,"result_publication_id")).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, tenant)).await?.ok_or_else(||error("AGENT_RELEASE_RESULT_UNAVAILABLE"))?;
     let e: Value = sqlx::query_scalar(
         "SELECT to_jsonb(e) FROM agent_publish_events e WHERE tenant_id=$1 AND event_id=$2::uuid",
     )
     .bind(tenant)
     .bind(text(request, "result_event_id"))
-    .fetch_optional(&mut *conn)
+    .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
+        &mut *conn, tenant,
+    ))
     .await?
     .ok_or_else(|| error("AGENT_RELEASE_RESULT_UNAVAILABLE"))?;
     Ok(json!({"version":v,"publication":p,"event":e,"idempotent_replay":replayed}))
@@ -144,10 +152,10 @@ impl AgentState {
         if !errors.is_empty() {
             return Err(AgentError::validation(errors));
         }
-        let bindings:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('type',capability_type,'resource_id',resource_id,'resource_version',resource_version,'schema_hash',schema_hash,'config',config) FROM agent_version_capabilities WHERE tenant_id=$1 AND agent_version_id=$2::uuid ORDER BY capability_type,resource_id").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).fetch_all(&mut *conn).await?;
+        let bindings:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('type',capability_type,'resource_id',resource_id,'resource_version',resource_version,'schema_hash',schema_hash,'config',config) FROM agent_version_capabilities WHERE tenant_id=$1 AND agent_version_id=$2::uuid ORDER BY capability_type,resource_id").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).fetch_all(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?;
         let count = bindings.iter().filter(|v| v["type"] == "skill").count() as i64;
         if count > 0 {
-            let active:i64=sqlx::query_scalar("SELECT COUNT(*) FROM agent_version_skill_bindings binding JOIN assistant_skill_versions version ON version.tenant_id=binding.tenant_id AND version.version_id=binding.skill_version_id JOIN assistant_skills skill ON skill.tenant_id=version.tenant_id AND skill.skill_id=version.skill_id WHERE binding.tenant_id=$1 AND binding.agent_version_id=$2::uuid AND skill.user_id=$3 AND skill.enabled=TRUE AND skill.status='active' AND skill.deleted_at IS NULL AND version.status='active' AND version.artifact_type='tenant_instruction' AND NOT EXISTS(SELECT 1 FROM assistant_skill_version_revocations revoked WHERE revoked.tenant_id=version.tenant_id AND revoked.version_id=version.version_id)").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).bind(&actor.user_id).fetch_one(&mut *conn).await?;
+            let active:i64=sqlx::query_scalar("SELECT COUNT(*) FROM agent_version_skill_bindings binding JOIN assistant_skill_versions version ON version.tenant_id=binding.tenant_id AND version.version_id=binding.skill_version_id JOIN assistant_skills skill ON skill.tenant_id=version.tenant_id AND skill.skill_id=version.skill_id WHERE binding.tenant_id=$1 AND binding.agent_version_id=$2::uuid AND skill.user_id=$3 AND skill.enabled=TRUE AND skill.status='active' AND skill.deleted_at IS NULL AND version.status='active' AND version.artifact_type='tenant_instruction' AND NOT EXISTS(SELECT 1 FROM assistant_skill_version_revocations revoked WHERE revoked.tenant_id=version.tenant_id AND revoked.version_id=version.version_id)").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).bind(&actor.user_id).fetch_one(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?;
             if active != count {
                 return Err(AgentError::validation(vec![
                     json!({"field":"capabilities","code":"AGENT_SKILL_VERSION_UNAVAILABLE","message":"one or more Skill versions are unavailable"}),
@@ -165,7 +173,7 @@ impl AgentState {
             .resources
             .seal_capabilities_in(actor, &capability_spec, true, conn)
             .await?;
-        let ids:Vec<String>=sqlx::query_scalar("SELECT dataset_id::text FROM agent_version_knowledge_bindings WHERE tenant_id=$1 AND agent_version_id=$2::uuid ORDER BY dataset_id").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).fetch_all(&mut *conn).await?;
+        let ids:Vec<String>=sqlx::query_scalar("SELECT dataset_id::text FROM agent_version_knowledge_bindings WHERE tenant_id=$1 AND agent_version_id=$2::uuid ORDER BY dataset_id").bind(&actor.tenant_id).bind(text(version,"agent_version_id")).fetch_all(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?;
         if !ids.is_empty()
             && self
                 .repository
@@ -337,7 +345,7 @@ impl AgentState {
             return Err(error("AGENT_KNOWLEDGE_UNAVAILABLE"));
         }
         let proof = &candidate["model_authorization"];
-        let row:Value=sqlx::query_scalar("SELECT jsonb_build_object('model',to_jsonb(m),'provider',to_jsonb(p)) FROM llm_models m JOIN llm_providers p ON p.tenant_id=m.tenant_id AND p.provider_id=m.provider_id WHERE m.tenant_id=$1 AND m.provider_id=$2 AND m.model_id=$3 FOR SHARE OF m,p").bind(&actor.tenant_id).bind(text(proof,"provider_id")).bind(text(proof,"model_id")).fetch_optional(&mut *conn).await?.ok_or_else(||error("AGENT_RUNTIME_MODEL_UNAVAILABLE"))?;
+        let row:Value=sqlx::query_scalar("SELECT jsonb_build_object('model',to_jsonb(m),'provider',to_jsonb(p)) FROM llm_models m JOIN llm_providers p ON p.tenant_id=m.tenant_id AND p.provider_id=m.provider_id WHERE m.tenant_id=$1 AND m.provider_id=$2 AND m.model_id=$3 FOR SHARE OF m,p").bind(&actor.tenant_id).bind(text(proof,"provider_id")).bind(text(proof,"model_id")).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, &actor.tenant_id)).await?.ok_or_else(||error("AGENT_RUNTIME_MODEL_UNAVAILABLE"))?;
         let caller = audience(
             actor,
             text(candidate, "agent_id"),
@@ -346,10 +354,7 @@ impl AgentState {
         );
         if row["model"]["is_enabled"] != true
             || row["provider"]["is_enabled"] != true
-            || !super::entry::user_can_access_model(
-                &caller,
-                row["model"]["access_level"].as_str().unwrap_or("public"),
-            )
+            || !super::entry::authorize_model(&caller, &row["model"])
         {
             return Err(error("AGENT_RUNTIME_MODEL_FORBIDDEN"));
         }
@@ -382,8 +387,15 @@ impl AgentState {
             return Err(error("AGENT_EVAL_TARGET_MISMATCH"));
         }
         contract::public_expiry(text(candidate, "auth_mode"), &candidate["channel_policy"])?;
-        let mut tx = self.repository.pool.begin().await?;
-        let agent = authorized(&mut tx, actor, id, "owner", true).await?;
+        let mut tx = ai_platform_gateway_foundation::tenant_database::begin(
+            &self.repository.pool,
+            &actor.tenant_id,
+        )
+        .await?;
+        let agent = self
+            .repository
+            .authorize_object(&mut tx, actor, id, "owner", true)
+            .await?;
         if matches!(text(&agent, "status"), "archived" | "deleted") {
             return Err(error("AGENT_ARCHIVED"));
         }
@@ -483,8 +495,14 @@ impl AgentState {
         if !matches!(status, "passed" | "failed") {
             return Err(error("AGENT_EVAL_STATUS_INVALID"));
         }
-        let mut tx = self.repository.pool.begin().await?;
-        authorized(&mut tx, actor, agent, "owner", false).await?;
+        let mut tx = ai_platform_gateway_foundation::tenant_database::begin(
+            &self.repository.pool,
+            &actor.tenant_id,
+        )
+        .await?;
+        self.repository
+            .authorize_object(&mut tx, actor, agent, "owner", false)
+            .await?;
         let mut row:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_release_evaluations e WHERE tenant_id=$1 AND agent_id=$2::uuid AND evaluation_id=$3::uuid FOR UPDATE").bind(&actor.tenant_id).bind(agent).bind(id).fetch_optional(&mut *tx).await?.ok_or_else(||AgentError::code(404,"AGENT_EVAL_NOT_FOUND"))?;
         if matches!(text(&row, "status"), "cancelled" | "passed" | "failed") {
             return eval_result(&mut tx, &actor.tenant_id, row).await;
@@ -557,8 +575,9 @@ impl AgentRepository {
         limit: i64,
     ) -> Result<Value, AgentError> {
         let mut c = self.pool.acquire().await?;
-        authorized(&mut c, actor, agent, "viewer", false).await?;
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('stale',e.status='passed' AND(d.revision<>e.draft_revision OR d.spec_hash<>e.spec_hash)) FROM agent_release_evaluations e JOIN agent_drafts d ON d.tenant_id=e.tenant_id AND d.agent_id=e.agent_id AND d.draft_id=e.draft_id WHERE e.tenant_id=$1 AND e.agent_id=$2::uuid ORDER BY e.created_at DESC,e.evaluation_id DESC LIMIT $3").bind(&actor.tenant_id).bind(agent).bind(limit.clamp(1,100)).fetch_all(&mut *c).await?;
+        self.authorize_object(&mut c, actor, agent, "viewer", false)
+            .await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('stale',e.status='passed' AND(d.revision<>e.draft_revision OR d.spec_hash<>e.spec_hash)) FROM agent_release_evaluations e JOIN agent_drafts d ON d.tenant_id=e.tenant_id AND d.agent_id=e.agent_id AND d.draft_id=e.draft_id WHERE e.tenant_id=$1 AND e.agent_id=$2::uuid ORDER BY e.created_at DESC,e.evaluation_id DESC LIMIT $3").bind(&actor.tenant_id).bind(agent).bind(limit.clamp(1,100)).fetch_all(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?;
         let mut result = Vec::new();
         for row in rows {
             result.push(eval_result(&mut c, &actor.tenant_id, row).await?);
@@ -573,8 +592,9 @@ impl AgentRepository {
         role: &str,
     ) -> Result<Value, AgentError> {
         let mut c = self.pool.acquire().await?;
-        authorized(&mut c, actor, agent, role, false).await?;
-        let row:Value=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('stale',e.status='passed' AND(d.revision<>e.draft_revision OR d.spec_hash<>e.spec_hash)) FROM agent_release_evaluations e JOIN agent_drafts d ON d.tenant_id=e.tenant_id AND d.agent_id=e.agent_id AND d.draft_id=e.draft_id WHERE e.tenant_id=$1 AND e.agent_id=$2::uuid AND e.evaluation_id=$3::uuid").bind(&actor.tenant_id).bind(agent).bind(super::uuid(id)?).fetch_optional(&mut *c).await?.ok_or_else(||AgentError::code(404,"AGENT_EVAL_NOT_FOUND"))?;
+        self.authorize_object(&mut c, actor, agent, role, false)
+            .await?;
+        let row:Value=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('stale',e.status='passed' AND(d.revision<>e.draft_revision OR d.spec_hash<>e.spec_hash)) FROM agent_release_evaluations e JOIN agent_drafts d ON d.tenant_id=e.tenant_id AND d.agent_id=e.agent_id AND d.draft_id=e.draft_id WHERE e.tenant_id=$1 AND e.agent_id=$2::uuid AND e.evaluation_id=$3::uuid").bind(&actor.tenant_id).bind(agent).bind(super::uuid(id)?).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?.ok_or_else(||AgentError::code(404,"AGENT_EVAL_NOT_FOUND"))?;
         eval_result(&mut c, &actor.tenant_id, row).await
     }
     pub async fn transition_evaluation(
@@ -584,8 +604,11 @@ impl AgentRepository {
         id: &str,
         cancel: bool,
     ) -> Result<Value, AgentError> {
-        let mut tx = self.pool.begin().await?;
-        authorized(&mut tx, actor, agent, "owner", false).await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
+        self.authorize_object(&mut tx, actor, agent, "owner", false)
+            .await?;
         let mut row:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_release_evaluations e WHERE tenant_id=$1 AND agent_id=$2::uuid AND evaluation_id=$3::uuid FOR UPDATE").bind(&actor.tenant_id).bind(agent).bind(super::uuid(id)?).fetch_optional(&mut *tx).await?.ok_or_else(||AgentError::code(404,"AGENT_EVAL_NOT_FOUND"))?;
         let old = text(&row, "status").to_owned();
         if cancel && matches!(old.as_str(), "passed" | "failed") {
@@ -638,10 +661,11 @@ impl AgentRepository {
         publication: Option<&str>,
     ) -> Result<Option<Value>, AgentError> {
         let mut c = self.pool.acquire().await?;
-        authorized(&mut c, actor, agent, "owner", false).await?;
-        let request:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation=$2 AND idempotency_key_hash=$3").bind(&actor.tenant_id).bind(operation).bind(key_hash(key)?).fetch_optional(&mut *c).await?;
+        self.authorize_object(&mut c, actor, agent, "owner", false)
+            .await?;
+        let request:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation=$2 AND idempotency_key_hash=$3").bind(&actor.tenant_id).bind(operation).bind(key_hash(key)?).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?;
         let Some(r) = request else { return Ok(None) };
-        let event:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_publish_events e WHERE tenant_id=$1 AND event_id=$2::uuid").bind(&actor.tenant_id).bind(text(&r,"result_event_id")).fetch_optional(&mut *c).await?.ok_or_else(||error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"))?;
+        let event:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_publish_events e WHERE tenant_id=$1 AND event_id=$2::uuid").bind(&actor.tenant_id).bind(text(&r,"result_event_id")).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?.ok_or_else(||error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"))?;
         let matches = r["agent_id"] == agent
             && event["operation"] == operation
             && text(&event, "reason") == text(payload, "reason")
@@ -666,8 +690,8 @@ async fn publication_quota(
     tenant: &str,
     agent: &str,
 ) -> Result<(), AgentError> {
-    let limit:i32=sqlx::query_scalar("SELECT COALESCE((SELECT max_active_publications FROM agent_governance_policies WHERE tenant_id=$1 AND agent_id=$2::uuid),10)::int").bind(tenant).bind(agent).fetch_one(&mut *conn).await?;
-    let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM agent_publications WHERE tenant_id=$1 AND agent_id=$2::uuid AND status='active'").bind(tenant).bind(agent).fetch_one(conn).await?;
+    let limit:i32=sqlx::query_scalar("SELECT COALESCE((SELECT max_active_publications FROM agent_governance_policies WHERE tenant_id=$1 AND agent_id=$2::uuid),10)::int").bind(tenant).bind(agent).fetch_one(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, tenant)).await?;
+    let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM agent_publications WHERE tenant_id=$1 AND agent_id=$2::uuid AND status='active'").bind(tenant).bind(agent).fetch_one(ai_platform_gateway_foundation::tenant_database::connection(&mut *conn, tenant)).await?;
     if count >= i64::from(limit) {
         return Err(error("AGENT_ACTIVE_PUBLICATION_QUOTA_EXCEEDED"));
     }
@@ -715,7 +739,7 @@ impl AgentState {
             )
             .await?;
         let selected = if let Some(run) = payload["experiment_run_id"].as_str() {
-            let target:Value=sqlx::query_scalar("SELECT target_snapshot FROM eval_experiment_runs WHERE tenant_id=$1 AND run_id=$2::uuid").bind(&actor.tenant_id).bind(super::uuid(run)?).fetch_optional(&self.repository.pool).await?.ok_or_else(||error("AGENT_EVAL_RUN_UNAVAILABLE"))?;
+            let target:Value=sqlx::query_scalar("SELECT target_snapshot FROM eval_experiment_runs WHERE tenant_id=$1 AND run_id=$2::uuid").bind(&actor.tenant_id).bind(super::uuid(run)?).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.repository.pool, &actor.tenant_id)).await?.ok_or_else(||error("AGENT_EVAL_RUN_UNAVAILABLE"))?;
             if target["candidate_type"] != "agent_version" || target["agent_id"] != agent {
                 return Err(error("AGENT_EVAL_RUN_IDENTITY_MISMATCH"));
             }
@@ -732,7 +756,11 @@ impl AgentState {
         let identity = json!({"operation":"promote","agent_id":agent,"evaluation_id":evaluation_id,"draft_id":candidate["draft_id"],"draft_revision":candidate["draft_revision"],"spec_hash":candidate["spec_hash"],"runtime_fingerprint_hash":candidate["runtime_fingerprint_hash"],"release_identity_hash":candidate["release_identity_hash"],"channel":candidate["channel"],"channel_policy_hash":candidate["channel_policy_hash"],"reason":text(payload,"reason"),"experiment_run_id":payload["experiment_run_id"],"selected_version_id":selected.as_ref().map(|v|&v.0),"selected_version_snapshot_hash":selected.as_ref().map(|v|&v.1)});
         let request_hash = spec::hash(&identity);
         let hashed = key_hash(key)?;
-        let mut tx = self.repository.pool.begin().await?;
+        let mut tx = ai_platform_gateway_foundation::tenant_database::begin(
+            &self.repository.pool,
+            &actor.tenant_id,
+        )
+        .await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
             .bind(format!(
                 "agent-release:{}:promote:{hashed}",
@@ -740,7 +768,10 @@ impl AgentState {
             ))
             .execute(&mut *tx)
             .await?;
-        let a = authorized(&mut tx, actor, agent, "owner", true).await?;
+        let a = self
+            .repository
+            .authorize_object(&mut tx, actor, agent, "owner", true)
+            .await?;
         if matches!(text(&a, "status"), "archived" | "deleted") {
             return Err(error("AGENT_ARCHIVED"));
         }
@@ -881,7 +912,7 @@ impl AgentState {
             return Err(AgentError::code(422, "AGENT_RELEASE_REASON_INVALID"));
         }
 
-        let p:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_publications p WHERE tenant_id=$1 AND publication_id=$2::uuid").bind(&actor.tenant_id).bind(super::uuid(publication_id)?).fetch_optional(&self.repository.pool).await?.ok_or_else(||AgentError::code(404,"AGENT_PUBLICATION_NOT_FOUND"))?;
+        let p:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_publications p WHERE tenant_id=$1 AND publication_id=$2::uuid").bind(&actor.tenant_id).bind(super::uuid(publication_id)?).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.repository.pool, &actor.tenant_id)).await?.ok_or_else(||AgentError::code(404,"AGENT_PUBLICATION_NOT_FOUND"))?;
         let agent = text(&p, "agent_id");
         if let Some(replay) = self
             .repository
@@ -924,7 +955,11 @@ impl AgentState {
         let identity = json!({"operation":"rollback","publication_id":publication_id,"target_version_id":version,"runtime_snapshot_hash":snapshot_hash,"runtime_spec_hash":spec_hash,"model_authorization_hash":spec::hash(&evidence),"reason":text(payload,"reason")});
         let request_hash = spec::hash(&identity);
         let hashed = key_hash(key)?;
-        let mut tx = self.repository.pool.begin().await?;
+        let mut tx = ai_platform_gateway_foundation::tenant_database::begin(
+            &self.repository.pool,
+            &actor.tenant_id,
+        )
+        .await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
             .bind(format!(
                 "agent-release:{}:rollback:{hashed}",
@@ -932,7 +967,10 @@ impl AgentState {
             ))
             .execute(&mut *tx)
             .await?;
-        let a = authorized(&mut tx, actor, agent, "owner", true).await?;
+        let a = self
+            .repository
+            .authorize_object(&mut tx, actor, agent, "owner", true)
+            .await?;
         if matches!(text(&a, "status"), "archived" | "deleted") {
             return Err(error("AGENT_ARCHIVED"));
         }
@@ -971,12 +1009,7 @@ impl AgentState {
         let current:Value=sqlx::query_scalar("SELECT jsonb_build_object('model',to_jsonb(m),'provider',to_jsonb(p)) FROM llm_models m JOIN llm_providers p ON p.tenant_id=m.tenant_id AND p.provider_id=m.provider_id WHERE m.tenant_id=$1 AND m.provider_id=$2 AND m.model_id=$3 FOR SHARE OF m,p").bind(&actor.tenant_id).bind(text(&snapshot["model"],"provider")).bind(text(&snapshot["model"],"id")).fetch_optional(&mut *tx).await?.ok_or_else(||error("AGENT_RUNTIME_MODEL_UNAVAILABLE"))?;
         if current["model"]["is_enabled"] != true
             || current["provider"]["is_enabled"] != true
-            || !super::entry::user_can_access_model(
-                &caller,
-                current["model"]["access_level"]
-                    .as_str()
-                    .unwrap_or("public"),
-            )
+            || !super::entry::authorize_model(&caller, &current["model"])
         {
             return Err(error("AGENT_RUNTIME_MODEL_FORBIDDEN"));
         }
@@ -1012,7 +1045,7 @@ impl AgentRepository {
         if d["revision"] != e["draft_revision"] || d["spec_hash"] != e["spec_hash"] {
             return Err(stale(d["revision"].as_i64().unwrap_or(0)));
         }
-        let p:Value=sqlx::query_scalar("SELECT to_jsonb(p)||jsonb_build_object('current_resolved_spec',v.resolved_spec,'current_version_number',v.version_number) FROM agent_publications p LEFT JOIN agent_versions v ON v.tenant_id=p.tenant_id AND v.agent_id=p.agent_id AND v.agent_version_id=p.version_id WHERE p.tenant_id=$1 AND p.agent_id=$2::uuid AND p.channel=$3").bind(&actor.tenant_id).bind(agent).bind(text(&e,"channel")).fetch_optional(&self.pool).await?.unwrap_or(Value::Null);
+        let p:Value=sqlx::query_scalar("SELECT to_jsonb(p)||jsonb_build_object('current_resolved_spec',v.resolved_spec,'current_version_number',v.version_number) FROM agent_publications p LEFT JOIN agent_versions v ON v.tenant_id=p.tenant_id AND v.agent_id=p.agent_id AND v.agent_version_id=p.version_id WHERE p.tenant_id=$1 AND p.agent_id=$2::uuid AND p.channel=$3").bind(&actor.tenant_id).bind(agent).bind(text(&e,"channel")).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &actor.tenant_id)).await?.unwrap_or(Value::Null);
         Ok(
             json!({"evaluation_id":e["evaluation_id"],"draft_revision":e["draft_revision"],"publication_id":p["publication_id"],"current_version_id":p["version_id"],"current_version_number":p["current_version_number"],"diff":contract::structured_diff(&p["current_resolved_spec"],&d["spec"])}),
         )

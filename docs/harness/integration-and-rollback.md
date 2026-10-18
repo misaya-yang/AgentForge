@@ -5,8 +5,9 @@
 > migration, browser, or provider action.
 
 **Schema:** `harness/integration-rollback/v1`
-**Status:** policy active; mechanical shared locks/gates queued for ARC-00. Fact snapshot based on
-`main@47b7a9b` on 2026-08-29 (pre-RAG merge)
+**Status:** policy active. `platform-tools resource-lock` is the canonical local
+resource controller; implementation and actual runtime state are recorded in
+the active program, not inferred from this document.
 
 ---
 
@@ -16,12 +17,12 @@ All worktrees share Docker Desktop, fixed host ports, local databases, image cac
 quota. The current Compose project also fixes its project name, network, and container names.
 Therefore the machine has one mutable AI Gateway runtime, not one runtime per worktree.
 
-Only the primary integration session may mutate that runtime. Other sessions may inspect it but may
-not start, stop, rebuild, migrate, hot-update, or run stateful E2E against it.
+The primary integration session owns that runtime. It may delegate an explicit
+operation to a module owner using the same canonical controller. Other sessions
+must not start, stop, rebuild, migrate, hot-update or run stateful E2E independently.
 
-Until mechanical shared locks are implemented, the owning session records a manual lease under the
-resolved Git common directory (`git rev-parse --git-common-dir`), not inside one worktree. The target
-layout is:
+The controller records its lease under the resolved Git common directory
+(`git rev-parse --git-common-dir`), not a private per-worktree lock. The layout is:
 
 ```text
 <git-common-dir>/ai-gateway-locks/
@@ -48,15 +49,19 @@ Cross-host or ambiguous locks require explicit user/maintainer force-release; de
 because it is old is forbidden. If future operations need more than one compatible lock, acquire in
 the documented global order; the current low-memory policy never acquires these two together.
 
-The architecture program must replace this manual receipt with one tested lock command shared by
-all Docker/DB/E2E/provider scripts and one Rust-build command; ad-hoc locks per script are not allowed.
+Use `platform-tools resource-lock status` to inspect ownership. Native builds
+enter through `scripts/new/native-container.sh --lock-controller ABS_PATH`;
+the local fresh launcher acquires its own integration lease. Do not wrap an
+already fenced launcher in another lease or introduce ad-hoc script locks.
 
 ## 2. Integration preflight
 
+Apply this preflight once for the selected stateful integration operation, not before source
+edits or every work package. Reuse unchanged facts from that operation's verified context.
 Before touching shared state, the primary session must prove:
 
-1. the feature worktree is clean except for the intended integration change;
-2. the target includes the latest accepted `main` and every preceding package;
+1. existing modifications are inventoried and protected, and candidate inputs are identified;
+2. required preceding contracts and source inputs are present in the candidate;
 3. container labels identify the same checkout;
 4. the expected source SHA can be compared with each service/image revision;
 5. current database baseline/epoch/revision and pending migrations are known;
@@ -64,12 +69,19 @@ Before touching shared state, the primary session must prove:
 7. enough memory and disk are available for the chosen operation;
 8. no other session holds or is using Docker, Rust build, DB migration, or E2E ownership.
 
-If any identity cannot be proven, stop. Testing an unknown image or another worktree is not partial
-evidence; it is invalid evidence.
+If an identity cannot be proven, defer that stateful operation and continue independent source
+work. Testing an unknown image or another worktree does not establish candidate acceptance.
 
 ## 3. Verification ladder
 
-Run the cheapest trustworthy layer first. A higher layer never repairs a lower-layer failure.
+Run the cheapest trustworthy applicable layer first, grouped by complete module or integrated
+batch. Repeat checks only after a relevant change or failure. A higher layer never repairs a
+lower-layer failure. Cosmetic warnings do not create a new implementation phase.
+
+Select layers required by the current task; this ladder is not an instruction to run every layer
+for every change. One owner executes each selected check and other agents reuse applicable results.
+Retain separate evidence where a real boundary differs, such as mocked versus actual database
+isolation, rather than repeating several local tests of the same assertion.
 
 | Layer | Environment | Required evidence | Skip rule |
 | --- | --- | --- | --- |
@@ -127,21 +139,14 @@ cache was used. “It eventually built” is not a build-economics gate.
 
 ## 5. Integration order
 
-Cross-cutting architecture work integrates in this order unless an accepted ADR says otherwise:
+Integrate complete behavior in dependency order: compatible shared contracts and storage,
+service implementation and caller wiring, then deployment/client wiring and consolidated
+verification. Implement independent modules concurrently when allowed. Module moves, cosmetic
+cleanup and documentation upkeep are not intermediate milestones.
 
-1. contract and harness truth gates;
-2. stable facades and module movement;
-3. shared contract/owner cleanup;
-4. migration runner, schema convergence and expand/backfill/contract preparation;
-5. service identities, health, and trace;
-6. Compose/distribution changes;
-7. UI/admin projection;
-8. repository hygiene and documentation lifecycle;
-9. compatibility manifest and final release journeys.
-
-Protected entrypoints are edited only after their underlying implementations are stable. Conflicts
-are resolved by re-reading the current owner and contract; never choose “ours” or “theirs” across a
-whole file.
+Coordinate one writer for shared entrypoints and lockfiles. Resolve conflicts in the affected
+code; never choose “ours” or “theirs” across a whole file. Keep the original required release
+journeys and rollback gates after functional integration.
 
 ## 6. Database integration
 
@@ -153,8 +158,14 @@ Database rollback is not the same as reverting a Git commit. Every change declar
 | `forward-fix-only` | Rollback means deploy a correcting migration and compatible application |
 | `restore-required` | Returning to the old system requires a tested backup/restore procedure |
 
-Use expand → backfill/migrate → contract. The contract step waits at least one release window and
-must not run while a supported old binary still depends on the old shape.
+For existing supported installations, use expand → backfill/migrate → contract. The contract
+step must not run while a supported old binary depends on the old shape.
+
+For a from-zero development environment, initialize the current complete schema through the
+native authority and check tables, columns, indexes, constraints and service privileges. Historical
+migration numbering, old-volume rehearsals and N-1 tests are separate compatibility/release
+acceptance; they are not prerequisites for writing code or starting the fresh development stack.
+Do not rewrite frozen historical inputs to make either path pass.
 
 The post-KB baseline requires separate receipts for:
 

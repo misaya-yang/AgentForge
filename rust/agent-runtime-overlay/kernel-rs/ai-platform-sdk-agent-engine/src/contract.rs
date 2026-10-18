@@ -49,13 +49,12 @@ pub fn parse_request(value: Value) -> Result<Launch> {
     Ok(serde_json::from_value(value)?)
 }
 impl Launch {
-    pub fn validate(&mut self, key: &str) -> Result<()> {
+    pub fn validate(&mut self) -> Result<()> {
         ensure!(self.protocol==PROTOCOL && matches!(self.framework.as_str(),"openai_agents"|"claude_agent_sdk"), "sdk_request_invalid");
         ensure!([&self.service_id,&self.tenant_id,&self.user_id,&self.request_id,&self.session_id].iter().all(|s| identity(s)),"sdk_identity_invalid");
         ensure!((1..=32).contains(&self.agent.max_turns),"sdk_max_turns_invalid");
         if self.agent.instructions.trim().is_empty() { self.agent.instructions="You are a helpful assistant.".into(); }
         for (s,limit) in [(&self.agent.model,160),(&self.agent.instructions,32768),(&self.input,262144)] { ensure!(!s.trim().is_empty() && s.len()<=limit,"sdk_request_invalid"); }
-        ensure!((16..=4096).contains(&key.len()) && !key.chars().any(|c|(c as u32)<33),"sdk_provider_key_required");
         if let Some(b)=&self.read_bridge { ensure!(grant(&b.grant) && (1..=16).contains(&b.dataset_ids.len()),"sdk_read_bridge_invalid"); let mut seen=HashSet::new(); for id in &b.dataset_ids { ensure!(uuid::Uuid::parse_str(id).is_ok() && seen.insert(id),"sdk_read_bridge_invalid"); } }
         if let Some(b)=&self.capability_bridge {
             ensure!(grant(&b.grant) && uuid::Uuid::parse_str(&b.run_id).is_ok() && b.tools.len()<=16 && b.timeout_seconds==if b.tools.is_empty(){300}else{1800},"sdk_capability_bridge_invalid");

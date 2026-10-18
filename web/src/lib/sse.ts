@@ -1,6 +1,7 @@
 export type SSEMessage<T = unknown> = { data: T };
 export type SSEEvent<T = unknown> = { event: string; data: T; id?: string };
 import { getAuthToken } from "@/lib/api";
+import { sendStreamRequest } from "./fetchClient.ts";
 import { parseSseEventPart } from "./sseEventParser";
 
 export type SSEConnectionState = "connecting" | "streaming" | "background" | "reconnecting" | "unknown_outcome" | "server_terminal";
@@ -109,7 +110,7 @@ async function* readSseParts(url: string, init: SSEFetchOptions): AsyncGenerator
   try {
     const { timeoutMs: _timeout, idleTimeoutMs: _idle, preserveControlFrames: _control, onConnectionState: _state, resume: _resume, ...request } = init;
     void _timeout; void _idle; void _control; void _state; void _resume;
-    const response = await fetch(url, { ...request, headers: authenticatedHeaders(init.headers), signal: budget.signal });
+    const response = await sendStreamRequest(url, { ...request, headers: authenticatedHeaders(init.headers), signal: budget.signal });
     if (!response.ok || !response.body) throw new SSERequestError(response.status, await readResponseErrorDetail(response));
     budget.touch();
     reader = response.body.getReader();

@@ -162,9 +162,9 @@ impl PgSourceAccess {
         &self,
         scope: &Scope,
     ) -> Result<ConversationSources, AgentError> {
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('run_id',run_id::text,'snapshot',snapshot,'created_at',created_at) FROM assistant_runtime_snapshots WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 ORDER BY created_at,snapshot_id").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(&self.pool).await?;
-        let contexts:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('run_id',turn_id::text,'chunks',payload#>'{data,chunks}','created_at',created_at) FROM assistant_runtime_items WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND event_type='compat/v1/context_retrieved' ORDER BY sequence").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(&self.pool).await?;
-        let history:Option<Value>=sqlx::query_scalar("SELECT history FROM assistant.sessions WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_optional(&self.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('run_id',run_id::text,'snapshot',snapshot,'created_at',created_at) FROM assistant_runtime_snapshots WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 ORDER BY created_at,snapshot_id").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
+        let contexts:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('run_id',turn_id::text,'chunks',payload#>'{data,chunks}','created_at',created_at) FROM assistant_runtime_items WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3 AND event_type='compat/v1/context_retrieved' ORDER BY sequence").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
+        let history:Option<Value>=sqlx::query_scalar("SELECT history FROM assistant.sessions WHERE session_id=$1 AND tenant_id=$2 AND user_id=$3").bind(&scope.session_id).bind(&scope.tenant_id).bind(&scope.user_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         let mut legacy = SourceRefs::default();
         let h = parsed(&history.unwrap_or(json!([])));
         let messages = if h.is_object() {
@@ -484,7 +484,10 @@ pub async fn memory_mode(
     .bind(&scope.tenant_id)
     .bind(&scope.user_id)
     .bind("__assistant_memory_control__")
-    .fetch_optional(pool)
+    .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+        pool,
+        &scope.tenant_id,
+    ))
     .await
     .map_err(|_| AgentError::code(503, "Memory preference is unavailable"))?;
     // sqlx already decoded JSONB. Only an actual JSON boolean can enable
@@ -506,6 +509,29 @@ pub fn user_can_access_model(actor: &Actor, access: &str) -> bool {
         "admin" => actor.is_admin(),
         _ => false,
     }
+}
+pub fn authorize_model(actor: &Actor, model: &Value) -> bool {
+    use ai_platform_auth::cedar::resources::{
+        self, ObjectAction, ObjectResource, ObjectSubject, ResourceKind,
+    };
+    let legacy = model["is_enabled"] != false
+        && user_can_access_model(actor, model["access_level"].as_str().unwrap_or("public"));
+    let subject = ObjectSubject {
+        tenant_id: actor.tenant_id.clone(),
+        user_id: actor.user_id.clone(),
+        roles: actor.roles.clone(),
+        tier: actor.tier.clone(),
+        ..Default::default()
+    };
+    let mut resource = ObjectResource::new(
+        ResourceKind::Model,
+        text(model, "model_id"),
+        text(model, "tenant_id"),
+    );
+    resource.present = model.is_object();
+    resource.enabled = model["is_enabled"] != false;
+    resource.access_level = model["access_level"].as_str().unwrap_or("public").into();
+    resources::compare_current(&subject, &resource, ObjectAction::Invoke, legacy) && legacy
 }
 /// Every launch is resolved by server-side model/capability authorities before
 /// this pure constructor. No user-provided provider/profile becomes authority.
@@ -533,3 +559,7 @@ pub fn builtin_launch(
     let agent_spec = json!({"agentId":"__builtin_assistant__","agentVersionId":null,"channel":"builtin","developerInstructions":instructions,"model":model,"knowledge":kb,"capabilities":[],"memory":{"mode":match mode{"off"=>"off","user"=>"user",_=>"session"}}});
     json!({"schema_version":"resolved-agent-launch/v1","identity":{"tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"agent_id":"__builtin_assistant__","agent_version_id":null,"draft_revision":null,"publication_id":null,"channel":"builtin","entrypoint":"assistant","auth_mode":"private"},"agent_spec":agent_spec,"model":model,"model_profile":profile,"capability_bindings":[],"knowledge_bindings":kb,"memory_policy":{"mode":mode,"profile":policy["memory_profile"].as_str().unwrap_or("basic")},"channel_policy":{"attachments":true,"high_risk_tools":true,"allowed_origins":[]},"runtime_inputs":{"readonly_capabilities":readonly},"turn_policy":policy,"fingerprints":{"spec":format!("sha256:{}",spec::hash(&agent_spec)),"tool_schema":format!("sha256:{}",spec::hash(&json!([]))),"skills":format!("sha256:{}",spec::hash(&json!([]))),"knowledge_revision":format!("sha256:{}",spec::hash(&kb))}})
 }
+
+#[cfg(test)]
+#[path = "entry_cedar_tests.rs"]
+mod cedar_differential_tests;

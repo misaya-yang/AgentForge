@@ -29,13 +29,36 @@ impl PostgresThreadStore {
         run_id: Uuid,
         context: Option<Value>,
     ) -> ThreadStoreResult<ExecutionClaim> {
+        let mut transaction = if self.tenant_controls_enabled().await? {
+            let tenant: String =
+                sqlx::query_scalar("SELECT tenant_id FROM assistant.runtime_run_scope_v1($1)")
+                    .bind(run_id)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(store_error)?;
+            self.tenant_transaction(&tenant).await?
+        } else {
+            self.pool.begin().await.map_err(store_error)?
+        };
+        if let Some(config) = self.owner_routing() {
+            // Same transaction: a routing claim cannot race run admission. The
+            // database function locks run -> thread -> owner, like recovery.
+            sqlx::query("SELECT assert_runtime_thread_owner_for_run($1,$2,$3)")
+                .bind(run_id)
+                .bind(self.instance_id)
+                .bind(config.address)
+                .execute(&mut *transaction)
+                .await
+                .map_err(store_error)?;
+        }
         let row = sqlx::query("SELECT * FROM claim_runtime_execution($1,$2,$3)")
             .bind(run_id)
             .bind(self.instance_id)
             .bind(context)
-            .fetch_one(&self.pool)
+            .fetch_one(&mut *transaction)
             .await
             .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         let claim = ExecutionClaim {
             run_id,
             owner_id: self.instance_id,
@@ -69,13 +92,18 @@ impl PostgresThreadStore {
                 message: "runtime execution is not owned by this process".to_string(),
             }
         })?;
+        let scope = self
+            .root_scope_with_deleted(thread_uuid(claim.thread_id)?, true)
+            .await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         sqlx::query("SELECT assert_runtime_execution($1,$2,$3)")
             .bind(run_id)
             .bind(claim.owner_id)
             .bind(claim.fence)
-            .execute(&self.pool)
+            .execute(&mut *transaction)
             .await
             .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         Ok(claim)
     }
 
@@ -83,6 +111,21 @@ impl PostgresThreadStore {
         &self,
         claim: &ExecutionClaim,
     ) -> ThreadStoreResult<bool> {
+        let scope = self
+            .root_scope_with_deleted(thread_uuid(claim.thread_id)?, true)
+            .await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
+        if self.owner_routing().is_some() {
+            let owned: bool = sqlx::query_scalar("SELECT heartbeat_runtime_thread_owner($1,$2)")
+                .bind(thread_uuid(claim.thread_id)?)
+                .bind(claim.owner_id)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(store_error)?;
+            if !owned {
+                return Ok(false);
+            }
+        }
         let changed = sqlx::query(
             "UPDATE assistant_runtime_execution_owners o SET lease_until=NOW()+INTERVAL '30 seconds',heartbeat_at=NOW() \
              FROM assistant_runs r WHERE o.run_id=$1 AND o.owner_id=$2 AND o.fence=$3 AND o.lease_until>NOW() \
@@ -97,7 +140,8 @@ impl PostgresThreadStore {
                    AND (s.expires_at IS NULL OR s.expires_at>clock_timestamp()) \
                    AND NOT EXISTS (SELECT 1 FROM assistant_runtime_snapshot_revocations x WHERE x.snapshot_id=s.snapshot_id))")
             .bind(claim.run_id).bind(claim.owner_id).bind(claim.fence)
-            .execute(&self.pool).await.map_err(store_error)?;
+            .execute(&mut *transaction).await.map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         Ok(changed.rows_affected() == 1)
     }
 
@@ -132,7 +176,10 @@ impl PostgresThreadStore {
         let claim = self.assert_execution(run_id).await?;
         let thread_id = Uuid::parse_str(&params.thread_id).map_err(invalid_identity)?;
         let value = serde_json::to_value(params).map_err(super::projection::json_error)?;
-        let mut tx = self.pool.begin().await.map_err(store_error)?;
+        let scope = self
+            .root_scope_with_deleted(thread_uuid(claim.thread_id)?, true)
+            .await?;
+        let mut tx = self.tenant_transaction(&scope.tenant_id).await?;
         sqlx::query("SELECT assert_runtime_execution($1,$2,$3)")
             .bind(run_id)
             .bind(claim.owner_id)
@@ -163,7 +210,10 @@ impl PostgresThreadStore {
         let claim = self
             .execution_claim(run_id)
             .ok_or_else(|| invalid_identity("claim missing"))?;
-        let mut tx = self.pool.begin().await.map_err(store_error)?;
+        let scope = self
+            .root_scope_with_deleted(thread_uuid(claim.thread_id)?, true)
+            .await?;
+        let mut tx = self.tenant_transaction(&scope.tenant_id).await?;
         sqlx::query("SELECT assert_runtime_execution_fence($1,$2,$3)")
             .bind(run_id)
             .bind(claim.owner_id)
@@ -206,8 +256,12 @@ impl PostgresThreadStore {
             },
         ));
         // Core may have committed the same output before Runtime crashed.
+        let kernel_thread_id = thread_uuid(thread_id)?;
+        let scope = self.member_scope(kernel_thread_id).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         let exists:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM assistant_runtime_items WHERE kernel_thread_id=$1 AND event_type='rollout/item' AND payload->>'type'='response_item' AND payload#>>'{payload,type}'='function_call_output' AND payload#>>'{payload,call_id}'=$2)")
-            .bind(thread_uuid(thread_id)?).bind(&params.call_id).fetch_one(&self.pool).await.map_err(store_error)?;
+            .bind(kernel_thread_id).bind(&params.call_id).fetch_one(&mut *transaction).await.map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         if !exists {
             let key = format!(
                 "rollout/recovery-output/{}/{}",

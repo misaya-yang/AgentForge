@@ -1,3 +1,4 @@
+import type { RequestQuery } from "@/api/contracts";
 /**
  * Usage API - 用量统计接口
  *
@@ -201,15 +202,7 @@ export interface QuotaUsersOverviewResponse {
 /**
  * 获取用量摘要
  */
-export async function getUsageSummary(params?: {
-  start_date?: string;
-  end_date?: string;
-  user_id?: string;
-  model?: string;
-  service_id?: string;
-  assistant_id?: string;
-  provider?: string;
-}): Promise<UsageSummary> {
+export async function getUsageSummary(params?: RequestQuery<"GET /api/v1/usage/summary">): Promise<UsageSummary> {
   const searchParams = new URLSearchParams();
   if (params?.start_date) searchParams.set("start_date", params.start_date);
   if (params?.end_date) searchParams.set("end_date", params.end_date);
@@ -227,16 +220,9 @@ export async function getUsageSummary(params?: {
 /**
  * 获取用量分解 - 按维度分类
  */
-export async function getUsageBreakdown(params: {
-  dimension: "model" | "user" | "assistant" | "service" | "provider";
-  start_date?: string;
-  end_date?: string;
-  user_id?: string;
-  service_id?: string;
-  limit?: number;
-}): Promise<UsageBreakdownResponse> {
+export async function getUsageBreakdown(params: RequestQuery<"GET /api/v1/usage/breakdown">): Promise<UsageBreakdownResponse> {
   const searchParams = new URLSearchParams();
-  searchParams.set("dimension", params.dimension);
+  searchParams.set("dimension", params.dimension ?? "model");
   if (params.start_date) searchParams.set("start_date", params.start_date);
   if (params.end_date) searchParams.set("end_date", params.end_date);
   if (params.user_id) searchParams.set("user_id", params.user_id);
@@ -250,15 +236,7 @@ export async function getUsageBreakdown(params: {
 /**
  * 获取用量时间序列
  */
-export async function getUsageTimeSeries(params?: {
-  start_date?: string;
-  end_date?: string;
-  user_id?: string;
-  model?: string;
-  service_id?: string;
-  provider?: string;
-  granularity?: string;
-}): Promise<UsageTimeSeriesResponse> {
+export async function getUsageTimeSeries(params?: RequestQuery<"GET /api/v1/usage/timeseries">): Promise<UsageTimeSeriesResponse> {
   const searchParams = new URLSearchParams();
   if (params?.start_date) searchParams.set("start_date", params.start_date);
   if (params?.end_date) searchParams.set("end_date", params.end_date);
@@ -273,15 +251,7 @@ export async function getUsageTimeSeries(params?: {
   return response.data;
 }
 
-export async function getPerformanceBreakdown(params?: {
-  start_date?: string;
-  end_date?: string;
-  user_id?: string;
-  model?: string;
-  service_id?: string;
-  provider?: string;
-  granularity?: string;
-}, signal?: AbortSignal): Promise<LatencyBreakdownResponse> {
+export async function getPerformanceBreakdown(params?: RequestQuery<"GET /api/v1/usage/performance-breakdown">, signal?: AbortSignal): Promise<LatencyBreakdownResponse> {
   const searchParams = new URLSearchParams();
   if (params?.start_date) searchParams.set("start_date", params.start_date);
   if (params?.end_date) searchParams.set("end_date", params.end_date);
@@ -298,16 +268,7 @@ export async function getPerformanceBreakdown(params?: {
   return response.data;
 }
 
-export async function getFailureBreakdown(params?: {
-  dimension?: "service" | "model" | "provider" | "user";
-  start_date?: string;
-  end_date?: string;
-  user_id?: string;
-  model?: string;
-  service_id?: string;
-  provider?: string;
-  limit?: number;
-}, signal?: AbortSignal): Promise<FailureBreakdownResponse> {
+export async function getFailureBreakdown(params?: RequestQuery<"GET /api/v1/usage/failure-breakdown">, signal?: AbortSignal): Promise<FailureBreakdownResponse> {
   const searchParams = new URLSearchParams();
   searchParams.set("dimension", params?.dimension || "service");
   if (params?.start_date) searchParams.set("start_date", params.start_date);
@@ -327,17 +288,7 @@ export async function getRequestTrace(requestId: string, signal?: AbortSignal): 
   return response.data;
 }
 
-export async function listRequestTraces(params?: {
-  start_date?: string;
-  end_date?: string;
-  service_id?: string;
-  user_id?: string;
-  provider?: string;
-  model?: string;
-  status?: "success" | "error";
-  error_type?: string;
-  limit?: number;
-}, signal?: AbortSignal): Promise<RequestTrace[]> {
+export async function listRequestTraces(params?: RequestQuery<"GET /api/v1/usage/traces">, signal?: AbortSignal): Promise<RequestTrace[]> {
   const searchParams = new URLSearchParams();
   if (params?.start_date) searchParams.set("start_date", params.start_date);
   if (params?.end_date) searchParams.set("end_date", params.end_date);
@@ -353,10 +304,7 @@ export async function listRequestTraces(params?: {
   return response.data;
 }
 
-export async function getQuotaUsersOverview(params?: {
-  limit?: number;
-  sort_by?: "daily_tokens" | "monthly_cost" | "status";
-}): Promise<QuotaUsersOverviewResponse> {
+export async function getQuotaUsersOverview(params?: RequestQuery<"GET /api/v1/quota/users-overview">): Promise<QuotaUsersOverviewResponse> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.sort_by) searchParams.set("sort_by", params.sort_by);

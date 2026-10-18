@@ -21,17 +21,17 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-impl From<CompatError> for ContentError {
-    fn from(e: CompatError) -> Self {
-        Self::new(
-            e.status,
-            if e.status == 404 {
-                json!("Conversation not found")
-            } else {
-                e.detail
-            },
-        )
-    }
+// Both domain errors are now owned by extracted crates. Keep this endpoint's
+// historical redaction/conversation-404 mapping explicit at its adapter boundary.
+fn conversation_error(error: CompatError) -> ContentError {
+    ContentError::new(
+        error.status,
+        if error.status == 404 {
+            json!("Conversation not found")
+        } else {
+            error.detail
+        },
+    )
 }
 fn compat(u: &ContentIdentity, headers: &HeaderMap) -> CompatUser {
     CompatUser {
@@ -124,7 +124,8 @@ async fn create(
     let thread = a
         .langgraph
         .create_thread(&compat(&u, &headers), &json!({"metadata":meta}))
-        .await?;
+        .await
+        .map_err(conversation_error)?;
     Ok(Json(thread_to_conversation(&thread)))
 }
 fn integer(
@@ -161,7 +162,8 @@ async fn list(
     let rows = a
         .langgraph
         .search_threads(&compat(&u, &headers), meta, limit, offset)
-        .await?;
+        .await
+        .map_err(conversation_error)?;
     Ok(Json(
         json!({"conversations":rows.iter().map(thread_to_conversation).collect::<Vec<_>>(),"total":rows.len(),"limit":limit,"offset":offset}),
     ))
@@ -173,7 +175,10 @@ async fn read(
 ) -> Result<Json<Value>, ContentError> {
     let u = a.access.resolve(&headers).await?;
     Ok(Json(thread_to_conversation(
-        &a.langgraph.get_thread(&compat(&u, &headers), &id).await?,
+        &a.langgraph
+            .get_thread(&compat(&u, &headers), &id)
+            .await
+            .map_err(conversation_error)?,
     )))
 }
 async fn delete(
@@ -184,7 +189,8 @@ async fn delete(
     let u = a.access.resolve(&headers).await?;
     a.langgraph
         .delete_thread(&compat(&u, &headers), &id)
-        .await?;
+        .await
+        .map_err(conversation_error)?;
     Ok(Json(
         json!({"status":"ok","message":"Conversation deleted"}),
     ))
@@ -201,7 +207,11 @@ async fn send(
         .await?;
     let content = super::required(&body, "content")?;
     let actor = compat(&u, &headers);
-    let thread = a.langgraph.get_thread(&actor, &id).await?;
+    let thread = a
+        .langgraph
+        .get_thread(&actor, &id)
+        .await
+        .map_err(conversation_error)?;
     let assistant = thread["metadata"]
         .get("assistant_id")
         .and_then(Value::as_str)
@@ -210,7 +220,8 @@ async fn send(
     let result = a
         .langgraph
         .run_wait(actor, &id, assistant, input, body.get("metadata").cloned())
-        .await?;
+        .await
+        .map_err(conversation_error)?;
     let messages:Vec<_>=result["messages"].as_array().map(|m|m.iter().map(|m|json!({"message_id":m.get("id").cloned().unwrap_or(json!("")),"role":m.get("type").cloned().unwrap_or(json!("assistant")),"content":m.get("content").cloned().unwrap_or(json!(""))})).collect()).unwrap_or_default();
     Ok(Json(
         json!({"conversation_id":id,"messages":messages,"status":result.get("status").cloned().unwrap_or(json!("completed"))}),
@@ -232,7 +243,8 @@ async fn history(
                 limit,
                 q.get("before").map(String::as_str),
             )
-            .await?,
+            .await
+            .map_err(conversation_error)?,
     );
     Ok(Json(
         json!({"conversation_id":id,"total":messages.len(),"messages":messages}),
@@ -301,12 +313,16 @@ async fn stream(
         .await?;
     let content = super::required(&body, "content")?;
     let actor = compat(&u, &headers);
-    let thread = a.langgraph.get_thread(&actor, &id).await?;
+    let thread = a
+        .langgraph
+        .get_thread(&actor, &id)
+        .await
+        .map_err(conversation_error)?;
     let assistant = thread["metadata"]
         .get("assistant_id")
         .cloned()
         .unwrap_or(json!("agent"));
-    let upstream=a.langgraph.run(actor,&format!("/threads/{id}/runs/stream"),json!({"assistant_id":assistant,"input":{"messages":[{"role":body.get("role").cloned().unwrap_or(json!("user")),"content":content}]},"stream_mode":body.get("stream_mode").cloned().unwrap_or(json!(["messages","updates"]))}),true).await?;
+    let upstream=a.langgraph.run(actor,&format!("/threads/{id}/runs/stream"),json!({"assistant_id":assistant,"input":{"messages":[{"role":body.get("role").cloned().unwrap_or(json!("user")),"content":content}]},"stream_mode":body.get("stream_mode").cloned().unwrap_or(json!(["messages","updates"]))}),true).await.map_err(conversation_error)?;
     let (status, body) = (upstream.status(), upstream.into_body());
     if !status.is_success() {
         return Ok((status, body).into_response());
@@ -336,4 +352,22 @@ async fn guest(State(a): State<Arc<ConversationApi>>) -> Result<Json<Value>, Con
     Ok(Json(
         json!({"session_id":session.session_id,"expires_in":a.guests.config.session_ttl,"message":"Use this session_id in X-Guest-Session header for subsequent requests"}),
     ))
+}
+
+#[cfg(test)]
+mod extracted_error_tests {
+    use super::*;
+    #[test]
+    fn conversation_adapter_preserves_not_found_redaction_and_other_error_payloads() {
+        let hidden =
+            conversation_error(CompatError::value(404, json!({"private_thread":"hidden"})));
+        assert_eq!(hidden.status, 404);
+        assert_eq!(hidden.detail, "Conversation not found");
+        for status in [401, 403, 409, 422, 503, 504] {
+            let detail = json!({"code":"original_contract","message":"upstream failed"});
+            let mapped = conversation_error(CompatError::value(status, detail.clone()));
+            assert_eq!(mapped.status, status);
+            assert_eq!(mapped.detail, detail);
+        }
+    }
 }

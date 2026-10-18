@@ -1,5 +1,6 @@
 # 01 Baseline and findings
 
+历史评审资料：描述 2026-10-16 的源码快照和技术调研。当前执行入口是 [主计划](README.md)，不按本文件的旧缺口重新开工。
 status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
 
 ## 1. Method and limits
@@ -90,12 +91,12 @@ Severity: **P0** release/safety blocker · **P1** correctness, security or major
 | F-14 | P2 | Observability | Native OTel exports traces only (`features = ["trace"]`); metrics use a separate registry; no OTLP logs; no GenAI semantic conventions. | [foundation Cargo.toml:9–11](../../../rust/platform-native/crates/platform-gateway-foundation/Cargo.toml) | U-PE-11 |
 | F-15 | P2 | Modularity | `platform-knowledge-service` depends on the whole `platform-gateway` crate. The Knowledge domain lives in `platform-gateway-integrations`. | [Cargo.toml:15](../../../rust/platform-native/crates/platform-knowledge-service/Cargo.toml) | U-KN-01 |
 | F-16 | P2 | Typing | Python semantics are embedded in the core: `python_json` canonical form, Python float spelling, CPython int limits, wall-clock breaker; routing/failover operate on `Value` records. | [python_json.rs](../../../rust/platform-native/crates/platform-gateway-foundation/src/python_json.rs); [model_failover.rs:1–20](../../../rust/platform-native/crates/platform-gateway-foundation/src/model_failover.rs); [circuit_breaker.rs:52](../../../rust/platform-native/crates/platform-gateway-foundation/src/circuit_breaker.rs) | U-GW-17, P-ADR-3 |
-| F-17 | P2 | Product law | The quiz domain is built into foundation, Gateway and Worker, although [platform law §4](../../harness/platform-architecture.md) places artifact domains in Agent Plugins. The `ai-quiz` plugin depends on a "built-in generate_quiz tool". | `quiz_*` in [foundation](../../../rust/platform-native/crates/platform-gateway-foundation/src/) and [gateway](../../../rust/platform-native/crates/platform-gateway/src/); [quiz_capabilities.rs](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/quiz_capabilities.rs); [plugin.json](../../../agent-plugins/ai-quiz/plugin.json) | U-GW-18 |
-| F-18 | P2 | Performance | The retrieval result cache is a `VecDeque` behind an async mutex, scanned linearly (≤ 2,000 entries) on every lookup. | [service.rs:35](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs) | U-KN-07 |
-| F-19 | P2 | Capability | Multimodal dataset retrieval is disabled in this release. | [service.rs:219](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs) | U-KN-06 |
-| F-20 | P2 | Efficiency | Durable workers poll (Knowledge dispatch every 1 s, recovery every 60 s); no LISTEN/NOTIFY wake-ups anywhere. | [worker.rs:28–29](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/worker.rs) | U-KN-03, U-RT-04 |
+| F-17 | P2 | Product law | The quiz domain is built into foundation, Gateway and Worker, although [platform law §4](../../harness/platform-architecture.md) places artifact domains in Agent Plugins. The `ai-quiz` plugin depends on a "built-in generate_quiz tool". | `quiz_*` in [foundation](../../../rust/platform-native/crates/platform-gateway-foundation/src/) and [gateway](../../../rust/platform-native/crates/platform-gateway/src/); quiz_capabilities.rs (`rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/quiz_capabilities.rs`, historical `22d9ce0`); [plugin.json](../../../agent-plugins/ai-quiz/plugin.json) | U-GW-18 |
+| F-18 | P2 | Performance | The retrieval result cache is a `VecDeque` behind an async mutex, scanned linearly (≤ 2,000 entries) on every lookup. | service.rs:35 (`rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs`, historical `22d9ce0`) | U-KN-07 |
+| F-19 | P2 | Capability | Multimodal dataset retrieval is disabled in this release. | service.rs:219 (`rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs`, historical `22d9ce0`) | U-KN-06 |
+| F-20 | P2 | Efficiency | Durable workers poll (Knowledge dispatch every 1 s, recovery every 60 s); no LISTEN/NOTIFY wake-ups anywhere. | worker.rs:28–29 (`rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/worker.rs`, historical `22d9ce0`) | U-KN-03, U-RT-04 |
 | F-21 | P2 | Data | 163 tables with no partitioning and no row-level security. Usage, trace, audit and event tables grow without bound in the OLTP schema. | [init.sql](../../../database/baselines/2026_08_post_kb_v1/init.sql) (0 `PARTITION BY`, 0 `CREATE POLICY`) | U-DATA-03, U-DATA-04 |
-| F-22 | P2 | Build | The native Dockerfile exists in five near-identical copies: two are byte-identical and three differ by one `ENV` line and a `final` stage. One builder compiles seven binaries for every image, so every image ships all binaries plus poppler and curl. The Runtime image's final stage is the full `rust:1.95.0-bookworm` toolchain image, and all images use Debian 12 bookworm. | [Dockerfile](../../../Dockerfile), [deploy/platform-native/Dockerfile](../../../deploy/platform-native/Dockerfile), [apps/knowledge-service/Dockerfile](../../../apps/knowledge-service/Dockerfile), [apps/sdk-agent-worker/Dockerfile](../../../apps/sdk-agent-worker/Dockerfile), [docker/migrate/Dockerfile](../../../docker/migrate/Dockerfile); [Dockerfile.runtime:79](../../../deploy/agent-runtime-source/Dockerfile.runtime) | U-PE-20, U-RT-08 |
+| F-22 | P2 | Build | The native Dockerfile exists in five near-identical copies: two are byte-identical and three differ by one `ENV` line and a `final` stage. One builder compiles seven binaries for every image, so every image ships all binaries plus poppler and curl. The Runtime image's final stage is the full `rust:1.95.0-bookworm` toolchain image, and all images use Debian 12 bookworm. | Dockerfile (`Dockerfile`, historical `22d9ce0`), [deploy/platform-native/Dockerfile](../../../deploy/platform-native/Dockerfile), apps/knowledge-service/Dockerfile (`apps/knowledge-service/Dockerfile`, historical `22d9ce0`), apps/sdk-agent-worker/Dockerfile (`apps/sdk-agent-worker/Dockerfile`, historical `22d9ce0`), docker/migrate/Dockerfile (`docker/migrate/Dockerfile`, historical `22d9ce0`); [Dockerfile.runtime:79](../../../deploy/agent-runtime-source/Dockerfile.runtime) | U-PE-20, U-RT-08 |
 | F-23 | P2 | Supply chain | 49 action references are pinned by mutable tags, and `ci.yml` has no `permissions:` block. There is no `cargo-deny`/RustSec, image scanning or signing (SBOM and provenance are produced). CI forces `CARGO_BUILD_JOBS=1`, and arm64 Rust images build under QEMU. | [ci.yml](../../../.github/workflows/ci.yml); [docker-publish.yml](../../../.github/workflows/docker-publish.yml) | U-PE-13, U-PE-21 |
 | F-24 | P2 | Licensing | Root `LICENSE` is MIT; Rust crates declare Apache-2.0; the overlay derives from an Apache-2.0 upstream; the CLI package says MIT. | [LICENSE](../../../LICENSE); [Cargo.toml:7](../../../rust/platform-native/Cargo.toml); [sdk/cli/package.json:32](../../../sdk/cli/package.json) | U-PE-15 |
 | F-25 | P2 | Web | Unused dependencies (`@langchain/core`, `@langchain/langgraph-sdk`, `marked`, `react-grid-layout`, `react-resizable`); two component systems (antd imported in 45 files, Radix in 11, Tailwind with `cva` alongside); two date libraries (dayjs 13 files, date-fns 1); `framer-motion` in 28 files; `@types/node` ^22 against Node 26. | [web/package.json:24–25, 52, 55, 59, 74](../../../web/package.json) | U-WEB-03 |
@@ -112,7 +113,7 @@ Severity: **P0** release/safety blocker · **P1** correctness, security or major
 | F-36 | P2 | Hardening | Only the Capability Worker drops capabilities and sets `no-new-privileges`. Gateway, Runtime, Knowledge, migrate and web containers run without `cap_drop`, a read-only root filesystem or a PID limit. | [docker-compose.yml:643–647](../../../docker-compose.yml) vs the other service blocks | U-PE-22 |
 | F-37 | P1 | Web security | The web image serves from `nginx:1.27-alpine`, a 2024 mainline branch that no longer receives fixes. The stable branch is 1.30.x (WEB: 1.30.1 and 1.30.2 shipped security fixes in May 2026). The CSP allows any HTTPS/WSS `connect-src` and `img-src` and inline styles; the deprecated `X-XSS-Protection` header is still sent; there is no `Permissions-Policy` or COOP header. | [web/Dockerfile:16](../../../web/Dockerfile); [web/nginx.conf:54–58](../../../web/nginx.conf) | U-WEB-01, U-WEB-09 |
 | F-38 | P1 | Recovery | `make backup` is a gzipped `pg_dump` of PostgreSQL only. There is no WAL archiving or point-in-time recovery, no Qdrant snapshot (vectors are rebuilt only by re-embedding), no object-store coverage and no backup encryption. The README §8 targets (RPO ≤ 5 min, RTO ≤ 30 min) are not reachable with this. | [Makefile:277–284](../../../Makefile), [scripts/new/backup.sh:122](../../../scripts/new/backup.sh) | U-DATA-06 |
-| F-39 | P1 | Data security | Qdrant runs without an API key or JWT access control (the client supports a key; Compose sets none). All services share one bridge network, so every container, including the web edge and the Capability Worker, can read and write every tenant's vectors directly. | [docker-compose.yml:85–106, :701–704](../../../docker-compose.yml); [qdrant.rs:130](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs) | U-DATA-08, U-PE-22 |
+| F-39 | P1 | Data security | Qdrant runs without an API key or JWT access control (the client supports a key; Compose sets none). All services share one bridge network, so every container, including the web edge and the Capability Worker, can read and write every tenant's vectors directly. | [docker-compose.yml:85–106, :701–704](../../../docker-compose.yml); qdrant.rs:130 (`rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs`, historical `22d9ce0`) | U-DATA-08, U-PE-22 |
 | F-40 | P1 | Coordination | One Redis instance (128 MB, `allkeys-lru`) holds session allowlists, capacity leases, rate-limit windows, usage streams and caches. Under memory pressure, eviction can silently drop leases and rate windows (over-admission) or sessions (forced logout). | [redis-entrypoint.sh:41–45](../../../scripts/new/redis-entrypoint.sh); [sessions.rs:27](../../../rust/platform-native/crates/platform-auth/src/sessions.rs), [capacity_admission.rs:457–463](../../../rust/platform-native/crates/platform-gateway-foundation/src/capacity_admission.rs) | U-DATA-05 |
 
 ## 4. Re-check of earlier findings against the native code
@@ -121,7 +122,7 @@ Severity: **P0** release/safety blocker · **P1** correctness, security or major
 | --- | --- | --- |
 | D19 global price overwrite by model name | **Still present** → F-03 | `model_pricing.rs:429` |
 | D22 dispatcher retries any exception | **Fixed.** Only safe methods retry, and only connect, protocol or pool failures; an uncertain unsafe call becomes `UpstreamOutcomeUnknown`. | [dispatcher.rs:140–195](../../../rust/platform-native/crates/platform-gateway-foundation/src/dispatcher.rs) |
-| D09 cross-tenant role-name dataset grant | **Fixed.** Role grants apply only when the actor's tenant matches the dataset's. | [store.rs:27–60](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/store.rs) |
+| D09 cross-tenant role-name dataset grant | **Fixed.** Role grants apply only when the actor's tenant matches the dataset's. | store.rs:27–60 (`rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/store.rs`, historical `22d9ce0`) |
 | D28 hard-coded SLO/SOC-2 claims on Login | **Removed** (no matches in `Login.tsx`) | [Login.tsx](../../../web/src/pages/Login.tsx) |
 | 2026-08-17 review: dual rate limiting | **Fixed** in native: a single HTTP rate authority charges the dimensions once | [rate.rs:1–3](../../../rust/platform-native/crates/platform-gateway/src/migration_host/rate.rs) |
 
@@ -144,3 +145,82 @@ activate. The native port preserved behaviour on purpose, so Python-era defects 
 - **Supply-chain identity for the Runtime:** source locks, receipts, SBOMs and paired image checks.
 - **Engineering harness:** affected-gate selection, boundary gates, evidence receipts and a
   single-writer discipline.
+
+<details>
+<summary>原评审决策、风险与外部资料（只作背景，不产生开工前置任务）</summary>
+
+### Proposed ADR topics
+
+These are the original decision topics. Reuse accepted decisions and implemented contracts.
+Write a new ADR only for an unresolved material architecture or compatibility choice; routine
+implementation and documentation cleanup do not wait for ADR numbering or a review ceremony.
+
+| ID | Decision | Supersedes / amends | Needed by |
+| --- | --- | --- | --- |
+| P-ADR-1 | Rust-native platform baseline; architecture entrypoint rewritten for native defaults | ADR-008 §2 ("polyglot is permanent"), vNext DEC-01, `architecture.md` §1–3 | Ph0 |
+| P-ADR-2 | Service identity and signed authority: workload identity (mTLS), Ed25519 leases with key IDs, verify-only consumers, attenuable capability tokens | ADR-007 transport notes; internal token usage | Ph1 |
+| P-ADR-3 | Canonical JSON v2 (RFC 8785 JCS) for hashes and signatures; `python_json` frozen as the v1 verifier | ADR-011 canonical hash notes | Ph1 |
+| P-ADR-4 | Native crate topology and process roles; Knowledge independent of the Gateway crate | Stage F of the cross-service evolution | Ph2 |
+| P-ADR-5 | Price book and usage ledger v2 (provider/model/version/effective range; cached and reasoning token components) | Current `model_pricing` contract | Ph1 |
+| P-ADR-6 | SDK execution scope: native engine through the Gateway model plane; A2A for external frameworks | ADR-012 | Ph2 |
+| P-ADR-7 | Sandbox isolation tiers: seccomp + Landlock baseline; gVisor/Kata/microVM tier | Capability Worker deployment notes | Ph1 (baseline), Ph3 (tier) |
+| P-ADR-8 | Desktop shell: Tauri 2 vs the existing egui app | vNext DEC-07 vs `platform-desktop` | Ph2 |
+| P-ADR-9 | Enterprise identity: OIDC/SAML SSO, SCIM 2.0, passkeys, BFF session cookies, EdDSA API tokens | `platform-auth` HS256 profile | Ph1–Ph2 |
+| P-ADR-10 | Telemetry: OTLP for all signals, pinned GenAI semantic conventions, telemetry data tier | Monitoring Compose overlay | Ph1 |
+| P-ADR-11 | Coordination substrate: Valkey 9; durable-versus-ephemeral rule for streams and caches | Redis 7 profile | Ph1 |
+| P-ADR-12 | LLM inbound API surface; passthrough-first protocol translation policy | Transparent proxy and Responses notes | Ph2 |
+
+### Review risks
+
+| Risk | Likelihood / impact | Mitigation |
+| --- | --- | --- |
+| Codex overlay drift (148 overlay files, 37 of them modified upstream files, against a moving upstream) | High / High | Seam contract tests, App Server schema-diff gate (exists), scheduled sync windows, push generic hooks upstream (U-RT-07) |
+| Refactoring destabilizes acceptance | Medium / High | Strangler order; golden fixtures, OpenAPI and event diffs as hard gates; one domain at a time; feature flags per tenant |
+| Single-writer and build-capacity bottleneck | High / Medium | Hosted CI with sccache and nextest first (U-PE-03); serialize only shared manifests and locks |
+| Protocol churn (MCP 2026-07-28 removes sessions; A2A v1.0; GenAI semconv still "Development") | Medium / Medium | Pin versions, adapters at the edge, dual-revision windows, contract fixtures per revision |
+| Client breakage from auth changes (cookies, token formats) | Medium / Medium | Dual-mode windows, per-tenant switches, SDK deprecation policy |
+| Large-table migrations (partitioning, RLS) | Medium / High | Online attach-partition migrations, rehearsal on restored snapshots, PITR before cut-over |
+| Licence or distribution changes in infrastructure | Medium / Medium | Prefer foundation-governed projects (Valkey, CloudNativePG, Qdrant OSS), mirror images, SBOM licence gate |
+| Sandbox runtimes unavailable on customer hosts | Medium / Medium | Capability detection with a fail-closed tier; documented minimum host profile |
+| Model and provider churn | High / Medium | Catalog sync (exists), versioned routing policy, eval-gated promotion |
+
+### External references (2026-10-16)
+
+Versions and dates change quickly. Re-check each one when a work package is activated.
+
+- PostgreSQL 19 schedule: RC1 planned 2026-10-15; GA moved to 2026-11-19 — [pgsql-announce thread](https://www.postgresql.org/message-id/f161fbb7-e193-42eb-bec7-4cfc1af74a50%40postgresql.org), [release notes draft](https://www.postgresql.org/docs/19/release-19.html)
+- MCP specification `2026-07-28` (stateless requests, `server/discover`, extensions, lifecycle policy) — [MCP blog](https://blog.modelcontextprotocol.io/tags/protocol/), [breaking-changes summary](https://www.developersdigest.tech/blog/mcp-2026-07-28-breaking-changes)
+- A2A protocol v1.0 under the Linux Foundation — [LF press release](https://linuxfoundation.org/press/a2a-protocol-surpasses-150-organizations-lands-in-major-cloud-platforms-and-sees-enterprise-production-use-in-first-year), [specification overview](https://tyk.io/learning-center/a2a-protocol-architecture-and-technical-specification/)
+- Axum 0.8.9 is the latest release; 0.9 is unreleased — [docs.rs](https://docs.rs/crate/axum/)
+- SQLx 0.9.0 released 2026-05-06 — [release discussion](https://github.com/launchbadge/sqlx/discussions/4271)
+- Qdrant 1.19 (Turbo4 storage, memory tiers, per-tenant IDF); 1.19.2 on 2026-10-05 — [Qdrant blog](https://qdrant.tech/blog/qdrant-1.19.x/), [releases](https://github.com/qdrant/qdrant/releases)
+- OpenTelemetry GenAI conventions still mostly "Development" — [Greptime overview](https://www.greptime.com/blogs/2026-05-09-opentelemetry-genai-semantic-conventions), [Dash0 explainer](https://www.dash0.com/knowledge/opentelemetry-genai-semantic-conventions-explained)
+- OpenTelemetry Rust 0.32 line — [release tracker](https://releasealert.dev/github/open-telemetry/opentelemetry-rust)
+- Valkey 9 (BSD-3) and Redis 8 (tri-licence including AGPLv3) — [overview](https://www.cloudmagazin.com/en/2026/04/14/valkey-9-ga-what-the-cache-fork-means-for-dach-ops-teams-18/), [Valkey 9.0 notes](https://blog.remirepo.net/post/2025/10/17/Valkey-version-9.0)
+- TypeScript 7.0 (native compiler) released July 2026 — [InfoQ](https://infoq.com/news/2026/08/typescript-7-released/)
+- Kubernetes Agent Sandbox (SIG Apps; gVisor/Kata through RuntimeClass) — [Kubernetes blog](https://kubernetes.io/zh-cn/blog/2026/03/20/running-agents-on-kubernetes-with-agent-sandbox/), [project docs](https://agent-sandbox.sigs.k8s.io/docs/getting_started/overview/)
+- Gateway API Inference Extension — [Kubernetes blog](https://kubernetes.io/blog/2025/06/05/introducing-gateway-api-inference-extension/), [KubeCon EU 2026 recap](https://www.codecentric.de/en/knowledge-hub/blog/kubecon-europe-2026-ai-agents-go-to-production)
+- agentgateway (Rust MCP/A2A/LLM proxy, Linux Foundation) — [docs](https://agentgateway.dev/docs/standalone/latest/faqs/)
+- Rust 1.99.0 released 2026-10-01 — [coverage](https://www.warp2search.net/story/rust-1990-ships-with-stable-cvariadic-functions/)
+- OpenAPI 3.2.0 (`itemSchema` for SSE/JSONL) — [OpenAPI Initiative](https://www.openapis.org/?p=4078), [SSE in 3.2](https://developerhub.io/blog/event-streaming-in-openapi-3-2-what-changed-and-why-it-matters/)
+- Node.js 26 enters LTS late October 2026 — [Node.js releases](https://nodejs.org/en/about/previous-releases)
+- jsonwebtoken 11 with pluggable crypto providers — [docs.rs](https://docs.rs/crate/jsonwebtoken/latest)
+- Embedding and reranker landscape 2026 — [Zilliz benchmark](https://www.zilliz.com/blog/choose-embedding-model-rag-2026), [Qwen3 Embedding paper](https://arxiv.org/abs/2506.05176v3)
+- Document parsing (PaddleOCR-VL 1.6, MinerU, Granite-Docling) — [benchmark write-up](https://www.besthub.dev/articles/open-source-pdf-parser-benchmark-mineru-granite-docling-paddleocr-vl-and-xberg-9f184b033c66), [PaddleOCR docs](https://www.paddleocr.ai/latest/en/)
+- pgvector 0.8.x and VectorChord 1.x — [pgvector changelog](https://pgxn.org/dist/vector/CHANGELOG.html), [VectorChord on PGXN](https://pgxn.org/dist/vchord/1.1.0/)
+- Guardrail models (Llama Prompt Guard 2, Llama Guard 4, LlamaFirewall) — [Prompt Guard](https://developer.meta.com/ai/docs/model-cards-and-prompt-formats/prompt-guard/), [LlamaFirewall paper](https://arxiv.org/pdf/2505.03574)
+- React Compiler 1.0, Vite 8, Rolldown 1.0 — [React blog](https://uk.react.dev/blog/2025/10/07/react-compiler-1), [Vite 8 announcement](https://vite.dev/blog/announcing-vite8), [Rolldown 1.0](https://voidzero.dev/posts/announcing-rolldown-1-0)
+- Vite 8 `codeSplitting` replacing `manualChunks`; plugin-react v6 without Babel — [Rolldown option reference](https://rolldown.rs/reference/OutputOptions.advancedChunks), [migration write-up](https://dev.classmethod.jp/articles/vite7-to-vite8-migration-pitfalls/), [React Compiler with plugin-react v6](https://recca0120.github.io/en/2026/04/14/react-compiler-vite-v6/)
+- TypeScript 7.0 GA without a stable programmatic API until 7.1 — [migration readiness](https://ecorpit.com/typescript-7-migration-readiness-eslint-astro-blockers-2026/), [TypeScript blog](https://devblogs.microsoft.com/typescript/progress-on-typescript-7-december-2025)
+- Debian 12 security support handed to LTS on 2026-07-12 — [Debian announcement](https://www.debian.org/News/2026/20260712.en.html)
+- Python 3.15.0 final scheduled for 2026-10-09 after rc3 — [python.org rc3](https://www.python.org/downloads/release/python-3150rc3/), [endoflife.ai](https://endoflife.ai/python/3.15)
+- nginx 1.30 stable branch and May 2026 security releases — [nginx community announcement](https://community.nginx.org/t/nginx-1-30-0-stable-version-released/9417), [release notes](https://releasebot.io/updates/nginx)
+- Codex release cadence (`rust-v0.162.1`, 2026-10-09) — [release tracker](https://www.havoptic.com/releases/openai-codex/2026/10)
+- Qdrant tiered multitenancy (1.16) and 1.19 memory tiers — [Qdrant 1.16](https://qdrant.tech/blog/qdrant-1.16.x/), [memory tiers](https://qdrant.tech/documentation/ops-configuration/memory-tiers/index.md)
+- PostgreSQL 19 draft notes (REPACK CONCURRENTLY, sequence replication, WAIT) — [release notes draft](https://postgresql.org/docs/release/19.0), [feature status](https://www.devx.com/cybersecurity/postgresql-19-new-features-release-date/)
+- CloudNativePG and the Barman Cloud plugin — [1.28 release notes](https://cloudnative-pg.io/docs/1.30/release_notes/old/v1.28)
+- MinIO Community Edition archived; self-hosted S3 alternatives — [status summary](https://glukhov.org/data-infrastructure/object-storage/minio-dead/), [alternatives](https://glukhov.org/data-infrastructure/object-storage/self-hosted-s3-alternatives/)
+- Agent Client Protocol and the Codex adapter — [Zed ACP](https://zed.dev/acp), [Codex in Zed](https://zed.dev/blog/codex-is-live-in-zed)
+- Tauri 2 changelog (IPC ACL change, updater) — [Tauri releases](https://tauri.app/release/tauri/all-versions/)
+
+</details>

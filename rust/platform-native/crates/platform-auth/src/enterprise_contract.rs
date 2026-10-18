@@ -36,6 +36,14 @@ pub fn extend(document: &mut Value) {
             vec!["flow_id", "credential"],
         ),
         ("passkeys/{id}", "delete", true, json!({}), vec![]),
+        ("passkeys/step-up/start", "post", true, json!({}), vec![]),
+        (
+            "passkeys/step-up/finish",
+            "post",
+            true,
+            json!({"flow_id":{"type":"string"},"credential":object}),
+            vec!["flow_id", "credential"],
+        ),
         (
             "recovery",
             "post",
@@ -89,6 +97,11 @@ pub fn extend(document: &mut Value) {
         op["x-webauthn-object-boundary"] = json!(
             "credential objects follow WebAuthn JSON serialization; attestation/assertion are verified by webauthn-rs, never trusted as claims"
         );
+        if suffix.starts_with("passkeys/step-up/") {
+            op["description"] = json!(
+                "Re-authenticate the same live opaque BFF cookie, tenant, user, CSRF and auth_epoch. UV, one-use challenge and credential revision/counter are verified. Does not issue or extend a session. Ordinary passkey login does not satisfy this proof. Missing enterprise policy/schema/Redis fails closed."
+            );
+        }
         document["paths"][path][method] = op;
     }
     document["paths"]["/api/auth/enterprise/oidc/callback"]["get"] = json!({"security":[],"parameters":[{"name":"state","in":"query","required":true,"schema":{"type":"string"}},{"name":"code","in":"query","required":true,"schema":{"type":"string"}},{"name":"iss","in":"query","schema":{"type":"string","format":"uri"}}],"description":"Exact GET callback only. Requires independent __Host-agentforge_oidc_flow cookie and one-use state/nonce/PKCE; issuer, audience and signature are verified. SAML terminates at an external OIDC broker.","responses":{"303":{"description":"Opaque browser session cookie and redirect to configured approved return URL"},"401":{"description":"Invalid or replayed flow"}}});
@@ -139,5 +152,21 @@ mod tests {
             d["paths"]["/api/auth/enterprise/oidc/callback"]["get"]["responses"]["303"]["description"],
             "Opaque browser session cookie and redirect to configured approved return URL"
         );
+        for suffix in ["start", "finish"] {
+            let op = &d["paths"][format!("/api/auth/enterprise/passkeys/step-up/{suffix}")]["post"];
+            assert_eq!(op["security"], json!([{"browserSession":[]}]));
+            assert!(
+                op["parameters"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["name"] == "X-CSRF-Token" && p["required"] == true)
+            );
+            assert!(
+                !op["responses"]["200"]["content"]["application/json"]["schema"]
+                    .to_string()
+                    .contains("session_type")
+            );
+        }
     }
 }

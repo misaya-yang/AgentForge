@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { isAxiosError } from "axios";
+import { isHttpError } from '@/lib/fetchClient';
 import { Alert, App as AntApp, Button, Empty, Input, Modal, Tag } from "antd";
 import { Copy, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -46,7 +46,7 @@ function TokenPanelContent({ publication, isCurrent }: { publication: AgentPubli
     } catch (error) {
       if (ownsView()) {
         setReadFailed(true);
-        if (isAxiosError(error) && [401, 403, 404].includes(error.response?.status ?? 0)) setIssued(null);
+        if (isHttpError(error) && [401, 403, 404].includes(error.response?.status ?? 0)) setIssued(null);
       }
       return false;
     } finally {
@@ -87,7 +87,7 @@ function TokenPanelContent({ publication, isCurrent }: { publication: AgentPubli
       } catch (error) {
         if (!ownsView()) return;
         blocked.current = true;
-        const denied = isAxiosError(error) && [401, 403, 404].includes(error.response?.status ?? 0);
+        const denied = isHttpError(error) && [401, 403, 404].includes(error.response?.status ?? 0);
         if (denied) setIssued(null);
         // Raw credential API errors can contain response/request secrets.
         setNotice(denied ? "tokenPermissionDenied" : "tokenOperationFailed");

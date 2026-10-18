@@ -25,6 +25,7 @@ use crate::{
         AccountingRecord, BillingStoreError, Granularity, apply_usage_aggregates_for_granularity,
     },
 };
+use ai_platform_service_primitives::data_connection::append_store;
 use chrono::{DateTime, Utc};
 use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde_json::{Map, Value, json};
@@ -39,6 +40,8 @@ use std::{
 };
 use tokio::sync::{Mutex, oneshot};
 
+#[path = "usage_settled_metrics.rs"]
+pub mod settled_metrics;
 #[path = "usage_stage_receipts.rs"]
 pub mod stage_receipts;
 
@@ -243,8 +246,12 @@ pub fn prepare_with_snapshot(
     record: &mut UsageRecord,
     snapshot: &Value,
 ) -> Result<(), UsageRecorderError> {
-    if crate::request_meter::is_snapshot(snapshot) { return crate::request_meter::prepare(record,snapshot); }
-    if crate::request_meter::request_count(record)?.is_some(){return Err(UsageRecorderError::InvalidAccountingDelta)}
+    if crate::request_meter::is_snapshot(snapshot) {
+        return crate::request_meter::prepare(record, snapshot);
+    }
+    if crate::request_meter::request_count(record)?.is_some() {
+        return Err(UsageRecorderError::InvalidAccountingDelta);
+    }
     // Only an explicit v2 marker selects the new contract. Legacy receipts and
     // their rounding remain unchanged. Validate all references before mutation.
     let price_book_v2 = snapshot.get("price_book_schema").is_some();
@@ -615,8 +622,28 @@ fn raw_query(records: &[UsageRecord]) -> QueryBuilder<'_, Postgres> {
             .push_bind(optional(&record.assistant_id))
             .push_bind(&record.model)
             .push_bind(optional(&record.provider))
-            .push_bind(if crate::request_meter::request_count(record).ok().flatten().is_some(){None}else{Some(record.input_tokens)})
-            .push_bind(if crate::request_meter::request_count(record).ok().flatten().is_some(){None}else{Some(record.output_tokens)})
+            .push_bind(
+                if crate::request_meter::request_count(record)
+                    .ok()
+                    .flatten()
+                    .is_some()
+                {
+                    None
+                } else {
+                    Some(record.input_tokens)
+                },
+            )
+            .push_bind(
+                if crate::request_meter::request_count(record)
+                    .ok()
+                    .flatten()
+                    .is_some()
+                {
+                    None
+                } else {
+                    Some(record.output_tokens)
+                },
+            )
             .push_bind(record.input_cost_cents)
             .push_bind(record.output_cost_cents)
             .push_bind(record.latency_ms)
@@ -649,15 +676,42 @@ impl UsagePersistence for PgUsagePersistence {
             if records.is_empty() {
                 return Ok(vec![]);
             }
-            for record in records {crate::request_meter::validate_raw_record(record)?;}
+            for record in records {
+                crate::request_meter::validate_raw_record(record)?;
+            }
             let collapsed = collapse_usage_records(records);
             let records: Vec<_> = collapsed.into_iter().map(|pair| pair.database).collect();
-            let mut query = raw_query(&records);
             let mut tx = self.pool.begin().await?;
-            let result = query
-                .build_query_as::<PersistedUsage>()
-                .fetch_all(&mut *tx)
-                .await?;
+            let result: Vec<PersistedUsage> =
+                if append_store::enabled(&mut tx, "gateway.usage_records").await? {
+                    // Recorder batches can contain several authenticated tenants.
+                    // Keep one transaction and the original collapsed identities;
+                    // bind each tenant before its payload/RLS/conflict operation.
+                    let mut groups = std::collections::BTreeMap::<&str, Vec<UsageRecord>>::new();
+                    for record in &records {
+                        groups
+                            .entry(&record.tenant_id)
+                            .or_default()
+                            .push(record.clone());
+                    }
+                    let mut result = Vec::with_capacity(records.len());
+                    for (tenant, group) in groups {
+                        append_store::bind_tenant(&mut tx, "gateway.usage_records", tenant).await?;
+                        let mut query = raw_query(&group);
+                        result.extend(
+                            append_store::fetch_all::<PersistedUsage>(
+                                &mut tx,
+                                "gateway.usage_records",
+                                query.build(),
+                            )
+                            .await?,
+                        );
+                    }
+                    result
+                } else {
+                    let mut query = raw_query(&records);
+                    append_store::fetch_all(&mut tx, "gateway.usage_records", query.build()).await?
+                };
             // A guarded conflict cannot become an apparent successful raw write.
             // Roll back rather than mixing providers or frozen price envelopes.
             let returned = result
@@ -692,10 +746,17 @@ impl UsagePersistence for PgUsagePersistence {
                 }
                 _ => {
                     let mut tx = self.pool.begin().await?;
-                    stage_receipts::apply_in_transaction(&mut tx, stage, records).await?;
+                    let observed =
+                        stage_receipts::apply_observed_in_transaction(&mut tx, stage, records)
+                            .await?;
                     tx.commit()
                         .await
                         .map_err(UsageRecorderError::CommitUncertain)?;
+                    if stage == AccountingStage::QuotaCounters {
+                        for record in &observed {
+                            settled_metrics::record(record);
+                        }
+                    }
                 }
             }
             Ok(StageStatus::Applied)
@@ -712,8 +773,10 @@ impl UsagePersistence for PgUsagePersistence {
                 let metadata = stage_receipts::failure_payload(stage, record, error)?;
                 let event_id = stage_receipts::failure_id(stage, record);
                 let mut tx = self.pool.begin().await?;
-                sqlx::query("INSERT INTO billing_events(event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,status,cost_amount,cost_currency,metadata,event_time) VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7,'reconciliation_required',NULL,'USD',$8,$9) ON CONFLICT(event_id) DO NOTHING")
-                    .bind(&event_id).bind(&record.request_id).bind(if record.service_id.is_empty(){"unattributed_service"}else{&record.service_id}).bind(&record.user_id).bind(&record.tenant_id).bind(&record.model).bind(&record.assistant_id).bind(&metadata).bind(Utc::now()).execute(&mut *tx).await?;
+                append_store::bind_tenant(&mut tx, "gateway.billing_events", &record.tenant_id)
+                    .await?;
+                append_store::execute(&mut *tx, "gateway.billing_events", sqlx::query("INSERT INTO billing_events(event_id,request_id,service_id,user_id,tenant_id,input_tokens,output_tokens,total_tokens,model,assistant_id,status,cost_amount,cost_currency,metadata,event_time) VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7,'reconciliation_required',NULL,'USD',$8,$9) ON CONFLICT(event_id) DO NOTHING")
+                    .bind(&event_id).bind(&record.request_id).bind(if record.service_id.is_empty(){"unattributed_service"}else{&record.service_id}).bind(&record.user_id).bind(&record.tenant_id).bind(&record.model).bind(&record.assistant_id).bind(&metadata).bind(Utc::now())).await?;
                 // Lock the stored receipt after insert/conflict. Concurrent writers
                 // cannot overwrite a stricter quarantine decision with stale flags.
                 let stored: Value = sqlx::query_scalar("SELECT metadata FROM billing_events WHERE event_id=$1 AND tenant_id=$2 AND request_id=$3 AND user_id=$4 FOR UPDATE")

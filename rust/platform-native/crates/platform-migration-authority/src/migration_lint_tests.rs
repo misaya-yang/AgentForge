@@ -34,17 +34,67 @@ fn blocked(findings: &[Finding], code: &str) -> bool {
 }
 
 #[test]
-fn source_lint_keeps_real_n1_compatibility_unrun_until_driver_executes() {
+fn archived028_lint_keeps_real_n1_compatibility_unrun_until_driver_executes() {
     let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../..")
         .canonicalize()
         .unwrap();
-    let manifest_path = repository
+    // Restore the complete real028 locked database inventory. This is historical
+    // source integrity evidence, not a database compatibility receipt.
+    struct LintInputs(PathBuf);
+    impl Drop for LintInputs {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    let inputs = LintInputs(
+        std::env::temp_dir().join(format!("migration-lint-028-{}", uuid::Uuid::new_v4())),
+    );
+    let epoch_dir = inputs
+        .0
         .join("database/migrations")
-        .join(DEFAULT_BASELINE_ID)
-        .join("manifest.yml");
-    let manifest = manifest::load_epoch_manifest(&manifest_path).unwrap();
-    let report = lint_source(&repository, manifest.epoch).unwrap();
+        .join(DEFAULT_BASELINE_ID);
+    fs::create_dir_all(&epoch_dir).unwrap();
+    let archived =
+        repository.join("docs/design/canonical-schema-successor-029-approved28-manifest.yml");
+    assert_eq!(manifest::file_sha256(&archived).unwrap(), ai_platform_migration_authority::source_tools::next_successor_029::APPROVED_028_MANIFEST_SHA256.unwrap());
+    let lock_path =
+        repository.join("docs/design/canonical-schema-successor-029-approved28-package-lock.json");
+    assert_eq!(
+        manifest::file_sha256(&lock_path).unwrap(),
+        ai_platform_migration_authority::source_tools::next_successor_029::APPROVED_028_LOCK_SHA256
+            .unwrap()
+    );
+    let lock: serde_json::Value = serde_json::from_slice(&fs::read(&lock_path).unwrap()).unwrap();
+    for (relative, expected) in lock["files_sha256"].as_object().unwrap() {
+        let source = if relative == "migrations/2026_08_post_kb_v1/manifest.yml" {
+            archived.clone()
+        } else {
+            repository.join("database").join(relative)
+        };
+        assert_eq!(
+            manifest::file_sha256(&source).unwrap(),
+            expected.as_str().unwrap()
+        );
+        let destination = inputs.0.join("database").join(relative);
+        fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        fs::copy(source, destination).unwrap();
+    }
+    fs::copy(
+        lock_path,
+        inputs
+            .0
+            .join("database/authority/package-authority-lock.json"),
+    )
+    .unwrap();
+    ai_platform_migration_authority::distribution::verify(
+        &inputs.0.join("database"),
+        DEFAULT_BASELINE_ID,
+    )
+    .unwrap();
+    let manifest = manifest::load_epoch_manifest(&epoch_dir.join("manifest.yml")).unwrap();
+    assert_eq!(manifest.epoch, 28);
+    let report = lint_source(&inputs.0, 28).unwrap();
     assert_eq!(report.n1_compatibility, "not_run");
     assert!(report.n1_rehearsal_required);
     assert!(!report.release_eligible);
@@ -53,6 +103,94 @@ fn source_lint_keeps_real_n1_compatibility_unrun_until_driver_executes() {
         report.status,
         "n1_application_compatibility_executed_passed"
     );
+}
+
+#[test]
+fn fixed029_schema_facts_are_recognized_without_claiming_n1_acceptance() {
+    let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../..")
+        .canonicalize()
+        .unwrap();
+    let epoch = manifest::load_epoch_manifest(
+        &repository.join("database/migrations/2026_08_post_kb_v1/manifest.yml"),
+    )
+    .unwrap();
+    let change = &epoch.changes[28];
+    let sql = fs::read_to_string(
+        repository
+            .join("database/migrations/2026_08_post_kb_v1")
+            .join(&change.file),
+    )
+    .unwrap();
+    let (findings, phase) = lint_sql(&sql, change).unwrap();
+    assert_eq!(phase, "expand");
+    assert!(
+        !findings.iter().any(|f| f.severity == "blocked"),
+        "{findings:?}"
+    );
+    assert!(findings.iter().any(|f| f.severity == "requires_n1"));
+    assert!(reviewed_schema::exact029(&sql, change));
+    let mut altered = change.clone();
+    altered.preconditions[0].push(' ');
+    let (findings, _) = lint_sql(&sql, &altered).unwrap();
+    assert!(blocked(
+        &findings,
+        "dynamic_sql_inside_migration_body_is_not_reviewable"
+    ));
+    assert!(blocked(
+        &findings,
+        "expand_and_contract_must_be_separate_successors"
+    ));
+    let drift = sql.replace(" VALIDATE CONSTRAINT ", " DROP CONSTRAINT ");
+    assert!(!reviewed_schema::exact029(&drift, change));
+    let (findings, _) = lint_sql(&format!("{sql}\n"), change).unwrap();
+    assert!(blocked(
+        &findings,
+        "add_not_null_requires_expand_backfill_contract"
+    ));
+    assert!(blocked(
+        &findings,
+        "unique_constraint_requires_concurrent_unique_index"
+    ));
+}
+
+#[test]
+fn source_owned_service_steps_keep_split_contract_and_n1_gates() {
+    let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../..")
+        .canonicalize()
+        .unwrap();
+    let catalog: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/design/proposals/service-successors/catalog.json"
+    ))
+    .unwrap();
+    for step in catalog["steps"].as_array().unwrap() {
+        let change: ChangeSpec = serde_json::from_value(step["change"].clone()).unwrap();
+        let sql =
+            fs::read_to_string(repository.join(step["sql_source"].as_str().unwrap())).unwrap();
+        let (findings, phase) = lint_sql(&sql, &change).unwrap();
+        assert!(
+            !findings.iter().any(|f| f.severity == "blocked"),
+            "sequence{}: {findings:?}",
+            change.sequence
+        );
+        assert_eq!(phase, step["compatibility_phase"].as_str().unwrap());
+        assert!(findings.iter().any(|f| f.severity == "requires_n1"));
+        let mut altered = change.clone();
+        altered.notes.push(' ');
+        let (findings, _) = lint_sql(&sql, &altered).unwrap();
+        if matches!(change.sequence, 32 | 34) {
+            assert!(blocked(
+                &findings,
+                "set_not_null_requires_prevalidated_check"
+            ));
+        } else {
+            assert!(blocked(
+                &findings,
+                "dynamic_sql_inside_migration_body_is_not_reviewable"
+            ));
+        }
+    }
 }
 
 #[test]
@@ -485,4 +623,31 @@ fn fixed027_grants_require_exact_template_and_unchanged_owner_boundary() {
             "dynamic_sql_inside_migration_body_is_not_reviewable"
         ));
     }
+}
+
+#[test]
+fn partition_installer_facts_do_not_allow_edited_maintenance_or_executed_ddl() {
+    let catalog: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/design/proposals/service-successors/catalog.json"
+    ))
+    .unwrap();
+    let step = &catalog["steps"][5];
+    let spec: ChangeSpec = serde_json::from_value(step["change"].clone()).unwrap();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    let sql = fs::read_to_string(root.join(step["sql_source"].as_str().unwrap())).unwrap();
+    assert!(reviewed_schema::partition_installer(&sql, &spec));
+    for invalid in [
+        format!("{sql}\n"),
+        sql.replace("scope_sha256=p_scope_sha256", "scope_sha256 IS NOT NULL"),
+        format!("{sql}\nCREATE INDEX CONCURRENTLY unsafe ON gateway.usage_records(created_at);"),
+    ] {
+        assert!(!reviewed_schema::partition_installer(&invalid, &spec));
+        let (findings, _) = lint_sql(&invalid, &spec).unwrap();
+        assert!(blocked(
+            &findings,
+            "dynamic_sql_inside_migration_body_is_not_reviewable"
+        ));
+    }
+    let (findings, _) = lint_sql(&format!("{sql}\nSET lock_timeout=0;"), &spec).unwrap();
+    assert!(blocked(&findings, "migration_sql_overrides_lock_timeout"));
 }

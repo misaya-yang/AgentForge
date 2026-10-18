@@ -197,7 +197,10 @@ impl QueryStore {
         q.push(" ORDER BY q.created_at DESC,q.id DESC LIMIT ")
             .push_bind((filter.limit + 1) as i64)
             .push(") page");
-        let rows: Vec<Value> = q.build_query_scalar().fetch_all(&self.pool).await?;
+        let rows: Vec<Value> = q
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?;
         page(rows, filter.limit, "id", "queries")
     }
     pub async fn upsert_query_feedback(
@@ -212,7 +215,7 @@ impl QueryStore {
         }
         let dataset = self.require_dataset_access(user, id, "viewer").await?;
         let trace = payload.trace_id.to_string();
-        let observed:Option<Option<String>>=sqlx::query_scalar("SELECT q.query_fingerprint FROM dataset_queries q JOIN datasets d ON d.dataset_id=q.dataset_id WHERE q.dataset_id=$1 AND d.tenant_id=$2 AND d.is_deleted=FALSE AND q.trace_id=$3::uuid").bind(id).bind(&dataset.tenant_id).bind(&trace).fetch_optional(&self.pool).await?;
+        let observed:Option<Option<String>>=sqlx::query_scalar("SELECT q.query_fingerprint FROM dataset_queries q JOIN datasets d ON d.dataset_id=q.dataset_id WHERE q.dataset_id=$1 AND d.tenant_id=$2 AND d.is_deleted=FALSE AND q.trace_id=$3::uuid").bind(id).bind(&dataset.tenant_id).bind(&trace).fetch_optional(crate::database::executor(&self.pool)).await?;
         if observed
             .flatten()
             .is_some_and(|f| !f.is_empty() && f != payload.query_fingerprint)
@@ -229,7 +232,7 @@ impl QueryStore {
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty());
-        let mut row:Value=sqlx::query_scalar("WITH saved AS(INSERT INTO knowledge.dataset_query_feedback(tenant_id,dataset_id,trace_id,query_fingerprint,target_type,target_id,rating,reason_code,comment,created_by) VALUES($1,$2,$3::uuid,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(tenant_id,dataset_id,trace_id,target_type,target_id,created_by) DO UPDATE SET query_fingerprint=EXCLUDED.query_fingerprint,rating=EXCLUDED.rating,reason_code=EXCLUDED.reason_code,comment=EXCLUDED.comment,updated_at=NOW() RETURNING *) SELECT to_jsonb(saved) FROM saved").bind(&dataset.tenant_id).bind(id).bind(&trace).bind(&payload.query_fingerprint).bind(&payload.target_type).bind(target).bind(&payload.rating).bind(&payload.reason_code).bind(comment).bind(&user.user_id).fetch_one(&self.pool).await?;
+        let mut row:Value=sqlx::query_scalar("WITH saved AS(INSERT INTO knowledge.dataset_query_feedback(tenant_id,dataset_id,trace_id,query_fingerprint,target_type,target_id,rating,reason_code,comment,created_by) VALUES($1,$2,$3::uuid,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(tenant_id,dataset_id,trace_id,target_type,target_id,created_by) DO UPDATE SET query_fingerprint=EXCLUDED.query_fingerprint,rating=EXCLUDED.rating,reason_code=EXCLUDED.reason_code,comment=EXCLUDED.comment,updated_at=NOW() RETURNING *) SELECT to_jsonb(saved) FROM saved").bind(&dataset.tenant_id).bind(id).bind(&trace).bind(&payload.query_fingerprint).bind(&payload.target_type).bind(target).bind(&payload.rating).bind(&payload.reason_code).bind(comment).bind(&user.user_id).fetch_one(crate::database::executor(&self.pool)).await?;
         row["query_content"] = Value::Null;
         Ok(row)
     }
@@ -293,7 +296,10 @@ impl QueryStore {
         q.push(" ORDER BY f.created_at DESC,f.feedback_id DESC LIMIT ")
             .push_bind((filter.limit + 1) as i64)
             .push(") page");
-        let rows: Vec<Value> = q.build_query_scalar().fetch_all(&self.pool).await?;
+        let rows: Vec<Value> = q
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?;
         page(rows, filter.limit, "feedback_id", "feedback")
     }
 }

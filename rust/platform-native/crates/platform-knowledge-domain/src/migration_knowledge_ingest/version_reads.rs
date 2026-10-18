@@ -18,7 +18,16 @@ impl IngestionService {
         {
             return Err(IngestError::Validation("Document not found".into()));
         }
-        self.store.get_document(ds, id).await
+        let doc = self.store.get_document(ds, id).await?;
+        let actor = crate::migration_knowledge_query::model_plane::verified_actor_scope();
+        if !crate::migration_knowledge_query::document_acl::allowed(
+            string(&doc, "source_type"),
+            &doc["metadata"],
+            actor.as_ref(),
+        ) {
+            return Err(IngestError::NotFound);
+        }
+        Ok(doc)
     }
     pub async fn list_document_versions(
         &self,
@@ -35,7 +44,7 @@ impl IngestionService {
         let generation = super::document_reads::generation(&ds)?;
         let doc = self.require_active_document(&ds, document).await?;
         let versions = self.store.list_versions(document, limit, offset).await?;
-        let total:i64=sqlx::query_scalar("SELECT COUNT(*) FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore')").bind(document).fetch_one(&self.store.pool).await?;
+        let total:i64=sqlx::query_scalar("SELECT COUNT(*) FROM knowledge.document_versions WHERE document_id=$1 AND change_type NOT IN ('pending_restore','pending_before_restore')").bind(document).fetch_one(crate::database::executor(&self.store.pool)).await?;
         self.require_read_generation(actor, dataset, &generation)
             .await?;
         Ok(

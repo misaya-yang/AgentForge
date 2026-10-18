@@ -1,3 +1,4 @@
+import { DeferredTable as Table } from "@/components/DeferredTable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +13,6 @@ import {
   Select,
   Skeleton,
   Switch,
-  Table,
   Tabs,
   Tag,
   Typography,

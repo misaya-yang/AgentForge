@@ -11,6 +11,8 @@ pub(super) const USER_HEADER: &str = "x-ai-user-id";
 pub(super) const SESSION_HEADER: &str = "x-ai-session-id";
 
 pub(super) fn authorize(headers: &HeaderMap, expected: &str) -> Result<(), RuntimeError> {
+    if crate::workload_identity::authenticated_peer(){return Ok(())}
+    if crate::workload_identity::required() { return if crate::workload_identity::authenticated_peer() {Ok(())} else {Err(RuntimeError::unauthorized("workload_peer_required"))}; }
     let provided = headers
         .get(INTERNAL_TOKEN_HEADER)
         .and_then(|value| value.to_str().ok())
@@ -35,7 +37,7 @@ pub(super) fn required_header(
         .ok_or_else(|| RuntimeError::bad_request("missing_runtime_scope_header"))
 }
 
-fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+pub(super) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     let mut difference = left.len() ^ right.len();
     for index in 0..left.len().max(right.len()) {
         difference |= usize::from(*left.get(index).unwrap_or(&0) ^ *right.get(index).unwrap_or(&0));

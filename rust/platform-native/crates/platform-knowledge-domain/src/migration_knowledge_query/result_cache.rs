@@ -38,8 +38,9 @@ pub(super) fn key(
     }
     // The complete dataset snapshot includes current index/embedding/rerank defaults,
     // lexical profile, collection and model versions; request carries every override/filter.
-    let profile =
-        hash(&json!({"dataset":dataset,"request":profile_request,"contract":"standard-v3"}));
+    let profile = hash(
+        &json!({"dataset":dataset,"request":profile_request,"contract":"standard-v4-region-citations"}),
+    );
     hash(
         &json!({"tenant":dataset.tenant_id,"dataset":dataset.dataset_id,"generation":generation,"acl_scope_hash":acl_scope_hash(user),"normalized_query":query,"exact_input_sha256":super::super::cache_identity::input_hash(request["query"].as_str().unwrap_or("")),"profile_fingerprint":profile,"model_plane_scope":super::super::model_plane::cache_scope_identity()}),
     )

@@ -23,18 +23,56 @@ use std::{collections::BTreeMap, net::SocketAddr, sync::Arc};
 
 impl GatewayDocument {
     pub async fn construct(mut self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
-        let sdk_callback_configuration =
+        super::workload::configure_outbound(&self.environment)?;
+        let process_role = crate::migration_host::worker_roles::ProcessRole::parse(
+            self.environment
+                .get("GATEWAY_PROCESS_ROLE")
+                .map(String::as_str)
+                .unwrap_or("all"),
+        )
+        .map_err(BootstrapError::Configuration)?;
+        let ha_configuration = super::ha::Configuration::from_environment(&self.environment)?;
+        let private_worker = matches!(
+            process_role,
+            crate::migration_host::worker_roles::ProcessRole::Worker
+                | crate::migration_host::worker_roles::ProcessRole::Eval
+        );
+        let workload = if ha_configuration.is_none()
+            && matches!(
+                process_role,
+                crate::migration_host::worker_roles::ProcessRole::Worker
+                    | crate::migration_host::worker_roles::ProcessRole::Eval
+            ) {
+            None
+        } else {
+            super::workload::configuration(&self.environment).await?
+        };
+        let sdk_callback_configuration = if matches!(
+            process_role,
+            crate::migration_host::worker_roles::ProcessRole::Worker
+                | crate::migration_host::worker_roles::ProcessRole::Eval
+        ) {
+            None
+        } else {
             crate::migration_host::sdk_callback_tls::Configuration::from_environment(
                 &self.environment,
             )
-            .map_err(BootstrapError::Configuration)?;
+            .map_err(BootstrapError::Configuration)?
+        };
         self.environment
             .retain(|name, _| !name.starts_with("SDK_AGENT_GATEWAY_TLS_"));
-        let local_node_channel_config =
+        let local_node_channel_config = if matches!(
+            process_role,
+            crate::migration_host::worker_roles::ProcessRole::Worker
+                | crate::migration_host::worker_roles::ProcessRole::Eval
+        ) {
+            None
+        } else {
             crate::migration_host::local_node_channel::LocalNodeChannelConfig::from_environment(
                 &self.environment,
             )
-            .map_err(BootstrapError::Configuration)?;
+            .map_err(BootstrapError::Configuration)?
+        };
         let local_node_channel_signer = local_node_channel_config
             .as_ref()
             .map(crate::migration_host::local_node_channel::PlatformSigner::from_config)
@@ -43,6 +81,9 @@ impl GatewayDocument {
         self.environment
             .retain(|name, _| !name.starts_with("AI_PLATFORM_LOCAL_NODE_"));
         let settings = self.settings()?;
+        process_role
+            .validate_delivery(&settings.task_delivery_mode)
+            .map_err(BootstrapError::Configuration)?;
         let mut config = self.project(&settings)?;
         let llm_configuration = super::llm_api::Configuration::from_environment(
             &self.environment,
@@ -100,12 +141,48 @@ impl GatewayDocument {
         let runtime_url = config.runtime.options.runtime_url.clone();
         let capability_worker_url = config.runtime.capability_worker_url.clone();
         let knowledge_url = config.runtime.knowledge_origin.clone();
+        if let Some(identity) = crate::migration_agent::control::execution_transport::WorkloadIdentity::from_environment()
+            .map_err(BootstrapError::Configuration)? {
+            for origin in [&runtime_url, &capability_worker_url, &knowledge_url] {
+                identity.validate_endpoint(origin).map_err(BootstrapError::Configuration)?;
+            }
+        }
 
+        // Resolve all required health-only origins before opening resources or initializing accounts.
+        let readiness_runtime_url = super::workload::health_origin(
+            &self.environment,
+            "AI_PLATFORM_AGENT_RUNTIME_HEALTH_ORIGIN",
+            Some(&runtime_url),
+            crate::migration_agent::control::execution_transport::required(),
+        )?;
+        let readiness_worker_url = super::workload::health_origin(
+            &self.environment,
+            "AI_PLATFORM_CAPABILITY_WORKER_HEALTH_ORIGIN",
+            Some(&capability_worker_url),
+            crate::migration_agent::control::execution_transport::required(),
+        )?;
+        let readiness_knowledge_url = super::workload::health_origin(
+            &self.environment,
+            "KNOWLEDGE_SERVICE_HEALTH_ORIGIN",
+            Some(&knowledge_url),
+            crate::migration_agent::control::execution_transport::required(),
+        )?;
+        let readiness_knowledge_worker_url = super::workload::health_origin(
+            &self.environment,
+            "KNOWLEDGE_WORKER_HEALTH_ORIGIN",
+            None,
+            crate::migration_agent::control::execution_transport::required(),
+        )?;
+
+        let database_files = super::data_connections::configuration(&self.environment)?;
         let resources = Arc::new(
-            ConnectionResources::connect_split(
+            ConnectionResources::connect_split_with_database_files(
                 &settings.database,
                 &settings.redis,
                 valkey.as_ref(),
+                database_files
+                    .as_ref()
+                    .map(|(data, control)| (data, control)),
             )
             .await
             .map_err(|_| BootstrapError::Construction("connections"))?,
@@ -143,7 +220,10 @@ impl GatewayDocument {
             .await
             .map_err(|_| BootstrapError::Construction("schema_admission"))?;
         }
-        config.core.durable_tasks = ai_platform_gateway_foundation::task_rollout::DeliveryMode::parse(&settings.task_delivery_mode)
+        config.core.durable_tasks =
+            ai_platform_gateway_foundation::task_rollout::DeliveryMode::parse(
+                &settings.task_delivery_mode,
+            )
             .and_then(|mode| mode.after_canonical_guard(Ok(()), config.core.worker_concurrency))
             .map_err(BootstrapError::Configuration)?;
         if let Some(repository) = &local_node_channel_repository {
@@ -170,15 +250,30 @@ impl GatewayDocument {
         let usage_coordination = resources.coordination.clone();
         let enterprise_coordination = redis.clone();
         let drain = Arc::new(DrainState::default());
+        let ha = match ha_configuration {
+            Some(configuration) => Some(
+                super::ha::Runtime::new(
+                    configuration,
+                    resources.coordination.as_ref(),
+                    &self.environment,
+                    workload.as_ref().map(|(configuration, _)| configuration),
+                    drain.clone(),
+                )
+                .await?,
+            ),
+            None => None,
+        };
         let readiness = Arc::new(
             ReadinessState::new(
                 resources,
                 ReadinessConfig {
+                    ha_lease: ha.as_ref().map(|h| h.health()),
                     auth_config_ready: settings.auth_ready(),
                     model_plane_ready: false,
-                    runtime_url: Some(runtime_url),
-                    capability_worker_url: Some(capability_worker_url),
-                    knowledge_service_url: Some(knowledge_url),
+                    runtime_url: readiness_runtime_url,
+                    capability_worker_url: readiness_worker_url,
+                    knowledge_service_url: readiness_knowledge_url,
+                    knowledge_worker_url: readiness_knowledge_worker_url,
                     ..Default::default()
                 },
                 drain.clone(),
@@ -236,13 +331,14 @@ impl GatewayDocument {
         config.runtime_configured_providers =
             seeded.runtime_configured_providers.into_iter().collect();
         let runtime_providers = config.runtime_configured_providers.clone();
-        let graph = GatewayGraph::from_model_services(
+        let graph = GatewayGraph::from_model_services_with_ha(
             pools.clone(),
             redis,
             config,
             backends,
             authorities,
             models,
+            ha.clone(),
         )
         .await?;
         let browser_auth = self
@@ -314,7 +410,25 @@ impl GatewayDocument {
             .as_ref()
             .map(|bus| bus.lifecycle_steps())
             .unwrap_or_default();
-        let lifecycle = graph.lifecycle(workers, extra_start, extra_stop);
+        let (lifecycle, worker_health) = graph
+            .lifecycle(workers, extra_start, extra_stop, process_role)
+            .map_err(|_| BootstrapError::Construction("worker_role_lifecycle"))?;
+        {
+            let mut config = readiness
+                .config
+                .write()
+                .map_err(|_| BootstrapError::Construction("readiness_state"))?;
+            config.process_role = Some(process_role);
+            config.worker_health = Some(worker_health);
+            config.authorization_audit = graph.core.authorization_audit.clone();
+            config.authorization_enforced = graph
+                .core
+                .rbac
+                .decision_point
+                .as_ref()
+                .is_some_and(|point| point.mode() == ai_platform_auth::cedar::Mode::Enforce);
+        }
+        ai_platform_gateway_foundation::worker_lease::enforce();
         let collector = metrics::global();
         let logging = Arc::new(LoggingState::new(
             graph.foundation_shared.metrics.clone(),
@@ -430,6 +544,11 @@ impl GatewayDocument {
         } else {
             router
         };
+        let router = if let Some(ha) = &ha {
+            ha.routing().protect(router)
+        } else {
+            router
+        };
         let mut host = GatewayHost::assembled_with_drain(
             router,
             settings.middleware(),
@@ -465,6 +584,30 @@ impl GatewayDocument {
         } else {
             host
         };
+        let mut host = if let Some((configuration, gate)) = workload {
+            if configuration.address.port() == address.port() {
+                return Err(BootstrapError::Configuration("workload_tls_port_collision"));
+            }
+            host.with_workload_https(
+                configuration,
+                gate,
+                if private_worker {
+                    super::ha::worker_routes()?
+                } else {
+                    super::workload::routes()?
+                },
+            )
+            .map_err(BootstrapError::Configuration)?
+        } else {
+            host
+        };
+        if matches!(
+            process_role,
+            crate::migration_host::worker_roles::ProcessRole::Worker
+                | crate::migration_host::worker_roles::ProcessRole::Eval
+        ) {
+            crate::migration_host::worker_roles::restrict_worker(&mut host);
+        }
         Ok((host, address))
     }
 }

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { canonical } from "./release_signature.mjs";
 import { LOCAL_PROXY_TOKEN_ENV } from "../provider/chat_responses_proxy.js";
 import {
   PRODUCT_CONFIG_SCHEMA,
@@ -308,6 +309,8 @@ describe("independent native Runtime launcher", () => {
     const vendor = join(root, "vendor", "linux-x64");
     mkdirSync(dist, { recursive: true });
     mkdirSync(vendor, { recursive: true });
+    const keys=generateKeyPairSync("ed25519");
+    const release_keys={fixture:keys.publicKey.export({type:"spki",format:"pem"}).toString()};
     const modulePath = join(dist, "cli.js");
     const binaryPath = join(vendor, "codex");
     const receiptPath = join(vendor, "artifact.json");
@@ -316,6 +319,7 @@ describe("independent native Runtime launcher", () => {
       schema_version: "ai-gateway-cli/native-source/v1",
       upstream_sha: TEST_UPSTREAM_SHA,
       overlay_sha256: TEST_OVERLAY_SHA256,
+      release_keys,
     }));
     writeFileSync(binaryPath, "synthetic-native-binary");
     writeFileSync(join(root, "vendor", "source.json"), JSON.stringify({
@@ -332,7 +336,8 @@ describe("independent native Runtime launcher", () => {
       binary: "codex",
       sha256: createHash("sha256").update(readFileSync(binaryPath)).digest("hex"),
     };
-    writeFileSync(receiptPath, JSON.stringify(receipt));
+    const signedReceipt={...receipt,signature:{algorithm:"Ed25519",key_id:"fixture",value:sign(null,Buffer.from(canonical(receipt)),keys.privateKey).toString("base64url")}};
+    writeFileSync(receiptPath, JSON.stringify(signedReceipt));
     const options = { platform: "linux" as const, arch: "x64", moduleUrl: pathToFileURL(modulePath).href };
     expect(resolveNativeBinary({}, options)).toBe(binaryPath);
 

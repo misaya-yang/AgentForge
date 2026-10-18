@@ -1,3 +1,5 @@
+import type { RequestBody } from "@/api/contracts";
+import type { ApiRequest } from "../../../sdk/typescript/generated";
 /**
  * LLM Providers API client.
  *
@@ -5,6 +7,7 @@
  */
 
 import { api } from "@/lib/api";
+import { request, readOptions, readKey } from "./generatedTransport";
 
 // =============================================================================
 // Types
@@ -24,15 +27,7 @@ export interface Provider {
   updated_at: string;
 }
 
-export interface ProviderCreate {
-  provider_id: string;
-  display_name: string;
-  api_type?: string;
-  base_url?: string;
-  metadata?: Record<string, unknown>;
-  api_key?: string;
-  is_enabled?: boolean;
-}
+export type ProviderCreate = ApiRequest<"POST /api/v1/providers">["body"];
 
 export interface ProviderTemplateCredentialField {
   name: string;
@@ -69,24 +64,9 @@ export interface ProviderTemplate {
   advanced: boolean;
 }
 
-export interface ProviderFromTemplateCreate {
-  template_id: string;
-  provider_id?: string;
-  display_name?: string;
-  api_key?: string;
-  base_url?: string;
-  metadata?: Record<string, unknown>;
-  is_enabled?: boolean;
-}
+export type ProviderFromTemplateCreate = ApiRequest<"POST /api/v1/providers/from-template">["body"];
 
-export interface ProviderUpdate {
-  display_name?: string;
-  api_type?: string;
-  base_url?: string;
-  metadata?: Record<string, unknown>;
-  api_key?: string;
-  is_enabled?: boolean;
-}
+export type ProviderUpdate = ApiRequest<"PUT /api/v1/providers/{provider_id}">["body"];
 
 export interface ProviderTestResult {
   success: boolean;
@@ -117,7 +97,7 @@ export interface ProviderModelSyncResult {
 
 export const providerQueryKeys = {
   all: ["providers"] as const,
-  list: (includeDisabled = false) => ["providers", { includeDisabled }] as const,
+  list: (scope: string, includeDisabled = false) => ["providers", ...readKey(scope, "GET /api/v1/providers", { query: { include_disabled: includeDisabled } })] as const,
   templates: ["provider-templates"] as const,
 };
 
@@ -129,10 +109,7 @@ export const providerQueryKeys = {
  * List all providers.
  */
 export async function listProviders(includeDisabled = false): Promise<Provider[]> {
-  const { data } = await api.get<Provider[]>(
-    `/api/v1/providers?include_disabled=${includeDisabled}`
-  );
-  return data;
+  return request("GET /api/v1/providers", { query: { include_disabled: includeDisabled } });
 }
 
 /**
@@ -148,8 +125,7 @@ export async function listProviderTemplates(): Promise<ProviderTemplate[]> {
  * Create a new provider.
  */
 export async function createProvider(provider: ProviderCreate): Promise<Provider> {
-  const { data } = await api.post<Provider>("/api/v1/providers", provider);
-  return data;
+  return request("POST /api/v1/providers", { body: provider });
 }
 
 /**
@@ -158,8 +134,7 @@ export async function createProvider(provider: ProviderCreate): Promise<Provider
 export async function createProviderFromTemplate(
   provider: ProviderFromTemplateCreate
 ): Promise<Provider> {
-  const { data } = await api.post<Provider>("/api/v1/providers/from-template", provider);
-  return data;
+  return request("POST /api/v1/providers/from-template", { body: provider });
 }
 
 /**
@@ -169,15 +144,14 @@ export async function updateProvider(
   providerId: string,
   updates: ProviderUpdate
 ): Promise<Provider> {
-  const { data } = await api.put<Provider>(`/api/v1/providers/${providerId}`, updates);
-  return data;
+  return request("PUT /api/v1/providers/{provider_id}", { path: { provider_id: providerId }, body: updates });
 }
 
 /**
  * Delete a provider.
  */
 export async function deleteProvider(providerId: string): Promise<void> {
-  await api.delete(`/api/v1/providers/${providerId}`);
+  await request("DELETE /api/v1/providers/{provider_id}", { path: { provider_id: providerId } });
 }
 
 /**
@@ -237,11 +211,16 @@ export async function previewProviderModels(providerId: string) {
   const { data } = await api.post<import("@/components/llm/catalogReviewState").CatalogPreview>(`/api/v1/providers/${encodeURIComponent(providerId)}/models/sync/preview`);
   return data;
 }
-export async function applyProviderModelReview(providerId: string, body: {review_id: string; model_ids: string[]; replace_existing_metadata: boolean}) {
-  const { data } = await api.post<import("@/components/llm/catalogReviewState").CatalogReadback>(`/api/v1/providers/${encodeURIComponent(providerId)}/models/sync/apply`, body);
+export async function applyProviderModelReview(providerId: string, body: RequestBody<"POST /api/v1/providers/{provider_id}/models/sync/apply">) {
+  const { data } = await api.post<import("@/components/llm/catalogReviewState").CatalogReadback>(`/api/v1/providers/${encodeURIComponent(providerId)}/models/sync/apply`, (body satisfies RequestBody<"POST /api/v1/providers/{provider_id}/models/sync/apply">));
   return data;
 }
 export async function readProviderModelReview(providerId: string, reviewId: string) {
   const { data } = await api.get<import("@/components/llm/catalogReviewState").CatalogReadback>(`/api/v1/providers/${encodeURIComponent(providerId)}/models/sync/reviews/${encodeURIComponent(reviewId)}`);
   return data;
+}
+
+/** Scope is the current tenant/user/auth generation; never reuse across sessions. */
+export function providersOptions(scope: string, includeDisabled = false) {
+  return { ...readOptions(scope, "GET /api/v1/providers", { query: { include_disabled: includeDisabled } }), queryKey: providerQueryKeys.list(scope, includeDisabled) };
 }

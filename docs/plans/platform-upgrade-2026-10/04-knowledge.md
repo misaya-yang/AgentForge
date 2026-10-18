@@ -1,64 +1,34 @@
 # 04 Knowledge (Knowledge API and Knowledge Worker)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-The knowledge context owns datasets, documents and their versions, ingestion (parse, chunk, embed,
-index), generation-fenced publication, retrieval, retrieval QA, evaluation and source connectors.
-It enforces dataset ACLs for the actor the Gateway signs (ADR-010). No other context writes its
-tables or collections.
+把上传、解析、切分、嵌入、发布、检索和引用连成完整知识库流程，并让后台任务在真实权限与租户上下文中持续工作。
 
-## 2. Current architecture (SRC)
+| 交付部分 | 原需求 ID | 连通的结果 |
+| --- | --- | --- |
+| 服务边界与模型调用 | `U-KN-01`, `U-KN-10` | 独立 Knowledge 域、API/Worker 和 Gateway 模型面完成接线。 |
+| 入库与后台流水线 | `U-KN-02`, `U-KN-03`, `U-KN-04`, `U-KN-13` | 凭据隔离解析、DocIR、任务领取/心跳/检查点和 parse/embed/index 角色共同完成一份文档发布。 |
+| 检索与模型生命周期 | `U-KN-05`, `U-KN-06`, `U-KN-07`, `U-KN-08`, `U-KN-09` | 索引、缓存、模型切换、混合/多模态检索及区域引用使用同一代际和 ACL。 |
+| 连接器与质量晋级 | `U-KN-11`, `U-KN-12` | Confluence 增量/ACL 同步和评测晋级接到已有数据与发布流程。 |
+| 收尾整理 | `U-KN-14` | 实际影响配置/遥测契约的部分随功能完成；纯旧名、标签与模块整理合并到功能贯通后的收尾。 |
 
-| Aspect | Current state |
-| --- | --- |
-| Processes | One binary `platform-knowledge-service` in two roles, `api` and `worker`. The HTTP API sits behind the Gateway, which signs actor envelopes (v2). An optional tonic gRPC retrieval transport shares the same signed domain boundary ([rpc.rs](../../../rust/platform-native/crates/platform-knowledge-service/src/rpc.rs)). |
-| Code | `platform-knowledge-service` and `platform-knowledge-ops` (19.6k lines: process, PDF backend, Confluence connector, native rerank, operator commands), plus 36.6k lines of `migration_knowledge_ingest` and `migration_knowledge_query` inside `platform-gateway-integrations`. The service crate depends on the whole `ai-platform-gateway` crate ([Cargo.toml:15](../../../rust/platform-native/crates/platform-knowledge-service/Cargo.toml)) (F-15). |
-| Ingestion dispatch | PostgreSQL owns waiting generations, admission CAS and document ownership across replicas. The worker polls every 1 s, scans for stale work every 60 s with a 30-minute threshold, and runs 2 tasks at a time by default ([worker.rs:23–31](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/worker.rs)) (F-20). |
-| Parsing | PDF text, raster and embedded images through Poppler executables with per-process time, memory and file limits ([pdf_backend.rs](../../../rust/platform-native/crates/platform-knowledge-service/src/pdf_backend.rs)). DOCX, structured files and Markdown in Rust. OCR through Tesseract, a VLM (DashScope) or a hybrid of both; VLM image and table descriptions ([ocr.rs](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/ocr.rs), [vlm.rs](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/vlm.rs)). Output is a document IR of pages and blocks. |
-| Chunking | Fixed, recursive and hierarchical (parent/child) modes with heading patterns and token limits. An optional summary index can prepend document summaries to chunks ([chunking.rs](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/chunking.rs)). |
-| Embeddings | The default for a dataset with no provider is `local` → `hash-384`, a non-semantic hashed vector. `local_semantic` (operator-pinned `Qwen3-Embedding-0.6B`, 1,024 dims), Gemini, SiliconFlow (BGE), OpenAI-compatible, DashScope text and multimodal. The OpenAI provider was removed ([embedding.rs:131–137](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/embedding.rs)). |
-| Vector store | One Qdrant collection per dataset (and per hierarchy level). Dense cosine vectors plus sparse vectors with the IDF modifier: `bm25` is tokenized client-side, while `bm25_v2` (an active or shadow lexical profile) uses Qdrant's server-side `qdrant/bm25` inference. HNSW `m=16`, `ef_construct=200`. `tenant_id` payload index with `is_tenant`. No quantization and no memory placement settings. Requests are assembled as JSON values, then sent over REST or converted to gRPC messages of the official `qdrant-client` 1.19.0 crate; server image 1.18.2 ([qdrant.rs:625–661](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs), [qdrant_grpc.rs](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant_grpc.rs), [lexical_v2.rs](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/lexical_v2.rs)). |
-| Retrieval | Dense, BM25 or hybrid. Hybrid uses weighted RRF, either native (one Qdrant Query API call with dense and sparse prefetch, [qdrant.rs:905](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/qdrant.rs)) or in process. Then thresholds, reranking and a three-level hierarchical retriever (cascade, parallel, adaptive). Each query checks the dataset generation and retries while a publication is in progress. Budgets: 3 s interactive deadline, 3 parallel recalls ([service.rs:49–51](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs)). |
-| Rerank | DashScope (`gte-rerank-v2`, `qwen3-rerank`, `qwen3-vl-rerank`), Cohere-compatible endpoints, and a CPU-native Candle cross-encoder for `bge-reranker-v2-m3`, pinned by revision and SHA-256 ([native_rerank.rs](../../../rust/platform-native/crates/platform-knowledge-service/src/native_rerank.rs)). |
-| Cache | Result cache off by default (TTL 0). When enabled it is a `VecDeque` searched linearly under one async mutex (F-18). |
-| Multimodal | Retrieval refuses multimodal datasets: "unavailable in this release" ([service.rs:219](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs)) (F-19). |
-| Model calls | Embeddings, VLM, OCR, rerank, QA answers and judge calls go directly to providers with credentials held by Knowledge (F-33). |
-| Evaluation | RAGAS-aligned judge with versioned prompts, retrieval eval, golden sets, reranker bake-off and lexical shadow (report-only), parsing eval (character distance and a positional "TEDS-lite" table score) ([platform-knowledge-ops](../../../rust/platform-native/crates/platform-knowledge-ops/src/lib.rs), [parsing_eval.rs](../../../rust/platform-native/crates/platform-knowledge-service/src/parsing_eval.rs)). |
-| Connectors | Confluence: discovery, sync, scheduler and legacy migration. |
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-**Active work.** The program blocker `knowledge-uncached-vector-and-versions` (some uncached hybrid
-queries return "vector store unavailable"; new documents lacked immutable version rows) belongs
-to Ph0 and is a precondition for everything below.
+## 2. 接线与真实依赖
 
-## 3. Assessment
+模型接口由 Gateway 提供，执行隔离复用 Worker，持久化依赖数据模块。先完成前后台调用链；评测基线、压测和版本晋级在集成批次使用统一样本执行，不反复重建语料。
 
-Strengths to keep: generation-fenced publication with stable chunk identities and incremental
-re-embedding; native hybrid search with RRF in one round trip; a pinned CPU cross-encoder that
-needs no Python; signed actor envelopes and dataset ACLs; strict budgets; and an evaluation
-toolset (golden sets, bake-offs, shadow profiles) that most RAG stacks lack.
+## 3. 一次集中验证与收尾边界
 
-Gaps, in order of consequence:
+一次完整“上传→发布→检索→引用”联调覆盖主链，再覆盖跨租户/ACL 拒绝、并发代际与中断恢复。解析/检索质量使用原定指标和同一评测集；模块测试已有覆盖时不逐方法补局部测试。
 
-1. **Parsing is the quality ceiling.** Poppler text extraction loses layout, reading order, table
-   structure and formulas. OCR is Tesseract or a general VLM prompt. In 2026 open layout-aware
-   document VLMs (PaddleOCR-VL 1.6, MinerU, Granite-Docling) emit structured Markdown or DocTags
-   with tables, formulas and reading order (WEB). Retrieval tuning cannot recover what parsing
-   drops.
-2. **Multimodal is off (F-19).** Scanned manuals, slides, charts and diagrams are retrievable only
-   through text descriptions.
-3. **Governance (F-33).** Knowledge holds provider keys, so its model spend has no Gateway
-   receipts, quotas or guardrails.
-4. **Defaults.** A dataset created without a provider gets non-semantic `hash-384` vectors.
-5. **Index efficiency.** Full-precision vectors with no quantization or memory tiering. One
-   collection per dataset multiplies segments, WAL and HNSW overhead as datasets grow. Qdrant's
-   multitenancy guidance recommends payload partitioning in shared collections instead.
-6. **Pipeline latency and recovery (F-20).** Work starts on a 1 s poll, and a crashed worker's
-   document waits up to 30 minutes to be reclaimed.
-7. **Untrusted input.** Poppler and Tesseract parse untrusted PDFs and images inside the worker
-   container with rlimits only.
-8. **Modularity (F-15).** Knowledge compiles and ships with the Gateway's crate graph.
+不为旧 Python 名称、文件长度或标签一致性打断入库/检索实现；质量门槛、索引代际和引用权限仍是必需验收。
+
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -204,7 +174,12 @@ other. Deadlines and batching stay with Knowledge.
 | Cache | Linear `VecDeque` | `moka` with generation and ACL keys | F-18 |
 | Work dispatch | 1 s poll, 30-minute recovery | Heartbeat leases, NOTIFY, 10 s backstop | F-20 |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -221,9 +196,14 @@ other. Deadlines and batching stay with Knowledge.
 | U-KN-11 | Evaluation and promotion pipeline in CI; judge calibration | P1 | Ph1–Ph2 | Baselines recorded in Ph1; profile changes blocked on regression |
 | U-KN-12 | Connector framework with ACL sync; Confluence first | P3 | Ph3 | Delta sync and ACL propagation tests per connector |
 | U-KN-13 | `parse`, `embed` and `index` roles scaled by queue depth | P3 | Ph3 | Throughput scales linearly to the target node count |
-| U-KN-14 | Python residue cleanup: telemetry labels (`fusion_applied_by: "python"`, [service.rs:574](../../../rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_query/service.rs)), parity module names, typed configuration (F-16) | P3 | Ph2 | Dashboards migrated before labels change |
+| U-KN-14 | Python residue cleanup: telemetry labels (`fusion_applied_by: "python"`, [service.rs:574](../../../rust/platform-native/crates/platform-knowledge-domain/src/migration_knowledge_query/service.rs)), parity module names, typed configuration (F-16) | P3 | Ph2 | Dashboards migrated before labels change |
+
+</details>
 
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - **Retrieval quality.** Golden-set Recall@k, nDCG@10 and MRR per profile; shadow comparison
   before promotion; per-tenant IDF score-parity test before consolidation.
@@ -236,9 +216,14 @@ other. Deadlines and batching stay with Knowledge.
 - **Cost and latency.** Cost per 1,000 pages by parser route; p95 latency per pipeline stage;
   memory per million chunks.
 
+<details>
+<summary>已有实现说明与历史结果（不自动变成当前任务或当前验收）</summary>
+
 ### U-KN-11 implementation entry point (2026-10-17)
 
 The native offline measurement gate, CI integration and synthetic positive/negative contract tests
 are documented in [Knowledge evaluation and promotion](knowledge-evaluation-promotion.md).
 This records implementation only: production baseline captures, reviewed corpora, human/judge
 calibration and live quality acceptance remain open. Existing starter fixtures are not quality evidence.
+
+</details>

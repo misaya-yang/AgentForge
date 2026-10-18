@@ -4,10 +4,10 @@ use super::{
     routes::{AgentState, event_response},
     text,
 };
+use crate::migration_host::context as http_context;
 use crate::migration_trace::capture::{
     CaptureContext, FrameReceiver, ReplaySource, capture_assistant_runtime_stream,
 };
-use crate::migration_host::context as http_context;
 use axum::{
     body::{Body, Bytes},
     response::Response,
@@ -60,7 +60,7 @@ pub async fn capture_response(
     let Some(turn) = turn else {
         return response;
     };
-    let row=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('snapshot',s.snapshot,'started_at',r.started_at) FROM assistant_runtime_snapshots s JOIN assistant_runs r ON r.run_id=s.run_id AND r.tenant_id=s.tenant_id AND r.user_id=s.user_id AND r.session_id=s.session_id WHERE s.run_id=$1::uuid AND s.runtime_thread_id=$2::uuid AND s.tenant_id=$3 AND s.user_id=$4 AND s.session_id=$5 AND r.engine='agent_runtime'").bind(turn).bind(thread).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&state.repository.pool).await;
+    let row=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('snapshot',s.snapshot,'started_at',r.started_at) FROM assistant_runtime_snapshots s JOIN assistant_runs r ON r.run_id=s.run_id AND r.tenant_id=s.tenant_id AND r.user_id=s.user_id AND r.session_id=s.session_id WHERE s.run_id=$1::uuid AND s.runtime_thread_id=$2::uuid AND s.tenant_id=$3 AND s.user_id=$4 AND s.session_id=$5 AND r.engine='agent_runtime'").bind(turn).bind(thread).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&state.repository.pool, &scope.tenant_id)).await;
     let Ok(Some(row)) = row else {
         return response;
     };

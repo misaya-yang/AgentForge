@@ -76,7 +76,7 @@ test("task trace link honors existing dashboard permission and retirement", () =
 
 test("trace translations exist at root tasks in both supported locales", () => {
   for (const language of ["en-US", "zh-CN"]) {
-    const locale = JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}.json`, import.meta.url), "utf8"));
+    const locale = { ...JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}.json`, import.meta.url), "utf8")), tasks: JSON.parse(readFileSync(new URL(`../../i18n/locales/tasks-${language}.json`, import.meta.url), "utf8")) };
     for (const key of ["open", "back", "notice", "unavailable"]) assert.equal(typeof locale.tasks.trace[key], "string");
     if (language === "zh-CN") assert.match(locale.tasks.trace.open, /追踪/);
   }

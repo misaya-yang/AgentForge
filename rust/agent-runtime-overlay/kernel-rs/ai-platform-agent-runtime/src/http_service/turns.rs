@@ -44,7 +44,8 @@ pub(super) struct StartTurnRequest {
     pub(super) lease_id: Uuid,
     pub(super) lease_signature: String,
     #[serde(default)]
-    pub(super) capability_ceiling: Option<ai_platform_capability_contract::lease_v3::SignedEnvelope>,
+    pub(super) capability_ceiling:
+        Option<ai_platform_capability_contract::lease_v3::SignedEnvelope>,
     pub(super) message: String,
     #[serde(default)]
     pub(super) images: Vec<String>,
@@ -83,11 +84,21 @@ pub(super) async fn start_turn_mode(
     let user_id = required_header(&headers, USER_HEADER)?;
     let session_id = required_header(&headers, SESSION_HEADER)?;
     super::lease_verification::verify_turn(
-        &body.lease_signature, body.capability_ceiling.as_ref(),
-        &crate::PlatformThreadIdentity::new(thread_id, tenant_id.clone(), user_id.clone(), session_id.clone()),
-        &body.run_id.to_string(), &body.snapshot_id.to_string(), &body.lease_id.to_string(),
-        body.capability_revision as u64, &body.model,
-    ).map_err(|_| RuntimeError::bad_request("runtime_lease_signature_not_admitted"))?;
+        &body.lease_signature,
+        body.capability_ceiling.as_ref(),
+        &crate::PlatformThreadIdentity::new(
+            thread_id,
+            tenant_id.clone(),
+            user_id.clone(),
+            session_id.clone(),
+        ),
+        &body.run_id.to_string(),
+        &body.snapshot_id.to_string(),
+        &body.lease_id.to_string(),
+        body.capability_revision as u64,
+        &body.model,
+    )
+    .map_err(|_| RuntimeError::bad_request("runtime_lease_signature_not_admitted"))?;
     let trace_context = crate::trace_context::InternalTraceContext::from_headers(&headers);
     let readonly_input = body
         .readonly
@@ -178,15 +189,22 @@ pub(super) async fn start_turn_mode(
     .fetch_one(&state.store.pool)
     .await
     .map_err(|_| RuntimeError::unavailable("runtime_lease_store_unavailable"))?;
-    let lease_expiry=authorized.ok_or_else(||RuntimeError::not_found("runtime_turn_lease_not_found"))?;
+    let lease_expiry =
+        authorized.ok_or_else(|| RuntimeError::not_found("runtime_turn_lease_not_found"))?;
+    let transport_budget = super::transport_budget::admit_authenticated(
+        &headers,
+        super::transport_budget::ADMISSION_CAP,
+        Some(lease_expiry.timestamp_millis().max(0) as u64),
+    )
+    .map_err(|_| RuntimeError::bad_request("runtime_transport_budget_invalid"))?;
     if !recovery && state.store.execution_claim(body.run_id).is_none() {
         state
             .store
             .claim_execution(
                 body.run_id,
                 Some(
-                    serde_json::to_value(&body)
-                        .map_err(|_| RuntimeError::bad_request("invalid_turn_context"))?,
+                    super::execution_context::encode(&body, &transport_budget)
+                        .map_err(RuntimeError::bad_request)?,
                 ),
             )
             .await
@@ -197,7 +215,6 @@ pub(super) async fn start_turn_mode(
         .assert_execution(body.run_id)
         .await
         .map_err(RuntimeError::from_store)?;
-    let transport_budget=super::transport_budget::admit_authenticated(&headers,super::transport_budget::ADMISSION_CAP,Some(lease_expiry.timestamp_millis().max(0)as u64)).map_err(|_|RuntimeError::bad_request("runtime_transport_budget_invalid"))?;
     if let Some(payload) = body.readonly.clone() {
         let mut bindings = state
             .readonly_by_turn
@@ -248,7 +265,11 @@ pub(super) async fn start_turn_mode(
         runtime_scope_sha256(&tenant_id, &user_id, &session_id),
     );
     trace_context.extend_model_metadata(&mut metadata, &body.run_id.to_string());
-    let mut turn_telemetry=crate::telemetry_model::start_turn(&mut metadata,&body.run_id.to_string());
+    let mut turn_telemetry = crate::telemetry_model::start_turn_for_tenant(
+        &mut metadata,
+        &body.run_id.to_string(),
+        &tenant_id,
+    );
     let mut input = Vec::new();
     if !recovery {
         input.push(UserInput::Text {
@@ -320,10 +341,16 @@ fn validate_start_turn_request(body: &StartTurnRequest) -> Result<(), RuntimeErr
         || body.images.len() > 5
         || body.images.iter().map(String::len).sum::<usize>() > 15 * 1024 * 1024
         || body.images.iter().any(|image| !valid_inline_image(image))
-        || (!body.lease_signature.starts_with(ai_platform_capability_contract::lease_v3::ENVELOPE_PREFIX)
-            && (body.lease_signature.len() != 67 || !body.lease_signature.starts_with("v1:")
-                || !body.lease_signature[3..].bytes().all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())))
-        || body.lease_signature.len() > ai_platform_capability_contract::lease_v3::MAX_WIRE_BYTES + 32
+        || (!body
+            .lease_signature
+            .starts_with(ai_platform_capability_contract::lease_v3::ENVELOPE_PREFIX)
+            && (body.lease_signature.len() != 67
+                || !body.lease_signature.starts_with("v1:")
+                || !body.lease_signature[3..]
+                    .bytes()
+                    .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())))
+        || body.lease_signature.len()
+            > ai_platform_capability_contract::lease_v3::MAX_WIRE_BYTES + 32
     {
         return Err(RuntimeError::bad_request("invalid_turn_start_request"));
     }

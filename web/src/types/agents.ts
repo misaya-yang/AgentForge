@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 export type AgentRole = "owner" | "editor" | "viewer";
 export type AgentStatus = "draft" | "active" | "archived" | "deleted";
 export type AgentChannel = "hosted" | "embed" | "api";
@@ -497,28 +498,7 @@ export interface AgentGovernancePolicy {
   updated_at: string | null;
 }
 
-export type AgentGovernancePolicyUpdate = Partial<
-  Pick<
-    AgentGovernancePolicy,
-    | "trace_retention_days"
-    | "runtime_retention_days"
-    | "attachment_retention_days"
-    | "legal_hold"
-    | "principal_requests_per_minute"
-    | "principal_requests_per_day"
-    | "ip_requests_per_minute"
-    | "ip_requests_per_day"
-    | "publication_requests_per_minute"
-    | "publication_requests_per_day"
-    | "max_agents_per_tenant"
-    | "max_active_publications"
-    | "max_concurrent_runs"
-    | "max_daily_tokens"
-    | "max_daily_mcp_calls"
-    | "max_storage_bytes"
-    | "alert_threshold_percent"
-  >
->;
+export type AgentGovernancePolicyUpdate = RequestBody<"PUT /api/v1/agents/{agent}/governance">;
 
 export interface AgentDataDeletion {
   deletion_id: string;

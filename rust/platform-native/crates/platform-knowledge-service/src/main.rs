@@ -35,6 +35,7 @@ async fn run() -> Result<()> {
     let settings = ProcessSettings::from_environment()?;
     let role = settings.configuration.role.as_str();
     let rpc = settings.rpc.clone();
+    let workload = settings.workload.clone();
     let (graph, host, port, gaps) = settings.construct().await?;
     for gap in gaps.iter().chain(graph.degraded_components.iter()) {
         eprintln!("knowledge-service capability unavailable or limited: {gap}");
@@ -64,6 +65,16 @@ async fn run() -> Result<()> {
         },
         None => None,
     };
+    let workload_listener = match workload {
+        Some(config) => match config.listener().await {
+            Ok(listener) => listener,
+            Err(error) => {
+                lifecycle.stop().await.ok();
+                return Err(error);
+            }
+        },
+        None => None,
+    };
     // Worker mode serves health only; All/API expose the same signed HTTP routes.
     // Register SIGTERM before startup so container shutdown isn't lost.
     #[cfg(unix)]
@@ -73,6 +84,17 @@ async fn run() -> Result<()> {
     eprintln!("knowledge-service started with role {role}");
     let (shutdown, receive_shutdown) = tokio::sync::watch::channel(false);
     let mut servers = tokio::task::JoinSet::new();
+    if let Some(listener) = workload_listener {
+        let tls_router = ai_platform_knowledge_service::workload::internal_router(router.clone());
+        let mut receive = receive_shutdown.clone();
+        servers.spawn(async move {
+            axum::serve(listener, tls_router.into_make_service_with_connect_info::<ai_platform_service_primitives::workload_identity::listener::WorkloadConnection>())
+                .with_graceful_shutdown(async move {
+                    if *receive.borrow() { return; }
+                    while receive.changed().await.is_ok() { if *receive.borrow() { break; } }
+                }).await.map_err(|_| KnowledgeError::Shutdown("workload_tls_server"))
+        });
+    }
     if let Some(listener) = rpc_listener {
         let rpc_router = router.clone();
         let receive = receive_shutdown.clone();

@@ -435,6 +435,7 @@ fn verify_reference_value(source: &Path, candidate: &Candidate, reference: &Valu
         raw_acl_sha256,
         raw_acl_lines: lines.clone(),
         base_acl_lines,
+        partition_catalog: None,
     };
     if reference != &reference_value(candidate, &evidence) {
         return Err(refused(

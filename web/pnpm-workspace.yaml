@@ -2,6 +2,9 @@ packages:
   - .
 
 # Keep security overrides explicit; pnpm 12 no longer reads package.json#pnpm.
+minimumReleaseAgeExclude:
+  - i18next-icu@2.6.1
+
 overrides:
   "@babel/core": "7.29.7"
   "brace-expansion": "5.0.6"
@@ -11,4 +14,10 @@ overrides:
   "picomatch": ">=4.0.4"
 
 # Fail on a mismatched pnpm version instead of downloading or switching it.
+patchedDependencies:
+  '@rc-component/util@1.10.1': patches/@rc-component__util@1.10.1.patch
+  '@rc-component/util@1.11.1': patches/@rc-component__util@1.11.1.patch
+  decode-named-character-reference@1.2.0: patches/decode-named-character-reference@1.2.0.patch
+  hast-util-from-html-isomorphic@2.0.0: patches/hast-util-from-html-isomorphic@2.0.0.patch
+
 pmOnFail: error

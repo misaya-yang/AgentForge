@@ -1,3 +1,5 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
+import type { ApiRequest } from "../../../sdk/typescript/generated";
 import { api } from "@/lib/api";
 
 export type KnowledgeKeyScope = "knowledge:read" | "knowledge:write";
@@ -15,11 +17,10 @@ export interface KnowledgeKeyMetadata {
   last_used_at: string | null;
   use_count: number;
 }
-export interface KnowledgeKeyInput {
-  name: string;
-  scopes: KnowledgeKeyScope[];
-  expires_at: string;
-}
+/** Issuance UI requires an expiry and narrows the generated server scope list. */
+export type KnowledgeKeyInput = Required<Pick<ApiRequest<"POST /api/v1/api-keys">["body"], "name" | "scopes" | "expires_at">> & {
+  scopes: KnowledgeKeyScope[]; expires_at: Extract<ApiRequest<"POST /api/v1/api-keys">["body"]["expires_at"], string>;
+};
 const base = "/api/v1/api-keys";
 
 // Project metadata explicitly: never retain an unexpected secret in list state.
@@ -40,13 +41,13 @@ export function keyMetadata(value: unknown): KnowledgeKeyMetadata {
     use_count: typeof row.use_count === "number" && Number.isFinite(row.use_count) ? row.use_count : 0 };
 }
 export async function listKnowledgeKeys(signal?: AbortSignal): Promise<KnowledgeKeyMetadata[]> {
-  const { data } = await api.get<unknown>(base, { params: { include_inactive: true }, signal });
+  const { data } = await api.get<unknown>(base, { params: ({ include_inactive: true } satisfies RequestQuery<"GET /api/v1/api-keys">), signal });
   if (!Array.isArray(data)) throw new Error("Invalid key list");
   return data.map(keyMetadata);
 }
 export async function issueKnowledgeKey(input: KnowledgeKeyInput): Promise<{ metadata: KnowledgeKeyMetadata; secret: string }> {
   // Direct request, no mutation/query cache, storage, telemetry or automatic retry.
-  const { data } = await api.post<Record<string, unknown>>(base, input);
+  const { data } = await api.post<Record<string, unknown>>(base, (input satisfies RequestBody<"POST /api/v1/api-keys">));
   const metadata = keyMetadata(data);
   if (metadata.name !== input.name || metadata.scopes.slice().sort().join(",") !== input.scopes.slice().sort().join(",")
       || Date.parse(metadata.expires_at ?? "") !== Date.parse(input.expires_at)) throw new Error("Mismatched issuance receipt");

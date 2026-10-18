@@ -1,3 +1,4 @@
+import type { RequestBody, RequestQuery } from "@/api/contracts";
 import { api } from "@/lib/api";
 import { sameToolPolicy, type ToolPolicyPayload } from "@/lib/tenantGovernance";
 
@@ -21,7 +22,7 @@ export interface ToolAuditEntry {
   latency_ms: number | null;
   created_at: string | null;
 }
-export interface ToolAuditFilters { tenant_id: string; user_id: string; tool_name: string }
+export type ToolAuditFilters = Required<Pick<RequestQuery<"GET /api/v1/admin/tenant-policies/audit-log">, "tenant_id" | "user_id" | "tool_name">>;
 export interface ToolAuditPage { items: ToolAuditEntry[]; total: number }
 const base = "/api/v1/admin/tenant-policies";
 
@@ -32,7 +33,7 @@ export async function listTenantToolPolicies(signal?: AbortSignal): Promise<Tena
 
 /** No automatic retries: a failed invalidation/readback can follow a committed write. */
 export async function saveTenantToolPolicy(payload: ToolPolicyPayload): Promise<TenantToolPolicy> {
-  await api.put(`${base}/tool-policies`, payload);
+  await api.put(`${base}/tool-policies`, (payload satisfies RequestBody<"PUT /api/v1/admin/tenant-policies/tool-policies">));
   const { data } = await api.get<TenantToolPolicy>(`${base}/tool-policies/${encodeURIComponent(payload.tenant_id)}`);
   if (!sameToolPolicy(data, payload)) throw new Error("tenant_policy_readback_mismatch");
   return data;
@@ -40,7 +41,7 @@ export async function saveTenantToolPolicy(payload: ToolPolicyPayload): Promise<
 
 export async function getToolAuditLog(filters: ToolAuditFilters, offset: number, signal?: AbortSignal): Promise<ToolAuditPage> {
   const { data } = await api.get<ToolAuditPage>(`${base}/audit-log`, {
-    params: { tenant_id: filters.tenant_id || undefined, user_id: filters.user_id || undefined, tool_name: filters.tool_name || undefined, offset, limit: 25 },
+    params: ({ tenant_id: filters.tenant_id || undefined, user_id: filters.user_id || undefined, tool_name: filters.tool_name || undefined, offset, limit: 25 } satisfies RequestQuery<"GET /api/v1/admin/tenant-policies/audit-log">),
     signal,
   });
   return data;

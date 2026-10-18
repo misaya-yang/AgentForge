@@ -1,8 +1,8 @@
 use codex_protocol::ThreadId;
 use codex_thread_store::ThreadStoreError;
 use codex_thread_store::ThreadStoreResult;
-use sqlx::Row;
 use sqlx::PgConnection;
+use sqlx::Row;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
@@ -60,6 +60,12 @@ SELECT CASE
         ),
         'EXECUTE'
     ), FALSE) THEN 'runtime_item_append_execute_missing'
+    WHEN EXISTS (SELECT 1 FROM pg_catalog.pg_class WHERE oid=to_regclass('assistant_runtime_threads') AND relrowsecurity)
+      AND (NOT COALESCE(has_function_privilege(current_user,
+          to_regprocedure('assistant.runtime_thread_scope_v1(uuid,boolean,boolean)'), 'EXECUTE'), FALSE)
+        OR NOT COALESCE(has_function_privilege(current_user,
+          to_regprocedure('assistant.runtime_run_scope_v1(uuid)'), 'EXECUTE'), FALSE))
+      THEN 'runtime_thread_schema_missing'
     ELSE 'healthy'
 END
 "#;
@@ -92,7 +98,7 @@ impl PostgresThreadStore {
         Self::from_pool_and_check_readiness(pool).await
     }
 
-    async fn from_pool_and_check_readiness(pool: sqlx::PgPool) -> ThreadStoreResult<Self> {
+    pub async fn from_pool_and_check_readiness(pool: sqlx::PgPool) -> ThreadStoreResult<Self> {
         let store = Self::from_pool(pool);
         let stage = store.readiness_stage().await;
         if !stage.is_healthy() {
@@ -149,9 +155,7 @@ impl PostgresThreadStore {
             "runtime_thread_projection_update_missing" => {
                 RuntimeStoreReadinessStage::ThreadProjectionUpdateMissing
             }
-            "runtime_items_select_missing" => {
-                RuntimeStoreReadinessStage::RuntimeItemsSelectMissing
-            }
+            "runtime_items_select_missing" => RuntimeStoreReadinessStage::RuntimeItemsSelectMissing,
             "runtime_item_append_function_missing" => {
                 RuntimeStoreReadinessStage::RuntimeItemAppendFunctionMissing
             }
@@ -166,6 +170,7 @@ impl PostgresThreadStore {
         Self {
             pool,
             instance_id: Uuid::now_v7(),
+            owner_routing: Default::default(),
             execution_claims: Default::default(),
             pending_metadata: Default::default(),
             write_failures: Default::default(),
@@ -178,6 +183,7 @@ impl PostgresThreadStore {
     pub async fn authorize_root(&self, identity: &PlatformThreadIdentity) -> ThreadStoreResult<()> {
         validate_identity(identity)?;
         let root_id = thread_uuid(identity.runtime_thread_id)?;
+        let mut transaction = self.tenant_transaction(&identity.tenant_id).await?;
         sqlx::query(
             r#"
             INSERT INTO assistant_runtime_threads (
@@ -191,9 +197,10 @@ impl PostgresThreadStore {
         .bind(&identity.tenant_id)
         .bind(&identity.user_id)
         .bind(&identity.session_id)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
 
         let scope = self.root_scope(root_id).await?;
         if scope.tenant_id != identity.tenant_id
@@ -208,20 +215,32 @@ impl PostgresThreadStore {
     }
 
     pub(crate) async fn root_scope(&self, root_thread_id: Uuid) -> ThreadStoreResult<MemberScope> {
-        let row = sqlx::query(
+        self.root_scope_with_deleted(root_thread_id, false).await
+    }
+
+    pub(crate) async fn root_scope_with_deleted(
+        &self,
+        root_thread_id: Uuid,
+        include_deleted: bool,
+    ) -> ThreadStoreResult<MemberScope> {
+        let sql = if self.tenant_controls_enabled().await? {
+            "SELECT tenant_id,user_id,session_id FROM assistant.runtime_thread_scope_v1($1,true,$2)"
+        } else {
             r#"
             SELECT tenant_id, user_id, session_id
             FROM assistant_runtime_threads
-            WHERE runtime_thread_id = $1 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(root_thread_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(store_error)?
-        .ok_or_else(|| ThreadStoreError::Conflict {
-            message: "root thread was not authorized by the platform".to_string(),
-        })?;
+            WHERE runtime_thread_id = $1 AND ($2 OR deleted_at IS NULL)
+            "#
+        };
+        let row = sqlx::query(sql)
+            .bind(root_thread_id)
+            .bind(include_deleted)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(store_error)?
+            .ok_or_else(|| ThreadStoreError::Conflict {
+                message: "root thread was not authorized by the platform".to_string(),
+            })?;
         Ok(MemberScope {
             root_thread_id,
             tenant_id: row.try_get("tenant_id").map_err(store_error)?,
@@ -234,24 +253,37 @@ impl PostgresThreadStore {
         &self,
         kernel_thread_id: Uuid,
     ) -> ThreadStoreResult<MemberScope> {
-        let row = sqlx::query(
+        self.member_scope_with_deleted(kernel_thread_id, false)
+            .await
+    }
+
+    pub(crate) async fn member_scope_with_deleted(
+        &self,
+        kernel_thread_id: Uuid,
+        include_deleted: bool,
+    ) -> ThreadStoreResult<MemberScope> {
+        let sql = if self.tenant_controls_enabled().await? {
+            "SELECT runtime_thread_id,tenant_id,user_id,session_id FROM assistant.runtime_thread_scope_v1($1,false,$2)"
+        } else {
             r#"
             SELECT member.runtime_thread_id, member.tenant_id, member.user_id,
                    member.session_id
             FROM assistant_runtime_thread_members AS member
             JOIN assistant_runtime_threads AS root
               ON root.runtime_thread_id = member.runtime_thread_id
-             AND root.deleted_at IS NULL
+             AND ($2 OR root.deleted_at IS NULL)
             WHERE member.kernel_thread_id = $1
-            "#,
-        )
-        .bind(kernel_thread_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(store_error)?
-        .ok_or_else(|| ThreadStoreError::ThreadNotFound {
-            thread_id: ThreadId::from_u128(kernel_thread_id.as_u128()),
-        })?;
+            "#
+        };
+        let row = sqlx::query(sql)
+            .bind(kernel_thread_id)
+            .bind(include_deleted)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(store_error)?
+            .ok_or_else(|| ThreadStoreError::ThreadNotFound {
+                thread_id: ThreadId::from_u128(kernel_thread_id.as_u128()),
+            })?;
         Ok(MemberScope {
             root_thread_id: row.try_get("runtime_thread_id").map_err(store_error)?,
             tenant_id: row.try_get("tenant_id").map_err(store_error)?,

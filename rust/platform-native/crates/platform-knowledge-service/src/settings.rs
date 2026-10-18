@@ -14,6 +14,9 @@ pub enum RuntimeRole {
     All,
     Api,
     Worker,
+    Parse,
+    Embed,
+    Index,
 }
 impl RuntimeRole {
     pub fn parse(value: &str) -> Result<Self> {
@@ -21,6 +24,9 @@ impl RuntimeRole {
             "all" => Ok(Self::All),
             "api" => Ok(Self::Api),
             "worker" => Ok(Self::Worker),
+            "parse" => Ok(Self::Parse),
+            "embed" => Ok(Self::Embed),
+            "index" => Ok(Self::Index),
             _ => Err(KnowledgeError::Configuration("runtime_role")),
         }
     }
@@ -29,10 +35,13 @@ impl RuntimeRole {
             Self::All => "all",
             Self::Api => "api",
             Self::Worker => "worker",
+            Self::Parse => "parse",
+            Self::Embed => "embed",
+            Self::Index => "index",
         }
     }
     pub fn api(self) -> bool {
-        self != Self::Worker
+        matches!(self, Self::All | Self::Api)
     }
     pub fn worker(self) -> bool {
         self != Self::Api
@@ -88,20 +97,49 @@ impl Default for QdrantSettings {
     }
 }
 pub struct EmbeddingSettings {
-    pub batch_size: usize,pub provider:String,pub model:String,pub dimension:usize,
-    pub timeout_seconds:f64,pub local_semantic_enabled:bool,
+    pub batch_size: usize,
+    pub provider: String,
+    pub model: String,
+    pub dimension: usize,
+    pub timeout_seconds: f64,
+    pub local_semantic_enabled: bool,
+    pub local_semantic_revision: String,
 }
 impl Default for EmbeddingSettings {
-    fn default()->Self {Self{batch_size:50,provider:"dashscope".into(),model:"text-embedding-v4".into(),dimension:1024,timeout_seconds:30.,local_semantic_enabled:false}}
+    fn default() -> Self {
+        Self {
+            batch_size: 50,
+            provider: "dashscope".into(),
+            model: "text-embedding-v4".into(),
+            dimension: 1024,
+            timeout_seconds: 30.,
+            local_semantic_enabled: false,
+            local_semantic_revision: String::new(),
+        }
+    }
 }
 impl EmbeddingSettings {
-    pub fn judge_provider(&self)->Result<query::embedding::ProviderConfig> {Ok(query::embedding::ProviderConfig{timeout:seconds(self.timeout_seconds,"embedding_timeout")?,..Default::default()})}
-    pub fn providers(&self,_keys:&ProviderKeys)->Result<BTreeMap<String,query::embedding::ProviderConfig>> {Ok(BTreeMap::new())}
+    pub fn judge_provider(&self) -> Result<query::embedding::ProviderConfig> {
+        Ok(query::embedding::ProviderConfig {
+            timeout: seconds(self.timeout_seconds, "embedding_timeout")?,
+            ..Default::default()
+        })
+    }
+    pub fn providers(
+        &self,
+        _keys: &ProviderKeys,
+    ) -> Result<BTreeMap<String, query::embedding::ProviderConfig>> {
+        Ok(BTreeMap::new())
+    }
 }
 /// Compatibility marker for old constructor signatures; contains no key fields.
 #[derive(Default)]
 pub struct ProviderKeys;
-impl ProviderKeys {pub fn qa_key(&self,_provider:&str)->String {String::new()}}
+impl ProviderKeys {
+    pub fn qa_key(&self, _provider: &str) -> String {
+        String::new()
+    }
+}
 pub struct QaSettings {
     pub provider: String,
     pub model: String,
@@ -133,7 +171,8 @@ impl QaSettings {
             api_key: String::new(),
             provider,
             model,
-            base_url: String::new(),            allowed_providers: self.allowed_providers.clone(),
+            base_url: String::new(),
+            allowed_providers: self.allowed_providers.clone(),
             allowed_models: self.allowed_models.clone(),
             timeout: seconds(self.timeout_seconds, "qa_timeout")?,
         })
@@ -170,14 +209,45 @@ impl Default for OcrSettings {
     }
 }
 impl OcrSettings {
-    pub fn project(&self,_embedding:&EmbeddingSettings,_keys:&ProviderKeys)->Result<Option<ingest::ocr::OcrConfig>> {
-        if !self.enabled || !["vlm","hybrid"].contains(&self.strategy.as_str()) {return Ok(None);}
-        let model=self.model.trim();let provider=if self.provider=="auto" {if model.starts_with("gemini-") {"gemini"} else if model.to_lowercase().contains("deepseek") {"siliconflow"} else {"dashscope"}} else {self.provider.as_str()};
-        Ok(Some(ingest::ocr::OcrConfig{provider:provider.into(),model:model.into(),endpoint:String::new(),api_keys:vec![],concurrency:self.concurrency,timeout:seconds(self.timeout_seconds,"ocr_timeout")?,max_retries:if provider=="siliconflow"{3}else{2},task:self.task.clone(),min_pixels:self.min_pixels,max_pixels:self.max_pixels,max_tokens:self.max_tokens,enable_rotate:self.enable_rotate}))
+    pub fn project(
+        &self,
+        _embedding: &EmbeddingSettings,
+        _keys: &ProviderKeys,
+    ) -> Result<Option<ingest::ocr::OcrConfig>> {
+        if !self.enabled || !["vlm", "hybrid"].contains(&self.strategy.as_str()) {
+            return Ok(None);
+        }
+        let model = self.model.trim();
+        let provider = if self.provider == "auto" {
+            if model.starts_with("gemini-") {
+                "gemini"
+            } else if model.to_lowercase().contains("deepseek") {
+                "siliconflow"
+            } else {
+                "dashscope"
+            }
+        } else {
+            self.provider.as_str()
+        };
+        Ok(Some(ingest::ocr::OcrConfig {
+            provider: provider.into(),
+            model: model.into(),
+            endpoint: String::new(),
+            api_keys: vec![],
+            concurrency: self.concurrency,
+            timeout: seconds(self.timeout_seconds, "ocr_timeout")?,
+            max_retries: if provider == "siliconflow" { 3 } else { 2 },
+            task: self.task.clone(),
+            min_pixels: self.min_pixels,
+            max_pixels: self.max_pixels,
+            max_tokens: self.max_tokens,
+            enable_rotate: self.enable_rotate,
+        }))
     }
 }
 pub struct StorageSettings {
     pub backend: String,
+    pub deployment_mode: String,
     pub local_base_path: PathBuf,
     pub key_prefix: String,
     pub url_expiry_seconds: u32,
@@ -192,6 +262,7 @@ impl Default for StorageSettings {
     fn default() -> Self {
         Self {
             backend: "local".into(),
+            deployment_mode: "single-node".into(),
             local_base_path: "data/files".into(),
             key_prefix: "dev".into(),
             url_expiry_seconds: 3600,
@@ -209,7 +280,22 @@ impl StorageSettings {
         self,
         working_directory: &std::path::Path,
     ) -> Result<ingest::assets::AssetStorage> {
-        let mut assets = if self.backend == "s3" && !self.s3_bucket.is_empty() {
+        let backend = ai_platform_service_primitives::content::storage_policy::backend(
+            &self.deployment_mode,
+            Some(&self.backend),
+        )
+        .map_err(|_| KnowledgeError::Construction("shared_storage"))?;
+        if backend == "s3"
+            && (self.s3_bucket.is_empty()
+                || self.s3_access_key.is_empty()
+                || self.s3_secret_key.is_empty())
+        {
+            return Err(KnowledgeError::Construction("s3_storage_configuration"));
+        }
+        if backend == "oss" {
+            return Err(KnowledgeError::Construction("unsupported_storage_backend"));
+        }
+        let mut assets = if backend == "s3" {
             let endpoint = self
                 .s3_endpoint
                 .unwrap_or_else(|| format!("https://s3.{}.amazonaws.com", self.s3_region));
@@ -234,7 +320,11 @@ impl StorageSettings {
         if !self.signing_key.is_empty() {
             assets = assets.with_signing_key(self.signing_key);
         }
-        assets.url_expiry_seconds = self.url_expiry_seconds;
+        assets.url_expiry_seconds = if backend == "s3" {
+            self.url_expiry_seconds.clamp(1, 900)
+        } else {
+            self.url_expiry_seconds
+        };
         Ok(assets)
     }
 }
@@ -265,10 +355,13 @@ impl Default for ProcessingSettings {
     }
 }
 pub struct KnowledgeConfiguration {
+    pub dataset_policy: Option<ai_platform_knowledge_domain::cedar_dataset_policy::Configuration>,
     pub model_plane: crate::model_plane_identity::ModelPlaneSettings,
-    pub connector_encryption_key:String,
-    pub request_governance: ai_platform_service_primitives::request_governance::RequestGovernanceConfig,
+    pub connector_encryption_key: String,
+    pub request_governance:
+        ai_platform_service_primitives::request_governance::RequestGovernanceConfig,
     pub confluence_enabled: bool,
+    pub confluence_acl_refresh: bool,
     pub confluence_request_timeout: f64,
     pub confluence_max_retries: u32,
     pub role: RuntimeRole,
@@ -298,4 +391,31 @@ pub struct SummarySettings {
 }
 pub(crate) fn seconds(value: f64, name: &'static str) -> Result<Duration> {
     Duration::try_from_secs_f64(value).map_err(|_| KnowledgeError::Configuration(name))
+}
+
+#[cfg(test)]
+mod shared_storage_configuration_tests {
+    use super::*;
+    #[test]
+    fn shared_storage_never_falls_back_to_local() {
+        for backend in ["local", "unknown", "s3", "auto"] {
+            let settings = StorageSettings {
+                backend: backend.into(),
+                deployment_mode: "multi-instance".into(),
+                ..StorageSettings::default()
+            };
+            assert!(settings.project(std::path::Path::new(".")).is_err());
+        }
+    }
+    #[test]
+    fn single_node_auto_retains_local_backend() {
+        assert!(
+            StorageSettings {
+                backend: "auto".into(),
+                ..StorageSettings::default()
+            }
+            .project(&std::env::temp_dir())
+            .is_ok()
+        );
+    }
 }

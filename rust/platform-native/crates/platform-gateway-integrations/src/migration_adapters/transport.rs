@@ -173,6 +173,52 @@ impl HttpTransport {
             .map_err(|e| transport_error(&e, false))?;
         Ok(HttpResponse { response, permit })
     }
+    /// Dedicated SDK worker transport. Provider transports never call this path.
+    pub(super) async fn send_over_workload(
+        &self,
+        builder: reqwest::RequestBuilder,
+        workload: Option<&ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
+    ) -> Result<HttpResponse, AdapterError> {
+        let Some(workload) = workload else {
+            return self.send(builder).await;
+        };
+        let request = builder.build().map_err(|_| AdapterFailure::Other)?;
+        let body = request
+            .body()
+            .map(|v| {
+                v.as_bytes()
+                    .map(<[u8]>::to_vec)
+                    .ok_or(AdapterFailure::Other)
+            })
+            .transpose()?;
+        let permit = self.acquire().await?;
+        let response = workload
+            .send(
+                request.method().clone(),
+                request.url().as_str(),
+                request.headers().clone(),
+                body,
+            )
+            .await
+            .map_err(|_| AdapterFailure::Other)?;
+        Ok(HttpResponse { response, permit })
+    }
+    pub(super) async fn post_json_over_workload(
+        &self,
+        endpoint: &str,
+        body: &Value,
+        headers: HeaderMap,
+        workload: Option<&ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
+    ) -> Result<HttpResponse, AdapterError> {
+        self.send_over_workload(
+            self.client
+                .post(self.url(endpoint)?)
+                .headers(headers)
+                .json(body),
+            workload,
+        )
+        .await
+    }
     pub async fn post_json(
         &self,
         endpoint: &str,

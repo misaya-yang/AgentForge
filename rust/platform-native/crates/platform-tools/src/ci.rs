@@ -127,6 +127,29 @@ fn evaluate(
     }
     json!({"gate":"ci-gate-enforcement","tier":"L0","changed_paths":changed,"required_results":required_results,"result":if failures.is_empty(){"pass"}else{"fail"},"failures":failures})
 }
+fn executes_selftest(job: &Value) -> bool {
+    let enabled = |value: &Value| {
+        value.get("if").is_none_or(|v| {
+            v.as_str().is_some_and(|s| {
+                matches!(
+                    s.trim(),
+                    "always()" | "success()" | "${{ always() }}" | "${{ success() }}"
+                )
+            })
+        })
+    };
+    enabled(job)
+        && job.get("continue-on-error").is_none_or(|v| v == false)
+        && job["steps"].as_array().is_some_and(|steps| {
+            steps.iter().any(|step| {
+                step.get("continue-on-error").is_none_or(|v| v == false)
+                    && enabled(step)
+                    && step["run"]
+                        .as_str()
+                        .is_some_and(|run| harness::runs_make(run, "ci-gate-enforcement-selftest"))
+            })
+        })
+}
 fn wiring(root: &Path, gates: &serde_json::Map<String, Value>) -> Result<Vec<String>> {
     let workflow: Value = serde_yaml::from_str(&std::fs::read_to_string(
         root.join(".github/workflows/ci.yml"),
@@ -203,8 +226,15 @@ fn wiring(root: &Path, gates: &serde_json::Map<String, Value>) -> Result<Vec<Str
     {
         failures.push("architecture-gates checkout must fetch-depth 0".into());
     }
+    if !jobs
+        .get("compose-and-harness")
+        .is_some_and(executes_selftest)
+    {
+        failures.push(
+            "compose-and-harness must execute the recurrence selftest without skip/masking".into(),
+        );
+    }
     for (job, command) in [
-        ("compose-and-harness", "make ci-gate-enforcement-selftest"),
         ("architecture-gates", "exit \"$failed\""),
         ("agent-runtime-contracts", "exit \"$failed\""),
         ("gate-enforcement", "make ci-gate-enforcement"),
@@ -255,7 +285,7 @@ fn wiring(root: &Path, gates: &serde_json::Map<String, Value>) -> Result<Vec<Str
 pub fn run(args: &Args) -> Result<Value> {
     let root = args.root();
     let outcome=(||->Result<Value>{let harness=args.values.get("--harness").map(PathBuf::from).unwrap_or_else(||root.join("harness.yml"));let config:Value=serde_yaml::from_str(&std::fs::read_to_string(harness)?)?;let gates=config["gates"].as_object().ok_or("gates missing")?;
-        let mut value=if args.flag("--selftest"){selftest()?;json!({"gate":"ci-gate-enforcement","tier":"L0","changed_paths":[],"required_results":{},"failures":[],"result":"pass"})}else{
+        let mut value=if args.flag("--selftest"){selftest()?;let recurrence=crate::platform_fitness::selftest()?;json!({"gate":"ci-gate-enforcement","tier":"L0","changed_paths":[],"required_results":{},"failures":[],"result":"pass","recurring_findings":recurrence})}else{
             let selection=object(&args.values.get("--selection").map(PathBuf::from).unwrap_or_else(||root.join("tmp/gate-evidence/affected-gates.json")))?;
             let raw=args.values.get("--job-results-json").cloned().or_else(||std::env::var("CI_JOB_RESULTS_JSON").ok()).ok_or("CI_JOB_RESULTS_JSON required")?;let jobs:Value=serde_json::from_str(&raw)?;
             evaluate(&selection,gates,&jobs,args.values.get("--current-job").map(String::as_str).unwrap_or("gate-enforcement"))};
@@ -295,6 +325,37 @@ fn selftest() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recurrence_selftest_cannot_be_commented_masked_or_conditionally_skipped() {
+        let good = json!({"steps":[{"run":"make ci-gate-enforcement-selftest"}]});
+        assert!(executes_selftest(&good));
+        for command in [
+            "# make ci-gate-enforcement-selftest",
+            "echo make ci-gate-enforcement-selftest",
+            "make ci-gate-enforcement-selftest || true",
+            "make ci-gate-enforcement-selftest -n",
+        ] {
+            assert!(!executes_selftest(&json!({"steps":[{"run":command}]})));
+        }
+        let mut expression = good.clone();
+        expression["steps"][0]["continue-on-error"] = json!("${{ true }}");
+        assert!(!executes_selftest(&expression));
+        expression = good.clone();
+        expression["continue-on-error"] = json!("${{ true }}");
+        assert!(!executes_selftest(&expression));
+        expression = good.clone();
+        expression["if"] = json!("false");
+        assert!(!executes_selftest(&expression));
+        for key in ["if", "continue-on-error"] {
+            let mut bad = good.clone();
+            bad["steps"][0][key] = if key == "if" {
+                json!("false")
+            } else {
+                json!(true)
+            };
+            assert!(!executes_selftest(&bad));
+        }
+    }
     #[test]
     fn all_results_fail_closed() {
         selftest().unwrap();

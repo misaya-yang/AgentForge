@@ -62,8 +62,22 @@ impl ReplayGuard {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
         }
-        db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS consumed_commands(command_id TEXT PRIMARY KEY,nonce TEXT UNIQUE NOT NULL,payload_digest TEXT NOT NULL,consumed_at REAL NOT NULL); CREATE TABLE IF NOT EXISTS cancelled_actions(action_id TEXT PRIMARY KEY,cancelled_at REAL NOT NULL);")?;
+        db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS consumed_commands(command_id TEXT PRIMARY KEY,nonce TEXT UNIQUE NOT NULL,payload_digest TEXT NOT NULL,consumed_at REAL NOT NULL); CREATE TABLE IF NOT EXISTS cancelled_actions(action_id TEXT PRIMARY KEY,cancelled_at REAL NOT NULL); CREATE TABLE IF NOT EXISTS control_stream_cursor(device_id TEXT PRIMARY KEY,cursor TEXT NOT NULL);")?;
         Ok(Self { db })
+    }
+    pub fn stream_cursor(&self, device: &str) -> Result<Option<String>> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT cursor FROM control_stream_cursor WHERE device_id=?",
+                [device],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+    fn checkpoint_stream(&mut self, device: &str, cursor: &str) -> Result<()> {
+        self.db.execute("INSERT INTO control_stream_cursor(device_id,cursor) VALUES(?,?) ON CONFLICT(device_id) DO UPDATE SET cursor=excluded.cursor", params![device,cursor])?;
+        Ok(())
     }
     pub fn reserve(&mut self, command: &str, nonce: &str, digest: &str) -> Result<bool> {
         let tx = self
@@ -160,6 +174,19 @@ pub trait RemoteControl: Send + Sync {
     fn finish_action(&self, action_id: &str);
 }
 pub trait RunnerTransport: Send + Sync {
+    fn open_control_stream<'a>(
+        &'a self,
+        _credential: &'a crate::transport::Credential,
+        _after_cursor: Option<&'a str>,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<Option<Box<dyn crate::control_stream::ControlStream>>>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async { Ok(None) })
+    }
     fn exchange<'a>(
         &'a self,
         credential: &'a crate::transport::Credential,
@@ -167,6 +194,24 @@ pub trait RunnerTransport: Send + Sync {
     ) -> Pin<Box<dyn Future<Output = Result<crate::transport::ExchangeResponse>> + Send + 'a>>;
 }
 impl RunnerTransport for crate::transport::HttpsTransport {
+    fn open_control_stream<'a>(
+        &'a self,
+        credential: &'a crate::transport::Credential,
+        after_cursor: Option<&'a str>,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<Option<Box<dyn crate::control_stream::ControlStream>>>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            match self.open_control_stream(credential, after_cursor).await {
+                Err(Error::Denied("control stream unsupported")) => Ok(None),
+                result => result.map(Some),
+            }
+        })
+    }
     fn exchange<'a>(
         &'a self,
         credential: &'a crate::transport::Credential,
@@ -743,6 +788,87 @@ fn control_with_remote(
     }
     Ok(true)
 }
+enum StreamEvent {
+    Frame(crate::control_stream::ControlFrame),
+    Unavailable,
+}
+// This task owns only outbound I/O. It cannot execute commands, advance durable
+// cursors or approve work. Dropping the task abort handle cancels a blocked read.
+async fn read_control_stream<T: RunnerTransport + 'static>(
+    transport: Arc<T>,
+    credential: Arc<crate::transport::Credential>,
+    verifier: Arc<dyn PlatformVerifier>,
+    mut cursor: tokio::sync::watch::Receiver<Option<String>>,
+    events: tokio::sync::mpsc::Sender<StreamEvent>,
+    mut stop: tokio::sync::watch::Receiver<bool>,
+) {
+    use crate::control_stream::{FRAME_TIMEOUT, STREAM_RETRY};
+    loop {
+        if *stop.borrow() {
+            return;
+        }
+        let after = cursor.borrow_and_update().clone();
+        let opened = tokio::select! {
+            _ = stop.changed() => return,
+            opened = tokio::time::timeout(FRAME_TIMEOUT, transport.open_control_stream(&credential, after.as_deref())) => opened,
+        };
+        match opened {
+            Ok(Ok(None)) => return, // Existing custom transports retain polling.
+            Ok(Ok(Some(mut stream))) => {
+                let Ok(mut sequence) = crate::control_stream::resume_sequence(after.as_deref())
+                else {
+                    return;
+                };
+                let mut stream_id = None;
+                loop {
+                    let next = tokio::select! {
+                        _ = stop.changed() => return,
+                        frame = tokio::time::timeout(FRAME_TIMEOUT, stream.next()) => frame,
+                    };
+                    let frame = match next {
+                        Ok(Ok(frame))
+                            if frame.device_id == credential.device_id
+                                && frame.verify(verifier.as_ref()).is_ok()
+                                && sequence.checked_add(1) == Some(frame.sequence)
+                                && stream_id.as_ref().is_none_or(|id| id == &frame.stream_id) =>
+                        {
+                            sequence = frame.sequence;
+                            stream_id = Some(frame.stream_id.clone());
+                            frame
+                        }
+                        _ => break,
+                    };
+                    tokio::select! {
+                        _ = stop.changed() => return,
+                        sent = events.send(StreamEvent::Frame(frame)) => if sent.is_err() { return; },
+                    }
+                }
+            }
+            _ => {}
+        }
+        tokio::select! {
+            _ = stop.changed() => return,
+            sent = events.send(StreamEvent::Unavailable) => if sent.is_err() { return; },
+        }
+        tokio::select! {
+            _ = stop.changed() => return,
+            _ = tokio::time::sleep(STREAM_RETRY) => {},
+        }
+    }
+}
+struct StreamTask(tokio::task::JoinHandle<()>);
+impl StreamTask {
+    async fn cancel(&mut self) {
+        self.0.abort();
+        let _ = (&mut self.0).await;
+    }
+}
+impl Drop for StreamTask {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 pub async fn run_forever<T: RunnerTransport + 'static, D: ControlledDispatcher + 'static>(
     device: String,
     doctor: Value,
@@ -760,6 +886,18 @@ pub async fn run_forever<T: RunnerTransport + 'static, D: ControlledDispatcher +
     {
         return Err(Error::Denied("heartbeat interval"));
     }
+    let transport = Arc::new(transport);
+    let credential = Arc::new(credential);
+    let (cursor_tx, cursor_rx) = tokio::sync::watch::channel(replay.stream_cursor(&device)?);
+    let (stream_tx, mut stream_rx) = tokio::sync::mpsc::channel(8);
+    let mut stream_task = StreamTask(tokio::spawn(read_control_stream(
+        transport.clone(),
+        credential.clone(),
+        verifier.clone(),
+        cursor_rx,
+        stream_tx,
+        stop.clone(),
+    )));
     let control = dispatcher.remote_control();
     let (work_tx, mut work_rx) = tokio::sync::mpsc::channel::<Claim>(MAX_QUEUED_CLAIMS);
     let (completion_tx, mut completion_rx) =
@@ -789,7 +927,7 @@ pub async fn run_forever<T: RunnerTransport + 'static, D: ControlledDispatcher +
         run_poller(
             &device,
             doctor,
-            &transport,
+            transport.as_ref(),
             &credential,
             verifier.as_ref(),
             &mut replay,
@@ -799,12 +937,15 @@ pub async fn run_forever<T: RunnerTransport + 'static, D: ControlledDispatcher +
             &mut completion_rx,
             &mut inflight,
             heartbeat,
+            &mut stream_rx,
+            &cursor_tx,
             &mut stop,
         )
         .await
     } else {
         Err(Error::Transport)
     };
+    stream_task.cancel().await;
     let cleanup = shutdown_worker(
         control,
         work_tx,
@@ -836,8 +977,12 @@ async fn run_poller<T: RunnerTransport>(
     completion_rx: &mut tokio::sync::mpsc::Receiver<DispatchCompletion>,
     inflight: &mut HashMap<String, String>,
     heartbeat: std::time::Duration,
+    stream_rx: &mut tokio::sync::mpsc::Receiver<StreamEvent>,
+    cursor_tx: &tokio::sync::watch::Sender<Option<String>>,
     stop: &mut tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
+    let mut stream_open = true;
+    let mut streaming = false;
     let mut interval = tokio::time::interval(heartbeat);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -845,6 +990,9 @@ async fn run_poller<T: RunnerTransport>(
             return Ok(());
         }
         tokio::select! {
+         event=stream_rx.recv(), if stream_open => {
+          apply_stream_event(event, device, verifier, replay, outbox, control, inflight, cursor_tx, &mut interval, heartbeat, &mut streaming, &mut stream_open)?;
+         },
          changed=stop.changed()=>{if changed.is_err()||*stop.borrow(){return Ok(())}},
          completion=completion_rx.recv()=>match completion{Some(completion)=>{if let Some(id)=completion.receipt.action_id.as_deref(){inflight.remove(id);}persist_completion(outbox,completion)?;},None=>return Err(Error::Storage)},
          _=interval.tick()=>{
@@ -852,6 +1000,9 @@ async fn run_poller<T: RunnerTransport>(
           let response=loop{tokio::select!{
            result=&mut exchange=>break result?,
            completion=completion_rx.recv()=>match completion{Some(completion)=>{if let Some(id)=completion.receipt.action_id.as_deref(){inflight.remove(id);}persist_completion(outbox,completion)?;},None=>return Err(Error::Storage)},
+         event=stream_rx.recv(), if stream_open => {
+          apply_stream_event(event, device, verifier, replay, outbox, control, inflight, cursor_tx, &mut interval, heartbeat, &mut streaming, &mut stream_open)?;
+         },
            changed=stop.changed()=>{if changed.is_err()||*stop.borrow(){return Ok(())}}
           }};
           if response.accepted_through_sequence<low||response.accepted_through_sequence>high{return Err(Error::Protocol)}
@@ -867,6 +1018,48 @@ async fn run_poller<T: RunnerTransport>(
         }
     }
 }
+#[allow(clippy::too_many_arguments)]
+fn apply_stream_event(
+    event: Option<StreamEvent>,
+    device: &str,
+    verifier: &dyn PlatformVerifier,
+    replay: &mut ReplayGuard,
+    outbox: &mut Outbox,
+    control: &dyn RemoteControl,
+    inflight: &HashMap<String, String>,
+    cursor_tx: &tokio::sync::watch::Sender<Option<String>>,
+    interval: &mut tokio::time::Interval,
+    heartbeat: std::time::Duration,
+    streaming: &mut bool,
+    stream_open: &mut bool,
+) -> Result<()> {
+    match event {
+        Some(StreamEvent::Frame(frame)) => {
+            frame.verify(verifier)?;
+            // Heartbeats are signed too; only a verified complete frame marks a
+            // proxy path healthy. Commands still pass the original verifier and
+            // durable replay guard, shared with polls.
+            for command in frame.commands {
+                control_with_remote(device, command, verifier, replay, outbox, control, inflight)?;
+            }
+            replay.checkpoint_stream(device, &frame.cursor)?;
+            cursor_tx.send_replace(Some(frame.cursor));
+            if !*streaming {
+                *interval = tokio::time::interval(heartbeat);
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                *streaming = true;
+            }
+        }
+        Some(StreamEvent::Unavailable) => {
+            *interval = tokio::time::interval(heartbeat.min(crate::control_stream::FALLBACK_POLL));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            *streaming = false;
+        }
+        None => *stream_open = false,
+    }
+    Ok(())
+}
+
 async fn shutdown_worker(
     control: Arc<dyn RemoteControl>,
     work_tx: tokio::sync::mpsc::Sender<Claim>,

@@ -22,7 +22,9 @@ impl AgentRepository {
         mime: &str,
         size: i64,
     ) -> Result<Value, AgentError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
         let p:Value=sqlx::query_scalar("SELECT jsonb_build_object('agent_id',p.agent_id,'max_storage_bytes',COALESCE(g.max_storage_bytes,10737418240)::bigint,'alert_threshold_percent',COALESCE(g.alert_threshold_percent,90)::int) FROM agent_publications p JOIN agents a ON a.tenant_id=p.tenant_id AND a.agent_id=p.agent_id LEFT JOIN agent_governance_policies g ON g.tenant_id=p.tenant_id AND g.agent_id=p.agent_id WHERE p.tenant_id=$1 AND p.publication_id=$2::uuid AND p.channel=$3 AND p.status='active' AND a.deleted_at IS NULL FOR UPDATE OF a").bind(&actor.tenant_id).bind(publication).bind(channel).fetch_optional(&mut *tx).await?.ok_or_else(||AgentError::code(409,"PUBLICATION_DISABLED"))?;
         let current:i64=sqlx::query_scalar("SELECT COALESCE(SUM(a.size_bytes),0)::bigint FROM agent_runtime_attachments a JOIN agent_publications p ON p.tenant_id=a.tenant_id AND p.publication_id=a.publication_id WHERE p.tenant_id=$1 AND p.agent_id=$2::uuid AND a.deleted_at IS NULL").bind(&actor.tenant_id).bind(text(&p,"agent_id")).fetch_one(&mut *tx).await?;
         let total = current.saturating_add(size);
@@ -64,7 +66,7 @@ impl AgentRepository {
         if ids.iter().collect::<BTreeSet<_>>().len() != ids.len() {
             return Err(AgentError::code(409, "AGENT_RUNTIME_ATTACHMENT_DUPLICATE"));
         }
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('artifact_id',attachment_id,'filename',filename,'mime_type',mime_type,'file_path','/'||ltrim(storage_key,'/')) FROM agent_runtime_attachments WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND channel=$4 AND attachment_id=ANY($5::text[]::uuid[]) AND expires_at>NOW()").bind(&actor.tenant_id).bind(publication).bind(&actor.user_id).bind(channel).bind(&ids).fetch_all(&self.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('artifact_id',attachment_id,'filename',filename,'mime_type',mime_type,'file_path','/'||ltrim(storage_key,'/')) FROM agent_runtime_attachments WHERE tenant_id=$1 AND publication_id=$2::uuid AND principal_id=$3 AND channel=$4 AND attachment_id=ANY($5::text[]::uuid[]) AND expires_at>NOW()").bind(&actor.tenant_id).bind(publication).bind(&actor.user_id).bind(channel).bind(&ids).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &actor.tenant_id)).await?;
         if rows.len() != ids.len() {
             return Err(AgentError::code(404, "AGENT_RUNTIME_ATTACHMENT_NOT_FOUND"));
         }

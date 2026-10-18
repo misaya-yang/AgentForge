@@ -25,7 +25,7 @@ fn zone(name: &str) -> Option<&'static str> {
         None
     }
 }
-fn dependency_target(
+pub(crate) fn dependency_target(
     root: &Path,
     manifest: &Path,
     alias: &str,

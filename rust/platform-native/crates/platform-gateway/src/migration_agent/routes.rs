@@ -218,12 +218,7 @@ impl AgentState {
                 model_spec["provider_id"].as_str(),
             )
             .await?;
-        if row["is_enabled"] == false
-            || !super::entry::user_can_access_model(
-                actor,
-                row["access_level"].as_str().unwrap_or("public"),
-            )
-        {
+        if row["is_enabled"] == false || !super::entry::authorize_model(actor, &row) {
             return Err(AgentError::code(403, "AGENT_RUNTIME_MODEL_FORBIDDEN"));
         }
         let provider = text(&row, "provider_id");
@@ -406,7 +401,7 @@ impl AgentState {
         draft: Option<i64>,
     ) -> Result<Value, AgentError> {
         let expires = chrono::Utc::now() + chrono::Duration::days(7);
-        let row:Option<Value>=sqlx::query_scalar("INSERT INTO assistant.sessions AS existing_session(session_id,service_id,user_id,tenant_id,state,history,metadata,config,status,expires_at,agent_id,agent_version_id,agent_draft_revision,publication_id,channel,runtime_fingerprint,agent_spec_hash) VALUES($1,'__builtin_assistant__',$2,$3,'{}'::jsonb,'[]'::jsonb,'{}'::jsonb,'{}'::jsonb,'active',$4,$5::uuid,$6::uuid,$7,$8::uuid,$9,$10,$11) ON CONFLICT(session_id) DO UPDATE SET expires_at=GREATEST(existing_session.expires_at,EXCLUDED.expires_at),updated_at=NOW() WHERE existing_session.user_id=EXCLUDED.user_id AND existing_session.tenant_id=EXCLUDED.tenant_id AND existing_session.service_id=EXCLUDED.service_id AND existing_session.status='active' AND existing_session.agent_id=EXCLUDED.agent_id AND existing_session.agent_version_id IS NOT DISTINCT FROM EXCLUDED.agent_version_id AND existing_session.agent_draft_revision IS NOT DISTINCT FROM EXCLUDED.agent_draft_revision AND existing_session.publication_id IS NOT DISTINCT FROM EXCLUDED.publication_id AND existing_session.channel=EXCLUDED.channel AND existing_session.runtime_fingerprint=EXCLUDED.runtime_fingerprint AND existing_session.agent_spec_hash=EXCLUDED.agent_spec_hash RETURNING to_jsonb(existing_session)").bind(&scope.session_id).bind(&scope.user_id).bind(&scope.tenant_id).bind(expires).bind(text(snapshot,"agent_id")).bind(snapshot["agent_version_id"].as_str()).bind(draft).bind(snapshot["publication"]["id"].as_str()).bind(text(&snapshot["publication"],"channel")).bind(format!("sha256:{}",spec::hash(snapshot))).bind(text(&snapshot["fingerprints"],"spec")).fetch_optional(&self.repository.pool).await?;
+        let row:Option<Value>=sqlx::query_scalar("INSERT INTO assistant.sessions AS existing_session(session_id,service_id,user_id,tenant_id,state,history,metadata,config,status,expires_at,agent_id,agent_version_id,agent_draft_revision,publication_id,channel,runtime_fingerprint,agent_spec_hash) VALUES($1,'__builtin_assistant__',$2,$3,'{}'::jsonb,'[]'::jsonb,'{}'::jsonb,'{}'::jsonb,'active',$4,$5::uuid,$6::uuid,$7,$8::uuid,$9,$10,$11) ON CONFLICT(session_id) DO UPDATE SET expires_at=GREATEST(existing_session.expires_at,EXCLUDED.expires_at),updated_at=NOW() WHERE existing_session.user_id=EXCLUDED.user_id AND existing_session.tenant_id=EXCLUDED.tenant_id AND existing_session.service_id=EXCLUDED.service_id AND existing_session.status='active' AND existing_session.agent_id=EXCLUDED.agent_id AND existing_session.agent_version_id IS NOT DISTINCT FROM EXCLUDED.agent_version_id AND existing_session.agent_draft_revision IS NOT DISTINCT FROM EXCLUDED.agent_draft_revision AND existing_session.publication_id IS NOT DISTINCT FROM EXCLUDED.publication_id AND existing_session.channel=EXCLUDED.channel AND existing_session.runtime_fingerprint=EXCLUDED.runtime_fingerprint AND existing_session.agent_spec_hash=EXCLUDED.agent_spec_hash RETURNING to_jsonb(existing_session)").bind(&scope.session_id).bind(&scope.user_id).bind(&scope.tenant_id).bind(expires).bind(text(snapshot,"agent_id")).bind(snapshot["agent_version_id"].as_str()).bind(draft).bind(snapshot["publication"]["id"].as_str()).bind(text(&snapshot["publication"],"channel")).bind(format!("sha256:{}",spec::hash(snapshot))).bind(text(&snapshot["fingerprints"],"spec")).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.repository.pool, &scope.tenant_id)).await?;
         let row = row.ok_or_else(|| AgentError::code(409, "AGENT_RUNTIME_PIN_CONFLICT"))?;
         self.control
             .threads
@@ -621,12 +616,25 @@ pub(super) async fn ensure_builtin_session(
     Ok(())
 }
 fn validate_thread_create_body(v: &Value) -> Result<(), AgentError> {
-    closed(v, &["session_id", "model_id", "provider_id", "agent_id", "agent_version_id", "expected_tenant_id"])?;
+    closed(
+        v,
+        &[
+            "session_id",
+            "model_id",
+            "provider_id",
+            "agent_id",
+            "agent_version_id",
+            "expected_tenant_id",
+        ],
+    )?;
     bounded(v, "provider_id", 1, 255, false)?;
     if v["agent_id"].is_null() != v["agent_version_id"].is_null()
         || (!v["agent_id"].is_null() && (!v["model_id"].is_null() || !v["provider_id"].is_null()))
     {
-        return Err(AgentError::code(422, "AGENT_RUNTIME_VERSION_TARGET_INVALID"));
+        return Err(AgentError::code(
+            422,
+            "AGENT_RUNTIME_VERSION_TARGET_INVALID",
+        ));
     }
     Ok(())
 }
@@ -756,7 +764,13 @@ async fn start_builtin_profile(
     } else {
         state
             .attachments
-            .bind(&actor, &scope, &model, payload["provider_id"].as_str(), &refs)
+            .bind(
+                &actor,
+                &scope,
+                &model,
+                payload["provider_id"].as_str(),
+                &refs,
+            )
             .await?
     };
     let memory = super::entry::memory_mode(
@@ -1145,8 +1159,15 @@ mod provider_selection_tests {
 
     #[test]
     fn thread_and_turn_accept_the_same_optional_provider() {
-        assert!(validate_thread_create_body(&json!({"model_id":"same","provider_id":"second"})).is_ok());
-        assert!(validate_turn_body(&json!({"message":"hello","model_id":"same","provider_id":"second"})).is_ok());
+        assert!(
+            validate_thread_create_body(&json!({"model_id":"same","provider_id":"second"})).is_ok()
+        );
+        assert!(
+            validate_turn_body(
+                &json!({"message":"hello","model_id":"same","provider_id":"second"})
+            )
+            .is_ok()
+        );
         assert!(validate_thread_create_body(&json!({"model_id":"unique"})).is_ok());
     }
 

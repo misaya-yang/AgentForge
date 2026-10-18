@@ -27,6 +27,7 @@ unsafe extern "system" {
     fn CredReadW(target: *const u16, kind: u32, flags: u32, out: *mut *mut Credential) -> i32;
     fn CredWriteW(value: *const Credential, flags: u32) -> i32;
     fn CredFree(value: *mut c_void);
+    fn CredDeleteW(target: *const u16, kind: u32, flags: u32) -> i32;
 }
 #[link(name = "Crypt32")]
 unsafe extern "system" {
@@ -128,6 +129,14 @@ fn crypt(secret: &[u8], entropy: &[u8], protect: bool) -> Result<Vec<u8>> {
     Ok(result)
 }
 impl SecureCredentialStore for WindowsCredentialStore {
+    fn remove(&self, reference: &str) -> Result<()> {
+        let target = self.target(reference)?;
+        if unsafe { CredDeleteW(target.as_ptr(), 1, 0) } != 0 || unsafe { GetLastError() } == 1168 {
+            Ok(())
+        } else {
+            Err(Error::Denied("Windows credential delete failed"))
+        }
+    }
     fn ready(&self) -> bool {
         crypt(&[0; 32], &self.entropy(), true)
             .and_then(|sealed| crypt(&sealed, &self.entropy(), false))
@@ -204,6 +213,14 @@ impl SecureCredentialStore for WindowsCredentialStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn current_user_dpapi_roundtrip_refuses_wrong_entropy() {
+        let entropy = b"synthetic-test-service";
+        let sealed = crypt(b"synthetic-secret", entropy, true).unwrap();
+        assert_ne!(sealed, b"synthetic-secret");
+        assert_eq!(crypt(&sealed, entropy, false).unwrap(), b"synthetic-secret");
+        assert!(crypt(&sealed, b"another-service", false).is_err());
+    }
     #[test]
     fn scope_and_reference_are_unambiguous() {
         let store = WindowsCredentialStore::new("identity.v1".into()).unwrap();

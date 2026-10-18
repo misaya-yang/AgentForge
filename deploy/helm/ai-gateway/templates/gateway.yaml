@@ -15,6 +15,9 @@ spec:
       app.kubernetes.io/component: gateway
   template:
     metadata:
+      annotations:
+        agentforge.io/application-secret-generation: {{ .Values.workloadIdentity.applicationSecretGeneration | quote }}
+        agentforge.io/data-generation: {{ .Values.dataSecurity.generation | quote }}
       labels:
 {{ include "ai-gateway.labels" . | indent 8 }}
         app.kubernetes.io/component: gateway
@@ -35,6 +38,8 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: gateway
       initContainers:
+{{ include "ai-gateway.appSecretInit" (dict "root" . "role" "gateway" "uid" 1000) | indent 6 }}
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "gateway" "role" "gateway" "uid" 1000 "once" true) | indent 6 }}
       - name: database-authority
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
         command: ["/bin/sh", "-ec"]
@@ -48,6 +53,7 @@ spec:
         - name: AI_GATEWAY_ROLE_PREFIX
           value: {{ .Values.databaseRoles.rolePrefix | quote }}
         volumeMounts:
+{{ include "ai-gateway.dataMount" . | indent 8 }}
         - {name: state, mountPath: /state}
         - {name: tmp, mountPath: /tmp}
       - name: lease-signing-key
@@ -57,12 +63,11 @@ spec:
 {{ toYaml .Values.resources.migration | indent 10 }}
         securityContext:
 {{ include "ai-gateway.security" 1000 | indent 10 }}
-        env:
-{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_GATEWAY_DSN" "key" "GATEWAY_DSN") | indent 8 }}
         volumeMounts:
         - {name: lease-input, mountPath: /input, readOnly: true}
         - {name: lease, mountPath: /output}
       containers:
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "gateway" "role" "gateway" "uid" 1000 "once" false) | indent 6 }}
       - name: gateway
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "gateway") | quote }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -72,12 +77,19 @@ spec:
 {{ toYaml (index .Values.resources "gateway") | indent 10 }}
         command: ["/usr/local/bin/gateway", "--config-env"]
         env:
+        - {name: AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE, value: /run/lease-public/public.json}
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+        - {name: INTERNAL_AUTH_KEYS_FILE, value: /run/app-secrets/INTERNAL_AUTH_KEYS}
+{{- end }}
+{{ include "ai-gateway.workloadEnv" (dict "root" . "service" "gateway") | indent 8 }}
+{{ include "ai-gateway.datasetAuthorizationEnv" (dict "root" . "service" "gateway") | indent 8 }}
+{{ include "ai-gateway.dataEnv" (dict "root" . "role" "gateway" "prefix" "DATA_GATEWAY" "alias" "gateway" "replicas" 1) | indent 8 }}
 {{ include "ai-gateway.roleEnv" (dict "root" . "env" "GATEWAY_DATABASE__DSN" "key" "GATEWAY_DSN") | indent 8 }}
 {{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_REDIS__URL" "secret" .Values.credentials.gateway "key" "REDIS_URL") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_AUTHENTICATION__JWT__SECRET" "secret" .Values.credentials.gateway "key" "GATEWAY_AUTHENTICATION__JWT__SECRET") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_ENCRYPTION_KEY" "secret" .Values.credentials.gateway "key" "GATEWAY_ENCRYPTION_KEY") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.gateway "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.gateway "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "GATEWAY_AUTHENTICATION__JWT__SECRET" "secret" .Values.credentials.gateway "key" "GATEWAY_AUTHENTICATION__JWT__SECRET") | indent 8 }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "GATEWAY_ENCRYPTION_KEY" "secret" .Values.credentials.gateway "key" "GATEWAY_ENCRYPTION_KEY") | indent 8 }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.gateway "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.gateway "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
         - name: GATEWAY_NATIVE_CONFIG
           value: "/app/config/native-gateway.json"
         - name: GATEWAY_HOST
@@ -98,6 +110,8 @@ spec:
           value: "false"
         - name: GATEWAY_STORAGE__BACKEND
           value: {{ ternary "s3" "local" .Values.data.objectStore.enabled | quote }}
+        - name: AI_PLATFORM_DEPLOYMENT_MODE
+          value: {{ .Values.global.deploymentMode | quote }}
         - name: GATEWAY_STORAGE__LOCAL_BASE_PATH
           value: "/app/data/images"
         - name: AI_PLATFORM_LEASE_TRUST_MODE
@@ -106,13 +120,13 @@ spec:
           value: "/run/lease/private.json"
 {{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_GATEWAY_DSN" "key" "GATEWAY_DSN") | indent 8 }}
         - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
         - name: AI_PLATFORM_AGENT_RUNTIME_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-runtime") }}
         - name: AI_PLATFORM_CAPABILITY_WORKER_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-capability-worker") }}
         - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "knowledge") }}
         - name: AI_PLATFORM_AGENT_RUNTIME_KERNEL_REVISION
           value: {{ .Values.gateway.nativeOptions.kernel_revision | quote }}
         - name: AI_PLATFORM_KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE
@@ -129,7 +143,7 @@ spec:
 {{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_STORAGE__S3__ACCESS_KEY" "secret" .Values.data.objectStore.existingSecret "key" "ACCESS_KEY") | indent 8 }}
 {{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_STORAGE__S3__SECRET_KEY" "secret" .Values.data.objectStore.existingSecret "key" "SECRET_KEY") | indent 8 }}
 {{- end }}
-{{- if .Values.sdkWorker.enabled }}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "disabled") }}
         - {name: SDK_AGENT_GATEWAY_TLS_ENABLED, value: "true"}
         - {name: SDK_AGENT_GATEWAY_TLS_BIND, value: "0.0.0.0:8097"}
         - {name: SDK_AGENT_GATEWAY_TLS_CERT_FILE, value: /run/sdk-callback/tls.crt}
@@ -139,7 +153,17 @@ spec:
           value: https://{{ include "ai-gateway.fullname" . }}-sdk:8096
 {{ include "ai-gateway.secretEnv" (dict "env" "SDK_AGENT_WORKER_TOKEN" "secret" .Values.sdkWorker.credentialsSecret "key" "SDK_AGENT_WORKER_TOKEN") | indent 8 }}
 {{- end }}
+{{- if and .Values.sdkWorker.enabled (ne .Values.workloadIdentity.mode "disabled") }}
+        - name: SDK_AGENT_WORKER_URL
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "sdk") }}
+{{- if eq .Values.workloadIdentity.mode "dual" }}
+        - {name: SDK_AGENT_WORKER_TOKEN_FILE, value: /run/sdk-token/token}
+{{- end }}
+{{- end }}
         ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+        - {name: workload, containerPort: 8443}
+{{- end }}
         - {name: http, containerPort: 8080}
         readinessProbe:
           httpGet: {path: /health/ready, port: http}
@@ -148,6 +172,16 @@ spec:
           httpGet: {path: /health/ready, port: http}
           initialDelaySeconds: 30
         volumeMounts:
+        - {name: lease-public, mountPath: /run/lease-public/public.json, subPath: public.json, readOnly: true}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "dual") }}
+        - {name: sdk-token, mountPath: /run/sdk-token/token, subPath: SDK_AGENT_WORKER_TOKEN, readOnly: true}
+{{- end }}
+{{ include "ai-gateway.workloadMount" . | indent 8 }}
+{{ include "ai-gateway.dataMount" . | indent 8 }}
+{{ include "ai-gateway.appSecretMount" (dict "root" . "role" "gateway") | indent 8 }}
+{{- if .Values.dataSecurity.enabled }}
+        - {name: data-credentials, mountPath: /run/data/credentials/control-dsn, subPath: control-dsn, readOnly: true}
+{{- end }}
         - {name: knowledge-model-public, mountPath: /run/knowledge-model-public/public.json, subPath: public.json, readOnly: true}
         - {name: tmp, mountPath: /tmp}
         - {name: state, mountPath: /app/data, subPath: data}
@@ -155,11 +189,23 @@ spec:
         - {name: state, mountPath: /app/agent-memory, subPath: agent-memory}
         - {name: config, mountPath: /app/config/native-gateway.json, subPath: native-gateway.json, readOnly: true}
         - {name: lease, mountPath: /run/lease, readOnly: true}
-{{- if .Values.sdkWorker.enabled }}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "disabled") }}
         - {name: sdk-worker-ca, mountPath: /run/sdk-worker, readOnly: true}
         - {name: sdk-callback, mountPath: /run/sdk-callback, readOnly: true}
 {{- end }}
       volumes:
+      - name: lease-public
+        configMap: {name: {{ .Values.lease.publicConfigMap | quote }}}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "dual") }}
+      - name: sdk-token
+        secret:
+          secretName: {{ .Values.sdkWorker.credentialsSecret | quote }}
+          defaultMode: 0440
+          items: [{key: SDK_AGENT_WORKER_TOKEN, path: SDK_AGENT_WORKER_TOKEN}]
+{{- end }}
+{{ include "ai-gateway.workloadVolumes" (dict "root" . "role" "gateway") | indent 6 }}
+{{ include "ai-gateway.dataVolumes" (dict "root" . "role" "gateway") | indent 6 }}
+{{ include "ai-gateway.appSecretVolume" (dict "root" . "role" "gateway") | indent 6 }}
       - name: tmp
         emptyDir: {medium: Memory, sizeLimit: 128Mi}
       - name: config
@@ -177,7 +223,7 @@ spec:
       - name: knowledge-model-public
         configMap:
           name: {{ .Values.modelPlane.knowledgeWorkloadPublicConfigMap | quote }}
-{{- if .Values.sdkWorker.enabled }}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "disabled") }}
       - name: sdk-worker-ca
         secret:
           secretName: {{ .Values.sdkWorker.workerTLSSecret | quote }}
@@ -196,7 +242,10 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: gateway
   ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+  - {name: workload, port: 8443, targetPort: workload}
+{{- end }}
   - {name: http, port: 8080, targetPort: http}
-{{- if .Values.sdkWorker.enabled }}
+{{- if and .Values.sdkWorker.enabled (eq .Values.workloadIdentity.mode "disabled") }}
   - {name: sdk-callback, port: 8097, targetPort: 8097}
 {{- end }}

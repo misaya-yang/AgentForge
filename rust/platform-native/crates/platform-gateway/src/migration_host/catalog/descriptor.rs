@@ -140,6 +140,14 @@ impl Descriptor {
         // A Worker activation is not inferred from the echoed catalog revision.
         // Both sides must select the same immutable deployment generation. This
         // also rejects pack descriptors missing from Gateway's local catalog.
+        if raw["id"] == ai_platform_plugin_quiz::CAPABILITY_ID
+            && record.is_none_or(|r| {
+                r["plugin_id"] != ai_platform_plugin_quiz::PLUGIN_ID
+                    || r["plugin_metadata"]["worker_active"] != true
+            })
+        {
+            return Err(error("CAPABILITY_PLUGIN_ACTIVATION_MISMATCH"));
+        }
         let pack_tagged = tags.iter().any(|tag| tag.starts_with("plugin-"));
         let pack_record = record.is_some_and(|r| {
             r["plugin_metadata"].get("activation_id").is_some()
@@ -154,7 +162,9 @@ impl Descriptor {
             let version = text(r, "plugin_version");
             let artifact = text(&r["plugin_metadata"], "artifact_sha256");
             let activation = text(&r["plugin_metadata"], "activation_id");
+            let publisher = text(&r["plugin_metadata"], "publisher_id");
             if id.is_empty()
+                || publisher.is_empty()
                 || version.is_empty()
                 || artifact != text(r, "content_hash")
                 || !artifact.strip_prefix("sha256:").is_some_and(|v| {
@@ -165,12 +175,13 @@ impl Descriptor {
                 || uuid::Uuid::parse_str(activation).is_err()
                 || !tags.contains(&format!("plugin-id:{id}"))
                 || !tags.contains(&format!("plugin-version:{version}"))
+                || !tags.contains(&format!("plugin-publisher:{publisher}"))
                 || !tags.contains(&format!(
                     "plugin-pack:{}",
                     artifact.strip_prefix("sha256:").unwrap_or("")
                 ))
                 || !tags.contains(&format!("plugin-activation:{activation}"))
-                || tags.iter().filter(|tag| tag.starts_with("plugin-")).count() != 4
+                || tags.iter().filter(|tag| tag.starts_with("plugin-")).count() != 5
             {
                 return Err(error("CAPABILITY_PLUGIN_ACTIVATION_MISMATCH"));
             }

@@ -1,15 +1,10 @@
+import type { RequestBody, Defined } from "@/api/contracts";
 /** Mirrors tenant_policies_api authorization; platform_admin alone is not sufficient. */
 export function canAdministerTenantPolicies(user: { roles: string[]; tier: string } | null | undefined): boolean {
   return Boolean(user && (user.roles.includes("admin") || user.tier.toLowerCase() === "admin"));
 }
 
-export interface ToolPolicyPayload {
-  tenant_id: string;
-  allowed_tools: string[] | null;
-  blocked_tools: string[] | null;
-  allowed_categories: string[] | null;
-  max_calls_per_minute: number;
-}
+export type ToolPolicyPayload = Defined<RequestBody<"PUT /api/v1/admin/tenant-policies/tool-policies">, "tenant_id" | "allowed_tools" | "blocked_tools" | "allowed_categories" | "max_calls_per_minute">;
 
 export interface ToolPolicyDraft {
   tenant_id: string;

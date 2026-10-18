@@ -127,17 +127,13 @@ impl Config {
                 && text(&self.v, "drill_bucket")? != text(&self.v, "replica_bucket")?,
             "buckets must be distinct",
         )?;
-        for key in [
-            "qdrant_source",
-            "qdrant_drill",
-            "s3_source",
-            "s3_replica",
-            "s3_drill",
-        ] {
+        for key in ["s3_source", "s3_replica", "s3_drill"] {
             local_url(text(&self.v, key)?)?;
         }
+        let qdrant_source = local_url(self.value("qdrant_source")?)?;
+        let qdrant_drill = local_url(self.value("qdrant_drill")?)?;
         need(
-            self.v["qdrant_source"] != self.v["qdrant_drill"],
+            qdrant_source.origin() != qdrant_drill.origin(),
             "Qdrant drill cannot target source",
         )?;
         let source = self.v["pg_source_port"]
@@ -158,6 +154,7 @@ impl Config {
         if let Some(path) = self.v["s3_ca_certificate_file"].as_str() {
             external(Path::new(path), &self.repo)?;
         }
+        let source_path = external(Path::new(self.value("pg_source_path")?), &self.repo)?;
         for key in [
             "evidence_root",
             "drill_root",
@@ -171,7 +168,13 @@ impl Config {
             "qdrant_source_key_file",
             "qdrant_drill_key_file",
         ] {
-            external(Path::new(text(&self.v, key)?), &self.repo)?;
+            let path = external(Path::new(text(&self.v, key)?), &self.repo)?;
+            if matches!(key, "drill_root" | "evidence_root") {
+                need(
+                    !path.starts_with(&source_path),
+                    "drill/evidence roots cannot be inside source PostgreSQL data",
+                )?;
+            }
         }
         for key in ["pgbackrest_bin", "pg_ctl_bin"] {
             need(

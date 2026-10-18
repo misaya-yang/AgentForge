@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { readApiBlob } from "@/api/generatedTransport";
 
 /** Keep file errors actionable without exposing server bodies or concealed existence. */
 export function artifactAccessErrorKey(error: unknown, operation: "download" | "preview" = "download"): string {
@@ -34,8 +34,7 @@ function permittedDirectUrl(url: string): boolean {
 
 async function resolveArtifactUrl(url: string): Promise<{ href: string; temporary: boolean }> {
   if (protectedApiPath(url)) {
-    const response = await api.get<Blob>(url, { responseType: "blob" });
-    return { href: URL.createObjectURL(response.data), temporary: true };
+    return { href: URL.createObjectURL(await readApiBlob(url)), temporary: true };
   }
   if (permittedDirectUrl(url)) return { href: url, temporary: false };
   throw new Error("Unsupported artifact URL");

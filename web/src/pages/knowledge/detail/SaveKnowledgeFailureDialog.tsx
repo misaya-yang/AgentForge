@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isAxiosError } from "axios";
+import { isHttpError } from '@/lib/fetchClient';
 import { useTranslation } from "react-i18next";
 import { BookmarkPlus, Loader2 } from "lucide-react";
 
@@ -126,7 +126,7 @@ export function SaveKnowledgeFailureDialog(props: SaveKnowledgeFailureDialogProp
       if (!guard.isCurrent()) return;
       toast.error(
         t("knowledge.detail.sendToEvalFailed"),
-        isAxiosError(error) && error.response?.status === 409
+        isHttpError(error) && error.response?.status === 409
           ? t("knowledge.detail.failureRevisionConflict")
           : error instanceof Error ? error.message : String(error)
       );

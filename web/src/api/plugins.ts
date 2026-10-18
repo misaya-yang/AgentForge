@@ -1,3 +1,5 @@
+import type { RequestBody } from "@/api/contracts";
+import type { ApiRequest } from "../../../sdk/typescript/generated";
 import { api } from "@/lib/api";
 
 export type PluginAvailability = "available" | "partially_available" | "policy_blocked";
@@ -50,16 +52,10 @@ export async function getPluginRegistry(): Promise<PluginRegistry> {
   return data;
 }
 
-export interface UpdatePluginLifecycle {
-  selected_version: string;
-  enabled: boolean;
-  expected_revision: string;
-  expected_catalog_revision: string;
-  expected_tenant_id: string;
-}
+export type UpdatePluginLifecycle = ApiRequest<"PUT /api/v1/assistant/plugins/{plugin_id}/lifecycle">["body"];
 export async function updatePluginLifecycle(pluginId: string, payload: UpdatePluginLifecycle): Promise<{ plugin_id: string; tenant_id: string; lifecycle: PluginLifecycle }> {
   const { data } = await api.put<{ plugin_id: string; tenant_id: string; lifecycle: PluginLifecycle }>(
-    `/api/v1/assistant/plugins/${encodeURIComponent(pluginId)}/lifecycle`, payload,
+    `/api/v1/assistant/plugins/${encodeURIComponent(pluginId)}/lifecycle`, (payload satisfies RequestBody<"PUT /api/v1/assistant/plugins/{plugin_id}/lifecycle">),
   );
   return data;
 }

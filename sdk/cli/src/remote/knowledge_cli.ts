@@ -1,4 +1,5 @@
 /** Explicit hosted Knowledge management; never starts the independent Runtime. */
+import { hostedConfig } from "./device_auth.js";
 import { isIP } from "node:net";
 import { loadConfig } from "../config.js";
 import type { CLIConfig } from "../types/config.js";
@@ -9,7 +10,7 @@ const STATES = new Set(["pending", "processing", "completed", "failed", "cancell
 const HELP = `Usage: ai-gateway gateway knowledge sources <dataset> [--base-url <origin>]
        ai-gateway gateway knowledge sync <dataset> <binding> --request-id <UUID> --confirm [--base-url <origin>]
        ai-gateway gateway knowledge status <dataset> <binding> --request-id <UUID> [--base-url <origin>]
-Uses existing ~/.ai-gateway/config.json Gateway credentials. JSON stdout; guidance on stderr.
+Uses OS-vault device login or AI_GATEWAY_API_KEY for CI. Config contains public settings only. JSON stdout; guidance on stderr.
 Sync performs full source reconciliation and may remove source-deleted documents.
 Retain your request UUID before submission. If the outcome is uncertain, use status with that UUID; do not submit a new request.
 `;
@@ -102,9 +103,10 @@ export async function runKnowledgeCli(argv: string[], dependencies: Dependencies
   try {
     config = (dependencies.loadConfig ?? loadConfig)();
     if (baseUrl) config = { ...config, base_url: baseUrl };
-    if (!config.api_key || /[\r\n]/.test(config.api_key) || !safeOrigin(config.base_url)) throw new Error();
+    if (!dependencies.loadConfig) config=await hostedConfig(config);
+    if ((!config.api_key && !config.access_token) || /[\r\n]/.test(config.api_key) || !safeOrigin(config.base_url)) throw new Error();
   } catch {
-    err.write("Knowledge requires an existing Gateway API key and an HTTPS origin (or explicit loopback IP over HTTP). Check ~/.ai-gateway/config.json; credentials in URLs are rejected.\n"); return 2;
+    err.write("Knowledge requires Gateway device login or AI_GATEWAY_API_KEY and an HTTPS origin (or explicit loopback IP over HTTP). Use gateway auth login --base-url <origin>; credentials in URLs are rejected.\n"); return 2;
   }
   const client = new GatewayClient(config);
   const path = `/api/v1/knowledge/${encodeURIComponent(dataset!)}/sources`;

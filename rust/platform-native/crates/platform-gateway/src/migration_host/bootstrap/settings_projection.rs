@@ -155,7 +155,10 @@ impl SettingsProjection<'_> {
                     .trim()
                     .trim_end_matches('/')
                     .into(),
-                runtime_internal_token: self.env("AI_PLATFORM_INTERNAL_TOKEN", "").trim().into(),
+                runtime_internal_token: super::runtime_backends::transport_token(
+                    self.environment,
+                    "AI_PLATFORM_INTERNAL_TOKEN",
+                )?,
                 model_plane_base_url: self
                     .env(
                         "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL",
@@ -183,10 +186,10 @@ impl SettingsProjection<'_> {
                 .env("AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET", "")
                 .trim()
                 .into(),
-            model_plane_internal_token: self
-                .env("AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN", "")
-                .trim()
-                .into(),
+            model_plane_internal_token: super::runtime_backends::transport_token(
+                self.environment,
+                "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",
+            )?,
             capability_worker_url: self
                 .env(
                     "AI_PLATFORM_CAPABILITY_WORKER_URL",
@@ -209,7 +212,13 @@ impl SettingsProjection<'_> {
     pub fn storage(&self) -> Result<ObjectStorageConfiguration, BootstrapError> {
         let s = self.section("storage")?;
         let prefix = text(&s, "key_prefix", "dev");
-        match text(&s, "backend", "local").as_str() {
+        let mode = self.env("AI_PLATFORM_DEPLOYMENT_MODE", "single-node");
+        let backend = ai_platform_service_primitives::content::storage_policy::backend(
+            &mode,
+            s.get("backend").and_then(Value::as_str),
+        )
+        .map_err(|_| BootstrapError::Configuration("shared_storage"))?;
+        match backend {
             "local" => Ok(ObjectStorageConfiguration::Local {
                 root: PathBuf::from(text(&s, "local_base_path", "./data/images")),
                 prefix,
@@ -228,6 +237,21 @@ impl SettingsProjection<'_> {
                     bucket: text(c, "bucket", ""),
                     prefix,
                     public_base: String::new(),
+                    encryption: self.env(
+                        "GATEWAY_STORAGE__S3__SERVER_SIDE_ENCRYPTION",
+                        &text(c, "server_side_encryption", ""),
+                    ),
+                    kms_key: self
+                        .environment
+                        .get("GATEWAY_STORAGE__S3__KMS_KEY_ID")
+                        .filter(|v| !v.is_empty())
+                        .cloned()
+                        .or_else(|| {
+                            c.get("kms_key_id")
+                                .and_then(Value::as_str)
+                                .filter(|v| !v.is_empty())
+                                .map(str::to_owned)
+                        }),
                 })
             }
             "oss" => {
@@ -241,10 +265,7 @@ impl SettingsProjection<'_> {
                     public_base: String::new(),
                 })
             }
-            _ => Ok(ObjectStorageConfiguration::Local {
-                root: PathBuf::from(text(&s, "local_base_path", "./data/images")),
-                prefix,
-            }),
+            _ => Err(BootstrapError::Configuration("storage_backend")),
         }
     }
     pub fn langgraph_endpoints(&self) -> Result<Vec<LangGraphEndpoint>, BootstrapError> {
@@ -330,4 +351,57 @@ fn source_roles() -> HashMap<String, Vec<String>> {
         "sales_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view"],
         "developer":["console:dashboard:view","console:services:view","console:services:edit","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view"],"admin":["admin:*"]
     })).expect("source role constants")
+}
+
+#[cfg(test)]
+mod required_runtime_projection_tests {
+    use super::*;
+    #[test]
+    fn actual_runtime_projection_keeps_absent_bearers_and_original_domain_settings() {
+        let settings = HostSettings::default();
+        let mut environment = BTreeMap::from([
+            ("AI_PLATFORM_WORKLOAD_MTLS_MODE".into(), "required".into()),
+            (
+                "AI_PLATFORM_AGENT_RUNTIME_URL".into(),
+                "https://agent-runtime:8454".into(),
+            ),
+            (
+                "AI_PLATFORM_CAPABILITY_WORKER_URL".into(),
+                "https://agent-capability-worker:8455".into(),
+            ),
+            (
+                "KB_SERVICE_URL".into(),
+                "https://knowledge-service:8452".into(),
+            ),
+            (
+                "INTERNAL_AUTH_KEYS".into(),
+                "domain:independent-domain-signing-root".into(),
+            ),
+        ]);
+        let project = |environment: &BTreeMap<String, String>| {
+            SettingsProjection {
+                settings: &settings,
+                environment,
+            }
+            .runtime("actual-kernel-revision".into(), false)
+        };
+        let config = project(&environment).unwrap();
+        assert!(config.options.runtime_internal_token.is_empty());
+        assert!(config.model_plane_internal_token.is_empty());
+        assert_eq!(config.options.runtime_url, "https://agent-runtime:8454");
+        assert_eq!(
+            config.capability_worker_url,
+            "https://agent-capability-worker:8455"
+        );
+        assert_eq!(config.knowledge_origin, "https://knowledge-service:8452");
+        assert_eq!(config.options.kernel_revision, "actual-kernel-revision");
+        for key in [
+            "AI_PLATFORM_INTERNAL_TOKEN",
+            "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",
+        ] {
+            environment.insert(key.into(), "independent-domain-signing-root".into());
+            assert!(project(&environment).is_err());
+            environment.remove(key);
+        }
+    }
 }

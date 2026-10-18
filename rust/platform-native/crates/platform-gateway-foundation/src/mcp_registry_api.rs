@@ -383,6 +383,73 @@ impl McpRegistryApi {
         write: bool,
         context: &mut ConfigAuditRequestContext,
     ) -> Result<(), ServiceConfigError> {
+        {
+            use ai_platform_auth::cedar::resources::{
+                self, ObjectAction, ObjectResource, ObjectSubject, ResourceKind,
+            };
+            let capability = if write {
+                Capability::GatewayMcpWrite
+            } else {
+                Capability::GatewayMcpRead
+            };
+            let subject = ObjectSubject {
+                tenant_id: id.tenant_id.clone(),
+                user_id: id.user_id.clone(),
+                roles: id.roles.clone(),
+                permissions: id.permissions.clone(),
+                anonymous: !id.authenticated,
+                ..Default::default()
+            };
+            let mut resource =
+                ObjectResource::new(ResourceKind::Tool, "mcp-registry", &id.tenant_id);
+            resource.required_permissions = capability
+                .accepted_permissions()
+                .iter()
+                .map(|v| (*v).into())
+                .collect();
+            let legacy = id.authenticated
+                && !id.user_id.is_empty()
+                && !id.tenant_id.is_empty()
+                && id.tenant_id != "public"
+                && {
+                    let subjects = id
+                        .roles
+                        .iter()
+                        .chain(&id.permissions)
+                        .map(|v| v.trim())
+                        .filter(|v| !v.is_empty())
+                        .collect::<std::collections::BTreeSet<_>>();
+                    capability.accepted_permissions().iter().any(|permission| {
+                        self.dependencies.rbac.has_permission(
+                            &subjects.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>(),
+                            permission,
+                        )
+                    })
+                }
+                && (!write
+                    || id.roles.iter().any(|v| {
+                        ["admin", "tenant_admin", "superadmin", "super_admin"]
+                            .contains(&v.to_lowercase().as_str())
+                    }));
+            let decision = resources::compare_current(
+                &subject,
+                &resource,
+                if write {
+                    ObjectAction::Write
+                } else {
+                    ObjectAction::Read
+                },
+                legacy,
+            );
+            if legacy && !decision {
+                return Err(mcp_error(
+                    context,
+                    403,
+                    "MCP_RESOURCE_DENIED",
+                    "MCP resource authorization denied",
+                ));
+            }
+        }
         if !id.authenticated || id.user_id.is_empty() {
             return Err(mcp_error(
                 context,

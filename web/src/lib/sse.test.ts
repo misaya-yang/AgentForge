@@ -12,6 +12,7 @@ const hooks = registerHooks({
       const stubs = {
         "@/config/runtime": "export const isSseDebugEnabled = () => false;",
         "@/lib/api": "export const getAuthToken = () => null;",
+        "./fetchClient.ts": "export const sendStreamRequest = (url, init) => globalThis.fetch(url, init);",
       };
       if (specifier in stubs) return {
         url: `data:text/javascript,${encodeURIComponent(stubs[specifier as keyof typeof stubs])}`,

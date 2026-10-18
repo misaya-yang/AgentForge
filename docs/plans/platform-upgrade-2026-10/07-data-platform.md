@@ -1,52 +1,33 @@
 # 07 Data platform (database authority, PostgreSQL, Valkey/Redis, Qdrant, object storage)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-PostgreSQL is the system of record for all three contexts. Redis (Valkey after U-DATA-05) is
-ephemeral coordination and acceleration. Qdrant holds derived vector indexes. Object storage holds
-blobs. The native migration authority is the only writer of schema, and every database transition
-goes through it and its frozen verification (AGENTS.md).
+提供结构完整、权限正确、可持续读写与恢复的数据底座，使所有服务能在同一开发环境使用真实数据完成主流程。
 
-## 2. Current architecture (SRC)
+| 交付部分 | 原需求 ID | 连通的结果 |
+| --- | --- | --- |
+| 结构、身份与连接 | `U-DATA-02`, `U-DATA-04`, `U-DATA-11`, `U-DATA-12` | 完整表/字段/索引、服务角色、租户上下文、连接池和 authority 调用贯通。 |
+| 在线存储能力 | `U-DATA-03`, `U-DATA-05`, `U-DATA-08`, `U-DATA-09` | 分区/保留、coord/cache、Qdrant 安全与共享对象存储由实际业务路径使用。 |
+| 升级与恢复 | `U-DATA-01`, `U-DATA-06`, `U-DATA-07` | 升级、备份和恢复工具实现完成；历史库演练及 RPO/RTO 在集成验收阶段执行。 |
+| 条件项目 | `U-DATA-01b`, `U-DATA-10`, `U-DATA-13` | PG19、分析层和 Lite 检索保留各自版本/负载/质量触发条件，不默认拉入当前开发。 |
 
-| Component | Current state |
-| --- | --- |
-| PostgreSQL | `postgres:16-alpine`, one database, schemas `gateway` (82 tables), `assistant` (48), `knowledge` (33). Extensions `uuid-ossp`, `pgcrypto`, `pg_trgm`. No partitioned tables and no row-level security in the baseline (F-21). |
-| Migration authority | `platform-migration-authority` (19.8k lines). A frozen baseline (`2026_08_post_kb_v1`: `init.sql`, `grants.sql`, `verify.sql`, ownership and grants policies, data-access inventory), ledger tables, an advisory lock, raw fingerprint verification, epochs (17 current), and a successor chain (021–023) staged as proposals ([authority README](../../../database/authority/README.md), [successor chain](../../design/canonical-schema-successor-chain.md)). |
-| Roles | `ai_gateway_owner` (NOLOGIN), `_migrator`, `_gateway`, `_runtime`, `_capability_worker`, `_knowledge_api`, `_knowledge_worker` exist ([roles.sql](../../../database/bootstrap/roles.sql)). Compose still connects every service, and the migrator by default, as the bootstrap superuser, with a `search_path` that spans all three schemas (F-05). |
-| Redis | `redis:7-alpine`, one instance, AOF on, `allkeys-lru`, 128 MB. It holds session allowlists, capacity leases, rate windows, usage streams and caches (F-40). |
-| Qdrant | `qdrant/qdrant:v1.18.2`, single node, no API key, reachable from every container on the one bridge network (F-39) |
-| Object storage | `local` by default (`gateway-data`, `kb-data` volumes). An S3-compatible backend is configurable for the Gateway and Knowledge ([docker-compose.yml:343–349, 501–507](../../../docker-compose.yml)); the local profile runs RustFS 1.0.0, pinned by digest ([deploy/local/compose.yml:41](../../../deploy/local/compose.yml)). |
-| Backup | `make backup`: a gzipped `pg_dump` of PostgreSQL only (F-38) |
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-Append-heavy tables that will dominate size: `gateway.usage_records`, `request_traces`,
-`audit_logs`, `billing_events`, `agent_trace_spans`, `agent_trace_events`, `tool_audit_log`,
-`login_audit`, `service_health_records`; `assistant.assistant_runtime_items`,
-`assistant_audit_events`, `assistant_capability_events`;
-`knowledge.kb_document_progress_events`.
+## 2. 接线与真实依赖
 
-## 3. Assessment
+新开发库直接由 native authority 初始化当前完整结构；不要把旧库迁移编号和多版本演练当作每次启动前置任务。历史升级/兼容性要求仍需验收，冻结输入与原数据不能改写来绕过失败。
 
-Strengths to keep: a single schema authority with fingerprints, ledger, advisory lock and
-fail-closed verification; least-privilege roles already designed with a data-access inventory;
-explicit rules against bypassing the authority; secrets kept out of Redis process arguments.
+## 3. 一次集中验证与收尾边界
 
-Gaps, in order of consequence:
+一个真实数据库批次验证结构、索引、服务角色、跨租户拒绝与事务复用。随后复用同一集成候选完成存储/升级/恢复场景；只在相关 schema、权限或配置变化后重跑受影响场景。
 
-1. **Recovery (F-38).** No point-in-time recovery, no vector or blob backups, unencrypted dumps.
-   A lost Qdrant volume means re-embedding every dataset.
-2. **Isolation (F-05, F-39).** Superuser connections make the designed roles moot. Qdrant is open
-   to every container.
-3. **Coordination safety (F-40).** Eviction can drop admission state silently. Correctness data and
-   cache data need different memory policies.
-4. **Growth.** Unpartitioned append-only tables make retention a `DELETE` workload (bloat, vacuum
-   pressure), and time-range queries scan large heaps.
-5. **Scale-out blockers.** Local blob volumes pin the Gateway and Knowledge to one host; there is
-   no connection pooler for many replicas.
-6. **Versions.** PostgreSQL 16 is two majors behind 18; Redis 7 should become Valkey 9 (P-ADR-11);
-   Qdrant 1.18 lacks the 1.19 features that 04 depends on.
+不逐表另开任务、报告或环境；不为验证工具创建重复基础设施。已有数据保护、权限和恢复要求保留。
+
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -176,7 +157,12 @@ each restore.
 | Blobs | Local volumes | S3-compatible by default for multi-instance | Not MinIO CE |
 | Backup | `pg_dump` | PITR, Qdrant snapshots, object versioning, encryption | F-38 |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -195,7 +181,12 @@ each restore.
 | U-DATA-12 | Migration lint, lock timeouts, N-1 compatibility tests per successor | P2 | Ph1–Ph2 | Lint gate in CI; N-1 suite green per successor |
 | U-DATA-13 | Lite profile experiment: PostgreSQL-only retrieval | P3 | Ph3 | Adopt only at golden-set parity |
 
+</details>
+
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - **Authority.** `verify` after every upgrade, restore and successor; no fingerprint patching
   (AGENTS.md).

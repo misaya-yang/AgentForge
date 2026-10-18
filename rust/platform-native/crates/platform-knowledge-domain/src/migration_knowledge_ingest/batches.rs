@@ -110,6 +110,7 @@ impl DocumentBatchStore {
             .into_iter()
             .collect();
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let d: Value = sqlx::query_scalar(&row_json(sql::CREATE_OPERATION_0))
             .bind(dataset)
             .fetch_optional(&mut *tx)
@@ -220,7 +221,7 @@ impl DocumentBatchStore {
                 .bind(id)
                 .bind(tenant)
                 .bind(dataset)
-                .fetch_optional(&mut *conn)
+                .fetch_optional(crate::database::connection(&mut *conn))
                 .await?
         else {
             return Ok(None);
@@ -228,7 +229,7 @@ impl DocumentBatchStore {
         let failures: Vec<Value> =
             sqlx::query_scalar(&row_json(sql::GET_OPERATION_ON_CONNECTION_1))
                 .bind(id)
-                .fetch_all(conn)
+                .fetch_all(crate::database::connection(&mut *conn))
                 .await?;
         value["problem_items_truncated"] = json!(
             integer(&value, "skipped_count") + integer(&value, "failed_count")
@@ -244,6 +245,7 @@ impl DocumentBatchStore {
         dataset: &str,
     ) -> Result<Option<Value>> {
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let Some(current): Option<Value> = sqlx::query_scalar(&row_json(sql::CANCEL_OPERATION_0))
             .bind(id)
             .bind(tenant)
@@ -287,7 +289,25 @@ impl DocumentBatchStore {
         worker: &str,
         stale_seconds: i32,
     ) -> Result<Option<ClaimedDocumentBatchItem>> {
+        if crate::database::control_enabled(
+            &self.pool,
+            "knowledge.claim_document_batch_item_v1(text,double precision)",
+        )
+        .await?
+        {
+            let row: Option<Value> =
+                sqlx::query_scalar("SELECT knowledge.claim_document_batch_item_v1($1,$2)")
+                    .bind(worker)
+                    .bind(f64::from(stale_seconds.max(1)))
+                    .fetch_one(crate::database::executor(&self.pool))
+                    .await?;
+            return row
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(Into::into);
+        }
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let Some(op): Option<Value> = sqlx::query_scalar(&row_json(sql::CLAIM_NEXT_ITEM_0))
             .bind(stale_seconds.max(1) as f64)
             .fetch_optional(&mut *tx)
@@ -353,6 +373,7 @@ impl DocumentBatchStore {
             .map(|s| s.trim().chars().take(64).collect::<String>())
             .filter(|s| !s.is_empty());
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let changed: Option<i32> = sqlx::query_scalar(sql::COMPLETE_ITEM_0)
             .bind(id)
             .bind(document)
@@ -396,6 +417,7 @@ impl DocumentBatchStore {
     }
     pub async fn release_item(&self, id: &str, document: &str) -> Result<()> {
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         sqlx::query(sql::RELEASE_ITEM_0)
             .bind(id)
             .bind(document)
@@ -417,66 +439,79 @@ pub async fn dispatch_one(
     let Some(item) = store.claim_next_item(worker, 300).await? else {
         return Ok(false);
     };
-    let actor = Actor {
-        user_id: item.created_by.clone(),
-        tenant_id: item.tenant_id.clone(),
-        roles: item.actor_roles.clone(),
-        user_tier: "normal".into(),
-        user_type: "user".into(),
-        is_authenticated: true,
-    };
-    let result = if item.operation == "reembed" {
-        service
-            .store
-            .enqueue(
-                &item.dataset_id,
-                &item.document_id,
-                Some("reembed"),
-                None,
-                None,
-                false,
+    crate::database::with_job_scope(&item.tenant_id, async {
+        let result = async {
+            let authority = service
+                .vector_job_actor_authority
+                .as_ref()
+                .ok_or(IngestError::Permission)?;
+            let actor = authority.resolve(&item.tenant_id, &item.created_by).await?;
+            ai_platform_service_primitives::knowledge_model::with_actor_scope(
+                actor.clone(),
+                async {
+                    service
+                        .store
+                        .require_dataset_access(&actor, &item.dataset_id, "editor")
+                        .await?;
+                    if item.operation == "reembed" {
+                        service
+                            .store
+                            .enqueue(
+                                &item.dataset_id,
+                                &item.document_id,
+                                Some("reembed"),
+                                None,
+                                None,
+                                false,
+                            )
+                            .await
+                    } else {
+                        service
+                            .delete_document(&actor, &item.dataset_id, &item.document_id)
+                            .await
+                    }
+                },
             )
             .await
-    } else {
-        service
-            .delete_document(&actor, &item.dataset_id, &item.document_id)
-            .await
-    };
-    match result {
-        Ok(true) => {
-            store
-                .complete_item(&item.operation_id, &item.document_id, "queued", None, None)
-                .await?
         }
-        Ok(false) => {
-            store
-                .complete_item(
-                    &item.operation_id,
-                    &item.document_id,
-                    "skipped",
-                    Some("not_found"),
-                    None,
-                )
-                .await?
+        .await;
+        match result {
+            Ok(true) => {
+                store
+                    .complete_item(&item.operation_id, &item.document_id, "queued", None, None)
+                    .await?
+            }
+            Ok(false) => {
+                store
+                    .complete_item(
+                        &item.operation_id,
+                        &item.document_id,
+                        "skipped",
+                        Some("not_found"),
+                        None,
+                    )
+                    .await?
+            }
+            Err(IngestError::LeaseBusy) => {
+                store
+                    .release_item(&item.operation_id, &item.document_id)
+                    .await?
+            }
+            Err(e) => {
+                store
+                    .complete_item(
+                        &item.operation_id,
+                        &item.document_id,
+                        "failed",
+                        Some("operation_failed"),
+                        Some(&e.to_string()),
+                    )
+                    .await?
+            }
         }
-        Err(IngestError::LeaseBusy) => {
-            store
-                .release_item(&item.operation_id, &item.document_id)
-                .await?
-        }
-        Err(e) => {
-            store
-                .complete_item(
-                    &item.operation_id,
-                    &item.document_id,
-                    "failed",
-                    Some("operation_failed"),
-                    Some(&e.to_string()),
-                )
-                .await?
-        }
-    }
-    Ok(true)
+        Ok(true)
+    })
+    .await?
 }
 
 #[cfg(test)]

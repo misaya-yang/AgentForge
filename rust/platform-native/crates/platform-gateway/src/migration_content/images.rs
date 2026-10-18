@@ -781,6 +781,9 @@ impl ImageTaskWorker {
             running: tokio::sync::Mutex::new(()),
         }
     }
+    pub(crate) fn prepare_start(&self) {
+        self.stop.store(false, Ordering::Release);
+    }
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Release)
     }
@@ -789,6 +792,10 @@ impl ImageTaskWorker {
         let _guard = self.running.lock().await;
     }
     pub async fn run_once(&self) -> Result<usize, ContentError> {
+        ai_platform_gateway_foundation::worker_lease::with_effect("image_task_worker", self.run_once_owned())
+            .await.map_err(|_| error(503, "worker_fence_rejected"))?
+    }
+    async fn run_once_owned(&self) -> Result<usize, ContentError> {
         if self.stop.load(Ordering::Acquire) {
             return Ok(0);
         }

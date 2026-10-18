@@ -203,3 +203,31 @@ fn explicit_layout_configuration_is_reachable_without_threshold_measurements() {
     value["parsing_v2"]["layout"]["mode"] = json!("automatic-made-up");
     assert!(Config::resolve(&value).is_err());
 }
+
+#[test]
+fn caption_only_figure_keeps_its_crop_section_and_contextual_title() {
+    let mut prepared = prepared();
+    let mut figure = prepared.pages[0].blocks[0].clone();
+    figure.id = "caption-only-figure".into();
+    figure.text.clear();
+    figure.structure = Structure::Figure {
+        caption: "Architecture diagram".into(),
+        crop: Some("region/crop.png".into()),
+    };
+    prepared.pages[0].blocks = vec![figure];
+    prepared.pages.truncate(1);
+    let chunker = ingest::chunking::Chunker::new().unwrap();
+    let config = ChunkingConfig::from_value(&json!({})).unwrap();
+    let chunks = prepared
+        .chunks(&chunker, &config, "Manual", "upload")
+        .unwrap();
+    assert_eq!(chunks.len(), 1);
+    assert_eq!(chunks[0].text, "Architecture diagram");
+    assert_eq!(chunks[0].metadata["document_title"], "Manual");
+    assert_eq!(chunks[0].metadata["caption"], "Architecture diagram");
+    assert_eq!(chunks[0].metadata["region_crop"], "region/crop.png");
+    assert_eq!(
+        chunks[0].source_reference["block_id"],
+        "caption-only-figure"
+    );
+}

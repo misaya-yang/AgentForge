@@ -1,2 +1,0 @@
-window.__AI_GATEWAY_RUNTIME_CONFIG__ = window.__AI_GATEWAY_RUNTIME_CONFIG__ || {
-};

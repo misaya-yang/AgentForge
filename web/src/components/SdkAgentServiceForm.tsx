@@ -54,7 +54,7 @@ function SdkAgentServiceFields({ onRegistered, onCancel, onBusyChange }: SdkAgen
     event.preventDefault();
     if (pending.current || submitted) return;
     setError(null);
-    let definition: Record<string, unknown>;
+    let definition: ReturnType<typeof buildSdkAgentDefinition>;
     try {
       definition = buildSdkAgentDefinition({
         sdk, serviceId, name, model, instructions, maxTurns: Number(maxTurns), apiKey,

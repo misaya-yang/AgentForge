@@ -1,3 +1,4 @@
+import type { RequestBody, Defined } from "@/api/contracts";
 /**
  * Production-grade Knowledge Base Type Definitions
  * 
@@ -408,39 +409,13 @@ export interface RetrievalConfig {
 }
 
 // Flat retrieval config for API requests
-export interface FlatRetrievalConfig {
-  mode?: RetrieveMode | "dense" | "bm25" | "hybrid";  // Support new mode names
-  top_k?: number;
-  score_threshold?: number;
-  vector_top_k?: number;
-  keyword_top_k?: number;
-  candidate_top_k?: number;
-  keyword_candidate_k?: number;
-  // Fusion parameters
-  fusion?: FusionStrategy;
-  fusion_method?: "weighted" | "rrf";  // New: explicit fusion method
-  dense_weight?: number;   // New: [0, 1] weight for dense scores
-  bm25_weight?: number;    // New: [0, 1] weight for BM25 scores
-  rrf_k?: number;
-  alpha?: number;  // Legacy: converted to weights
-  // Post-processing
-  rerank?: boolean;
-  rerank_model?: string;
-  rerank_top_n?: number;
-  mmr?: boolean;
-  mmr_lambda?: number;
-  mmr_threshold?: number;
-}
+export type FlatRetrievalConfig = { [K in "mode" | "top_k" | "score_threshold" | "vector_top_k" | "keyword_top_k" | "candidate_top_k" | "keyword_candidate_k" | "fusion" | "fusion_method" | "dense_weight" | "bm25_weight" | "rrf_k" | "alpha" | "rerank" | "rerank_model" | "rerank_top_n" | "mmr" | "mmr_lambda" | "mmr_threshold"]?: NonNullable<RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve">[K]> };
 
 // ============================================================
 // Retrieval Request/Response Types
 // ============================================================
 
-export interface RetrieveRequest extends FlatRetrievalConfig {
-  query: string;
-  document_id?: string | null;
-  rrf_weights?: Record<string, number>;
-}
+export type RetrieveRequest = Defined<RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve" | "POST /api/v1/knowledge/{dataset_id}/hit_test">, "query">;
 
 export interface RetrieveHit {
   segment_id: string;
@@ -510,15 +485,7 @@ export type QueryFeedbackReason =
   | "unsafe"
   | "other";
 
-export interface QueryFeedbackInput {
-  trace_id: string;
-  query_fingerprint: string;
-  target_type: QueryFeedbackTarget;
-  segment_id?: string;
-  rating: QueryFeedbackRating;
-  reason_code: QueryFeedbackReason;
-  comment?: string;
-}
+export type QueryFeedbackInput = Defined<RequestBody<"PUT /api/v1/knowledge/{dataset_id}/feedback">, "trace_id" | "query_fingerprint" | "target_type" | "rating" | "reason_code">;
 
 export interface QueryFeedback {
   feedback_id: string;
@@ -547,27 +514,9 @@ export interface QueryFeedbackPage {
 // QA Testing Types
 // ============================================================
 
-export interface LLMConfig {
-  provider: "dashscope";
-  model: string;
-  temperature?: number;
-  max_tokens?: number;
-  system_prompt?: string;
-}
+export type LLMConfig = NonNullable<RequestBody<"POST /api/v1/knowledge/{dataset_id}/qa">["llm_config"]>;
 
-export interface QARequest {
-  query: string;
-  top_k?: number;
-  mode?: RetrieveMode;
-  fusion_method?: "weighted" | "rrf";
-  dense_weight?: number;
-  bm25_weight?: number;
-  document_id?: string | null;
-  rerank?: boolean;
-  mmr?: boolean;
-  llm_config?: LLMConfig;
-  include_raw_results?: boolean;
-}
+export type QARequest = Defined<RequestBody<"POST /api/v1/knowledge/{dataset_id}/qa" | "POST /api/v1/knowledge/{dataset_id}/qa/stream">, "query">;
 
 export interface QAContextSegment {
   segment_id: string;
@@ -628,11 +577,7 @@ export type QAStreamEvent =
       };
     };
 
-export interface QATestCase {
-  query: string;
-  expected_answer?: string;
-  expected_segments?: string[];
-}
+export type QATestCase = RequestBody<"POST /api/v1/knowledge/{dataset_id}/qa/batch">["test_cases"][number];
 
 export interface QATestResult {
   test_case: QATestCase;
@@ -734,29 +679,9 @@ export interface ProcessRule {
 // Create/Update Request Types
 // ============================================================
 
-export interface DatasetCreateRequest {
-  dataset_id?: string;
-  name: string;
-  description?: string;
-  visibility?: Visibility;
-  kb_type?: KBType;
-  use_case?: UseCase;
-  embedding_provider: string;
-  embedding_model: string;
-  embedding_dimension?: number;
-  embedding_config?: Record<string, unknown>;
-  index_config?: IndexConfig;
-  indexing_technique?: "high_quality" | "economy";
-}
+export type DatasetCreateRequest = Defined<RequestBody<"POST /api/v1/knowledge/datasets">, "name" | "embedding_provider" | "embedding_model">;
 
-export interface DocumentCreateTextRequest {
-  title: string;
-  content: string;
-  metadata?: Record<string, unknown>;
-  process_rule?: ProcessRule;
-  doc_form?: "text_model" | "qa_model";
-  doc_language?: string;
-}
+export type DocumentCreateTextRequest = Defined<RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/text">, "title" | "content">;
 
 // ============================================================
 // Batch Operation Types

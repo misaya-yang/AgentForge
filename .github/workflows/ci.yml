@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
 
       - name: Verify Knowledge Service image lock
@@ -47,6 +47,41 @@ jobs:
       - name: Run focused script tests
         run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts
 
+      - name: Run upstream sync offline L0 and rejection fixtures
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/upstream-sync-l0"
+          mkdir -p "$evidence"
+          command -v platform-tools
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml \
+            -p ai-platform-tools --bin platform-tools upstream_sync::tests \
+            -- --test-threads=1 2>&1 | tee "$evidence/unit-tests.log"
+          reject() {
+            local label="$1"
+            shift
+            local status=0
+            platform-tools "$@" >"$evidence/$label.stdout" 2>"$evidence/$label.stderr" || status=$?
+            test "$status" -eq 1
+          }
+          reject unknown-operation upstream-sync fabricated-window
+          reject duplicate-option upstream-sync inspect --package first --package second
+          reject unsupported-flag upstream-sync inspect --apply
+          reject missing-window upstream-sync verify --repo-root "$GITHUB_WORKSPACE" \
+            --window "$evidence/absent-window.json"
+          grep -F 'upstream-sync {begin|compare|record-gate|verify|inspect}' "$evidence/unknown-operation.stderr"
+          grep -F 'unknown or duplicate upstream-sync option' "$evidence/duplicate-option.stderr"
+          grep -F 'requires one operation and explicit valued options' "$evidence/unsupported-flag.stderr"
+          test ! -e "$evidence/absent-window.json"
+          printf '%s\n' 'L0 only: no real monthly window, replay, network, or acceptance claim.' >"$evidence/scope.txt"
+
+      - name: Save upstream sync L0 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: upstream-sync-l0
+          path: ${{ runner.temp }}/upstream-sync-l0
+          if-no-files-found: error
+
   compose-and-harness:
     name: Compose and Harness
     runs-on: ubuntu-latest
@@ -55,10 +90,23 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
       - name: Verify harness contract
         run: make harness-check
+
+      - name: Verify platform fitness and rejection fixtures
+        run: |
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools platform_fitness::tests
+          make platform-fitness-gate
+
+      - name: Save platform fitness evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platform-fitness
+          path: ${{ runner.temp }}/platform-fitness.json
+          if-no-files-found: error
 
       - name: Verify database service privilege boundaries
         run: make database-identity-gate
@@ -164,7 +212,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -249,7 +297,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
 
       - name: Install PostgreSQL dump/restore client
@@ -295,7 +343,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
 
       # The single-kernel contract includes the real ThreadStore migration
@@ -370,7 +418,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -434,7 +482,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
 
       - name: Run static import boundary gate
@@ -508,7 +556,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
 
 
       - name: Run offline Gateway units
@@ -539,7 +587,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
           toolchain: 1.95.0
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           capacity-profile: hosted
           packages: ai-platform-tools
@@ -601,7 +649,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
 
@@ -664,7 +712,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
         with:
           packages: ai-platform-tools
 

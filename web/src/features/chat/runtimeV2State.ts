@@ -1,18 +1,7 @@
-export interface AgentV2Event {
-  schema_version: "agent-event/v2";
-  thread_id: string;
-  sequence: number;
-  event: {
-    id: string;
-    key: string;
-    type: string;
-    item_id: string | null;
-    turn_id: string | null;
-    status: string | null;
-    payload: Record<string, unknown>;
-  };
-  timestamp: string;
-}
+import type { ApiConsoleAgentV2Event } from "../../../../sdk/typescript/generated";
+// ApiEvent describes the OAS 3.2 SSE frame (data is serialized text). The
+// shared reader decodes that text into this generated native JSON projection.
+export type AgentV2Event = ApiConsoleAgentV2Event;
 
 export interface ProjectedRuntimeEvent {
   event_type: string;

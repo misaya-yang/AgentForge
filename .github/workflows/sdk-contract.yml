@@ -1,0 +1,36 @@
+name: Native SDK contracts
+
+on:
+  pull_request:
+    paths:
+      - rust/platform-native/**
+      - sdk/**
+      - .github/workflows/sdk-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-sdk-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generated-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-openapi
+      - name: Reject stale generated SDK artifacts
+        run: ai-platform-openapi codegen --out sdk --check
+      - name: Test generator contracts
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-openapi --lib codegen::tests
+      - name: Compile generated Rust client models
+        run: cargo check --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --all-targets
+      - name: Compile generated Python models
+        run: python3 -c 'import ast; from pathlib import Path; ast.parse(Path("sdk/python/generated_models.py").read_text())'

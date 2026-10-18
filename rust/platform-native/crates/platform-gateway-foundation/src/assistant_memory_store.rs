@@ -129,7 +129,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
     ) -> AssistantMemoryFuture<'a, Vec<Value>> {
         Box::pin(async move {
             let owner = owner.clone();
-            let rows: Vec<MemoryItemRow> = self.operations.acquire().await.map_err(pg_error)?
+            let rows: Vec<MemoryItemRow> = self.operations.acquire_tenant(&owner.tenant_id).await.map_err(pg_error)?
                 .execute(move |connection| Box::pin(async move {
                     sqlx::query_as(
                         "SELECT key, value::text AS value, namespace, source, created_at, updated_at, expires_at \
@@ -157,7 +157,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
     ) -> AssistantMemoryFuture<'a, Option<Value>> {
         Box::pin(async move {
             let owner = owner.clone();
-            let value: Option<String> = self.operations.acquire().await.map_err(pg_error)?
+            let value: Option<String> = self.operations.acquire_tenant(&owner.tenant_id).await.map_err(pg_error)?
                 .execute(move |connection| Box::pin(async move {
                     sqlx::query_scalar(
                         "SELECT value::text FROM user_memory WHERE tenant_id = $1 AND user_id = $2 AND key = $3",
@@ -202,7 +202,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
             let metadata =
                 json!({"namespace": namespace, "sensitivity": "normal", "source": source});
             let result = async {
-                self.operations.acquire().await.map_err(pg_error)?
+                self.operations.acquire_tenant(&owner.tenant_id).await.map_err(pg_error)?
                 .execute(move |connection| Box::pin(async move {
                     sqlx::query(
                         "INSERT INTO user_memory (tenant_id, user_id, key, value, metadata, \
@@ -244,7 +244,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
             let key = key.to_owned();
             let value: Option<String> = self
                 .operations
-                .acquire()
+                .acquire_tenant(&owner.tenant_id)
                 .await
                 .map_err(pg_error)?
                 .execute(move |connection| {
@@ -275,7 +275,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
         Box::pin(async move {
             let owner = owner.clone();
             let key = key.to_owned();
-            self.operations.acquire().await.map_err(pg_error)?
+            self.operations.acquire_tenant(&owner.tenant_id).await.map_err(pg_error)?
                 .execute(move |connection| Box::pin(async move {
                     sqlx::query(
                         "UPDATE user_memory SET access_count = access_count + 1, last_accessed_at = NOW() \
@@ -301,7 +301,7 @@ impl AssistantMemoryStore for PgAssistantMemoryStore {
             let owner = owner.clone();
             let key = key.to_owned();
             let result = async {
-                self.operations.acquire().await.map_err(pg_error)?
+                self.operations.acquire_tenant(&owner.tenant_id).await.map_err(pg_error)?
                 .execute(move |connection| Box::pin(async move {
                     sqlx::query(
                         "DELETE FROM user_memory WHERE tenant_id = $1 AND user_id = $2 AND key = $3",

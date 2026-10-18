@@ -77,6 +77,11 @@ pub fn validate_extension(name: &str) -> Result<String, ContentError> {
 pub struct FileStorage {
     pub backend: Arc<dyn ObjectStorage>,
 }
+fn upload_prefix(user: &ContentIdentity) -> Result<String, ContentError> {
+    validate_user_id(&user.user_id)?;
+    if user.tenant_id.is_empty() { Ok(format!("uploads/{}/", user.user_id)) }
+    else { validate_user_id(&user.tenant_id)?; Ok(format!("uploads/{}/{}/", user.tenant_id, user.user_id)) }
+}
 impl FileStorage {
     pub async fn upload(
         &self,
@@ -103,16 +108,14 @@ impl FileStorage {
         let ext = validate_extension(name)?;
         let id = uuid::Uuid::new_v4().simple().to_string()[..8].to_owned();
         let filename = format!("{id}_{}.{}", Utc::now().format("%Y%m%d_%H%M%S"), ext);
-        let key = if user.tenant_id.is_empty() {
-            format!("uploads/{}/{filename}", user.user_id)
-        } else {
-            format!("uploads/{}/{}/{filename}", user.tenant_id, user.user_id)
-        };
+        let key = format!("{}{filename}", upload_prefix(user)?);
         let mut metadata = BTreeMap::from([
             ("user_id".into(), user.user_id.clone()),
             ("file_id".into(), id.clone()),
             ("original_filename".into(), name.into()),
         ]);
+        metadata.insert("uploaded_at".into(), Utc::now().to_rfc3339());
+        if !user.tenant_id.is_empty() { metadata.insert("tenant_id".into(), user.tenant_id.clone()); }
         let mut size = 0usize;
         let mut chunk = vec![0u8; 64 * 1024];
         let oversized = || {
@@ -178,7 +181,7 @@ impl FileStorage {
     }
     pub async fn delete(&self, user: &ContentIdentity, id: &str) -> Result<Value, ContentError> {
         validate_file_id(id)?;
-        let prefix = format!("uploads/{}/{}/{id}_", user.tenant_id, user.user_id);
+        let prefix = format!("{}{id}_", upload_prefix(user)?);
         if self.backend.delete_prefix(&prefix).await? == 0 {
             return Err(ContentError::new(404, "File not found"));
         }
@@ -243,7 +246,7 @@ fn entries(dir: &FsPath) -> Result<Vec<Entry>, ContentError> {
     Ok(rows)
 }
 impl FileCleanup {
-    fn cleanup_directory(&self, dir: &FsPath) -> Result<(u64, u64), ContentError> {
+    fn cleanup_directory(&self, dir: &FsPath, permit: Option<&ai_platform_gateway_foundation::worker_lease::EffectPermit>) -> Result<(u64, u64), ContentError> {
         let mut files = entries(dir)?;
         files.sort_by_key(|e| e.modified);
         let mut size: u64 = files.iter().map(|e| e.size).sum();
@@ -252,6 +255,7 @@ impl FileCleanup {
         let threshold = Utc::now() - Duration::days(self.config.file_ttl_days);
         let mut remaining = vec![];
         for file in files {
+            if let Some(permit) = permit { permit.check_local().map_err(|_| ContentError::storage())?; }
             if file.modified < threshold && std::fs::remove_file(&file.path).is_ok() {
                 freed += file.size;
                 size -= file.size;
@@ -261,6 +265,7 @@ impl FileCleanup {
             }
         }
         for file in remaining {
+            if let Some(permit) = permit { permit.check_local().map_err(|_| ContentError::storage())?; }
             if size <= self.config.user_quota_mb * 1024 * 1024 {
                 break;
             }
@@ -274,7 +279,8 @@ impl FileCleanup {
     }
     pub async fn run_cleanup(&self, target: Option<String>) -> Result<Value, ContentError> {
         let this = self.clone();
-        tokio::task::spawn_blocking(move||{let root=this.config.storage_path.join("uploads");if let Some(target)=target{validate_user_id(&target)?;let dir=root.join(&target);if !dir.exists(){return Ok(json!({"files_deleted":0,"bytes_freed":0,"message":"User directory not found"}))}let(n,bytes)=this.cleanup_directory(&dir)?;return Ok(json!({"files_deleted":n,"bytes_freed":bytes,"bytes_freed_formatted":format_size(bytes),"message":format!("Cleaned up {n} files for user {target}")}))}let start=Instant::now();let(mut n,mut bytes,mut users,mut errors)=(0,0,0,0);if root.exists(){for entry in std::fs::read_dir(&root)?{let path=entry?.path();if !path.is_dir(){continue}match this.cleanup_directory(&path){Ok((count,freed))=>{n+=count;bytes+=freed;if count>0{users+=1;}},Err(_)=>errors+=1}if std::fs::read_dir(&path)?.next().is_none(){let _=std::fs::remove_dir(&path);}}}Ok(json!({"files_deleted":n,"bytes_freed":bytes,"bytes_freed_formatted":format!("{:.2} MB",bytes as f64/1048576.0),"users_cleaned":users,"errors":errors,"duration_ms":start.elapsed().as_millis()}))}).await.map_err(|_|ContentError::storage())?
+        let permit = ai_platform_gateway_foundation::worker_lease::current_effect();
+        tokio::task::spawn_blocking(move||{let root=this.config.storage_path.join("uploads");if let Some(target)=target{validate_user_id(&target)?;let dir=root.join(&target);if !dir.exists(){return Ok(json!({"files_deleted":0,"bytes_freed":0,"message":"User directory not found"}))}let(n,bytes)=this.cleanup_directory(&dir,permit.as_deref())?;return Ok(json!({"files_deleted":n,"bytes_freed":bytes,"bytes_freed_formatted":format_size(bytes),"message":format!("Cleaned up {n} files for user {target}")}))}let start=Instant::now();let(mut n,mut bytes,mut users,mut errors)=(0,0,0,0);if root.exists(){for entry in std::fs::read_dir(&root)?{if let Some(permit)=&permit{permit.check_local().map_err(|_|ContentError::storage())?;}let path=entry?.path();if !path.is_dir(){continue}match this.cleanup_directory(&path,permit.as_deref()){Ok((count,freed))=>{n+=count;bytes+=freed;if count>0{users+=1;}},Err(_)=>errors+=1}if permit.as_ref().is_none_or(|p|p.check_local().is_ok()) && std::fs::read_dir(&path)?.next().is_none(){let _=std::fs::remove_dir(&path);}}}Ok(json!({"files_deleted":n,"bytes_freed":bytes,"bytes_freed_formatted":format!("{:.2} MB",bytes as f64/1048576.0),"users_cleaned":users,"errors":errors,"duration_ms":start.elapsed().as_millis()}))}).await.map_err(|_|ContentError::storage())?
     }
     pub async fn stats(&self) -> Result<Value, ContentError> {
         let this = self.clone();
@@ -287,7 +293,10 @@ impl FileCleanup {
         }
         tokio::select! {_=tokio::time::sleep(std::time::Duration::from_secs(60))=>(),_=shutdown.changed()=>return};
         loop {
-            let _ = self.run_cleanup(None).await;
+            let result = ai_platform_gateway_foundation::worker_lease::with_effect(
+                "file_cleanup_service", self.run_cleanup(None),
+            ).await;
+            if result.is_err() { return; }
             tokio::select! {_=tokio::time::sleep(std::time::Duration::from_secs(self.config.cleanup_interval_hours*3600))=>(),_=shutdown.changed()=>break}
         }
     }
@@ -341,10 +350,40 @@ impl FilesApi {
             .chars()
             .take(8)
             .collect::<String>();
-        json!({"file_id":id,"file_path":format!("/uploads/{}/{}/{name}",user.tenant_id,user.user_id),"filename":name,"size_bytes":e.size,"mime_type":mime_type(&extension(&name)),"uploaded_at":e.modified})
+        json!({"file_id":id,"file_path":format!("/{}{name}",upload_prefix(user).expect("validated file identity")),"filename":name,"size_bytes":e.size,"mime_type":mime_type(&extension(&name)),"uploaded_at":e.modified})
+    }
+    async fn shared_entries(&self, user: &ContentIdentity, id: Option<&str>) -> Result<Vec<Entry>, ContentError> {
+        let directory = upload_prefix(user)?;
+        let prefix = format!("{}{}", directory, id.map(|id| format!("{id}_")).unwrap_or_default());
+        let mut cursor = None; let mut cursors = BTreeSet::new(); let mut seen = BTreeSet::new(); let mut rows = Vec::new();
+        loop {
+            let (keys, next) = self.storage.backend.list_keys(&prefix, cursor).await?;
+            for key in keys {
+                let filename = key.strip_prefix(&directory).ok_or_else(ContentError::storage)?;
+                // Exact tenant/user directory; provider prefix responses cannot widen the scope.
+                if !key.starts_with(&prefix) || filename.contains('/') || !seen.insert(key.clone()) { return Err(ContentError::storage()); }
+                if seen.len() > 100_000 { return Err(ContentError::new(413, "File listing exceeds supported scope")); }
+                if filename.ends_with(".meta") || filename.ends_with(".tmp") { continue; }
+                let Some((file_id, _)) = filename.split_once('_') else { continue; };
+                if validate_file_id(file_id).is_err() { continue; }
+                let Some(info) = self.storage.backend.head(&key).await? else { continue; };
+                if info.metadata.get("user_id").is_some_and(|owner| owner != &user.user_id)
+                    || info.metadata.get("tenant_id").is_some_and(|tenant| tenant != &user.tenant_id)
+                    || info.metadata.get("file_id").is_some_and(|id| id != file_id) { return Err(ContentError::storage()); }
+                let modified = info.metadata.get("uploaded_at").and_then(|date| DateTime::parse_from_rfc3339(date).ok()).map(|date| date.with_timezone(&Utc)).or_else(|| {
+                    let stem = FsPath::new(filename).file_stem()?.to_str()?;
+                    chrono::NaiveDateTime::parse_from_str(stem.get(9..)?, "%Y%m%d_%H%M%S").ok().map(|date| date.and_utc())
+                }).unwrap_or(DateTime::<Utc>::UNIX_EPOCH);
+                rows.push(Entry { path: key.into(), size: info.size_bytes, modified });
+            }
+            rows.sort_by_key(|e| std::cmp::Reverse(e.modified)); rows.truncate(50);
+            if let Some(next) = next { if !cursors.insert(next.clone()) { return Err(ContentError::storage()); } cursor = Some(next); } else { break; }
+        }
+        Ok(rows)
     }
     pub async fn list(&self, user: &ContentIdentity) -> Result<Value, ContentError> {
-        let mut rows = entries(&self.user_directory(&user.user_id, &user.tenant_id)?)?;
+        let prefix = upload_prefix(user)?;
+        let mut rows = if self.storage.backend.local_path(&prefix)?.is_none() { self.shared_entries(user, None).await? } else { entries(&self.user_directory(&user.user_id, &user.tenant_id)?)? };
         rows.sort_by_key(|e| std::cmp::Reverse(e.modified));
         let files: Vec<_> = rows
             .iter()
@@ -355,7 +394,9 @@ impl FilesApi {
     }
     pub async fn get(&self, user: &ContentIdentity, id: &str) -> Result<Value, ContentError> {
         validate_file_id(id)?;
-        for entry in entries(&self.user_directory(&user.user_id, &user.tenant_id)?)? {
+        let prefix = upload_prefix(user)?;
+        let rows = if self.storage.backend.local_path(&prefix)?.is_none() { self.shared_entries(user, Some(id)).await? } else { entries(&self.user_directory(&user.user_id, &user.tenant_id)?)? };
+        for entry in rows {
             if entry
                 .path
                 .file_name()
@@ -591,7 +632,7 @@ mod manual_file_scope_regressions {
     impl Drop for Scratch {
         fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
     }
-    fn setup(root: &FsPath, role: &str, tenant: &str, configured: bool) -> Arc<FilesApi> {
+    pub(super) fn setup(root: &FsPath, role: &str, tenant: &str, configured: bool) -> Arc<FilesApi> {
         let identity = ContentIdentity {
             user_id: "actor".into(), tenant_id: tenant.into(), roles: vec![role.into()],
             is_authenticated: true, ..Default::default()
@@ -654,3 +695,7 @@ mod manual_file_scope_regressions {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "files_shared_storage_tests.rs"]
+mod shared_storage_tests;

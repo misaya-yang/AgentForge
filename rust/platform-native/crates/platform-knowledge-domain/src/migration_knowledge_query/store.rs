@@ -9,18 +9,29 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone)]
 pub struct QueryStore {
     pub pool: PgPool,
+    pub object_policy: Option<std::sync::Arc<dyn crate::cedar_dataset_policy::DatasetObjectPolicy>>,
 }
 const ACTIVE: &str = " FROM segments s JOIN documents d ON d.document_id=s.document_id AND d.dataset_id=s.dataset_id JOIN datasets ds ON ds.dataset_id=s.dataset_id WHERE ds.is_deleted=FALSE AND COALESCE(s.enabled,TRUE)=TRUE AND s.status='completed' AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex') ";
 impl QueryStore {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            object_policy: crate::cedar_dataset_policy::current(),
+        }
+    }
+    pub fn with_object_policy(
+        mut self,
+        policy: Option<std::sync::Arc<dyn crate::cedar_dataset_policy::DatasetObjectPolicy>>,
+    ) -> Self {
+        self.object_policy = policy;
+        self
     }
     pub async fn dataset(&self, id: &str) -> Result<Dataset> {
         let value: Option<Value> = sqlx::query_scalar(
             "SELECT to_jsonb(d) FROM datasets d WHERE dataset_id=$1 AND is_deleted=FALSE",
         )
         .bind(id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(crate::database::executor(&self.pool))
         .await?;
         serde_json::from_value(value.ok_or(QueryError::NotFound)?).map_err(|_| QueryError::Database)
     }
@@ -31,14 +42,15 @@ impl QueryStore {
         required: &str,
     ) -> Result<Dataset> {
         let d = self.dataset(id).await?;
-        if d.extra.get("is_archived").and_then(Value::as_bool) == Some(true) {
-            return Err(QueryError::Forbidden);
-        }
+        let archived = d.extra.get("is_archived").and_then(Value::as_bool) == Some(true);
         let visibility = d.visibility.to_lowercase();
         let same = !d.tenant_id.trim().is_empty()
             && !user.tenant_id.trim().is_empty()
             && d.tenant_id.trim() == user.tenant_id.trim();
-        let permission = if user.anonymous() {
+        let mut grants: Vec<String> = vec![];
+        let permission = if archived {
+            0
+        } else if user.anonymous() {
             if visibility == "public" { 1 } else { 0 }
         } else if (same && (user.user_tier == "admin" || user.roles.iter().any(|r| r == "admin")))
             || d.created_by
@@ -48,12 +60,8 @@ impl QueryStore {
             3
         } else {
             let roles = if same { user.roles.clone() } else { vec![] };
-            let permissions:Vec<String>=sqlx::query_scalar("SELECT permission FROM dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))").bind(id).bind(&user.user_id).bind(roles).fetch_all(&self.pool).await?;
-            let explicit = permissions
-                .iter()
-                .map(|p| permission_rank(p))
-                .max()
-                .unwrap_or(0);
+            grants=sqlx::query_scalar("SELECT permission FROM dataset_permissions WHERE dataset_id=$1 AND ((subject_type='user' AND subject_id=$2) OR (subject_type='tenant_role' AND subject_id=ANY($3::text[])))").bind(id).bind(&user.user_id).bind(roles).fetch_all(crate::database::executor(&self.pool)).await?;
+            let explicit = grants.iter().map(|p| permission_rank(p)).max().unwrap_or(0);
             if explicit > 0 {
                 explicit
             } else if visibility == "public" || (visibility == "tenant" && same) {
@@ -62,7 +70,26 @@ impl QueryStore {
                 0
             }
         };
-        if permission < permission_rank(required) {
+        let permission = if let Some(policy) = self
+            .object_policy
+            .clone()
+            .or_else(crate::cedar_dataset_policy::current)
+        {
+            let value = serde_json::to_value(&d).map_err(|_| QueryError::Database)?;
+            let mut check = crate::cedar_dataset_policy::facts(&value, grants, permission);
+            check.resource.profile =
+                ai_platform_service_primitives::object_authorization::ObjectProfile::DatasetQuery;
+            policy
+                .ranks(user, vec![check])
+                .await
+                .map_err(|_| QueryError::Forbidden)?
+                .first()
+                .copied()
+                .ok_or(QueryError::Forbidden)?
+        } else {
+            permission
+        };
+        if archived || permission < permission_rank(required) {
             return Err(QueryError::Forbidden);
         }
         Ok(d)
@@ -97,13 +124,14 @@ impl QueryStore {
         }
         require_scope(dataset)?;
         let query = format!(
-            "SELECT DISTINCT s.segment_id{ACTIVE}AND s.dataset_id=$1 AND ds.tenant_id=$2 AND s.segment_id=ANY($3::text[])"
+            "SELECT DISTINCT s.segment_id{ACTIVE}AND s.dataset_id=$1 AND ds.tenant_id=$2 AND s.segment_id=ANY($3::text[]){}",
+            super::document_acl::current_predicate()
         );
         let rows: Vec<String> = sqlx::query_scalar(&query)
             .bind(&dataset.dataset_id)
             .bind(&dataset.tenant_id)
             .bind(ids)
-            .fetch_all(&self.pool)
+            .fetch_all(crate::database::executor(&self.pool))
             .await?;
         if rows.iter().any(|id| !ids.contains(id)) {
             return Err(QueryError::Database);
@@ -113,13 +141,14 @@ impl QueryStore {
     pub async fn segment_scoped(&self, dataset: &Dataset, id: &str) -> Result<Option<Chunk>> {
         require_scope(dataset)?;
         let query = format!(
-            "SELECT to_jsonb(s){ACTIVE}AND s.dataset_id=$1 AND ds.tenant_id=$2 AND s.segment_id=$3"
+            "SELECT to_jsonb(s){ACTIVE}AND s.dataset_id=$1 AND ds.tenant_id=$2 AND s.segment_id=$3{}",
+            super::document_acl::current_predicate()
         );
         let value: Option<Value> = sqlx::query_scalar(&query)
             .bind(&dataset.dataset_id)
             .bind(&dataset.tenant_id)
             .bind(id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(crate::database::executor(&self.pool))
             .await?;
         value
             .map(|v| serde_json::from_value(v).map_err(|_| QueryError::Database))
@@ -158,6 +187,7 @@ impl QueryStore {
     ) -> std::result::Result<Vec<Chunk>, sqlx::Error> {
         let mut q = QueryBuilder::<Postgres>::new("SELECT to_jsonb(s)");
         q.push(ACTIVE);
+        q.push(super::document_acl::current_predicate());
         append_filters(&mut q, d, r);
         // Source joins tsqueries with SQL || (OR), despite its stale AND comment.
         q.push(" AND s.text_search @@ (");
@@ -179,7 +209,10 @@ impl QueryStore {
                 .push(")");
         }
         q.push(")) DESC LIMIT ").push_bind(limit as i64);
-        let rows: Vec<Value> = q.build_query_scalar().fetch_all(&self.pool).await?;
+        let rows: Vec<Value> = q
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?;
         rows.into_iter()
             .map(|v| serde_json::from_value(v).map_err(|e| sqlx::Error::Decode(Box::new(e))))
             .collect()
@@ -194,6 +227,7 @@ impl QueryStore {
         require_scope(d)?;
         let mut q = QueryBuilder::<Postgres>::new("SELECT to_jsonb(s)");
         q.push(ACTIVE);
+        q.push(super::document_acl::current_predicate());
         append_filters(&mut q, d, r);
         if !terms.is_empty() {
             q.push(" AND (");
@@ -210,7 +244,10 @@ impl QueryStore {
             q.push(")");
         }
         q.push(" LIMIT ").push_bind(limit as i64);
-        let rows: Vec<Value> = q.build_query_scalar().fetch_all(&self.pool).await?;
+        let rows: Vec<Value> = q
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?;
         rows.into_iter()
             .map(|v| serde_json::from_value(v).map_err(|_| QueryError::Database))
             .collect()
@@ -224,7 +261,16 @@ impl QueryStore {
             return Ok(BTreeMap::new());
         }
         require_scope(d)?;
-        let rows:Vec<(String,i32,String)>=sqlx::query_as("SELECT d.document_id,d.current_version,lower(v.content_hash) AS source_hash FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id JOIN document_versions v ON v.document_id=d.document_id AND v.version_number=d.current_version WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex') AND v.change_type NOT IN ('pending_restore','pending_before_restore') AND v.content=d.content AND encode(sha256(convert_to(v.content,'UTF8')),'hex')=lower(v.content_hash)").bind(&d.dataset_id).bind(&d.tenant_id).bind(ids).fetch_all(&self.pool).await?;
+        let statement = format!(
+            "SELECT d.document_id,d.current_version,lower(v.content_hash) AS source_hash FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id JOIN document_versions v ON v.document_id=d.document_id AND v.version_number=d.current_version WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{{}}'::jsonb) ? '_document_lifecycle_reindex') AND v.change_type NOT IN ('pending_restore','pending_before_restore') AND v.content=d.content AND encode(sha256(convert_to(v.content,'UTF8')),'hex')=lower(v.content_hash){}",
+            super::document_acl::current_predicate()
+        );
+        let rows: Vec<(String, i32, String)> = sqlx::query_as(&statement)
+            .bind(&d.dataset_id)
+            .bind(&d.tenant_id)
+            .bind(ids)
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?;
         Ok(rows
             .into_iter()
             .map(|(id, n, h)| (id, (n as i64, h)))
@@ -232,7 +278,7 @@ impl QueryStore {
     }
     /// Source keeps version-store outages nonfatal; only a known identity mismatch fails.
     pub async fn serving_binding(&self, dataset_id: &str) -> Option<Value> {
-        sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE dataset_id=$1 AND state='serving'").bind(dataset_id).fetch_optional(&self.pool).await.ok().flatten()
+        sqlx::query_scalar("SELECT to_jsonb(b) FROM dataset_collection_bindings b WHERE dataset_id=$1 AND state='serving'").bind(dataset_id).fetch_optional(crate::database::executor(&self.pool)).await.ok().flatten()
     }
     pub async fn record_query(
         &self,
@@ -259,6 +305,7 @@ impl QueryStore {
         let normalized = query.split_whitespace().collect::<Vec<_>>().join(" ");
         let meta = json!({"query_fingerprint":fingerprint,"mode":mode,"top_k":top_k,"hit_count":results.len(),"cache_hit":metadata["retrieval_cache_hit"],"trace_id":trace,"stage_timings":metadata["timings_ms"],"rerank_degraded":metadata["rerank_degraded"]});
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let inserted:Option<i32>=sqlx::query_scalar("INSERT INTO dataset_queries(dataset_id,content,source,created_by_role,created_by,metadata,trace_id,query_fingerprint,mode,top_k,hit_count,stage_timings) VALUES($1,$2,$12,$3,$4,$5::jsonb,$6::uuid,$7,$8,$9,$10,$11::jsonb) ON CONFLICT(trace_id) WHERE trace_id IS NOT NULL DO NOTHING RETURNING 1").bind(&d.dataset_id).bind(normalized).bind(&user.user_tier).bind(&user.user_id).bind(meta).bind(trace).bind(fingerprint).bind(mode).bind(top_k as i32).bind(results.len()as i32).bind(metadata.get("timings_ms").cloned().unwrap_or_else(||json!({}))).bind(source).fetch_optional(&mut *tx).await?;
         if inserted.is_some() && !ids.is_empty() {
             sqlx::query("UPDATE segments SET hit_count=hit_count+1 WHERE dataset_id=$1 AND segment_id=ANY($2::text[])").bind(&d.dataset_id).bind(ids).execute(&mut *tx).await?;
@@ -271,7 +318,7 @@ impl QueryStore {
         hashes: &[String],
         identity: &Value,
     ) -> Result<BTreeMap<String, Vec<f64>>> {
-        let rows:Vec<(String,Vec<f64>)>=sqlx::query_as("SELECT content_hash,vector FROM embedding_vector_cache WHERE embedding_provider=$1 AND embedding_model=$2 AND embedding_model_version=$3 AND content_hash=ANY($4::text[])").bind(identity["embedding_provider"].as_str().unwrap_or("")).bind(identity["embedding_model"].as_str().unwrap_or("")).bind(identity["embedding_model_version"].as_str().unwrap_or("")).bind(hashes).fetch_all(&self.pool).await?;
+        let rows:Vec<(String,Vec<f64>)>=sqlx::query_as("SELECT content_hash,vector FROM embedding_vector_cache WHERE embedding_provider=$1 AND embedding_model=$2 AND embedding_model_version=$3 AND content_hash=ANY($4::text[])").bind(identity["embedding_provider"].as_str().unwrap_or("")).bind(identity["embedding_model"].as_str().unwrap_or("")).bind(identity["embedding_model_version"].as_str().unwrap_or("")).bind(hashes).fetch_all(crate::database::executor(&self.pool)).await?;
         Ok(rows.into_iter().collect())
     }
 }

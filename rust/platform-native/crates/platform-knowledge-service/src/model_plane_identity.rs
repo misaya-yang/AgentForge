@@ -49,8 +49,12 @@ impl KnowledgeWorkloadSigner for WorkloadSigner {
         tenant: &str,
         user: &str,
     ) -> std::result::Result<String, &'static str> {
-        let reserve=ai_platform_service_primitives::knowledge_model::RESERVE_PATH;
-        if path!=reserve && !(path.starts_with(&format!("{reserve}/"))&&path.ends_with("/execute")) {return Err("knowledge_workload_path_forbidden");}
+        let reserve = ai_platform_service_primitives::knowledge_model::RESERVE_PATH;
+        if path != reserve
+            && !(path.starts_with(&format!("{reserve}/")) && path.ends_with("/execute"))
+        {
+            return Err("knowledge_workload_path_forbidden");
+        }
         let issued = now_ms()?;
         let claims = json!({"caller_service":"knowledge-service","audience":"gateway","method":"POST","path":path,"body_sha256":format!("{:x}",Sha256::digest(body)),"tenant_id":tenant,"user_id":user,"nonce":uuid::Uuid::new_v4().to_string()});
         let envelope = signature::SignedEnvelope::issue(

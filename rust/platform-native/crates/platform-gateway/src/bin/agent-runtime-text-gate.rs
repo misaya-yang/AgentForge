@@ -369,12 +369,14 @@ impl Gate {
             pool: pool.clone(),
             authority: Arc::new(NoSources),
         });
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(300))
             .build()?;
         let plane = Arc::new(AgentModelPlane {
+            context_metrics: None,
             pool: pool.clone(),
             providers: provider.clone(),
             signer: signer.clone(),
@@ -461,7 +463,8 @@ impl Gate {
         Ok(())
     }
     async fn ready(&self) -> Result<()> {
-        let client = reqwest::Client::builder().retry(reqwest::retry::never())
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .timeout(Duration::from_secs(1))
             .build()?;

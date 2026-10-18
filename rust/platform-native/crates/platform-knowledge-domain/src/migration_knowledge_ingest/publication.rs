@@ -47,6 +47,7 @@ impl IngestionService {
         replace_images: bool,
         docir: Option<&super::parsing_v2::integration::Prepared>,
     ) -> Result<Vec<String>> {
+        super::pipeline::require_fence(lease.connection()).await?;
         let document = string(doc, "document_id");
         let image_prepared_ids: BTreeSet<String> = image_points
             .values()
@@ -128,14 +129,28 @@ impl IngestionService {
             .filter(|r| r.content_type != "image")
             .cloned()
             .collect();
-        let mut prepared = self.indexer.prepare_chunks(dataset, &texts).await?;
-        for (name, points) in image_points {
+        let text_hash =
+            super::sha256(super::canonical_json(&serde_json::to_value(&texts)?).as_bytes());
+        let cached = self
+            .load_pipeline_checkpoint::<super::pipeline::Embedded>("embedded")
+            .await?;
+        let from_checkpoint = cached.is_some();
+        let mut prepared = if let Some(cached) = cached {
+            if cached.schema != "knowledge-embedded/v1" || cached.chunks_sha256 != text_hash {
+                return Err(IngestError::GenerationChanged);
+            }
+            cached.points
+        } else {
+            self.indexer.prepare_chunks(dataset, &texts).await?
+        };
+        for (name, points) in image_points.into_iter().filter(|_| !from_checkpoint) {
             prepared.entry(name).or_default().extend(points);
         }
-        for row in embed
-            .iter()
-            .filter(|r| r.content_type == "image" && !image_prepared_ids.contains(&r.segment_id))
-        {
+        for row in embed.iter().filter(|r| {
+            !from_checkpoint
+                && r.content_type == "image"
+                && !image_prepared_ids.contains(&r.segment_id)
+        }) {
             let attachment = row.image_attachment_id.as_deref().ok_or_else(|| {
                 IngestError::Validation("image reembed attachment identity missing".into())
             })?;
@@ -166,6 +181,23 @@ impl IngestionService {
                 .entry(name)
                 .or_default()
                 .push(json!({"id":id,"vector":{"":vector},"payload":payload}));
+        }
+        if super::pipeline::stage() == super::pipeline::Stage::Embed {
+            let execution = doc["metadata"]["_document_pipeline_execution_id"]
+                .as_str()
+                .ok_or(IngestError::GenerationChanged)?;
+            let checkpoint = super::pipeline::Embedded {
+                schema: "knowledge-embedded/v1".into(),
+                chunks_sha256: text_hash,
+                points: prepared.clone(),
+            };
+            self.pipeline_checkpoint(
+                "embedded",
+                &checkpoint,
+                Some(super::pipeline::Stage::Index),
+                execution,
+            )
+            .await?;
         }
         let staged_ids: Vec<_> = staged.iter().map(|r| r.segment_id.clone()).collect();
         let keep: BTreeSet<_> = keep_ids.iter().collect();
@@ -235,6 +267,7 @@ impl IngestionService {
             backups.insert(name.clone(), snapshots);
         }
         let result = async {
+            super::pipeline::require_fence(publication.connection()).await?;
             KnowledgeWriteStore::require_identity(
                 publication.connection(),
                 &dataset.dataset_id,
@@ -288,6 +321,8 @@ impl IngestionService {
                 }
                 let revision = publication.revision;
                 let mut tx = publication.connection().begin().await?;
+                crate::database::bind_current(&mut tx).await?;
+                super::pipeline::require_fence(&mut tx).await?;
                 let certification = if let Some(context) = &lexical {
                     Some(
                         lifecycle

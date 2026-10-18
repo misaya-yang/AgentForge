@@ -87,11 +87,10 @@ async fn send(
         slow,
         foreign,
     });
-    let app = capability_router(CapabilityState::with_backend(
-        backend.clone(),
-        "internal".into(),
-        vec![7; 32],
-    ));
+    let app = capability_router(
+        CapabilityState::with_backend(backend.clone(), "internal".into(), vec![7; 32])
+            .with_legacy_window((chrono::Utc::now().timestamp_millis() + 120000) as u64),
+    );
     let body = json!({"query":"q","top_k":5,"threshold":null});
     let mut request = Request::post(PATH)
         .header("content-type", "application/json")

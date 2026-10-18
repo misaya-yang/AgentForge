@@ -1,4 +1,14 @@
 //! Offline schema tests plus rendered Kubernetes contracts. No cluster access.
+#[path = "compose_security.rs"]
+mod compose_security;
+#[path = "dataset_authorization.rs"]
+mod dataset_authorization;
+#[path = "security_contract.rs"]
+mod security_contract;
+#[path = "source_materialization.rs"]
+mod source_materialization;
+#[path = "strong_pool_contract.rs"]
+mod strong_pool_contract;
 use serde_json::Value;
 use std::{fs, path::Path};
 #[cfg(test)]
@@ -26,9 +36,17 @@ fn role_key(component: &str) -> Option<&'static str> {
     }
 }
 pub fn render_contract(docs: &[Value]) -> Result<(), String> {
+    dataset_authorization::helm(docs)?;
+    let strong_infrastructure = strong_pool_contract::check(docs)?;
     let mut deployments = std::collections::BTreeSet::new();
     for doc in docs {
         let kind = doc["kind"].as_str().unwrap_or("");
+        if doc["metadata"]["name"]
+            .as_str()
+            .is_some_and(|name| strong_infrastructure.contains(name))
+        {
+            continue;
+        }
         if ["StatefulSet", "Secret"].contains(&kind) {
             return Err("application release must not own state or credentials".into());
         }
@@ -39,10 +57,10 @@ pub fn render_contract(docs: &[Value]) -> Result<(), String> {
         if pod["automountServiceAccountToken"] != false {
             return Err("service account token".into());
         }
-        let component = doc["spec"]["template"]["metadata"]["labels"]
-            ["app.kubernetes.io/component"]
-            .as_str()
-            .unwrap_or("");
+        let component =
+            doc["spec"]["template"]["metadata"]["labels"]["app.kubernetes.io/component"]
+                .as_str()
+                .unwrap_or("");
         if kind == "Deployment" {
             deployments.insert(component.to_owned());
         }
@@ -64,12 +82,24 @@ pub fn render_contract(docs: &[Value]) -> Result<(), String> {
                 {
                     return Err("container hardening".into());
                 }
-                if let Some(key) = role_key(component) {
+                if let Some(key) = role_key(component).filter(|_| {
+                    container["name"] == component
+                        || container["name"] == "database-authority"
+                        || container["name"].is_null()
+                }) {
                     if !container["env"].as_array().into_iter().flatten().any(|e| {
-                        e["valueFrom"]["secretKeyRef"]["key"] == key
+                        (e["valueFrom"]["secretKeyRef"]["key"] == key
                             && e["valueFrom"]["secretKeyRef"]["name"]
                                 .as_str()
-                                .is_some_and(|n| !n.is_empty())
+                                .is_some_and(|n| !n.is_empty()))
+                            || (e["name"] == format!("AI_GATEWAY_DATABASE_{key}_FILE")
+                                && e["value"].as_str().is_some_and(|s| {
+                                    [
+                                        "/run/data/credentials/dsn",
+                                        "/run/data/credentials/authority-dsn",
+                                    ]
+                                    .contains(&s)
+                                }))
                     }) {
                         return Err("missing scoped role DSN".into());
                     }
@@ -100,7 +130,9 @@ pub fn render_contract(docs: &[Value]) -> Result<(), String> {
             }
         }
         for volume in pod["volumes"].as_array().into_iter().flatten() {
-            if volume.get("hostPath").is_some() {
+            if volume.get("hostPath").is_some()
+                && !strong_pool_contract::worker_control(docs, component, pod, volume)
+            {
                 return Err("hostPath forbidden".into());
             }
             if component == "agent-python-sandbox" && volume.get("secret").is_some() {
@@ -120,11 +152,16 @@ pub fn render_contract(docs: &[Value]) -> Result<(), String> {
             return Err(format!("missing native unit {expected}"));
         }
     }
-    Ok(())
+    security_contract::check(docs)
 }
 pub fn check_rendered(path: &Path) -> Result<(), String> {
     use serde::Deserialize;
     let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    if let Ok(compose) = serde_json::from_str::<Value>(&text) {
+        if compose.get("services").is_some() {
+            return compose_security::check(&compose);
+        }
+    }
     let docs = serde_yaml::Deserializer::from_str(&text)
         .map(|d| Value::deserialize(d).map_err(|e| e.to_string()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -248,6 +285,55 @@ mod tests {
         v["images"]["sandbox"]["digest"] = format!("sha256:{}", "b".repeat(64)).into();
         assert!(schema(root(), &v));
         v["sandbox"]["cgroupCSI"]["hostPath"] = "/sys/fs/cgroup".into();
+        assert!(!schema(root(), &v));
+    }
+    #[test]
+    fn strong_pool_requires_full_admission_values_and_single_socket_authority() {
+        let mut v = fixture();
+        v["sandbox"]["strongPool"] = serde_json::json!({"enabled":true});
+        assert!(!schema(root(), &v));
+        let v = yaml(&root().join("tests/values-strong-pool.yaml"));
+        assert!(schema(root(), &v));
+        let mut both = v.clone();
+        both["sandbox"]["enabled"] = true.into();
+        assert!(!schema(root(), &both));
+        let mut mutable = v;
+        mutable["sandbox"]["strongPool"]["sandboxImage"] = "repo:latest".into();
+        assert!(!schema(root(), &mutable));
+    }
+    #[test]
+    fn canonical_compose_materializations_are_current() {
+        source_materialization::check(&root().join("../../..")).unwrap();
+    }
+    #[test]
+    fn secure_values_fail_closed_for_missing_svid_tools_role_and_grpc() {
+        let fixture = yaml(&root().join("tests/values-security.yaml"));
+        assert!(schema(root(), &fixture));
+        for role in [
+            "gateway",
+            "runtime",
+            "control",
+            "knowledge",
+            "knowledgeWorker",
+        ] {
+            let mut v = fixture.clone();
+            v["workloadIdentity"]["secrets"][role] = "".into();
+            assert!(!schema(root(), &v));
+            let mut v = fixture.clone();
+            v["dataSecurity"]["roles"][role] = "".into();
+            assert!(!schema(root(), &v));
+        }
+        let mut v = fixture.clone();
+        v["images"]["tools"]["digest"] = "".into();
+        assert!(!schema(root(), &v));
+        let mut v = fixture.clone();
+        v["routing"]["internalGrpc"]["enabled"] = true.into();
+        assert!(!schema(root(), &v));
+        let mut v = fixture.clone();
+        v["dataSecurity"]["mode"] = "transaction".into();
+        assert!(!schema(root(), &v));
+        let mut v = fixture;
+        v["dataSecurity"]["generation"] = "".into();
         assert!(!schema(root(), &v));
     }
     fn docs() -> Vec<Value> {

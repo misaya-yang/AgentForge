@@ -1,3 +1,4 @@
+import type { RequestBody, Defined, RequestQuery, ApiRequest } from "@/api/contracts";
 /**
  * Knowledge Base API Client
  * 
@@ -19,12 +20,6 @@ import type {
   DatasetConfig,
   DatasetDebugInfo,
   ChunkingConfig,
-  RetrieveMode,
-  VectorRetrievalConfig,
-  KeywordRetrievalConfig,
-  FusionConfig,
-  RerankConfig,
-  MMRConfig,
   DatasetCreateRequest,
   DocumentCreateTextRequest,
   BatchOperationResult,
@@ -34,8 +29,6 @@ import type {
   QueryFeedback,
   QueryFeedbackInput,
   QueryFeedbackPage,
-  QueryFeedbackRating,
-  QueryFeedbackTarget,
   QueryHistoryPage,
 } from "@/types/knowledge";
 
@@ -49,7 +42,7 @@ export async function listDatasets() {
   let cursor: string | undefined;
   do {
     const response = await api.get<Dataset[]>("/api/v1/knowledge/datasets", {
-      params: { limit: 200, ...(cursor ? { cursor } : {}) },
+      params: ({ limit: 200, ...(cursor ? { cursor } : {}) } satisfies RequestQuery<"GET /api/v1/knowledge/datasets">),
     });
     response.data.forEach((dataset) => datasets.set(dataset.dataset_id, dataset));
     const next = response.headers["x-next-cursor"] as string | undefined;
@@ -62,7 +55,7 @@ export async function listDatasets() {
 }
 
 export async function createDataset(payload: DatasetCreateRequest) {
-  const { data } = await api.post<Dataset>("/api/v1/knowledge/datasets", payload);
+  const { data } = await api.post<Dataset>("/api/v1/knowledge/datasets", (payload satisfies RequestBody<"POST /api/v1/knowledge/datasets">));
   return data;
 }
 
@@ -95,19 +88,16 @@ export async function getDatasetAgentImpact(datasetId: string): Promise<DatasetA
   return data;
 }
 
-export async function updateDataset(datasetId: string, patch: Partial<Dataset>) {
-  const { data } = await api.put<Dataset>(`/api/v1/knowledge/datasets/${datasetId}`, patch);
+export async function updateDataset(datasetId: string, patch: RequestBody<"PUT /api/v1/knowledge/datasets/{dataset_id}">) {
+  const { data } = await api.put<Dataset>(`/api/v1/knowledge/datasets/${datasetId}`, (patch satisfies RequestBody<"PUT /api/v1/knowledge/datasets/{dataset_id}">));
   return data;
 }
 
-export interface DeleteDatasetPayload {
-  password: string;
-  reason?: string;
-}
+export type DeleteDatasetPayload = Defined<RequestBody<"DELETE /api/v1/knowledge/datasets/{dataset_id}">, "password">;
 
 export async function deleteDataset(datasetId: string, payload: DeleteDatasetPayload) {
   const { data } = await api.delete(`/api/v1/knowledge/datasets/${datasetId}`, {
-    data: payload,
+    data: (payload satisfies RequestBody<"DELETE /api/v1/knowledge/datasets/{dataset_id}">),
   });
   return data;
 }
@@ -239,21 +229,9 @@ export interface EmbeddingMigrationDescription {
   enabled_chunks: number;
 }
 
-export interface StartEmbeddingMigrationRequest {
-  embedding_provider: string;
-  embedding_model: string;
-  embedding_model_version?: string;
-  embedding_dimension: number;
-  /** Omit to inherit serving capabilities; [] is an explicit empty set. */
-  capabilities?: string[];
-}
+export type StartEmbeddingMigrationRequest = Defined<RequestBody<"POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/start">, "embedding_provider" | "embedding_model" | "embedding_dimension">;
 
-export interface EmbeddingMigrationGateRequest {
-  sample_size?: number;
-  top_k?: number;
-  tolerance?: number;
-  floor?: number;
-}
+export type EmbeddingMigrationGateRequest = RequestBody<"POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/gate">;
 
 export interface EmbeddingMigrationActionResult {
   migration?: EmbeddingMigrationJob;
@@ -287,7 +265,7 @@ export async function startEmbeddingMigration(
 ): Promise<EmbeddingMigrationActionResult> {
   const { data } = await api.post<EmbeddingMigrationActionResult>(
     `${embeddingMigrationPath(datasetId)}/start`,
-    request
+    (request satisfies RequestBody<"POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/start">)
   );
   return data;
 }
@@ -296,11 +274,11 @@ async function postEmbeddingMigrationAction<T = EmbeddingMigrationActionResult>(
   datasetId: string,
   migrationId: string,
   action: "backfill" | "verify" | "gate" | "cutover" | "rollback" | "abort",
-  body?: Record<string, unknown>
+  body?: RequestBody<"POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/backfill" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/verify" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/gate" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/cutover" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/rollback" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/abort">
 ): Promise<T> {
   const { data } = await api.post<T>(
     `${embeddingMigrationPath(datasetId)}/${migrationId}/${action}`,
-    body
+    ((body ?? {}) satisfies RequestBody<"POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/backfill" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/verify" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/gate" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/cutover" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/rollback" | "POST /api/v1/knowledge/datasets/{dataset_id}/embedding-migration/{migration_id}/abort">)
   );
   return data;
 }
@@ -392,12 +370,12 @@ function parsePageTotal(value: unknown, fallback: number): number {
 
 export async function listDocuments(
   datasetId: string,
-  params: { limit?: number; offset?: number } = {}
+  params: RequestQuery<"GET /api/v1/knowledge/{dataset_id}/documents"> = {}
 ): Promise<OffsetPage<Document>> {
   const limit = params.limit ?? 50;
   const offset = params.offset ?? 0;
   const response = await api.get<Document[]>(`/api/v1/knowledge/${datasetId}/documents`, {
-    params: { limit, offset },
+    params: ({ limit, offset } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/documents">),
   });
   return {
     items: response.data,
@@ -430,12 +408,12 @@ export async function getActiveDocumentSource(datasetId: string, documentId: str
 
 
 export async function createDocumentFromText(datasetId: string, payload: DocumentCreateTextRequest) {
-  const { data } = await api.post<Document>(`/api/v1/knowledge/${datasetId}/documents/text`, payload);
+  const { data } = await api.post<Document>(`/api/v1/knowledge/${datasetId}/documents/text`, (payload satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/text">));
   return data;
 }
 
-export async function createDocumentFromUrl(datasetId: string, payload: { url: string; title?: string }) {
-  const { data } = await api.post<Document>(`/api/v1/knowledge/${datasetId}/documents/url`, payload);
+export async function createDocumentFromUrl(datasetId: string, payload: RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/url">) {
+  const { data } = await api.post<Document>(`/api/v1/knowledge/${datasetId}/documents/url`, (payload satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/url">));
   return data;
 }
 
@@ -450,13 +428,11 @@ export async function uploadDocument(
   file: File,
   processingMode: ProcessingMode = "text_only"
 ) {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("processing_mode", processingMode);
-  // Don't set Content-Type manually - axios will auto-set it with correct boundary
+  const upload: RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/upload"> = { file, processing_mode: processingMode };
+  // The generated codec sets the browser-owned multipart boundary.
   const { data } = await api.post<Document>(
     `/api/v1/knowledge/${datasetId}/documents/upload`,
-    form
+    upload
   );
   return data;
 }
@@ -490,13 +466,10 @@ export interface BatchUploadResult {
  * - 返回batch_id用于追踪处理进度
  */
 export async function batchUploadDocuments(datasetId: string, files: File[]): Promise<BatchUploadResult> {
-  const form = new FormData();
-  files.forEach((file) => {
-    form.append("files", file);
-  });
+  const upload: RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/batch-upload"> = { files };
   const { data } = await api.post<BatchUploadResult>(
     `/api/v1/knowledge/${datasetId}/documents/batch-upload`,
-    form,
+    upload,
     {
       timeout: 300000, // 5 minutes for large batch uploads
     }
@@ -626,7 +599,7 @@ export async function setDocumentEnabled(
 ) {
   const { data } = await api.patch<Document>(
     `/api/v1/knowledge/${datasetId}/documents/${documentId}/status`,
-    { enabled }
+    ({ enabled } satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}/status">)
   );
   return data;
 }
@@ -647,7 +620,7 @@ export async function setDocumentArchived(
 ) {
   const { data } = await api.patch<Document>(
     `/api/v1/knowledge/${datasetId}/documents/${documentId}/archive`,
-    archived ? { archived, reason: reason ?? null } : { archived }
+    (archived ? { archived, reason: reason ?? null } : { archived } satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}/archive">)
   );
   return data;
 }
@@ -668,7 +641,7 @@ export async function updateDocumentMetadataRegistry(
 ): Promise<DocumentMetadataRegistry> {
   const { data } = await api.put<DocumentMetadataRegistry>(
     `/api/v1/knowledge/${datasetId}/metadata-schema`,
-    { expected_revision: expectedRevision, fields }
+    ({ expected_revision: expectedRevision, fields } satisfies RequestBody<"PUT /api/v1/knowledge/{dataset_id}/metadata-schema">)
   );
   return data;
 }
@@ -686,11 +659,11 @@ export async function updateDocumentMetadata(
 ): Promise<Document> {
   const { data } = await api.patch<Document>(
     `/api/v1/knowledge/${datasetId}/documents/${documentId}`,
-    {
+    ({
       metadata_patch: patch.metadataPatch ?? {},
       metadata_remove: patch.metadataRemove ?? [],
       metadata_schema_revision: patch.metadataSchemaRevision,
-    }
+    } satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/documents/{document_id}">)
   );
   return data;
 }
@@ -702,12 +675,12 @@ export async function batchUpdateDocumentMetadata(
 ): Promise<BatchOperationResult & { metadata_schema_revision: number }> {
   const { data } = await api.patch<
     BatchOperationResult & { metadata_schema_revision: number }
-  >(`/api/v1/knowledge/${datasetId}/documents/metadata/batch`, {
+  >(`/api/v1/knowledge/${datasetId}/documents/metadata/batch`, ({
     document_ids: documentIds,
     metadata_patch: patch.metadataPatch ?? {},
     metadata_remove: patch.metadataRemove ?? [],
     metadata_schema_revision: patch.metadataSchemaRevision,
-  });
+  } satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/documents/metadata/batch">));
   return data;
 }
 
@@ -718,19 +691,19 @@ export async function batchUpdateDocumentMetadata(
 
 export async function listSegments(
   datasetId: string,
-  params: { documentId?: string; q?: string; limit?: number; offset?: number } = {},
+  params: RequestQuery<"GET /api/v1/knowledge/{dataset_id}/segments"> = {},
   options: KnowledgeRequestOptions = {},
 ): Promise<OffsetPage<Segment>> {
   const limit = params.limit ?? 100;
   const offset = params.offset ?? 0;
   const response = await api.get<Segment[]>(`/api/v1/knowledge/${datasetId}/segments`, {
     signal: options.signal,
-    params: {
-      document_id: params.documentId,
+    params: ({
+      document_id: params.document_id,
       q: params.q,
       limit,
       offset,
-    },
+    } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/segments">),
   });
   return {
     items: response.data,
@@ -748,11 +721,7 @@ export async function listSegments(
  * Sending a field replaces it, so the edit dialog always sends all three;
  * omitting `answer`/`keywords` keeps the stored values.
  */
-export interface SegmentUpdateFields {
-  text: string;
-  answer?: string;
-  keywords?: string[];
-}
+export type SegmentUpdateFields = Defined<RequestBody<"PUT /api/v1/knowledge/{dataset_id}/segments/{segment_id}">, "text">;
 
 export async function updateSegment(
   datasetId: string,
@@ -761,7 +730,7 @@ export async function updateSegment(
 ) {
   const { data } = await api.put<Segment>(
     `/api/v1/knowledge/${datasetId}/segments/${segmentId}`,
-    fields
+    (fields satisfies RequestBody<"PUT /api/v1/knowledge/{dataset_id}/segments/{segment_id}">)
   );
   return data;
 }
@@ -775,7 +744,7 @@ export async function deleteSegment(datasetId: string, segmentId: string) {
 export async function setSegmentEnabled(datasetId: string, segmentId: string, enabled: boolean) {
   const { data } = await api.patch<Segment>(
     `/api/v1/knowledge/${datasetId}/segments/${segmentId}/status`,
-    { enabled }
+    ({ enabled } satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/segments/{segment_id}/status">)
   );
   return data;
 }
@@ -798,7 +767,7 @@ export async function batchSetSegmentsEnabled(
 ) {
   const { data } = await api.post<SegmentBatchResult>(
     `/api/v1/knowledge/${datasetId}/segments/batch/enable`,
-    { segment_ids: segmentIds, enabled }
+    ({ segment_ids: segmentIds, enabled } satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/segments/batch/enable">)
   );
   return data;
 }
@@ -820,7 +789,7 @@ export async function retrieve(
 ) {
   const { data } = await api.post<RetrieveResponse>(
     `/api/v1/knowledge/${datasetId}/retrieve`,
-    req,
+    (req satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve">),
     {
       signal: options.signal,
       timeout: options.timeoutMs,
@@ -836,7 +805,7 @@ export async function hitTest(
 ) {
   const { data } = await api.post<RetrieveResponse>(
     `/api/v1/knowledge/${datasetId}/hit_test`,
-    req,
+    (req satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/hit_test">),
     {
       signal: options.signal,
       timeout: options.timeoutMs,
@@ -847,22 +816,17 @@ export async function hitTest(
 
 export async function listDatasetQueries(
   datasetId: string,
-  params: {
-    limit?: number;
-    zeroResults?: boolean;
-    mode?: string;
-    cursor?: string;
-  } = {}
+  params: RequestQuery<"GET /api/v1/knowledge/{dataset_id}/queries"> = {}
 ) {
   const { data } = await api.get<QueryHistoryPage>(
     `/api/v1/knowledge/${datasetId}/queries`,
     {
-      params: {
+      params: ({
         limit: params.limit,
-        zero_results: params.zeroResults,
+        zero_results: params.zero_results,
         mode: params.mode,
         cursor: params.cursor,
-      },
+      } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/queries">),
     }
   );
   return data;
@@ -871,33 +835,26 @@ export async function listDatasetQueries(
 export async function putQueryFeedback(datasetId: string, input: QueryFeedbackInput) {
   const { data } = await api.put<QueryFeedback>(
     `/api/v1/knowledge/${datasetId}/feedback`,
-    input
+    (input satisfies RequestBody<"PUT /api/v1/knowledge/{dataset_id}/feedback">)
   );
   return data;
 }
 
 export async function listQueryFeedback(
   datasetId: string,
-  params: {
-    limit?: number;
-    rating?: QueryFeedbackRating;
-    reasonCode?: string;
-    targetType?: QueryFeedbackTarget;
-    traceId?: string;
-    cursor?: string;
-  } = {}
+  params: RequestQuery<"GET /api/v1/knowledge/{dataset_id}/feedback"> = {}
 ) {
   const { data } = await api.get<QueryFeedbackPage>(
     `/api/v1/knowledge/${datasetId}/feedback`,
     {
-      params: {
+      params: ({
         limit: params.limit,
         rating: params.rating,
-        reason_code: params.reasonCode,
-        target_type: params.targetType,
-        trace_id: params.traceId,
+        reason_code: params.reason_code,
+        target_type: params.target_type,
+        trace_id: params.trace_id,
         cursor: params.cursor,
-      },
+      } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/feedback">),
     }
   );
   return data;
@@ -908,14 +865,7 @@ export async function listQueryFeedback(
 // ============================================================
 
 /** One labelled evaluation case: a query plus its ground-truth relevance. */
-export interface RetrievalEvalCase {
-  query: string;
-  case_id?: string;
-  /** Binary ground truth: segment IDs that are relevant. */
-  relevant_segment_ids?: string[];
-  /** Graded ground truth: segment ID -> relevance grade in [0, 1]. */
-  relevance?: Record<string, number>;
-}
+export type RetrievalEvalCase = RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve_evaluate">["cases"][number];
 
 /** Per-K aggregated IR metrics returned by the evaluation endpoint. */
 export interface RetrievalMetricsAtK {
@@ -941,14 +891,8 @@ export interface RetrievalEvalCaseResult {
   }>;
 }
 
-interface RetrievalEvalEnvelope {
-  cases: RetrievalEvalCase[];
-  k_values?: number[];
-  return_retrieved?: boolean;
-}
 
-export type RetrievalEvalRequest = RetrievalEvalEnvelope &
-  (Partial<RetrieveRequest> | RetrievalPresetConfig);
+export type RetrievalEvalRequest = RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve_evaluate">;
 
 export interface RetrievalEvalResponse {
   dataset_id: string;
@@ -981,7 +925,7 @@ export async function retrieveEvaluate(
 ) {
   const { data } = await api.post<RetrievalEvalResponse>(
     `/api/v1/knowledge/${datasetId}/retrieve_evaluate`,
-    req,
+    (req satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/retrieve_evaluate">),
     {
       signal: options.signal,
       timeout: options.timeoutMs,
@@ -1251,7 +1195,7 @@ export async function listRetrievalPresets(options: KnowledgeRequestOptions = {}
 // ============================================================
 
 export async function qaQuery(datasetId: string, req: QARequest) {
-  const { data } = await api.post<QAResponse>(`/api/v1/knowledge/${datasetId}/qa`, req);
+  const { data } = await api.post<QAResponse>(`/api/v1/knowledge/${datasetId}/qa`, (req satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/qa">));
   return data;
 }
 
@@ -1264,7 +1208,7 @@ export async function* qaQueryStream(
   for await (const chunk of sseFetch<QAStreamEvent>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
+    body: JSON.stringify((req satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/qa/stream">)),
     signal,
   })) {
     yield chunk;
@@ -1295,28 +1239,13 @@ export async function getDatasetConfig(datasetId: string) {
  * - Flat legacy retrieval fields (fusion_strategy/alpha/rerank_*...) pass the
  *   schema but are ignored at retrieval time; send the nested objects.
  */
-export interface RetrievalConfigPatch {
-  mode?: RetrieveMode;
-  top_k?: number;
-  score_threshold?: number;
-  vector?: Partial<VectorRetrievalConfig>;
-  keyword?: Partial<KeywordRetrievalConfig>;
-  fusion?: Partial<FusionConfig>;
-  rerank?: Partial<RerankConfig>;
-  mmr?: Partial<MMRConfig>;
-}
+export type RetrievalConfigPatch = NonNullable<RequestBody<"PUT /api/v1/knowledge/{dataset_id}/config">["retrieval_config"]>;
 
 export async function updateDatasetConfig(
   datasetId: string,
-  config: {
-    chunking_config?: Record<string, unknown>;
-    retrieval_config?: RetrievalConfigPatch;
-    embedding_provider?: string;
-    embedding_model?: string;
-    embedding_dimension?: number;
-  }
+  config: RequestBody<"PUT /api/v1/knowledge/{dataset_id}/config">
 ) {
-  const { data } = await api.put(`/api/v1/knowledge/${datasetId}/config`, config);
+  const { data } = await api.put(`/api/v1/knowledge/${datasetId}/config`, (config satisfies RequestBody<"PUT /api/v1/knowledge/{dataset_id}/config">));
   return data;
 }
 
@@ -1378,7 +1307,7 @@ export interface SourceSyncTask {
 export async function startSourceSync(datasetId: string, bindingId: string, requestId: string): Promise<SourceSyncTask> {
   const { data } = await api.post<SourceSyncTask>(
     `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/${encodeURIComponent(bindingId)}/sync`,
-    { request_id: requestId }
+    ({ request_id: requestId } satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/{binding_id}/sync">)
   );
   return data;
 }
@@ -1442,7 +1371,7 @@ export async function batchReindexDocuments(
 ): Promise<DocumentBatchOperation> {
   const { data } = await api.post<DocumentBatchOperation>(
     `/api/v1/knowledge/${datasetId}/documents/batch-reindex`,
-    { document_ids: documentIds, all_documents: allDocuments }
+    ({ document_ids: documentIds, all_documents: allDocuments } satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/batch-reindex">)
   );
   return data;
 }
@@ -1453,7 +1382,7 @@ export async function batchDeleteDocuments(
 ): Promise<DocumentBatchOperation> {
   const { data } = await api.post<DocumentBatchOperation>(
     `/api/v1/knowledge/${datasetId}/documents/batch-delete`,
-    { document_ids: documentIds }
+    ({ document_ids: documentIds } satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/documents/batch-delete">)
   );
   return data;
 }
@@ -1511,10 +1440,10 @@ export async function previewChunking(
 
   const { data } = await api.post<ChunkPreviewResponse>(
     url,
-    {
+    ({
       text,
       config,
-    }
+    } satisfies RequestBody<"POST /api/v1/knowledge/preview">)
   );
   return data;
 }
@@ -1582,7 +1511,7 @@ export async function listDocumentVersions(
 ): Promise<VersionListResponse> {
   const { data } = await api.get<VersionListResponse>(
     `/api/v1/knowledge/${datasetId}/documents/${documentId}/versions`,
-    { params: { limit, offset } }
+    { params: ({ limit, offset } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions">) }
   );
   return data;
 }
@@ -1599,7 +1528,7 @@ export async function compareDocumentVersions(
 ): Promise<VersionCompareResponse> {
   const { data } = await api.get<VersionCompareResponse>(
     `/api/v1/knowledge/${datasetId}/documents/${documentId}/versions/compare`,
-    { params: { from_version: fromVersion, to_version: toVersion } }
+    { params: ({ from_version: fromVersion, to_version: toVersion } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/compare">) }
   );
   return data;
 }
@@ -1621,22 +1550,22 @@ export async function restoreDocumentVersion(
 /** Existing saved credentials are never returned by this source-setup API. */
 export interface SourceConnection { connection_id: string; name: string; }
 export interface SourceSpace { connection_id: string; space_key: string; space_id: string; space_name: string; root_page_id: string; root_page_title: string; }
-export interface SourceBindingRequest extends Omit<SourceSpace, "space_name" | "root_page_title"> { request_id: string; }
+export type SourceBindingRequest = Defined<RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/bindings">, "request_id">;
 export interface SourceBindingReceipt extends SourceSpace { binding_id: string; dataset_id: string; sync_mode: "manual"; }
 export async function getSourceConnections(datasetId: string, offset = 0, signal?: AbortSignal) {
   const { data } = await api.get<{ connections: SourceConnection[]; next_offset: number | null }>(
-    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections`, { params: { offset }, signal });
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections`, { params: ({ offset } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections">), signal });
   return data;
 }
 export async function getSourceSpace(datasetId: string, connectionId: string, spaceKey: string, signal?: AbortSignal) {
   const { data } = await api.get<SourceSpace>(
     `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(connectionId)}/space`,
-    { params: { space_key: spaceKey }, signal });
+    { params: ({ space_key: spaceKey } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/space">), signal });
   return data;
 }
 export async function createSourceBinding(datasetId: string, request: SourceBindingRequest) {
   const { data } = await api.post<SourceBindingReceipt>(
-    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/bindings`, request);
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/bindings`, (request satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/bindings">));
   return data;
 }
 export async function getSourceBinding(datasetId: string, requestId: string, signal?: AbortSignal) {
@@ -1646,10 +1575,10 @@ export async function getSourceBinding(datasetId: string, requestId: string, sig
 }
 
 
-export interface SourceConnectionIntent { request_id: string; name: string; domain: string; }
+export type SourceConnectionIntent = Pick<RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections">, "request_id" | "name" | "domain">;
 export interface SourceConnectionReceipt { connection_id: string; name: string; domain: string; status: string; sync_mode: "manual"; }
-export async function createSourceConnection(datasetId: string, request: SourceConnectionIntent & { email: string; api_token: string }) {
-  const { data } = await api.post<SourceConnectionReceipt>(`/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections`, request);
+export async function createSourceConnection(datasetId: string, request: RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections">) {
+  const { data } = await api.post<SourceConnectionReceipt>(`/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections`, (request satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections">));
   return data;
 }
 export async function getSourceConnection(datasetId: string, requestId: string, signal?: AbortSignal) {
@@ -1666,35 +1595,28 @@ export interface SourceConnectionImpact {
   hidden_count: number;
   next_offset: number | null;
 }
-export interface SourceConnectionChange {
-  connection_id: string;
-  expected_revision: string;
-  expected_status: "active" | "disabled";
-  status: "active" | "disabled";
-}
+export type SourceConnectionChange = RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control"> & Pick<ApiRequest<"PATCH /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control">["path"], "connection_id">;
 export async function getManagedSourceConnections(datasetId: string, offset = 0, signal?: AbortSignal) {
   const { data } = await api.get<{ connections: SourceConnectionControl[]; next_offset: number | null }>(
-    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/manage`, { params: { offset }, signal });
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/manage`, { params: ({ offset } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/manage">), signal });
   return data;
 }
 export async function getSourceConnectionImpact(datasetId: string, connectionId: string, offset = 0, signal?: AbortSignal) {
   const { data } = await api.get<SourceConnectionImpact>(
-    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(connectionId)}/control`, { params: { offset }, signal });
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(connectionId)}/control`, { params: ({ offset } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control">), signal });
   return data;
 }
 export async function changeSourceConnection(datasetId: string, change: SourceConnectionChange) {
   const { connection_id, ...body } = change;
   const { data } = await api.patch<SourceConnectionControl>(
-    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(connection_id)}/control`, body);
+    `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(connection_id)}/control`, (body satisfies RequestBody<"PATCH /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/control">));
   return data;
 }
 
-export interface SourceCredentialIntent {
-  operation: "credentials"; connection_id: string; expected_revision: string; expected_status: "active" | "disabled";
-}
-export async function replaceSourceCredentials(datasetId: string, intent: SourceCredentialIntent, credentials: { email: string; api_token: string }) {
+export type SourceCredentialIntent = Pick<RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/credentials">, "expected_revision" | "expected_status"> & Pick<ApiRequest<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/credentials">["path"], "connection_id"> & { operation: "credentials" };
+export async function replaceSourceCredentials(datasetId: string, intent: SourceCredentialIntent, credentials: Pick<RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/credentials">, "email" | "api_token">) {
   const { data } = await api.post<SourceConnectionControl>(
     `/api/v1/knowledge/${encodeURIComponent(datasetId)}/sources/confluence/connections/${encodeURIComponent(intent.connection_id)}/credentials`,
-    { expected_revision: intent.expected_revision, expected_status: intent.expected_status, ...credentials });
+    ({ expected_revision: intent.expected_revision, expected_status: intent.expected_status, ...credentials } satisfies RequestBody<"POST /api/v1/knowledge/{dataset_id}/sources/confluence/connections/{connection_id}/credentials">));
   return data;
 }

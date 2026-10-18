@@ -134,6 +134,10 @@ pub async fn require_ledger_state(
             "authority ledger compatibility gate detected fingerprint drift".into(),
         ));
     }
+    crate::source_tools::service_successors::partition_catalog::require_for_ledger(
+        authority, &mut tx, &applied,
+    )
+    .await?;
     set_role(&mut tx, &previous).await?;
     tx.commit().await?;
     Ok(actual)
@@ -278,6 +282,19 @@ pub async fn startup_check(authority: &MigrationAuthority, principal: &str) -> R
     }
 }
 pub async fn verify(authority: &MigrationAuthority, baseline_id: &str) -> Result<()> {
+    verify_with_output(authority, baseline_id, true).await
+}
+pub(crate) async fn verify_for_admission(
+    authority: &MigrationAuthority,
+    baseline_id: &str,
+) -> Result<()> {
+    verify_with_output(authority, baseline_id, false).await
+}
+async fn verify_with_output(
+    authority: &MigrationAuthority,
+    baseline_id: &str,
+    report: bool,
+) -> Result<()> {
     let (baseline, sha) = load_baseline(&authority.paths, baseline_id)?;
     let mut conn = authority.connect(true).await?;
     if let Some(marker) = authority.adopted_baseline(&mut conn).await? {
@@ -312,7 +329,9 @@ pub async fn verify(authority: &MigrationAuthority, baseline_id: &str) -> Result
         }
     }
     conn.close().await?;
-    println!("verify: baseline/epoch fingerprints match; database is read-only-verified");
+    if report {
+        println!("verify: baseline/epoch fingerprints match; database is read-only-verified");
+    }
     Ok(())
 }
 pub async fn fingerprint(authority: &MigrationAuthority, baseline_id: &str) -> Result<()> {

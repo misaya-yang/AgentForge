@@ -4,6 +4,7 @@
 //! Gateway's durable receipts. It does not keep a second action, approval, or
 //! receipt ledger, and it never talks directly to the companion device.
 
+use crate::workload_identity::WorkloadSend;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{
     Arc,
@@ -217,8 +218,8 @@ impl LocalNodeGatewayConfig {
             || base.password().is_some()
             || base.query().is_some()
             || base.fragment().is_some()
-            || self.internal_token.len() < MIN_SECRET_BYTES
-            || self.proof_secret.len() < MIN_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < MIN_SECRET_BYTES)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_SECRET_BYTES)
             || !is_worker_path(path)
         {
             return Err(LocalNodeBrokerError::TransportUnavailable);
@@ -324,7 +325,7 @@ impl ReqwestLocalNodeTransport {
             .duration_since(UNIX_EPOCH)
             .map_err(|_| LocalNodeBrokerError::TransportUnavailable)?
             .as_secs();
-        let proof = self.proof("POST", path, context, &body_value, now)?;
+        let proof = if crate::broker_proof::required() { crate::broker_proof::issue(path, &body_value).await.map_err(|_| LocalNodeBrokerError::TransportUnavailable)? } else { self.proof("POST", path, context, &body_value, now)? };
         let request_builder = self
             .client
             .post(endpoint)
@@ -345,7 +346,7 @@ impl ReqwestLocalNodeTransport {
         )
         .json(&body_value)
         .timeout(timeout)
-        .send()
+        .workload_send()
         .await
         .map_err(|_| LocalNodeBrokerError::TransportUnavailable)?;
         let status = response.status().as_u16();

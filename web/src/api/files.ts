@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 /**
  * File Upload API Client
  *
@@ -140,17 +141,13 @@ export async function uploadFileWithProgress(
   const fileToUpload = compressImages ? await compressImage(file) : file;
 
   signal?.throwIfAborted();
-  const formData = new FormData();
-  formData.append("file", fileToUpload);
+  const upload: RequestBody<"POST /api/v1/files/upload"> = { file: fileToUpload };
 
   const { data } = await api.post<FileUploadResponse>(
     "/api/v1/files/upload",
-    formData,
+    upload,
     {
       signal,
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percent = Math.round(

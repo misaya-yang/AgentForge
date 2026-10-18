@@ -41,7 +41,8 @@ export function loadConfig(): CLIConfig {
 }
 
 export function saveConfig(config: CLIConfig) {
-  writeJSON(CONFIG_FILE, config);
+  const { api_key: _legacySecret, access_token: _sessionSecret, access_token_provider: _sessionProvider, ...publicConfig } = config;
+  writeJSON(CONFIG_FILE, publicConfig);
 }
 
 export function updateConfig(updates: Partial<CLIConfig>) {

@@ -9,7 +9,7 @@
         useAuthStore.getState().setAuth(session.csrf_token, session.user, false);
         initBrowserTelemetry();
         document.querySelector('#probe').onclick = async () => {
-          await fetch('/api/v1/telemetry-probe?prompt=PRIVATE_PROMPT');
+          await fetch('/api/v1/users?search=PRIVATE_QUERY');
           document.querySelector('#status').textContent = 'API probe complete';
         };
         document.querySelector('#diagnostic').onclick = () => {

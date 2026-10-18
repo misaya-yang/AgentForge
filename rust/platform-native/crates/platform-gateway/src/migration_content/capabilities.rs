@@ -1,4 +1,7 @@
 //! Scope-bound content brokers. Sandbox and provider execution remain remote.
+pub use ai_platform_capability_contract::broker_proof as broker_proof_v3;
+#[path = "capability_proof_issuer.rs"]
+mod proof_issuer;
 use super::artifacts::{ArtifactStorage, NewArtifact};
 use super::attachments::{self, PdfAttachmentParser};
 use super::{ContentDatabase, ContentError, ContentFuture, hex_id, sha256, string};
@@ -32,19 +35,32 @@ pub struct CapabilityScope {
     pub tool_call_id: String,
     pub arguments_hash: String,
 }
+// Connection proof is scoped to this request future, including existing broker
+// trait adapters whose public contracts accept headers only. No header can set it.
+tokio::task_local! { static MUTUAL_TLS: bool; }
+pub async fn scope_authenticated_workload(request:axum::extract::Request,next:axum::middleware::Next)->axum::response::Response {
+    let authenticated=crate::workload_tls::mutual_tls(request.extensions());
+    MUTUAL_TLS.scope(authenticated,next.run(request)).await
+}
 #[derive(Clone)]
 pub struct CapabilityAuthorization {
     internal_token: Arc<str>,
     proof_secret: Arc<[u8]>,
+    legacy_accept_until_ms:Option<u64>,
 }
 impl CapabilityAuthorization {
     pub fn new(internal_token: String, proof_secret: Vec<u8>) -> Self {
         Self {
             internal_token: internal_token.into(),
             proof_secret: proof_secret.into(),
+            legacy_accept_until_ms:None,
         }
     }
+    /// Explicit bounded compatibility input; required mode always overrides it.
+    pub fn with_legacy_window(mut self,accept_until_ms:u64)->Self {self.legacy_accept_until_ms=Some(accept_until_ms);self}
     pub fn peer(&self, headers: &HeaderMap) -> Result<(), ContentError> {
+        if MUTUAL_TLS.try_with(|v|*v).unwrap_or(false){return Ok(())}
+        if crate::migration_agent::control::execution_transport::required(){return Err(ContentError::new(401,"authenticated workload required"))}
         let got = headers
             .get("x-ai-platform-internal-token")
             .and_then(|v| v.to_str().ok())
@@ -95,9 +111,26 @@ impl CapabilityAuthorization {
         if s.execution_id.is_empty() || s.run_id.is_empty() || proof.is_empty() {
             return Err(ContentError::new(401, "capability proof required"));
         }
-        verify_capability_proof(&self.proof_secret, &proof, "POST", path, body, &s, now)?;
+        verify_broker_proof_for_window(&self.proof_secret, &proof, "POST", path, body, &s, now,self.legacy_accept_until_ms)?;
         Ok(s)
     }
+}
+pub fn verify_broker_proof_for_window(secret:&[u8],header:&str,method:&str,path:&str,body:&Value,scope:&CapabilityScope,now:i64,deadline:Option<u64>)->Result<Value,ContentError>{
+    if header.starts_with("v1.") && broker_proof_v3::deadline_admitted(u64::try_from(now).unwrap_or(0).saturating_mul(1000),deadline,broker_proof_v3::verify_only_required()) {
+        return verify_capability_proof(secret,header,method,path,body,scope,now);
+    }
+    verify_broker_proof(secret,header,method,path,body,scope,now)
+}
+pub fn verify_broker_proof(secret: &[u8], header: &str, method: &str, path: &str, body: &Value, scope: &CapabilityScope, now: i64) -> Result<Value, ContentError> {
+    let now_ms = u64::try_from(now).unwrap_or(0).saturating_mul(1000);
+    if header.starts_with(broker_proof_v3::wire::ENVELOPE_PREFIX) {
+        let keys = broker_proof_v3::keys().map_err(|_| ContentError::new(503,"broker verification unavailable"))?;
+        let actor=serde_json::json!({"tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"execution_id":scope.execution_id,"run_id":scope.run_id,"tool_call_id":scope.tool_call_id,"arguments_hash":scope.arguments_hash});
+        return broker_proof_v3::verify_with_keys(&keys,header,method,path,&broker_proof_v3::body_hash(body).map_err(|_|ContentError::new(401,"capability body invalid"))?,&actor,now_ms.max(chrono::Utc::now().timestamp_millis().max(0) as u64))
+            .map_err(|_|ContentError::new(401,"capability proof invalid"));
+    }
+    if !broker_proof_v3::legacy_admitted(now_ms) { return Err(ContentError::new(401,"legacy broker proof not admitted")); }
+    verify_capability_proof(secret,header,method,path,body,scope,now)
 }
 pub fn verify_capability_proof(
     secret: &[u8],
@@ -503,12 +536,12 @@ pub async fn persist_capability_artifact(
     let storage = artifacts.clone();
     let result=database.transaction(move|c|Box::pin(async move{let Some(row)=execution_row(c,&s).await?else{return Ok(Err(ContentError::new(403,"capability scope mismatch")))};if string(&row,"tool_call_id")!=s.tool_call_id||string(&row,"arguments_sha256").trim()!=s.arguments_hash.trim_start_matches("sha256:"){return Ok(Err(ContentError::new(403,"capability scope mismatch")))}
         if office{if let Some(receipt)=office_receipt(&row["result_summary"]){if receipt["sha256"]!=body["sha256"]||receipt["size_bytes"]!=body["size_bytes"]{return Ok(Err(ContentError::new(409,"artifact idempotency conflict")))}return Ok(Ok(receipt))}}
-        if let Err(e)=active(&row,&s,if office{"mcp_docgen__generate_document"}else{"execute_python_code"}){return Ok(Err(e))}
+        if let Err(e)=active(&row,&s,if office{if row["capability_id"]=="mcp_docgen__modify_document"{"mcp_docgen__modify_document"}else{"mcp_docgen__generate_document"}}else{"execute_python_code"}){return Ok(Err(e))}
         let identity=if office{format!("office\0{}\0{}\0{}\0{}\0{}\0{}",s.tenant_id,s.user_id,s.session_id,s.execution_id,s.tool_call_id,s.arguments_hash)}else{format!("python-output\0{}\0{}\0{}\0{}\0{}",s.execution_id,s.tool_call_id,s.arguments_hash,string(&body,"filename"),string(&body,"sha256"))};let id=format!("art_{}",&sha256(identity.as_bytes())[..16]);
         if !office{let prior:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(a) FROM artifacts a WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 AND source='code_execution' AND metadata->>'execution_id'=$4 FOR UPDATE").bind(&s.tenant_id).bind(&s.user_id).bind(&s.session_id).bind(&s.execution_id).fetch_all(&mut *c).await?;if prior.iter().any(|a|a["filename"]==body["filename"]&&a["artifact_id"]!=id){return Ok(Err(ContentError::new(409,"artifact filename conflict")))}let replay=prior.iter().any(|a|a["artifact_id"]==id);if !replay&&(prior.len()>=64||prior.iter().filter_map(|a|a["size_bytes"].as_u64()).sum::<u64>()+bytes.len()as u64>24*1024*1024){return Ok(Err(ContentError::new(413,"artifact output limit exceeded")))}}
         let mut metadata=if office&&body["metadata"].is_object(){body["metadata"].clone()}else{json!({})};metadata["schema_version"]=json!(if office{"ai-platform/office-artifact/v1"}else{"ai-platform/python-code-artifact/v1"});metadata["execution_id"]=json!(s.execution_id);metadata["tool_call_id"]=json!(s.tool_call_id);metadata["arguments_hash"]=json!(s.arguments_hash);metadata["content_sha256"]=body["sha256"].clone();if !office{metadata["run_id"]=json!(s.run_id);metadata["requested_mime_type"]=body["mime_type"].clone();}
         let format=if office{string(&body,"format")}else{string(&body,"filename").rsplit('.').next().filter(|s|!s.is_empty()).unwrap_or("bin")}.to_lowercase();let new:NewArtifact=match serde_json::from_value(json!({"session_id":s.session_id,"tenant_id":s.tenant_id,"user_id":s.user_id,"type":if office{string(&body,"artifact_type")}else{"code"},"format":format,"title":if office{string(&body,"title")}else{string(&body,"filename")},"filename":body["filename"],"source":if office{"ai"}else{"code_execution"},"metadata":metadata,"artifact_id":id})){Ok(n)=>n,Err(_)=>return Ok(Err(ContentError::new(422,"invalid artifact")))};let artifact=match storage.create(new,bytes).await{Ok(a)=>a,Err(e)=>return Ok(Err(e))};let path=format!("/api/v1/assistant/artifacts/{}/download",artifact.artifact_id);let mut response=json!({"artifact_id":artifact.artifact_id,"filename":artifact.filename,"mime_type":artifact.mime_type.unwrap_or_else(||string(&body,"mime_type").into()),"size_bytes":artifact.size_bytes,"sha256":body["sha256"]});response[if office{"download_path"}else{"download_url"}]=json!(path);
-        if office{let receipt=json!({"schema_version":RECEIPT,"capability_id":"mcp_docgen__generate_document","result":{"artifact_id":response["artifact_id"],"download_url":path,"filename":response["filename"],"size_bytes":response["size_bytes"],"sha256":response["sha256"],"plan_outline":string(&body["metadata"],"plan_outline"),"critic_passed":false},"broker_response":response});sqlx::query("UPDATE assistant_capability_executions SET result_summary=$2,updated_at=NOW() WHERE execution_id=$1::text::uuid").bind(&s.execution_id).bind(receipt).execute(c).await?;}Ok(Ok(response))})).await;
+        if office{let receipt=json!({"schema_version":RECEIPT,"capability_id":row["capability_id"],"result":{"artifact_id":response["artifact_id"],"download_url":path,"filename":response["filename"],"size_bytes":response["size_bytes"],"sha256":response["sha256"],"plan_outline":string(&body["metadata"],"plan_outline"),"critic_passed":false},"broker_response":response});sqlx::query("UPDATE assistant_capability_executions SET result_summary=$2,updated_at=NOW() WHERE execution_id=$1::text::uuid").bind(&s.execution_id).bind(receipt).execute(c).await?;}Ok(Ok(response))})).await;
     match result {
         Ok(v) => Ok(v),
         Err(e) if e.status != 503 => Err(e),
@@ -521,7 +554,7 @@ pub async fn persist_capability_artifact(
 
 fn office_receipt(v: &Value) -> Option<Value> {
     if v["schema_version"] != RECEIPT
-        || v["capability_id"] != "mcp_docgen__generate_document"
+        || !matches!(v["capability_id"].as_str(),Some("mcp_docgen__generate_document"|"mcp_docgen__modify_document"))
         || !v["result"].is_object()
     {
         return None;
@@ -921,6 +954,7 @@ impl PythonCodeCapability {
 }
 pub fn router(broker: Arc<ContentCapabilityBroker>) -> Router {
     Router::new()
+        .route(broker_proof_v3::ISSUER_PATH, post(proof_issuer::issue).layer(axum::extract::DefaultBodyLimit::max(64*1024*1024)))
         .route(
             "/internal/v2/agent-capabilities/office/artifacts",
             post(office),
@@ -941,6 +975,7 @@ pub fn router(broker: Arc<ContentCapabilityBroker>) -> Router {
             "/internal/v2/agent-capabilities/attachments/read",
             post(attachment),
         )
+        .layer(axum::middleware::from_fn(scope_authenticated_workload))
         .with_state(broker)
 }
 async fn office(

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -66,7 +66,7 @@ import type {
 } from "@/types/agents";
 import { capabilityDisplayName } from "./agentCatalogPresentation";
 import { AgentPreviewPanel } from "./AgentPreviewPanel";
-import { AgentReleasePanel } from "./AgentReleasePanel";
+const AgentReleasePanel = lazy(() => import("./AgentReleasePanel").then(module => ({ default: module.AgentReleasePanel })));
 import "./agent-studio.css";
 
 const { Paragraph, Text, Title } = Typography;
@@ -614,9 +614,9 @@ function AgentStudioWorkspace({
       );
     }
     if (section === "eval") {
-      return <FieldSection title={t("agents.studio.sections.eval")} description={t("agents.studio.eval.description")}><AgentReleasePanel mode="eval" agentId={agent.agent_id} draftRevision={revision} dirty={dirty} role={agent.caller_role} versions={versions} datasets={catalog.evalDatasets} /></FieldSection>;
+      return <FieldSection title={t("agents.studio.sections.eval")} description={t("agents.studio.eval.description")}><Suspense fallback={<Skeleton active />}><AgentReleasePanel mode="eval" agentId={agent.agent_id} draftRevision={revision} dirty={dirty} role={agent.caller_role} versions={versions} datasets={catalog.evalDatasets} /></Suspense></FieldSection>;
     }
-    return <FieldSection title={t("agents.studio.sections.channels")} description={t("agents.studio.channels.description")}><AgentReleasePanel mode="versions" agentId={agent.agent_id} draftRevision={revision} dirty={dirty} role={agent.caller_role} versions={versions} datasets={catalog.evalDatasets} /></FieldSection>;
+    return <FieldSection title={t("agents.studio.sections.channels")} description={t("agents.studio.channels.description")}><Suspense fallback={<Skeleton active />}><AgentReleasePanel mode="versions" agentId={agent.agent_id} draftRevision={revision} dirty={dirty} role={agent.caller_role} versions={versions} datasets={catalog.evalDatasets} /></Suspense></FieldSection>;
   };
 
   return (

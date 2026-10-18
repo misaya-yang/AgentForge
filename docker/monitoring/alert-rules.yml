@@ -3,32 +3,31 @@ groups:
   interval: 30s
   rules:
   - record: gateway:slo_error_ratio:5m
-    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(gateway_requests_total[5m])),
+    expr: (sum(rate(gateway_requests_total{status_code=~"5.."}[5m])) or vector(0)) / clamp_min(sum(rate(gateway_requests_total[5m])),
       0.000001)
   - record: gateway:slo_slow_ratio:5m
-    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[5m]))
-      / clamp_min(sum(rate(gateway_request_duration_ms_count[5m])), 0.000001), 0)
+    expr: (clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[5m])) / clamp_min(sum(rate(gateway_request_duration_ms_count[5m])),
+      0.000001), 0)) * (sum(rate(gateway_request_duration_ms_count[5m])) > bool 0)
   - record: gateway:slo_error_ratio:30m
-    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[30m])) / clamp_min(sum(rate(gateway_requests_total[30m])),
+    expr: (sum(rate(gateway_requests_total{status_code=~"5.."}[30m])) or vector(0)) / clamp_min(sum(rate(gateway_requests_total[30m])),
       0.000001)
   - record: gateway:slo_slow_ratio:30m
-    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[30m]))
-      / clamp_min(sum(rate(gateway_request_duration_ms_count[30m])), 0.000001), 0)
+    expr: (clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[30m])) / clamp_min(sum(rate(gateway_request_duration_ms_count[30m])),
+      0.000001), 0)) * (sum(rate(gateway_request_duration_ms_count[30m])) > bool 0)
   - record: gateway:slo_error_ratio:1h
-    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[1h])) / clamp_min(sum(rate(gateway_requests_total[1h])),
+    expr: (sum(rate(gateway_requests_total{status_code=~"5.."}[1h])) or vector(0)) / clamp_min(sum(rate(gateway_requests_total[1h])),
       0.000001)
   - record: gateway:slo_slow_ratio:1h
-    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[1h]))
-      / clamp_min(sum(rate(gateway_request_duration_ms_count[1h])), 0.000001), 0)
+    expr: (clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[1h])) / clamp_min(sum(rate(gateway_request_duration_ms_count[1h])),
+      0.000001), 0)) * (sum(rate(gateway_request_duration_ms_count[1h])) > bool 0)
   - record: gateway:slo_error_ratio:6h
-    expr: sum(rate(gateway_requests_total{status_code=~"5.."}[6h])) / clamp_min(sum(rate(gateway_requests_total[6h])),
+    expr: (sum(rate(gateway_requests_total{status_code=~"5.."}[6h])) or vector(0)) / clamp_min(sum(rate(gateway_requests_total[6h])),
       0.000001)
   - record: gateway:slo_slow_ratio:6h
-    expr: clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[6h]))
-      / clamp_min(sum(rate(gateway_request_duration_ms_count[6h])), 0.000001), 0)
+    expr: (clamp_min(1 - sum(rate(gateway_request_duration_ms_bucket{le="2500"}[6h])) / clamp_min(sum(rate(gateway_request_duration_ms_count[6h])),
+      0.000001), 0)) * (sum(rate(gateway_request_duration_ms_count[6h])) > bool 0)
   - alert: GatewayErrorBudgetBurnFast
-    expr: (gateway:slo_error_ratio:5m > 0.0144) and (gateway:slo_error_ratio:1h >
-      0.0144)
+    expr: (gateway:slo_error_ratio:5m > 0.0144) and (gateway:slo_error_ratio:1h > 0.0144)
     for: 2m
     labels:
       severity: critical
@@ -37,8 +36,7 @@ groups:
     annotations:
       summary: Gateway error SLO budget burning (5m/1h)
   - alert: GatewayErrorBudgetBurnSlow
-    expr: (gateway:slo_error_ratio:30m > 0.006) and (gateway:slo_error_ratio:6h >
-      0.006)
+    expr: (gateway:slo_error_ratio:30m > 0.006) and (gateway:slo_error_ratio:6h > 0.006)
     for: 2m
     labels:
       severity: warning
@@ -80,3 +78,197 @@ groups:
       owner: gateway
     annotations:
       summary: Gateway SLO inputs missing; SLO cannot be evaluated
+- name: genai-candidate-slos
+  interval: 30s
+  rules:
+  - record: agentforge:streaming_first_chunk_slow_ratio:5m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}[5m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[5m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[5m]))
+      > bool 0)
+  - record: agentforge:streaming_first_chunk_slow_ratio:30m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}[30m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[30m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[30m]))
+      > bool 0)
+  - record: agentforge:streaming_first_chunk_slow_ratio:1h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}[1h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[1h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[1h]))
+      > bool 0)
+  - record: agentforge:streaming_first_chunk_slow_ratio:6h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}[6h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[6h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"}[6h]))
+      > bool 0)
+  - alert: ModelFirstChunkBudgetBurnFast
+    expr: (agentforge:streaming_first_chunk_slow_ratio:5m > 0.144) and (agentforge:streaming_first_chunk_slow_ratio:1h
+      > 0.144)
+    for: 2m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: streaming_first_chunk
+    annotations:
+      summary: ModelFirstChunk candidate latency budget burning (5m/1h)
+  - alert: ModelFirstChunkBudgetBurnSlow
+    expr: (agentforge:streaming_first_chunk_slow_ratio:30m > 0.06) and (agentforge:streaming_first_chunk_slow_ratio:6h
+      > 0.06)
+    for: 2m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: streaming_first_chunk
+    annotations:
+      summary: ModelFirstChunk candidate latency budget burning (30m/6h)
+  - alert: ModelFirstChunkTelemetryAbsent
+    expr: absent(sum(gen_ai_client_operation_time_to_first_chunk_seconds_count{gen_ai_operation_name="chat"})) or
+      absent(sum(gen_ai_client_operation_time_to_first_chunk_seconds_bucket{gen_ai_operation_name="chat",le="5"}))
+    for: 10m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: streaming_first_chunk
+    annotations:
+      summary: ModelFirstChunk telemetry absent; candidate latency budget cannot be evaluated
+  - record: agentforge:agent_turn_slow_ratio:5m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="invoke_agent",le="50"}[5m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[5m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[5m]))
+      > bool 0)
+  - record: agentforge:agent_turn_slow_ratio:30m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="invoke_agent",le="50"}[30m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[30m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[30m]))
+      > bool 0)
+  - record: agentforge:agent_turn_slow_ratio:1h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="invoke_agent",le="50"}[1h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[1h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[1h]))
+      > bool 0)
+  - record: agentforge:agent_turn_slow_ratio:6h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="invoke_agent",le="50"}[6h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[6h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"}[6h]))
+      > bool 0)
+  - alert: AgentTurnBudgetBurnFast
+    expr: (agentforge:agent_turn_slow_ratio:5m > 0.144) and (agentforge:agent_turn_slow_ratio:1h > 0.144)
+    for: 2m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: agent_turn
+    annotations:
+      summary: AgentTurn candidate latency budget burning (5m/1h)
+  - alert: AgentTurnBudgetBurnSlow
+    expr: (agentforge:agent_turn_slow_ratio:30m > 0.06) and (agentforge:agent_turn_slow_ratio:6h > 0.06)
+    for: 2m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: agent_turn
+    annotations:
+      summary: AgentTurn candidate latency budget burning (30m/6h)
+  - alert: AgentTurnTelemetryAbsent
+    expr: absent(sum(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="invoke_agent"})) or absent(sum(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="invoke_agent",le="50"}))
+    for: 10m
+    labels:
+      severity: warning
+      owner: runtime
+      slo: agent_turn
+    annotations:
+      summary: AgentTurn telemetry absent; candidate latency budget cannot be evaluated
+  - record: agentforge:retrieval_slow_ratio:5m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="retrieval",le="5"}[5m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[5m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[5m]))
+      > bool 0)
+  - record: agentforge:retrieval_slow_ratio:30m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="retrieval",le="5"}[30m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[30m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[30m]))
+      > bool 0)
+  - record: agentforge:retrieval_slow_ratio:1h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="retrieval",le="5"}[1h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[1h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[1h]))
+      > bool 0)
+  - record: agentforge:retrieval_slow_ratio:6h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="retrieval",le="5"}[6h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[6h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"}[6h]))
+      > bool 0)
+  - alert: RetrievalBudgetBurnFast
+    expr: (agentforge:retrieval_slow_ratio:5m > 0.144) and (agentforge:retrieval_slow_ratio:1h > 0.144)
+    for: 2m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: retrieval
+    annotations:
+      summary: Retrieval candidate latency budget burning (5m/1h)
+  - alert: RetrievalBudgetBurnSlow
+    expr: (agentforge:retrieval_slow_ratio:30m > 0.06) and (agentforge:retrieval_slow_ratio:6h > 0.06)
+    for: 2m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: retrieval
+    annotations:
+      summary: Retrieval candidate latency budget burning (30m/6h)
+  - alert: RetrievalTelemetryAbsent
+    expr: absent(sum(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="retrieval"})) or absent(sum(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="retrieval",le="5"}))
+    for: 10m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: retrieval
+    annotations:
+      summary: Retrieval telemetry absent; candidate latency budget cannot be evaluated
+  - record: agentforge:ingestion_slow_ratio:5m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="ingestion",le="50"}[5m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[5m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[5m]))
+      > bool 0)
+  - record: agentforge:ingestion_slow_ratio:30m
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="ingestion",le="50"}[30m]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[30m])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[30m]))
+      > bool 0)
+  - record: agentforge:ingestion_slow_ratio:1h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="ingestion",le="50"}[1h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[1h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[1h]))
+      > bool 0)
+  - record: agentforge:ingestion_slow_ratio:6h
+    expr: (clamp_min(1 - sum(rate(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="ingestion",le="50"}[6h]))
+      / clamp_min(sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[6h])),
+      0.000001), 0)) * (sum(rate(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"}[6h]))
+      > bool 0)
+  - alert: IngestionBudgetBurnFast
+    expr: (agentforge:ingestion_slow_ratio:5m > 0.144) and (agentforge:ingestion_slow_ratio:1h > 0.144)
+    for: 2m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: ingestion
+    annotations:
+      summary: Ingestion candidate latency budget burning (5m/1h)
+  - alert: IngestionBudgetBurnSlow
+    expr: (agentforge:ingestion_slow_ratio:30m > 0.06) and (agentforge:ingestion_slow_ratio:6h > 0.06)
+    for: 2m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: ingestion
+    annotations:
+      summary: Ingestion candidate latency budget burning (30m/6h)
+  - alert: IngestionTelemetryAbsent
+    expr: absent(sum(gen_ai_client_operation_duration_seconds_count{gen_ai_operation_name="ingestion"})) or absent(sum(gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="ingestion",le="50"}))
+    for: 10m
+    labels:
+      severity: warning
+      owner: knowledge
+      slo: ingestion
+    annotations:
+      summary: Ingestion telemetry absent; candidate latency budget cannot be evaluated

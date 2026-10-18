@@ -45,6 +45,11 @@ pub trait ToolInventoryIdentityResolver: Send + Sync {
         headers: &'a HeaderMap,
         path: &'a str,
     ) -> ServiceConfigFuture<'a, ToolInventoryIdentity>;
+    /// Canonical tenant authority for activated publisher filtering. Existing
+    /// resolvers without a tenant expose only the builtin inventory.
+    fn tenant_id<'a>(&'a self, _headers: &'a HeaderMap) -> ServiceConfigFuture<'a, String> {
+        Box::pin(async { Ok(String::new()) })
+    }
 }
 
 /// Preserve Python dictionary first-occurrence order as well as name order.
@@ -144,6 +149,11 @@ impl ToolInventoryApi {
         &self,
         identity: &ToolInventoryIdentity,
     ) -> Result<ToolInventoryResponse, ServiceConfigError> {
+        self.execute_for_tenant(identity, "")
+    }
+    pub fn execute_for_tenant(
+        &self, identity: &ToolInventoryIdentity, tenant: &str,
+    ) -> Result<ToolInventoryResponse, ServiceConfigError> {
         if !identity.is_authenticated {
             return Err(ServiceConfigError::detail(401, "authentication required"));
         }
@@ -151,8 +161,9 @@ impl ToolInventoryApi {
             .catalog
             .as_ref()
             .map_err(|_| ServiceConfigError::Internal)?;
+        let tenant_catalog = catalog.for_tenant(tenant);
         let tools = project_tools(
-            catalog,
+            &tenant_catalog,
             identity.is_authenticated,
             &identity.tier,
             &identity.roles,
@@ -192,6 +203,10 @@ async fn dispatch(State(state): State<HttpState>, request: Request) -> Response 
         .resolve(headers, request.uri().path())
         .await
     {
+        Ok(identity) if identity.is_authenticated => match state.api.identity.tenant_id(headers).await {
+            Ok(tenant) => state.api.execute_for_tenant(&identity, &tenant),
+            Err(error) => Err(error),
+        },
         Ok(identity) => state.api.execute(&identity),
         Err(error) => Err(error),
     };

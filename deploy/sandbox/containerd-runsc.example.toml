@@ -1,0 +1,8 @@
+# Merge into the operator-owned containerd CRI configuration after checking the
+# installed containerd/runsc versions. No installer or auto-downgrade is provided.
+# The attestor measures the live executable hash and actual --network=none argv.
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc]
+  runtime_type = 'io.containerd.runsc.v1'
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc.options]
+    TypeUrl = 'io.containerd.runsc.v1.options'
+    ConfigPath = '/etc/containerd/runsc.toml'

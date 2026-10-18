@@ -1,5 +1,6 @@
 //! Tenant-bound read-only platform capability adapters.
 
+use crate::workload_identity::WorkloadSend;
 mod executor;
 mod fs;
 mod proof;
@@ -66,8 +67,8 @@ impl ReadCapabilityConfig {
         internal_base_url(&self.knowledge_base_url)?;
         internal_base_url(&self.gateway_url)?;
         if !self.workspace_root.is_absolute()
-            || self.internal_token.len() < 32
-            || self.proof_secret.len() < MIN_PROOF_SECRET_BYTES
+            || (!crate::workload_identity::required() && self.internal_token.len() < 32)
+            || (!crate::broker_proof::required() && self.proof_secret.len() < MIN_PROOF_SECRET_BYTES)
         {
             return Err(ReadCapabilityError::Configuration);
         }
@@ -229,7 +230,12 @@ impl ReadHttpAdapter for ReqwestReadHttpAdapter {
         headers: &[(String, String)],
         body: Value,
     ) -> Result<Value, ReadCapabilityError> {
-        let (budget, headers) = transport::outbound(headers)?;
+        let (budget, mut headers) = transport::outbound(headers)?;
+        if crate::broker_proof::required() {
+            let proof = crate::broker_proof::issue(url.path(), &body).await.map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+            headers.retain(|(key,_)| key != "x-ai-capability-proof");
+            headers.push(("x-ai-capability-proof".into(), proof));
+        }
         let policy =
             ai_platform_capability_contract::private_transport::Edge::WorkerKnowledge.policy();
         let total = policy
@@ -241,7 +247,7 @@ impl ReadHttpAdapter for ReqwestReadHttpAdapter {
                 request = request.header(name, value);
             }
             let response = request
-                .send()
+                .workload_send()
                 .await
                 .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
             if !response.status().is_success() {
@@ -275,6 +281,7 @@ impl ReadHttpAdapter for ReqwestReadHttpAdapter {
         // addresses. Otherwise a proxy can turn a public peer connection into
         // an internal fetch, or DNS can change between validation and connect.
         let client = Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))

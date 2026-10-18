@@ -4,6 +4,10 @@
 > inventing equivalents, so results are comparable across machines and sessions.
 > `harness.yml` holds the machine-readable subset; `make harness-check` verifies they still exist.
 
+This is a lookup reference. Use only commands needed by the current task; the [task harness](README.md)
+defines verification selection and reuse. Do not install tools or start services merely to work
+through this catalog.
+
 **Schema:** `harness/commands/v2`
 
 ---
@@ -40,7 +44,7 @@ Official releases: [Node.js](https://nodejs.org/dist/index.json),
 | Purpose | Command |
 | --- | --- |
 | Preflight the machine before anything else | `make doctor` |
-| Check living-document scripts, links, top-level CLI names and review dates (also included in harness) | `platform-tools docs-truth-check --repo-root .` |
+| Check living-document scripts, links and implemented CLI names (also included in harness; dates do not expire) | `platform-tools docs-truth-check --repo-root .` |
 | Verify the pinned Agent Runtime source release unit | `make agent-runtime-source-contract` |
 | Verify the Runtime, capability Worker and Python Sandbox image release unit | `platform-tools source-lock verify-local-images --repo-root . --lock deploy/agent-runtime-source/lock.json --runtime-image <runtime> --worker-image <worker> --sandbox-image <sandbox>` |
 | Rebase the Codex kernel source and host seams | Follow [Codex upstream upgrades](codex-upstream-upgrade.md) using the existing native `source-candidate` / `source-lock` tools |
@@ -251,16 +255,23 @@ and reject skipped or zero-test runs.
 
 ## 7. Gates
 
-Run the gate that matches what you touched. With real Git metadata, use
-`make affected-gates BASE_SHA=<verified-base>` to select declared gates; the
-`ci-gate-enforcement` job checks selected CI results. Selection is not execution
-and does not prove complete runtime coverage. A source-only archive cannot use a
-fabricated Git base: compare its verified source manifest and explicitly record
-changed paths and matching gates. Report exactly which checks ran and their tiers.
+This is a command catalog, not a per-edit checklist. For daily development, use the
+[task harness](README.md) to choose the existing checks that prove the requested behavior.
+Run them once per integrated batch with one owner. Reuse applicable results; do not combine
+an alias, its underlying target and a larger suite covering the same assertion without a
+specific additional need. Module handoff is not a reason to repeat tests.
+
+For a complete CI candidate, `make affected-gates BASE_SHA=<verified-base>` selects the declared
+CI/release coverage and `ci-gate-enforcement` checks the required job outcomes. This selection
+does not schedule local agent actions and is not recomputed after every edit. Do not fabricate
+Git metadata for archives. Record actual passed, failed, skipped and unrun work; selection is
+not execution and source/fixture checks are not live acceptance.
 
 | You changed | Gate |
 | --- | --- |
-| Harness files, docs contract | `make harness-check` |
+| Harness files, docs contract and recurring platform findings | `make harness-check` |
+| Recurring source/deployment fitness, without runtime acceptance | `make platform-fitness-gate` |
+| Offline CI enforcement and recurring-finding rejection cases | `make ci-gate-enforcement-selftest` |
 | Native Helm public-fixture lint/render and security contracts | `make helm-native-gate` (Helm required; local `HELM_EVIDENCE_DIR` may point outside the repository; no cluster operations) |
 | Split Valkey source TLS/ACL/durability and single-project deployment policy | `make valkey-deployment-gate` (offline only); `platform-tools valkey-image-check <digest-reference> <uid> <gid>` checks input shape; actual registry digest and UID/GID verification remain separate |
 | Agent Runtime source source/schema/SBOM/image lock | `make agent-runtime-source-contract` |
@@ -297,6 +308,17 @@ The consolidated KB migration target does not certify every historical embedding
 or artifact assertion. Those specialized tests remain unverified obligations;
 the native gate prints its exact coverage before execution.
 
+The existing platform-fitness validators also run inside harness-check. Their
+production rejection fixtures run inside ci-gate-enforcement --selftest and the
+existing platform_fitness unit-test batch; no separate policy registry is used.
+They cover the recurring checks in
+[platform engineering §4.5](../plans/platform-upgrade-2026-10/08-platform-engineering.md#45-harness-docs-and-architecture-fitness-u-pe-02-u-pe-04-u-pe-40),
+including Compose overlays and composite-action references. Source checks use
+public configuration only and never resolve a private env. A rejected current
+configuration remains a failing gate even when its negative self-tests pass.
+Rendered image/source pairing, actual role identity, TLS, live deployment and
+release admission retain their separate existing gates.
+
 ## 8. What CI runs
 
 `.github/workflows/ci.yml` on push/PR to `main` and `dev` currently runs:
@@ -309,8 +331,9 @@ the native gate prints its exact coverage before execution.
 6. **Rust Changed Crate** — locked-toolchain fmt/check/changed-crate tests on the hosted runner.
 7. **Release Readiness** — public docs present, demo seed dry run.
 
-Run locally supported gates before saying done. Rust fmt/check/test evidence comes from the hosted CI
-job; local acceptance consumes a Docker-built or pulled Runtime/Worker image instead of host Cargo.
+Run the applicable task checks or reuse their valid results before claiming the task verified.
+CI's complete gate list is not a required local replay. Native checks use the shared Docker
+workflow locally or hosted CI; Runtime/Worker retain their controlled workflow, not host Cargo.
 
 This is not yet a complete product release gate: normal Gateway/Knowledge/DB suites and Web Node
 units are not comprehensively wired, the RAG gate is fixture replay rather than live execution,
@@ -502,3 +525,160 @@ overlay, validate source/overlay/schema/artifact/binary labels and record only t
 matching artifact (`capability_worker` or `python_sandbox`). Direct wrapper calls
 re-enter the existing shared build preflight/lock. No builder is created: an
 absent/incompatible existing builder fails closed.
+
+### Generated platform source projections
+
+| Purpose | Command |
+| --- | --- |
+| Verify shared workload TLS/data-connection projections | `make source-workload-check` |
+| Update those two projections from their native authority | `make source-workload-sync` |
+| Verify composed Quiz/core compatibility projections | `make source-plugin-check` |
+| Update those two projections from their plugin authority | `make source-plugin-sync` |
+
+All four targets first build `platform-tools` through `scripts/new/native-container.sh`
+in the existing serialized native Docker cache, then run that exact cache binary
+through the same helper. No installed host `platform-tools` shim is needed. The
+existing compiler image/cache and retained native lock controller must already be
+prepared; these targets never fetch dependencies, create a builder or start services.
+
+The check commands retain read-only source mounts. Only these exact binary
+arguments may request writable generated inputs:
+
+```text
+scripts/new/native-container.sh run --binary platform-tools -- source-lock sync-workload-source --repo-root /source --apply
+scripts/new/native-container.sh run --binary platform-tools -- source-lock sync-plugin-source --repo-root /source --apply
+```
+
+`--repo-root` may alternatively be the same canonical absolute host checkout root;
+the launcher maps it to `/source`. Relative roots, alternate roots, extra output
+options, reordered/duplicate flags and other `source-lock --apply` commands are
+rejected. Other application commands gain no source write mounts. Workload sync
+binds only `ai-platform-capability-contract/src/shared_workload_identity` and
+`ai-platform-capability-contract/src/shared_data_connection`; plugin sync binds only
+`ai-platform-plugin-quiz` and `ai-platform-python-compat`, all below
+`rust/agent-runtime-overlay/kernel-rs/`.
+These four public generated directories must already exist, belong to the
+checkout owner, and have no symlink leaf or parent. A missing directory fails;
+no parent or entire checkout is made writable to create it. Canonical upstream,
+source authorities and other build inputs retain their read-only mounts.
+
+The two plugin targets already have read-only binds in the base Compose file.
+Plugin apply alone loads `deploy/platform-native/dev/compose.source-plugin-sync.yml`,
+which explicitly sets `read_only: false` and `create_host_path: false` for those
+same two targets. It does not rely on a short-volume override clearing an inherited
+read-only option. Workload apply retains its two more-specific child binds. Both
+writer paths check the effective directories are writable before invoking the tool;
+checks, ordinary builds and unrelated commands never load the plugin override.
+
+A source writer uses the checkout owner's UID/GID so the compiler role's separate
+cache UID cannot cause permission failures on host projections; it does not
+chmod/chown the checkout or add container capabilities. The existing no-network,
+read-only container root and explicit public environment remain. Compose uses
+`--env-file /dev/null` with automatic `.env` loading disabled. A successful sync
+updates controlled source inputs only; source-lock/image/runtime gates still apply.
+
+Offline launcher checks need no Cargo or Docker:
+
+```text
+rustc +1.99.0 --edition=2024 --test -C debuginfo=0 scripts/new/native-container.rs -o /external/launcher-tests
+/external/launcher-tests --test-threads=1
+make -n COMPOSE=docker SHELL=/usr/bin/false source-workload-check source-workload-sync source-plugin-check source-plugin-sync
+```
+
+The explicit `SHELL=/usr/bin/false` prevents Make's parse-time Compose version
+probe from invoking Docker during this dry run; the inert `COMPOSE` value is unused
+by these four source targets. Keep the test executable and scratch outside the checkout and
+shared Cargo cache. These source/argv tests do not claim a Docker sync was run.
+
+### Standalone SDK engine checks
+
+Use `scripts/new/native-container.sh engine-build -p ai-platform-sdk-agent-engine`
+and `scripts/new/native-container.sh engine-test -p ai-platform-sdk-agent-engine -- --test-threads=1`.
+Both select the fixed engine manifest, retain the existing serialized Rust build
+fence and run offline against the same Docker Cargo cache. `engine-fetch` is an
+explicit public-registry preparation step; tests never enable network or forward
+runtime credentials. These checks do not establish a live SDK Worker journey.
+
+The compiled Quiz plugin has its own core/Gateway workspace. Run
+`scripts/new/native-container.sh plugin-test --workspace --features executor -- --test-threads=1`
+to execute both crates' internal tests in the shared native Docker cache. Native
+Gateway compilation alone does not execute dependency-crate unit tests. The
+composed Worker uses generated sibling manifests and its own controlled lock.
+
+### Package already-built native development executables
+
+Use `scripts/new/native-container.sh package --component gateway|knowledge|migrate|tools
+--output NEW_ABSOLUTE_EXTERNAL_DIRECTORY --tag agentforge-native-local:NAME --build`
+to package an existing `/native-cache/target/debug` binary from the one Docker cache.
+No Cargo/Cargo-chef runs and no service starts. Application images contain the selected
+binary and its runtime dependencies, without compiler, private env or Rust source. Omit `--build` to export only. Create the external parent first; existing
+exports and nonlocal image namespaces are rejected. The same retained resource controller
+serializes packaging. Successful builds emit public `image.env` using the existing
+`GATEWAY_IMAGE`, `KNOWLEDGE_IMAGE`, `MIGRATE_IMAGE`, or `LOCAL_FRESH_TOOLS_IMAGE` variable.
+See [the native development packaging workflow](../../deploy/platform-native/dev/README.md#package-the-existing-development-binaries-without-recompiling)
+for dependency closure, receipts, source provenance limits and the unchanged runtime
+hardening/production build boundary.
+
+
+### Local frontend from an already verified production artifact
+
+`web/Dockerfile.artifact` is a local integration packaging path. The normal
+`web/Dockerfile` remains the production source/dependency build. The packager uses
+only Node 26 standard libraries; it never runs Docker, installs dependencies,
+rebuilds Vite, loads private env files, or starts services.
+
+First inspect an external dist directory previously produced and tested by the
+pinned frontend toolchain:
+
+```sh
+node scripts/new/package-frontend-artifact.mjs --dist /external/verified-dist
+```
+
+Review its `artifactSha256` and `checkoutSha256`, then pass those exact values to
+create a new external output directory (its parent must already exist):
+
+```sh
+node scripts/new/package-frontend-artifact.mjs \
+  --dist /external/verified-dist --out /external/new-frontend-package \
+  --expected-dist-sha256 VERIFIED_DIST_SHA256 \
+  --expected-source-sha256 REVIEWED_CHECKOUT_SHA256
+node scripts/new/package-frontend-artifact.mjs \
+  --verify-context /external/new-frontend-package
+```
+
+Verification checks the Vite manifest graph and HTML entry, all referenced files,
+public-file equality, and every emitted Brotli/zstd/gzip representation against
+its final bytes. Negotiated `/assets` files require all three representations.
+Unknown files, symlinks, source maps, source-map references, deployment settings
+baked into runtime JSON and private env inputs fail closed. The minimal context
+contains compiled assets plus byte-identical current nginx and startup security
+files; Vite's source-path manifest and source inventory remain outside the image.
+No source tree or node_modules directory is copied. Existing output directories
+are never replaced.
+
+The output `image.env` contains the single standard interface
+`FRONTEND_IMAGE=agentforge-web-dev:<context identity>`. `artifact-receipt.json`
+records the complete expected context inventory, source/SDK/runtime identities,
+and exact `dockerBuildArgv`. The checkout snapshot and dist identity are measured
+independently; this does not retroactively certify a deterministic source rebuild.
+An image ID exists only after the separately authorized Docker build.
+
+The runtime stage retains `USER 101:101`, the current unprivileged nginx base,
+port 8080, health check, `/tmp/runtime-config.json`, startup JSON escaping and CSP
+header generation. It does not modify the original production Dockerfile. If an
+explicit existing local nginx base must be selected, supply `--base-image IMAGE`
+at inspection and packaging. The base reference participates in the context
+identity.
+
+The runtime owner checks existing Docker project labels and base-image
+availability, executes the receipt's Docker argv (`--pull=false`), admits the
+resulting exact image ID through the local profile's normal workflow, and exports
+`FRONTEND_IMAGE` for Compose. A missing base must not trigger an unapproved pull.
+The packager itself grants no deployment/startup authority and does not edit the
+local environment or admission records.
+
+Focused offline verification:
+
+```sh
+node --test scripts/new/package-frontend-artifact.test.mjs
+```

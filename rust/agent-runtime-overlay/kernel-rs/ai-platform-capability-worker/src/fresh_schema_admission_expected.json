@@ -1,0 +1,10 @@
+{
+  "mode": "fresh-development",
+  "database": "gateway_dev_fresh",
+  "schema_epoch": 35,
+  "schema_version": "agentforge/fresh-schema-admission/v1",
+  "catalog_matches": true,
+  "source_contract_sha256": "7ef0758ab5afbeebd9c763cee977bee45881b102e2b70a653cf172e657d7a63a",
+  "transactional_initialization": true,
+  "historical_upgrade_acceptance": false
+}

@@ -1,0 +1,373 @@
+{
+  "schema": 1,
+  "adr_status": "proposed",
+  "ga_eligible": false,
+  "egui_retained": true,
+  "targets": {
+    "darwin-aarch64": {
+      "artifact_sha256": null,
+      "checks": {
+        "native_locked_build": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "installed_size": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "idle_and_active_memory": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "cold_and_warm_startup": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "screen_reader_keyboard_scaling": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "console_authenticated_parity": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "tenant_denial_unknown_mutation_outcome": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "offline_start_reconnect_no_replay": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "hostile_remote_iframe_popup_ipc_denial": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "vault_locked_unavailable_revoked": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "native_pairing_exact_grants_key_policy": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_policy_rollout_expiry_rollback": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_artifact_interrupted_install_recovery": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "publisher_signature": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "notarization_or_platform_equivalent": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "clean_machine_install_uninstall": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "sbom_license_dependency_advisory_review": {
+          "status": "not_run",
+          "evidence": null
+        }
+      }
+    },
+    "darwin-x86_64": {
+      "artifact_sha256": null,
+      "checks": {
+        "native_locked_build": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "installed_size": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "idle_and_active_memory": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "cold_and_warm_startup": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "screen_reader_keyboard_scaling": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "console_authenticated_parity": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "tenant_denial_unknown_mutation_outcome": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "offline_start_reconnect_no_replay": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "hostile_remote_iframe_popup_ipc_denial": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "vault_locked_unavailable_revoked": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "native_pairing_exact_grants_key_policy": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_policy_rollout_expiry_rollback": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_artifact_interrupted_install_recovery": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "publisher_signature": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "notarization_or_platform_equivalent": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "clean_machine_install_uninstall": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "sbom_license_dependency_advisory_review": {
+          "status": "not_run",
+          "evidence": null
+        }
+      }
+    },
+    "linux-x86_64": {
+      "artifact_sha256": null,
+      "checks": {
+        "native_locked_build": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "installed_size": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "idle_and_active_memory": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "cold_and_warm_startup": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "screen_reader_keyboard_scaling": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "console_authenticated_parity": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "tenant_denial_unknown_mutation_outcome": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "offline_start_reconnect_no_replay": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "hostile_remote_iframe_popup_ipc_denial": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "vault_locked_unavailable_revoked": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "native_pairing_exact_grants_key_policy": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_policy_rollout_expiry_rollback": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_artifact_interrupted_install_recovery": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "publisher_signature": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "notarization_or_platform_equivalent": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "clean_machine_install_uninstall": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "sbom_license_dependency_advisory_review": {
+          "status": "not_run",
+          "evidence": null
+        }
+      }
+    },
+    "linux-aarch64": {
+      "artifact_sha256": null,
+      "checks": {
+        "native_locked_build": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "installed_size": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "idle_and_active_memory": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "cold_and_warm_startup": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "screen_reader_keyboard_scaling": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "console_authenticated_parity": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "tenant_denial_unknown_mutation_outcome": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "offline_start_reconnect_no_replay": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "hostile_remote_iframe_popup_ipc_denial": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "vault_locked_unavailable_revoked": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "native_pairing_exact_grants_key_policy": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_policy_rollout_expiry_rollback": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_artifact_interrupted_install_recovery": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "publisher_signature": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "notarization_or_platform_equivalent": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "clean_machine_install_uninstall": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "sbom_license_dependency_advisory_review": {
+          "status": "not_run",
+          "evidence": null
+        }
+      }
+    },
+    "windows-x86_64": {
+      "artifact_sha256": null,
+      "checks": {
+        "native_locked_build": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "installed_size": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "idle_and_active_memory": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "cold_and_warm_startup": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "screen_reader_keyboard_scaling": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "console_authenticated_parity": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "tenant_denial_unknown_mutation_outcome": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "offline_start_reconnect_no_replay": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "hostile_remote_iframe_popup_ipc_denial": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "vault_locked_unavailable_revoked": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "native_pairing_exact_grants_key_policy": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_policy_rollout_expiry_rollback": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "signed_artifact_interrupted_install_recovery": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "publisher_signature": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "notarization_or_platform_equivalent": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "clean_machine_install_uninstall": {
+          "status": "not_run",
+          "evidence": null
+        },
+        "sbom_license_dependency_advisory_review": {
+          "status": "not_run",
+          "evidence": null
+        }
+      }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 import type { ScheduledExecution, ScheduledTask } from "./scheduledTasks";
 
@@ -30,7 +31,7 @@ export async function listScheduledNotifications(
   filter: "all" | "unread", cursor: NotificationCursor | null, signal?: AbortSignal,
 ): Promise<ScheduledNotificationPage> {
   return (await api.get<ScheduledNotificationPage>(base, {
-    params: { filter, limit: 50, ...cursor }, signal,
+    params: ({ filter, limit: 50, ...cursor } satisfies RequestQuery<"GET /api/v1/scheduled-task-notifications">), signal,
   })).data;
 }
 export async function getScheduledNotification(id: string, signal?: AbortSignal): Promise<ScheduledNotification> {
@@ -40,11 +41,11 @@ export async function getScheduledNotificationSummary(signal?: AbortSignal): Pro
   return (await api.get<ScheduledNotificationSummary>(`${base}/summary`, { signal })).data;
 }
 export async function markScheduledNotification(id: string, read: boolean): Promise<void> {
-  await api.post(`${base}/${encodeURIComponent(id)}/${read ? "read" : "unread"}`, {});
+  await api.post(`${base}/${encodeURIComponent(id)}/${read ? "read" : "unread"}`, ({} satisfies RequestBody<"POST /api/v1/scheduled-task-notifications/{notification_id}/read" | "POST /api/v1/scheduled-task-notifications/{notification_id}/unread">));
 }
 /** Explicitly acknowledges only the supplied visible receipts, never unseen arrivals. */
 export async function markScheduledNotificationsRead(ids: string[]): Promise<void> {
-  await api.post(`${base}/read`, { notification_ids: ids });
+  await api.post(`${base}/read`, ({ notification_ids: ids } satisfies RequestBody<"POST /api/v1/scheduled-task-notifications/read">));
 }
 export function scheduledNotificationHref(id: string): string {
   return `/tasks?${new URLSearchParams({ tab: "notifications", notification: id })}`;

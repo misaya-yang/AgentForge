@@ -16,14 +16,7 @@ use std::{
 };
 use tokio::sync::Notify;
 
-#[derive(Clone, Debug)]
-pub struct RequestContext {
-    pub request_id: String,
-    pub trace_id: String,
-    pub span_id: String,
-    pub traceparent: String,
-    pub anonymous_id: Option<String>,
-}
+pub use ai_platform_service_primitives::request_context::RequestContext;
 #[derive(Clone)]
 pub struct MiddlewareConfig {
     pub anonymous_enabled: bool,

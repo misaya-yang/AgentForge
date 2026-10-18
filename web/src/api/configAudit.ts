@@ -1,12 +1,7 @@
+import type { RequestQuery } from "@/api/contracts";
 import { api } from "@/lib/api";
 
-export interface ConfigAuditFilters {
-  tenant_id: string;
-  user_id: string;
-  resource_type: string;
-  resource_id: string;
-  action: string;
-}
+export type ConfigAuditFilters = Required<Pick<RequestQuery<"GET /api/v1/admin/tenant-policies/config-audit-log">, "tenant_id" | "user_id" | "resource_type" | "resource_id" | "action">>;
 export interface ConfigAuditEntry {
   id: string;
   tenant_id: string | null;
@@ -26,7 +21,7 @@ export interface ConfigAuditPage {
 }
 export async function getConfigAuditLog(filters: ConfigAuditFilters, offset: number, signal?: AbortSignal): Promise<ConfigAuditPage> {
   const { data } = await api.get<ConfigAuditPage>("/api/v1/admin/tenant-policies/config-audit-log", {
-    params: { ...filters, offset, limit: 25 }, signal,
+    params: ({ ...filters, offset, limit: 25 } satisfies RequestQuery<"GET /api/v1/admin/tenant-policies/config-audit-log">), signal,
   });
   return data;
 }

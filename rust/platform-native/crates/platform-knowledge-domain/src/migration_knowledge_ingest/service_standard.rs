@@ -24,10 +24,39 @@ impl IngestionService {
                 .as_i64()
                 .filter(|n| *n > 0 && *n == integer(doc, "current_version"))
                 .ok_or(IngestError::GenerationChanged)?;
-            let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.document_versions WHERE document_id=$1 AND version_number=$2 AND change_type='restored' AND content=$3)").bind(document_id).bind(number as i32).bind(string(doc,"content")).fetch_one(lease.connection()).await?;
+            let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.document_versions WHERE document_id=$1 AND version_number=$2 AND change_type='restored' AND content=$3)").bind(document_id).bind(number as i32).bind(string(doc,"content")).fetch_one(crate::database::connection(lease.connection())).await?;
             if !valid {
                 return Err(IngestError::GenerationChanged);
             }
+        }
+        if let Some(checkpoint) = self
+            .load_pipeline_checkpoint::<crate::migration_knowledge_ingest::pipeline::SpecialParsed>(
+                "special_parsed",
+            )
+            .await?
+        {
+            if checkpoint.schema != "knowledge-special-parsed/v1"
+                || checkpoint.identity != identity
+                || checkpoint.execution != execution
+                || checkpoint.source_sha256
+                    != crate::migration_knowledge_ingest::pipeline::source_identity(
+                        dataset, doc, index,
+                    )
+            {
+                return Err(IngestError::GenerationChanged);
+            }
+            return crate::migration_knowledge_ingest::special::SpecialPublicationCoordinator {
+                service: self.clone(),
+            }
+            .publish_with_docir(
+                checkpoint.plan,
+                dataset,
+                execution,
+                &checkpoint.expected_content,
+                &checkpoint.patch,
+                checkpoint.docir.as_ref(),
+            )
+            .await;
         }
         let old =
             KnowledgeWriteStore::segments_on(lease.connection(), &dataset.dataset_id, document_id)
@@ -40,6 +69,47 @@ impl IngestionService {
             })
             .cloned()
             .collect();
+        if let Some(mut checkpoint) = self
+            .load_pipeline_checkpoint::<crate::migration_knowledge_ingest::pipeline::Parsed>(
+                "parsed",
+            )
+            .await?
+        {
+            if checkpoint.schema != "knowledge-parsed/v1"
+                || checkpoint.identity != identity
+                || checkpoint.execution != execution
+                || checkpoint.source_sha256
+                    != crate::migration_knowledge_ingest::pipeline::source_identity(
+                        dataset, doc, index,
+                    )
+            {
+                return Err(IngestError::GenerationChanged);
+            }
+            return self
+                .publish_incremental(
+                    lease,
+                    dataset,
+                    doc,
+                    identity,
+                    &checkpoint.content,
+                    &checkpoint.patch,
+                    checkpoint.pending.as_ref(),
+                    &checkpoint.old,
+                    &mut checkpoint.chunks,
+                    checkpoint.reembed,
+                    checkpoint.image_points,
+                    checkpoint.replace_images,
+                    checkpoint.docir.as_ref(),
+                )
+                .await;
+        }
+        if matches!(
+            crate::migration_knowledge_ingest::pipeline::stage(),
+            crate::migration_knowledge_ingest::pipeline::Stage::Embed
+                | crate::migration_knowledge_ingest::pipeline::Stage::Index
+        ) {
+            return Err(IngestError::GenerationChanged);
+        }
         let action = if action == "reembed" && repair_rows.is_empty() {
             "ingest"
         } else {
@@ -87,7 +157,7 @@ impl IngestionService {
                         json!({"fallback":true,"reason":"detection_failed"}),
                     ),
                 };
-                let changed=sqlx::query("UPDATE knowledge.documents SET detection_result=$3::jsonb,metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{processing_mode}',to_jsonb($4::text),TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2 AND status='parsing' AND COALESCE(metadata->>'processing_mode','text_only')='auto'").bind(document_id).bind(&dataset.dataset_id).bind(receipt).bind(&mode).execute(lease.connection()).await?.rows_affected();
+                let changed=sqlx::query("UPDATE knowledge.documents SET detection_result=$3::jsonb,metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{processing_mode}',to_jsonb($4::text),TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2 AND status='parsing' AND COALESCE(metadata->>'processing_mode','text_only')='auto'").bind(document_id).bind(&dataset.dataset_id).bind(receipt).bind(&mode).execute(crate::database::connection(lease.connection())).await?.rows_affected();
                 if changed != 1 {
                     return Err(IngestError::GenerationChanged);
                 }
@@ -115,7 +185,7 @@ impl IngestionService {
             {
                 return Err(IngestError::GenerationChanged);
             }
-            let target:Value=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type='pending_restore'").bind(document_id).bind(number as i32).fetch_optional(lease.connection()).await?.ok_or(IngestError::GenerationChanged)?;
+            let target:Value=sqlx::query_scalar("SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type='pending_restore'").bind(document_id).bind(number as i32).fetch_optional(crate::database::connection(lease.connection())).await?.ok_or(IngestError::GenerationChanged)?;
             content = string(&target, "content").to_owned();
             if target["metadata"]["_special_source_manifest"].is_object() {
                 return self
@@ -446,6 +516,34 @@ impl IngestionService {
                 image_points = points;
                 replace_images = true;
             }
+        }
+        if crate::migration_knowledge_ingest::pipeline::stage()
+            == crate::migration_knowledge_ingest::pipeline::Stage::Parse
+        {
+            let checkpoint = crate::migration_knowledge_ingest::pipeline::Parsed {
+                schema: "knowledge-parsed/v1".into(),
+                identity: identity.into(),
+                execution: execution.into(),
+                source_sha256: crate::migration_knowledge_ingest::pipeline::source_identity(
+                    dataset, doc, index,
+                ),
+                content: content.clone(),
+                patch: patch.clone(),
+                pending: pending.cloned(),
+                old: old.clone(),
+                chunks: chunks.clone(),
+                reembed,
+                image_points: image_points.clone(),
+                replace_images,
+                docir: prepared_v2.clone(),
+            };
+            self.pipeline_checkpoint(
+                "parsed",
+                &checkpoint,
+                Some(crate::migration_knowledge_ingest::pipeline::Stage::Embed),
+                execution,
+            )
+            .await?;
         }
         self.publish_incremental(
             lease,

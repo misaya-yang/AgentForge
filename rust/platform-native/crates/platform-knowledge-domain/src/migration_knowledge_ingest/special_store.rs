@@ -53,8 +53,8 @@ async fn owner(
     document: &str,
     dataset: &str,
 ) -> Result<(Value, Value)> {
-    let doc:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 FOR UPDATE").bind(document).bind(dataset).fetch_optional(&mut *conn).await?.ok_or_else(fail)?;
-    let row:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1 AND document_id=$2 AND dataset_id=$3 FOR UPDATE").bind(execution).bind(document).bind(dataset).fetch_optional(&mut *conn).await?.ok_or_else(fail)?;
+    let doc:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 FOR UPDATE").bind(document).bind(dataset).fetch_optional(crate::database::connection(&mut *conn)).await?.ok_or_else(fail)?;
+    let row:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1 AND document_id=$2 AND dataset_id=$3 FOR UPDATE").bind(execution).bind(document).bind(dataset).fetch_optional(crate::database::connection(&mut *conn)).await?.ok_or_else(fail)?;
     Ok((doc, row))
 }
 impl KnowledgeWriteStore {
@@ -110,13 +110,13 @@ impl KnowledgeWriteStore {
         sqlx::query(SAVE)
             .bind(execution)
             .bind(&special)
-            .execute(&mut *conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
-        sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{_special_publication_generation_id}',to_jsonb($3::text),TRUE) WHERE document_id=$1 AND dataset_id=$2").bind(document).bind(dataset).bind(generation).execute(conn).await?;
+        sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{_special_publication_generation_id}',to_jsonb($3::text),TRUE) WHERE document_id=$1 AND dataset_id=$2").bind(document).bind(dataset).bind(generation).execute(crate::database::connection(&mut *conn)).await?;
         Ok(special)
     }
     pub async fn get_special(conn: &mut PgConnection, execution: &str) -> Result<Option<Value>> {
-        let row:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1").bind(execution).fetch_optional(conn).await?;
+        let row:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1").bind(execution).fetch_optional(crate::database::connection(&mut *conn)).await?;
         let Some(row) = row else { return Ok(None) };
         let mut special = object(&row["manifest"]["special_publication"]);
         if special.as_object().is_some_and(|m| m.is_empty()) {
@@ -137,11 +137,11 @@ impl KnowledgeWriteStore {
         if revision >= 0 {
             return Err(fail());
         }
-        let actual:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_one(&mut *conn).await?;
+        let actual:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_one(crate::database::connection(&mut *conn)).await?;
         if actual != revision {
             return Err(fail());
         }
-        let document:String=sqlx::query_scalar("SELECT document_id FROM knowledge.document_pipeline_executions WHERE execution_id=$1 AND dataset_id=$2").bind(execution).bind(dataset).fetch_optional(&mut *conn).await?.ok_or_else(fail)?;
+        let document:String=sqlx::query_scalar("SELECT document_id FROM knowledge.document_pipeline_executions WHERE execution_id=$1 AND dataset_id=$2").bind(execution).bind(dataset).fetch_optional(crate::database::connection(&mut *conn)).await?.ok_or_else(fail)?;
         let (doc, row) = owner(conn, execution, &document, dataset).await?;
         let mut special = object(&row["manifest"]["special_publication"]);
         if string(&row, "status") != "running"
@@ -158,7 +158,7 @@ impl KnowledgeWriteStore {
         {
             return Err(fail());
         }
-        let conflict:Option<String>=sqlx::query_scalar("SELECT execution_id FROM knowledge.document_pipeline_executions WHERE dataset_id=$1 AND execution_id<>$2 AND status='running' AND manifest#>>'{special_publication,publication_revision}'=$3 AND manifest#>>'{special_publication,phase}' IN ('preparing','prepared','points_written','committed') LIMIT 1").bind(dataset).bind(execution).bind(revision.abs().to_string()).fetch_optional(&mut *conn).await?;
+        let conflict:Option<String>=sqlx::query_scalar("SELECT execution_id FROM knowledge.document_pipeline_executions WHERE dataset_id=$1 AND execution_id<>$2 AND status='running' AND manifest#>>'{special_publication,publication_revision}'=$3 AND manifest#>>'{special_publication,phase}' IN ('preparing','prepared','points_written','committed') LIMIT 1").bind(dataset).bind(execution).bind(revision.abs().to_string()).fetch_optional(crate::database::connection(&mut *conn)).await?;
         if conflict.is_some() {
             return Err(fail());
         }
@@ -166,7 +166,7 @@ impl KnowledgeWriteStore {
         sqlx::query(SAVE)
             .bind(execution)
             .bind(special)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         Ok(())
     }
@@ -258,7 +258,7 @@ impl KnowledgeWriteStore {
             if string(&doc, "status") != "completed" {
                 return Err(fail());
             }
-            let revision:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_one(&mut *conn).await?;
+            let revision:i64=sqlx::query_scalar("SELECT content_revision FROM knowledge.datasets WHERE dataset_id=$1 AND is_deleted=FALSE FOR UPDATE").bind(dataset).fetch_one(crate::database::connection(&mut *conn)).await?;
             let bound = integer(&s, "publication_revision");
             if revision >= 0 || bound <= 0 || revision.abs() > bound {
                 return Err(fail());
@@ -274,12 +274,12 @@ impl KnowledgeWriteStore {
         sqlx::query(SAVE)
             .bind(execution)
             .bind(&s)
-            .execute(conn)
+            .execute(crate::database::connection(&mut *conn))
             .await?;
         Ok(s)
     }
     pub async fn active_special(conn: &mut PgConnection, dataset: &str) -> Result<Value> {
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('document_metadata',d.metadata,'content_revision',ds.content_revision,'tenant_id',ds.tenant_id) FROM knowledge.document_pipeline_executions e JOIN knowledge.documents d ON d.document_id=e.document_id AND d.dataset_id=e.dataset_id JOIN knowledge.datasets ds ON ds.dataset_id=e.dataset_id WHERE e.dataset_id=$1 AND e.status='running' AND ds.content_revision<0 AND ds.is_deleted=FALSE AND COALESCE(e.manifest,'{}'::jsonb)?'special_publication' AND (e.manifest->'special_publication')?'publication_revision' AND e.manifest#>>'{special_publication,phase}' IN ('preparing','prepared','points_written','committed') ORDER BY e.created_at DESC,e.execution_id DESC LIMIT 2").bind(dataset).fetch_all(conn).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e)||jsonb_build_object('document_metadata',d.metadata,'content_revision',ds.content_revision,'tenant_id',ds.tenant_id) FROM knowledge.document_pipeline_executions e JOIN knowledge.documents d ON d.document_id=e.document_id AND d.dataset_id=e.dataset_id JOIN knowledge.datasets ds ON ds.dataset_id=e.dataset_id WHERE e.dataset_id=$1 AND e.status='running' AND ds.content_revision<0 AND ds.is_deleted=FALSE AND COALESCE(e.manifest,'{}'::jsonb)?'special_publication' AND (e.manifest->'special_publication')?'publication_revision' AND e.manifest#>>'{special_publication,phase}' IN ('preparing','prepared','points_written','committed') ORDER BY e.created_at DESC,e.execution_id DESC LIMIT 2").bind(dataset).fetch_all(crate::database::connection(&mut *conn)).await?;
         if rows.len() != 1 {
             return Err(fail());
         }
@@ -336,7 +336,7 @@ impl KnowledgeWriteStore {
         if !Self::complete_execution(conn, execution, terminal, error, &json!({})).await? {
             return Err(fail());
         }
-        sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'_special_publication_generation_id' WHERE document_id=$1 AND dataset_id=$2 AND metadata->>'_special_publication_generation_id'=$3").bind(document).bind(dataset).bind(generation).execute(conn).await?;
+        sqlx::query("UPDATE knowledge.documents SET metadata=COALESCE(metadata,'{}'::jsonb)-'_special_publication_generation_id' WHERE document_id=$1 AND dataset_id=$2 AND metadata->>'_special_publication_generation_id'=$3").bind(document).bind(dataset).bind(generation).execute(crate::database::connection(&mut *conn)).await?;
         Ok("reconciled")
     }
     pub async fn resume_special(conn: &mut PgConnection, owner_manifest: &Value) -> Result<()> {
@@ -360,8 +360,8 @@ impl KnowledgeWriteStore {
         {
             return Err(fail());
         }
-        sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=(COALESCE(manifest,'{}'::jsonb)-'special_publication')||jsonb_build_object('preparing_replayed_after_restart',TRUE) WHERE execution_id=$1 AND status='running'").bind(execution).execute(&mut *conn).await?;
-        let changed=sqlx::query("UPDATE knowledge.documents SET status='waiting',progress=0,error=NULL,process_rule_id=$5,started_at=NULL,parsing_started_at=NULL,splitting_started_at=NULL,indexing_started_at=NULL,updated_at=NOW(),metadata=COALESCE(metadata,'{}'::jsonb)-$3::text WHERE document_id=$1 AND dataset_id=$2 AND metadata->>$3::text=$4").bind(document).bind(dataset).bind("_special_publication_generation_id").bind(string(special,"generation_id")).bind(string(&row,"process_rule_id")).execute(conn).await?.rows_affected();
+        sqlx::query("UPDATE knowledge.document_pipeline_executions SET manifest=(COALESCE(manifest,'{}'::jsonb)-'special_publication')||jsonb_build_object('preparing_replayed_after_restart',TRUE) WHERE execution_id=$1 AND status='running'").bind(execution).execute(crate::database::connection(&mut *conn)).await?;
+        let changed=sqlx::query("UPDATE knowledge.documents SET status='waiting',progress=0,error=NULL,process_rule_id=$5,started_at=NULL,parsing_started_at=NULL,splitting_started_at=NULL,indexing_started_at=NULL,updated_at=NOW(),metadata=COALESCE(metadata,'{}'::jsonb)-$3::text WHERE document_id=$1 AND dataset_id=$2 AND metadata->>$3::text=$4").bind(document).bind(dataset).bind("_special_publication_generation_id").bind(string(special,"generation_id")).bind(string(&row,"process_rule_id")).execute(crate::database::connection(&mut *conn)).await?.rows_affected();
         if changed != 1 {
             return Err(fail());
         }

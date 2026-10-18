@@ -402,12 +402,69 @@ fn compiled_022_preserves_durable_minimum_and_rejects_future_epochs() {
 #[test]
 fn compiled_028_requires_the_request_meter_contract() {
     let contract = fixture_contract(28);
-    for principal in [ApplicationPrincipal::Gateway, ApplicationPrincipal::GatewayDurable,
-        ApplicationPrincipal::KnowledgeApi, ApplicationPrincipal::KnowledgeWorker,
-        ApplicationPrincipal::Runtime, ApplicationPrincipal::CapabilityWorker] {
+    for principal in [
+        ApplicationPrincipal::Gateway,
+        ApplicationPrincipal::GatewayDurable,
+        ApplicationPrincipal::KnowledgeApi,
+        ApplicationPrincipal::KnowledgeWorker,
+        ApplicationPrincipal::Runtime,
+        ApplicationPrincipal::CapabilityWorker,
+    ] {
         assert!(validate_snapshot_value(&snapshot(&contract, 28), principal, &contract).is_ok());
         for rejected in [25, 26, 27, 29] {
-            assert!(validate_snapshot_value(&snapshot(&contract, rejected), principal, &contract).is_err());
+            assert!(
+                validate_snapshot_value(&snapshot(&contract, rejected), principal, &contract)
+                    .is_err()
+            );
+        }
+    }
+}
+
+#[test]
+fn compiled_029_requires_the_exact_worker_lease_and_batch_schema() {
+    let contract = fixture_contract(29);
+    for principal in [
+        ApplicationPrincipal::Gateway,
+        ApplicationPrincipal::GatewayDurable,
+        ApplicationPrincipal::KnowledgeApi,
+        ApplicationPrincipal::KnowledgeWorker,
+        ApplicationPrincipal::Runtime,
+        ApplicationPrincipal::CapabilityWorker,
+    ] {
+        assert!(validate_snapshot_value(&snapshot(&contract, 29), principal, &contract).is_ok());
+        for rejected in [25, 26, 27, 28, 30] {
+            assert!(
+                validate_snapshot_value(&snapshot(&contract, rejected), principal, &contract)
+                    .is_err()
+            );
+        }
+        let mut tampered = snapshot(&contract, 29);
+        tampered["changes"][28]["checksum_sha256"] = "0".repeat(64).into();
+        assert!(validate_snapshot_value(&tampered, principal, &contract).is_err());
+    }
+}
+
+#[test]
+fn source_owned_service_epochs_require_their_complete_exact_prefix() {
+    for source in 30..=35 {
+        let contract = fixture_contract(source);
+        for principal in [
+            ApplicationPrincipal::Gateway,
+            ApplicationPrincipal::GatewayDurable,
+            ApplicationPrincipal::Runtime,
+            ApplicationPrincipal::CapabilityWorker,
+            ApplicationPrincipal::KnowledgeApi,
+            ApplicationPrincipal::KnowledgeWorker,
+        ] {
+            assert!(
+                validate_snapshot_value(&snapshot(&contract, source), principal, &contract).is_ok()
+            );
+            for rejected in [29, source - 1, source + 1] {
+                assert!(
+                    validate_snapshot_value(&snapshot(&contract, rejected), principal, &contract)
+                        .is_err()
+                );
+            }
         }
     }
 }

@@ -66,9 +66,10 @@ impl RetrievalService {
         hits: Vec<VectorHit>,
         level: usize,
     ) -> Result<Vec<VectorHit>> {
+        let include_images = super::serving_profile::multimodal(d)?;
         let mut hits: Vec<_> = hits
             .into_iter()
-            .filter(|h| !contains_multimodal(&h.payload, 0))
+            .filter(|h| include_images || !contains_multimodal(&h.payload, 0))
             .collect();
         if hits.is_empty() {
             return Ok(hits);
@@ -79,7 +80,7 @@ impl RetrievalService {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect();
-        let active:Vec<String>=sqlx::query_scalar("SELECT d.document_id FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex')").bind(&d.dataset_id).bind(&d.tenant_id).bind(documents).fetch_all(&self.store.pool).await?;
+        let active:Vec<String>=sqlx::query_scalar(&format!("SELECT d.document_id FROM documents d JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{{}}'::jsonb) ? '_document_lifecycle_reindex'){}",super::document_acl::current_predicate())).bind(&d.dataset_id).bind(&d.tenant_id).bind(documents).fetch_all(crate::database::executor(&self.store.pool)).await?;
         hits.retain(|h| {
             h.payload["document_id"]
                 .as_str()
@@ -87,7 +88,7 @@ impl RetrievalService {
         });
         let ids: Vec<_> = hits.iter().map(key).collect();
         let live: BTreeSet<String> = if level == 1 {
-            let ids:Vec<String>=sqlx::query_scalar("SELECT DISTINCT s.vector_id FROM document_summaries s JOIN documents d ON d.document_id=s.document_id JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND s.vector_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex')").bind(&d.dataset_id).bind(&d.tenant_id).bind(&ids).fetch_all(&self.store.pool).await?;
+            let ids:Vec<String>=sqlx::query_scalar(&format!("SELECT DISTINCT s.vector_id FROM document_summaries s JOIN documents d ON d.document_id=s.document_id JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND s.vector_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{{}}'::jsonb) ? '_document_lifecycle_reindex'){}",super::document_acl::current_predicate())).bind(&d.dataset_id).bind(&d.tenant_id).bind(&ids).fetch_all(crate::database::executor(&self.store.pool)).await?;
             ids.into_iter().collect()
         } else {
             self.store.active_segment_ids(d, &ids).await?
@@ -119,9 +120,15 @@ impl RetrievalService {
         let generation = d.generation()?;
         config::resolve(&d, r)?;
         self.preflight(&d).await?;
-        let mut cache_request=r.clone();cache_request.hierarchical=true;
-        let fingerprint=self.result_cache_key(user,&d,&cache_request,None)?;
-        if let Some(cached)=self.lookup_cached_result(user,&d,&generation,&cache_request,&fingerprint,started).await? {return Ok(cached);}
+        let mut cache_request = r.clone();
+        cache_request.hierarchical = true;
+        let fingerprint = self.result_cache_key(user, &d, &cache_request, None)?;
+        if let Some(cached) = self
+            .lookup_cached_result(user, &d, &generation, &cache_request, &fingerprint, started)
+            .await?
+        {
+            return Ok(cached);
+        }
         let base = d.collection()?.to_owned();
         let mut summary = d.clone();
         summary.collection_name = Some(format!("{base}_summary"));
@@ -246,7 +253,7 @@ impl RetrievalService {
                 .unwrap_or(&h.point_id)
                 .to_owned();
             if r.include_context {
-                let summary:std::result::Result<Option<String>,sqlx::Error>=sqlx::query_scalar("SELECT s.summary FROM document_summaries s JOIN documents d ON d.document_id=s.document_id JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.document_id=$1 AND d.dataset_id=$2 AND ds.tenant_id=$3 AND ds.is_deleted=FALSE AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex')").bind(&document).bind(id).bind(&d.tenant_id).fetch_optional(&self.store.pool).await;
+                let summary:std::result::Result<Option<String>,sqlx::Error>=sqlx::query_scalar("SELECT s.summary FROM document_summaries s JOIN documents d ON d.document_id=s.document_id JOIN datasets ds ON ds.dataset_id=d.dataset_id WHERE d.document_id=$1 AND d.dataset_id=$2 AND ds.tenant_id=$3 AND ds.is_deleted=FALSE AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex')").bind(&document).bind(id).bind(&d.tenant_id).fetch_optional(crate::database::executor(&self.store.pool)).await;
                 if let Ok(Some(s)) = summary {
                     metadata["document_summary"] = json!(s)
                 }
@@ -257,15 +264,23 @@ impl RetrievalService {
                     }
                 }
             }
+            let image =
+                super::serving_profile::multimodal(&d)? && metadata["content_type"] == "image";
+            let image_url = image.then(|| format!("/api/v1/knowledge/images/{segment}"));
+            let description = if image {
+                metadata["vlm_description"].as_str().map(str::to_owned)
+            } else {
+                None
+            };
             results.push(RetrieveResult {
                 segment_id: segment,
                 document_id: document,
                 score: h.score,
                 text: metadata["text"].as_str().unwrap_or("").into(),
                 metadata: strip_image_metadata(metadata),
-                content_type: "text".into(),
-                image_url: None,
-                vlm_description: None,
+                content_type: if image { "image" } else { "text" }.into(),
+                image_url,
+                vlm_description: description,
                 associated_images: vec![],
             })
         }
@@ -277,14 +292,24 @@ impl RetrievalService {
             .collect();
         let live = self.store.active_segment_ids(&d, &ids).await?;
         results.retain(|r| r.metadata["level"] == 1 || live.contains(&r.segment_id));
+        self.store.enrich_region_citations(&d, &mut results).await?;
         self.store.require_generation(user, id, &generation).await?;
         meta["total_time_ms"] = json!(started.elapsed().as_secs_f64() * 1000.0);
         meta["timings_ms"] = json!({"total_ms":meta["total_time_ms"]});
-        meta["retrieval_cache_hit"]=json!(false);
-        meta["retrieval_query_fingerprint"]=json!(fingerprint);
+        meta["retrieval_cache_hit"] = json!(false);
+        meta["retrieval_query_fingerprint"] = json!(fingerprint);
         // Hierarchy search intentionally degrades some failures to empty results;
         // do not memoize an empty degraded path as authoritative negative recall.
-        if !results.is_empty() {self.store_cached_result(&d,&cache_request,fingerprint,results.clone(),meta.clone()).await?;}
+        if !results.is_empty() {
+            self.store_cached_result(
+                &d,
+                &cache_request,
+                fingerprint,
+                results.clone(),
+                meta.clone(),
+            )
+            .await?;
+        }
         super::service::stamp_observation(&mut meta, &r.query);
         Ok((results, meta))
     }

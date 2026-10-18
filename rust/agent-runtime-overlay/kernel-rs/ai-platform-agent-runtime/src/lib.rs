@@ -13,12 +13,14 @@ mod platform_lifecycle;
 mod postgres_store;
 pub mod readonly_capabilities;
 mod readonly_extension;
+pub mod telemetry;
+mod telemetry_model;
 pub mod tool_lifecycle;
 mod tool_policy;
 mod trace_context;
-pub mod telemetry;
-mod telemetry_model;
 mod v1_projector;
+#[path = "../../ai-platform-capability-contract/src/workload_identity.rs"]
+pub mod workload_identity;
 
 pub use postgres_store::PlatformThreadIdentity;
 pub use postgres_store::PostgresThreadStore;
@@ -221,4 +223,22 @@ mod postgres_store_contract_tests;
 mod v1_projector_tests;
 
 /// Flush incomplete local observations before shutting down exporters.
-pub fn drain_turn_telemetry(){telemetry_model::drain();}
+pub fn drain_turn_telemetry() {
+    telemetry_model::drain();
+}
+
+/// Production consumers accept Gateway public verification keys only. Legacy
+/// library fixtures/import-window helpers are not production trust configuration.
+pub fn validate_runtime_verifier_configuration() -> Result<(), String> {
+    if std::env::var_os("AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET").is_some()
+        || matches!(
+            std::env::var("AI_PLATFORM_LEASE_TRUST_MODE").as_deref(),
+            Ok("legacy_hmac" | "transition")
+        )
+    {
+        return Err("runtime_signing_secret_forbidden".into());
+    }
+    http_service::lease_verification::public_keys()?
+        .ok_or_else(|| "lease_verification_key_missing".to_owned())?;
+    Ok(())
+}

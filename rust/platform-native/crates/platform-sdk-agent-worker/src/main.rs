@@ -2,9 +2,12 @@
 mod bridge;
 mod contract;
 mod lifecycle;
-mod provider_config;
+#[path = "../../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/sdk_model_plane.rs"]
+mod model_plane;
 mod supervisor;
 mod transport;
+#[path = "../../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/workload_identity.rs"]
+mod workload_identity;
 use crate::bridge::Authority;
 use crate::contract::{Launch, MAX_BODY, PROTOCOL, Result, hash};
 use axum::{
@@ -32,27 +35,44 @@ struct Config {
     token: String,
     root: PathBuf,
     engine: PathBuf,
+    #[cfg(test)]
+    fixture_script: Option<PathBuf>,
     retention: u64,
     gateway: Option<String>,
-    openai_base_url: Option<String>,
-    anthropic_base_url: Option<String>,
 }
 impl Config {
     fn load() -> Result<Self> {
+        if [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENAI_BASE_URL",
+            "ANTHROPIC_BASE_URL",
+        ]
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+        {
+            return Err("sdk_provider_configuration_forbidden");
+        }
         let token = std::env::var("SDK_AGENT_WORKER_TOKEN").unwrap_or_default();
         let token_file = std::env::var("SDK_AGENT_WORKER_TOKEN_FILE").unwrap_or_default();
         let token = if !token_file.is_empty() {
             if !token.is_empty() {
                 return Err("sdk_worker_ambiguous_token_source");
             }
-            std::fs::read_to_string(token_file)
+            std::fs::read_to_string(&token_file)
                 .map_err(|_| "sdk_worker_token_invalid")?
                 .trim_end_matches(['\r', '\n'])
                 .to_owned()
         } else {
             token
         };
-        if !(32..=4096).contains(&token.len()) || !token.bytes().all(|b| (33..=126).contains(&b)) {
+        if workload_identity::required() && (!token.is_empty() || !token_file.is_empty()) {
+            return Err("sdk_worker_shared_bearer_forbidden");
+        }
+        if !workload_identity::required()
+            && (!(32..=4096).contains(&token.len())
+                || !token.bytes().all(|b| (33..=126).contains(&b)))
+        {
             return Err("sdk_worker_token_invalid");
         }
         let root = PathBuf::from(
@@ -78,12 +98,12 @@ impl Config {
             token,
             root,
             engine,
+            #[cfg(test)]
+            fixture_script: None,
             retention,
             gateway: std::env::var("SDK_AGENT_GATEWAY_URL")
                 .ok()
                 .filter(|s| !s.is_empty()),
-            openai_base_url: provider_config::optional_base_url("OPENAI_BASE_URL")?,
-            anthropic_base_url: provider_config::optional_base_url("ANTHROPIC_BASE_URL")?,
         })
     }
 }
@@ -97,6 +117,12 @@ struct App {
 }
 impl App {
     fn authorized(&self, request: &Request) -> bool {
+        if workload_identity::authenticated_peer() {
+            return true;
+        }
+        if workload_identity::required() {
+            return false;
+        }
         use sha2::{Digest, Sha256};
         let expected = Sha256::digest(format!("Bearer {}", self.config.token).as_bytes());
         let actual = Sha256::digest(
@@ -155,7 +181,7 @@ fn error(code: &'static str) -> Response {
     let status = match code {
         "sdk_worker_unauthorized" => 401,
         "sdk_request_too_large" => 413,
-        "sdk_request_invalid" => 400,
+        "sdk_request_invalid" | "sdk_provider_credential_forbidden" => 400,
         "sdk_session_deleted" => 410,
         "sdk_session_busy"
         | "sdk_session_reconciliation_required"
@@ -179,7 +205,7 @@ fn json_response(v: Value) -> Response {
     r
 }
 async fn ready(State(app): State<Arc<App>>, request: Request) -> Response {
-    if !app.authorized(&request) {
+    if !workload_identity::required() && !app.authorized(&request) {
         return error("sdk_worker_unauthorized");
     }
     let retention = app
@@ -251,12 +277,9 @@ async fn runs(State(app): State<Arc<App>>, request: Request) -> Response {
     if !app.authorized(&request) {
         return error("sdk_worker_unauthorized");
     }
-    let key = request
-        .headers()
-        .get("x-sdk-provider-key")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or_default()
-        .to_owned();
+    if request.headers().contains_key("x-sdk-provider-key") {
+        return error("sdk_provider_credential_forbidden");
+    }
     let bytes = match to_bytes(request.into_body(), MAX_BODY).await {
         Ok(b) => b,
         Err(_) => return error("sdk_request_too_large"),
@@ -265,10 +288,18 @@ async fn runs(State(app): State<Arc<App>>, request: Request) -> Response {
         Ok(b) => b,
         Err(_) => return error("sdk_request_invalid"),
     };
-    let launch = match Launch::parse(body, key) {
+    let mut launch = match Launch::parse(body) {
         Ok(l) => l,
         Err(e) => return error(e),
     };
+    // Bind every local state path to the Gateway-authenticated actor before
+    // acquiring a session lock or publishing its tool/profile data.
+    let mut model_stop = app.stop.subscribe();
+    let admitted = tokio::select! {result=app.authority.model_lease(&launch)=>result,_=model_stop.changed()=>Err("sdk_state_unavailable")};
+    launch.model_plane = Some(match admitted {
+        Ok(plane) => plane,
+        Err(code) => return error(code),
+    });
     let session = match lifecycle::acquire(&app.config.root, &launch.scope) {
         Ok(s) => s,
         Err(e) => return error(e),
@@ -311,10 +342,9 @@ async fn runs(State(app): State<Arc<App>>, request: Request) -> Response {
         if !reconciled {
             return error("sdk_session_reconciliation_required");
         }
-        let prior_receipt = session.path.join(format!(
-            "run-{}.json",
-            hash(pending.request_id.as_bytes())
-        ));
+        let prior_receipt = session
+            .path
+            .join(format!("run-{}.json", hash(pending.request_id.as_bytes())));
         if lifecycle::reconcile_cancelled(&session, &prior_receipt, &pending).is_err() {
             return error("sdk_session_reconciliation_required");
         }
@@ -399,7 +429,9 @@ async fn run() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
-    let gateway_ca = std::env::var("SDK_AGENT_GATEWAY_TLS_CA_FILE").ok().map(PathBuf::from);
+    let gateway_ca = std::env::var("SDK_AGENT_GATEWAY_TLS_CA_FILE")
+        .ok()
+        .map(PathBuf::from);
     let authority = Authority::new_with_ca(config.gateway.clone(), gateway_ca.as_deref())?;
     let (stop, _) = watch::channel(false);
     let app = Arc::new(App {
@@ -425,20 +457,31 @@ async fn run() -> Result<()> {
         .route("/v1/sessions", delete(delete_session))
         .route("/health/ready", get(ready))
         .with_state(app.clone());
-    let listener = transport.bind().await?;
     let shutdown = app.clone();
-    use std::future::IntoFuture;
     let mut stopped = app.stop.subscribe();
-    let server = axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            let mut term =
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("signal initialization");
-            tokio::select! {_=tokio::signal::ctrl_c()=>{},_=term.recv()=>{}}
-            shutdown.closing.store(true, Ordering::SeqCst);
-            let _ = shutdown.stop.send(true);
-        })
-        .into_future();
+    let graceful = async move {
+        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("signal initialization");
+        tokio::select! {_=tokio::signal::ctrl_c()=>{},_=term.recv()=>{}}
+        shutdown.closing.store(true, Ordering::SeqCst);
+        let _ = shutdown.stop.send(true);
+    };
+    let server = async move {
+        if workload_identity::tls_enabled() {
+            if transport.has_legacy_tls() {
+                return Err("sdk_workload_tls_legacy_listener_conflict");
+            }
+            workload_identity::serve(transport.address(), router, graceful)
+                .await
+                .map_err(|_| "sdk_worker_server_failed")
+        } else {
+            let listener = transport.bind().await?;
+            axum::serve(listener, router)
+                .with_graceful_shutdown(graceful)
+                .await
+                .map_err(|_| "sdk_worker_server_failed")
+        }
+    };
     tokio::pin!(server);
     tokio::select! {
         result=&mut server=>{result.map_err(|_|"sdk_worker_server_failed")?;app.closing.store(true,Ordering::SeqCst);let _=app.stop.send(true);},
@@ -475,7 +518,7 @@ mod http_tests {
     };
     static NEXT_FIXTURE_ID: AtomicU64 = AtomicU64::new(0);
     fn fixture(script: &str) -> (Arc<App>, PathBuf) {
-        fixture_with_gateway(script,None)
+        fixture_with_gateway(script, None)
     }
     fn fixture_with_gateway(script: &str, gateway: Option<String>) -> (Arc<App>, PathBuf) {
         let fixture_id = NEXT_FIXTURE_ID.fetch_add(1, Ordering::Relaxed);
@@ -497,13 +540,14 @@ mod http_tests {
             config: Config {
                 token: "test-worker-token-not-a-secret-123456".into(),
                 root: root.clone(),
-                engine,
+                // /tmp is intentionally noexec in the restricted build role.
+                // Execute the installed interpreter, reading fixture source as data.
+                engine: PathBuf::from("/bin/sh"),
+                fixture_script: Some(engine),
                 retention: 3600,
                 gateway: gateway.clone(),
-                openai_base_url: None,
-                anthropic_base_url: None,
             },
-            authority: Authority::new(gateway).unwrap(),
+            authority: Authority::new(gateway).unwrap().with_model_fixtures(),
             owners: Mutex::new(HashMap::new()),
             closing: AtomicBool::new(false),
             sweep: Mutex::new(Some(Instant::now())),
@@ -519,7 +563,9 @@ mod http_tests {
                 Err("sdk_session_busy") if Instant::now() < deadline => {
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 }
-                Err("sdk_session_busy") => panic!("session lock did not release after child cleanup"),
+                Err("sdk_session_busy") => {
+                    panic!("session lock did not release after child cleanup")
+                }
                 Err(code) => panic!("session did not reach clean ownership release: {code}"),
             }
         }
@@ -527,38 +573,58 @@ mod http_tests {
     fn body(stream: bool) -> Value {
         json!({"protocol":PROTOCOL,"framework":"openai_agents","service_id":"svc","tenant_id":"tenant","user_id":"user","request_id":"request","session_id":"session","agent":{"model":"fixture","instructions":"","max_turns":2},"input":"hello","stream":stream})
     }
-    fn fixture_grant()->String{"a".repeat(64)}
-    fn sdk_body(stream:bool,request_id:&str,run_id:&str,input:&str,tools:Value)->Value{
-        let mut value=body(stream);
-        value["request_id"]=json!(request_id);
-        value["input"]=json!(input);
-        let timeout=if tools.as_array().is_some_and(|items|!items.is_empty()){1800}else{300};
-        value["capability_bridge"]=json!({"grant":fixture_grant(),"run_id":run_id,"tools":tools,"timeout_seconds":timeout});
+    fn fixture_grant() -> String {
+        "a".repeat(64)
+    }
+    fn sdk_body(stream: bool, request_id: &str, run_id: &str, input: &str, tools: Value) -> Value {
+        let mut value = body(stream);
+        value["request_id"] = json!(request_id);
+        value["input"] = json!(input);
+        let timeout = if tools.as_array().is_some_and(|items| !items.is_empty()) {
+            1800
+        } else {
+            300
+        };
+        value["capability_bridge"] = json!({"grant":fixture_grant(),"run_id":run_id,"tools":tools,"timeout_seconds":timeout});
         value
     }
     #[derive(Default)]
-    struct ReconcileGateway {cancelled:Mutex<HashSet<String>>,requests:Mutex<Vec<String>>}
-    async fn capability_admit(State(state):State<Arc<ReconcileGateway>>,headers:axum::http::HeaderMap,Json(body):Json<Value>)->Response{
-        let expected=format!("Bearer {}",fixture_grant());
-        if headers.get("authorization").and_then(|v|v.to_str().ok())!=Some(expected.as_str()){
-            return (StatusCode::FORBIDDEN,Json(json!({"authorized":false}))).into_response();
+    struct ReconcileGateway {
+        cancelled: Mutex<HashSet<String>>,
+        requests: Mutex<Vec<String>>,
+    }
+    async fn capability_admit(
+        State(state): State<Arc<ReconcileGateway>>,
+        headers: axum::http::HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Response {
+        let expected = format!("Bearer {}", fixture_grant());
+        if headers.get("authorization").and_then(|v| v.to_str().ok()) != Some(expected.as_str()) {
+            return (StatusCode::FORBIDDEN, Json(json!({"authorized":false}))).into_response();
         }
-        if let Some(request_id)=body["reconcile_pending_request_id"].as_str(){
+        if let Some(request_id) = body["reconcile_pending_request_id"].as_str() {
             state.requests.lock().unwrap().push(request_id.to_owned());
-            let safe=state.cancelled.lock().unwrap().contains(request_id);
+            let safe = state.cancelled.lock().unwrap().contains(request_id);
             return Json(json!({"authorized":true,"pending_reconcilable":safe})).into_response();
         }
         Json(json!({"authorized":true})).into_response()
     }
-    async fn reconcile_gateway()->(String,Arc<ReconcileGateway>,tokio::task::JoinHandle<()>) {
-        let state=Arc::new(ReconcileGateway::default());
-        let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let origin=format!("http://{}",listener.local_addr().unwrap());
-        let router=Router::new().route("/internal/v1/sdk-tools/capabilities/admit",post(capability_admit)).with_state(state.clone());
-        let task=tokio::spawn(async move{axum::serve(listener,router).await.unwrap();});
-        (origin,state,task)
+    async fn reconcile_gateway() -> (String, Arc<ReconcileGateway>, tokio::task::JoinHandle<()>) {
+        let state = Arc::new(ReconcileGateway::default());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let router = Router::new()
+            .route(
+                "/internal/v1/sdk-tools/capabilities/admit",
+                post(capability_admit),
+            )
+            .with_state(state.clone());
+        let task = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        (origin, state, task)
     }
-    fn write_tool()->Value{
+    fn write_tool() -> Value {
         json!([{"name":"platform_capability_0","tool":"write_action","namespace":null,"description":"","input_schema":{},"id":"write-capability","schema_hash":format!("sha256:{}","a".repeat(64)),"effect":"write"}])
     }
     fn request(app: &App, body: Value) -> Request {
@@ -566,7 +632,6 @@ mod http_tests {
             .method("POST")
             .uri("/v1/runs")
             .header("authorization", format!("Bearer {}", app.config.token))
-            .header("x-sdk-provider-key", "fixture-provider-key")
             .body(Body::from(body.to_string()))
             .unwrap()
     }
@@ -628,7 +693,9 @@ mod http_tests {
         );
         let scope = contract::scope(&body(false)).unwrap();
         let session = wait_for_session_release(&root, &scope).await;
-        let pending = lifecycle::read_pending(&session).unwrap().expect("malformed execution remains fenced");
+        let pending = lifecycle::read_pending(&session)
+            .unwrap()
+            .expect("malformed execution remains fenced");
         assert_eq!(pending.request_id, "request");
         assert!(lifecycle::locally_reconcilable(&session, &pending));
         drop(session);
@@ -661,86 +728,190 @@ mod http_tests {
     }
     #[tokio::test]
     async fn cancelled_effect_free_run_reconciles_then_same_session_continues() {
-        const RUN_ONE:&str="10000000-0000-4000-8000-000000000001";
-        const RUN_TWO:&str="10000000-0000-4000-8000-000000000002";
-        const RUN_CANCEL:&str="10000000-0000-4000-8000-000000000003";
-        const RUN_NEXT:&str="10000000-0000-4000-8000-000000000004";
-        const RUN_RETRY:&str="10000000-0000-4000-8000-000000000005";
-        let script="read frame\ncase \"$frame\" in *cancel-sentinel*) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"partial response\"}'; trap '' TERM; sleep 60 & wait ;; *) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"answer\"}' '{\"event\":\"completed\",\"text\":\"answer\",\"streamed_text\":\"answer\",\"usage\":{}}' ;; esac";
-        let (origin,gateway,server)=reconcile_gateway().await;
-        let (app,root)=fixture_with_gateway(script,Some(origin));
-        for (request_id,run_id,input) in [("first-request",RUN_ONE,"first turn"),("second-request",RUN_TWO,"second turn")] {
-            let response=runs(State(app.clone()),request(&app,sdk_body(false,request_id,run_id,input,json!([])))).await;
-            assert_eq!(response.status(),200);
-            assert_eq!(value(response).await["text"],"answer");
+        const RUN_ONE: &str = "10000000-0000-4000-8000-000000000001";
+        const RUN_TWO: &str = "10000000-0000-4000-8000-000000000002";
+        const RUN_CANCEL: &str = "10000000-0000-4000-8000-000000000003";
+        const RUN_NEXT: &str = "10000000-0000-4000-8000-000000000004";
+        const RUN_RETRY: &str = "10000000-0000-4000-8000-000000000005";
+        let script = "read frame\ncase \"$frame\" in *cancel-sentinel*) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"partial response\"}'; trap '' TERM; sleep 60 & wait ;; *) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"answer\"}' '{\"event\":\"completed\",\"text\":\"answer\",\"streamed_text\":\"answer\",\"usage\":{}}' ;; esac";
+        let (origin, gateway, server) = reconcile_gateway().await;
+        let (app, root) = fixture_with_gateway(script, Some(origin));
+        for (request_id, run_id, input) in [
+            ("first-request", RUN_ONE, "first turn"),
+            ("second-request", RUN_TWO, "second turn"),
+        ] {
+            let response = runs(
+                State(app.clone()),
+                request(&app, sdk_body(false, request_id, run_id, input, json!([]))),
+            )
+            .await;
+            assert_eq!(response.status(), 200);
+            assert_eq!(value(response).await["text"], "answer");
         }
-        let first_scope=contract::scope(&sdk_body(false,"first-request",RUN_ONE,"first turn",json!([]))).unwrap();
-        let state=root.join(&first_scope);
-        let prior_history=json!({"schema":"sdk-native-history/v1","framework":"openai_agents","messages":[
+        let first_scope = contract::scope(&sdk_body(
+            false,
+            "first-request",
+            RUN_ONE,
+            "first turn",
+            json!([]),
+        ))
+        .unwrap();
+        let state = root.join(&first_scope);
+        let prior_history = json!({"schema":"sdk-native-history/v1","framework":"openai_agents","messages":[
             {"role":"user","content":"first turn"},{"type":"message","role":"assistant","content":[]},
             {"role":"user","content":"second turn"},{"type":"message","role":"assistant","content":[]}
         ]});
-        lifecycle::atomic(&state.join("native-history.json"),&prior_history).unwrap();
-        let history_before=fs::read(state.join("native-history.json")).unwrap();
+        lifecycle::atomic(&state.join("native-history.json"), &prior_history).unwrap();
+        let history_before = fs::read(state.join("native-history.json")).unwrap();
 
-        let cancel_body=sdk_body(true,"cancel-request",RUN_CANCEL,"cancel-sentinel long list",json!([]));
-        let response=runs(State(app.clone()),request(&app,cancel_body)).await;
-        assert_eq!(response.status(),200);
-        let mut events=response.into_body().into_data_stream();
-        let first=tokio::time::timeout(Duration::from_secs(5),events.next()).await.unwrap().unwrap().unwrap();
+        let cancel_body = sdk_body(
+            true,
+            "cancel-request",
+            RUN_CANCEL,
+            "cancel-sentinel long list",
+            json!([]),
+        );
+        let response = runs(State(app.clone()), request(&app, cancel_body)).await;
+        assert_eq!(response.status(), 200);
+        let mut events = response.into_body().into_data_stream();
+        let first = tokio::time::timeout(Duration::from_secs(5), events.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         assert!(String::from_utf8_lossy(&first).contains("partial response"));
         drop(events);
-        let deadline=Instant::now()+Duration::from_secs(8);
-        while !app.owners.lock().unwrap().is_empty()&&Instant::now()<deadline{tokio::time::sleep(Duration::from_millis(25)).await;}
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while !app.owners.lock().unwrap().is_empty() && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
         assert!(app.owners.lock().unwrap().is_empty());
         assert!(state.join("pending.json").exists());
-        let unverified=runs(State(app.clone()),request(&app,sdk_body(false,"unverified-next",RUN_RETRY,"after cancellation",json!([])))).await;
-        assert_eq!(unverified.status(),409);
-        assert_eq!(value(unverified).await["code"],"sdk_session_reconciliation_required");
+        let unverified = runs(
+            State(app.clone()),
+            request(
+                &app,
+                sdk_body(
+                    false,
+                    "unverified-next",
+                    RUN_RETRY,
+                    "after cancellation",
+                    json!([]),
+                ),
+            ),
+        )
+        .await;
+        assert_eq!(unverified.status(), 409);
+        assert_eq!(
+            value(unverified).await["code"],
+            "sdk_session_reconciliation_required"
+        );
         assert!(state.join("pending.json").exists());
-        gateway.cancelled.lock().unwrap().insert("cancel-request".into());
+        gateway
+            .cancelled
+            .lock()
+            .unwrap()
+            .insert("cancel-request".into());
 
-        let next=runs(State(app.clone()),request(&app,sdk_body(false,"next-request",RUN_NEXT,"after cancellation",json!([])))).await;
-        assert_eq!(next.status(),200);
-        assert_eq!(value(next).await["text"],"answer");
+        let next = runs(
+            State(app.clone()),
+            request(
+                &app,
+                sdk_body(
+                    false,
+                    "next-request",
+                    RUN_NEXT,
+                    "after cancellation",
+                    json!([]),
+                ),
+            ),
+        )
+        .await;
+        assert_eq!(next.status(), 200);
+        assert_eq!(value(next).await["text"], "answer");
         assert!(!state.join("pending.json").exists());
-        assert_eq!(fs::read(state.join("native-history.json")).unwrap(),history_before);
-        assert_eq!(*gateway.requests.lock().unwrap(),vec!["cancel-request","cancel-request"]);
-        let canceled=fs::read_dir(&state).unwrap().filter_map(|entry|entry.ok())
-            .find(|entry|entry.file_name().to_string_lossy().starts_with("run-")
-                && lifecycle::read(&entry.path()).is_ok_and(|value|value["reconciliation"]["request_id"]=="cancel-request"))
+        assert_eq!(
+            fs::read(state.join("native-history.json")).unwrap(),
+            history_before
+        );
+        assert_eq!(
+            *gateway.requests.lock().unwrap(),
+            vec!["cancel-request", "cancel-request"]
+        );
+        let canceled = fs::read_dir(&state)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .find(|entry| {
+                entry.file_name().to_string_lossy().starts_with("run-")
+                    && lifecycle::read(&entry.path()).is_ok_and(|value| {
+                        value["reconciliation"]["request_id"] == "cancel-request"
+                    })
+            })
             .expect("durable cancellation reconciliation receipt");
-        let receipt=lifecycle::read(&canceled.path()).unwrap();
-        assert_eq!(receipt["reconciliation"]["provider_outcome"],"unknown");
-        assert_eq!(receipt["reconciliation"]["usage_state"],"unavailable");
-        assert_eq!(receipt["reconciliation"]["cost_state"],"unavailable");
+        let receipt = lifecycle::read(&canceled.path()).unwrap();
+        assert_eq!(receipt["reconciliation"]["provider_outcome"], "unknown");
+        assert_eq!(receipt["reconciliation"]["usage_state"], "unavailable");
+        assert_eq!(receipt["reconciliation"]["cost_state"], "unavailable");
         server.abort();
         fs::remove_dir_all(root).unwrap();
     }
     #[tokio::test]
     async fn cancelled_tool_bearing_pending_remains_fenced() {
-        const RUN_CANCEL:&str="20000000-0000-4000-8000-000000000003";
-        const RUN_NEXT:&str="20000000-0000-4000-8000-000000000004";
-        let script="read frame\ncase \"$frame\" in *cancel-sentinel*) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"partial response\"}'; trap '' TERM; sleep 60 & wait ;; *) printf '%s\\n' '{\"event\":\"completed\",\"text\":\"answer\",\"streamed_text\":\"answer\",\"usage\":{}}' ;; esac";
-        let (origin,gateway,server)=reconcile_gateway().await;
-        let (app,root)=fixture_with_gateway(script,Some(origin));
-        let tools=write_tool();
-        let cancel_body=sdk_body(true,"effectful-cancel",RUN_CANCEL,"cancel-sentinel",tools.clone());
-        let response=runs(State(app.clone()),request(&app,cancel_body)).await;
-        assert_eq!(response.status(),200);
-        let mut events=response.into_body().into_data_stream();
-        let _=tokio::time::timeout(Duration::from_secs(5),events.next()).await.unwrap().unwrap().unwrap();
+        const RUN_CANCEL: &str = "20000000-0000-4000-8000-000000000003";
+        const RUN_NEXT: &str = "20000000-0000-4000-8000-000000000004";
+        let script = "read frame\ncase \"$frame\" in *cancel-sentinel*) printf '%s\\n' '{\"event\":\"delta\",\"text\":\"partial response\"}'; trap '' TERM; sleep 60 & wait ;; *) printf '%s\\n' '{\"event\":\"completed\",\"text\":\"answer\",\"streamed_text\":\"answer\",\"usage\":{}}' ;; esac";
+        let (origin, gateway, server) = reconcile_gateway().await;
+        let (app, root) = fixture_with_gateway(script, Some(origin));
+        let tools = write_tool();
+        let cancel_body = sdk_body(
+            true,
+            "effectful-cancel",
+            RUN_CANCEL,
+            "cancel-sentinel",
+            tools.clone(),
+        );
+        let response = runs(State(app.clone()), request(&app, cancel_body)).await;
+        assert_eq!(response.status(), 200);
+        let mut events = response.into_body().into_data_stream();
+        let _ = tokio::time::timeout(Duration::from_secs(5), events.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         drop(events);
-        let deadline=Instant::now()+Duration::from_secs(8);
-        while !app.owners.lock().unwrap().is_empty()&&Instant::now()<deadline{tokio::time::sleep(Duration::from_millis(25)).await;}
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while !app.owners.lock().unwrap().is_empty() && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
         assert!(app.owners.lock().unwrap().is_empty());
-        let scope=contract::scope(&sdk_body(true,"effectful-cancel",RUN_CANCEL,"cancel-sentinel",tools.clone())).unwrap();
-        let state=root.join(scope);
+        let scope = contract::scope(&sdk_body(
+            true,
+            "effectful-cancel",
+            RUN_CANCEL,
+            "cancel-sentinel",
+            tools.clone(),
+        ))
+        .unwrap();
+        let state = root.join(scope);
         assert!(state.join("pending.json").exists());
-        gateway.cancelled.lock().unwrap().insert("effectful-cancel".into());
-        let next=runs(State(app.clone()),request(&app,sdk_body(true,"effectful-next",RUN_NEXT,"next",tools))).await;
-        assert_eq!(next.status(),409);
-        assert_eq!(value(next).await["code"],"sdk_session_reconciliation_required");
+        gateway
+            .cancelled
+            .lock()
+            .unwrap()
+            .insert("effectful-cancel".into());
+        let next = runs(
+            State(app.clone()),
+            request(
+                &app,
+                sdk_body(true, "effectful-next", RUN_NEXT, "next", tools),
+            ),
+        )
+        .await;
+        assert_eq!(next.status(), 409);
+        assert_eq!(
+            value(next).await["code"],
+            "sdk_session_reconciliation_required"
+        );
         assert!(state.join("pending.json").exists());
         assert!(gateway.requests.lock().unwrap().is_empty());
         server.abort();
@@ -755,6 +926,153 @@ mod http_tests {
         let response = ready(State(app.clone()), request(&app, body(false))).await;
         assert_eq!(response.status(), 503);
         assert_eq!(value(response).await["ready"], false);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn provider_key_header_is_rejected_before_launch_or_local_state() {
+        let (app, root) = fixture("exit 99");
+        let mut req = request(&app, body(false));
+        req.headers_mut().insert(
+            "x-sdk-provider-key",
+            header::HeaderValue::from_static("fixture-forbidden"),
+        );
+        let response = runs(State(app.clone()), req).await;
+        assert_eq!(response.status(), 400);
+        assert_eq!(
+            value(response).await["code"],
+            "sdk_provider_credential_forbidden"
+        );
+        assert!(app.owners.lock().unwrap().is_empty());
+        assert!(!root.join(contract::scope(&body(false)).unwrap()).exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn real_model_revocation_cleans_the_process_group_and_fences_unknown_outcome() {
+        use std::convert::Infallible;
+        const RUN: &str = "30000000-0000-4000-8000-000000000001";
+        #[derive(Clone)]
+        struct ModelAuthority {
+            body: Value,
+            revoked: watch::Sender<bool>,
+        }
+        async fn lease(
+            State(state): State<ModelAuthority>,
+            headers: axum::http::HeaderMap,
+            Json(request): Json<Value>,
+        ) -> Json<Value> {
+            assert_eq!(
+                headers["authorization"],
+                format!("Bearer {}", fixture_grant())
+            );
+            assert!(!headers.contains_key("x-sdk-provider-key"));
+            assert_eq!(request, json!({"run_id":RUN}));
+            Json(
+                json!({"schema":"sdk-model-plane/v1","expires_at_epoch_ms":model_plane::now_ms()+30_000,
+                "binding_sha256":model_plane::launch_binding(&state.body)}),
+            )
+        }
+        async fn revocations(
+            State(state): State<ModelAuthority>,
+            headers: axum::http::HeaderMap,
+            Json(request): Json<Value>,
+        ) -> Response {
+            assert_eq!(
+                headers["authorization"],
+                format!("Bearer {}", fixture_grant())
+            );
+            assert!(!headers.contains_key("x-sdk-provider-key"));
+            assert_eq!(request, json!({"run_id":RUN}));
+            let mut receiver = state.revoked.subscribe();
+            let initial = futures_util::stream::once(async {
+                Ok::<_, Infallible>(format!(
+                    "data: {}\n\n",
+                    json!({"type":"sdk.lease_heartbeat","run_id":RUN})
+                ))
+            });
+            let end = futures_util::stream::once(async move {
+                while !*receiver.borrow_and_update() {
+                    if receiver.changed().await.is_err() {
+                        break;
+                    }
+                }
+                Ok::<_, Infallible>(format!(
+                    "data: {}\n\n",
+                    json!({"type":"sdk.lease_revoked","run_id":RUN})
+                ))
+            });
+            Response::builder()
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(initial.chain(end)))
+                .unwrap()
+        }
+        let launch = sdk_body(true, "revoked-request", RUN, "cancel-sentinel", json!([]));
+        let (revoked, _) = watch::channel(false);
+        let authority = ModelAuthority {
+            body: launch.clone(),
+            revoked,
+        };
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let server_router = Router::new()
+            .route("/internal/v1/sdk-tools/models/lease", post(lease))
+            .route(
+                "/internal/v1/sdk-tools/models/revocations",
+                post(revocations),
+            )
+            .route(
+                "/internal/v1/sdk-tools/capabilities/admit",
+                post(|| async { Json(json!({"authorized":true})) }),
+            )
+            .with_state(authority.clone());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, server_router).await.unwrap();
+        });
+        let script = "read frame\n[ -z \"${OPENAI_API_KEY+x}\" ] && [ -z \"${ANTHROPIC_API_KEY+x}\" ] || exit 97\ntrap '' TERM\nsleep 60 &\nprintf '%s\\n' \"$!\" > \"$HOME/descendant.pid\"\nprintf '%s\\n' '{\"event\":\"delta\",\"text\":\"model lease active\"}'\nwait";
+        let (mut app, root) = fixture_with_gateway(script, Some(origin.clone()));
+        Arc::get_mut(&mut app).unwrap().authority = Authority::new(Some(origin)).unwrap();
+        let response = runs(State(app.clone()), request(&app, launch.clone())).await;
+        assert_eq!(response.status(), 200);
+        let mut stream = response.into_body().into_data_stream();
+        let first = tokio::time::timeout(Duration::from_secs(5), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(String::from_utf8_lossy(&first).contains("model lease active"));
+        let scope = contract::scope(&launch).unwrap();
+        let state = root.join(&scope);
+        let descendant: i32 = fs::read_to_string(state.join("descendant.pid"))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        // Persist revocation even if the HTTP watcher is still subscribing.
+        authority.revoked.send_replace(true);
+        let terminal = tokio::time::timeout(Duration::from_secs(8), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(String::from_utf8_lossy(&terminal).contains("sdk_execution_failed"));
+        assert!(!String::from_utf8_lossy(&terminal).contains("completed"));
+        drop(stream);
+        assert!(app.owners.lock().unwrap().is_empty());
+        assert!(app.state_ready());
+        assert!(state.join("pending.json").exists());
+        assert!(state.join(".cleanup-complete").exists());
+        assert_eq!(unsafe { libc::kill(descendant, 0) }, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ESRCH)
+        );
+        assert_eq!(
+            runs(State(app.clone()), request(&app, launch))
+                .await
+                .status(),
+            409
+        );
+        server.abort();
         fs::remove_dir_all(root).unwrap();
     }
 }

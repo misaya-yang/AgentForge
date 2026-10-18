@@ -1,3 +1,4 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 import { api } from "@/lib/api";
 import { sseFetch } from "@/lib/sse";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -32,28 +33,12 @@ import type {
 import type { Dataset } from "@/types/knowledge";
 import type { ModelInfo } from "@/api/assistant";
 
-export interface ListAgentsParams {
-  limit?: number;
-  cursor?: string;
-  status?: string;
-  owner_id?: string;
-  search?: string;
-  channel?: string;
-}
+export type ListAgentsParams = RequestQuery<"GET /api/v1/agents">;
 
-export interface AgentAnalyticsFilters {
-  agent_version_id?: string;
-  publication_id?: string;
-  channel?: string;
-  started_after?: string;
-  started_before?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
+export type AgentAnalyticsFilters = RequestQuery<"GET /api/v1/agents/{agent}/analytics">;
 
 export async function listAgents(params: ListAgentsParams = {}, signal?: AbortSignal): Promise<AgentPage> {
-  const { data } = await api.get<AgentPage>("/api/v1/agents", { params, signal });
+  const { data } = await api.get<AgentPage>("/api/v1/agents", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/agents">), signal });
   return data;
 }
 
@@ -68,18 +53,18 @@ export async function getAgentAnalytics(
 ): Promise<AgentAnalyticsResponse> {
   const { data } = await api.get<AgentAnalyticsResponse>(
     `/api/v1/agents/${agentId}/analytics`,
-    { params },
+    { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/agents/{agent}/analytics">) },
   );
   return data;
 }
 
 export async function listAgentAuditEvents(
   agentId: string,
-  params: AgentAnalyticsFilters & { action?: string } = {},
+  params: RequestQuery<"GET /api/v1/agents/{agent}/audit-events"> = {},
 ): Promise<AgentAuditPage> {
   const { data } = await api.get<AgentAuditPage>(
     `/api/v1/agents/${agentId}/audit-events`,
-    { params },
+    { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/agents/{agent}/audit-events">) },
   );
   return data;
 }
@@ -97,7 +82,7 @@ export async function updateAgentGovernance(
 ): Promise<AgentGovernancePolicy> {
   const { data } = await api.put<AgentGovernancePolicy>(
     `/api/v1/agents/${agentId}/governance`,
-    input,
+    (input satisfies RequestBody<"PUT /api/v1/agents/{agent}/governance">),
   );
   return data;
 }
@@ -105,9 +90,9 @@ export async function updateAgentGovernance(
 export async function invalidateAgentCache(
   agentId: string,
 ): Promise<{ request_id: string; cache_epoch: number; deleted_cache_rows: number }> {
-  const { data } = await api.post(
+  const { data } = await api.post<{ request_id: string; cache_epoch: number; deleted_cache_rows: number }>(
     `/api/v1/agents/${agentId}/governance/cache:invalidate`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/governance/cache:invalidate">),
   );
   return data;
 }
@@ -115,35 +100,37 @@ export async function invalidateAgentCache(
 export async function revokeAllAgentCredentials(
   agentId: string,
 ): Promise<{ request_id: string; revoked: Record<string, number> }> {
-  const { data } = await api.post(
+  const { data } = await api.post<{ request_id: string; revoked: Record<string, number> }>(
     `/api/v1/agents/${agentId}/governance/credentials:revoke`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/governance/credentials:revoke">),
   );
   return data;
 }
 
 export async function requestAgentDataDeletion(
   agentId: string,
-  input: {
-    scope: "retention" | "user" | "tenant";
-    subject_user_id?: string;
-    idempotency_key: string;
-  },
+  input: RequestBody<"POST /api/v1/agents/{agent}/governance/data-deletions">,
 ): Promise<AgentDataDeletion> {
   const { data } = await api.post<AgentDataDeletion>(
     `/api/v1/agents/${agentId}/governance/data-deletions`,
-    input,
+    (input satisfies RequestBody<"POST /api/v1/agents/{agent}/governance/data-deletions">),
   );
   return data;
 }
 
-export async function createAgent(payload: {
-  name: string;
-  slug?: string;
-  description: string;
-  spec: AgentSpec;
-}): Promise<AgentSummary> {
-  const { data } = await api.post<{ agent: AgentSummary }>("/api/v1/agents", payload);
+/** Project nullable editor/read values into the published native request shape. */
+function specRequest(spec: AgentSpec): NonNullable<RequestBody<"POST /api/v1/agents">["spec"]> {
+  return { ...spec,
+    identity: { ...spec.identity, icon_url: spec.identity.icon_url ?? undefined, theme_color: spec.identity.theme_color ?? undefined },
+    model: { ...spec.model, provider_id: spec.model.provider_id ?? undefined,
+      temperature: spec.model.temperature ?? undefined, max_tokens: spec.model.max_tokens ?? undefined,
+      thinking_mode: spec.model.thinking_mode ?? undefined },
+    capabilities: spec.capabilities.map(binding => ({ ...binding, resource_version: binding.resource_version ?? undefined, schema_hash: binding.schema_hash ?? undefined })),
+  };
+}
+export type AgentCreateInput = Omit<RequestBody<"POST /api/v1/agents">, "spec"> & { spec: AgentSpec };
+export async function createAgent(payload: AgentCreateInput): Promise<AgentSummary> {
+  const { data } = await api.post<{ agent: AgentSummary }>("/api/v1/agents", ({ ...payload, spec: specRequest(payload.spec) } satisfies RequestBody<"POST /api/v1/agents">));
   return data.agent;
 }
 
@@ -151,7 +138,7 @@ export async function createAgent(payload: {
 export async function copyAgent(agentId: string): Promise<AgentSummary> {
   const { data } = await api.post<{ agent: AgentSummary }>(
     `/api/v1/agents/${agentId}/copy`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/copy">),
   );
   return data.agent;
 }
@@ -159,7 +146,7 @@ export async function copyAgent(agentId: string): Promise<AgentSummary> {
 export async function archiveAgent(agentId: string): Promise<AgentSummary> {
   const { data } = await api.post<{ agent: AgentSummary }>(
     `/api/v1/agents/${agentId}/archive`,
-    { disable_publications: false },
+    ({ disable_publications: false } satisfies RequestBody<"POST /api/v1/agents/{agent}/archive">),
   );
   return data.agent;
 }
@@ -173,11 +160,11 @@ export async function updateAgentDraft(
   agentId: string,
   revision: number,
   spec: AgentSpec,
-  agentChanges: { name?: string; description?: string } = {},
+  agentChanges: Pick<RequestBody<"PUT /api/v1/agents/{agent}/draft">, "name" | "description"> = {},
 ): Promise<AgentDraft> {
   const { data } = await api.put<{ draft: AgentDraft }>(
     `/api/v1/agents/${agentId}/draft`,
-    { spec, ...agentChanges },
+    ({ spec: specRequest(spec), ...agentChanges } satisfies RequestBody<"PUT /api/v1/agents/{agent}/draft">),
     { headers: { "If-Match": `"${revision}"` } },
   );
   return data.draft;
@@ -191,7 +178,7 @@ export async function listAgentVersions(agentId: string): Promise<AgentVersion[]
 export async function createAgentVersion(agentId: string, draftRevision: number): Promise<AgentVersion> {
   const { data } = await api.post<{ version: AgentVersion }>(
     `/api/v1/agents/${agentId}/versions`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/versions">),
     { headers: { "If-Match": `"${draftRevision}"` } },
   );
   return data.version;
@@ -199,22 +186,11 @@ export async function createAgentVersion(agentId: string, draftRevision: number)
 
 export async function runAgentReleaseEvaluation(
   agentId: string,
-  input: {
-    draft_revision: number;
-    dataset_id?: string | null;
-    channel: "hosted" | "embed" | "api";
-    auth_mode: "private" | "tenant" | "public" | "token";
-    channel_policy: {
-      attachments: boolean;
-      high_risk_tools: boolean;
-      allowed_origins: string[];
-      expires_at?: string | null;
-    };
-  },
+  input: RequestBody<"POST /api/v1/agents/{agent}/evals">,
 ): Promise<AgentReleaseEvaluation> {
   const { data } = await api.post<AgentReleaseEvaluation>(
     `/api/v1/agents/${agentId}/evals`,
-    input,
+    (input satisfies RequestBody<"POST /api/v1/agents/{agent}/evals">),
   );
   return data;
 }
@@ -225,7 +201,7 @@ export async function executeAgentReleaseEvaluation(
 ): Promise<AgentReleaseEvaluation> {
   const { data } = await api.post<AgentReleaseEvaluation>(
     `/api/v1/agents/${agentId}/evals/${evaluationId}/execute`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/evals/{evaluation}/execute">),
   );
   return data;
 }
@@ -236,7 +212,7 @@ export async function cancelAgentReleaseEvaluation(
 ): Promise<AgentReleaseEvaluation> {
   const { data } = await api.post<AgentReleaseEvaluation>(
     `/api/v1/agents/${agentId}/evals/${evaluationId}/cancel`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/evals/{evaluation}/cancel">),
   );
   return data;
 }
@@ -269,7 +245,7 @@ export async function publishAgent(
 ): Promise<AgentReleaseMutation> {
   const { data } = await api.post<AgentReleaseMutation>(
     `/api/v1/agents/${agentId}/publish`,
-    { evaluation_id: evaluationId, reason, ...(experimentRunId ? { experiment_run_id: experimentRunId } : {}) },
+    ({ evaluation_id: evaluationId, reason, ...(experimentRunId ? { experiment_run_id: experimentRunId } : {}) } satisfies RequestBody<"POST /api/v1/agents/{agent}/publish">),
     { headers: { "Idempotency-Key": idempotencyKey } },
   );
   return data;
@@ -298,11 +274,11 @@ export async function listAgentApiTokens(publicationId: string): Promise<AgentAp
 
 export async function createAgentApiToken(
   publicationId: string,
-  input: { name: string; scopes: string[]; expires_at?: string | null },
+  input: RequestBody<"POST /api/v1/publications/{publication}/tokens">,
 ): Promise<AgentApiTokenIssue> {
   const { data } = await api.post<AgentApiTokenIssue>(
     `/api/v1/publications/${publicationId}/tokens`,
-    input,
+    (input satisfies RequestBody<"POST /api/v1/publications/{publication}/tokens">),
   );
   return data;
 }
@@ -313,7 +289,7 @@ export async function rotateAgentApiToken(
 ): Promise<AgentApiTokenIssue> {
   const { data } = await api.post<AgentApiTokenIssue>(
     `/api/v1/publications/${publicationId}/tokens/${tokenId}/rotate`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/publications/{publication}/tokens/{token}/rotate">),
   );
   return data;
 }
@@ -336,7 +312,7 @@ export async function rollbackAgentPublication(
 ): Promise<AgentReleaseMutation> {
   const { data } = await api.post<AgentReleaseMutation>(
     `/api/v1/publications/${publicationId}/rollback`,
-    { target_version_id: targetVersionId, reason },
+    ({ target_version_id: targetVersionId, reason } satisfies RequestBody<"POST /api/v1/publications/{publication}/rollback">),
     { headers: { "Idempotency-Key": idempotencyKey } },
   );
   return data;
@@ -348,7 +324,7 @@ export async function createDraftPreviewSession(
 ): Promise<AgentRuntimeSession> {
   const { data } = await api.post<AgentRuntimeSession>(
     `/api/v1/agents/${agentId}/preview/sessions`,
-    { draft_revision: draftRevision },
+    ({ draft_revision: draftRevision } satisfies RequestBody<"POST /api/v1/agents/{agent}/preview/sessions">),
   );
   return data;
 }
@@ -359,7 +335,7 @@ export async function createVersionPreviewSession(
 ): Promise<AgentRuntimeSession> {
   const { data } = await api.post<AgentRuntimeSession>(
     `/api/v1/agents/${agentId}/versions/${versionId}/preview/sessions`,
-    {},
+    ({} satisfies RequestBody<"POST /api/v1/agents/{agent}/versions/{version}/preview/sessions">),
   );
   return data;
 }
@@ -378,7 +354,7 @@ export async function* streamAgentPreview(input: {
   const url = input.versionId
     ? `/api/v1/agents/${input.agentId}/versions/${input.versionId}/preview/chat/stream`
     : `/api/v1/agents/${input.agentId}/preview/chat/stream`;
-  const body: Record<string, unknown> = {
+  const body: RequestBody<"POST /api/v1/agents/{agent}/preview/chat/stream"> = {
     message: input.message,
     session_id: input.sessionId,
     attachments: [],
@@ -387,7 +363,7 @@ export async function* streamAgentPreview(input: {
   for await (const event of sseFetch<AgentStreamEvent>(url, {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify((body satisfies RequestBody<"POST /api/v1/agents/{agent}/preview/chat/stream">)),
     signal: input.signal,
   })) {
     yield event;
@@ -407,7 +383,7 @@ export async function listAgentDatasets(): Promise<Dataset[]> {
 export async function listAgentEvalDatasets(): Promise<AgentEvalDataset[]> {
   const { data } = await api.get<{ datasets: AgentEvalDataset[] }>(
     "/api/v1/eval/datasets",
-    { params: { limit: 200, offset: 0 } },
+    { params: ({ limit: 200, offset: 0 } satisfies RequestQuery<"GET /api/v1/eval/datasets">) },
   );
   return data.datasets;
 }
@@ -499,7 +475,7 @@ export async function listAgentMcpTools(): Promise<AgentCatalogMcpTool[]> {
 
 export async function listAgentSkills(): Promise<AgentCatalogSkill[]> {
   const { data } = await api.get<{ skills: AgentCatalogSkill[] }>("/api/v1/skills", {
-    params: { enabled_only: true },
+    params: ({ enabled_only: true } satisfies RequestQuery<"GET /api/v1/skills">),
   });
   return data.skills;
 }

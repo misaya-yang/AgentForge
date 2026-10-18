@@ -89,9 +89,12 @@ pub enum PlatformCatalogError {
 /// snapshot, not a permanent runtime allowlist; the running catalog is built
 /// from the versioned plugin catalog and may change with its revision.
 pub fn load_platform_catalog() -> Result<PlatformCapabilityCatalog, PlatformCatalogError> {
-    let catalog: PlatformCapabilityCatalog =
+    let mut catalog: PlatformCapabilityCatalog =
         serde_json::from_str(include_str!("platform_catalog_v1.json"))
             .map_err(|error| PlatformCatalogError::Json(error.to_string()))?;
+    catalog.capabilities.insert(13, serde_json::from_value(
+        ai_platform_plugin_quiz::capability_record(),
+    ).map_err(|error| PlatformCatalogError::Json(error.to_string()))?);
     validate_platform_catalog(&catalog)?;
     Ok(catalog)
 }

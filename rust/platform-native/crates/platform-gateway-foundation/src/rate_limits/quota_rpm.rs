@@ -32,6 +32,10 @@ fn key(tenant: &str, user: &str) -> String {
     format!("gateway:quota-rpm:{{{}}}:{}", hex(tenant), hex(user))
 }
 impl QuotaRpmLimiter {
+    pub fn shared_authority_configured(&self) -> bool {
+        self.shared.is_some()
+    }
+
     pub fn shared(connection: ConnectionManager) -> Self {
         Self {
             shared: Some(connection),

@@ -10,7 +10,17 @@ impl Sources {
         page_id: &str,
     ) -> Result<(String, bool, bool)> {
         self.guard(e).await?;
+        // Revoke the previous snapshot before remote reads: a lost permission or
+        // failed refresh cannot keep an old grant alive on an unchanged page.
+        self.apply_acl(
+            e,
+            page_id,
+            &json!({"schema":"connector-acl/v1","verified":false}),
+        )
+        .await?;
         let page = self.page(credentials, page_id).await?;
+        let acl = self.source_acl(e, credentials, &page).await?;
+        self.apply_acl(e, page_id, &acl).await?;
         if scalar(&page["id"]) != page_id {
             return Err(Error::new(
                 StatusCode::BAD_GATEWAY,
@@ -32,7 +42,7 @@ impl Sources {
         )
         .bind(text(&e.binding, "binding_id"))
         .bind(page_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?;
         let sync_images = e.binding["sync_images"] == true;
         let attachments = if sync_images {
@@ -77,7 +87,7 @@ impl Sources {
                 )
                 .bind(&id)
                 .bind(text(&e.binding, "dataset_id"))
-                .fetch_optional(&self.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?;
                 if doc
                     .as_ref()
@@ -117,6 +127,7 @@ impl Sources {
             .await
             .map_err(|_| Error::conflict("Confluence source document lease is busy"))?;
         let mut tx = lease.connection().begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         self.guard_on(e, &mut tx).await?;
         let doc: Option<Value> =
             sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1")
@@ -144,7 +155,7 @@ impl Sources {
                 return Ok((id, true, false));
             }
         } else {
-            let initial = json!({"document_id":id,"dataset_id":dataset,"title":title,"source_type":"confluence","source_uri":url,"mime_type":"text/plain","size_bytes":content.len(),"status":"syncing","progress":0,"content":"","metadata":{"_confluence_sync_generation":marker}});
+            let initial = json!({"document_id":id,"dataset_id":dataset,"title":title,"source_type":"confluence","source_uri":url,"mime_type":"text/plain","size_bytes":content.len(),"status":"syncing","progress":0,"content":"","metadata":{"_confluence_sync_generation":marker,"_connector_acl":acl}});
             ingest::store::KnowledgeWriteStore::insert_document_on(&mut tx, &initial)
                 .await
                 .map_err(|_| Error::unavailable("Confluence source document insertion failed"))?;
@@ -167,9 +178,10 @@ impl Sources {
         tx.commit().await?;
         let prepared=async {
             let images=self.image_sources(e,credentials,&page,&id,&generation,&attachments,max_image,lease.connection()).await?;
-            let mut metadata=json!({"confluence_page_id":page_id,"confluence_space_key":e.binding["space_key"],"confluence_version":version,"confluence_labels":labels,"confluence_author":page["authorId"],"confluence_updated_at":page["version"]["createdAt"],"markdown_content":markdown,"_confluence_attachment_manifest":manifest});
+            let mut metadata=json!({"_connector_acl":acl,"confluence_page_id":page_id,"confluence_space_key":e.binding["space_key"],"confluence_version":version,"confluence_labels":labels,"confluence_author":page["authorId"],"confluence_updated_at":page["version"]["createdAt"],"markdown_content":markdown,"_confluence_attachment_manifest":manifest});
             for (key,value) in images.as_object().ok_or_else(||Error::unavailable("Confluence image source shape failed"))?{metadata[key]=value.clone();}
-            let mut tx=lease.connection().begin().await?;self.guard_on(e,&mut tx).await?;
+            let mut tx=lease.connection().begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;self.guard_on(e,&mut tx).await?;
             let current:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1 AND dataset_id=$2").bind(&id).bind(dataset).fetch_one(&mut *tx).await?;
             let previous=text(&current,"content");
             if !previous.is_empty()&&previous!=content {
@@ -185,6 +197,7 @@ impl Sources {
         }.await;
         if prepared.is_err() {
             let mut tx = lease.connection().begin().await?;
+            ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
             let _: Option<String> = sqlx::query_scalar(super::sql::ABORT_CONFLUENCE_DOCUMENT_SYNC)
                 .bind(&id)
                 .bind(dataset)

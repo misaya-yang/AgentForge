@@ -1,10 +1,10 @@
+use super::qa_stream::QaProviderStream;
 use super::{
     config::RetrieveRequest,
     service::RetrievalService,
     types::{Dataset, IndexGeneration, QueryError, Result, RetrieveResult, UserContext},
 };
 use reqwest::Client;
-use super::qa_stream::QaProviderStream;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -41,7 +41,8 @@ pub struct QaService {
 }
 impl QaService {
     pub fn new(retrieval: Arc<RetrievalService>, _client: Client, mut config: QaConfig) -> Self {
-        config.api_key.clear(); config.base_url.clear();
+        config.api_key.clear();
+        config.base_url.clear();
         Self {
             retrieval,
             batch_timeout: Duration::from_secs(180),
@@ -122,8 +123,24 @@ impl QaService {
             .require_dataset_access(user, id, "editor")
             .await
     }
-    pub async fn query(&self,user:&UserContext,id:&str,request:RetrieveRequest,selector:LlmSelector,include_raw:bool)->Result<Value> {
-        super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(id.into()),document_id:None,execution_id:None},user.clone(),self.query_scoped(user,id,request,selector,include_raw)).await
+    pub async fn query(
+        &self,
+        user: &UserContext,
+        id: &str,
+        request: RetrieveRequest,
+        selector: LlmSelector,
+        include_raw: bool,
+    ) -> Result<Value> {
+        super::model_plane::run_current(
+            super::model_plane::ModelResource {
+                dataset_id: Some(id.into()),
+                document_id: None,
+                execution_id: None,
+            },
+            user.clone(),
+            self.query_scoped(user, id, request, selector, include_raw),
+        )
+        .await
     }
     async fn query_scoped(
         &self,
@@ -141,8 +158,22 @@ impl QaService {
         let (results, meta) = self.retrieval.retrieve(user, id, request.clone()).await?;
         let retrieval_ms = retrieve_started.elapsed().as_millis();
         let llm = Instant::now();
-        let (status,data)=super::model_plane::execute(selector.provider.as_deref().unwrap_or(&self.config.provider),selector.model.as_deref().unwrap_or(&self.config.model),"",super::model_plane::ModelPurpose::Qa,super::model_plane::ModelWire::ChatCompletions,self.payload(&request.query,&results,&selector,false),self.config.timeout).await?;
-        if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
+        let (status, data) = super::model_plane::execute(
+            selector
+                .provider
+                .as_deref()
+                .unwrap_or(&self.config.provider),
+            selector.model.as_deref().unwrap_or(&self.config.model),
+            "",
+            super::model_plane::ModelPurpose::Qa,
+            super::model_plane::ModelWire::ChatCompletions,
+            self.payload(&request.query, &results, &selector, false),
+            self.config.timeout,
+        )
+        .await?;
+        if !(200..300).contains(&status) {
+            return Err(QueryError::Provider(status));
+        }
         let choices = data["choices"]
             .as_array()
             .filter(|a| !a.is_empty())
@@ -243,8 +274,25 @@ impl QaService {
         }));
         Ok(rx)
     }
-    async fn stream_to(&self,user:&UserContext,id:&str,request:&RetrieveRequest,selector:&LlmSelector,include_raw:bool,tx:&tokio::sync::mpsc::Sender<Value>)->Result<()> {
-        super::model_plane::run_current(super::model_plane::ModelResource{dataset_id:Some(id.into()),document_id:None,execution_id:None},user.clone(),self.stream_to_scoped(user,id,request,selector,include_raw,tx)).await
+    async fn stream_to(
+        &self,
+        user: &UserContext,
+        id: &str,
+        request: &RetrieveRequest,
+        selector: &LlmSelector,
+        include_raw: bool,
+        tx: &tokio::sync::mpsc::Sender<Value>,
+    ) -> Result<()> {
+        super::model_plane::run_current(
+            super::model_plane::ModelResource {
+                dataset_id: Some(id.into()),
+                document_id: None,
+                execution_id: None,
+            },
+            user.clone(),
+            self.stream_to_scoped(user, id, request, selector, include_raw, tx),
+        )
+        .await
     }
     async fn stream_to_scoped(
         &self,
@@ -265,27 +313,59 @@ impl QaService {
             .await?;
         if tx.send(json!({"event":"retrieval","data":{"query":request.query,"context_segments":context,"retrieval_metadata":meta,"trace_id":meta["trace_id"],"query_fingerprint":meta["query_fingerprint"],"timing":{"retrieval_ms":retrieval_ms}}})).await.is_err(){return Ok(())}
         let llm = Instant::now();
-        let mut lines=super::model_plane::execute_stream(selector.provider.as_deref().unwrap_or(&self.config.provider),selector.model.as_deref().unwrap_or(&self.config.model),"",super::model_plane::ModelPurpose::Qa,self.payload(&request.query,&results,selector,true),self.config.timeout).await?;
+        let mut lines = super::model_plane::execute_stream(
+            selector
+                .provider
+                .as_deref()
+                .unwrap_or(&self.config.provider),
+            selector.model.as_deref().unwrap_or(&self.config.model),
+            "",
+            super::model_plane::ModelPurpose::Qa,
+            self.payload(&request.query, &results, selector, true),
+            self.config.timeout,
+        )
+        .await?;
         let mut parser = QaProviderStream::default();
         let mut answer = String::new();
         let mut tokens = Value::Null;
         loop {
-            if tx.is_closed() { return Ok(()); }
-            let (event,eof)=match lines.next().await? {
-                Some(value)=>{parser.line(&format!("data: {value}")).map_err(|_|QueryError::Provider(502))?;(parser.line("").map_err(|_|QueryError::Provider(502))?,false)},
-                None=>(parser.finish().map_err(|_|QueryError::Provider(502))?,true),
+            if tx.is_closed() {
+                return Ok(());
+            }
+            let (event, eof) = match lines.next().await? {
+                Some(value) => {
+                    parser
+                        .line(&format!("data: {value}"))
+                        .map_err(|_| QueryError::Provider(502))?;
+                    (
+                        parser.line("").map_err(|_| QueryError::Provider(502))?,
+                        false,
+                    )
+                }
+                None => (
+                    parser.finish().map_err(|_| QueryError::Provider(502))?,
+                    true,
+                ),
             };
             let closed = event.as_ref().is_some_and(|event| event.closed);
             if let Some(event) = event {
-                if let Some(total) = event.tokens { tokens = json!(total); }
+                if let Some(total) = event.tokens {
+                    tokens = json!(total);
+                }
                 if let Some(delta) = event.content.filter(|s| !s.is_empty()) {
                     answer.push_str(&delta);
-                    if tx.send(json!({"event":"delta","data":{"content":delta}})).await.is_err() {
+                    if tx
+                        .send(json!({"event":"delta","data":{"content":delta}}))
+                        .await
+                        .is_err()
+                    {
                         return Ok(());
                     }
                 }
             }
-            if eof || closed { break; }
+            if eof || closed {
+                break;
+            }
         }
         lines.close();
         let result = json!({"query":request.query,"answer":answer,"context_segments":context,"retrieval_metadata":meta,"timing":{"retrieval_ms":retrieval_ms,"llm_ms":llm.elapsed().as_millis(),"total_ms":started.elapsed().as_millis()},"model":selector.model.as_deref().unwrap_or(&self.config.model),"tokens_used":tokens,"trace_id":meta["trace_id"],"query_fingerprint":meta["query_fingerprint"]});
@@ -314,7 +394,21 @@ pub fn format_context(results: &[RetrieveResult], max_tokens: usize) -> String {
     let mut parts = Vec::new();
     let mut used = 0;
     for (i, result) in results.iter().enumerate() {
-        let text = format!("[{}] {}", i + 1, result.text.trim());
+        let citation = &result.metadata["citation"];
+        let label = if citation.is_object() {
+            format!(
+                " (document {}, version {}, page {}, block {})",
+                result.document_id,
+                citation["source"]["document_version"]
+                    .as_str()
+                    .unwrap_or(""),
+                citation["page_number"],
+                citation["block_id"].as_str().unwrap_or("")
+            )
+        } else {
+            String::new()
+        };
+        let text = format!("[{}]{} {}", i + 1, label, result.text.trim());
         if used + text.chars().count() > max_tokens * 4 {
             break;
         }
@@ -343,9 +437,23 @@ impl QaService {
         let prompt = format!(
             "You are an answer evaluator. Compare the given answer with the expected answer and determine if they are semantically equivalent.\n\nQuestion: {query}\n\nExpected Answer: {expected}\n\nGiven Answer: {answer}\n\nRespond in JSON format:\n{{\n    \"is_correct\": true/false,\n    \"confidence\": 0.0-1.0,\n    \"explanation\": \"brief explanation\"\n}}"
         );
-        let payload=json!({"model":selector.model.as_deref().unwrap_or(&self.config.model),"messages":[{"role":"system","content":"You are a precise answer evaluator. Output only valid JSON."},{"role":"user","content":prompt}],"temperature":0,"max_tokens":selector.max_tokens.unwrap_or(2048)});
-        let (status,body)=super::model_plane::execute(selector.provider.as_deref().unwrap_or(&self.config.provider),selector.model.as_deref().unwrap_or(&self.config.model),"",super::model_plane::ModelPurpose::Judge,super::model_plane::ModelWire::ChatCompletions,payload,self.config.timeout).await?;
-        if !(200..300).contains(&status) {return Err(QueryError::Provider(status));}
+        let payload = json!({"model":selector.model.as_deref().unwrap_or(&self.config.model),"messages":[{"role":"system","content":"You are a precise answer evaluator. Output only valid JSON."},{"role":"user","content":prompt}],"temperature":0,"max_tokens":selector.max_tokens.unwrap_or(2048)});
+        let (status, body) = super::model_plane::execute(
+            selector
+                .provider
+                .as_deref()
+                .unwrap_or(&self.config.provider),
+            selector.model.as_deref().unwrap_or(&self.config.model),
+            "",
+            super::model_plane::ModelPurpose::Judge,
+            super::model_plane::ModelWire::ChatCompletions,
+            payload,
+            self.config.timeout,
+        )
+        .await?;
+        if !(200..300).contains(&status) {
+            return Err(QueryError::Provider(status));
+        }
         let text = body["choices"][0]["message"]["content"]
             .as_str()
             .ok_or(QueryError::InvalidProviderResponse)?;

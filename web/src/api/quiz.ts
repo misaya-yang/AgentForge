@@ -1,3 +1,4 @@
+import type { RequestBody, RequestQuery } from "@/api/contracts";
 /**
  * Quiz API client — fetch, submit, and share quizzes.
  * Generation happens through the in-chat generate_quiz assistant tool.
@@ -13,12 +14,12 @@ export async function getQuiz(quizId: string): Promise<QuizData> {
 
 export async function submitQuiz(
   quizId: string,
-  answers: Record<string, string>,
-  attemptId: string,
+  answers: RequestBody<"POST /api/v1/assistant/quiz/{quiz_id}/submit">["answers"],
+  attemptId: RequestBody<"POST /api/v1/assistant/quiz/{quiz_id}/submit">["attempt_id"],
 ): Promise<QuizAttemptResult> {
   const { data } = await api.post<QuizAttemptResult>(
     `/api/v1/assistant/quiz/${quizId}/submit`,
-    { answers, attempt_id: attemptId },
+    ({ answers, attempt_id: attemptId } satisfies RequestBody<"POST /api/v1/assistant/quiz/{quiz_id}/submit">),
   );
   return data;
 }
@@ -39,7 +40,7 @@ export async function getQuizAttemptResult(quizId: string, attemptId: string): P
 export async function submitSharedQuiz(
   shareCode: string,
   quizId: string,
-  answers: Record<string, string>,
+  answers: RequestBody<"POST /api/v1/assistant/shares/{code}/quiz/{quiz}/submit">["answers"],
 ): Promise<QuizAttemptResult & { cached?: boolean }> {
   const token = getAuthToken();
   const resp = await fetch(
@@ -51,7 +52,7 @@ export async function submitSharedQuiz(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       credentials: "include", // send ag_anon_id cookie
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify(({ answers } satisfies RequestBody<"POST /api/v1/assistant/shares/{code}/quiz/{quiz}/submit">)),
     },
   );
   if (!resp.ok) {
@@ -63,12 +64,7 @@ export async function submitSharedQuiz(
 
 // --- Share ---
 
-export interface ShareQuizRequest {
-  expires_hours?: number;
-  max_attempts?: number;
-  require_name?: boolean;
-  audience?: "public" | "internal";
-}
+export type ShareQuizRequest = Pick<RequestBody<"POST /api/v1/artifact-shares">, "expires_hours" | "max_attempts" | "require_name" | "audience">;
 
 export interface ShareQuizResponse {
   share_id: string;
@@ -89,7 +85,7 @@ export async function createQuizShare(
 ): Promise<ShareQuizResponse> {
   const { data: result } = await api.post<ShareQuizResponse>(
     "/api/v1/artifact-shares",
-    { kind: "quiz", quiz_id: quizId, ...(data ?? {}) },
+    ({ kind: "quiz", quiz_id: quizId, ...(data ?? {}) } satisfies RequestBody<"POST /api/v1/artifact-shares">),
   );
   return result;
 }
@@ -107,7 +103,7 @@ export interface QuizShareSummary {
 }
 
 export async function listQuizShares(quizId: string): Promise<QuizShareSummary[]> {
-  const { data } = await api.get<QuizShareSummary[]>("/api/v1/artifact-shares", { params: { quiz_id: quizId, limit: 200 } });
+  const { data } = await api.get<QuizShareSummary[]>("/api/v1/artifact-shares", { params: ({ quiz_id: quizId, limit: 200 } satisfies RequestQuery<"GET /api/v1/artifact-shares">) });
   return data;
 }
 

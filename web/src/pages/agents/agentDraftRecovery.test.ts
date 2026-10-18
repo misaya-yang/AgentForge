@@ -45,6 +45,7 @@ function host() {
   let initialAgent = agent();
   let initialDraft = draft(1);
   const react = {
+    lazy: () => "AgentReleasePanel", Suspense: "Suspense",
     useState(initial: unknown) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = typeof initial === "function" ? initial() : initial;

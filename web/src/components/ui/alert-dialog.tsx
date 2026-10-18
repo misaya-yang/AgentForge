@@ -13,6 +13,6 @@ const AlertDialogTitle = DialogTitle;
 const AlertDialogDescription = DialogDescription;
 const AlertDialogAction = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<typeof DialogClose>>(({ className, ...props }, ref) => <DialogClose {...props} ref={ref} className={cn(buttonVariants(), className)} />);
 AlertDialogAction.displayName = "AlertDialogAction";
-const AlertDialogCancel = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<typeof DialogClose>>(({ className, ...props }, ref) => <DialogClose {...props} ref={ref} className={cn(buttonVariants({ variant: "outline" }), "mt-2 sm:mt-0", className)} autoFocus />);
+const AlertDialogCancel = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<typeof DialogClose>>(({ className, ...props }, ref) => <DialogClose {...props} ref={ref} className={cn(buttonVariants({ variant: "outline" }), "ui-alert-dialog-slot-1", className)} autoFocus />);
 AlertDialogCancel.displayName = "AlertDialogCancel";
 export { AlertDialog, AlertDialogTrigger, AlertDialogPortal, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel };

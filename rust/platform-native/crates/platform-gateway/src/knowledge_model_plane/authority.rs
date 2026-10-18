@@ -277,7 +277,7 @@ impl KnowledgeModelPlane {
         .fetch_one(&mut *transaction)
         .await
         .map_err(authority_error)?;
-        ai_platform_gateway_foundation::knowledge_model_accounting::settle_in_transaction(
+        let observed = ai_platform_gateway_foundation::knowledge_model_accounting::settle_observed_in_transaction(
             &mut transaction,
             &record,
         )
@@ -287,6 +287,9 @@ impl KnowledgeModelPlane {
             .commit()
             .await
             .map_err(|_| PlaneError::new(503, "knowledge_settlement_commit_unknown"))?;
+        for record in &observed {
+            ai_platform_gateway_foundation::usage_recorder::settled_metrics::record(record);
+        }
         execution = serde_json::from_value(persisted)
             .map_err(|_| PlaneError::new(503, "knowledge_receipt_corrupt"))?;
         Ok(execution)

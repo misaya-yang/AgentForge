@@ -29,11 +29,12 @@ function setup(responses: (Response | Error)[], config = {}) {
   }), output: () => ({ stdout, stderr }), json: () => JSON.parse(stdout) };
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("Knowledge CLI production parser, transport and output", () => {
   it("dispatches the actual executable entrypoint into Knowledge without the native Runtime or chat UI", async () => {
     const h = setup([json(sources())]);
+    vi.stubEnv("AI_GATEWAY_API_KEY","synthetic-secret");
     const config = vi.spyOn(configModule, "loadConfig").mockReturnValue({ ...DEFAULT_CONFIG, api_key: "synthetic-secret", base_url: "https://gateway.example" });
     const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const error = vi.spyOn(process.stderr, "write").mockReturnValue(true);

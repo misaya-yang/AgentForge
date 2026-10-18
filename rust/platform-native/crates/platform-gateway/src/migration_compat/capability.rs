@@ -53,7 +53,7 @@ impl CapabilityAuthority {
         {
             return Err(CompatError::new(403, "capability scope invalid"));
         }
-        let row=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM assistant_capability_executions e WHERE execution_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND run_id=$5::uuid").bind(&scope.execution_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(&scope.run_id).fetch_optional(&self.pool).await?.ok_or_else(||CompatError::new(403,"capability execution not active"))?;
+        let row=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM assistant_capability_executions e WHERE execution_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND session_id=$4 AND run_id=$5::uuid").bind(&scope.execution_id).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).bind(&scope.run_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?.ok_or_else(||CompatError::new(403,"capability execution not active"))?;
         validate_execution_row(
             scope,
             Some(&row),

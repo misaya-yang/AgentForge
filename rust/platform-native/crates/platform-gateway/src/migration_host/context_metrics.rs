@@ -1,6 +1,7 @@
-//! Assistant context-metric read routes and the source's lazy, 100-record
-//! process collector. It is intentionally not reconstructed from billing rows:
-//! Python's getters read the recent deque, including when persistence is enabled.
+//! Authenticated recent calculated-context diagnostics. Production readers and
+//! provider-bound producers share the same process or HA collector. Observations
+//! are never reconstructed from billing rows or quota reservation estimates.
+pub mod producer;
 use crate::{
     migration_content::{ContentAccess, ContentError},
     sessions_api::SessionsApiManager,
@@ -19,34 +20,126 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct ContextMetric {
     pub session_id: String,
     pub tenant_id: String,
     pub timestamp: DateTime<Utc>,
     pub total_tokens: i64,
     pub utilization: f64,
-    pub compression_ratio: f64,
-    pub cache_hit_rate: f64,
+    pub compression_ratio: Option<f64>,
+    pub cache_hit_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calculation: Option<Calculation>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct Calculation {
+    pub source: String,
+    pub token_kind: String,
+    pub context_window: i64,
+    pub non_text_tokens_unknown: bool,
 }
 #[derive(Default)]
 pub struct ContextMetricsCollector {
     recent: Mutex<VecDeque<ContextMetric>>,
+    shared: Option<ai_platform_gateway_foundation::multi_instance::context::ContextStore>,
 }
 impl ContextMetricsCollector {
+    pub fn shared(redis: redis::aio::ConnectionManager) -> Self {
+        Self {
+            recent: Mutex::new(VecDeque::new()),
+            shared: Some(
+                ai_platform_gateway_foundation::multi_instance::context::ContextStore::new(redis),
+            ),
+        }
+    }
+    pub fn shared_authority_configured(&self) -> bool {
+        self.shared.is_some()
+    }
+    pub async fn record_shared(
+        &self,
+        event_id: &str,
+        metric: ContextMetric,
+    ) -> Result<bool, ai_platform_gateway_foundation::multi_instance::Error> {
+        validate_metric(&metric)?;
+        self.shared
+            .as_ref()
+            .ok_or(ai_platform_gateway_foundation::multi_instance::Error::Unavailable)?
+            .record(&metric.tenant_id, &metric.session_id, event_id, &metric)
+            .await
+    }
+    pub async fn observe(
+        &self,
+        event_id: &str,
+        metric: ContextMetric,
+    ) -> Result<bool, ai_platform_gateway_foundation::multi_instance::Error> {
+        if self.shared.is_some() {
+            self.record_shared(event_id, metric).await
+        } else {
+            self.record(metric)?;
+            Ok(true)
+        }
+    }
+    pub async fn read_session(
+        &self,
+        tenant: &str,
+        session: &str,
+        limit: usize,
+    ) -> Result<Value, ai_platform_gateway_foundation::multi_instance::Error> {
+        let collector = self.snapshot().await?;
+        let mut recent = collector
+            .recent
+            .lock()
+            .map_err(|_| ai_platform_gateway_foundation::multi_instance::Error::Unavailable)?;
+        recent.retain(|metric| metric.tenant_id == tenant);
+        drop(recent);
+        Ok(collector.session(session, limit))
+    }
+    pub async fn read_tenant(
+        &self,
+        tenant: &str,
+        hours: i64,
+        now: DateTime<Utc>,
+    ) -> Result<Value, ai_platform_gateway_foundation::multi_instance::Error> {
+        Ok(self.snapshot().await?.tenant(tenant, hours, now))
+    }
+    async fn snapshot(
+        &self,
+    ) -> Result<Self, ai_platform_gateway_foundation::multi_instance::Error> {
+        let recent = if let Some(store) = &self.shared {
+            store.read::<ContextMetric>().await?.into_iter().collect()
+        } else {
+            self.recent
+                .lock()
+                .map_err(|_| ai_platform_gateway_foundation::multi_instance::Error::Unavailable)?
+                .clone()
+        };
+        Ok(Self {
+            recent: Mutex::new(recent),
+            shared: None,
+        })
+    }
     pub fn global() -> Arc<Self> {
         static COLLECTOR: OnceLock<Arc<ContextMetricsCollector>> = OnceLock::new();
         COLLECTOR.get_or_init(|| Arc::new(Self::default())).clone()
     }
     /// The producer supplies calculated totals, like Python's calculate_totals.
-    pub fn record(&self, metric: ContextMetric) {
+    pub fn record(
+        &self,
+        metric: ContextMetric,
+    ) -> Result<(), ai_platform_gateway_foundation::multi_instance::Error> {
+        if self.shared.is_some() {
+            return Err(ai_platform_gateway_foundation::multi_instance::Error::Unavailable);
+        }
+        validate_metric(&metric)?;
         let mut recent = self.recent.lock().unwrap_or_else(|e| e.into_inner());
         if recent.len() == 100 {
             recent.pop_front();
         }
         recent.push_back(metric);
+        Ok(())
     }
-    pub fn session(&self, session: &str, limit: usize) -> Value {
+    fn session(&self, session: &str, limit: usize) -> Value {
         let recent = self.recent.lock().unwrap_or_else(|e| e.into_inner());
         let mut selected: Vec<_> = recent
             .iter()
@@ -57,17 +150,18 @@ impl ContextMetricsCollector {
         selected.reverse();
         if selected.is_empty() {
             return json!({"session_id":session,"request_count":0,"avg_tokens":0,"avg_utilization":0.0,
-                "avg_compression_ratio":0.0,"avg_cache_hit_rate":0.0,"total_tokens_used":null});
+                "avg_compression_ratio":0.0,"avg_cache_hit_rate":0.0,"total_tokens_used":null,"calculation":null});
         }
         let count = selected.len() as i64;
         let tokens: i64 = selected.iter().map(|m| m.total_tokens).sum();
         json!({"session_id":session,"request_count":count,"avg_tokens":tokens.div_euclid(count),
             "avg_utilization":rounded(selected.iter().map(|m| m.utilization).sum::<f64>() / count as f64,3),
-            "avg_compression_ratio":rounded(selected.iter().map(|m| m.compression_ratio).sum::<f64>() / count as f64,2),
-            "avg_cache_hit_rate":rounded(selected.iter().map(|m| m.cache_hit_rate).sum::<f64>() / count as f64,3),
-            "total_tokens_used":tokens})
+            "avg_compression_ratio":known_average(selected.iter().filter_map(|m| m.compression_ratio),2),
+            "avg_cache_hit_rate":known_average(selected.iter().filter_map(|m| m.cache_hit_rate),3),
+            "total_tokens_used":tokens,
+            "calculation":selected.last().and_then(|m|m.calculation.as_ref())})
     }
-    pub fn tenant(&self, tenant: &str, hours: i64, now: DateTime<Utc>) -> Value {
+    fn tenant(&self, tenant: &str, hours: i64, now: DateTime<Utc>) -> Value {
         let recent = self.recent.lock().unwrap_or_else(|e| e.into_inner());
         let cutoff = now - chrono::Duration::hours(hours);
         let selected: Vec<_> = recent
@@ -87,6 +181,30 @@ impl ContextMetricsCollector {
             "total_tokens":tokens,"avg_tokens_per_request":average,
             "avg_utilization":(utilization != 0.0).then(||rounded(utilization,3))})
     }
+}
+fn validate_metric(
+    metric: &ContextMetric,
+) -> Result<(), ai_platform_gateway_foundation::multi_instance::Error> {
+    if metric.total_tokens < 0
+        || metric.total_tokens > i64::MAX / 100
+        || metric.tenant_id.is_empty()
+        || metric.session_id.is_empty()
+        || ![
+            Some(metric.utilization),
+            metric.compression_ratio,
+            metric.cache_hit_rate,
+        ]
+        .into_iter()
+        .flatten()
+        .all(|v| v.is_finite() && (0.0..=1_000_000_000_000.0).contains(&v))
+    {
+        return Err(ai_platform_gateway_foundation::multi_instance::Error::Invalid);
+    }
+    Ok(())
+}
+fn known_average(values: impl Iterator<Item = f64>, digits: usize) -> Option<f64> {
+    let (sum, count) = values.fold((0.0, 0usize), |(sum, count), v| (sum + v, count + 1));
+    (count > 0).then(|| rounded(sum / count as f64, digits))
 }
 fn rounded(value: f64, digits: usize) -> f64 {
     format!("{value:.digits$}").parse().unwrap_or(value)
@@ -171,7 +289,13 @@ async fn session(
         .map_err(|_| ContentError::new(500, "Failed to verify session"))?
         .filter(|s| s.user_id == user.user_id && s.tenant_id == user.tenant_id)
         .ok_or_else(|| ContentError::new(404, "Session not found"))?;
-    Ok(Json(state.collector.session(&id, limit as usize)))
+    Ok(Json(
+        state
+            .collector
+            .read_session(&user.tenant_id, &id, limit as usize)
+            .await
+            .map_err(|_| ContentError::new(503, "context_metrics_unavailable"))?,
+    ))
 }
 async fn tenant(
     State(state): State<ContextMetricsState>,
@@ -180,11 +304,13 @@ async fn tenant(
 ) -> Result<Json<Value>, ContentError> {
     let hours = bounded_query(&query, "hours", 24, 168)?;
     let user = state.access.resolve(&headers).await?;
-    Ok(Json(state.collector.tenant(
-        &user.tenant_id,
-        hours,
-        Utc::now(),
-    )))
+    Ok(Json(
+        state
+            .collector
+            .read_tenant(&user.tenant_id, hours, Utc::now())
+            .await
+            .map_err(|_| ContentError::new(503, "context_metrics_unavailable"))?,
+    ))
 }
 #[cfg(test)]
 mod tests {
@@ -196,8 +322,9 @@ mod tests {
             timestamp: time,
             total_tokens: tokens,
             utilization: 0.12345,
-            compression_ratio: 1.125,
-            cache_hit_rate: 0.56789,
+            compression_ratio: Some(1.125),
+            cache_hit_rate: Some(0.56789),
+            calculation: None,
         }
     }
     #[test]
@@ -238,7 +365,7 @@ mod tests {
         let c = ContextMetricsCollector::default();
         let now = Utc::now();
         for i in 0..102 {
-            c.record(metric("s", "a", i, now));
+            c.record(metric("s", "a", i, now)).unwrap();
         }
         assert_eq!(c.session("s", 200)["request_count"], 100);
         assert_eq!(c.session("s", 2)["total_tokens_used"], 201);
@@ -251,14 +378,40 @@ mod tests {
     fn cutoff_is_strict_and_zero_utilization_is_null() {
         let c = ContextMetricsCollector::default();
         let now = Utc::now();
-        c.record(metric("old", "a", 99, now - chrono::Duration::hours(24)));
+        c.record(metric("old", "a", 99, now - chrono::Duration::hours(24)))
+            .unwrap();
         let mut m = metric("current", "a", 3, now);
         m.utilization = 0.0;
-        c.record(m);
+        c.record(m).unwrap();
         let v = c.tenant("a", 24, now);
         assert_eq!(v["request_count"], 1);
         assert_eq!(v["unique_sessions"], 1);
         assert_eq!(v["total_tokens"], 3);
         assert_eq!(v["avg_utilization"], Value::Null);
+    }
+    #[tokio::test]
+    async fn identical_session_ids_do_not_mix_tenant_observations() {
+        let collector = ContextMetricsCollector::default();
+        let now = Utc::now();
+        collector
+            .record(metric("same", "tenant-a", 7, now))
+            .unwrap();
+        collector
+            .record(metric("same", "tenant-b", 99, now))
+            .unwrap();
+        assert_eq!(
+            collector
+                .read_session("tenant-a", "same", 100)
+                .await
+                .unwrap()["total_tokens_used"],
+            7
+        );
+        assert_eq!(
+            collector
+                .read_session("tenant-b", "same", 100)
+                .await
+                .unwrap()["total_tokens_used"],
+            99
+        );
     }
 }

@@ -45,7 +45,8 @@ fn headers(body: &Value, path: &str, expires: i64) -> HeaderMap {
 }
 #[test]
 fn valid_proof_binds_body_scope_path_and_expiry() {
-    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32]);
+    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32])
+        .with_legacy_window(1_060_000);
     let body = json!({"offset":0,"limit":8});
     let path = "/internal/v2/agent-capabilities/artifacts/art_12345678/read";
     let h = headers(&body, path, 1060);
@@ -87,7 +88,8 @@ fn valid_proof_binds_body_scope_path_and_expiry() {
 }
 #[test]
 fn internal_token_and_proof_are_independent_requirements() {
-    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32]);
+    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32])
+        .with_legacy_window(1_060_000);
     let body = json!({});
     let path = "/internal/v2/agent-capabilities/web-search";
     let mut h = headers(&body, path, 1060);
@@ -108,7 +110,8 @@ fn internal_token_and_proof_are_independent_requirements() {
 }
 #[test]
 fn scope_is_validated_before_downstream_work() {
-    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32]);
+    let auth = CapabilityAuthorization::new("internal-test-token".into(), vec![b'p'; 32])
+        .with_legacy_window(1_060_000);
     let body = json!({});
     let path = "/internal/v2/agent-capabilities/web-search";
     let mut h = headers(&body, path, 1060);
@@ -127,4 +130,11 @@ fn search_results_are_bounded_and_reject_non_http_urls() {
     for url in ["file:///private/file", "javascript:alert(1)", "not-a-url"] {
         assert!(bounded_search_result(&json!({"title":"t","url":url,"content":"c"})).is_none());
     }
+}
+
+#[test]
+fn legacy_proof_does_not_implicitly_activate_a_compatibility_window(){
+    let auth=CapabilityAuthorization::new("internal-test-token".into(),vec![b'p';32]);
+    let body=json!({});let path="/internal/v2/agent-capabilities/web-search";
+    assert_eq!(auth.authorize(&headers(&body,path,1060),path,&body,1000).unwrap_err().status,401);
 }

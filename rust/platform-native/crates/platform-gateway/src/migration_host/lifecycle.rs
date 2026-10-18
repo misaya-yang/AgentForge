@@ -25,30 +25,51 @@ pub struct LifecycleStep {
     pub operation: HostOperation,
     pub best_effort: bool,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LifecycleState {
+    Idle,
+    Running,
+    Failed,
+}
 pub struct Lifecycle {
     startup: Vec<LifecycleStep>,
     shutdown: Vec<LifecycleStep>,
-    initialized: Mutex<bool>,
+    initialized: Mutex<LifecycleState>,
 }
 impl Lifecycle {
     pub fn new(startup: Vec<LifecycleStep>, shutdown: Vec<LifecycleStep>) -> Self {
         Self {
             startup,
             shutdown,
-            initialized: Mutex::new(false),
+            initialized: Mutex::new(LifecycleState::Idle),
         }
     }
     pub async fn start(&self) -> Result<(), HostError> {
         let mut initialized = self.initialized.lock().await;
-        if *initialized {
-            return Ok(());
+        match *initialized {
+            LifecycleState::Running => return Ok(()),
+            LifecycleState::Failed => return Err(HostError::Startup("previous_lifecycle_failure")),
+            LifecycleState::Idle => {}
         }
+        // Mark partial startup owned before the first side effect. If a later
+        // required step fails, run the full canonical cleanup, including the
+        // partially started step and database operation supervisors.
+        *initialized = LifecycleState::Failed;
         for step in &self.startup {
             if (step.operation)().await.is_err() && !step.best_effort {
+                let mut failed = false;
+                for cleanup in &self.shutdown {
+                    if (cleanup.operation)().await.is_err() && !cleanup.best_effort {
+                        failed = true;
+                    }
+                }
+                if !failed {
+                    *initialized = LifecycleState::Idle;
+                }
                 return Err(HostError::Startup(step.name));
             }
         }
-        *initialized = true;
+        *initialized = LifecycleState::Running;
         Ok(())
     }
     pub async fn stop(&self, drain: &DrainState) -> Result<(), HostError> {
@@ -62,17 +83,22 @@ impl Lifecycle {
         drain_timeout: Duration,
     ) -> Result<(), HostError> {
         let mut initialized = self.initialized.lock().await;
-        if !*initialized {
+        if *initialized == LifecycleState::Idle {
             return Ok(());
         }
         let _ = drain.wait_drained(drain_timeout).await;
+        let mut failure = None;
         for step in &self.shutdown {
-            if (step.operation)().await.is_err() && !step.best_effort {
-                return Err(HostError::Shutdown(step.name));
+            if (step.operation)().await.is_err() && !step.best_effort && failure.is_none() {
+                failure = Some(HostError::Shutdown(step.name));
             }
         }
-        *initialized = false;
-        Ok(())
+        *initialized = if failure.is_some() {
+            LifecycleState::Failed
+        } else {
+            LifecycleState::Idle
+        };
+        failure.map_or(Ok(()), Err)
     }
 }
 /// This ordering is the canonical shutdown contract, not alphabetical service order.
@@ -105,6 +131,8 @@ pub const SHUTDOWN_ORDER: &[&str] = &[
     "transparent_proxy",
     "container_billing_interceptor",
     "service_adapters",
+    "authorization_decision_log",
+    "gateway_ha_directory",
     "database",
     "redis",
 ];

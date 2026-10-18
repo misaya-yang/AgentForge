@@ -29,8 +29,8 @@ impl RequestProof {
     pub fn validate(&self, now: u64) -> Result<()> {
         let url = url::Url::parse(&self.target).map_err(|_| ChannelStoreError::Rejected)?;
         if self.version != 1
-            || self.key_class != "os-vault-software-ed25519"
-            || self.algorithm != "ed25519"
+            || super::identity::key_format(&self.algorithm, &self.key_class, &self.public_key)
+                .is_err()
             || self.public_key.is_empty()
             || self.public_key.len() > 128
             || !self.device_id.starts_with("dev_")
@@ -81,9 +81,32 @@ impl RequestProof {
         body_hash: &str,
         now: u64,
     ) -> Result<()> {
-        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+        self.verify_registered(
+            "ed25519",
+            super::identity::SOFTWARE,
+            registered_key,
+            credential_hash,
+            device,
+            target,
+            body_hash,
+            now,
+        )
+    }
+    pub fn verify_registered(
+        &self,
+        algorithm: &str,
+        class: &str,
+        registered_key: &str,
+        credential_hash: &str,
+        device: &str,
+        target: &str,
+        body_hash: &str,
+        now: u64,
+    ) -> Result<()> {
         self.validate(now)?;
-        if self.public_key != registered_key
+        if self.algorithm != algorithm
+            || self.key_class != class
+            || self.public_key != registered_key
             || self.device_id != device
             || self.credential_sha256 != credential_hash
             || self.target != target
@@ -92,15 +115,13 @@ impl RequestProof {
         {
             return Err(ChannelStoreError::Rejected);
         }
-        let key = URL_SAFE_NO_PAD
-            .decode(registered_key)
-            .map_err(|_| ChannelStoreError::Rejected)?;
-        let signature = URL_SAFE_NO_PAD
-            .decode(&self.signature)
-            .map_err(|_| ChannelStoreError::Rejected)?;
-        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, key)
-            .verify(self.payload().as_bytes(), &signature)
-            .map_err(|_| ChannelStoreError::Rejected)
+        super::identity::verify_signature(
+            algorithm,
+            class,
+            registered_key,
+            &self.signature,
+            self.payload().as_bytes(),
+        )
     }
 }
 
@@ -239,7 +260,7 @@ mod tests {
         );
     }
     #[test]
-    fn refuses_hardware_claims_and_overlong_windows_even_if_resigned() {
+    fn refuses_unknown_classes_and_overlong_windows_even_if_resigned() {
         let (mut proof, _) = proof();
         proof.key_class = "tpm".into();
         assert!(proof.validate(130).is_err());

@@ -12,3 +12,6 @@ data:
   native-gateway.json: {{ .Values.gateway.nativeOptions | toJson | quote }}
   nginx.conf: |-
 {{ .Files.Get "files/nginx.conf" | replace "127.0.0.11" .Values.network.dnsResolver | replace "gateway:8080" (printf "%s-gateway:8080" (include "ai-gateway.fullname" .)) | indent 4 }}
+
+  nginx-precompressed-assets.conf: |-
+{{ .Files.Get "files/nginx-precompressed-assets.conf" | indent 4 }}

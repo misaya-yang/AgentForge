@@ -1,6 +1,7 @@
 //! SDK provenance admission and current-policy revalidation. The existing Rust
 //! Runtime alone prepares approvals and signs the existing Worker lease contract.
 use super::*;
+use crate::migration_agent::control::execution_transport::WorkloadSend;
 use crate::migration_agent::{Scope, control::RuntimeControlPlane};
 use ai_platform_gateway_foundation::sdk_capabilities::canonical_hash;
 use ai_platform_gateway_foundation::{
@@ -180,7 +181,11 @@ impl SdkCapabilityAuthority for Authority {
         })
     }
 }
-async fn current(state: &KnowledgeProxy, grant: &str, run: &str) -> Result<(BoundRead, Value)> {
+pub(super) async fn current(
+    state: &KnowledgeProxy,
+    grant: &str,
+    run: &str,
+) -> Result<(BoundRead, Value)> {
     let reads = state.sdk_reads.as_ref().ok_or_else(bad)?;
     let bound = reads.grants.bound(grant).map_err(|_| bad())?;
     let _ = super::sdk_reads::actor_bound(state, &bound).await?;
@@ -408,23 +413,33 @@ pub async fn execute(
     }
     let (bound, row) = current(&state, grant, &input.run_id).await?;
     let plane = control(&state)?;
-    let mut token = axum::http::HeaderValue::from_str(&plane.options.runtime_internal_token)
-        .map_err(|_| bad())?;
-    token.set_sensitive(true);
     let request=plane.client.post(format!("{}/internal/v1/sdk-runs/{}/capabilities",plane.options.runtime_url.trim_end_matches('/'),input.run_id))
-        .header("x-ai-platform-internal-token",token).header("x-ai-tenant-id",&bound.tenant_id).header("x-ai-user-id",&bound.user_id).header("x-ai-session-id",&bound.session_id)
+        .header("x-ai-tenant-id",&bound.tenant_id).header("x-ai-user-id",&bound.user_id).header("x-ai-session-id",&bound.session_id)
         .header("x-execution-owner-id",row["owner_id"].as_str().ok_or_else(bad)?).header("x-execution-fence",row["fence"].as_i64().ok_or_else(bad)?.to_string())
         .json(&json!({"tool_call_id":input.tool_call_id,"tool":input.tool,"namespace":input.namespace,"arguments":input.arguments}))
         .timeout(Duration::from_secs(45));
+    let request = if plane.options.runtime_internal_token.is_empty() {
+        request
+    } else {
+        let mut token = axum::http::HeaderValue::from_str(&plane.options.runtime_internal_token)
+            .map_err(|_| bad())?;
+        token.set_sensitive(true);
+        request.header("x-ai-platform-internal-token", token)
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(45);
     let mut response = correlate_runtime_request(request, &input.run_id)?
-        .send()
+        .workload_send()
         .await
         .map_err(|_| code(502, "sdk_capability_runtime_unavailable"))?;
     if !response.status().is_success() {
         return Err(code(409, "sdk_capability_runtime_rejected"));
     }
     let mut bytes = vec![];
-    while let Some(chunk) = response.chunk().await.map_err(|_| bad())? {
+    while let Some(chunk) = tokio::time::timeout_at(deadline, response.chunk())
+        .await
+        .map_err(|_| bad())?
+        .map_err(|_| bad())?
+    {
         if bytes.len() + chunk.len() > 1048576 {
             return Err(bad());
         }

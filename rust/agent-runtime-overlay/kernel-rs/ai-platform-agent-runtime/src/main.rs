@@ -1,5 +1,7 @@
 mod startup_admission;
 
+#[path = "../../ai-platform-capability-contract/src/database_connection.rs"]
+mod database_connection;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -19,7 +21,6 @@ use codex_core::config::ConfigBuilder;
 use codex_exec_server::EnvironmentManager;
 use codex_feedback::CodexFeedback;
 use codex_protocol::protocol::SessionSource;
-use sqlx::postgres::PgConnectOptions;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -33,7 +34,12 @@ struct Args {
     )]
     bind: SocketAddr,
 
-    #[arg(long, env = "AI_PLATFORM_INTERNAL_TOKEN", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "AI_PLATFORM_INTERNAL_TOKEN",
+        default_value = "",
+        hide_env_values = true
+    )]
     internal_token: String,
 
     #[arg(long, env = "AI_PLATFORM_AGENT_HOME")]
@@ -45,28 +51,6 @@ struct Args {
         default_value = "/workspace"
     )]
     runtime_workdir: PathBuf,
-
-    #[arg(long, env = "POSTGRES_HOST", default_value = "127.0.0.1")]
-    postgres_host: String,
-
-    #[arg(long, env = "POSTGRES_PORT", default_value_t = 5432)]
-    postgres_port: u16,
-
-    #[arg(long, env = "POSTGRES_USER")]
-    postgres_user: String,
-
-    #[arg(long, env = "POSTGRES_PASSWORD", hide_env_values = true)]
-    postgres_password: String,
-
-    #[arg(long, env = "POSTGRES_DB")]
-    postgres_database: String,
-
-    #[arg(
-        long,
-        env = "AI_PLATFORM_RUNTIME_DB_POOL_MAX_SIZE",
-        default_value_t = 10
-    )]
-    postgres_pool_max_size: u32,
 
     #[arg(
         long,
@@ -85,8 +69,12 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .try_init()
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let telemetry = ai_platform_agent_runtime::telemetry::init("ai-platform-agent-runtime").await.map_err(anyhow::Error::msg)?;
+    let telemetry = ai_platform_agent_runtime::telemetry::init("ai-platform-agent-runtime")
+        .await
+        .map_err(anyhow::Error::msg)?;
     let args = Args::parse();
+    ai_platform_agent_runtime::validate_runtime_verifier_configuration()
+        .map_err(anyhow::Error::msg)?;
     prepare_isolated_agent_home(&args.agent_home)?;
     if !args.runtime_workdir.is_absolute() {
         return Err(std::io::Error::new(
@@ -96,21 +84,14 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
         .into());
     }
 
-    let postgres_options = PgConnectOptions::new()
-        .host(&args.postgres_host)
-        .port(args.postgres_port)
-        .username(&args.postgres_user)
-        .password(&args.postgres_password)
-        .database(&args.postgres_database)
-        .options([
-            ("search_path", "pg_catalog,assistant"),
-            ("statement_timeout", "30000"),
-            ("idle_in_transaction_session_timeout", "15000"),
-        ]);
-    startup_admission::require_compatible_schema(&postgres_options).await?;
+    let database = database_connection::ServiceDatabase::from_environment(
+        "DATA_RUNTIME",
+        database_connection::policy::DatabaseRole::Runtime,
+    )?;
+    let postgres_options = database.options();
+    startup_admission::require_compatible_schema(postgres_options).await?;
     let store = Arc::new(
-        PostgresThreadStore::connect_with_options(postgres_options, args.postgres_pool_max_size)
-            .await?,
+        PostgresThreadStore::from_pool_and_check_readiness(database.connect().await?).await?,
     );
     // Use the upstream catalog with the supported Gateway wire selected. This
     // is model metadata, not a new model loop or a guessed config flag.
@@ -168,15 +149,16 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
     )
     .await?;
     let runtime = RuntimeHttpService::start(kernel, store, args.internal_token)?;
-    let listener = tokio::net::TcpListener::bind(args.bind).await?;
     info!(address = %args.bind, "AI Platform Agent runtime is ready");
     let execution_shutdown = runtime.execution_shutdown_token();
     let stop_accepting = tokio_util::sync::CancellationToken::new();
     let stop_http = stop_accepting.clone();
-    let server = std::future::IntoFuture::into_future(
-        axum::serve(listener, runtime.router())
-            .with_graceful_shutdown(async move { stop_http.cancelled().await }),
-    );
+    let server =
+        std::future::IntoFuture::into_future(ai_platform_agent_runtime::workload_identity::serve(
+            args.bind,
+            runtime.router(),
+            async move { stop_http.cancelled().await },
+        ));
     tokio::pin!(server);
     let result = tokio::select! {
         result = &mut server => result,
@@ -190,7 +172,9 @@ async fn async_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
     runtime.shutdown().await;
     let _ = tokio::time::timeout(std::time::Duration::from_secs(2), &mut server).await;
     ai_platform_agent_runtime::drain_turn_telemetry();
-    if let Some(telemetry) = telemetry { telemetry.shutdown().await; }
+    if let Some(telemetry) = telemetry {
+        telemetry.shutdown().await;
+    }
     result?;
     Ok(())
 }

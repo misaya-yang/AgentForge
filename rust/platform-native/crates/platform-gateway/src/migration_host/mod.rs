@@ -48,6 +48,11 @@ pub struct GatewayHost {
     pub lifecycle: lifecycle::Lifecycle,
     local_node_https: Option<LocalNodeHttpsService>,
     sdk_callback_https: Option<LocalNodeHttpsService>,
+    workload_https: Option<WorkloadHttpsService>,
+}
+struct WorkloadHttpsService {
+    router: Router,
+    configuration: crate::workload_tls::Configuration,
 }
 struct LocalNodeHttpsService {
     router: Router,
@@ -76,11 +81,12 @@ impl GatewayHost {
                 governance,
                 ai_platform_gateway_foundation::request_governance::govern,
             ))
+            .layer(axum::middleware::from_fn(problem_details::enrich))
             .layer(from_fn_with_state(
                 state.clone(),
-                middleware::request_context,
+                middleware::graceful_drain,
             ))
-            .layer(from_fn_with_state(state, middleware::graceful_drain))
+            .layer(from_fn_with_state(state, middleware::request_context))
             .layer(axum::middleware::from_fn(middleware::security_headers));
         Self {
             router,
@@ -88,6 +94,7 @@ impl GatewayHost {
             lifecycle,
             local_node_https: None,
             sdk_callback_https: None,
+            workload_https: None,
         }
     }
     /// Full source middleware order. Endpoint routers perform authorization;
@@ -158,6 +165,7 @@ impl GatewayHost {
             ))
             .layer(axum::middleware::from_fn(middleware::distributed_tracing))
             .layer(axum::middleware::from_fn(middleware::security_headers))
+            .layer(axum::middleware::from_fn(problem_details::enrich))
             .layer(from_fn_with_state(state, middleware::tracing_context));
         Self {
             router,
@@ -165,6 +173,7 @@ impl GatewayHost {
             lifecycle,
             local_node_https: None,
             sdk_callback_https: None,
+            workload_https: None,
         }
     }
     /// Attach the companion-only router to a dedicated TLS listener. Worker
@@ -191,6 +200,36 @@ impl GatewayHost {
         });
         self
     }
+    /// Mount actual internal routes on a private workload TLS listener and deny
+    /// their cleartext copies in required mode, including existing companions.
+    pub fn with_workload_https(
+        mut self,
+        configuration: crate::workload_tls::Configuration,
+        gate: Arc<ai_platform_auth::workload::WorkloadAuth>,
+        routes: crate::workload_tls::Routes,
+    ) -> Result<Self, &'static str> {
+        if [&self.local_node_https, &self.sdk_callback_https]
+            .into_iter()
+            .flatten()
+            .any(|service| service.configuration.address.port() == configuration.address.port())
+        {
+            return Err("workload_tls_companion_port_collision");
+        }
+        let router = crate::workload_tls::restrict(self.router.clone(), gate.clone(), routes);
+        self.router = crate::workload_tls::protect_cleartext(self.router, gate.clone());
+        for service in [&mut self.local_node_https, &mut self.sdk_callback_https]
+            .into_iter()
+            .flatten()
+        {
+            service.router =
+                crate::workload_tls::protect_cleartext(service.router.clone(), gate.clone());
+        }
+        self.workload_https = Some(WorkloadHttpsService {
+            router,
+            configuration,
+        });
+        Ok(self)
+    }
     pub async fn serve(
         self,
         address: SocketAddr,
@@ -215,7 +254,10 @@ impl GatewayHost {
         drain_timeout: std::time::Duration,
         cleanup_timeout: std::time::Duration,
     ) -> Result<(), lifecycle::HostError> {
-        if self.local_node_https.is_some() || self.sdk_callback_https.is_some() {
+        if self.local_node_https.is_some()
+            || self.sdk_callback_https.is_some()
+            || self.workload_https.is_some()
+        {
             return self
                 .serve_with_local_node_https(address, shutdown, drain_timeout, cleanup_timeout)
                 .await;
@@ -315,6 +357,27 @@ impl GatewayHost {
                 }
             }
         }
+        let workload_listener = if let Some(service) = self.workload_https.take() {
+            match crate::workload_tls::WorkloadListener::bind(
+                service.configuration.address,
+                service.configuration.credentials,
+            )
+            .await
+            {
+                Ok(listener) => Some((listener, service.router)),
+                Err(_) => {
+                    let _ = tokio::time::timeout(
+                        cleanup_timeout,
+                        self.lifecycle
+                            .stop_with_drain_timeout(&self.drain, std::time::Duration::ZERO),
+                    )
+                    .await;
+                    return Err(lifecycle::HostError::Listener);
+                }
+            }
+        } else {
+            None
+        };
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
         let mut http_shutdown = shutdown_rx.clone();
         let http_drain = self.drain.clone();
@@ -328,8 +391,10 @@ impl GatewayHost {
             http_drain.begin_drain();
         })
         .into_future();
-        use futures_util::StreamExt;
-        let mut https_serving = futures_util::stream::FuturesUnordered::new();
+        use futures_util::{FutureExt, StreamExt};
+        let mut https_serving: futures_util::stream::FuturesUnordered<
+            std::pin::Pin<Box<dyn Future<Output = std::io::Result<()>> + Send>>,
+        > = futures_util::stream::FuturesUnordered::new();
         for (https_listener, https_router) in https_listeners {
             let mut https_shutdown = shutdown_rx.clone();
             let https_drain = self.drain.clone();
@@ -343,8 +408,19 @@ impl GatewayHost {
                     wait_for_host_shutdown(&mut https_shutdown).await;
                     https_drain.begin_drain();
                 })
-                .into_future(),
+                .into_future()
+                .boxed(),
             );
+        }
+        if let Some((listener, router)) = workload_listener {
+            let mut receiver = shutdown_rx.clone();
+            let drain = self.drain.clone();
+            https_serving.push(axum::serve(listener,
+                router.into_make_service_with_connect_info::<crate::workload_tls::WorkloadConnection>())
+                .with_graceful_shutdown(async move {
+                    wait_for_host_shutdown(&mut receiver).await;
+                    drain.begin_drain();
+                }).into_future().boxed());
         }
         tokio::pin!(http_serving);
         tokio::pin!(shutdown);
@@ -405,3 +481,13 @@ pub mod openapi_document;
 
 pub mod credential_introspection;
 pub mod routing_policy_v1;
+
+pub mod worker_roles;
+
+pub mod problem_details;
+
+pub mod authorization_audit;
+
+pub mod eval_adapters;
+
+pub mod control_plane;

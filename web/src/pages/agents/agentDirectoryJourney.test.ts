@@ -39,6 +39,7 @@ function host(initial = "other=keep") {
   });
   const setParams = (update: (current: URLSearchParams) => URLSearchParams) => { params = update(params); history.push(params.toString()); };
   const modules: Record<string, unknown> = {
+    "@/components/DeferredTable": { DeferredTable: "Table" },
     react: { useState(value: unknown) { const i = index++; if (!(i in slots)) slots[i] = value; return [slots[i], (next: unknown) => { slots[i] = typeof next === "function" ? next(slots[i]) : next; }]; },
       useMemo(factory: () => unknown, deps: unknown[]) { const i = index++; const prior = slots[i] as { deps: unknown[]; value: unknown } | undefined;
         if (!prior || deps.some((item, j) => !Object.is(item, prior.deps[j]))) slots[i] = { deps, value: factory() }; return (slots[i] as { value: unknown }).value; },

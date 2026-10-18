@@ -39,7 +39,7 @@ impl SpanExporter for Traces {
     fn set_resource(&mut self, resource: &Resource) {
         self.0.set_resource(resource);
     }
-    fn shutdown_with_timeout(&mut self, timeout: Duration) -> OTelSdkResult {
+    fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult {
         self.0.shutdown_with_timeout(timeout)
     }
 }

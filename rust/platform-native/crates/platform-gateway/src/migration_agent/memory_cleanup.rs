@@ -334,12 +334,12 @@ impl RuntimeMemoryCleanup {
         principals: &[String],
         cutoff: Option<DateTime<Utc>>,
     ) -> Result<BTreeMap<String, Vec<Value>>, AgentError> {
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(s) FROM assistant_memory_sources s WHERE tenant_id=$1 AND user_id=ANY($2::varchar[]) AND LOWER(COALESCE(metadata->>'deletion_completed','false'))<>'true' ORDER BY user_id,source_id").bind(tenant).bind(principals).fetch_all(&self.pool).await.map_err(|_|err("memory_cleanup_manifest_unavailable"))?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(s) FROM assistant_memory_sources s WHERE tenant_id=$1 AND user_id=ANY($2::varchar[]) AND LOWER(COALESCE(metadata->>'deletion_completed','false'))<>'true' ORDER BY user_id,source_id").bind(tenant).bind(principals).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, tenant)).await.map_err(|_|err("memory_cleanup_manifest_unavailable"))?;
         let ids: Vec<_> = rows
             .iter()
             .map(|r| text(r, "source_id").to_owned())
             .collect();
-        let chunks:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('source_id',source_id,'vector_id',vector_id) FROM assistant_memory_chunks WHERE tenant_id=$1 AND source_id=ANY($2::text[]::uuid[]) AND vector_id IS NOT NULL ORDER BY source_id,vector_id").bind(tenant).bind(ids).fetch_all(&self.pool).await.map_err(|_|err("memory_cleanup_manifest_unavailable"))?;
+        let chunks:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('source_id',source_id,'vector_id',vector_id) FROM assistant_memory_chunks WHERE tenant_id=$1 AND source_id=ANY($2::text[]::uuid[]) AND vector_id IS NOT NULL ORDER BY source_id,vector_id").bind(tenant).bind(ids).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, tenant)).await.map_err(|_|err("memory_cleanup_manifest_unavailable"))?;
         let mut vectors: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for c in chunks {
             let id = text(&c, "vector_id");

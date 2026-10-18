@@ -6,7 +6,7 @@ const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 export class GatewaySessionClient {
   constructor(
     private readonly origin: string,
-    private readonly token: string | undefined,
+    private readonly token: string | (()=>Promise<string>) | undefined,
     private readonly timeoutSeconds: number,
   ) {}
 
@@ -22,9 +22,6 @@ export class GatewaySessionClient {
   }
 
   private async read(path: string): Promise<any> {
-    if (!this.token || this.token.length > 16_384 || /\s/.test(this.token)) {
-      throw new Error("Set AI_GATEWAY_SESSION_TOKEN to an account session token for /history and /resume; API keys cannot authenticate session reads");
-    }
     let origin: URL;
     try { origin = new URL(this.origin); } catch {
       throw new Error("Session reads require an HTTPS Gateway origin or explicit loopback IP over HTTP, such as http://127.0.0.1:8080");
@@ -37,6 +34,10 @@ export class GatewaySessionClient {
     }
     const url = new URL(path, origin);
     if (url.origin !== origin.origin) throw new Error("Invalid session read destination");
+    const token=typeof this.token==="function" ? await this.token() : this.token;
+    if (!token || token.length > 16_384 || /\s/.test(token)) {
+      throw new Error("Use Gateway device login or AI_GATEWAY_SESSION_TOKEN for /history and /resume; API keys cannot authenticate session reads");
+    }
     const controller = new AbortController();
     const timeout = Number.isFinite(this.timeoutSeconds)
       ? Math.min(300, Math.max(1, this.timeoutSeconds)) : 30;
@@ -46,7 +47,7 @@ export class GatewaySessionClient {
       try {
         response = await fetch(url, {
           method: "GET",
-          headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
           redirect: "error",
           signal: controller.signal,
         });

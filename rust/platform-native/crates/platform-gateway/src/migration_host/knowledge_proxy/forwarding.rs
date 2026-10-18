@@ -1,4 +1,5 @@
 use super::*;
+use crate::migration_agent::control::execution_transport::{TransportError, WorkloadSend};
 use axum::{
     body::{Body, Bytes},
     http::{HeaderName, HeaderValue, StatusCode},
@@ -217,9 +218,13 @@ impl KnowledgeProxy {
                 headers.clone(),
                 body.clone(),
             )?;
-            match self.client.execute(request).await {
+            match reqwest::RequestBuilder::from_parts(self.client.clone(), request)
+                .timeout(Duration::from_secs(600))
+                .workload_send()
+                .await
+            {
                 Ok(response) => return Ok(response),
-                Err(error) if attempt == 0 && error.is_connect() => {
+                Err(TransportError::Request(error)) if attempt == 0 && error.is_connect() => {
                     tokio::time::sleep(Duration::from_millis(50)).await
                 }
                 Err(error) => {
@@ -365,6 +370,7 @@ impl KnowledgeProxy {
         }
         // Replayable bytes are retained only through the HTTP response headers.
         // Retry only connect failures: a possibly committed mutation is never replayed.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(600);
         let response = self
             .upstream(method, &upstream_path, &query, headers, body)
             .await;
@@ -396,6 +402,7 @@ impl KnowledgeProxy {
         // large bodies advertising a small Content-Length. SSE never buffers.
         let stream = ForwardStream {
             inner: Box::pin(response.bytes_stream()),
+            deadline: Box::pin(tokio::time::sleep_until(deadline)),
             breaker,
             observation,
             permit: Some(permit),
@@ -470,6 +477,7 @@ impl Observation {
     }
 }
 struct ForwardStream {
+    deadline: Pin<Box<tokio::time::Sleep>>,
     inner: Pin<Box<dyn Stream<Item = std::result::Result<Bytes, reqwest::Error>> + Send>>,
     breaker: Arc<Breaker>,
     observation: Option<Observation>,
@@ -477,9 +485,25 @@ struct ForwardStream {
     finished: bool,
 }
 impl Stream for ForwardStream {
-    type Item = std::result::Result<Bytes, reqwest::Error>;
+    type Item = std::result::Result<Bytes, std::io::Error>;
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let next = self.inner.as_mut().poll_next(cx);
+        use std::future::Future;
+        if self.finished {
+            return Poll::Ready(None);
+        }
+        if self.deadline.as_mut().poll(cx).is_ready() {
+            self.breaker.failure();
+            self.observation = None;
+            self.permit = None;
+            self.finished = true;
+            return Poll::Ready(Some(Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "KB Service timeout",
+            ))));
+        }
+        let next = self.inner.as_mut().poll_next(cx).map(|item| {
+            item.map(|item| item.map_err(|_| std::io::Error::other("KB Service unavailable")))
+        });
         match &next {
             Poll::Ready(Some(Ok(bytes))) => {
                 if let Some(o) = &mut self.observation {
@@ -509,5 +533,34 @@ impl Drop for ForwardStream {
         if !self.finished {
             self.observation = None;
         }
+    }
+}
+
+#[cfg(test)]
+mod stream_deadline_tests {
+    use super::*;
+    use futures_util::StreamExt;
+    #[tokio::test]
+    async fn private_transport_body_timeout_releases_permit_and_never_records_partial_success() {
+        let semaphore = Arc::new(Semaphore::new(1));
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let breaker = Arc::new(Breaker::default());
+        let mut stream = ForwardStream {
+            deadline: Box::pin(tokio::time::sleep(Duration::ZERO)),
+            inner: Box::pin(futures_util::stream::pending()),
+            breaker: breaker.clone(),
+            observation: None,
+            permit: Some(permit),
+            finished: false,
+        };
+        let result = tokio::time::timeout(Duration::from_secs(1), stream.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(result.kind(), std::io::ErrorKind::TimedOut);
+        assert_eq!(semaphore.available_permits(), 1);
+        assert_eq!(breaker.state.lock().unwrap().0, 1);
+        assert!(stream.next().await.is_none());
     }
 }

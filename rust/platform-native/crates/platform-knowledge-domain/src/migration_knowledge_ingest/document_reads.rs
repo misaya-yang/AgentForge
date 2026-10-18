@@ -91,7 +91,17 @@ impl IngestionService {
             .await?;
         self.require_read_generation(actor, dataset, &scope.generation)
             .await?;
-        Ok(rows.into_iter().map(with_display_status).collect())
+        Ok(rows
+            .into_iter()
+            .filter(|r| {
+                crate::migration_knowledge_query::document_acl::allowed(
+                    string(r, "source_type"),
+                    &r["metadata"],
+                    Some(actor),
+                )
+            })
+            .map(with_display_status)
+            .collect())
     }
     pub async fn list_documents_page(
         &self,
@@ -115,7 +125,7 @@ impl IngestionService {
         self.require_read_generation(actor, dataset, &scope.generation)
             .await?;
         Ok(
-            json!({"items":rows.into_iter().map(with_display_status).collect::<Vec<_>>(),"total":total,"limit":limit,"offset":offset}),
+            json!({"items":rows.into_iter().filter(|r|crate::migration_knowledge_query::document_acl::allowed(string(r,"source_type"),&r["metadata"],Some(actor))).map(with_display_status).collect::<Vec<_>>(),"total":total,"limit":limit,"offset":offset}),
         )
     }
     pub async fn count_documents(&self, actor: &Actor, dataset: &str) -> Result<i64> {
@@ -188,6 +198,13 @@ impl IngestionService {
                 .contains(document)
         {
             return Err(IngestError::Validation("document not found".into()));
+        }
+        if !crate::migration_knowledge_query::document_acl::allowed(
+            string(&document_value, "source_type"),
+            &document_value["metadata"],
+            Some(actor),
+        ) {
+            return Err(IngestError::NotFound);
         }
         Ok(with_display_status(document_value))
     }
@@ -316,8 +333,9 @@ impl IngestionService {
             .require_dataset_access(actor, dataset, "viewer")
             .await?;
         let expected = generation(&value)?;
+        self.get_document(actor, dataset, document).await?;
         let stats:Value=sqlx::query_scalar("SELECT to_jsonb(result) FROM (SELECT d.document_id, COALESCE(d.word_count,0) AS word_count,d.status,d.enabled,d.archived,COUNT(s.segment_id)::bigint AS segment_count,COALESCE(SUM(s.hit_count),0)::bigint AS hit_count FROM knowledge.documents AS d LEFT JOIN knowledge.segments AS s ON s.dataset_id=d.dataset_id AND s.document_id=d.document_id WHERE d.dataset_id=$1 AND d.document_id=$2 GROUP BY d.document_id,d.word_count,d.status,d.enabled,d.archived) result")
-            .bind(dataset).bind(document).fetch_optional(&self.store.pool).await?.ok_or_else(||IngestError::Validation("document not found".into()))?;
+            .bind(dataset).bind(document).fetch_optional(crate::database::executor(&self.store.pool)).await?.ok_or_else(||IngestError::Validation("document not found".into()))?;
         self.require_read_generation(actor, dataset, &expected)
             .await?;
         Ok(stats)
@@ -341,6 +359,7 @@ fn document_filters(
     builder
         .push(" WHERE d.dataset_id=")
         .push_bind(dataset.to_owned());
+    builder.push(crate::migration_knowledge_query::document_acl::current_predicate());
     if active {
         builder.push(" AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex') AND EXISTS(SELECT 1 FROM knowledge.datasets ds WHERE ds.dataset_id=d.dataset_id AND ds.tenant_id=").push_bind(tenant.to_owned()).push(" AND ds.is_deleted=FALSE)");
     }
@@ -359,6 +378,7 @@ fn segment_filters(
     if active {
         builder.push(" AND COALESCE(s.enabled,TRUE)=TRUE AND s.status='completed' AND EXISTS(SELECT 1 FROM knowledge.documents d JOIN knowledge.datasets ds ON ds.dataset_id=d.dataset_id WHERE d.document_id=s.document_id AND d.dataset_id=s.dataset_id AND ds.tenant_id=").push_bind(tenant.to_owned()).push(" AND ds.is_deleted=FALSE AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex'))");
     }
+    builder.push(" AND EXISTS(SELECT 1 FROM knowledge.documents d WHERE d.document_id=s.document_id AND d.dataset_id=s.dataset_id ").push(crate::migration_knowledge_query::document_acl::current_predicate()).push(")");
     if let Some(document) = document.filter(|s| !s.is_empty()) {
         builder
             .push(" AND s.document_id=")
@@ -397,7 +417,10 @@ impl KnowledgeWriteStore {
             .push(" OFFSET ")
             .push_bind(offset)
             .push(") result");
-        Ok(query.build_query_scalar().fetch_all(&self.pool).await?)
+        Ok(query
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?)
     }
     pub async fn count_documents_scoped(
         &self,
@@ -409,7 +432,10 @@ impl KnowledgeWriteStore {
         let mut query =
             QueryBuilder::<Postgres>::new("SELECT COUNT(*) FROM knowledge.documents AS d");
         document_filters(&mut query, dataset, active, tenant);
-        Ok(query.build_query_scalar().fetch_one(&self.pool).await?)
+        Ok(query
+            .build_query_scalar()
+            .fetch_one(crate::database::executor(&self.pool))
+            .await?)
     }
     pub async fn list_document_ids_scoped(
         &self,
@@ -421,7 +447,10 @@ impl KnowledgeWriteStore {
         let mut query =
             QueryBuilder::<Postgres>::new("SELECT d.document_id FROM knowledge.documents AS d");
         document_filters(&mut query, dataset, active, tenant);
-        Ok(query.build_query_scalar().fetch_all(&self.pool).await?)
+        Ok(query
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?)
     }
     pub async fn filter_active_document_ids(
         &self,
@@ -442,8 +471,8 @@ impl KnowledgeWriteStore {
                 "dataset_id and tenant_id are required for active document filtering".into(),
             ));
         }
-        let ids:Vec<String>=sqlx::query_scalar("SELECT DISTINCT d.document_id FROM knowledge.documents AS d JOIN knowledge.datasets AS ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{}'::jsonb) ? '_document_lifecycle_reindex')")
-            .bind(dataset.trim()).bind(tenant.trim()).bind(normalized.into_iter().collect::<Vec<_>>()).fetch_all(&self.pool).await?;
+        let ids:Vec<String>=sqlx::query_scalar(&format!("SELECT DISTINCT d.document_id FROM knowledge.documents AS d JOIN knowledge.datasets AS ds ON ds.dataset_id=d.dataset_id WHERE d.dataset_id=$1 AND ds.tenant_id=$2 AND ds.is_deleted=FALSE AND d.document_id=ANY($3::text[]) AND COALESCE(d.enabled,TRUE)=TRUE AND COALESCE(d.archived,FALSE)=FALSE AND NOT(COALESCE(d.metadata,'{{}}'::jsonb) ? '_document_lifecycle_reindex'){}",crate::migration_knowledge_query::document_acl::current_predicate()))
+            .bind(dataset.trim()).bind(tenant.trim()).bind(normalized.into_iter().collect::<Vec<_>>()).fetch_all(crate::database::executor(&self.pool)).await?;
         Ok(ids
             .into_iter()
             .map(|s| s.trim().to_owned())
@@ -465,7 +494,10 @@ impl KnowledgeWriteStore {
             QueryBuilder::<Postgres>::new("SELECT to_jsonb(s) FROM knowledge.segments AS s");
         segment_filters(&mut query, dataset, document, query_text, active, tenant);
         query.push(" ORDER BY s.document_id ASC,s.position ASC,s.content_type ASC,s.segment_id ASC LIMIT ").push_bind(limit).push(" OFFSET ").push_bind(offset);
-        Ok(query.build_query_scalar().fetch_all(&self.pool).await?)
+        Ok(query
+            .build_query_scalar()
+            .fetch_all(crate::database::executor(&self.pool))
+            .await?)
     }
     pub async fn count_segments_scoped(
         &self,
@@ -479,6 +511,9 @@ impl KnowledgeWriteStore {
         let mut query =
             QueryBuilder::<Postgres>::new("SELECT COUNT(*) FROM knowledge.segments AS s");
         segment_filters(&mut query, dataset, document, query_text, active, tenant);
-        Ok(query.build_query_scalar().fetch_one(&self.pool).await?)
+        Ok(query
+            .build_query_scalar()
+            .fetch_one(crate::database::executor(&self.pool))
+            .await?)
     }
 }

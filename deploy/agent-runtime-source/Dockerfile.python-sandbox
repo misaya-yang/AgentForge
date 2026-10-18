@@ -43,12 +43,18 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
         --bin ai-platform-python-supervisor \
         --bin ai-platform-python-sandbox \
         --bin ai-platform-python-sandbox-health \
+        --bin ai-platform-sandbox-pool \
+        --bin ai-platform-sandbox-attestor \
+        --bin ai-platform-sandbox-measurement \
     && cp target/dev-small/ai-platform-capability-worker /tmp/ \
     && cp target/dev-small/ai-platform-capability-worker-health /tmp/ \
     && cp target/dev-small/ai-platform-plugin-packs /tmp/ \
     && cp target/dev-small/ai-platform-python-supervisor /tmp/ \
     && cp target/dev-small/ai-platform-python-sandbox /tmp/ \
-    && cp target/dev-small/ai-platform-python-sandbox-health /tmp/
+    && cp target/dev-small/ai-platform-python-sandbox-health /tmp/ \
+    && cp target/dev-small/ai-platform-sandbox-pool /tmp/ \
+    && cp target/dev-small/ai-platform-sandbox-attestor /tmp/ \
+    && cp target/dev-small/ai-platform-sandbox-measurement /tmp/
 
 # Only the build stage can fetch public, exact-hash wheels. No source builds.
 FROM ${PYTHON_SANDBOX_IMAGE} AS wheels
@@ -131,6 +137,7 @@ LABEL org.opencontainers.image.title="AI Platform Credential-free Python Sandbox
 COPY LICENSE NOTICE /opt/ai-platform-python-sandbox/
 COPY --from=builder /tmp/ai-platform-python-sandbox /usr/local/bin/
 COPY --from=builder /tmp/ai-platform-python-sandbox-health /usr/local/bin/
+COPY --from=builder /tmp/ai-platform-sandbox-measurement /usr/local/bin/
 COPY --from=builder /tmp/ai-platform-python-supervisor /usr/local/bin/
 COPY --from=wheels /opt/agentforge/python-packages/ /opt/agentforge/python-packages/
 RUN install -d -m 0700 -o 10001 -g 10001 /workspace /run/agentforge-sandbox /var/lib/agentforge-sandbox/jobs \
@@ -139,7 +146,7 @@ RUN install -d -m 0700 -o 10001 -g 10001 /workspace /run/agentforge-sandbox /var
     && OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MPLCONFIGDIR=/tmp/agentforge-mpl python3 -I -S -B -c "import sys,json; assert sys.version_info[:2] == (3,14); c=json.load(open('/opt/agentforge/python-packages/catalog.json')); sys.path[:0]=['/opt/agentforge/python-packages/'+p for p in c['packages']]; import numpy,pandas,scipy,matplotlib,PIL,openpyxl" \
     && rm -rf /tmp/agentforge-mpl /root/.cache \
     && test -x /usr/bin/unshare \
-    && for binary in /usr/local/bin/ai-platform-python-sandbox /usr/local/bin/ai-platform-python-sandbox-health /usr/local/bin/ai-platform-python-supervisor; do \
+    && for binary in /usr/local/bin/ai-platform-python-sandbox /usr/local/bin/ai-platform-python-sandbox-health /usr/local/bin/ai-platform-python-supervisor /usr/local/bin/ai-platform-sandbox-measurement; do \
         ldd "$binary" > /tmp/sandbox-ldd || exit 1; \
         if grep -q 'not found' /tmp/sandbox-ldd; then cat /tmp/sandbox-ldd; exit 1; fi; \
     done \

@@ -135,9 +135,9 @@ can add — one adapter reaches every ACP-compatible editor.
 
 ## 6. How to change this file
 
-This document states intent that should outlive any one program. Change it when a law changes,
-not when an implementation does. The prior `agent-contract-unification` scaffold is superseded by
-the completed Rust single-kernel cutover. The next queued conformance work is
-[`platform-architecture-convergence-prd-2026-08.md`](../plans/platform-architecture-convergence-prd-2026-08.md);
-it becomes executable only after RAG acceptance and after exactly one authoritative program is
-created or adopted. This file remains authoritative for product law, not execution status.
+This document states intent that should outlive any one program. Change it when a product boundary
+changes. Code ownership and deployment boundaries live in [architecture.md](architecture.md).
+The [current upgrade plan](../plans/platform-upgrade-2026-10/README.md) groups delivery work;
+its [existing execution ledger](../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)
+alone records progress, remaining work and pauses. Historical plans do not start a second program
+or impose new prerequisites on the current task.

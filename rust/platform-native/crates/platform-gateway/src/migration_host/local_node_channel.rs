@@ -1,10 +1,12 @@
 //! Native Local Node companion channel. This feature is opt-in and fails closed
 //! unless the operator supplies its signing/TLS keys and the credential schema.
+#[path = "local_node_identity.rs"]
+pub(super) mod identity;
 #[path = "local_node_request_proof.rs"]
 pub(super) mod request_proof;
 use axum::{
     Json, Router,
-    body::to_bytes,
+    body::{Body, Bytes, to_bytes},
     extract::{ConnectInfo, Request, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
@@ -164,10 +166,20 @@ pub struct PairingRedeemRequest {
     pub capability_claims: Vec<String>,
     pub permission_snapshot_digest: String,
     pub proof_algorithm: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_key_class: Option<String>,
     pub proof_public_key: String,
     pub device_proof: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_proof_version: Option<u32>,
+}
+
+impl PairingRedeemRequest {
+    pub(super) fn key_class(&self) -> &str {
+        self.proof_key_class
+            .as_deref()
+            .unwrap_or(identity::SOFTWARE)
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -368,6 +380,7 @@ pub struct LocalNodeChannelState {
     pub worker_authorization: Arc<dyn crate::migration_local_node::broker::BrokerAuthorization>,
     replay: Arc<ProofReplayCache>,
     rate_limit: Arc<ChannelRateLimit>,
+    streams: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl LocalNodeChannelState {
@@ -389,6 +402,7 @@ impl LocalNodeChannelState {
             worker_authorization,
             replay: Arc::new(ProofReplayCache::default()),
             rate_limit: Arc::new(ChannelRateLimit::default()),
+            streams: Arc::new(Mutex::new(HashMap::new())),
         }))
     }
 }
@@ -466,6 +480,7 @@ pub fn local_node_worker_router(state: Option<Arc<LocalNodeChannelState>>) -> Ro
         )
         .route(&format!("{WORKER_BASE_PATH}/status"), post(worker_status))
         .route(&format!("{WORKER_BASE_PATH}/cancel"), post(worker_cancel))
+        .layer(axum::middleware::from_fn(crate::migration_content::capabilities::scope_authenticated_workload))
         .with_state(state)
 }
 
@@ -516,7 +531,7 @@ async fn companion_post(
     };
     if matches!(
         value.get("kind").and_then(Value::as_str),
-        Some("heartbeat" | "request_nonce")
+        Some("heartbeat" | "control_stream" | "request_nonce")
     ) {
         let Some(token) = device_credential(&headers) else {
             return error_response(StatusCode::UNAUTHORIZED, "DEVICE_CREDENTIAL_REQUIRED");
@@ -533,7 +548,7 @@ async fn companion_post(
             }
             if !state
                 .rate_limit
-                .allow(format!("nonce:{hash}"), 60, Duration::from_secs(60))
+                .allow(format!("nonce:{hash}"), 300, Duration::from_secs(60))
             {
                 return error_response(StatusCode::TOO_MANY_REQUESTS, "NONCE_RATE_LIMITED");
             }
@@ -582,11 +597,33 @@ async fn companion_post(
                 Err(status) => error_response(status, "PAIRING_REDEMPTION_REJECTED"),
             }
         }
-        Some("heartbeat") => {
+        Some("control_stream") => {
+            let Some(token) = device_credential(&headers) else {
+                return error_response(StatusCode::UNAUTHORIZED, "DEVICE_CREDENTIAL_REQUIRED");
+            };
+            let hash = sha256(token.as_bytes());
             if !state
                 .rate_limit
-                .allow(format!("heartbeat:{peer}"), 60, Duration::from_secs(60))
+                .allow(format!("stream:{hash}"), 12, Duration::from_secs(60))
             {
+                return error_response(StatusCode::TOO_MANY_REQUESTS, "STREAM_RATE_LIMITED");
+            }
+            let Ok(open) = serde_json::from_value::<ControlStreamRequest>(value) else {
+                return error_response(StatusCode::UNPROCESSABLE_ENTITY, "STREAM_BODY_INVALID");
+            };
+            open_control_stream(state, hash, open).await
+        }
+        Some("heartbeat") => {
+            if !state.rate_limit.allow(
+                format!(
+                    "heartbeat:{}",
+                    device_credential(&headers)
+                        .map(|t| sha256(t.as_bytes()))
+                        .unwrap_or_default()
+                ),
+                300,
+                Duration::from_secs(60),
+            ) {
                 return error_response(StatusCode::TOO_MANY_REQUESTS, "HEARTBEAT_RATE_LIMITED");
             }
             let Ok(heartbeat) = serde_json::from_value::<HeartbeatRequest>(value) else {
@@ -601,12 +638,207 @@ async fn companion_post(
     }
 }
 
-async fn redeem_pairing(
-    state: &LocalNodeChannelState,
-    request: PairingRedeemRequest,
-) -> Result<Value, StatusCode> {
-    validate_pairing(&request)?;
-    let raw = serde_json::to_value(&request).map_err(|_| StatusCode::BAD_REQUEST)?;
+// An outbound HTTP response stream uses the existing endpoint and credential
+// proof. No new listener, token, tenant selector or execution authority exists.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ControlStreamRequest {
+    protocol_version: String,
+    kind: String,
+    device_id: String,
+    stream_id: String,
+    after_cursor: Option<String>,
+    sent_at: f64,
+}
+struct StreamLease {
+    active: Arc<Mutex<HashMap<String, String>>>,
+    credential_hash: String,
+    stream_id: String,
+}
+impl StreamLease {
+    fn current(&self) -> bool {
+        self.active
+            .lock()
+            .map(|active| active.get(&self.credential_hash) == Some(&self.stream_id))
+            .unwrap_or(false)
+    }
+}
+impl Drop for StreamLease {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.active.lock() {
+            if active.get(&self.credential_hash) == Some(&self.stream_id) {
+                active.remove(&self.credential_hash);
+            }
+        }
+    }
+}
+struct ControlResponseStream {
+    state: Arc<LocalNodeChannelState>,
+    lease: StreamLease,
+    request: HeartbeatRequest,
+    first: Option<HeartbeatResult>,
+    sequence: u64,
+    sent: std::collections::HashSet<String>,
+    last_frame: Instant,
+}
+async fn open_control_stream(
+    state: Arc<LocalNodeChannelState>,
+    credential_hash: String,
+    open: ControlStreamRequest,
+) -> Response {
+    if open.protocol_version != PROTOCOL_V2
+        || open.kind != "control_stream"
+        || uuid::Uuid::parse_str(&open.stream_id).is_err()
+        || open
+            .after_cursor
+            .as_ref()
+            .is_some_and(|c| c.len() > 80 || c.chars().any(|c| c < ' '))
+    {
+        return error_response(StatusCode::UNPROCESSABLE_ENTITY, "STREAM_BODY_INVALID");
+    }
+    let sequence = match open.after_cursor.as_deref() {
+        None => 0,
+        Some(cursor) => {
+            let parsed = cursor.rsplit_once(':').and_then(|(id, sequence)| {
+                uuid::Uuid::parse_str(id).ok()?;
+                sequence
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|n| *n > 0 && *n < u64::MAX)
+            });
+            let Some(sequence) = parsed else {
+                return error_response(StatusCode::UNPROCESSABLE_ENTITY, "STREAM_CURSOR_INVALID");
+            };
+            sequence
+        }
+    };
+    // Resume never suppresses a durable pending command. A crash may occur
+    // between execution, receipt persistence and checkpointing; the companion's
+    // existing durable command replay guard handles every redelivery.
+    let request = HeartbeatRequest {
+        protocol_version: PROTOCOL_V2.into(),
+        kind: "heartbeat".into(),
+        device_id: open.device_id,
+        doctor: json!({}),
+        receipts: Vec::new(),
+        sent_at: open.sent_at,
+    };
+    if validate_heartbeat(&request).is_err() {
+        return error_response(StatusCode::UNPROCESSABLE_ENTITY, "STREAM_BODY_INVALID");
+    }
+    let first = match state.repository.heartbeat(&request, &credential_hash).await {
+        Ok(first) => first,
+        Err(_) => return error_response(StatusCode::UNAUTHORIZED, "DEVICE_CREDENTIAL_REJECTED"),
+    };
+    {
+        let Ok(mut active) = state.streams.lock() else {
+            return error_response(StatusCode::SERVICE_UNAVAILABLE, "STREAM_UNAVAILABLE");
+        };
+        if active.len() >= 4096 && !active.contains_key(&credential_hash) {
+            return error_response(StatusCode::SERVICE_UNAVAILABLE, "STREAM_CAPACITY");
+        }
+        active.insert(credential_hash.clone(), open.stream_id.clone());
+    }
+    let source = ControlResponseStream {
+        lease: StreamLease {
+            active: state.streams.clone(),
+            credential_hash,
+            stream_id: open.stream_id,
+        },
+        state,
+        request,
+        first: Some(first),
+        sequence,
+        sent: Default::default(),
+        last_frame: Instant::now(),
+    };
+    let stream = futures_util::stream::unfold(source, |mut source| async move {
+        loop {
+            if !source.lease.current() {
+                return None;
+            }
+            let first_frame = source.first.is_some();
+            let result = if let Some(first) = source.first.take() {
+                first
+            } else {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                if !source.lease.current() {
+                    return None;
+                }
+                source.request.sent_at = unix_now();
+                // Each read repeats the original tenant/device/credential,
+                // revocation, grant and fence checks in the SQL authority.
+                match source
+                    .state
+                    .repository
+                    .heartbeat(&source.request, &source.lease.credential_hash)
+                    .await
+                {
+                    Ok(result) => result,
+                    Err(_) => return None,
+                }
+            };
+            let batch = match bounded_heartbeat_response(
+                &source.state.signer,
+                HeartbeatResult {
+                    claims: Vec::new(),
+                    ..result
+                },
+            ) {
+                Ok(batch) => batch,
+                Err(_) => return None,
+            };
+            let mut commands = Vec::new();
+            for command in batch["commands"].as_array()? {
+                let digest = digest_value(command);
+                if source.sent.contains(&digest) {
+                    continue;
+                }
+                if source.sent.len() >= 4096 {
+                    return None;
+                }
+                source.sent.insert(digest);
+                commands.push(command.clone());
+            }
+            if !first_frame
+                && commands.is_empty()
+                && source.last_frame.elapsed() < Duration::from_secs(1)
+            {
+                continue;
+            }
+            source.sequence = source.sequence.checked_add(1)?;
+            let issued = unix_now();
+            let mut frame = json!({
+                "protocol_version": PROTOCOL_V2, "device_id": source.request.device_id,
+                "stream_id": source.lease.stream_id, "sequence": source.sequence,
+                "cursor": format!("{}:{}", source.lease.stream_id, source.sequence),
+                "issued_at": issued, "expires_at": issued + 5.0, "commands": commands,
+                "platform_key_id": source.state.signer.key_id(),
+            });
+            let signature = source
+                .state
+                .signer
+                .sign(canonical_json(&frame).as_bytes())
+                .ok()?;
+            frame["platform_signature"] = json!(signature);
+            let mut bytes = serde_json::to_vec(&frame).ok()?;
+            bytes.push(b'\n');
+            source.last_frame = Instant::now();
+            return Some((Ok::<Bytes, std::io::Error>(Bytes::from(bytes)), source));
+        }
+    });
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/x-ndjson")
+        .header("Cache-Control", "no-store, no-transform")
+        .header("X-Accel-Buffering", "no")
+        .body(Body::from_stream(stream))
+        .expect("static stream response headers")
+}
+
+fn verified_pairing_key(request: &PairingRedeemRequest) -> Result<Vec<u8>, StatusCode> {
+    validate_pairing(request)?;
+    let raw = serde_json::to_value(request).map_err(|_| StatusCode::BAD_REQUEST)?;
     let mut preproof = raw.clone();
     let object = preproof.as_object_mut().ok_or(StatusCode::BAD_REQUEST)?;
     object.remove("device_proof");
@@ -619,12 +851,23 @@ async fn redeem_pairing(
     let public_key = URL_SAFE_NO_PAD
         .decode(&request.proof_public_key)
         .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
-    let device_signature = URL_SAFE_NO_PAD
-        .decode(&request.device_proof)
-        .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
-    UnparsedPublicKey::new(&ED25519, &public_key)
-        .verify(canonical_json(&proof_message).as_bytes(), &device_signature)
-        .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+    identity::verify_signature(
+        &request.proof_algorithm,
+        request.key_class(),
+        &request.proof_public_key,
+        &request.device_proof,
+        canonical_json(&proof_message).as_bytes(),
+    )
+    .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+
+    Ok(public_key)
+}
+
+async fn redeem_pairing(
+    state: &LocalNodeChannelState,
+    request: PairingRedeemRequest,
+) -> Result<Value, StatusCode> {
+    let public_key = verified_pairing_key(&request)?;
 
     let now = unix_now();
     let expires_at = now + PAIRING_TTL_SECONDS as f64;
@@ -1027,11 +1270,18 @@ struct CapabilityProof {
 }
 
 fn capability_proof(headers: &HeaderMap) -> Option<CapabilityProof> {
-    let encoded = headers
-        .get("x-ai-capability-proof")?
-        .to_str()
-        .ok()?
-        .strip_prefix("v1.")?;
+    let header = headers.get("x-ai-capability-proof")?.to_str().ok()?;
+    // The broker authorizer already verified this proof's signature, exact
+    // method/path/body and actor. Preserve the nonce/expiry replay contract.
+    if header.starts_with(ai_platform_capability_contract::lease_v3::ENVELOPE_PREFIX) {
+        use ai_platform_capability_contract::{broker_proof,lease_v3};
+        let envelope:lease_v3::SignedEnvelope=lease_v3::decode(lease_v3::ENVELOPE_PREFIX,header).ok()?;
+        if envelope.purpose!=broker_proof::PURPOSE || envelope.claims["schema_version"]!=broker_proof::SCHEMA {return None}
+        let nonce=envelope.claims["nonce"].as_str()?.to_owned();
+        if nonce.is_empty()||nonce.len()>128{return None}
+        return Some(CapabilityProof{expires_at:i64::try_from(envelope.expires_at_ms/1000).ok()?,nonce});
+    }
+    let encoded=header.strip_prefix("v1.")?;
     if encoded.len() > 4096 {
         return None;
     }
@@ -1077,21 +1327,21 @@ fn validate_pairing(request: &PairingRedeemRequest) -> Result<(), StatusCode> {
         || request.capability_claims.iter().any(|v| !bounded(v, 128))
         || request.capability_claims.windows(2).any(|w| w[0] >= w[1])
         || !lower_hex(&request.permission_snapshot_digest, 64)
-        || request.proof_algorithm != "ed25519"
+        || !identity::platform_matches(request.key_class(), &request.platform)
+        || (request.proof_algorithm == "ES256" && request.request_proof_version != Some(1))
         || !bounded(&request.proof_public_key, 128)
         || !bounded(&request.device_proof, 256)
     {
         return Err(StatusCode::UNPROCESSABLE_ENTITY);
     }
-    let public_key = URL_SAFE_NO_PAD
-        .decode(&request.proof_public_key)
+    identity::key_format(
+        &request.proof_algorithm,
+        request.key_class(),
+        &request.proof_public_key,
+    )
+    .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+    identity::signature_format(&request.proof_algorithm, &request.device_proof)
         .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
-    let signature = URL_SAFE_NO_PAD
-        .decode(&request.device_proof)
-        .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
-    if public_key.len() != 32 || signature.len() != 64 {
-        return Err(StatusCode::UNPROCESSABLE_ENTITY);
-    }
     Ok(())
 }
 
@@ -1529,6 +1779,48 @@ mod tests {
     }
 
     #[test]
+    fn cross_end_pairing_binds_class_algorithm_platform_owner_challenge_and_key() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../../../sdk/fixtures/local-node-key-assurance.json"
+        ))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let request: PairingRedeemRequest =
+                serde_json::from_value(case["pairing"].clone()).unwrap();
+            assert!(verified_pairing_key(&request).is_ok());
+            let mut forged = case["pairing"].clone();
+            forged["hardware_verified"] = json!(true);
+            assert!(serde_json::from_value::<PairingRedeemRequest>(forged).is_err());
+            let mut forged = case["pairing"].clone();
+            forged["hardware_attestation"] = json!({"verifier":"client-selected"});
+            assert!(serde_json::from_value::<PairingRedeemRequest>(forged).is_err());
+            for field in [
+                "proof_algorithm",
+                "proof_key_class",
+                "proof_public_key",
+                "device_proof",
+                "device_id",
+                "challenge_id",
+                "user_code",
+                "platform",
+                "permission_snapshot_digest",
+            ] {
+                let mut value = case["pairing"].clone();
+                value[field] = json!("foreign");
+                let changed: PairingRedeemRequest = serde_json::from_value(value).unwrap();
+                assert!(verified_pairing_key(&changed).is_err(), "{field}");
+            }
+            if request.proof_algorithm == "ES256" {
+                let mut changed = request.clone();
+                changed.request_proof_version = None;
+                assert!(verified_pairing_key(&changed).is_err());
+                changed = request.clone();
+                changed.proof_key_class = None;
+                assert!(verified_pairing_key(&changed).is_err());
+            }
+        }
+    }
+    #[test]
     fn pairing_rejects_device_ids_unbound_to_expected_shape() {
         let mut request = PairingRedeemRequest {
             protocol_version: PROTOCOL_V2.into(),
@@ -1542,6 +1834,7 @@ mod tests {
             capability_claims: vec!["file.read".into()],
             permission_snapshot_digest: "a".repeat(64),
             proof_algorithm: "ed25519".into(),
+            proof_key_class: None,
             request_proof_version: None,
             proof_public_key: URL_SAFE_NO_PAD.encode([1u8; 32]),
             device_proof: URL_SAFE_NO_PAD.encode([2u8; 64]),
@@ -1659,3 +1952,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "local_node_control_stream_tests.rs"]
+mod control_stream_tests;

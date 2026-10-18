@@ -126,11 +126,27 @@ impl InternalSigningConfiguration {
     pub fn from_environment(
         environment: &BTreeMap<String, String>,
     ) -> Result<Self, BootstrapError> {
+        let mode = ai_platform_service_primitives::workload_identity::Mode::parse(
+            environment
+                .get("AI_PLATFORM_WORKLOAD_MTLS_MODE")
+                .map(String::as_str)
+                .unwrap_or("disabled"),
+        )
+        .map_err(|_| BootstrapError::Configuration("workload_mode_invalid"))?;
+        let required = mode == ai_platform_service_primitives::workload_identity::Mode::Required;
         let primary_secret = environment
             .get("AI_PLATFORM_INTERNAL_TOKEN")
             .map(|v| v.trim())
             .unwrap_or("")
             .to_owned();
+        if required
+            && (!primary_secret.is_empty()
+                || environment.contains_key("AI_PLATFORM_INTERNAL_TOKEN_FILE"))
+        {
+            return Err(BootstrapError::Configuration(
+                "workload_shared_bearer_forbidden",
+            ));
+        }
         let mut keys = BTreeMap::new();
         let mut first = None;
         for item in environment
@@ -140,11 +156,17 @@ impl InternalSigningConfiguration {
             .split(',')
         {
             let Some((id, secret)) = item.trim().split_once(':') else {
+                if required && !item.trim().is_empty() {
+                    return Err(BootstrapError::Configuration("INTERNAL_AUTH_KEYS"));
+                }
                 continue;
             };
             let id = id.trim();
             let secret = secret.trim();
-            if id.is_empty() || secret.is_empty() {
+            if id.is_empty() || secret.is_empty() || (required && keys.contains_key(id)) {
+                if required {
+                    return Err(BootstrapError::Configuration("INTERNAL_AUTH_KEYS"));
+                }
                 continue;
             }
             if first.is_none() {
@@ -159,11 +181,16 @@ impl InternalSigningConfiguration {
             .unwrap_or("local")
             .to_owned();
         if keys.is_empty() {
+            if required {
+                return Err(BootstrapError::Configuration(
+                    "internal_signing_keyring_required",
+                ));
+            }
             keys.insert(active.clone(), primary_secret.clone());
         } else if !keys.contains_key(&active) {
             active = first.ok_or(BootstrapError::Configuration("INTERNAL_AUTH_KEYS"))?;
         }
-        if primary_secret.chars().count() < 16
+        if (!required && primary_secret.chars().count() < 16)
             || keys.iter().any(|(id, secret)| {
                 id.is_empty() || id.contains(':') || secret.chars().count() < 16
             })
@@ -182,5 +209,106 @@ impl InternalSigningConfiguration {
             active_key_id: active,
             active_secret,
         })
+    }
+}
+
+/// A retired transport credential is never filled from a domain signing key.
+pub(super) fn transport_token(
+    environment: &BTreeMap<String, String>,
+    name: &'static str,
+) -> Result<String, BootstrapError> {
+    let mode = ai_platform_service_primitives::workload_identity::Mode::parse(
+        environment
+            .get("AI_PLATFORM_WORKLOAD_MTLS_MODE")
+            .map(String::as_str)
+            .unwrap_or("disabled"),
+    )
+    .map_err(|_| BootstrapError::Configuration("workload_mode_invalid"))?;
+    let value = environment.get(name).map(|v| v.trim()).unwrap_or("");
+    if mode == ai_platform_service_primitives::workload_identity::Mode::Required {
+        if !value.is_empty() || environment.contains_key(&format!("{name}_FILE")) {
+            return Err(BootstrapError::Configuration(
+                "workload_shared_bearer_forbidden",
+            ));
+        }
+        return Ok(String::new());
+    }
+    Ok(value.into())
+}
+
+#[cfg(test)]
+mod required_transport_tests {
+    use super::*;
+    fn required() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("AI_PLATFORM_WORKLOAD_MTLS_MODE".into(), "required".into()),
+            (
+                "INTERNAL_AUTH_KEYS".into(),
+                "rotated:independent-domain-key-one,old:independent-domain-key-two".into(),
+            ),
+            ("INTERNAL_AUTH_ACTIVE_KEY_ID".into(), "rotated".into()),
+        ])
+    }
+    #[test]
+    fn required_keeps_rotating_domain_keys_without_a_transport_secret() {
+        let config = InternalSigningConfiguration::from_environment(&required()).unwrap();
+        assert!(config.primary_secret.is_empty());
+        assert_eq!(config.active_key_id, "rotated");
+        assert_eq!(config.active_secret, "independent-domain-key-one");
+        assert_eq!(config.keys.len(), 2);
+        for key in [
+            "AI_PLATFORM_INTERNAL_TOKEN",
+            "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",
+        ] {
+            assert_eq!(transport_token(&required(), key).unwrap(), "");
+            for (name, value) in [
+                (key.to_string(), "retired-shared-bearer"),
+                (format!("{key}_FILE"), "/unread/retired"),
+            ] {
+                let mut env = required();
+                env.insert(name, value.into());
+                assert!(transport_token(&env, key).is_err());
+            }
+        }
+    }
+    #[test]
+    fn required_rejects_missing_invalid_duplicate_or_transport_fallback_keys() {
+        for keys in [
+            "",
+            "malformed",
+            "id:short",
+            "id:independent-domain-key,malformed",
+            "id:independent-domain-key,id:another-independent-key",
+        ] {
+            let mut env = required();
+            env.insert("INTERNAL_AUTH_KEYS".into(), keys.into());
+            assert!(InternalSigningConfiguration::from_environment(&env).is_err());
+        }
+        for name in [
+            "AI_PLATFORM_INTERNAL_TOKEN",
+            "AI_PLATFORM_INTERNAL_TOKEN_FILE",
+        ] {
+            let mut env = required();
+            env.insert(name.into(), "retired-shared-bearer".into());
+            assert!(InternalSigningConfiguration::from_environment(&env).is_err());
+        }
+    }
+    #[test]
+    fn disabled_and_dual_preserve_their_legacy_secret_contract() {
+        for mode in ["disabled", "dual"] {
+            let mut env = BTreeMap::from([("AI_PLATFORM_WORKLOAD_MTLS_MODE".into(), mode.into())]);
+            assert!(InternalSigningConfiguration::from_environment(&env).is_err());
+            env.insert(
+                "AI_PLATFORM_INTERNAL_TOKEN".into(),
+                "legacy-transport-secret".into(),
+            );
+            let config = InternalSigningConfiguration::from_environment(&env).unwrap();
+            assert_eq!(config.primary_secret, "legacy-transport-secret");
+            assert_eq!(config.active_secret, "legacy-transport-secret");
+            assert_eq!(
+                transport_token(&env, "AI_PLATFORM_INTERNAL_TOKEN").unwrap(),
+                "legacy-transport-secret"
+            );
+        }
     }
 }

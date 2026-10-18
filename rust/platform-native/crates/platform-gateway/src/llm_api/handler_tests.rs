@@ -155,6 +155,7 @@ fn api(
     let seen = Arc::new(Seen::default());
     (
         LlmApi {
+            audit_pool: None,
             backend: Arc::new(TestBackend(seen.clone())),
             transport: Arc::new(Transport {
                 seen: seen.clone(),

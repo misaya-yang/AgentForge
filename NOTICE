@@ -21,6 +21,9 @@ installed JavaScript packages by platform-tools third-party-notices. Include its
 THIRD_PARTY_NOTICES.txt and inventory.json with the corresponding distribution.
 Generation instructions and pending dependency license decisions:
   docs/security/licensing.md
+Original upstream legal materials and exact-version provenance:
+  licenses/third-party/materials/
+  docs/security/third-party-license-sources.json
 
 Third-party font, certificate, data and source licenses retain their respective
 copyrights and license conditions. This NOTICE does not grant rights to project

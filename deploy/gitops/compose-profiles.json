@@ -1,0 +1,21 @@
+{
+  "schema_version":"agentforge/compose-profiles/v1",
+  "compose_minimum":"2.24.4",
+  "default_mode":"full",
+  "modes":{"full":"deploy/compose/docker-compose.full.yml","compact":"deploy/compose/docker-compose.compact.yml","scale":"deploy/compose/docker-compose.scale.yml"},
+  "features":[
+    {"name":"source-build","path":"deploy/compose/docker-compose.build.yml","profiles":[],"requires":[]},
+    {"name":"development","path":"deploy/compose/docker-compose.dev.yml","profiles":[],"requires":["source-build"]},
+    {"name":"native-candidate","path":"deploy/compose/docker-compose.native-candidate.yml","profiles":[],"requires":[]},
+    {"name":"sdk-worker","path":"deploy/compose/docker-compose.sdk-agent-worker.yml","profiles":["sdk-agents"],"requires":[]},
+    {"name":"sdk-build","path":"deploy/compose/docker-compose.sdk-agent-worker.build.yml","profiles":["sdk-agents"],"requires":["sdk-worker"]},
+    {"name":"data-security","path":"deploy/compose/docker-compose.data-security.yml","profiles":["data-pooling"],"requires":[]},
+    {"name":"valkey-split","path":"deploy/compose/docker-compose.valkey.yml","profiles":["valkey-split"],"requires":[]},
+    {"name":"sandbox-packages","path":"deploy/compose/docker-compose.sandbox-packages.yml","profiles":[],"requires":[]},
+    {"name":"observability","path":"docker/monitoring/docker-compose.monitoring.yml","profiles":["observability"],"requires":[]},
+    {"name":"profiling","path":"docker/monitoring/docker-compose.profiling.yml","profiles":["profiling"],"requires":["observability"]}
+  ],
+  "incompatible":[["native-candidate","source-build"],["native-candidate","development"]],
+  "preserve_commands":["make hot-update","make status"],
+  "automatic_activation":false
+}

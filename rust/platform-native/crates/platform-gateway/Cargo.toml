@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+ai-platform-plugin-quiz = { version = "1.1.0", path = "../../../../agent-plugins/ai-quiz/native" }
+ai-platform-plugin-quiz-gateway = { version = "1.1.0", path = "../../../../agent-plugins/ai-quiz/native/gateway" }
+ai-platform-gateway-eval = { version = "0.1.0", path = "../platform-gateway-eval" }
+tower = { version = "0.5", features = ["util"] }
 ai-platform-capability-contract = { version = "0.0.0", path = "../../../agent-runtime-overlay/kernel-rs/ai-platform-capability-contract" }
 ed25519-dalek.workspace = true
 ai-platform-rpc = { version = "0.1.0", path = "../platform-rpc"  }
@@ -24,7 +28,7 @@ tokio.workspace = true
 sha2 = "0.10"
 hmac = "0.12"
 getrandom = "0.3"
-uuid = { version = "1", features = ["v4", "v5", "serde"] }
+uuid = { version = "1", features = ["v4", "v5", "v7", "serde"] }
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
 redis.workspace = true
 jsonschema = { version = "=0.33.0", default-features = false }
@@ -39,6 +43,7 @@ tokio-rustls.workspace = true
 dotenvy = "0.15"
 # Canonical migration parsers, local SQLite ledger, and host middleware.
 regex = "1"
+syn = { version = "2", features = ["full"] }
 jsonwebtoken = "9.3"
 encoding_rs = "0.8"
 zip.workspace = true
@@ -60,4 +65,3 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 ai-platform-gateway-integrations = { version = "0.1.0", path = "../platform-gateway-integrations"  }
 
 [dev-dependencies]
-tower = { version = "0.5", features = ["util"] }

@@ -113,6 +113,116 @@ fn exceeds(used: i64, pending: i64, incoming: i64, limit: Option<i64>) -> bool {
             && i128::from(used) + i128::from(pending) + i128::from(incoming) > i128::from(limit)
     })
 }
+
+#[derive(sqlx::FromRow)]
+struct ReleaseBinding {
+    hold_state: String,
+    delivery_state: String,
+    unconfirmed: bool,
+}
+impl ReleaseBinding {
+    fn is_released(&self) -> bool {
+        self.unconfirmed
+            && self.hold_state == "released"
+            && matches!(
+                self.delivery_state.as_str(),
+                "claimed_unknown" | "failed" | "cancelled"
+            )
+    }
+    fn can_release(&self) -> bool {
+        self.unconfirmed
+            && self.hold_state == "held"
+            && matches!(
+                self.delivery_state.as_str(),
+                "claimed_unknown" | "cancelled"
+            )
+    }
+}
+
+async fn release_binding(
+    connection: &mut PgConnection,
+    id: &DeliveryIdentity,
+    claim: Uuid,
+    nonce: Uuid,
+) -> Result<Option<ReleaseBinding>, BatchError> {
+    sqlx::query_as(
+        "SELECT h.state AS hold_state,d.state AS delivery_state,
+                (b.provider_job_id IS NULL AND b.confirmed_at IS NULL) AS unconfirmed
+         FROM gateway.task_batch_quota_holds h
+         JOIN gateway.task_provider_batches b ON b.task_id=h.task_id AND b.claim_id=h.claim_id
+              AND b.tenant_id=h.tenant_id AND b.user_id=h.user_id
+         JOIN gateway.task_deliveries d ON d.task_id=b.task_id AND d.claim_id=b.claim_id
+              AND d.request_id=b.request_id AND d.service_id=b.service_id
+              AND d.tenant_id=b.tenant_id AND d.user_id=b.user_id
+         WHERE b.task_id=$1 AND b.request_id=$2 AND b.service_id=$3
+              AND b.user_id=$4 AND b.tenant_id=$5 AND b.claim_id=$6 AND b.submission_nonce=$7
+         FOR UPDATE OF d,b,h",
+    )
+    .bind(&id.task_id)
+    .bind(&id.request_id)
+    .bind(&id.service_id)
+    .bind(&id.user_id)
+    .bind(&id.tenant_id)
+    .bind(claim)
+    .bind(nonce)
+    .fetch_optional(connection)
+    .await
+    .map_err(|_| BatchError::Unavailable)
+}
+
+pub(crate) async fn was_released(
+    pool: &PgPool,
+    id: &DeliveryIdentity,
+    claim: Uuid,
+    nonce: Uuid,
+) -> Result<bool, BatchError> {
+    let mut connection = pool.acquire().await.map_err(|_| BatchError::Unavailable)?;
+    Ok(release_binding(&mut connection, id, claim, nonce)
+        .await?
+        .is_some_and(|binding| binding.is_released()))
+}
+
+/// Only the lane's pre-provider NotDispatched result authorizes this transition.
+/// Neither a missing job id nor a failed/expired lease proves no POST occurred.
+pub(crate) async fn release_not_dispatched(
+    pool: &PgPool,
+    id: &DeliveryIdentity,
+    claim: Uuid,
+    nonce: Uuid,
+) -> Result<(), BatchError> {
+    let mut tx = pool.begin().await.map_err(|_| BatchError::Unavailable)?;
+    let lock = serde_json::to_string(&(&id.tenant_id, &id.user_id))
+        .map_err(|_| BatchError::Unavailable)?;
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,71107))")
+        .bind(lock)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| BatchError::Unavailable)?;
+    let binding = release_binding(&mut tx, id, claim, nonce)
+        .await?
+        .ok_or(BatchError::BindingMismatch)?;
+    if binding.is_released() {
+        return tx.commit().await.map_err(|_| BatchError::Unavailable);
+    }
+    if !binding.can_release() {
+        return Err(BatchError::BindingMismatch);
+    }
+    let changed = sqlx::query(
+        "UPDATE gateway.task_batch_quota_holds SET state='released',released_at=clock_timestamp()
+         WHERE task_id=$1 AND claim_id=$2 AND tenant_id=$3 AND user_id=$4 AND state='held'",
+    )
+    .bind(&id.task_id)
+    .bind(claim)
+    .bind(&id.tenant_id)
+    .bind(&id.user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| BatchError::Unavailable)?;
+    if changed.rows_affected() != 1 {
+        return Err(BatchError::BindingMismatch);
+    }
+    tx.commit().await.map_err(|_| BatchError::Unavailable)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,5 +232,50 @@ mod tests {
         assert!(exceeds(1, 2, 4, Some(6)));
         assert!(exceeds(i64::MAX, i64::MAX, 1, Some(i64::MAX)));
         assert!(!exceeds(1, 2, 3, None));
+    }
+    #[test]
+    fn released_hold_is_a_durable_failure_before_and_after_delivery_finish() {
+        let mut binding = ReleaseBinding {
+            hold_state: "released".into(),
+            delivery_state: "claimed_unknown".into(),
+            unconfirmed: true,
+        };
+        assert!(binding.is_released());
+        assert!(!binding.can_release());
+        binding.delivery_state = "failed".into();
+        assert!(binding.is_released());
+        binding.hold_state = "settled".into();
+        assert!(!binding.is_released());
+        assert!(!binding.can_release());
+    }
+    #[test]
+    fn confirmed_jobs_and_finished_deliveries_cannot_release_held_quota() {
+        let mut binding = ReleaseBinding {
+            hold_state: "held".into(),
+            delivery_state: "claimed_unknown".into(),
+            unconfirmed: false,
+        };
+        assert!(!binding.can_release());
+        binding.unconfirmed = true;
+        for terminal in ["failed", "completed"] {
+            binding.delivery_state = terminal.into();
+            assert!(!binding.can_release());
+        }
+    }
+    #[test]
+    fn cancellation_retaining_the_claim_does_not_strand_a_known_undispatched_hold() {
+        let mut binding = ReleaseBinding {
+            hold_state: "held".into(),
+            delivery_state: "cancelled".into(),
+            unconfirmed: true,
+        };
+        assert!(binding.can_release());
+        binding.hold_state = "released".into();
+        assert!(binding.is_released());
+        assert!(!binding.can_release());
+        binding.unconfirmed = false;
+        assert!(!binding.is_released());
+        binding.hold_state = "held".into();
+        assert!(!binding.can_release());
     }
 }

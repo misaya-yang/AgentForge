@@ -36,7 +36,7 @@ fn normalized_grant_sql(sql: &str) -> String {
         .collect()
 }
 
-fn approved_grant_template(sql: &str, suffix: &str) -> bool {
+fn approved_grant_template(sql: &str, suffix: &str, service_owned: bool) -> bool {
     if sql.matches("%I").count() != 1 || sql.matches('%').count() != 1 {
         return false;
     }
@@ -44,6 +44,11 @@ fn approved_grant_template(sql: &str, suffix: &str) -> bool {
     APPROVED_ROLE_GRANTS
         .iter()
         .chain(APPROVED_027_ROLE_GRANTS.iter())
+        .chain(
+            super::approved_service_grants::APPROVED_SERVICE_ROLE_GRANTS
+                .iter()
+                .filter(|_| service_owned),
+        )
         .any(|(allowed, template)| {
             *allowed == suffix && normalized_grant_sql(template) == normalized
         })
@@ -135,7 +140,11 @@ fn is_principal_assignment(tokens: &[Token]) -> bool {
         && literal_is(&tokens[6], "gateway")
 }
 
-fn approved_execute_format(tokens: &[Token], principal_is_gateway: bool) -> bool {
+fn approved_execute_format(
+    tokens: &[Token],
+    principal_is_gateway: bool,
+    service_owned: bool,
+) -> bool {
     if tokens.len() < 7
         || !word_is(&tokens[0], "EXECUTE")
         || !word_is(&tokens[1], "FORMAT")
@@ -151,13 +160,13 @@ fn approved_execute_format(tokens: &[Token], principal_is_gateway: bool) -> bool
         return false;
     }
     if tokens.len() == 7 && word_is(&tokens[5], "PRINCIPAL") && principal_is_gateway {
-        return approved_grant_template(format_sql, "gateway");
+        return approved_grant_template(format_sql, "gateway", service_owned);
     }
     tokens.len() == 10
         && word_is(&tokens[5], "PREFIX")
         && symbol_is(&tokens[6], '|')
         && symbol_is(&tokens[7], '|')
-        && matches!(&tokens[8].kind, TokenKind::Literal(value) if approved_grant_template(format_sql, value))
+        && matches!(&tokens[8].kind, TokenKind::Literal(value) if approved_grant_template(format_sql, value, service_owned))
 }
 
 pub(super) fn is_approved_role_prefix_grant_body(body: &str, change: &ChangeSpec) -> Result<bool> {
@@ -213,7 +222,13 @@ pub(super) fn is_approved_role_prefix_grant_body(body: &str, change: &ChangeSpec
             principal_is_gateway = true;
             continue;
         }
-        if approved_execute_format(statement, principal_is_gateway) {
+        if approved_execute_format(
+            statement,
+            principal_is_gateway,
+            ai_platform_migration_authority::source_tools::service_successors::recognizes_change(
+                change,
+            ),
+        ) {
             execute_count += 1;
             continue;
         }

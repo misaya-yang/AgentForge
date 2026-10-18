@@ -25,7 +25,6 @@ use tracing::warn;
 use uuid::Uuid;
 
 use super::RuntimeHttpState;
-use crate::PostgresThreadStore;
 use super::security::RuntimeError;
 use super::security::SESSION_HEADER;
 use super::security::TENANT_HEADER;
@@ -34,6 +33,7 @@ use super::security::authorize;
 use super::security::required_header;
 use super::threads::apply_model_limits;
 use crate::PlatformThreadIdentity;
+use crate::PostgresThreadStore;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -179,10 +179,19 @@ pub(super) async fn interrupt_turn(
             .fetch_one(&mut *transaction).await.map_err(|_| RuntimeError::unavailable("runtime_cancel_receipt_unavailable"))?;
         PostgresThreadStore::notify_v1_event_in_transaction(
             &mut transaction,
-            Uuid::parse_str(&thread_id.to_string()).map_err(|_| RuntimeError::bad_request("invalid_thread_id"))?,
+            Uuid::parse_str(&thread_id.to_string())
+                .map_err(|_| RuntimeError::bad_request("invalid_thread_id"))?,
             sequence,
-        ).await.map_err(RuntimeError::from_store)?;
+        )
+        .await
+        .map_err(RuntimeError::from_store)?;
     }
+    sqlx::query("SELECT pg_catalog.pg_notify($1,$2)")
+        .bind(crate::postgres_store::event_notifications::CONTROL_CHANNEL)
+        .bind(run_id.to_string())
+        .execute(&mut *transaction)
+        .await
+        .map_err(|_| RuntimeError::unavailable("runtime_cancel_store_unavailable"))?;
     transaction
         .commit()
         .await
@@ -257,6 +266,7 @@ pub(super) fn resume_params(
     {
         return Err(RuntimeError::bad_request("invalid_thread_resume_config"));
     }
+    let model_plane_base_url = super::model_proxy::kernel_base_url(&model_plane_base_url)?;
     let provider_id = "ai-platform-gateway";
     let mut config = HashMap::<String, Value>::new();
     config.insert("model_provider".to_string(), provider_id.into());
@@ -267,7 +277,7 @@ pub(super) fn resume_params(
             (provider_id): {
                 "name": "AI Platform Gateway Model Plane",
                 "base_url": model_plane_base_url,
-                "env_key": "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",
+                "env_key": if crate::workload_identity::tls_enabled() {"AI_PLATFORM_RUNTIME_MODEL_PROXY_TOKEN"} else {"AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN"},
                 "wire_api": "responses",
                 "requires_openai_auth": false,
                 "supports_websockets": false,

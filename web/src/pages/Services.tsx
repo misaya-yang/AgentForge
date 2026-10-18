@@ -1,3 +1,4 @@
+import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
 /**
  * Services Page with Tabs
  *
@@ -8,6 +9,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ManagementQueryState } from "@/components/ManagementQueryState";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { sensitiveMutationOptions } from "@/lib/consoleStepUp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +84,7 @@ export function ServicesPage() {
   }, [searchInput]);
 
   // Services state
+  const providerReadScope = useAuthenticatedReadScope();
   const servicesQuery = useServices();
   const healthQuery = useHealth();
   const services = useMemo(
@@ -127,8 +130,8 @@ export function ServicesPage() {
 
   // Provider queries
   const providersQuery = useQuery({
-    queryKey: providersApi.providerQueryKeys.list(true),
-    queryFn: () => providersApi.listProviders(true),
+    ...providersApi.providersOptions(providerReadScope.id, true),
+    enabled: providerReadScope.isCurrent(),
   });
   const providerTemplatesQuery = useQuery({
     queryKey: providersApi.providerQueryKeys.templates,
@@ -193,10 +196,11 @@ export function ServicesPage() {
 
   // Provider mutations
   const createProviderMutation = useMutation({
+    ...sensitiveMutationOptions,
     mutationFn: (data: ProviderCreate | ProviderFromTemplateCreate) =>
-      "template_id" in data
-        ? providersApi.createProviderFromTemplate(data)
-        : providersApi.createProvider(data),
+      typeof data.template_id === "string"
+        ? providersApi.createProviderFromTemplate(data as ProviderFromTemplateCreate)
+        : providersApi.createProvider(data as ProviderCreate),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });
       setProviderFormOpen(false);
@@ -208,6 +212,7 @@ export function ServicesPage() {
   });
 
   const updateProviderMutation = useMutation({
+    ...sensitiveMutationOptions,
     mutationFn: ({ id, data }: { id: string; data: ProviderUpdate }) =>
       providersApi.updateProvider(id, data),
     onSuccess: (_updated, { id }) => {
@@ -225,6 +230,7 @@ export function ServicesPage() {
   });
 
   const deleteProviderMutation = useMutation({
+    ...sensitiveMutationOptions,
     mutationFn: (id: string) => providersApi.deleteProvider(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });

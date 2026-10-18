@@ -1,0 +1,54 @@
+name: CLI client source candidates
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'sdk/cli/**'
+      - 'rust/platform-native/crates/platform-client/**'
+      - 'rust/platform-native/crates/platform-local-node/**'
+      - '.github/workflows/cli-client-candidates.yml'
+permissions:
+  contents: read
+concurrency:
+  group: cli-client-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  client-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, target: linux-x64 }
+          - { runner: ubuntu-24.04-arm, target: linux-arm64 }
+          - { runner: macos-15-intel, target: darwin-x64 }
+          - { runner: macos-15, target: darwin-arm64 }
+          - { runner: windows-2025, target: win32-x64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdk/cli
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: '24' }
+      - run: npm ci --ignore-scripts --omit=optional
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with: { toolchain: '1.99.0' }
+      - name: Compile and test the portable clients in hosted isolation
+        shell: bash
+        env:
+          CARGO_BUILD_JOBS: '1'
+          CARGO_INCREMENTAL: '0'
+          CARGO_PROFILE_DEV_DEBUG: '0'
+          CARGO_PROFILE_TEST_DEBUG: '0'
+          CARGO_TARGET_DIR: ${{ runner.temp }}/client-native-target
+        working-directory: rust/platform-native
+        run: cargo test --locked -p ai-platform-local-node -p ai-platform-client --lib --bins
+      # Tests use generated ephemeral keys and format-correct fixture binaries.
+      # A real release additionally requires composed native binaries, OS signing,
+      # reviewed pinned public keys and stage-native-release.mjs. No publication.

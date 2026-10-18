@@ -125,7 +125,10 @@ async fn headers_do_not_complete_command_deadline_body_is_bounded_without_post_r
     let result = tokio::time::timeout(
         Duration::from_secs(2),
         send_json(
-            client().post(url).json(&serde_json::json!({})).timeout(Duration::from_millis(150)),
+            client()
+                .post(url)
+                .json(&serde_json::json!({}))
+                .timeout(Duration::from_millis(150)),
             Duration::from_secs(300),
             "TEST_COMMAND_FAILED",
         ),

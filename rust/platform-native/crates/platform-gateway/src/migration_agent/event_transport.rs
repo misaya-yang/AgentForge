@@ -1,6 +1,7 @@
 //! GET-only Runtime event observation. Transport liveness never renews the
 //! signed execution lease, and command requests retain their separate deadline.
 use super::AgentError;
+use super::control::execution_transport::WorkloadSend;
 use reqwest::{Client, Response, header::HeaderMap};
 use std::time::Duration;
 
@@ -59,7 +60,7 @@ impl EventTransport {
                     ("after_sequence", after.max(0)),
                     ("limit", limit.clamp(1, 1000)),
                 ])
-                .send(),
+                .workload_send(),
         )
         .await
         .map_err(|_| stream_error())?

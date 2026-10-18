@@ -1,30 +1,35 @@
 /** Process-level tests of the real built CLI entry, using only isolated fixtures. */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { canonical } from '../src/native/release_signature.mjs';
 
 const built = resolve(process.env.CLI_DOCTOR_ENTRY ?? 'dist/cli.js');
+const target=`${process.platform}-${process.arch}`;
+const binaryName=process.platform==='win32'?'codex.exe':'codex';
 const secret = 'DOCTOR_SECRET_CANARY_7c1e';
-const identity = { schema_version: 'ai-gateway-cli/native-source/v1', upstream_sha: '1'.repeat(40), overlay_sha256: '2'.repeat(64) };
+const releasePair=generateKeyPairSync('ed25519');
+const identity = { release_keys:{fixture:releasePair.publicKey.export({type:'spki',format:'pem'}).toString()}, schema_version: 'ai-gateway-cli/native-source/v1', upstream_sha: '1'.repeat(40), overlay_sha256: '2'.repeat(64) };
 function fixture(wire = 'responses') {
   const root = mkdtempSync(join(tmpdir(), 'cli-doctor-process-'));
   const pkg = join(root, 'package');
   mkdirSync(join(pkg, 'dist'), { recursive: true });
-  mkdirSync(join(pkg, 'vendor/linux-x64'), { recursive: true });
+  mkdirSync(join(pkg, 'vendor',target), { recursive: true });
   writeFileSync(join(pkg, 'package.json'), '{"type":"module"}');
   copyFileSync(built, join(pkg, 'dist/cli.js'));
   writeFileSync(join(pkg, 'dist/native-source.json'), JSON.stringify(identity));
   writeFileSync(join(pkg, 'vendor/source.json'), JSON.stringify(identity));
-  const binary = join(pkg, 'vendor/linux-x64/codex');
+  const binary = join(pkg,'vendor',target,binaryName);
   writeFileSync(binary, `#!/bin/sh\necho unexpected > '${join(root, 'native-executed')}'\n`);
   chmodSync(binary, 0o755);
-  const receipt = { ...identity, schema_version: 'ai-gateway-cli/native-artifact/v1', target_system: 'linux', target_arch: 'x64', binary: 'codex', sha256: createHash('sha256').update(readFileSync(binary)).digest('hex') };
-  writeFileSync(join(pkg, 'vendor/linux-x64/artifact.json'), JSON.stringify(receipt));
+  const receipt = { ...identity, schema_version: 'ai-gateway-cli/native-artifact/v1', target_system: process.platform==='win32'?'windows':process.platform, target_arch: process.arch, binary: binaryName, sha256: createHash('sha256').update(readFileSync(binary)).digest('hex') };
+  receipt.signature={algorithm:'Ed25519',key_id:'fixture',value:sign(null,Buffer.from(canonical(receipt)),releasePair.privateKey).toString('base64url')};
+  writeFileSync(join(pkg,'vendor',target,'artifact.json'), JSON.stringify(receipt));
   const guard = join(root, 'offline-guard.mjs');
   writeFileSync(guard, `import net from 'node:net'; import tls from 'node:tls'; import http from 'node:http'; import https from 'node:https'; import child from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module'; const deny=()=>{throw new Error('test_forbidden_external_effect')}; net.Server.prototype.listen=deny; net.Socket.prototype.connect=deny; net.connect=net.createConnection=deny; tls.connect=deny; http.request=http.get=https.request=https.get=deny; globalThis.fetch=deny; child.spawn=child.spawnSync=child.exec=child.execSync=child.execFile=child.execFileSync=child.fork=deny; syncBuiltinESMExports();`);
   const home = join(root, 'private-cli-home');
@@ -77,7 +82,7 @@ test('missing home reports independent checks without creating it', () => {
 for (const wire of ['responses', 'chat_completions']) test(`${wire} configured setup is read-only and does not spawn/listen`, () => {
   const f = fixture(wire); configure(f); const checks = report(run(f), 0);
   assert.equal(checks.credentials.code, 'required_environment_present');
-  assert.equal(checks.optional_bwrap.status, 'warn');
+  assert.equal(checks.optional_bwrap.status, process.platform==='linux'?'warn':'not_checked');
   assert.equal(checks.native_artifact.code, 'packaged_identity_verified');
 });
 test('missing credentials do not hide artifact/directory checks', () => {
@@ -92,10 +97,10 @@ test('malformed configuration does not echo JSON or secrets', () => {
 });
 for (const [kind, expected] of [['target', 'native_target_mismatch'], ['hash', 'native_binary_hash_mismatch'], ['source', 'native_source_mismatch'], ['malformed', 'native_receipt_invalid']]) test(`${kind} receipt/source failure remains safely actionable`, () => {
   const f = fixture(); configure(f);
-  if (kind === 'target') f.receipt.target_arch = 'arm64';
+  if (kind === 'target') f.receipt.target_arch = process.arch==='arm64'?'x64':'arm64';
   if (kind === 'hash') f.receipt.sha256 = 'f'.repeat(64);
   if (kind === 'source') f.receipt.overlay_sha256 = 'f'.repeat(64);
-  writeFileSync(join(f.pkg, 'vendor/linux-x64/artifact.json'), kind === 'malformed' ? secret : JSON.stringify(f.receipt));
+  writeFileSync(join(f.pkg,'vendor',target,'artifact.json'), kind === 'malformed' ? secret : JSON.stringify(f.receipt));
   assert.equal(report(run(f), 1).native_artifact.code, expected);
 });
 test('explicit unsafe development identity is never release-verified', () => {
@@ -109,7 +114,7 @@ test('override selects locally without writing active provider', () => {
   assert.equal(report(run(f, ['--json', '--cli-provider', 'missing']), 1).provider.code, 'provider_not_selected_or_missing');
 });
 test('symlink product home is rejected without traversal or writes', () => {
-  const f = fixture(); const target = join(f.root, 'other'); mkdirSync(target); symlinkSync(target, f.home);
+  const f = fixture(); const target = join(f.root, 'other'); mkdirSync(target); symlinkSync(target, f.home,process.platform==='win32'?'junction':'dir');
   assert.equal(report(run(f), 1).product_directory.code, 'directory_type_unsafe');
   assert.deepEqual(readdirSync(target), []);
 });
@@ -123,7 +128,7 @@ test('human output is safe, help is read-only, invalid syntax exits 2', () => {
 
 for (const [kind, expected] of [['binary', 'native_artifact_missing'], ['receipt', 'native_receipt_invalid']]) test(`missing ${kind} is independently reported`, () => {
   const f = fixture(); configure(f);
-  unlinkSync(kind === 'binary' ? f.binary : join(f.pkg, 'vendor/linux-x64/artifact.json'));
+  unlinkSync(kind === 'binary' ? f.binary : join(f.pkg,'vendor',target,'artifact.json'));
   assert.equal(report(run(f), 1).native_artifact.code, expected);
 });
 
@@ -137,7 +142,7 @@ test('explicit runtime directory is not executable setup', () => {
   const f = fixture(); configure(f);
   assert.equal(report(run(f, ['--json'], { AI_GATEWAY_AGENT_RUNTIME_BIN: f.root, AI_GATEWAY_UNSAFE_DEV_RUNTIME: '1' }), 1).native_executable.code, 'native_executable_invalid_type');
 });
-for (const explicit of [false, true]) test(`${explicit ? 'explicit' : 'packaged'} file without execute permission is a blocker`, () => {
+for (const explicit of [false, true]) test(`${explicit ? 'explicit' : 'packaged'} file without execute permission is a blocker`, {skip:process.platform==='win32'}, () => {
   const f = fixture(); configure(f); chmodSync(f.binary, 0o600);
   const extra = explicit ? { AI_GATEWAY_AGENT_RUNTIME_BIN: f.binary, AI_GATEWAY_UNSAFE_DEV_RUNTIME: '1' } : {};
   assert.equal(report(run(f, ['--json'], extra), 1).native_executable.code, 'native_executable_access_denied');

@@ -18,6 +18,8 @@ const MAX_CONFIG_BYTES: u64 = 64 * 1024;
 pub struct OperatorConfig {
     /// Exact HTTPS endpoint used for both pairing redemption and heartbeat.
     pub endpoint: String,
+    #[serde(default)]
+    pub device_key_policy: crate::hardware_key::DeviceKeyPolicy,
     /// Explicit state location. Databases and non-secret identity metadata live here.
     pub state_directory: PathBuf,
     #[serde(default)]
@@ -238,7 +240,11 @@ impl OperatorConfig {
             })
             .collect::<Result<Vec<_>>>()?;
         grants.sort_by(|left, right| left["grant_id"].as_str().cmp(&right["grant_id"].as_str()));
-        Ok(digest(&json!({"workspace_grants":grants})))
+        let mut snapshot = json!({"workspace_grants":grants});
+        if self.device_key_policy == crate::hardware_key::DeviceKeyPolicy::HardwareRequired {
+            snapshot["device_key_policy"] = json!("hardware_required");
+        }
+        Ok(digest(&snapshot))
     }
 
     pub fn capability_claims(&self) -> Vec<String> {
@@ -295,6 +301,7 @@ mod tests {
     fn valid_config() -> OperatorConfig {
         OperatorConfig {
             endpoint: "https://gateway.example.test/api/v1/local-nodes/control".into(),
+            device_key_policy: Default::default(),
             state_directory: PathBuf::from("/tmp/native-local-node-state"),
             tls_ca_file: None,
             display_name: "fixture node".into(),

@@ -6,6 +6,7 @@ use ai_platform_gateway_foundation::{
     provider_batch_store::BatchCoordinator,
     task_delivery::DeliveryIdentity,
 };
+use ai_platform_service_primitives::data_connection::append_store;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row};
@@ -200,7 +201,14 @@ impl BatchAccounting for PgBatchAccounting {
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| BatchError::Unavailable)?;
-            sqlx::query("INSERT INTO gateway.price_book_v2_accounting_checkpoints(tenant_id,request_id,service_id,request_type,stage,observation) VALUES($1,$2,$3,'provider_batch','batch_receipt_verified',$4) ON CONFLICT DO NOTHING").bind(&id.tenant_id).bind(&id.request_id).bind(&id.service_id).bind(&observation).execute(&mut *tx).await.map_err(|_|BatchError::AccountingRequired)?;
+            append_store::bind_tenant(
+                &mut tx,
+                "gateway.price_book_v2_accounting_checkpoints",
+                &id.tenant_id,
+            )
+            .await
+            .map_err(|_| BatchError::Unavailable)?;
+            append_store::execute(&mut *tx, "gateway.price_book_v2_accounting_checkpoints", sqlx::query("INSERT INTO gateway.price_book_v2_accounting_checkpoints(tenant_id,request_id,service_id,request_type,stage,observation) VALUES($1,$2,$3,'provider_batch','batch_receipt_verified',$4) ON CONFLICT DO NOTHING").bind(&id.tenant_id).bind(&id.request_id).bind(&id.service_id).bind(&observation)).await.map_err(|_|BatchError::AccountingRequired)?;
             let saved:Value=sqlx::query_scalar("SELECT observation FROM gateway.price_book_v2_accounting_checkpoints WHERE tenant_id=$1 AND request_id=$2 AND service_id=$3 AND request_type='provider_batch' AND stage='batch_receipt_verified' FOR UPDATE").bind(&id.tenant_id).bind(&id.request_id).bind(&id.service_id).fetch_one(&mut *tx).await.map_err(|_|BatchError::Unavailable)?;
             if saved != observation {
                 return Err(BatchError::BindingMismatch);

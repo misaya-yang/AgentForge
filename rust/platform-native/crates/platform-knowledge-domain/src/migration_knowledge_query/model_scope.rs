@@ -55,14 +55,14 @@ impl ModelScopeAuthority {
             let current = dataset.generation()?;
             require_generation(request.expected_generation.as_ref(), &current)?;
             if let Some(document) = request.scope.document_id.as_deref() {
-                let present:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.documents WHERE dataset_id=$1 AND document_id=$2)").bind(id).bind(document).fetch_one(&self.store.pool).await?;
+                let present:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.documents WHERE dataset_id=$1 AND document_id=$2)").bind(id).bind(document).fetch_one(crate::database::executor(&self.store.pool)).await?;
                 if !present {
                     return Err(QueryError::NotFound);
                 }
             }
             if let Some(execution) = request.scope.execution_id.as_deref() {
                 let present:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.document_pipeline_executions e JOIN knowledge.documents d ON d.document_id=e.document_id AND d.dataset_id=e.dataset_id WHERE e.execution_id=$1 AND e.dataset_id=$2 AND e.document_id=$3 AND COALESCE(e.triggered_by,d.created_by)=$4 AND e.status='running' AND d.metadata->>'_document_pipeline_execution_id'=e.execution_id) OR EXISTS(SELECT 1 FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$5 AND dataset_id=$2 AND requested_by=$4 AND state='running') OR EXISTS(SELECT 1 FROM knowledge.embedding_migration_action_jobs a JOIN knowledge.datasets ds ON ds.dataset_id=a.dataset_id WHERE a.job_id::text=$1 AND a.dataset_id=$2 AND ds.tenant_id=$5 AND a.requested_by=$4 AND a.state='running')")
-                    .bind(execution).bind(id).bind(request.scope.document_id.as_deref()).bind(&actor.user_id).bind(&actor.tenant_id).fetch_one(&self.store.pool).await?;
+                    .bind(execution).bind(id).bind(request.scope.document_id.as_deref()).bind(&actor.user_id).bind(&actor.tenant_id).fetch_one(crate::database::executor(&self.store.pool)).await?;
                 if !present {
                     return Err(QueryError::Forbidden);
                 }

@@ -42,7 +42,9 @@ umask 077
     printf '%s\n' 'appendonly yes'
     printf 'requirepass "%s"\n' "$redis_password_escaped"
     printf 'maxmemory %s\n' "$redis_maxmemory"
-    printf '%s\n' 'maxmemory-policy allkeys-lru'
+    # The shared instance also owns sessions and admission leases. At capacity,
+    # reject new writes instead of evicting that coordination state.
+    printf '%s\n' 'maxmemory-policy noeviction'
 } > "$runtime_config"
 chown redis:redis "$runtime_config"
 chmod 600 "$runtime_config"

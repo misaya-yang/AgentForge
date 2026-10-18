@@ -8,6 +8,9 @@
 //! one round-trip earlier than source autocommit; cancellation cannot undo COMMIT
 //! already dispatched. Uncertain control signals quarantine the data connection.
 
+use ai_platform_service_primitives::data_connection::{
+    DatabaseRole, TenantScope, bind_transaction, current_tenant_scope, validate_tenant_binding,
+};
 use chrono::{DateTime, Utc};
 use sqlx::{Connection, PgPool, Postgres, pool::PoolConnection};
 use std::{
@@ -21,8 +24,7 @@ use std::{
 };
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
-pub type PgQueryFuture<'a, T> =
-    Pin<Box<dyn Future<Output = Result<T, sqlx::Error>> + Send + 'a>>;
+pub type PgQueryFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, sqlx::Error>> + Send + 'a>>;
 pub type PgOperationFuture<'a, T> =
     Pin<Box<dyn Future<Output = Result<T, PgOperationError>> + Send + 'a>>;
 
@@ -104,6 +106,7 @@ impl Drop for FinishOperation {
     }
 }
 pub struct PgOperationConnection {
+    tenant: Option<TenantScope>,
     connection: Arc<AsyncMutex<PoolConnection<Postgres>>>,
     pid: i32,
     backend_start: DateTime<Utc>,
@@ -122,7 +125,33 @@ struct PgBackendIdentity {
     role_name: String,
 }
 impl PgOperationStorage {
+    pub fn acquire_for_tenant(
+        &self,
+        tenant: Option<&str>,
+    ) -> PgOperationFuture<'_, PgOperationConnection> {
+        match tenant {
+            Some(tenant) => self.acquire_tenant(tenant),
+            None => self.acquire(),
+        }
+    }
+
+    /// Storage adapters provide an already authenticated owner, including when
+    /// their supervisor outlives the HTTP task that admitted the operation.
+    pub fn acquire_tenant(&self, tenant: &str) -> PgOperationFuture<'_, PgOperationConnection> {
+        let scope = TenantScope::new(tenant).and_then(|scope| {
+            validate_tenant_binding(&scope)?;
+            Ok(scope)
+        });
+        Box::pin(async move {
+            let scope = scope.map_err(|_| PgOperationError::database())?;
+            let mut connection = self.acquire().await?;
+            connection.tenant = Some(scope);
+            Ok(connection)
+        })
+    }
+
     pub fn acquire(&self) -> PgOperationFuture<'_, PgOperationConnection> {
+        let tenant = current_tenant_scope().ok();
         Box::pin(async move {
             let mut connection = self.pool.acquire().await?;
             let identity:PgBackendIdentity =
@@ -138,6 +167,7 @@ impl PgOperationStorage {
                 return Err(PgOperationError::InvalidCancellationPool);
             }
             Ok(PgOperationConnection {
+                tenant,
                 connection: Arc::new(AsyncMutex::new(connection)),
                 pid: identity.pid,
                 backend_start: identity.backend_start,
@@ -229,6 +259,10 @@ impl PgOperationConnection {
         F: for<'c> FnOnce(&'c mut sqlx::PgConnection) -> PgQueryFuture<'c, T> + Send + 'static,
     {
         Box::pin(async move {
+            let tenant = self.tenant.clone().or_else(|| current_tenant_scope().ok());
+            if let Some(scope) = &tenant {
+                validate_tenant_binding(scope).map_err(|_| PgOperationError::database())?;
+            }
             let operation = Arc::new(PgOperation {
                 cancelled: AtomicBool::new(false),
                 cancel: Notify::new(),
@@ -253,6 +287,9 @@ impl PgOperationConnection {
             let invalid = self.invalid.clone();
             let pid = self.pid;
             let backend_start = self.backend_start;
+            // Capture before spawning: task-local context is not inherited.
+            // Retain the real permit until the backend statement is terminal.
+            let worker_effect = crate::worker_lease::current_effect();
             let task = tokio::spawn(async move {
                 let _finished = FinishOperation(operation.clone());
                 let mut connection = tokio::select! {
@@ -279,7 +316,28 @@ impl PgOperationConnection {
                     return Err(PgOperationError::Cancelled);
                 }
                 let result = pg_drain(
-                    query(&mut transaction),
+                    async {
+                        if let Some(scope) = &tenant {
+                            bind_transaction(
+                                &mut transaction,
+                                scope,
+                                DatabaseRole::Gateway,
+                                30_000,
+                            )
+                            .await
+                            .map_err(|_| sqlx::Error::Protocol("tenant_context_rejected".into()))?;
+                        }
+                        if let Some(effect) = &worker_effect {
+                            effect
+                                .guard()
+                                .assert_on(&mut transaction)
+                                .await
+                                .map_err(|_| {
+                                    sqlx::Error::Protocol("worker_fence_rejected".into())
+                                })?;
+                        }
+                        query(&mut transaction).await
+                    },
                     &operation,
                     &control,
                     pid,

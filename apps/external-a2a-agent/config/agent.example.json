@@ -1,0 +1,26 @@
+{
+  "schema": "agentforge-external-a2a/v1",
+  "origin": "https://external-agent.example",
+  "bind": "127.0.0.1",
+  "port": 9443,
+  "agentName": "external-reference",
+  "repository": "/absolute/path/to/AgentForge",
+  "stateDirectory": "/absolute/private/external-a2a/state",
+  "tls": { "keyFile": "/absolute/private/external-a2a/server.key", "certFile": "/absolute/private/external-a2a/server.crt" },
+  "peerTokenFile": "/absolute/private/external-a2a/gateway-peer.token",
+  "gatewayOrigin": "https://gateway.example",
+  "gatewayKeysFile": "/absolute/private/external-a2a/gateway-pinned.jwks.json",
+  "cardKeyFile": "/absolute/private/external-a2a/card-ed25519.pkcs8.pem",
+  "cardKeyId": "customer-agent-card-v1",
+  "activationFile": "/absolute/private/external-a2a/operator-activation.jwt",
+  "activationKeysFile": "/absolute/private/external-a2a/operator-pinned.jwks.json",
+  "model": {
+    "baseURL": "https://gateway.example/v1",
+    "address": "127.0.0.1",
+    "caFile": "/absolute/private/external-a2a/gateway-ca.pem",
+    "name": "operator-approved-model",
+    "credentials": [{ "tenantId": "operator-tenant", "userId": "operator-user", "tokenFile": "/absolute/private/external-a2a/principal-model.token", "mcpTokenFile": "/absolute/private/external-a2a/principal-mcp.token" }],
+    "mcp": { "path": "/mcp", "allowedTools": ["operator_approved_read_tool"] }
+  },
+  "limits": { "maxConcurrentTasks": 2, "maxTasksPerActorPerDay": 10, "maxModelCalls": 4, "maxTurns": 4, "maxOutputTokens": 128, "maxRunMs": 30000 }
+}

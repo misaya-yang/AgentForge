@@ -49,7 +49,21 @@ fn invoke(binary: &str, args: &[&str], input: Vec<u8>) -> Result<(bool, Vec<u8>)
             return Err(Error::Storage);
         }
     }
-    let writer = std::thread::spawn(move || stdin.write_all(&input));
+    let writer = std::thread::spawn(move || {
+        let until = Instant::now() + Duration::from_secs(10);
+        let mut remaining = input.as_slice();
+        while !remaining.is_empty() {
+            match stdin.write(remaining) {
+                Ok(0) => return Err(std::io::Error::from(std::io::ErrorKind::WriteZero)),
+                Ok(n) => remaining = &remaining[n..],
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < until => {
+                    std::thread::sleep(Duration::from_millis(20))
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    });
     let reader = std::thread::spawn(move || {
         let until = Instant::now() + Duration::from_secs(10);
         let mut bytes = Vec::new();
@@ -94,6 +108,27 @@ fn invoke(binary: &str, args: &[&str], input: Vec<u8>) -> Result<(bool, Vec<u8>)
     Ok((status.success(), bytes))
 }
 impl SecureCredentialStore for LinuxSecretServiceStore {
+    fn remove(&self, reference: &str) -> Result<()> {
+        validate_name(reference)?;
+        if !self.ready() {
+            return Err(Error::Denied("Secret Service unavailable"));
+        }
+        let _ = invoke(
+            "/usr/bin/secret-tool",
+            &[
+                "clear",
+                "application",
+                &self.service,
+                "reference",
+                reference,
+            ],
+            vec![],
+        )?;
+        if self.load(reference)?.is_some() {
+            return Err(Error::Denied("Secret Service delete failed"));
+        }
+        Ok(())
+    }
     fn ready(&self) -> bool {
         invoke(
             "/usr/bin/gdbus",

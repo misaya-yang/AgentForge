@@ -8,8 +8,10 @@ import { getUsageSummary } from "@/api/usage";
 import { useSetupState } from "@/api/setup";
 import { useAuthStore } from "@/store/useAuthStore";
 import { GROUP_ORDER, useConsoleNavigation } from "@/config/consoleNavigation";
+import { PlatformCapabilities } from "@/components/PlatformCapabilities";
 
 export function WorkbenchPage() {
+  "use memo";
   const { t, i18n } = useTranslation();
   const { user, hasPermission } = useAuthStore();
   const { items } = useConsoleNavigation();
@@ -42,6 +44,7 @@ export function WorkbenchPage() {
 
   return (
     <div className="workbench">
+      <PlatformCapabilities />
       <section className="workbench-hero" aria-labelledby="workbench-title">
         <div className="workbench-hero-copy">
           <span className="console-eyebrow"><Workflow size={14} aria-hidden="true" />{t("workbench.eyebrow")}</span>

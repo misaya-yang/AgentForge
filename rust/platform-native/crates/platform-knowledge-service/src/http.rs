@@ -46,7 +46,9 @@ async fn signed(State(boundary): State<Boundary>, request: Request, next: Next) 
     }
 }
 async fn cached(State(boundary): State<Boundary>, request: Request, next: Next) -> Response {
-    if exempt(request.uri().path()) || request.uri().path()==ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH {
+    if exempt(request.uri().path())
+        || request.uri().path() == ai_platform_service_primitives::knowledge_model::SCOPE_CHECK_PATH
+    {
         next.run(request).await
     } else {
         idempotency::middleware(State((*boundary.idempotency).clone()), request, next).await
@@ -151,7 +153,8 @@ pub(super) fn router(graph: KnowledgeGraph) -> Result<Router> {
         auth: graph.service_auth,
         idempotency: graph.idempotency,
     };
-    Ok(routes
+    let workload = graph.workload.clone();
+    let router = routes
         .merge(probes)
         .layer(axum::middleware::from_fn_with_state(
             graph.cors,
@@ -172,7 +175,11 @@ pub(super) fn router(graph: KnowledgeGraph) -> Result<Router> {
             cached,
         ))
         .layer(axum::middleware::from_fn_with_state(boundary, signed))
-        .layer(axum::middleware::from_fn(security_headers)))
+        .layer(axum::middleware::from_fn(security_headers));
+    Ok(match workload {
+        Some(config) => super::workload::protect(router, config),
+        None => router,
+    })
 }
 
 async fn security_headers(request: Request, next: Next) -> Response {

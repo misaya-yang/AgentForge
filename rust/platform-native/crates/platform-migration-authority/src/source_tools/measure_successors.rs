@@ -336,6 +336,7 @@ pub(crate) struct SingleStepEvidence {
     pub raw_acl_sha256: String,
     pub raw_acl_lines: Vec<String>,
     pub base_acl_lines: Vec<String>,
+    pub partition_catalog: Option<Value>,
 }
 
 /// Apply exactly one reviewed extension in a named disposable database, measure it,
@@ -390,7 +391,8 @@ where
     let paths = AuthorityPaths {
         database_dir: preview_database.to_path_buf(),
     };
-    let authority = MigrationAuthority::new(dsn, paths.clone(), role_prefix.clone())?;
+    let authority =
+        MigrationAuthority::from_principal("migrator", paths.clone(), role_prefix.clone())?;
     let mut lock = authority.connect(false).await?;
     validate_database_session(&mut lock, expected_database, &migrator).await?;
     authority.acquire_lock(&mut lock).await?;
@@ -459,6 +461,13 @@ where
             raw_acl_sha256,
             raw_acl_lines,
             base_acl_lines,
+            partition_catalog:
+                crate::source_tools::service_successors::partition_catalog::capture_for_prefix(
+                    &mut conn,
+                    &authority.role_prefix,
+                    &applied,
+                )
+                .await?,
         };
         let write_reference = write_verification_reference
             .take()
@@ -1011,7 +1020,8 @@ async fn measure(options: MeasureOptions) -> Result<()> {
     let migrator = format!("{role_prefix}migrator");
     let dsn = credentials::dsn_for_principal("migrator")?;
     validate_loopback_dsn(&dsn, &options.expected_database, &migrator)?;
-    let authority = MigrationAuthority::new(dsn, preview_paths.clone(), role_prefix.clone())?;
+    let authority =
+        MigrationAuthority::from_principal("migrator", preview_paths.clone(), role_prefix.clone())?;
 
     let mut lock = authority.connect(false).await?;
     validate_database_session(&mut lock, &options.expected_database, &migrator).await?;

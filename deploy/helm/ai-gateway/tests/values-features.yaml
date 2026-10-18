@@ -1,4 +1,12 @@
-# SYNTHETIC OFFLINE ONLY: nonexistent driver/secrets, fake digests and revisions.
+# OFFLINE FIXTURE ONLY
+global:
+  deploymentMode: multi-instance
+knowledgeService:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
 data:
   objectStore:
     bucket: fixture
@@ -16,6 +24,9 @@ data:
 images:
   sdk:
     digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  tools:
+    repository: fixture/tools
+    digest: ''
 knowledgeWorker:
   keda:
     authenticationRef: fixture-scoped-trigger
@@ -68,3 +79,31 @@ sdkWorker:
   enabled: true
   existingClaim: fixture-sdk
   workerTLSSecret: fixture-sdk-tls
+workloadIdentity:
+  mode: disabled
+  trustDomain: agentforge.internal
+  rotationPollSeconds: 15
+  secrets:
+    gateway: ''
+    runtime: ''
+    control: ''
+    knowledge: ''
+    knowledgeWorker: ''
+    sdk: ''
+dataSecurity:
+  enabled: false
+  generation: ''
+  mode: direct
+  expectedHost: postgres
+  physicalDatabase: gateway
+  poolMax: 4
+  roleConnectionLimit: 64
+  pooledBackendLimit: 8
+  statementTimeoutMs: 30000
+  roles:
+    gateway: ''
+    runtime: ''
+    control: ''
+    knowledge: ''
+    knowledgeWorker: ''
+    migrator: ''

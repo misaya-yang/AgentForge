@@ -1,0 +1,134 @@
+{
+  "schema": "agentforge-role-pool-budget/v1",
+  "postgres_max_connections": 100,
+  "administrative_reserve": 10,
+  "unmanaged_backend_reserve": 10,
+  "role_limits": {
+    "ai_gateway_gateway": 64,
+    "ai_gateway_runtime": 64,
+    "ai_gateway_capability_worker": 64,
+    "ai_gateway_knowledge_api": 64,
+    "ai_gateway_knowledge_worker": 64
+  },
+  "poolers": [
+    {
+      "id": "reviewed-pgbouncer",
+      "replicas": 1,
+      "max_client_conn": 256,
+      "max_user_connections": 8,
+      "max_prepared_statements": 200
+    }
+  ],
+  "clients": [
+    {
+      "id": "gateway-session",
+      "role": "ai_gateway_gateway",
+      "replicas": 2,
+      "pool_max": 4,
+      "mode": "session",
+      "purpose": "backend_pinned",
+      "database_alias": "gateway_session",
+      "pooler": "reviewed-pgbouncer",
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "gateway-control",
+      "role": "ai_gateway_gateway",
+      "replicas": 2,
+      "pool_max": 2,
+      "mode": "direct",
+      "purpose": "cancellation_control",
+      "database_alias": "gateway",
+      "pooler": null,
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "runtime-session",
+      "role": "ai_gateway_runtime",
+      "replicas": 2,
+      "pool_max": 4,
+      "mode": "session",
+      "purpose": "backend_pinned",
+      "database_alias": "runtime_session",
+      "pooler": "reviewed-pgbouncer",
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "runtime-control",
+      "role": "ai_gateway_runtime",
+      "replicas": 2,
+      "pool_max": 2,
+      "mode": "direct",
+      "purpose": "cancellation_control",
+      "database_alias": "gateway",
+      "pooler": null,
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "capability_worker-session",
+      "role": "ai_gateway_capability_worker",
+      "replicas": 2,
+      "pool_max": 4,
+      "mode": "session",
+      "purpose": "backend_pinned",
+      "database_alias": "capability_worker_session",
+      "pooler": "reviewed-pgbouncer",
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "capability_worker-control",
+      "role": "ai_gateway_capability_worker",
+      "replicas": 2,
+      "pool_max": 2,
+      "mode": "direct",
+      "purpose": "cancellation_control",
+      "database_alias": "gateway",
+      "pooler": null,
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "knowledge_api-session",
+      "role": "ai_gateway_knowledge_api",
+      "replicas": 2,
+      "pool_max": 4,
+      "mode": "session",
+      "purpose": "backend_pinned",
+      "database_alias": "knowledge_api_session",
+      "pooler": "reviewed-pgbouncer",
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "knowledge_api-control",
+      "role": "ai_gateway_knowledge_api",
+      "replicas": 2,
+      "pool_max": 2,
+      "mode": "direct",
+      "purpose": "cancellation_control",
+      "database_alias": "gateway",
+      "pooler": null,
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "knowledge_worker-session",
+      "role": "ai_gateway_knowledge_worker",
+      "replicas": 2,
+      "pool_max": 4,
+      "mode": "session",
+      "purpose": "backend_pinned",
+      "database_alias": "knowledge_worker_session",
+      "pooler": "reviewed-pgbouncer",
+      "statement_cache_capacity": 100
+    },
+    {
+      "id": "knowledge_worker-control",
+      "role": "ai_gateway_knowledge_worker",
+      "replicas": 2,
+      "pool_max": 2,
+      "mode": "direct",
+      "purpose": "cancellation_control",
+      "database_alias": "gateway",
+      "pooler": null,
+      "statement_cache_capacity": 100
+    }
+  ]
+}

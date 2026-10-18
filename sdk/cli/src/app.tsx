@@ -120,7 +120,7 @@ export function App({ config }: { config: CLIConfig }) {
 
   const client = React.useMemo(() => new GatewayClient(config), [config]);
   const sessionClient = React.useMemo(
-    () => new GatewaySessionClient(config.base_url, process.env.AI_GATEWAY_SESSION_TOKEN, config.timeout), [config],
+    () => new GatewaySessionClient(config.base_url, config.access_token_provider ?? config.access_token ?? process.env.AI_GATEWAY_SESSION_TOKEN, config.timeout), [config],
   );
   const chat = React.useMemo(() => new ChatModule(client), [client]);
   const mcpManager = React.useMemo(() => new MCPManager(), []);

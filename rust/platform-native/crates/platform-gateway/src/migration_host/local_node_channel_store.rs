@@ -6,12 +6,12 @@
 use super::local_node_channel::{
     ChannelFuture, ChannelStoreError, CompanionReceipt, HeartbeatRequest, HeartbeatResult,
     LocalNodeChannelRepository, PairingRedeemRequest, PendingClaim, PendingControl, WorkerContext,
-    WorkerDescriptor, WorkerDispatchRequest, WorkerReceiptEvent,
+    WorkerDescriptor, WorkerDispatchRequest, WorkerReceiptEvent, identity,
 };
 use base64::Engine as _;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
@@ -33,13 +33,173 @@ impl PostgresLocalNodeChannelRepository {
         Self { pool }
     }
 
+    async fn identity_schema(
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<bool, ChannelStoreError> {
+        let count:i32=sqlx::query_scalar("SELECT (to_regclass('gateway.local_node_identity_policy') IS NOT NULL)::int + (to_regclass('gateway.local_node_attestation_verifiers') IS NOT NULL)::int + (to_regclass('gateway.local_node_hardware_attestations') IS NOT NULL)::int + (EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_request_keys' AND column_name='algorithm'))::int")
+            .fetch_one(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+        match count {
+            0 => Ok(false),
+            4 => Ok(true),
+            _ => Err(ChannelStoreError::Unavailable),
+        }
+    }
+
+    async fn admit_identity(
+        tx: &mut Transaction<'_, Postgres>,
+        tenant: &str,
+        user: &str,
+        device: &str,
+        platform: &str,
+        algorithm: &str,
+        class: &str,
+        public: Option<&str>,
+    ) -> Result<identity::Assurance, ChannelStoreError> {
+        if !identity::platform_matches(class, platform) {
+            return Err(ChannelStoreError::Rejected);
+        }
+        if let Some(public) = public {
+            identity::key_format(algorithm, class, public)?;
+        }
+        if !Self::identity_schema(tx).await? {
+            return if algorithm == "ed25519" && class == identity::SOFTWARE {
+                Ok(identity::Assurance::Software)
+            } else {
+                Err(ChannelStoreError::Unavailable)
+            };
+        }
+        let value = sqlx::query_scalar::<_, Value>(
+            "SELECT to_jsonb(p) FROM gateway.local_node_identity_policy p WHERE tenant_id=$1",
+        )
+        .bind(tenant)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|_| ChannelStoreError::Unavailable)?;
+        let policy: identity::IdentityPolicy = match value {
+            Some(v) => serde_json::from_value(v).map_err(|_| ChannelStoreError::Unavailable)?,
+            None => Default::default(),
+        };
+        let mut verified = false;
+        if algorithm == "ES256" {
+            let public = public.ok_or(ChannelStoreError::Rejected)?;
+            let key = identity::key_format(algorithm, class, public)?;
+            let fingerprint = sha256(&key);
+            let evidence=sqlx::query("SELECT e.attestation_id,e.verifier_id,e.assertion,e.signature,e.platform_evidence,v.signing_public_key,v.allowed_hardware_classes,(e.revoked_at IS NULL AND v.revoked_at IS NULL AND v.expires_at>now()) AS active FROM gateway.local_node_hardware_attestations e JOIN gateway.local_node_attestation_verifiers v ON (v.tenant_id,v.verifier_id)=(e.tenant_id,e.verifier_id) WHERE e.tenant_id=$1 AND e.user_id=$2 AND e.device_id=$3 AND e.public_key_sha256=$4 AND e.hardware_class=$5 ORDER BY e.created_at DESC LIMIT 1")
+                .bind(tenant).bind(user).bind(device).bind(&fingerprint).bind(class).fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+            if let Some(row) = evidence {
+                if !row
+                    .try_get::<bool, _>("active")
+                    .map_err(|_| ChannelStoreError::Unavailable)?
+                {
+                    return Err(ChannelStoreError::Rejected);
+                }
+                let assertion: Value = row
+                    .try_get("assertion")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let assertion: identity::HardwareAssertion =
+                    serde_json::from_value(assertion).map_err(|_| ChannelStoreError::Rejected)?;
+                let id: Uuid = row
+                    .try_get("attestation_id")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let verifier: String = row
+                    .try_get("verifier_id")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let signing_key: String = row
+                    .try_get("signing_public_key")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let signature: String = row
+                    .try_get("signature")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let allowed: Vec<String> = row
+                    .try_get("allowed_hardware_classes")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let bytes: Vec<u8> = row
+                    .try_get("platform_evidence")
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                let now: i64 =
+                    sqlx::query_scalar("SELECT floor(extract(epoch from now()))::bigint")
+                        .fetch_one(&mut **tx)
+                        .await
+                        .map_err(|_| ChannelStoreError::Unavailable)?;
+                if assertion.attestation_id != id.to_string() || !allowed.iter().any(|v| v == class)
+                {
+                    return Err(ChannelStoreError::Rejected);
+                }
+                assertion.verify(
+                    identity::AttestationScope {
+                        tenant,
+                        user,
+                        device,
+                        public,
+                        class,
+                        platform,
+                    },
+                    &verifier,
+                    &signing_key,
+                    &signature,
+                    &bytes,
+                    u64::try_from(now).map_err(|_| ChannelStoreError::Rejected)?,
+                )?;
+                verified = true;
+            }
+        }
+        policy.admit(algorithm, class, verified)
+    }
+
+    async fn authorize_channel_identity(
+        tx: &mut Transaction<'_, Postgres>,
+        channel: &str,
+    ) -> Result<(), ChannelStoreError> {
+        let scope=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('tenant_id',ch.tenant_id,'user_id',ch.user_id,'device_id',ch.device_id,'platform',d.platform) FROM gateway.local_node_channels ch JOIN gateway.local_node_devices d ON (d.device_id,d.tenant_id,d.user_id)=(ch.device_id,ch.tenant_id,ch.user_id) WHERE ch.channel_id=$1")
+            .bind(channel).fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?.ok_or(ChannelStoreError::Rejected)?;
+        let has_keys: bool =
+            sqlx::query_scalar("SELECT to_regclass('gateway.local_node_request_keys') IS NOT NULL")
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+        let key = if has_keys {
+            sqlx::query_scalar::<_, Value>(
+                "SELECT to_jsonb(k) FROM gateway.local_node_request_keys k WHERE channel_id=$1",
+            )
+            .bind(channel)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(|_| ChannelStoreError::Unavailable)?
+        } else {
+            None
+        };
+        let algorithm = key
+            .as_ref()
+            .and_then(|k| k["algorithm"].as_str())
+            .unwrap_or("ed25519");
+        let class = key
+            .as_ref()
+            .and_then(|k| k["key_class"].as_str())
+            .unwrap_or(identity::SOFTWARE);
+        let public = key.as_ref().and_then(|k| k["public_key"].as_str());
+        Self::admit_identity(
+            tx,
+            value_str(&scope, "tenant_id")?,
+            value_str(&scope, "user_id")?,
+            value_str(&scope, "device_id")?,
+            value_str(&scope, "platform")?,
+            algorithm,
+            class,
+            public,
+        )
+        .await?;
+        Ok(())
+    }
+
     async fn proof_scope(
         tx: &mut Transaction<'_, Postgres>,
         hash: &str,
         device: &str,
     ) -> Result<Value, ChannelStoreError> {
-        sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('channel_id',c.channel_id) FROM gateway.local_node_device_credentials c JOIN gateway.local_node_devices d ON (d.device_id,d.tenant_id,d.user_id)=(c.device_id,c.tenant_id,c.user_id) JOIN gateway.local_node_channels ch ON (ch.channel_id,ch.device_id,ch.tenant_id,ch.user_id)=(c.channel_id,c.device_id,c.tenant_id,c.user_id) WHERE c.credential_sha256=$1 AND c.device_id=$2 AND c.revoked_at IS NULL AND c.expires_at>now() AND d.revoked_at IS NULL AND d.status='online' AND ch.status='online' FOR UPDATE OF c,d,ch")
-            .bind(hash).bind(device).fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?.ok_or(ChannelStoreError::Rejected)
+        let scope=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('channel_id',c.channel_id) FROM gateway.local_node_device_credentials c JOIN gateway.local_node_devices d ON (d.device_id,d.tenant_id,d.user_id)=(c.device_id,c.tenant_id,c.user_id) JOIN gateway.local_node_channels ch ON (ch.channel_id,ch.device_id,ch.tenant_id,ch.user_id)=(c.channel_id,c.device_id,c.tenant_id,c.user_id) WHERE c.credential_sha256=$1 AND c.device_id=$2 AND c.revoked_at IS NULL AND c.expires_at>now() AND d.revoked_at IS NULL AND d.status='online' AND ch.status='online' FOR UPDATE OF c,d,ch")
+            .bind(hash).bind(device).fetch_optional(&mut **tx).await.map_err(|_|ChannelStoreError::Unavailable)?.ok_or(ChannelStoreError::Rejected)?;
+        Self::authorize_channel_identity(tx, value_str(&scope, "channel_id")?).await?;
+        Ok(scope)
     }
 
     async fn execution_source(&self, context: &WorkerContext) -> Result<Value, ChannelStoreError> {
@@ -91,7 +251,12 @@ impl PostgresLocalNodeChannelRepository {
         user_id: &str,
         device_id: &str,
     ) -> Result<String, ChannelStoreError> {
-        sqlx::query_scalar::<_, String>(
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| ChannelStoreError::Unavailable)?;
+        let channel = sqlx::query_scalar::<_, String>(
             "SELECT c.channel_id FROM gateway.local_node_device_credentials c \
              JOIN gateway.local_node_devices d ON d.device_id=c.device_id \
               AND d.tenant_id=c.tenant_id AND d.user_id=c.user_id \
@@ -105,10 +270,15 @@ impl PostgresLocalNodeChannelRepository {
         .bind(tenant_id)
         .bind(user_id)
         .bind(device_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|_| ChannelStoreError::Unavailable)?
-        .ok_or(ChannelStoreError::Rejected)
+        .ok_or(ChannelStoreError::Rejected)?;
+        Self::authorize_channel_identity(&mut tx, &channel).await?;
+        tx.commit()
+            .await
+            .map_err(|_| ChannelStoreError::Unavailable)?;
+        Ok(channel)
     }
 
     async fn current_grant(
@@ -382,8 +552,8 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
                     Err(ChannelStoreError::Unavailable)
                 };
             }
-            let key = sqlx::query_scalar::<_, String>(
-                "SELECT public_key FROM gateway.local_node_request_keys WHERE channel_id=$1",
+            let key = sqlx::query_scalar::<_, Value>(
+                "SELECT to_jsonb(k) FROM gateway.local_node_request_keys k WHERE channel_id=$1",
             )
             .bind(value_str(&scope, "channel_id")?)
             .fetch_optional(&mut *tx)
@@ -401,7 +571,16 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(|_| ChannelStoreError::Unavailable)?;
-            proof.verify(&key, credential_hash, device, target, body_hash, now as u64)?;
+            proof.verify_registered(
+                key["algorithm"].as_str().unwrap_or("ed25519"),
+                value_str(&key, "key_class")?,
+                value_str(&key, "public_key")?,
+                credential_hash,
+                device,
+                target,
+                body_hash,
+                u64::try_from(now).map_err(|_| ChannelStoreError::Rejected)?,
+            )?;
             let consumed=sqlx::query("UPDATE gateway.local_node_request_nonces SET consumed_at=now() WHERE credential_sha256=$1 AND nonce=$2 AND issued_at=$3 AND expires_at=$4 AND consumed_at IS NULL AND expires_at>=floor(extract(epoch from now()))::bigint")
                 .bind(credential_hash).bind(&proof.nonce).bind(i64::try_from(proof.issued_at).map_err(|_|ChannelStoreError::Rejected)?).bind(i64::try_from(proof.expires_at).map_err(|_|ChannelStoreError::Rejected)?)
                 .execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
@@ -489,6 +668,17 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .ok_or(ChannelStoreError::Rejected)?;
             let tenant_id = value_str(&challenge_owner, "tenant_id")?;
             let user_id = value_str(&challenge_owner, "user_id")?;
+            Self::admit_identity(
+                &mut tx,
+                tenant_id,
+                user_id,
+                &request.device_id,
+                &request.platform,
+                &request.proof_algorithm,
+                request.key_class(),
+                Some(&request.proof_public_key),
+            )
+            .await?;
             let consumed = sqlx::query_scalar::<_, i32>(
                 "UPDATE gateway.local_node_pairing_challenges SET consumed_at=now() \
                  WHERE challenge_id=$1::uuid AND consumed_at IS NULL RETURNING 1",
@@ -616,8 +806,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .await
             .map_err(|_| ChannelStoreError::Conflict)?;
             if request.request_proof_version == Some(1) {
-                sqlx::query("INSERT INTO gateway.local_node_request_keys(channel_id,public_key,key_class) VALUES($1,$2,'os-vault-software-ed25519')")
-                    .bind(channel_id).bind(&request.proof_public_key).execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                if Self::identity_schema(&mut tx).await? {
+                    sqlx::query("INSERT INTO gateway.local_node_request_keys(channel_id,public_key,key_class,algorithm) VALUES($1,$2,$3,$4)")
+                        .bind(channel_id).bind(&request.proof_public_key).bind(request.key_class()).bind(&request.proof_algorithm).execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                } else {
+                    sqlx::query("INSERT INTO gateway.local_node_request_keys(channel_id,public_key,key_class) VALUES($1,$2,'os-vault-software-ed25519')")
+                        .bind(channel_id).bind(&request.proof_public_key).execute(&mut *tx).await.map_err(|_|ChannelStoreError::Unavailable)?;
+                }
             }
             tx.commit()
                 .await
@@ -660,6 +855,7 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             let user_id = value_str(&credential, "user_id")?;
             let device_id = value_str(&credential, "device_id")?;
             let channel_id = value_str(&credential, "channel_id")?;
+            Self::authorize_channel_identity(&mut tx, channel_id).await?;
             let mut accepted = credential["accepted_through_sequence"]
                 .as_i64()
                 .ok_or(ChannelStoreError::Rejected)?;
@@ -993,6 +1189,7 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .await
             .map_err(|_| ChannelStoreError::Unavailable)?
             .ok_or(ChannelStoreError::Rejected)?;
+            Self::authorize_channel_identity(&mut tx, &channel_id).await?;
             let connector_grant = if binding["connector_binding"]["provider"] == "local_node" {
                 binding["connector_binding"]["grant_id"].as_str()
             } else {

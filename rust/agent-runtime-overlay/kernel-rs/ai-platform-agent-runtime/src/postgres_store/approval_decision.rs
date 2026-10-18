@@ -76,7 +76,7 @@ impl PostgresThreadStore {
         reason: Option<&str>,
         receipt_only_thread: Option<Uuid>,
     ) -> ThreadStoreResult<CommittedApprovalDecision> {
-        let mut tx = self.pool.begin().await.map_err(store_error)?;
+        let mut tx = self.tenant_transaction(tenant_id).await?;
         // Match claim/cancel/dispatch: run first. Locking approval first would
         // invert Worker's run -> execution -> approval order.
         let run = sqlx::query(LOCK_RUN)

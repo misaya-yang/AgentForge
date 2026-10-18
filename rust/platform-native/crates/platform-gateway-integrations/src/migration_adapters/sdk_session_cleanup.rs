@@ -222,14 +222,26 @@ fn worker_ca(path: &std::path::Path) -> Result<Vec<reqwest::Certificate>, Cleanu
 #[derive(Clone)]
 pub struct SdkAgentWorkerConfig {
     base_url: String,
-    authorization: HeaderValue,
+    authorization: Option<HeaderValue>,
+    workload: Option<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
     ca_certificates: Vec<reqwest::Certificate>,
 }
 impl SdkAgentWorkerConfig {
     pub fn from_operator_environment(environment: &BTreeMap<String, String>) -> Option<Self> {
         let base = environment.get("SDK_AGENT_WORKER_URL")?;
-        let token = environment.get("SDK_AGENT_WORKER_TOKEN")?;
-        if token.len() < 32 {
+        let required = environment
+            .get("AI_PLATFORM_WORKLOAD_MTLS_MODE")
+            .is_some_and(|v| v == "required");
+        let token = environment
+            .get("SDK_AGENT_WORKER_TOKEN")
+            .map(String::as_str)
+            .unwrap_or("");
+        if required
+            && (!token.is_empty() || environment.contains_key("SDK_AGENT_WORKER_TOKEN_FILE"))
+        {
+            return None;
+        }
+        if !required && token.len() < 32 {
             return None;
         }
         let url = worker_origin(base).ok()?;
@@ -243,19 +255,62 @@ impl SdkAgentWorkerConfig {
             None => Vec::new(),
         };
 
-        let mut authorization = HeaderValue::from_str(&format!("Bearer {token}")).ok()?;
-        authorization.set_sensitive(true);
+        let authorization = if required {
+            None
+        } else {
+            let mut h = HeaderValue::from_str(&format!("Bearer {token}")).ok()?;
+            h.set_sensitive(true);
+            Some(h)
+        };
+        let workload = if environment.get("AI_PLATFORM_WORKLOAD_MTLS_MODE").is_some_and(|v|matches!(v.as_str(),"required"|"dual")) {
+            use ai_platform_service_primitives::workload_identity::{
+                ServiceIdentity, http::WorkloadHttp, secrets::CredentialFiles,
+                tls::ClientCredentials,
+            };
+            let peers: BTreeMap<String, String> =
+                serde_json::from_str(environment.get("AI_PLATFORM_WORKLOAD_PEERS_JSON")?).ok()?;
+            let peer =
+                ServiceIdentity::parse(peers.get(&url.origin().ascii_serialization())?).ok()?;
+            let own =
+                ServiceIdentity::parse(environment.get("AI_PLATFORM_WORKLOAD_SPIFFE_ID")?).ok()?;
+            let credentials = ClientCredentials::new(
+                CredentialFiles::new(
+                    environment
+                        .get("AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR")?
+                        .into(),
+                )
+                .ok()?,
+                own,
+            );
+            Some(
+                WorkloadHttp::new(
+                    credentials,
+                    [(format!("{}/", url.origin().ascii_serialization()), peer)],
+                    Duration::from_secs(5),
+                    Duration::from_secs(1830),
+                )
+                .ok()?,
+            )
+        } else {
+            None
+        };
         Some(Self {
             base_url: url.origin().ascii_serialization(),
             authorization,
+            workload,
             ca_certificates,
         })
     }
     pub(super) fn base_url(&self) -> &str {
         &self.base_url
     }
-    pub(super) fn authorization(&self) -> HeaderValue {
+    pub(super) fn authorization(&self) -> Option<HeaderValue> {
         self.authorization.clone()
+    }
+    pub(super) fn workload_transport(
+        &self,
+    ) -> Option<ai_platform_service_primitives::workload_identity::http::WorkloadHttp> {
+        self.workload.clone()
     }
     pub(super) fn client_builder(&self) -> reqwest::ClientBuilder {
         let mut builder = Client::builder().no_proxy();
@@ -271,7 +326,8 @@ impl SdkAgentWorkerConfig {
 struct Worker {
     client: Client,
     url: Url,
-    auth: HeaderValue,
+    auth: Option<HeaderValue>,
+    workload: Option<ai_platform_service_primitives::workload_identity::http::WorkloadHttp>,
 }
 impl Worker {
     fn configured(config: &SdkAgentWorkerConfig) -> Result<Self, CleanupError> {
@@ -285,17 +341,34 @@ impl Worker {
                 .map_err(|_| CleanupError::WorkerConfiguration)?,
             url: config.sessions_url()?,
             auth: config.authorization(),
+            workload: config.workload_transport(),
         })
     }
     async fn delete(&self, scope: &SdkScope) -> bool {
-        let Ok(mut response) = self
-            .client
-            .delete(self.url.clone())
-            .header("authorization", self.auth.clone())
-            .json(scope)
-            .send()
-            .await
-        else {
+        let response = if let Some(workload) = &self.workload {
+            let bytes = match serde_json::to_vec(scope) {
+                Ok(v) => v,
+                Err(_) => return false,
+            };
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert("content-type", HeaderValue::from_static("application/json"));
+            workload
+                .send(
+                    reqwest::Method::DELETE,
+                    self.url.as_str(),
+                    headers,
+                    Some(bytes),
+                )
+                .await
+                .ok()
+        } else {
+            let mut request = self.client.delete(self.url.clone()).json(scope);
+            if let Some(auth) = &self.auth {
+                request = request.header("authorization", auth)
+            }
+            request.send().await.ok()
+        };
+        let Some(mut response) = response else {
             return false;
         };
         if response.status() != reqwest::StatusCode::OK {
@@ -385,7 +458,9 @@ pub async fn run(
             _ = tick.tick() => {
                 tokio::select! {
                     _ = stop.changed() => return,
-                    _ = drain_pending(&pool, worker_config.as_ref()) => {},
+                    result = ai_platform_gateway_foundation::worker_lease::with_effect(
+                        "sdk_session_cleanup", drain_pending(&pool, worker_config.as_ref()),
+                    ) => { if result.is_err() { return; } },
                 }
             }
         }
@@ -498,7 +573,8 @@ mod tests {
                     .build()
                     .unwrap(),
                 url,
-                auth: HeaderValue::from_static("Bearer test-token"),
+                auth: Some(HeaderValue::from_static("Bearer test-token")),
+                workload: None,
             };
             let scope = SdkScope {
                 tenant_id: "t".into(),

@@ -298,7 +298,23 @@ impl PgTaskDeliveryLedger {
 }
 impl TaskDelivery for PgTaskDeliveryLedger {
     fn configure_provider_batches(&self,coordinator:std::sync::Arc<crate::provider_batch_store::BatchCoordinator>)->bool{self.provider_batches.set(coordinator).is_ok()}
-    fn dispatch_provider_batch<'a>(&'a self,claim:&'a DeliveryClaim)->DeliveryFuture<'a,Option<DeliveryTerminal>>{Box::pin(async move{if crate::provider_batch::BatchPlan::from_envelope(&claim.envelope).map_err(|_|DeliveryError::InvalidEnvelope)?.is_none(){return Ok(None)}self.provider_batches.get().ok_or(DeliveryError::InvalidEnvelope)?.submit_claim(claim).await?;Ok(Some(DeliveryTerminal::Unknown))})}
+    fn dispatch_provider_batch<'a>(
+        &'a self,
+        claim: &'a DeliveryClaim,
+    ) -> DeliveryFuture<'a, Option<DeliveryTerminal>> {
+        Box::pin(async move {
+            if crate::provider_batch::BatchPlan::from_envelope(&claim.envelope)
+                .map_err(|_| DeliveryError::InvalidEnvelope)?
+                .is_none()
+            {
+                return Ok(None);
+            }
+            let outcome = self.provider_batches.get()
+                .ok_or(DeliveryError::InvalidEnvelope)?
+                .submit_claim_outcome(claim).await?;
+            Ok(Some(outcome))
+        })
+    }
     fn reconcile<'a>(&'a self,identity:&'a DeliveryIdentity,operator:&'a str,request:ReconcileRequest)->DeliveryFuture<'a,ReconcileResult>{Box::pin(PgTaskDeliveryLedger::reconcile(self,identity,operator,request))}
 
     fn publish(&self,envelope:TaskEnvelope,actor:TaskActor)->DeliveryFuture<'_,Task> {Box::pin(self.publish(envelope,actor))}

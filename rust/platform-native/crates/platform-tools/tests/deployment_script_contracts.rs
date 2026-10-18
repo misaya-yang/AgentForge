@@ -174,23 +174,14 @@ mod static_contracts;
 mod validation;
 fn runtime_values(extra: &[(&str, &str)]) -> BTreeMap<String, String> {
     let f = Fixture::new();
-    let path = f.dir.join("runtime-config.js");
+    let path = f.dir.join("runtime-config.json");
     let mut c = f.command("web/docker-entrypoint.d/40-runtime-config.sh", &[]);
     c.env("RUNTIME_CONFIG_OUTPUT_PATH", &path);
     for (k, v) in extra {
         c.env(k, v);
     }
     outcome(c.output().unwrap(), 0);
-    regex::Regex::new(r#"(?m)^\s+(\w+): "(.*)"[,]?$"#)
-        .unwrap()
-        .captures_iter(&fs::read_to_string(path).unwrap())
-        .map(|c| {
-            (
-                c[1].into(),
-                serde_json::from_str(&format!("\"{}\"", &c[2])).unwrap(),
-            )
-        })
-        .collect()
+    serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
 }
 #[test]
 fn runtime_config_defaults() {

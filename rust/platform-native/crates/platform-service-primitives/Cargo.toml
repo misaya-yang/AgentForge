@@ -12,20 +12,23 @@ sha2 = "0.10"
 base64 = "0.22"
 http-body = "1"
 fernet = { version = "=0.2.2", default-features = false, features = ["rustcrypto", "fernet_danger_timestamps"] }
-opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry_sdk = { version = "0.31", default-features = false, features = ["trace"] }
-opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "grpc-tonic", "tls-roots"] }
+opentelemetry = { version = "=0.32.0", default-features = false, features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "=0.32.1", default-features = false, features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { version = "=0.32.0", default-features = false, features = ["trace", "metrics", "logs", "grpc-tonic", "tls-roots", "http-proto", "reqwest-blocking-client"] }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
 uuid = { version = "1", features = ["v4"] }
 hmac = "0.12"
 redis.workspace = true
 rustls.workspace = true
+tokio-rustls.workspace = true
 reqwest.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 sha1 = "0.10"
 md-5 = "0.10"
 quick-xml = "0.41"
 unicode-normalization = "0.1"
-[dev-dependencies]
-tower = { version = "0.5", features = ["util"] }
+async-stream = "0.3"
 futures-util = "0.3"
+[dev-dependencies]
+sqlx = { workspace = true, features = ["chrono"] }
+tower = { version = "0.5", features = ["util"] }

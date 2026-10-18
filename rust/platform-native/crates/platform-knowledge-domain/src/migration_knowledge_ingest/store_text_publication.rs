@@ -61,6 +61,7 @@ impl KnowledgeWriteStore {
     ) -> Result<i64> {
         let publication_revision = publication.revision;
         let mut tx = sqlx::Connection::begin(publication.connection()).await?;
+        crate::database::bind_current(&mut tx).await?;
         Self::require_identity(&mut tx, dataset, Some(expected)).await?;
         let current:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM knowledge.documents d WHERE document_id=$1 AND dataset_id=$2 AND status='indexing' FOR UPDATE").bind(document).bind(dataset).fetch_optional(&mut *tx).await?.ok_or(IngestError::GenerationChanged)?;
         if string(&current, "content") != expected_content {

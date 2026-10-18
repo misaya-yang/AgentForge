@@ -72,7 +72,7 @@ impl Sources {
         );
         sqlx::query_scalar(&sql)
             .bind(id)
-            .fetch_optional(&self.pool)
+            .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
             .await?
             .ok_or_else(|| Error::missing("Connection receipt is unavailable"))
     }
@@ -156,6 +156,7 @@ impl Sources {
             .await?;
         let actor = self.actor(user, dataset, true, true).await?;
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         locked_dataset(&mut tx, &actor, dataset, true).await?;
         let saved:Option<Value>=sqlx::query_scalar("WITH saved AS(INSERT INTO confluence_connections(connection_id,tenant_id,name,domain,email,api_token,sync_mode,status,created_by,owner_id) VALUES($1,$2,$3,$4,$5,$6,'manual','active',$7,$7) ON CONFLICT DO NOTHING RETURNING connection_id,name,domain,status,sync_mode) SELECT to_jsonb(saved) FROM saved").bind(&id).bind(&actor.tenant_id).bind(&input.name).bind(&input.domain).bind(credentials::MARKER).bind(encrypted).bind(&actor.user_id).fetch_optional(&mut *tx).await?;
         let result = match saved {
@@ -188,7 +189,7 @@ impl Sources {
             .bind(&actor.tenant_id)
             .bind(&actor.user_id)
             .bind(offset)
-            .fetch_all(&self.pool)
+            .fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool))
             .await?;
         Ok(
             json!({"connections":rows.iter().take(50).map(control_receipt).collect::<Vec<_>>(),"next_offset":if rows.len()>50{Some(offset+50)}else{None}}),
@@ -206,8 +207,8 @@ impl Sources {
         if !owned(&row, &actor) {
             return Err(Error::missing("Connection controls are unavailable"));
         }
-        let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM confluence_space_bindings WHERE connection_id=$1 AND tenant_id=$2").bind(id).bind(&actor.tenant_id).fetch_one(&self.pool).await?;
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM(SELECT binding_id,dataset_id,owner_id,created_by,space_name,status FROM confluence_space_bindings WHERE connection_id=$1 AND tenant_id=$2 ORDER BY binding_id LIMIT 51 OFFSET $3)b").bind(id).bind(&actor.tenant_id).bind(offset).fetch_all(&self.pool).await?;
+        let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM confluence_space_bindings WHERE connection_id=$1 AND tenant_id=$2").bind(id).bind(&actor.tenant_id).fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM(SELECT binding_id,dataset_id,owner_id,created_by,space_name,status FROM confluence_space_bindings WHERE connection_id=$1 AND tenant_id=$2 ORDER BY binding_id LIMIT 51 OFFSET $3)b").bind(id).bind(&actor.tenant_id).bind(offset).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         let mut visible = Vec::new();
         let mut hidden = 0;
         for binding in rows.iter().take(50) {
@@ -316,6 +317,7 @@ impl Sources {
     ) -> Result<Value> {
         let actor = self.actor(user, dataset, true, false).await?;
         let mut tx = self.pool.begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         let sql = format!(
             "SELECT to_jsonb(c) FROM(SELECT {} FROM confluence_connections WHERE connection_id=$1 FOR UPDATE)c",
             metadata_columns()

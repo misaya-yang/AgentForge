@@ -629,7 +629,7 @@ function DatasetCreateWizard({ isScopeCurrent }: { isScopeCurrent: () => boolean
         <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between gap-3 sm:hidden" aria-live="polite">
             <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              {t("knowledge.create.stepProgress", "Step {{current}} of {{total}}", {
+              {t("knowledge.create.stepProgress", "Step {current} of {total}", {
                 current: step,
                 total: wizardSteps.length,
               })}

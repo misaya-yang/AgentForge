@@ -1,35 +1,34 @@
 # 08 Platform engineering (observability, security and supply chain, CI/CD, deployment, harness)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-Cross-cutting engineering that every service depends on: how the platform is observed, built,
-secured, released, deployed and governed. This file also owns the gates that keep the findings in
-[01](01-baseline-and-findings.md) from recurring.
+让当前代码能通过一个可复用构建流程形成正确镜像、部署成可观测服务，并完成原定发布与恢复验收。
 
-## 2. Current state (SRC)
+| 交付部分 | 原需求 ID | 连通的结果 |
+| --- | --- | --- |
+| 镜像与部署入口 | `U-PE-01`, `U-PE-20`, `U-PE-22`, `U-PE-30`, `U-PE-32` | 配对镜像、Compose/Helm、安全网络与运行配置随真实服务接线一起交付。 |
+| CI 与供应链 | `U-PE-03`, `U-PE-13`, `U-PE-14`, `U-PE-15`, `U-PE-21` | 共享构建缓存、原生架构产物、依赖/许可与签名扫描形成可用发布流程。 |
+| 服务信任与观测 | `U-PE-10`, `U-PE-11`, `U-PE-12` | 文件凭据、mTLS、轮换及 trace/metric/log 接到实际服务链。 |
+| 统一测量与发布演练 | `U-PE-04`, `U-PE-31` | 使用集成候选集中测量基线并完成渐进发布/回滚演练，不按模块重复搭台。 |
+| 项目说明与约束 | `U-PE-02`, `U-PE-40` | 只维护真实入口、命令和有效约束；复用现有 harness，不再新增报告/审计体系。 |
 
-| Area | Current state |
-| --- | --- |
-| Telemetry | Gateway exports OTel traces only (`features = ["trace"]`); metrics use a separate registry; no OTLP logs; Runtime and Worker log with `fmt` only; no GenAI conventions (F-14). Main Compose runs Tempo 2.5.0. The separate monitoring overlay is from 2023 (Collector 0.88, Prometheus 2.47, Grafana 10.2, Jaeger 1.51, plus duplicate PostgreSQL 15 and Redis services) (F-13). |
-| CI | `ci.yml` (618 lines, 13 jobs) with real gates: script contracts, Compose and harness, frontend, eval regression, KB migration, agent-runtime contracts, SDK SSE, independent CLI, architecture gates, Gateway units, changed-crate tests, gate enforcement self-test, release readiness. CI forces `CARGO_BUILD_JOBS=1`. 49 tag-pinned action references; no `permissions:` block in `ci.yml` (F-23). |
-| Images | `docker-publish.yml` builds amd64 and arm64 through QEMU with SBOM and `provenance: mode=max`; no signing and no scanning (F-23). The native Dockerfile exists in five copies, and the Runtime ships a toolchain image (F-22). |
-| Hardening | Only the Capability Worker drops capabilities (F-36); one flat bridge network (F-39). |
-| Deployment | Compose is the reference: a main file plus 11 overlays in `deploy/compose`, with `make hot-update` and `make status` as the routine path. The Helm chart describes the retired Python gateway (F-12). |
-| Secrets | Environment variables; one shared internal bearer token; a capability-lease HMAC secret shared by signer and verifiers (F-04); 208 variables in `.env.example` (F-27). |
-| Governance | Strong harness: `AGENTS.md`, `docs/harness/*`, `make harness-check` (needs `platform-tools`), program ledgers under `deploy/runbooks`, evidence reports. Docs drift is tracked in F-31. Licence mismatch in F-24. |
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-## 3. Assessment
+## 2. 接线与真实依赖
 
-The harness and evidence culture are the strongest parts of the repository. Gaps cluster in four
-places:
+构建验证与运行联调由主任务按本机资源串行安排，沿用一份 Docker 缓存和现有拓扑。源码开发不依赖 CI 容量调查、监控部署、发布签名或提前重建全部镜像。
 
-1. Production-grade observability for an AI platform: correlated signals, GenAI semantics, cost
-   and token telemetry.
-2. Supply-chain integrity from source to running image: pinning, scanning, signing, verification.
-3. A Kubernetes path that matches the Rust topology.
-4. Build throughput: one Cargo job and QEMU builds make every other work package slower.
+## 3. 一次集中验证与收尾边界
+
+集中做配置/镜像身份检查和受影响构建，再随统一服务联调验证可观测链。正式发布保留签名、漏洞、许可、Helm、轮换和回滚要求；同一结果覆盖多个包，不另造逐项 gate。
+
+文档日期、无实际风险的规则扩张、全仓周期扫描和单独 ADR 编号不阻塞当前交付；真实部署错误、供应链风险和凭据问题仍需修复。
+
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -130,15 +129,18 @@ flowchart LR
 
 ### 4.5 Harness, docs and architecture fitness (U-PE-02, U-PE-04, U-PE-40)
 
-- **Docs truth (U-PE-02, Ph0).** `architecture.md` describes native defaults. Draft P-ADR-1, fix
-  the stale references listed in F-31, and add a freshness check on `last_verified` dates of
-  live docs.
+- **Docs truth (U-PE-02, Ph0).** Keep native startup, architecture and changed interface instructions
+  accurate. Reuse accepted decisions; fix stale operational references when the owning module is
+  delivered. Check missing scripts, broken references and obsolete commands; calendar age is not
+  a failure and does not require date refreshes, historical rewrites or repository-wide sweeps.
 - **Performance baseline (U-PE-04, Ph0).** Run the
   [enterprise performance contract](../../design/enterprise-performance-contract.md) harness with
   a deterministic mock provider on the accepted build. Record Gateway overhead, retrieval stage
   latencies, ingestion throughput and RSS per service. These baselines gate later phases.
-- **Gates for recurring findings (U-PE-40).** Following `docs/harness/workflow.md` §5, turn this
-  review's findings into checks in `platform-tools`, run by `make harness-check`:
+- **Gates for recurring findings (U-PE-40).** Reuse checks in `platform-tools`, run by
+  `make harness-check`, for concrete deployment, dependency and security failures. Implement a
+  missing check with its owning module and run the consolidated suite; do not add duplicate gates
+  or standalone housekeeping packages for individual edits:
 
   | Check | Prevents |
   | --- | --- |
@@ -169,7 +171,12 @@ flowchart LR
 | Kubernetes | Python-era chart | Helm v2 with operators and Gateway API | F-12 |
 | Secrets | Environment variables, shared bearer | Files and External Secrets; mTLS identities | F-04 |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -191,7 +198,12 @@ flowchart LR
 | U-PE-32 | Compose overlays folded into profiles | P3 | Ph2 | Documented matrix; `make hot-update` unchanged |
 | U-PE-40 | Harness checks for this review's recurring findings | P2 | Ph1 | Each check has a negative test in the gate self-test |
 
+</details>
+
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - `make harness-check` and the gate-enforcement self-test include every U-PE-40 check, each with a
   negative case.
@@ -201,6 +213,9 @@ flowchart LR
   recorded data.
 - Deployment: Helm install, upgrade and rollback on kind in CI; Compose rendered-config checks;
   quarterly disaster-recovery drill (U-DATA-06).
+
+<details>
+<summary>已有实现说明与历史结果（不自动变成当前任务或当前验收）</summary>
 
 ### U-PE-14 eval interpreter removal implementation (2026-10-17)
 
@@ -212,3 +227,5 @@ See [execution contract, fixture gate and compatibility commands](../../../tests
 This is implementation evidence only: Rust compilation, actual isolated fixture execution and
 cargo-deny/dependency removal remain primary verification steps. No live benchmark or image build
 was performed for this change.
+
+</details>

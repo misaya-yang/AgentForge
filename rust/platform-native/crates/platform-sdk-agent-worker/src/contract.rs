@@ -10,7 +10,7 @@ pub type Result<T> = std::result::Result<T, &'static str>;
 #[derive(Clone)]
 pub struct Launch {
     pub body: Value,
-    pub key: String,
+    pub model_plane: Option<crate::model_plane::ModelPlane>,
     pub scope: String,
 }
 pub fn exact(v: &Value, keys: &[&str]) -> bool {
@@ -119,7 +119,7 @@ fn hex(v: &Value) -> bool {
     })
 }
 impl Launch {
-    pub fn parse(body: Value, key: String) -> Result<Self> {
+    pub fn parse(body: Value) -> Result<Self> {
         let keys = [
             "protocol",
             "framework",
@@ -164,9 +164,6 @@ impl Launch {
             }) {
                 return Err("sdk_request_invalid");
             }
-        }
-        if !(16..=4096).contains(&key.chars().count()) || key.chars().any(|c| c < '!') {
-            return Err("sdk_request_invalid");
         }
         if let Some(b) = body.get("read_bridge").filter(|v| !v.is_null()) {
             if !exact(b, &["grant", "dataset_ids"]) || !hex(&b["grant"]) {
@@ -254,7 +251,7 @@ impl Launch {
                 }
             }
         }
-        if serde_json::to_vec(&json!({"request":body,"provider_key":key}))
+        if serde_json::to_vec(&json!({"request":body}))
             .map_err(|_| "sdk_request_invalid")?
             .len()
             + 1
@@ -262,7 +259,11 @@ impl Launch {
         {
             return Err("sdk_request_too_large");
         }
-        Ok(Self { body, key, scope })
+        Ok(Self {
+            body,
+            model_plane: None,
+            scope,
+        })
     }
     pub fn bridge(&self, name: &str) -> Option<&Value> {
         self.body.get(name).filter(|v| !v.is_null())
@@ -290,10 +291,10 @@ mod tests {
     }
     #[test]
     fn strict_launch() {
-        assert!(Launch::parse(body(), "fixture-provider-key".into()).is_ok());
+        assert!(Launch::parse(body()).is_ok());
         let mut b = body();
         b["agent"]["max_turns"] = json!(true);
-        assert!(Launch::parse(b, "fixture-provider-key".into()).is_err());
+        assert!(Launch::parse(b).is_err());
     }
     #[test]
     fn ascii_canonical() {
@@ -314,15 +315,8 @@ mod tests {
         let mut a = body();
         a["read_bridge"] =
             json!({"grant":"a".repeat(64),"dataset_ids":["00000000-0000-0000-0000-000000000001"]});
-        let first = Launch::parse(a.clone(), "fixture-provider-key".into())
-            .unwrap()
-            .fingerprint();
+        let first = Launch::parse(a.clone()).unwrap().fingerprint();
         a["read_bridge"]["grant"] = json!("b".repeat(64));
-        assert_eq!(
-            first,
-            Launch::parse(a, "fixture-provider-key".into())
-                .unwrap()
-                .fingerprint()
-        );
+        assert_eq!(first, Launch::parse(a).unwrap().fingerprint());
     }
 }

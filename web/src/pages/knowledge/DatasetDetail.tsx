@@ -1,14 +1,16 @@
+import { deferComponent } from "@/components/deferComponent";
+import { DeferredTab } from "@/components/DeferredTab";
 /**
  * Dataset detail page shell (C2 split of the ~3900-line monolith).
  *
  * Keeps only dataset loading, `?tab=` routing, header/tab bar, error banner,
  * dialog open state, and the shared hit-test bundle for Retrieval/QA tabs.
- * documents/retrieval/qa/settings/permissions stay mounted with visibility
+ * documents/retrieval/qa/settings/permissions mount on first visit, then retain state with visibility
  * toggled via `hidden` so local state survives tab switches as before;
  * eval and sources keep their original conditional mount/unmount.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -43,20 +45,20 @@ import {
 
 import { useHitTestConsole } from "@/pages/knowledge/detail/useHitTestConsole";
 import { useDatasetUploadDialog } from "@/pages/knowledge/detail/useDatasetUploadDialog";
-import { DocumentsTab } from "@/pages/knowledge/detail/DocumentsTab";
-import { RetrievalTab } from "@/pages/knowledge/detail/RetrievalTab";
-import { QATab } from "@/pages/knowledge/detail/QATab";
-import { SettingsTab } from "@/pages/knowledge/detail/SettingsTab";
-import { PermissionsTab } from "@/pages/knowledge/detail/PermissionsTab";
-import { RetrievalEvalWorkbench } from "@/pages/knowledge/detail/RetrievalEvalWorkbench";
-import { QueryObservabilityTab } from "@/pages/knowledge/detail/QueryObservabilityTab";
+const DocumentsTab = deferComponent(() => import("@/pages/knowledge/detail/DocumentsTab"), "DocumentsTab");
+const RetrievalTab = deferComponent(() => import("@/pages/knowledge/detail/RetrievalTab"), "RetrievalTab");
+const QATab = deferComponent(() => import("@/pages/knowledge/detail/QATab"), "QATab");
+const SettingsTab = deferComponent(() => import("@/pages/knowledge/detail/SettingsTab"), "SettingsTab");
+const PermissionsTab = deferComponent(() => import("@/pages/knowledge/detail/PermissionsTab"), "PermissionsTab");
+const RetrievalEvalWorkbench = deferComponent(() => import("@/pages/knowledge/detail/RetrievalEvalWorkbench"), "RetrievalEvalWorkbench");
+const QueryObservabilityTab = deferComponent(() => import("@/pages/knowledge/detail/QueryObservabilityTab"), "QueryObservabilityTab");
 import {
   CreateTextDocumentDialog,
   CreateUrlDocumentDialog,
   DeleteDatasetDialog,
   EditDatasetDialog,
 } from "@/pages/knowledge/detail/DatasetDialogs";
-import { SourcesTab } from "@/pages/knowledge/sources";
+const SourcesTab = deferComponent(() => import("@/pages/knowledge/sources"), "SourcesTab");
 import { useAuthStore, usePermission } from "@/store/useAuthStore";
 import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 import { queryDiagnosticTraceUrl, type QueryDiagnosticHandoff } from "./detail/queryDiagnosticHandoff";
@@ -237,7 +239,7 @@ export function KnowledgeDatasetDetailPage() {
     permissions: "text-primary",
   } as const;
 
-  return (
+  return (<Suspense fallback={<p role="status">{t("common.loading")}</p>}>
     <div className="min-h-full bg-background">
       {/* 顶部导航栏 */}
       <div className="bg-card border-b border-border sticky top-0 z-20">
@@ -360,6 +362,7 @@ export function KnowledgeDatasetDetailPage() {
 
         {/* 文档管理 Tab（常驻挂载，隐藏切换以保留状态） */}
         <div className={mainTab === "documents" ? undefined : "hidden"}>
+          <DeferredTab active={mainTab === "documents"} fallback={<p role="status">{t("common.loading")}</p>}>
           <DocumentsTab
             key={datasetId}
             datasetId={datasetId}
@@ -378,10 +381,12 @@ export function KnowledgeDatasetDetailPage() {
             onOpenTextDialog={() => setTextDialogOpen(true)}
             onOpenUrlDialog={() => setUrlDialogOpen(true)}
           />
+          </DeferredTab>
         </div>
 
         {/* 检索测试 Tab */}
         <div className={mainTab === "retrieval" ? undefined : "hidden"}>
+          <DeferredTab active={mainTab === "retrieval"} fallback={<p role="status">{t("common.loading")}</p>}>
           {currentObservation && (
             <div role="status" data-testid="query-diagnostic-handoff" className="mb-4 space-y-1 rounded-lg border border-border bg-muted/40 p-3 text-sm">
               <p className="font-medium">{t(currentObservation.origin === "feedback"
@@ -395,6 +400,7 @@ export function KnowledgeDatasetDetailPage() {
             </div>
           )}
           <RetrievalTab datasetId={datasetId} hitTest={hitTest} />
+          </DeferredTab>
         </div>
 
         {/* 检索评测 Tab（自包含组件，保持原条件挂载） */}
@@ -404,7 +410,9 @@ export function KnowledgeDatasetDetailPage() {
 
         {/* QA 测试 Tab */}
         <div className={mainTab === "qa" ? undefined : "hidden"}>
+          <DeferredTab active={mainTab === "qa"} fallback={<p role="status">{t("common.loading")}</p>}>
           <QATab datasetId={datasetId} hitTest={hitTest} identityScope={handoffScope} />
+          </DeferredTab>
         </div>
 
         {mainTab === "queries" && <QueryObservabilityTab datasetId={datasetId} permission={observationPermission}
@@ -441,6 +449,7 @@ export function KnowledgeDatasetDetailPage() {
 
         {/* 配置 Tab */}
         <div className={mainTab === "settings" ? undefined : "hidden"}>
+          <DeferredTab active={mainTab === "settings"} fallback={<p role="status">{t("common.loading")}</p>}>
           <SettingsTab
             key={datasetId}
             datasetId={datasetId}
@@ -450,15 +459,18 @@ export function KnowledgeDatasetDetailPage() {
             onUnsavedChange={setSettingsUnsaved}
             onDatasetRefetch={() => void dsQuery.refetch()}
           />
+          </DeferredTab>
         </div>
 
         {/* 权限 Tab */}
         <div className={mainTab === "permissions" ? undefined : "hidden"}>
+          <DeferredTab active={mainTab === "permissions"} fallback={<p role="status">{t("common.loading")}</p>}>
           <PermissionsTab
             datasetId={datasetId}
             dataset={dataset}
             onDatasetRefetch={() => void dsQuery.refetch()}
           />
+          </DeferredTab>
         </div>
       </div>
 
@@ -470,5 +482,5 @@ export function KnowledgeDatasetDetailPage() {
       <EditDatasetDialog datasetId={datasetId} dataset={dataset} open={settingsOpen} onOpenChange={setSettingsOpen} />
       <DeleteDatasetDialog datasetId={datasetId} datasetName={dataset?.name} open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} />
     </div>
-  );
+  </Suspense>);
 }

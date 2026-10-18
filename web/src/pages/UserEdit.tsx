@@ -1,3 +1,4 @@
+import { requestDepartment } from "@/api/users";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -255,7 +256,7 @@ function UserEditContent() {
 
       if (!await mutation.run(() => updateUser(userId, {
         display_name: formDisplayName,
-        department: formDepartment || undefined,
+        department: requestDepartment(formDepartment),
         status: formStatus,
         roles: formRoles,
         extra_permissions: formExtraPermissions,
@@ -265,8 +266,8 @@ function UserEditContent() {
       setHasChanges(false);
       setReloadRevision(value => value + 1);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { detail?: string } } };
-      message.error(axiosError.response?.data?.detail || t("users.edit.saveFailed"));
+      const httpError = err as { response?: { data?: { detail?: string } } };
+      message.error(httpError.response?.data?.detail || t("users.edit.saveFailed"));
     } finally {
       setIsSaving(false);
     }

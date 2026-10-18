@@ -41,7 +41,7 @@ impl Fixture {
             INSERT INTO confluence_connections VALUES('connection','tenant','owner','owner','Cloud','example.atlassian.net','active','manual','fixture@example.invalid','synthetic-token','2020-01-01T00:00:00Z');
             INSERT INTO confluence_space_bindings VALUES('binding','dataset','connection','tenant','owner','owner');
             INSERT INTO confluence_sync_tasks VALUES('task','binding','owner','processing');")
-            .execute(&pool).await.unwrap();
+            .execute(ai_platform_knowledge_domain::database::executor(&pool)).await.unwrap();
         let actor_active = Arc::new(AtomicBool::new(true));
         let router = Router::new().route(query::actor::ACTOR_PATH, post(
             |State(active): State<Arc<AtomicBool>>| async move {
@@ -70,14 +70,17 @@ impl Fixture {
                 ("INTERNAL_IDEMPOTENCY_BACKEND".into(), "memory".into()),
                 ("KNOWLEDGE_RUNTIME_ROLE".into(), "api".into()),
                 ("GATEWAY_URL".into(), origin),
-                ("KNOWLEDGE_CONNECTOR_ENCRYPTION_KEY".into(), "synthetic-key".into()),
+                (
+                    "KNOWLEDGE_CONNECTOR_ENCRYPTION_KEY".into(),
+                    "synthetic-key".into(),
+                ),
             ]),
             std::path::PathBuf::from("/tmp/knowledge-confluence-parity"),
         )
         .unwrap();
         let graph = KnowledgeGraph::new(
             KnowledgeConnections {
-                model_plane:Some(crate::model_plane_identity::no_network_test_client()),
+                model_plane: Some(crate::model_plane_identity::no_network_test_client()),
                 database: pool.clone(),
                 replay_redis: None,
                 idempotency_redis: None,
@@ -142,7 +145,7 @@ impl Fixture {
 async fn connection_control_exact_cas_preserves_credentials_and_readback() {
     let f = Fixture::new().await;
     for encrypted in [false, true] {
-        sqlx::query("UPDATE confluence_connections SET status='active',updated_at='2020-01-01T00:00:00Z',email='fixture@example.invalid',api_token='synthetic-token'").execute(&f.pool).await.unwrap();
+        sqlx::query("UPDATE confluence_connections SET status='active',updated_at='2020-01-01T00:00:00Z',email='fixture@example.invalid',api_token='synthetic-token'").execute(ai_platform_knowledge_domain::database::executor(&f.pool)).await.unwrap();
         if encrypted {
             let sealed = credentials::seal(
                 &f.row().await,
@@ -154,7 +157,7 @@ async fn connection_control_exact_cas_preserves_credentials_and_readback() {
             sqlx::query("UPDATE confluence_connections SET email=$1,api_token=$2")
                 .bind(credentials::MARKER)
                 .bind(sealed)
-                .execute(&f.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(&f.pool))
                 .await
                 .unwrap();
         }
@@ -189,7 +192,7 @@ async fn connection_control_exact_cas_preserves_credentials_and_readback() {
         after["updated_at"] = before["updated_at"].clone();
         assert_eq!(after, before);
         let tasks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM confluence_sync_tasks")
-            .fetch_one(&f.pool)
+            .fetch_one(ai_platform_knowledge_domain::database::executor(&f.pool))
             .await
             .unwrap();
         assert_eq!(tasks, 1);
@@ -232,7 +235,7 @@ async fn pause_fast_resume_and_replacement_invalidate_admitted_task() {
     );
     let status: String =
         sqlx::query_scalar("SELECT status FROM confluence_sync_tasks WHERE task_id='task'")
-            .fetch_one(&f.pool)
+            .fetch_one(ai_platform_knowledge_domain::database::executor(&f.pool))
             .await
             .unwrap();
     assert_eq!(status, "processing");
@@ -251,18 +254,21 @@ async fn controls_and_publication_guards_recheck_revocation_and_monotonic_clock(
         "UPDATE datasets SET is_deleted=true",
     ] {
         let command = f.command("disabled").await;
-        sqlx::query(mutation).execute(&f.pool).await.unwrap();
+        sqlx::query(mutation)
+            .execute(ai_platform_knowledge_domain::database::executor(&f.pool))
+            .await
+            .unwrap();
         assert!(f.control(command).await.is_err());
         f.assert_both_guards_refuse(&execution).await;
         assert_eq!(f.row().await["status"], "active");
-        sqlx::raw_sql("UPDATE confluence_connections SET owner_id='owner',tenant_id='tenant'; UPDATE datasets SET created_by='owner',is_archived=false,is_deleted=false;").execute(&f.pool).await.unwrap();
+        sqlx::raw_sql("UPDATE confluence_connections SET owner_id='owner',tenant_id='tenant'; UPDATE datasets SET created_by='owner',is_archived=false,is_deleted=false;").execute(ai_platform_knowledge_domain::database::executor(&f.pool)).await.unwrap();
     }
     f.actor_active.store(false, Ordering::Release);
     assert!(f.control(f.command("disabled").await).await.is_err());
     f.assert_both_guards_refuse(&execution).await;
     f.actor_active.store(true, Ordering::Release);
     sqlx::query("UPDATE confluence_connections SET updated_at=NOW()+INTERVAL '1 day'")
-        .execute(&f.pool)
+        .execute(ai_platform_knowledge_domain::database::executor(&f.pool))
         .await
         .unwrap();
     assert_eq!(
@@ -274,7 +280,7 @@ async fn controls_and_publication_guards_recheck_revocation_and_monotonic_clock(
     );
     assert_eq!(f.row().await["status"], "active");
     // Controls/readback remain available while content publication is fenced.
-    sqlx::raw_sql("UPDATE confluence_connections SET updated_at='2020-01-01T00:00:00Z'; UPDATE datasets SET index_config='{\"retrieval\":{\"_index_deletion_fence\":{\"operation\":\"dataset_delete\"}}}';").execute(&f.pool).await.unwrap();
+    sqlx::raw_sql("UPDATE confluence_connections SET updated_at='2020-01-01T00:00:00Z'; UPDATE datasets SET index_config='{\"retrieval\":{\"_index_deletion_fence\":{\"operation\":\"dataset_delete\"}}}';").execute(ai_platform_knowledge_domain::database::executor(&f.pool)).await.unwrap();
     assert!(f.sources.guard(&execution).await.is_err());
     assert_eq!(
         f.control(f.command("disabled").await).await.unwrap()["status"],
@@ -301,11 +307,14 @@ async fn guards_reject_binding_task_and_editor_grant_revocation() {
         "UPDATE confluence_sync_tasks SET owner_id='other'",
         "UPDATE confluence_sync_tasks SET status='completed'",
     ] {
-        sqlx::query(mutation).execute(&f.pool).await.unwrap();
+        sqlx::query(mutation)
+            .execute(ai_platform_knowledge_domain::database::executor(&f.pool))
+            .await
+            .unwrap();
         f.assert_both_guards_refuse(&execution).await;
-        sqlx::raw_sql("UPDATE confluence_space_bindings SET owner_id='owner',dataset_id='dataset',connection_id='connection'; UPDATE confluence_sync_tasks SET owner_id='owner',status='processing';").execute(&f.pool).await.unwrap();
+        sqlx::raw_sql("UPDATE confluence_space_bindings SET owner_id='owner',dataset_id='dataset',connection_id='connection'; UPDATE confluence_sync_tasks SET owner_id='owner',status='processing';").execute(ai_platform_knowledge_domain::database::executor(&f.pool)).await.unwrap();
     }
-    sqlx::raw_sql("UPDATE datasets SET created_by='someone-else'; INSERT INTO dataset_permissions VALUES('dataset','user','owner','editor');").execute(&f.pool).await.unwrap();
+    sqlx::raw_sql("UPDATE datasets SET created_by='someone-else'; INSERT INTO dataset_permissions VALUES('dataset','user','owner','editor');").execute(ai_platform_knowledge_domain::database::executor(&f.pool)).await.unwrap();
     assert!(f.sources.guard(&execution).await.is_ok());
     {
         let mut connection = f.pool.acquire().await.unwrap();
@@ -317,7 +326,7 @@ async fn guards_reject_binding_task_and_editor_grant_revocation() {
         );
     }
     sqlx::query("DELETE FROM dataset_permissions")
-        .execute(&f.pool)
+        .execute(ai_platform_knowledge_domain::database::executor(&f.pool))
         .await
         .unwrap();
     f.assert_both_guards_refuse(&execution).await;

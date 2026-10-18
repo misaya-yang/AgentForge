@@ -18,6 +18,14 @@ allows only explicit CIDRs on TCP443; an empty list denies provider traffic.
 
 ## Prerequisite credentials and storage
 
+The default chart is a shared-storage profile: `global.deploymentMode=multi-instance`
+and `data.objectStore.enabled=true`. Configure its real endpoint, bucket and credential
+Secret. Explicit multi-instance mode, multiple Knowledge replicas, or Knowledge HPA/KEDA
+refuse local storage. A single-instance local-storage profile must keep Knowledge replicas
+at one and disable autoscaling. The offline base fixture covers that local profile; the
+full fixture retains multi-replica/S3/HPA/KEDA coverage. Gateway and Runtime's independent
+singleton admission guards remain enforced.
+
 Run database authority deployment-bootstrap separately under an explicitly
 controlled admin identity; the application release never receives ADMIN_DSN.
 `databaseRoles.existingSecret` must already hold distinct GATEWAY_DSN,
@@ -129,3 +137,25 @@ receives only callback CA; Gateway receives only worker CA. credentialsSecret ho
 SDK_AGENT_WORKER_TOKEN. The callback listener uses the same native authenticated
 SDK-tool router and is reachable only by SDK Pods on8097; public HTTPRoute remains
 frontend-only. This is verified-server TLS plus bearer, not mTLS acceptance.
+
+## Native workload and database file security
+
+The application chart supports `workloadIdentity.mode: dual|required` with
+per-service projected SVID inputs and a digest-pinned native tools importer.
+It copies projections into private memory volumes before strict application
+readers consume them; a rotation sidecar validates and activates successor
+credentials. `dataSecurity.enabled` selects distinct per-role mTLS/DSN Secrets,
+startup/cancellation direct connections and an explicit database restart
+rotation generation. Original defaults, image/source/authority gates, HTTP
+health probes and singleton guards remain. Required mounts no shared bearer
+or consumer signing secret. See
+[the deployment contract](../workload-identity/DEPLOYMENT.md) for all input keys,
+port/origin graph and the mandatory admission/rotation acceptance boundaries.
+`tests/values-security.yaml` is a synthetic offline render fixture, not release
+values or an admission receipt. Native `platform-tools helm-contract` also
+validates effective secure Compose JSON.
+
+Dataset Cedar PDP remains opt-in through ai-gateway datasetAuthorization.
+Only required workload mTLS is admitted. One mode and resource-policy/matrix
+pin pair generates Gateway and both Knowledge parser inputs together; see
+[the native trust contract](../workload-identity/DEPLOYMENT.md#knowledge-dataset-cedar-pdp).

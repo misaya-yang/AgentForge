@@ -291,10 +291,72 @@ tokio::task_local! { static VERIFIED_MODEL_ACTOR: UserContext; }
 /// Call only after existing workload/JWT verification. Tokio restores the prior
 /// task-local scope on completion, cancellation and unwind.
 pub async fn with_actor_scope<F: std::future::Future>(actor: UserContext, future: F) -> F::Output {
-    VERIFIED_MODEL_ACTOR.scope(actor, future).await
+    use crate::data_connection::{TenantScope, current_tenant_scope, with_tenant_scope};
+    let tenant = if actor.anonymous() || current_tenant_scope().is_ok() {
+        None
+    } else {
+        TenantScope::new(&actor.tenant_id).ok()
+    };
+    match tenant {
+        Some(tenant) => {
+            VERIFIED_MODEL_ACTOR
+                .scope(actor, with_tenant_scope(tenant, future))
+                .await
+        }
+        // Keep an existing database scope: the transaction binder must reject
+        // a nested actor for a different tenant instead of silently replacing it.
+        None => VERIFIED_MODEL_ACTOR.scope(actor, future).await,
+    }
 }
 pub fn verified_actor_scope() -> Option<UserContext> {
     VERIFIED_MODEL_ACTOR.try_with(Clone::clone).ok()
+}
+
+#[cfg(test)]
+mod database_scope_tests {
+    use super::*;
+    use crate::data_connection::{TenantScope, current_tenant_scope, validate_tenant_binding};
+
+    fn actor(tenant: &str) -> UserContext {
+        UserContext {
+            tenant_id: tenant.into(),
+            user_id: "user".into(),
+            roles: vec![],
+            user_tier: "normal".into(),
+            user_type: "user".into(),
+            is_authenticated: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn verified_request_installs_and_restores_database_tenant() {
+        assert!(current_tenant_scope().is_err());
+        with_actor_scope(actor("tenant-a"), async {
+            tokio::task::yield_now().await;
+            assert_eq!(current_tenant_scope().unwrap().as_str(), "tenant-a");
+            assert!(validate_tenant_binding(&TenantScope::new("tenant-a").unwrap()).is_ok());
+            assert!(validate_tenant_binding(&TenantScope::new("tenant-b").unwrap()).is_err());
+        })
+        .await;
+        assert!(current_tenant_scope().is_err());
+        assert!(verified_actor_scope().is_none());
+    }
+
+    #[tokio::test]
+    async fn nested_actor_cannot_replace_the_request_database_tenant() {
+        with_actor_scope(actor("tenant-a"), async {
+            with_actor_scope(actor("tenant-b"), async {
+                assert_eq!(verified_actor_scope().unwrap().tenant_id, "tenant-b");
+                assert_eq!(current_tenant_scope().unwrap().as_str(), "tenant-a");
+                assert!(validate_tenant_binding(&TenantScope::new("tenant-b").unwrap()).is_err());
+            })
+            .await;
+            assert_eq!(verified_actor_scope().unwrap().tenant_id, "tenant-a");
+            assert_eq!(current_tenant_scope().unwrap().as_str(), "tenant-a");
+        })
+        .await;
+        assert!(current_tenant_scope().is_err());
+    }
 }
 
 pub const SCOPE_CHECK_PATH: &str = "/internal/v2/knowledge/model-operation-scope";

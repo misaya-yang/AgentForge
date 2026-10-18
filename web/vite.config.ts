@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from "vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import path from "path";
+import { precompression } from "./build/precompression";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,7 +12,7 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.VITE_API_URL || "http://localhost:8080";
 
   return {
-    plugins: [react()],
+    plugins: [react(), babel({ presets: [reactCompilerPreset({ compilationMode: "annotation" })] }), precompression()],
 
     resolve: {
       alias: {
@@ -42,14 +44,13 @@ export default defineConfig(({ mode }) => {
       manifest: true,
       sourcemap: mode === "development",
       // Optimize chunk splitting
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
-            // React + React DOM + Router must stay together (shared hooks context)
-            if (/[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/.test(id)) {
-              return "vendor";
-            }
-            return undefined;
+          codeSplitting: {
+            groups: [{
+              name: "vendor",
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom)[\\/]/,
+            }],
           },
         },
       },

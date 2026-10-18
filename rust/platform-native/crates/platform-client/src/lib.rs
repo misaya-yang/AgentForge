@@ -1,10 +1,13 @@
 //! Authenticated native transport. Tokens never appear in Debug or error messages.
 pub mod assistant_runs;
 pub mod compatibility;
+pub mod device_auth;
 pub mod events;
+pub mod generated;
 pub mod knowledge_connections;
 pub mod knowledge_sources;
 pub mod management;
+pub mod problem;
 pub mod request;
 pub mod scheduled_notifications;
 pub mod scheduled_tasks;
@@ -35,12 +38,23 @@ pub enum Error {
     Transport,
     #[error("Server returned HTTP {0}")]
     Status(u16),
+    #[error("{0}")]
+    Problem(Box<problem::RemoteProblem>),
     #[error("Invalid or oversized server response")]
     Response,
     #[error("{0}")]
     Contract(&'static str),
     #[error("Authentication required")]
     Authentication,
+}
+impl Error {
+    pub fn status(&self) -> Option<u16> {
+        match self {
+            Self::Status(status) => Some(*status),
+            Self::Problem(problem) => Some(problem.status),
+            _ => None,
+        }
+    }
 }
 /// Per-stream header and idle limits; independent from ordinary HTTP request timeouts.
 /// Values are positive and capped at 24 hours. Cancellation and consumer drop
@@ -167,7 +181,7 @@ impl Client {
     async fn decode(&self, request: reqwest::RequestBuilder) -> Result<Value, Error> {
         let mut response = request.send().await.map_err(|_| Error::Transport)?;
         if !response.status().is_success() {
-            return Err(Error::Status(response.status().as_u16()));
+            return Err(problem::decode_response(response).await);
         }
         let mut bytes = Vec::new();
         while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {

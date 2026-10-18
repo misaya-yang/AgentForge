@@ -607,15 +607,17 @@ impl ParserCascade {
         for (index, job) in jobs.iter().cloned().enumerate() {
             let cascade = self.clone();
             let sem = semaphore.clone();
-            pending.spawn(crate::migration_knowledge_query::model_plane::inherit(async move {
-                let permit = sem
-                    .acquire_owned()
-                    .await
-                    .map_err(|_| IngestError::Cancelled)?;
-                let result = cascade.parse_page(job).await;
-                drop(permit);
-                Ok::<_, IngestError>((index, result))
-            }));
+            pending.spawn(crate::migration_knowledge_query::model_plane::inherit(
+                async move {
+                    let permit = sem
+                        .acquire_owned()
+                        .await
+                        .map_err(|_| IngestError::Cancelled)?;
+                    let result = cascade.parse_page(job).await;
+                    drop(permit);
+                    Ok::<_, IngestError>((index, result))
+                },
+            ));
         }
         let mut results = BTreeMap::new();
         while let Some(result) = pending.join_next().await {
@@ -1131,7 +1133,7 @@ impl PostgresPageCache {
             .bind(&self.generation_key)
             .bind(key)
             .bind(&self.parser_config_hash)
-            .fetch_optional(&self.pool)
+            .fetch_optional(crate::database::executor(&self.pool))
             .await?;
         let Some(row) = row else { return Ok(None) };
         let p: PageIR = serde_json::from_value(row["page_ir"].clone())?;
@@ -1163,7 +1165,7 @@ impl PostgresPageCache {
             .bind(serde_json::to_value(page)?)
             .bind(page.confidence)
             .bind(page.hard_page)
-            .fetch_optional(&self.pool)
+            .fetch_optional(crate::database::executor(&self.pool))
             .await?;
         if row.is_none() {
             return Err(IngestError::GenerationChanged);
@@ -1182,7 +1184,7 @@ impl PostgresPageCache {
             .bind(&self.generation_key)
             .bind(bundle)
             .bind(&self.parser_config_hash)
-            .fetch_optional(&self.pool)
+            .fetch_optional(crate::database::executor(&self.pool))
             .await?;
         value
             .map(serde_json::from_value)
@@ -1203,7 +1205,7 @@ impl PostgresPageCache {
             .bind(serde_json::to_value(config)?)
             .bind(serde_json::to_value(doc)?)
             .bind(stats)
-            .fetch_optional(&self.pool)
+            .fetch_optional(crate::database::executor(&self.pool))
             .await?;
         if stored.is_none() {
             return Err(IngestError::GenerationChanged);

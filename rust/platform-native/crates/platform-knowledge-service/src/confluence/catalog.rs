@@ -40,7 +40,7 @@ impl Sources {
             "SELECT source_type,COUNT(*) FROM documents WHERE dataset_id=$1 GROUP BY source_type",
         )
         .bind(dataset)
-        .fetch_all(&self.pool)
+        .fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?;
         let mut bindings = vec![];
         let mut status = if self.enabled {
@@ -103,7 +103,7 @@ impl Sources {
             .require_dataset_access(user, dataset, "editor")
             .await
             .is_ok();
-        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE tenant_id=$1 AND dataset_id=$2 ORDER BY created_at DESC").bind(&user.tenant_id).bind(dataset).fetch_all(&self.pool).await?;
+        let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(b) FROM confluence_space_bindings b WHERE tenant_id=$1 AND dataset_id=$2 ORDER BY created_at DESC").bind(&user.tenant_id).bind(dataset).fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         let mut out = vec![];
         for row in rows {
             if !owned(&row, user) {
@@ -115,7 +115,7 @@ impl Sources {
                 && connection
                     .as_ref()
                     .is_some_and(|c| owned(c, user) && c["status"] == "active");
-            let task:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE binding_id=$1 AND owner_id=$2 ORDER BY created_at DESC,task_id DESC LIMIT 1").bind(text(&row,"binding_id")).bind(&user.user_id).fetch_optional(&self.pool).await?;
+            let task:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(t) FROM confluence_sync_tasks t WHERE binding_id=$1 AND owner_id=$2 ORDER BY created_at DESC,task_id DESC LIMIT 1").bind(text(&row,"binding_id")).bind(&user.user_id).fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             out.push(json!({"binding_id":row["binding_id"],"manual_sync_available":manual,"current_sync_task":task.as_ref().map(super::sync::task_receipt),"space_name":row["space_name"],"page_count":row["synced_page_count"].as_i64().unwrap_or(0),"status":row["status"],"last_success_at":row["last_sync_at"],"has_problem":!["completed","success"].contains(&text(&row,"status").to_lowercase().as_str())&&!text(&row,"last_error").is_empty()}));
         }
         Ok(out)

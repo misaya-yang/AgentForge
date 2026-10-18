@@ -92,7 +92,7 @@ test("asChild composes child and adapter handlers and respects cancellation", ()
 test("dependency manifest and lint rule prevent retired design-system imports", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8"));
   const config = readFileSync(new URL("../../../eslint.config.js", import.meta.url), "utf8");
-  for (const name of ["class-variance-authority", "date-fns", "marked", "react-grid-layout", "react-resizable", "@langchain/core", "@langchain/langgraph-sdk", "framer-motion"]) assert.equal(packageJson.dependencies[name], undefined, name);
+  for (const name of ["tailwind-merge", "class-variance-authority", "date-fns", "marked", "react-grid-layout", "react-resizable", "@langchain/core", "@langchain/langgraph-sdk", "framer-motion"]) assert.equal(packageJson.dependencies[name], undefined, name);
   assert.ok(!Object.keys(packageJson.dependencies).some(name => name.startsWith("@radix-ui/")));
   assert.match(config, /no-restricted-imports/); assert.match(config, /@radix-ui\/\*/); assert.match(config, /date-fns\/\*/);
 });
@@ -138,7 +138,7 @@ test("Switch keeps checked state, form value and change callbacks", () => {
 test("ESLint rejects both static and lazy imports of retired dependencies", async () => {
   const { ESLint } = require("eslint");
   const eslint = new ESLint({ cwd: new URL("../../../", import.meta.url).pathname });
-  for (const source of ['import "@radix-ui/react-dialog";', 'import "date-fns/locale";', 'void import("@langchain/core");', 'void import("marked");', 'import "framer-motion";', 'void import("framer-motion");']) {
+  for (const source of ['import "tailwind-merge";', 'void import("tailwind-merge");', 'import "@radix-ui/react-dialog";', 'import "date-fns/locale";', 'void import("@langchain/core");', 'void import("marked");', 'import "framer-motion";', 'void import("framer-motion");']) {
     const [result] = await eslint.lintText(source, { filePath: "src/design-system-import-probe.ts" });
     assert.ok(result.messages.some((message: { ruleId: string }) => message.ruleId === "no-restricted-imports" || message.ruleId === "no-restricted-syntax"), source);
   }

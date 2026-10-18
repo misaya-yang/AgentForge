@@ -141,7 +141,7 @@ export function ScheduledNotificationsTab() {
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("tasks.notifications.filter", "Filter updates")}>
         <Button size="sm" variant={filter === "all" ? "default" : "outline"} aria-pressed={filter === "all"} onClick={() => { setFilter("all"); setCursors([null]); }}>{t("tasks.notifications.all", "All")}</Button>
         <Button size="sm" variant={filter === "unread" ? "default" : "outline"} aria-pressed={filter === "unread"} onClick={() => { setFilter("unread"); setCursors([null]); }}>{t("tasks.notifications.unread", "Unread")}</Button>
-        {page?.value && <span className="text-sm text-muted-foreground">{t("tasks.notifications.unreadCount", { count: page.value.unread_count, defaultValue: "{{count}} unread" })}</span>}
+        {page?.value && <span className="text-sm text-muted-foreground">{t("tasks.notifications.unreadCount", { count: page.value.unread_count, defaultValue: "{count} unread" })}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" disabled={busy || unreadIds.length === 0} onClick={() => { void acknowledge(() => markScheduledNotificationsRead(unreadIds)); }}>{t("tasks.notifications.markPageRead", "Mark this page read")}</Button>

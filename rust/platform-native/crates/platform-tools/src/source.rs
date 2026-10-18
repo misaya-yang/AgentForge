@@ -244,11 +244,8 @@ fn inventory(root: &Path) -> Result<BTreeSet<String>> {
 }
 #[path = "source_test_inventory.rs"]
 mod test_inventory;
-fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
-    require(
-        unit["schema"] == "ai-platform/runtime-source-unit/v1",
-        "source unit schema unsupported",
-    )?;
+pub(super) fn verify_payload_integrity(package: &Path, unit: &Value, schema: &str) -> Result<()> {
+    require(unit["schema"] == schema, "source unit schema unsupported")?;
     for key in [
         "candidate_start_allowed",
         "generated_release_identity",
@@ -321,6 +318,10 @@ fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
         indexed(&unit["records"], true)? == indexed(&candidate["records"], false)?,
         "candidate records mismatch",
     )?;
+    Ok(())
+}
+fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
+    verify_payload_integrity(package, unit, "ai-platform/runtime-source-unit/v1")?;
     let receipt = object(&package.join("evidence/build-receipt.json"))?;
     require(
         receipt["resolved_lock_sha256"] == unit["resolved_lock_sha256"]
@@ -394,7 +395,10 @@ fn verify_payload(package: &Path, unit: &Value) -> Result<()> {
     )?;
     Ok(())
 }
-fn upstream(unit: &Value, checkout: &Path) -> Result<BTreeMap<String, (String, String)>> {
+pub(super) fn upstream(
+    unit: &Value,
+    checkout: &Path,
+) -> Result<BTreeMap<String, (String, String)>> {
     let target = text(unit, "target")?;
     require(hex(target, 40), "invalid target commit")?;
     let tree = git(checkout, &["rev-parse", &format!("{target}^{{tree}}")])?;
@@ -437,7 +441,7 @@ fn upstream(unit: &Value, checkout: &Path) -> Result<BTreeMap<String, (String, S
     }
     Ok(entries)
 }
-fn verify_composed(
+pub(super) fn verify_composed(
     unit: &Value,
     entries: &BTreeMap<String, (String, String)>,
     root: &Path,
@@ -507,7 +511,7 @@ fn verify_composed(
     }
     Ok(expected.len())
 }
-fn live_preimages(package: &Path, root: &Path) -> Result<()> {
+pub(super) fn live_preimages(package: &Path, root: &Path) -> Result<()> {
     let preimages = object(&package.join("live-preimages.json"))?;
     let records = preimages["records"].as_array().ok_or("preimages missing")?;
     let mut expected = BTreeSet::new();
@@ -545,6 +549,7 @@ fn live_preimages(package: &Path, root: &Path) -> Result<()> {
     require(expected == actual, "live overlay inventory changed")
 }
 pub fn candidate(args: &Args) -> Result<Value> {
+    crate::source_sync::verify_if_present(&args.root())?;
     let package = Path::new(args.get("--package")?);
     let checkout = Path::new(args.get("--upstream")?);
     let unit = object(&package.join("source-unit.json"))?;
@@ -702,3 +707,10 @@ pub use refresh::{
     composed as generate_composed_receipt, generate as generate_receipt,
     overlay as refresh_overlay, refresh as refresh_source_lock,
 };
+
+pub(super) fn required_contract_tests() -> &'static [&'static str] {
+    test_inventory::REQUIRED
+}
+
+// Separate batch admission calls this only after its complete v2 producer proof.
+pub(super) use refresh::composed_batch as generate_composed_batch_receipt;

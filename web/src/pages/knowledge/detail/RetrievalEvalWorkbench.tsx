@@ -493,7 +493,7 @@ export function RetrievalEvalWorkbench({ datasetId }: { datasetId: string }) {
         t("knowledge.eval.casesSavedTitle", "评测用例已保存"),
         t("knowledge.eval.casesSavedText", {
           defaultValue:
-            "新增 {{imported}} 个，更新 {{updated}} 个，删除 {{deleted}} 个，未变 {{unchanged}} 个",
+            "新增 {imported} 个，更新 {updated} 个，删除 {deleted} 个，未变 {unchanged} 个",
           imported,
           updated,
           deleted,
@@ -547,7 +547,7 @@ export function RetrievalEvalWorkbench({ datasetId }: { datasetId: string }) {
       toast.success(
         t("knowledge.eval.jsonlImportedTitle", "JSONL 导入完成"),
         t("knowledge.eval.jsonlImportedText", {
-          defaultValue: "导入 {{imported}} 个，跳过 {{skipped}} 个",
+          defaultValue: "导入 {imported} 个，跳过 {skipped} 个",
           imported: result.imported,
           skipped: result.skipped,
         })
@@ -978,7 +978,7 @@ export function RetrievalEvalWorkbench({ datasetId }: { datasetId: string }) {
                             toggleRelevant(testCase.id, candidate.segment_id)
                           }
                           aria-label={t("knowledge.eval.markRelevant", {
-                            defaultValue: "标记为正确分段：{{segmentId}}",
+                            defaultValue: "标记为正确分段：{segmentId}",
                             segmentId: candidate.segment_id,
                           })}
                           className="mt-0.5"
@@ -1322,7 +1322,7 @@ export function RetrievalEvalWorkbench({ datasetId }: { datasetId: string }) {
           )}
           {jsonlPreview?.ok && jsonlPreview.validation.valid && jsonlPreview.cases.length > 0 && (
             <p className="text-xs text-emerald-700 dark:text-emerald-400" role="status">
-              {t("knowledge.eval.jsonlValid", "{{count}} 个用例校验通过", {
+              {t("knowledge.eval.jsonlValid", "{count} 个用例校验通过", {
                 count: jsonlPreview.cases.length,
               })}
             </p>

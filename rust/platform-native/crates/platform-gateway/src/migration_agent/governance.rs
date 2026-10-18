@@ -1,7 +1,7 @@
 //! Authoritative Agent policy, quotas, audit, cache epoch and credential revocation.
 use super::{
     Actor, AgentError,
-    studio::{AgentRepository, audit, authorized},
+    studio::{AgentRepository, audit},
     text,
 };
 use serde_json::{Value, json};
@@ -33,8 +33,9 @@ const POLICY_FIELDS: &[&str] = &[
 impl AgentRepository {
     pub async fn governance(&self, actor: &Actor, id: &str) -> Result<Value, AgentError> {
         let mut c = self.pool.acquire().await?;
-        authorized(&mut c, actor, id, "viewer", false).await?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_governance_policies p WHERE tenant_id=$1 AND agent_id=$2::uuid").bind(&actor.tenant_id).bind(id).fetch_optional(&mut *c).await?.unwrap_or_else(||default_policy(&actor.tenant_id,id,&actor.user_id)))
+        self.authorize_object(&mut c, actor, id, "viewer", false)
+            .await?;
+        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_governance_policies p WHERE tenant_id=$1 AND agent_id=$2::uuid").bind(&actor.tenant_id).bind(id).fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?.unwrap_or_else(||default_policy(&actor.tenant_id,id,&actor.user_id)))
     }
     pub async fn update_governance(
         &self,
@@ -74,8 +75,11 @@ impl AgentRepository {
                 return Err(AgentError::code(422, "AGENT_GOVERNANCE_POLICY_INVALID"));
             }
         }
-        let mut tx = self.pool.begin().await?;
-        authorized(&mut tx, actor, id, "owner", true).await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
+        self.authorize_object(&mut tx, actor, id, "owner", true)
+            .await?;
         let mut current:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_governance_policies p WHERE tenant_id=$1 AND agent_id=$2::uuid FOR UPDATE").bind(&actor.tenant_id).bind(id).fetch_optional(&mut *tx).await?.unwrap_or_else(||default_policy(&actor.tenant_id,id,&actor.user_id));
         if changes.get("legal_hold") == Some(&Value::Bool(true)) && current["legal_hold"] != true {
             let cleanups:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(d) FROM agent_data_deletion_requests d WHERE tenant_id=$1 AND agent_id=$2::uuid AND status IN ('pending','failed') ORDER BY requested_at,deletion_id FOR UPDATE").bind(&actor.tenant_id).bind(id).fetch_all(&mut *tx).await?;
@@ -167,8 +171,11 @@ impl AgentRepository {
         Ok(row)
     }
     pub async fn invalidate_caches(&self, actor: &Actor, id: &str) -> Result<Value, AgentError> {
-        let mut tx = self.pool.begin().await?;
-        authorized(&mut tx, actor, id, "owner", true).await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
+        self.authorize_object(&mut tx, actor, id, "owner", true)
+            .await?;
         let mut row: Value = sqlx::query_scalar(sql::CACHE_UPSERT)
             .bind(&actor.tenant_id)
             .bind(id)
@@ -189,8 +196,11 @@ impl AgentRepository {
         Ok(row)
     }
     pub async fn revoke_credentials(&self, actor: &Actor, id: &str) -> Result<Value, AgentError> {
-        let mut tx = self.pool.begin().await?;
-        authorized(&mut tx, actor, id, "owner", true).await?;
+        let mut tx =
+            ai_platform_gateway_foundation::tenant_database::begin(&self.pool, &actor.tenant_id)
+                .await?;
+        self.authorize_object(&mut tx, actor, id, "owner", true)
+            .await?;
         let tokens = sqlx::query(sql::REVOKE0)
             .bind(&actor.tenant_id)
             .bind(id)
@@ -225,7 +235,8 @@ impl AgentRepository {
         offset: i64,
     ) -> Result<Value, AgentError> {
         let mut c = self.pool.acquire().await?;
-        authorized(&mut c, actor, id, "owner", false).await?;
+        self.authorize_object(&mut c, actor, id, "owner", false)
+            .await?;
         let sql = "SELECT to_jsonb(a)||jsonb_build_object('_total',COUNT(*) OVER()) FROM audit_logs a WHERE tenant_id=$1 AND agent_id=$2::uuid AND event_type='agent_studio' AND($3::text IS NULL OR agent_version_id=$3::uuid) AND($4::text IS NULL OR publication_id=$4::uuid) AND($5::text IS NULL OR channel=$5) AND($6::text IS NULL OR action=$6) AND($7::text IS NULL OR created_at>=$7::timestamptz) AND($8::text IS NULL OR created_at<=$8::timestamptz) ORDER BY created_at DESC,id DESC LIMIT $9 OFFSET $10";
         let mut rows: Vec<Value> = sqlx::query_scalar(sql)
             .bind(&actor.tenant_id)
@@ -238,10 +249,13 @@ impl AgentRepository {
             .bind(filters["started_before"].as_str())
             .bind(limit.clamp(1, 200))
             .bind(offset.max(0))
-            .fetch_all(&mut *c)
+            .fetch_all(ai_platform_gateway_foundation::tenant_database::connection(
+                &mut *c,
+                &actor.tenant_id,
+            ))
             .await?;
         let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM audit_logs a WHERE tenant_id=$1 AND agent_id=$2::uuid AND event_type='agent_studio' AND($3::text IS NULL OR agent_version_id=$3::uuid) AND($4::text IS NULL OR publication_id=$4::uuid) AND($5::text IS NULL OR channel=$5) AND($6::text IS NULL OR action=$6) AND($7::text IS NULL OR created_at>=$7::timestamptz) AND($8::text IS NULL OR created_at<=$8::timestamptz)")
-            .bind(&actor.tenant_id).bind(id).bind(filters["agent_version_id"].as_str()).bind(filters["publication_id"].as_str()).bind(filters["channel"].as_str()).bind(filters["action"].as_str()).bind(filters["started_after"].as_str()).bind(filters["started_before"].as_str()).fetch_one(&mut *c).await?;
+            .bind(&actor.tenant_id).bind(id).bind(filters["agent_version_id"].as_str()).bind(filters["publication_id"].as_str()).bind(filters["channel"].as_str()).bind(filters["action"].as_str()).bind(filters["started_after"].as_str()).bind(filters["started_before"].as_str()).fetch_one(ai_platform_gateway_foundation::tenant_database::connection(&mut *c, &actor.tenant_id)).await?;
         for row in &mut rows {
             row.as_object_mut().expect("row").remove("_total");
             for k in ["request_summary", "response_summary"] {

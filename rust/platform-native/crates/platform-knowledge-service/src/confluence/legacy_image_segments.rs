@@ -70,7 +70,7 @@ impl LegacySyncService {
             self.guard(&e).await?;
             let credentials = self.management.credentials(connection_id).await?;
             sqlx::query("DELETE FROM segments WHERE document_id=$1 AND content_type='image'")
-                .bind(document_id).execute(&self.pool).await?;
+                .bind(document_id).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             let attachments = self.attachments(&e, &credentials, &super::client::scalar(&page["id"])).await?;
             let mut connection = self.pool.acquire().await?;
             let images = self.image_sources_with_cleanup(&e, &credentials, page, document_id, "", &attachments,
@@ -93,7 +93,7 @@ impl LegacySyncService {
                 self.save_image_segment(&segment,dataset_id,position as i32).await;
             }
             sqlx::query("UPDATE documents SET segment_count=(SELECT COUNT(*) FROM segments WHERE document_id=$1),updated_at=NOW() WHERE document_id=$1")
-                .bind(document_id).execute(&self.pool).await?;
+                .bind(document_id).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
             Ok::<_,Error>(receipts.len())
         }.await;
         run.unwrap_or(0)
@@ -135,7 +135,7 @@ impl LegacySyncService {
             .bind(&segment.segment_id).bind(dataset_id).bind(&segment.document_id)
             .bind(100_000_i32.saturating_add(position)).bind(text).bind(vector_id.or_else(|| segment.vector_id.clone()))
             .bind(metadata).bind(&segment.storage_url).bind(&segment.attachment_id).bind(&segment.filename)
-            .bind(&segment.media_type).bind(segment.file_size).execute(&self.pool).await;
+            .bind(&segment.media_type).bind(segment.file_size).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await;
         if outcome.is_err() {
             tracing::warn!("legacy Confluence image segment persistence failed");
         }

@@ -118,10 +118,14 @@ impl Capability {
 #[derive(Clone, Debug, Default)]
 pub struct Rbac {
     pub role_permissions: HashMap<String, Vec<String>>,
+    pub decision_point: Option<std::sync::Arc<crate::cedar::DecisionPoint>>,
 }
 impl Rbac {
     pub fn new(role_permissions: HashMap<String, Vec<String>>) -> Self {
-        Self { role_permissions }
+        Self {
+            role_permissions,
+            decision_point: None,
+        }
     }
     pub fn matches_permission(permissions: &HashSet<&str>, permission: &str) -> bool {
         if permissions.contains("admin:*") || permissions.contains(permission) {
@@ -186,6 +190,14 @@ pub fn check_capability(
         .iter()
         .copied()
         .find(|p| rbac.has_permission(&subjects, p));
+    let matched =
+        if rbac.decision_point.as_ref().is_some_and(|point| {
+            !point.decide(rbac, roles, permissions, capability, matched.is_some())
+        }) {
+            None
+        } else {
+            matched
+        };
     CapabilityDecision {
         capability,
         required_permission: capability.canonical_permission(),
@@ -217,4 +229,3 @@ pub fn permission_denied_detail(
 ) -> Value {
     json!({"message":message.filter(|s|!s.is_empty()).map(str::to_owned).unwrap_or_else(||format!("Permission denied: {} required",capability.canonical_permission())),"required_capability":capability.name(),"required_permission":capability.canonical_permission(),"accepted_permissions":capability.accepted_permissions(),"trace_id":trace_id})
 }
-

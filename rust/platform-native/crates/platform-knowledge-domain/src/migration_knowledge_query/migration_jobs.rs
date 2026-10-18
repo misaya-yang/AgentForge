@@ -92,6 +92,7 @@ impl MigrationStore {
             crate::migration_content::python_json(&payload, false, false)
         ));
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let migration: Option<Value> = sqlx::query_scalar(
             "SELECT to_jsonb(m) FROM embedding_migrations m WHERE migration_id=$1::uuid FOR UPDATE",
         )
@@ -187,7 +188,7 @@ impl MigrationStore {
                 message: "action job not found".into(),
             });
         }
-        let row:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.embedding_migration_action_jobs j WHERE job_id=$1::uuid AND migration_id=$2::uuid").bind(id).bind(migration).fetch_optional(&self.pool).await?;
+        let row:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.embedding_migration_action_jobs j WHERE job_id=$1::uuid AND migration_id=$2::uuid").bind(id).bind(migration).fetch_optional(crate::database::executor(&self.pool)).await?;
         row.ok_or_else(|| MigrationError {
             status: 404,
             message: "action job not found".into(),
@@ -195,6 +196,7 @@ impl MigrationStore {
     }
     pub async fn cancel_action(&self, id: &str, migration: &str) -> MResult<Value> {
         let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
         let j:Option<Value>=sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.embedding_migration_action_jobs j WHERE job_id=$1::uuid AND migration_id=$2::uuid FOR UPDATE").bind(id).bind(migration).fetch_optional(&mut *tx).await?;
         let j = j.ok_or_else(|| MigrationError {
             status: 404,
@@ -217,10 +219,10 @@ impl MigrationStore {
         if worker.trim().is_empty() {
             return Err(MigrationError::invalid("worker_id is required"));
         }
-        Ok(sqlx::query_scalar("WITH candidate AS (SELECT job_id,state AS prior_state FROM knowledge.embedding_migration_action_jobs WHERE (state='queued' AND available_at<=NOW()) OR (state='running' AND lease_expires_at<NOW()) ORDER BY CASE WHEN state='running' THEN lease_expires_at ELSE available_at END,created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE knowledge.embedding_migration_action_jobs AS job SET state='running',claimed_by=$1,claim_token=gen_random_uuid(),terminal_claim_token=NULL,lease_expires_at=NOW()+make_interval(secs=>$2),last_heartbeat_at=NOW(),started_at=COALESCE(started_at,NOW()),finished_at=NULL,error=NULL,attempt_count=attempt_count+1,updated_at=NOW() FROM candidate WHERE job.job_id=candidate.job_id RETURNING to_jsonb(job)||jsonb_build_object('prior_state',candidate.prior_state)").bind(worker).bind(lease_seconds.max(1)as f64).fetch_optional(&self.pool).await?)
+        Ok(sqlx::query_scalar("WITH candidate AS (SELECT job_id,state AS prior_state FROM knowledge.embedding_migration_action_jobs WHERE (state='queued' AND available_at<=NOW()) OR (state='running' AND lease_expires_at<NOW()) ORDER BY CASE WHEN state='running' THEN lease_expires_at ELSE available_at END,created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE knowledge.embedding_migration_action_jobs AS job SET state='running',claimed_by=$1,claim_token=gen_random_uuid(),terminal_claim_token=NULL,lease_expires_at=NOW()+make_interval(secs=>$2),last_heartbeat_at=NOW(),started_at=COALESCE(started_at,NOW()),finished_at=NULL,error=NULL,attempt_count=attempt_count+1,updated_at=NOW() FROM candidate WHERE job.job_id=candidate.job_id RETURNING to_jsonb(job)||jsonb_build_object('prior_state',candidate.prior_state)").bind(worker).bind(lease_seconds.max(1)as f64).fetch_optional(crate::database::executor(&self.pool)).await?)
     }
     pub async fn heartbeat(&self, id: &str, token: &str, lease_seconds: u64) -> MResult<bool> {
-        Ok(sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET lease_expires_at=NOW()+make_interval(secs=>$3),last_heartbeat_at=NOW(),updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).bind(lease_seconds.max(1)as f64).execute(&self.pool).await?.rows_affected()==1)
+        Ok(sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET lease_expires_at=NOW()+make_interval(secs=>$3),last_heartbeat_at=NOW(),updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).bind(lease_seconds.max(1)as f64).execute(crate::database::executor(&self.pool)).await?.rows_affected()==1)
     }
     pub async fn finish(
         &self,
@@ -234,14 +236,14 @@ impl MigrationStore {
         } else {
             "succeeded"
         };
-        let changed=sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET state=$3,result=$4,error=$5,claimed_by=NULL,terminal_claim_token=claim_token,claim_token=NULL,lease_expires_at=NULL,last_heartbeat_at=NOW(),finished_at=NOW(),updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).bind(state).bind(result).bind(error.map(|s|s.chars().take(4000).collect::<String>())).execute(&self.pool).await?.rows_affected();
+        let changed=sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET state=$3,result=$4,error=$5,claimed_by=NULL,terminal_claim_token=claim_token,claim_token=NULL,lease_expires_at=NULL,last_heartbeat_at=NOW(),finished_at=NOW(),updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).bind(state).bind(result).bind(error.map(|s|s.chars().take(4000).collect::<String>())).execute(crate::database::executor(&self.pool)).await?.rows_affected();
         if changed == 1 {
             return Ok(true);
         }
-        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.embedding_migration_action_jobs WHERE job_id=$1::uuid AND state=$3 AND terminal_claim_token=$2::uuid)").bind(id).bind(token).bind(state).fetch_one(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM knowledge.embedding_migration_action_jobs WHERE job_id=$1::uuid AND state=$3 AND terminal_claim_token=$2::uuid)").bind(id).bind(token).bind(state).fetch_one(crate::database::executor(&self.pool)).await?)
     }
     pub async fn requeue(&self, id: &str, token: &str) -> MResult<bool> {
-        Ok(sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET state='queued',claimed_by=NULL,claim_token=NULL,terminal_claim_token=NULL,available_at=NOW(),lease_expires_at=NULL,last_heartbeat_at=NULL,updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).execute(&self.pool).await?.rows_affected()==1)
+        Ok(sqlx::query("UPDATE knowledge.embedding_migration_action_jobs SET state='queued',claimed_by=NULL,claim_token=NULL,terminal_claim_token=NULL,available_at=NOW(),lease_expires_at=NULL,last_heartbeat_at=NULL,updated_at=NOW() WHERE job_id=$1::uuid AND state='running' AND claim_token=$2::uuid").bind(id).bind(token).execute(crate::database::executor(&self.pool)).await?.rows_affected()==1)
     }
 }
 struct RequeueOnCancel {
@@ -266,8 +268,8 @@ impl Drop for RequeueOnCancel {
 }
 #[derive(Clone)]
 pub struct MigrationWorker {
-    model_plane:Option<Arc<super::model_plane::ModelPlaneClient>>,
-    actors:Option<super::actor::RuntimeActorClient>,
+    model_plane: Option<Arc<super::model_plane::ModelPlaneClient>>,
+    actors: Option<super::actor::RuntimeActorClient>,
     pub service: Arc<EmbeddingMigration>,
     pub worker_id: String,
     pub lease_seconds: u64,
@@ -277,7 +279,8 @@ pub struct MigrationWorker {
 impl MigrationWorker {
     pub fn new(service: Arc<EmbeddingMigration>, worker_id: String) -> Self {
         Self {
-            model_plane:None,actors:None,
+            model_plane: None,
+            actors: None,
             service,
             worker_id,
             lease_seconds: 120,
@@ -285,14 +288,41 @@ impl MigrationWorker {
             poll_interval: Duration::from_secs(1),
         }
     }
-    pub fn with_model_plane(mut self,client:Option<Arc<super::model_plane::ModelPlaneClient>>,actors:Option<super::actor::RuntimeActorClient>)->Self {self.model_plane=client;self.actors=actors;self}
-    async fn execute(&self,j:&Value)->MResult<Value> {
-        let Some(client)=self.model_plane.clone() else {return self.execute_inner(j).await;};
-        let actors=self.actors.as_ref().ok_or(MigrationError::conflict("migration model actor authority is unavailable"))?;
-        let dataset=self.service.query.dataset(text(j,"dataset_id")).await?;
-        let actor=actors.resolve(&dataset.tenant_id,text(j,"requested_by")).await?;
-        self.service.query.require_dataset_access(&actor,&dataset.dataset_id,"owner").await?;
-        super::model_plane::run_scoped(client,super::model_plane::ModelResource{dataset_id:Some(dataset.dataset_id),document_id:None,execution_id:Some(text(j,"job_id").into())},actor,self.execute_inner(j)).await
+    pub fn with_model_plane(
+        mut self,
+        client: Option<Arc<super::model_plane::ModelPlaneClient>>,
+        actors: Option<super::actor::RuntimeActorClient>,
+    ) -> Self {
+        self.model_plane = client;
+        self.actors = actors;
+        self
+    }
+    async fn execute(&self, j: &Value) -> MResult<Value> {
+        let Some(client) = self.model_plane.clone() else {
+            return self.execute_inner(j).await;
+        };
+        let actors = self.actors.as_ref().ok_or(MigrationError::conflict(
+            "migration model actor authority is unavailable",
+        ))?;
+        let dataset = self.service.query.dataset(text(j, "dataset_id")).await?;
+        let actor = actors
+            .resolve(&dataset.tenant_id, text(j, "requested_by"))
+            .await?;
+        self.service
+            .query
+            .require_dataset_access(&actor, &dataset.dataset_id, "owner")
+            .await?;
+        super::model_plane::run_scoped(
+            client,
+            super::model_plane::ModelResource {
+                dataset_id: Some(dataset.dataset_id),
+                document_id: None,
+                execution_id: Some(text(j, "job_id").into()),
+            },
+            actor,
+            self.execute_inner(j),
+        )
+        .await
     }
     async fn execute_inner(&self, j: &Value) -> MResult<Value> {
         let id = text(j, "migration_id");

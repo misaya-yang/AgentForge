@@ -71,6 +71,8 @@ function host() {
   modules["react/jsx-runtime"] = { jsx, jsxs: jsx };
   modules["react-i18next"] = { useTranslation: () => ({ t: (key: string, fallback?: string) => fallback || key }) };
   modules["@/lib/utils"] = { cn: (...values: unknown[]) => values.filter(Boolean).join(" ") };
+  modules["@/hooks/useAuthenticatedReadScope"] = { useAuthenticatedReadScope: () => ({ id: "provider-fixture-scope", isCurrent: () => true }) };
+  modules["@/lib/consoleStepUp"] = { sensitiveMutationOptions: { retry: false } };
   modules["@/lib/api"] = { api: {
     async post(url: string, ...body: unknown[]) {
       calls.push({ method: "POST", url, body, observedRevision: provider.updated_at });
@@ -83,6 +85,15 @@ function host() {
       provider = { ...provider, ...JSON.parse(JSON.stringify(body)), updated_at: `saved-${++revision}` };
       return { data: provider };
     },
+  } };
+  modules["./generatedTransport"] = {
+    readKey: (scope: string, operation: string, input: unknown) => ["generated-api", scope, operation, input],
+    readOptions: (scope: string, operation: string, input: unknown) => ({ queryKey: ["generated-api", scope, operation, input], queryFn: () => [], retry: false, gcTime: 0 }),
+    request: async (operation: string, input: { path?: Record<string, string>; body?: unknown }) => {
+    const [method, template] = operation.split(" ");
+    const url = template.replace(/\{([^}]+)\}/g, (_: string, key: string) => encodeURIComponent(input.path![key]));
+    const client = (modules["@/lib/api"] as { api: Record<string, (url: string, body?: unknown) => Promise<{ data: unknown }>> }).api;
+    return (await client[method.toLowerCase()](url, input.body)).data;
   } };
   const api = load("../../api/providers.ts") as { updateProvider: (id: string, body: unknown) => Promise<unknown> };
   modules["@/api/providers"] = api;

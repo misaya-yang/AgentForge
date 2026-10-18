@@ -317,31 +317,48 @@ impl<'q> sqlx::Encode<'q, Postgres> for AsyncpgDate {
 }
 impl PgStatement {
     async fn execute(self, connection: &mut sqlx::PgConnection) -> Result<u64, sqlx::Error> {
-        let result = match self {
-            Self::Aggregate(date) => {
-                sqlx::query(DAILY_AGGREGATION_SQL)
-                    .bind(AsyncpgDate(date))
-                    .execute(connection)
+        let result =
+            match self {
+                Self::Aggregate(date) => sqlx::query(
+                    &ai_platform_service_primitives::data_connection::append_store::pruning_sql(
+                        &mut *connection,
+                        "gateway.usage_records",
+                        DAILY_AGGREGATION_SQL,
+                    )
+                    .await?,
+                )
+                .bind(AsyncpgDate(date))
+                .execute(connection)
+                .await?,
+                Self::Cleanup(cutoff, limit) => {
+                    // Partition retirement keeps global dedup tombstones. The native
+                    // authority tool owns sealed/archive/PITR-gated retention.
+                    if ai_platform_service_primitives::data_connection::append_store::enabled(
+                        &mut *connection,
+                        "gateway.usage_records",
+                    )
                     .await?
-            }
-            Self::Cleanup(cutoff, limit) => {
-                sqlx::query(CLEANUP_BATCH_SQL)
-                    .bind(cutoff)
-                    .bind(limit)
-                    .execute(connection)
-                    .await?
-            }
-            Self::Daily => {
-                sqlx::query(DAILY_QUOTA_RESET_SQL)
-                    .execute(connection)
-                    .await?
-            }
-            Self::Monthly => {
-                sqlx::query(MONTHLY_QUOTA_RESET_SQL)
-                    .execute(connection)
-                    .await?
-            }
-        };
+                    {
+                        return Ok(0);
+                    }
+
+                    sqlx::query(CLEANUP_BATCH_SQL)
+                        .bind(cutoff)
+                        .bind(limit)
+                        .execute(connection)
+                        .await?
+                }
+                Self::Daily => {
+                    sqlx::query(DAILY_QUOTA_RESET_SQL)
+                        .execute(connection)
+                        .await?
+                }
+                Self::Monthly => {
+                    sqlx::query(MONTHLY_QUOTA_RESET_SQL)
+                        .execute(connection)
+                        .await?
+                }
+            };
         Ok(result.rows_affected())
     }
 }
@@ -809,7 +826,9 @@ impl UsageScheduler {
         let daily = self.inner.clone();
         workers.push(tokio::spawn(async move {
             while quota.running.load(Ordering::Acquire) {
-                if matches!(quota.quota_once().await, Err(MaintenanceError::Cancelled)) {
+                let effect =
+                    crate::worker_lease::with_effect("usage_scheduler", quota.quota_once()).await;
+                if effect.is_err() || matches!(effect, Ok(Err(MaintenanceError::Cancelled))) {
                     break;
                 }
                 let seconds = quota
@@ -822,7 +841,9 @@ impl UsageScheduler {
         }));
         workers.push(tokio::spawn(async move {
             while daily.running.load(Ordering::Acquire) {
-                if matches!(daily.daily_once().await, Err(MaintenanceError::Cancelled)) {
+                let effect =
+                    crate::worker_lease::with_effect("usage_scheduler", daily.daily_once()).await;
+                if effect.is_err() || matches!(effect, Ok(Err(MaintenanceError::Cancelled))) {
                     break;
                 }
                 daily.runtime.sleep(60.0).await;

@@ -3,6 +3,8 @@ members = [
     "ai-platform-agent-runtime",
     "ai-platform-capability-contract",
     "ai-platform-capability-worker",
+    "ai-platform-plugin-quiz",
+    "ai-platform-python-compat",
     "ai-platform-office",
     "aws-auth",
     "analytics",

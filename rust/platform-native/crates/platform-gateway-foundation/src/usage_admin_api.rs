@@ -1201,7 +1201,9 @@ fn project(value: &Value, schema: Schema) -> Result<Value, UsageAdminError> {
         };
     }
     if errors.is_empty() {
-        if let Some(metering)=map.get("metering").filter(|v|v.is_object()){out.insert("metering".into(),metering.clone());}
+        if let Some(metering) = map.get("metering").filter(|v| v.is_object()) {
+            out.insert("metering".into(), metering.clone());
+        }
         Ok(Value::Object(out))
     } else {
         Err(UsageAdminError::ResponseValidation(errors))
@@ -1549,7 +1551,23 @@ impl PgUsageAnalyticsDatabase {
 impl UsageAnalyticsDatabase for PgUsageAnalyticsDatabase {
     fn fetch<'a>(&'a self, plan: UsageSqlPlan) -> UsageAdminFuture<'a, Vec<Value>> {
         Box::pin(async move {
-            let mut query = sqlx::query(&plan.sql);
+            let mut connection = self
+                .pool
+                .acquire()
+                .await
+                .map_err(|_| UsageAdminError::Internal)?;
+            let sql = if plan.sql.contains("usage_records") {
+                ai_platform_service_primitives::data_connection::append_store::pruning_sql(
+                    &mut connection,
+                    "gateway.usage_records",
+                    &plan.sql,
+                )
+                .await
+                .map_err(|_| UsageAdminError::Internal)?
+            } else {
+                plan.sql.clone()
+            };
+            let mut query = sqlx::query(&sql);
             for p in plan.parameters {
                 query = match p {
                     UsageSqlParameter::Text(v) => query.bind(v),
@@ -1558,7 +1576,7 @@ impl UsageAnalyticsDatabase for PgUsageAnalyticsDatabase {
                 };
             }
             let rows = query
-                .fetch_all(&self.pool)
+                .fetch_all(&mut *connection)
                 .await
                 .map_err(|_| UsageAdminError::Internal)?;
             rows.iter()

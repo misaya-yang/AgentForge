@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 const badgeStyles = {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        default: "ui-badge-variant-default",
+        secondary: "ui-badge-variant-secondary",
         outline: "text-foreground",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground",
+          "ui-badge-variant-destructive",
       },
     },
     defaultVariants: {
@@ -21,7 +21,7 @@ const badgeStyles = {
 type BadgeVariant = keyof typeof badgeStyles.variants.variant;
 function badgeVariants({ variant, className }: { variant?: BadgeVariant | null; className?: string } = {}) {
   return cn(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2", badgeStyles.variants.variant[variant ?? "default"], className);
+  "ui-badge-slot-1", badgeStyles.variants.variant[variant ?? "default"], className);
 }
 
 export interface BadgeProps

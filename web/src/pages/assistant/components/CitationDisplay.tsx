@@ -243,11 +243,11 @@ export function CitationDisplay({ citations, evaluation, className }: CitationDi
 
         <div className="flex-1 min-w-0">
           <span className="text-xs font-medium text-[hsl(var(--assistant-text-primary))]">
-            {t("assistant.citationsTitle", "{{count}} Sources", { count: relevantCitations.length })}
+            {t("assistant.citationsTitle", "{count} Sources", { count: relevantCitations.length })}
           </span>
           {usedCount > 0 && (
             <span className="text-[10px] text-[hsl(var(--assistant-text-secondary))] ml-2">
-              ({t("assistant.citedCount", "{{count}} cited", { count: usedCount })})
+              ({t("assistant.citedCount", "{count} cited", { count: usedCount })})
             </span>
           )}
         </div>
@@ -286,12 +286,12 @@ export function CitationDisplay({ citations, evaluation, className }: CitationDi
                   <QualityBreakdown breakdown={evaluation.quality_breakdown} />
                   <div className="flex items-center justify-between mt-2 text-[10px] text-[hsl(var(--assistant-text-tertiary))]">
                     <span>
-                      {t("assistant.ragGrounding", "{{percent}}% grounded", {
+                      {t("assistant.ragGrounding", "{percent}% grounded", {
                         percent: Math.round(evaluation.response_grounding * 100),
                       })}
                     </span>
                     <span>
-                      {t("assistant.ragChunksUsed", "{{used}}/{{total}} chunks used", {
+                      {t("assistant.ragChunksUsed", "{used}/{total} chunks used", {
                         used: evaluation.chunks_used,
                         total: evaluation.chunks_retrieved,
                       })}

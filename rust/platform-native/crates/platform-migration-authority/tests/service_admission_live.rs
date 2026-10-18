@@ -41,7 +41,7 @@ async fn exact_service_roles_admit_and_every_other_login_is_refused() {
     ))
     .unwrap();
     assert_eq!(runtime_expected, worker_expected);
-    assert_eq!(runtime_expected["epoch"], 28);
+    assert_eq!(runtime_expected["epoch"], 29);
 
     let mut allowed = 0;
     let mut refused = 0;

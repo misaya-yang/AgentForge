@@ -71,6 +71,7 @@ pub mod model_provider_storage;
 pub mod model_service;
 #[doc(hidden)]
 pub mod postgres_operation;
+pub mod tenant_database;
 pub mod presign_api;
 pub mod pricing_receipt;
 pub mod price_book;
@@ -84,9 +85,7 @@ pub mod provider_routing;
 pub mod provider_service;
 pub mod provider_startup_seeder;
 pub mod provider_templates;
-pub mod quiz_grading;
-#[doc(hidden)]
-pub mod quiz_unicode;
+pub use ai_platform_python_compat as python_value;
 pub mod quota_admin_api;
 pub mod quota_store;
 pub mod rate_config_api;
@@ -167,3 +166,9 @@ pub mod provider_batch_lane;
 pub mod provider_batch_quota;
 
 pub mod provider_batch_settlement;
+
+pub mod worker_lease;
+
+pub mod multi_instance;
+
+pub mod external_a2a_ledger;

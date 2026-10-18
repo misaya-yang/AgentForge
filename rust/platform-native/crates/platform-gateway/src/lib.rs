@@ -387,11 +387,12 @@ pub mod quiz_share_store;
 
 pub mod quiz_share_service;
 
-pub use ai_platform_gateway_foundation::quiz_grading;
+pub use ai_platform_plugin_quiz::quiz_grading;
+pub mod quiz_plugin_bridge;
 
 pub mod quiz_entropy;
 
-pub(crate) use ai_platform_gateway_foundation::quiz_unicode;
+pub(crate) use ai_platform_plugin_quiz::quiz_unicode;
 
 pub use ai_platform_gateway_foundation::assistant_memory_types;
 
@@ -491,3 +492,7 @@ pub(crate) async fn read_method_not_allowed() -> axum::response::Response {
 pub mod llm_api;
 
 pub mod task_batch_accounting;
+
+pub mod workload_tls;
+
+pub mod ha;

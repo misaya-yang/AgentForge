@@ -1,7 +1,27 @@
-# Assistant SDK: native Rust migration
+# Generated Python SDK models and client
 
-The Python implementation has been retired from this project. Use the native
-`ai-platform-client` crate in
+`generated_models.py` is generated from the current native OpenAPI 3.2 document.
+It supplies Python 3.11+ `TypedDict` models for component schemas, operation
+parameters, requests, responses and stream items, plus a typed `Client` that
+delegates to a caller-provided `TypedTransport`. It has no HTTP dependency and
+never invents authentication, CSRF, base URL, retries or SSE parsing.
+
+Generate with `ai-platform-openapi codegen --out sdk`; verify committed artifacts
+with the same command plus `--check`. `--candidate /path/to/openapi.json` selects
+an explicit offline source. `sdk/generated-manifest.json` records the source SHA,
+operation inventory and each operation's generated Python request/stream method.
+The server remains the authority for runtime validation and permissions.
+
+Generated V2 event requests accept the optional `header` mapping containing
+`Last-Event-ID`. Omit the query cursor to resume from that header; an explicit
+numeric `after_sequence`, including zero, wins. See the
+[event observation contract](../typescript/README.md#resuming-event-observation)
+for replay limits and the separate Local Node JSON feed.
+
+The earlier handwritten Python networking implementation remains retired. The
+native Rust transport below is still the reference for authenticated networking.
+
+Use the `ai-platform-client` crate in
 [`rust/platform-native/crates/platform-client`](../../rust/platform-native/crates/platform-client).
 The API guide is [`sdk/rust/README.md`](../rust/README.md); transport and recovery
 contracts are in [`SDK.md`](../../rust/platform-native/crates/platform-client/SDK.md).

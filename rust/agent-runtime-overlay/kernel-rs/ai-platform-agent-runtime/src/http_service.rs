@@ -31,24 +31,27 @@ use crate::approval_control::ApprovalBroker;
 
 mod approvals;
 mod capability_dispatch;
-mod events;
 mod event_hub;
+mod events;
+mod execution_context;
 pub(crate) mod lease_verification;
-pub(crate) mod transport_budget;
+mod owner_routing;
+mod model_proxy;
 mod projection;
 mod recovery;
 pub(crate) mod recovery_fault;
-mod security;
 mod sdk_capabilities;
+mod security;
 mod thread_lifecycle;
 mod threads;
+pub(crate) mod transport_budget;
 mod turns;
 
 use self::approvals::decide_approval;
 use self::approvals::get_approval;
 use self::capability_dispatch::route_kernel_events;
-use self::events::events;
 use self::event_hub::RuntimeEventHub;
+use self::events::events;
 use self::thread_lifecycle::archive_thread;
 use self::thread_lifecycle::interrupt_turn;
 use self::thread_lifecycle::resume_thread;
@@ -213,13 +216,24 @@ pub struct RuntimeHttpService {
 
 impl RuntimeHttpState {
     pub(super) fn thread_gate(&self, thread_id: ThreadId) -> Arc<tokio::sync::Mutex<()>> {
-        let mut gates = self.thread_gates.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut gates = self
+            .thread_gates
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         event_hub::prune_idle_gates(&mut gates);
-        gates.entry(thread_id).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+        gates
+            .entry(thread_id)
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone()
     }
 
     pub(super) fn prune_thread_gates(&self) {
-        event_hub::prune_idle_gates(&mut self.thread_gates.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+        event_hub::prune_idle_gates(
+            &mut self
+                .thread_gates
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
     }
 
     pub(super) fn cancel_turn(&self, turn_id: &str) {
@@ -241,12 +255,18 @@ impl RuntimeHttpService {
         store: Arc<PostgresThreadStore>,
         internal_token: String,
     ) -> Result<Self, std::io::Error> {
-        if internal_token.is_empty() {
+        if internal_token.is_empty() && !crate::workload_identity::required() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "AI_PLATFORM_INTERNAL_TOKEN must be non-empty",
             ));
         }
+        let routing = crate::postgres_store::thread_owner::OwnerRouting::from_environment()
+            .map_err(|code| std::io::Error::new(std::io::ErrorKind::InvalidInput, code))?;
+        if routing.is_some() && std::env::var("AI_PLATFORM_WORKLOAD_MTLS_MODE").as_deref()!=Ok("required") {
+            return Err(std::io::Error::other("runtime_owner_requires_workload_identity"));
+        }
+        store.configure_owner_routing(routing);
         let requests = kernel.request_handle();
         let events = RuntimeEventHub::new(EVENT_CHANNEL_CAPACITY);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -264,12 +284,28 @@ impl RuntimeHttpService {
         }
         let readonly_by_turn = Arc::new(Mutex::new(HashMap::new()));
         let turn_cancellations = Arc::new(Mutex::new(HashMap::new()));
-        let capability_client = reqwest::Client::builder().retry(reqwest::retry::never()).redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .connect_timeout(std::time::Duration::from_secs(2))
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        let mut endpoints: Vec<String> = [
+            "AI_PLATFORM_CAPABILITY_WORKER_URL",
+            "AI_PLATFORM_CAPABILITY_PLANE_URL",
+            "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL",
+        ]
+        .into_iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .collect();
+        endpoints.push(std::env::var("AI_PLATFORM_CAPABILITY_PLANE_URL").unwrap_or_else(|_|"http://gateway:8080/internal/v2/agent-capabilities".into()));
+        if crate::workload_identity::tls_enabled() {
+            let target=std::env::var("AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL").map_err(|_|std::io::Error::other("runtime_model_plane_target_missing"))?;
+            model_proxy::kernel_base_url(&target).map_err(|_|std::io::Error::other("runtime_model_proxy_invalid"))?;
+        }
+        if let Some(routing) = store.owner_routing() {
+            endpoints.extend(routing.peers);
+        }
+        let capability_client = crate::workload_identity::internal_client(
+            &endpoints.iter().map(String::as_str).collect::<Vec<_>>(),
+            std::time::Duration::from_secs(2),
+            std::time::Duration::from_secs(30),
+        )
+        .map_err(std::io::Error::other)?;
         let capability_health_client = capability_client.clone();
         let event_task = tokio::spawn(route_kernel_events(
             kernel,
@@ -317,6 +353,7 @@ impl RuntimeHttpService {
     pub fn router(&self) -> Router {
         Router::new()
             .route("/health/live", get(live))
+            .route("/internal/v1/model-proxy/responses",post(model_proxy::responses).layer(axum::extract::DefaultBodyLimit::max(16*1024*1024)))
             .route("/health/ready", get(ready))
             .route("/internal/v1/threads", post(create_thread))
             .route(
@@ -358,6 +395,14 @@ impl RuntimeHttpService {
                 post(unarchive_thread),
             )
             .route("/internal/v1/threads/{thread_id}/events", get(events))
+            .route(
+                "/internal/v1/threads/{thread_id}/owner",
+                get(owner_routing::owner),
+            )
+            .layer(axum::middleware::from_fn_with_state(
+                self.state.clone(),
+                owner_routing::route,
+            ))
             .with_state(self.state.clone())
     }
 
@@ -398,7 +443,8 @@ async fn ready(State(state): State<RuntimeHttpState>) -> impl IntoResponse {
     let kernel_ready = state.kernel_ready.load(Ordering::Acquire);
     let store_stage = state.store.readiness_stage().await;
     let store_ready = store_stage.is_healthy();
-    let core_ready = kernel_ready && store_ready;
+    let ownership_ready=state.store.thread_owner_ready().await;
+    let core_ready = kernel_ready && store_ready && ownership_ready;
     let worker_status = capability_worker_status(&state.capability_client).await;
     let model_plane_status = model_plane_status();
     let catalog_status = if state.readonly_by_turn.lock().is_ok() {
@@ -428,10 +474,8 @@ async fn ready(State(state): State<RuntimeHttpState>) -> impl IntoResponse {
                     "unavailable"
                 },
             ),
-            (
-                "store",
-                store_stage.code(),
-            ),
+            ("store", store_stage.code()),
+            ("thread_ownership",if ownership_ready{"healthy"}else{"unavailable"}),
         ]),
         dependencies,
     };
@@ -476,7 +520,7 @@ fn model_plane_status() -> &'static str {
         std::env::var("AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN").unwrap_or_default();
     if url.trim().is_empty() && token.trim().is_empty() {
         "not_configured"
-    } else if token.trim().is_empty() || !thread_lifecycle::valid_model_plane_base_url(url.trim()) {
+    } else if (!crate::workload_identity::required() && token.trim().is_empty()) || !thread_lifecycle::valid_model_plane_base_url(url.trim()) {
         "misconfigured"
     } else {
         "configured"

@@ -68,3 +68,23 @@ limit and one-hour idle limit can accommodate an explicitly chosen long-reasonin
 model. Consumer drop and cancellation remain immediate at any configured limit.
 No stream setting enables POST retry. Only the V2 GET event observer resumes its
 existing server `after_sequence` cursor and suppresses duplicate sequences.
+
+## Native OpenAPI generated models
+
+`generated_models.rs` contains serde request, response, parameter and stream-event
+models from the native OpenAPI 3.2 producer. Generate with
+`ai-platform-openapi codegen --out sdk`; CI verifies the same source with `--check`.
+Use `--candidate /path/to/openapi.json` for an explicit offline release artifact.
+The source SHA and operation inventory are in `sdk/generated-manifest.json`.
+
+The native client's `generated` module includes these models. Networking remains
+owned by its existing authenticated `Client`; generated models can be passed to
+`serde_json::to_value` and decoded with `serde_json::from_value`. Types preserve
+wire fields and recursive structures; runtime business/schema validation remains
+server-owned. Generate artifacts before compiling the consumer module.
+
+Generated V2 event request models include the optional `Last-Event-ID` header.
+An explicit query `after_sequence`, including zero, takes precedence over it.
+See the [event observation contract](../typescript/README.md#resuming-event-observation)
+for initial replay limits and the separate Local Node JSON feed. The authenticated
+client continues to own cancellation, observation and mutation retry behavior.

@@ -10,9 +10,8 @@ runbook or a plan result as measured disaster-recovery evidence.
    operate unrelated containers. Prepare an isolated empty Qdrant endpoint, a
    dedicated empty `af-drill-*` object bucket, unused PG loopback port and external
    writable drill root. No service is started by this preparation command.
-2. Install/validate the two internal dependencies and multipart feature, then run
-   `cargo test -p ai-platform-release --bin recovery-backup` through the shared,
-   serialized, external-target build procedure. Tests are synthetic policy checks.
+2. Run `scripts/new/native-container.sh test -p ai-platform-release --bin recovery-backup`
+   through the shared, serialized Docker development cache. Tests are synthetic policy checks.
    A compiler/test pass alone says nothing about a real backup.
 3. Validate the public configuration with `recovery-backup validate PUBLIC.json`.
    Verify independently that a full encrypted base backup exists, continuous WAL
@@ -31,6 +30,9 @@ runbook or a plan result as measured disaster-recovery evidence.
 The command creates a **new** 0700 destination for every run. It refuses a busy PG
 port, the source PG port, source Qdrant origin, any nonempty Qdrant instance or object
 bucket, foreign-scope manifest, unsafe selectors or changed generation digest.
+Qdrant origin checks normalize equivalent URL spellings. Drill and evidence roots
+must stay outside the source PostgreSQL data directory and its descendants,
+including paths that resolve there through symbolic links.
 There is no `--delta`, reset/delete/force or in-place restore mode. pgBackRest restores
 from the replica repository with all tablespaces remapped under the new directory;
 source symbolic-link restoration is disabled. The server's persistent archive-get

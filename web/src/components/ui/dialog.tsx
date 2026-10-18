@@ -69,20 +69,20 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
         node?.setAttribute("aria-describedby", descriptionId);
       }}
     >
-      <div {...props} ref={ref} className={cn("grid max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-lg gap-4 overflow-y-auto rounded-xl border border-border bg-background p-5 shadow-xl sm:p-6", className)}>{children}</div>
+      <div {...props} ref={ref} className={cn("ui-dialog-slot-1", className)}>{children}</div>
     </Modal>;
   });
 DialogContent.displayName = "DialogContent";
-function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props} />; }
-function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />; }
+function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("ui-dialog-slot-2", className)} {...props} />; }
+function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div className={cn("ui-dialog-slot-3", className)} {...props} />; }
 const DialogTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => {
   const { titleId } = React.useContext(DialogContext);
-  return <h2 ref={ref} id={titleId} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />;
+  return <h2 ref={ref} id={titleId} className={cn("ui-dialog-slot-4", className)} {...props} />;
 });
 DialogTitle.displayName = "DialogTitle";
 const DialogDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(({ className, ...props }, ref) => {
   const { descriptionId } = React.useContext(DialogContext);
-  return <p ref={ref} id={descriptionId} className={cn("text-sm text-muted-foreground", className)} {...props} />;
+  return <p ref={ref} id={descriptionId} className={cn("ui-dialog-slot-5", className)} {...props} />;
 });
 DialogDescription.displayName = "DialogDescription";
 export { Dialog, DialogTrigger, DialogPortal, DialogClose, DialogOverlay, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription };

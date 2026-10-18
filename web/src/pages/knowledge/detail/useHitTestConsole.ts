@@ -197,7 +197,7 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
     if (config.mode) setMode(modeMap[config.mode] ?? "hybrid");
     if (typeof config.top_k === "number") setTopK(config.top_k);
     setScoreThreshold(config.score_threshold ?? 0);
-    if (config.fusion_method) setFusionMethod(config.fusion_method);
+    if (config.fusion_method === "rrf" || config.fusion_method === "weighted") setFusionMethod(config.fusion_method);
     if (typeof config.dense_weight === "number") {
       setDenseWeight(config.dense_weight);
       setBm25Weight(config.bm25_weight ?? 1 - config.dense_weight);
@@ -213,7 +213,7 @@ export function useHitTestConsole(datasetId?: string, identityScope?: { isCurren
       && presetProviderMatches;
     setRerank(config.rerank === true && presetModelIsAvailable);
     setHitRerankModel(presetModelIsAvailable ? presetModel : configuredRerankModel);
-    setHitRerankTopN(config.rerank_top_n);
+    setHitRerankTopN(config.rerank_top_n ?? undefined);
     setMmr(config.mmr ?? false);
     setHitMmrLambda(config.mmr_lambda ?? DEFAULT_RETRIEVAL_CONFIG.mmr.lambda);
     if (config.rerank === true && !presetModelIsAvailable) {

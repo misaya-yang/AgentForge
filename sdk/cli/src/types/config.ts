@@ -5,6 +5,9 @@
 
 export interface CLIConfig {
   api_key: string;
+  /** Access token is process-local and must never be persisted. */
+  access_token?: string;
+  access_token_provider?: () => Promise<string>;
   base_url: string;
   tenant_id: string;
   user_id?: string;

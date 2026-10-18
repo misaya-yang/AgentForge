@@ -408,6 +408,28 @@ pub struct PostgresExecutionStore {
 }
 
 impl PostgresExecutionStore {
+    async fn tenant_controls_enabled(&self) -> Result<bool, StoreError> {
+        ai_platform_capability_contract::database_connection::tenant_controls_enabled(
+            &self.pool,
+            "assistant.assistant_capability_executions",
+            "assistant.recoverable_capability_executions_v1()",
+        )
+        .await
+        .map_err(database_error)
+    }
+
+    async fn begin_tenant(
+        &self,
+        tenant: &str,
+    ) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, StoreError> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        ai_platform_capability_contract::database_connection::bind_tenant(
+            &mut transaction, tenant,
+            ai_platform_capability_contract::database_connection::policy::DatabaseRole::CapabilityWorker,
+        ).await.map_err(database_error)?;
+        Ok(transaction)
+    }
+
     // The workspace lint protects SQLite callers; this store is explicitly PostgreSQL.
     #[allow(clippy::disallowed_methods)]
     pub async fn connect_with_options(
@@ -419,7 +441,7 @@ impl PostgresExecutionStore {
             .max_connections(max_connections.clamp(1, 20))
             .connect_with(options)
             .await?;
-        Ok(Self { pool })
+        Ok(Self::from_pool(pool))
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
@@ -659,11 +681,7 @@ fn database_error(error: sqlx::Error) -> StoreError {
 #[async_trait]
 impl ExecutionStore for PostgresExecutionStore {
     async fn ready(&self) -> Result<(), StoreError> {
-        sqlx::query_scalar::<_, i32>("SELECT 1")
-            .fetch_one(&self.pool)
-            .await
-            .map(|_| ())
-            .map_err(database_error)
+        self.tenant_controls_enabled().await.map(|_| ())
     }
 
     async fn authorize_runtime_binding(
@@ -673,6 +691,7 @@ impl ExecutionStore for PostgresExecutionStore {
         capability_revision: u64,
         identity: &CapabilityIdentity,
     ) -> Result<RuntimeCapabilityBinding, StoreError> {
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         let row = sqlx::query(AUTHORIZE_RUNTIME_BINDING_SQL)
             .bind(uuid(run_id)?)
             .bind(&scope.tenant_id)
@@ -683,21 +702,29 @@ impl ExecutionStore for PostgresExecutionStore {
             .bind(&identity.capability_id)
             .bind(&identity.version)
             .bind(&identity.schema_hash)
-            .fetch_optional(&self.pool)
+            .fetch_optional(&mut *transaction)
             .await
             .map_err(database_error)?;
         let (row, sdk_authority) = if let Some(row) = row {
             (row, false)
         } else {
             let row = sqlx::query(AUTHORIZE_SDK_BINDING_SQL)
-                .bind(uuid(run_id)?).bind(&scope.tenant_id).bind(&scope.user_id)
+                .bind(uuid(run_id)?)
+                .bind(&scope.tenant_id)
+                .bind(&scope.user_id)
                 .bind(&scope.session_id)
                 .bind(i64::try_from(capability_revision).map_err(|_| StoreError::Internal)?)
-                .bind(&identity.name).bind(&identity.capability_id).bind(&identity.version)
-                .bind(&identity.schema_hash).fetch_optional(&self.pool).await
-                .map_err(database_error)?.ok_or(StoreError::RuntimeBindingUnauthorized)?;
+                .bind(&identity.name)
+                .bind(&identity.capability_id)
+                .bind(&identity.version)
+                .bind(&identity.schema_hash)
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(database_error)?
+                .ok_or(StoreError::RuntimeBindingUnauthorized)?;
             (row, true)
         };
+        transaction.commit().await.map_err(database_error)?;
         let revision: i64 = row
             .try_get("capability_revision")
             .map_err(|_| StoreError::Internal)?;
@@ -765,8 +792,11 @@ impl ExecutionStore for PostgresExecutionStore {
         } else {
             parse_approval_policy(&matched_approval_policy)?
         };
-        if effect != identity.effect || approval_policy != identity.approval_policy
-            || (sdk_authority && effect == CapabilityEffect::Read && approval_policy != ApprovalPolicy::Never)
+        if effect != identity.effect
+            || approval_policy != identity.approval_policy
+            || (sdk_authority
+                && effect == CapabilityEffect::Read
+                && approval_policy != ApprovalPolicy::Never)
         {
             return Err(StoreError::RuntimeBindingUnauthorized);
         }
@@ -803,7 +833,8 @@ impl ExecutionStore for PostgresExecutionStore {
         owner: Option<&str>,
         fence: Option<i64>,
     ) -> Result<ReserveOutcome, StoreError> {
-        self.reserve_admitted_owned(requested, owner, fence, &mut || Ok(())).await
+        self.reserve_admitted_owned(requested, owner, fence, &mut || Ok(()))
+            .await
     }
 
     async fn reserve_admitted_owned(
@@ -813,7 +844,7 @@ impl ExecutionStore for PostgresExecutionStore {
         fence: Option<i64>,
         admit: &mut (dyn FnMut() -> Result<(), StoreError> + Send),
     ) -> Result<ReserveOutcome, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let mut transaction = self.begin_tenant(&requested.execution.tenant_id).await?;
         sqlx::query("SELECT assistant.assert_worker_execution_owner($1,$2,$3,$4,$5,$6,TRUE)")
             .bind(uuid(&requested.execution.run_id)?)
             .bind(&requested.execution.tenant_id)
@@ -886,6 +917,7 @@ impl ExecutionStore for PostgresExecutionStore {
         scope: &CapabilityScopeV2,
         execution_id: &str,
     ) -> Result<ExecutionRecord, StoreError> {
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         let row = sqlx::query(
             "SELECT * FROM assistant_capability_executions \
              WHERE execution_id=$1 AND tenant_id=$2 AND user_id=$3 AND session_id=$4",
@@ -894,10 +926,11 @@ impl ExecutionStore for PostgresExecutionStore {
         .bind(&scope.tenant_id)
         .bind(&scope.user_id)
         .bind(&scope.session_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(database_error)?
         .ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(database_error)?;
         row_to_record(&row)
     }
 
@@ -907,6 +940,7 @@ impl ExecutionStore for PostgresExecutionStore {
         execution_id: &str,
         dispatch_fence: &str,
     ) -> Result<DispatchOutcome, StoreError> {
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         let row =
             sqlx::query("SELECT * FROM dispatch_assistant_capability_execution($1,$2,$3,$4,$5,$6)")
                 .bind(uuid(execution_id)?)
@@ -915,10 +949,11 @@ impl ExecutionStore for PostgresExecutionStore {
                 .bind(&scope.session_id)
                 .bind(uuid(dispatch_fence)?)
                 .bind(30_000_i64)
-                .fetch_one(&self.pool)
+                .fetch_one(&mut *transaction)
                 .await
                 .map_err(database_error)?;
         let claimed: bool = row.try_get("claimed").map_err(|_| StoreError::Internal)?;
+        transaction.commit().await.map_err(database_error)?;
         Ok(DispatchOutcome {
             record: self.get(scope, execution_id).await?,
             claimed,
@@ -926,7 +961,12 @@ impl ExecutionStore for PostgresExecutionStore {
     }
 
     async fn recoverable(&self) -> Result<Vec<ExecutionRecord>, StoreError> {
-        let rows = sqlx::query(RECOVERABLE_EXECUTIONS_SQL)
+        let sql = if self.tenant_controls_enabled().await? {
+            "SELECT * FROM assistant.recoverable_capability_executions_v1()"
+        } else {
+            RECOVERABLE_EXECUTIONS_SQL
+        };
+        let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
             .await
             .map_err(database_error)?;
@@ -940,6 +980,7 @@ impl ExecutionStore for PostgresExecutionStore {
         dispatch_fence: &str,
         lease_ms: u64,
     ) -> Result<bool, StoreError> {
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         let lease_ms =
             i64::try_from(lease_ms.clamp(1_000, 120_000)).map_err(|_| StoreError::Internal)?;
         let changed: Option<i32> = sqlx::query_scalar(
@@ -957,9 +998,10 @@ impl ExecutionStore for PostgresExecutionStore {
         .bind(&scope.session_id)
         .bind(lease_ms)
         .bind(uuid(dispatch_fence)?)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(database_error)?;
+        transaction.commit().await.map_err(database_error)?;
         Ok(changed.is_some())
     }
 
@@ -977,6 +1019,13 @@ impl ExecutionStore for PostgresExecutionStore {
             Ok(encoded) if encoded.len() <= MAX_EVENT_PAYLOAD_BYTES => {}
             _ => return Err(StoreError::InvalidEvent),
         }
+        let mut append_transaction = self.begin_tenant(&scope.tenant_id).await?;
+        append_family_fence(
+            &mut append_transaction,
+            "assistant.assistant_capability_events",
+        )
+        .await
+        .map_err(database_error)?;
         let _sequence: i64 = sqlx::query_scalar(
             "SELECT append_assistant_capability_event($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         )
@@ -989,7 +1038,7 @@ impl ExecutionStore for PostgresExecutionStore {
         .bind(status_name(status))
         .bind(serde_json::to_value(&payload).map_err(|_| StoreError::InvalidEvent)?)
         .bind(dispatch_fence.map(uuid).transpose()?)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *append_transaction)
         .await
         .map_err(database_error)?;
         let row = sqlx::query(
@@ -1003,11 +1052,13 @@ impl ExecutionStore for PostgresExecutionStore {
         .bind(&scope.tenant_id)
         .bind(&scope.user_id)
         .bind(&scope.session_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *append_transaction)
         .await
         .map_err(database_error)?
         .ok_or(StoreError::Internal)?;
-        row_to_event(&row)
+        let event = row_to_event(&row)?;
+        append_transaction.commit().await.map_err(database_error)?;
+        Ok(event)
     }
 
     async fn events(
@@ -1017,6 +1068,7 @@ impl ExecutionStore for PostgresExecutionStore {
         after_sequence: u64,
     ) -> Result<CapabilityEventPageV2, StoreError> {
         let record = self.get(scope, execution_id).await?;
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         let rows = sqlx::query(
             "SELECT sequence,event,status,payload,created_at \
              FROM assistant_capability_events \
@@ -1030,9 +1082,10 @@ impl ExecutionStore for PostgresExecutionStore {
         .bind(&scope.session_id)
         .bind(i64::try_from(after_sequence).map_err(|_| StoreError::InvalidEvent)?)
         .bind(i64::try_from(EVENT_PAGE_SIZE + 1).map_err(|_| StoreError::Internal)?)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await
         .map_err(database_error)?;
+        transaction.commit().await.map_err(database_error)?;
         let has_more = rows.len() > EVENT_PAGE_SIZE;
         let events = rows
             .into_iter()
@@ -1090,7 +1143,7 @@ impl ExecutionStore for PostgresExecutionStore {
         fence: Option<i64>,
     ) -> Result<ExecutionRecord, StoreError> {
         let current = self.get(scope, execution_id).await?;
-        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let mut transaction = self.begin_tenant(&scope.tenant_id).await?;
         sqlx::query("SELECT assistant.assert_worker_execution_owner($1,$2,$3,$4,$5,$6,FALSE)")
             .bind(uuid(&current.execution.run_id)?)
             .bind(&scope.tenant_id)
@@ -1106,6 +1159,9 @@ impl ExecutionStore for PostgresExecutionStore {
             .fetch_one(&mut *transaction).await.map_err(database_error)?;
         let current = row_to_record(&row)?;
         if !current.execution.status.is_terminal() {
+            append_family_fence(&mut transaction, "assistant.assistant_capability_events")
+                .await
+                .map_err(database_error)?;
             let status = if current.dispatch_fence.is_some()
                 && !matches!(current.execution.effect, CapabilityEffect::Read)
             {
@@ -1131,4 +1187,23 @@ impl ExecutionStore for PostgresExecutionStore {
         transaction.commit().await.map_err(database_error)?;
         self.get(scope, execution_id).await
     }
+}
+
+// Authority-only append activation; errors are propagated, never a legacy retry.
+async fn append_family_fence(
+    connection: &mut sqlx::PgConnection,
+    family: &str,
+) -> Result<(), sqlx::Error> {
+    let installed: bool = sqlx::query_scalar(
+        "SELECT to_regprocedure('partition_ops.family_enabled(text)') IS NOT NULL",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    if installed {
+        let _: bool = sqlx::query_scalar("SELECT partition_ops.family_enabled($1)")
+            .bind(family)
+            .fetch_one(connection)
+            .await?;
+    }
+    Ok(())
 }

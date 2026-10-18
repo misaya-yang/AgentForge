@@ -55,6 +55,18 @@ impl EvaluationConfiguration {
                 .filter(|v| !v.is_empty())
                 .map(str::to_owned)
         };
+        let control =
+            crate::migration_host::control_plane::config::Configuration::from_environment(
+                environment,
+            )
+            .map_err(BootstrapError::Configuration)?;
+        let role = crate::migration_host::worker_roles::ProcessRole::parse(&env(
+            "GATEWAY_PROCESS_ROLE",
+            "all",
+        ))
+        .map_err(BootstrapError::Configuration)?;
+        let dedicated = control.evaluation.placement
+            == crate::migration_host::control_plane::config::Placement::Dedicated;
         let gateway = env("GATEWAY_URL", "http://gateway:8080");
         // Source fallback accepts unknown truthy spellings; only these disable.
         let judge_enabled = !matches!(
@@ -72,8 +84,9 @@ impl EvaluationConfiguration {
         let jwt = &settings.authentication.jwt;
         Ok(Self {
             // Source main initializes this worker only for enabled database.
-            enabled: settings.database.enabled,
-            concurrency: 2,
+            enabled: settings.database.enabled
+                && (!dedicated || role == crate::migration_host::worker_roles::ProcessRole::Eval),
+            concurrency: control.evaluation.concurrency,
             poll_interval: Duration::from_secs(2),
             judge_enabled,
             judge_origin: env("EVAL_LLM_GATEWAY_URL", &gateway)

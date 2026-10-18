@@ -257,7 +257,6 @@ fn harness(gate: Value, run: &str) -> Fixture {
     );
     for doc in [
         "AGENTS.md",
-        "CLAUDE.md",
         "docs/README.md",
         "docs/harness/README.md",
         "docs/harness/platform-architecture.md",

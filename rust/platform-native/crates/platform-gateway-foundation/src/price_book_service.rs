@@ -94,8 +94,19 @@ impl PgPriceBookService {
         {
             return Err(PriceBookError::InvalidTerms);
         }
-        let rows = sqlx::query("SELECT provider,model,input_tokens,metadata->'provider_cache_usage' AS cache FROM usage_records WHERE COALESCE(metadata->'measured_units'->>'meter','tokens')<>'requests' AND tenant_id=$1 AND created_at>=to_timestamp($2::double precision/1000) AND created_at<to_timestamp($3::double precision/1000)")
-            .bind(tenant).bind(from_ms).bind(to_ms).fetch_all(&self.pool).await.map_err(|_|PriceBookError::Storage)?;
+        let mut connection = self
+            .pool
+            .acquire()
+            .await
+            .map_err(|_| PriceBookError::Storage)?;
+        let sql=ai_platform_service_primitives::data_connection::append_store::pruning_sql(&mut connection,"gateway.usage_records","SELECT provider,model,input_tokens,metadata->'provider_cache_usage' AS cache FROM usage_records WHERE COALESCE(metadata->'measured_units'->>'meter','tokens')<>'requests' AND tenant_id=$1 AND created_at>=to_timestamp($2::double precision/1000) AND created_at<to_timestamp($3::double precision/1000)").await.map_err(|_|PriceBookError::Storage)?;
+        let rows = sqlx::query(&sql)
+            .bind(tenant)
+            .bind(from_ms)
+            .bind(to_ms)
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(|_| PriceBookError::Storage)?;
         let mut groups =
             std::collections::BTreeMap::<(String, String), (i64, i64, i64, i64)>::new();
         for row in rows {

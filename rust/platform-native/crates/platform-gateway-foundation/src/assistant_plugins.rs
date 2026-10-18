@@ -127,7 +127,8 @@ pub(super) async fn list_plugins(State(state): State<CatalogState>, headers: Hea
         Ok(denied) => denied,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Assistant plugin policy is unavailable"),
     };
-    match project_registry(catalog, true, &principal.tier, &principal.roles, &policy) {
+    let tenant_catalog = catalog.for_tenant(&principal.tenant_id);
+    match project_registry(&tenant_catalog, true, &principal.tier, &principal.roles, &policy) {
         Ok(mut registry) => {
             registry.tenant_id = principal.tenant_id;
             registry.can_manage = lifecycle::can_manage(&principal.tier, &principal.roles);

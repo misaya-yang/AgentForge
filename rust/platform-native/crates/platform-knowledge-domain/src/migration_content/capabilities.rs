@@ -1,4 +1,5 @@
 //! Byte-preserving proof verification contract used by Knowledge capability ingress.
+pub use ai_platform_capability_contract::broker_proof as broker_proof_v3;
 use super::{ContentError, python_json, sha256};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, Mac};
@@ -26,6 +27,24 @@ pub struct CapabilityScope {
     pub run_id: String,
     pub tool_call_id: String,
     pub arguments_hash: String,
+}
+pub fn verify_broker_proof_for_window(secret:&[u8],header:&str,method:&str,path:&str,body:&Value,scope:&CapabilityScope,now:i64,deadline:Option<u64>)->Result<Value,ContentError>{
+    if header.starts_with("v1.") && broker_proof_v3::deadline_admitted(u64::try_from(now).unwrap_or(0).saturating_mul(1000),deadline,broker_proof_v3::verify_only_required()) {
+        return verify_capability_proof(secret,header,method,path,body,scope,now);
+    }
+    verify_broker_proof(secret,header,method,path,body,scope,now)
+}
+pub fn verify_broker_proof(secret: &[u8], header: &str, method: &str, path: &str, body: &Value, scope: &CapabilityScope, now: i64) -> Result<Value, ContentError> {
+    if broker_proof_v3::verify_only_required() && !secret.is_empty() { return Err(ContentError::new(503,"consumer broker signing secret forbidden")); }
+    let now_ms = u64::try_from(now).unwrap_or(0).saturating_mul(1000);
+    if header.starts_with(broker_proof_v3::wire::ENVELOPE_PREFIX) {
+        let keys = broker_proof_v3::keys().map_err(|_| ContentError::new(503,"broker verification unavailable"))?;
+        let actor=serde_json::json!({"tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"execution_id":scope.execution_id,"run_id":scope.run_id,"tool_call_id":scope.tool_call_id,"arguments_hash":scope.arguments_hash});
+        return broker_proof_v3::verify_with_keys(&keys,header,method,path,&broker_proof_v3::body_hash(body).map_err(|_|ContentError::new(401,"capability body invalid"))?,&actor,now_ms.max(chrono::Utc::now().timestamp_millis().max(0) as u64))
+            .map_err(|_|ContentError::new(401,"capability proof invalid"));
+    }
+    if !broker_proof_v3::legacy_admitted(now_ms) { return Err(ContentError::new(401,"legacy broker proof not admitted")); }
+    verify_capability_proof(secret,header,method,path,body,scope,now)
 }
 pub fn verify_capability_proof(
     secret: &[u8],

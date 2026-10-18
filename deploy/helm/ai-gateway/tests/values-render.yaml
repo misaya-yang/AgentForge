@@ -91,6 +91,7 @@ gateway:
     worker_writes_enabled: true
   replicaCount: 1
 global:
+  deploymentMode: single-instance
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
 images:
@@ -118,13 +119,16 @@ images:
   sdk:
     repository: ghcr.io/misaya-yang/ai-gateway-sdk-agent-worker
     digest: ''
+  tools:
+    repository: fixture/tools
+    digest: ''
 knowledgeService:
   autoscaling:
-    enabled: true
-    maxReplicas: 8
-    minReplicas: 2
+    enabled: false
+    maxReplicas: 1
+    minReplicas: 1
     targetCPUUtilization: 70
-  replicaCount: 2
+  replicaCount: 1
 knowledgeWorker:
   keda:
     authenticationRef: ''
@@ -270,3 +274,31 @@ sdkWorker:
   callbackTLSSecret: ''
   credentialsSecret: ''
   retentionSeconds: 86400
+workloadIdentity:
+  mode: disabled
+  trustDomain: agentforge.internal
+  rotationPollSeconds: 15
+  secrets:
+    gateway: ''
+    runtime: ''
+    control: ''
+    knowledge: ''
+    knowledgeWorker: ''
+    sdk: ''
+dataSecurity:
+  enabled: false
+  generation: ''
+  mode: direct
+  expectedHost: postgres
+  physicalDatabase: gateway
+  poolMax: 4
+  roleConnectionLimit: 64
+  pooledBackendLimit: 8
+  statementTimeoutMs: 30000
+  roles:
+    gateway: ''
+    runtime: ''
+    control: ''
+    knowledge: ''
+    knowledgeWorker: ''
+    migrator: ''

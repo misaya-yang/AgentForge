@@ -27,7 +27,9 @@ function load(relative, dependencies = {}) {
   return exports;
 }
 const events = load("types/events.ts");
+const problem=load("remote/problem.ts");
 const transport = load("remote/client.ts", {
+  "./problem.js":problem,
   "node:crypto": { randomUUID }, "node:http": {}, "node:https": {},
   "../types/events.js": events, "../version.js": { CLI_VERSION: "fixture" },
 });

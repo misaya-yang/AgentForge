@@ -193,7 +193,7 @@ pub fn source_contract_with_preimage_root(
         .join("manifest.yml");
     let epoch = manifest::load_epoch_manifest(&epoch_path)?;
     if source_root == candidate_root {
-        require((20..=28).contains(&epoch.epoch))?;
+        require((20..=35).contains(&epoch.epoch))?;
         successors::verify_activated_source(&source_root)?;
     } else if epoch.epoch == 20 {
         let measured = candidate_root.join("SUCCESSOR_MEASUREMENT.json").is_file();
@@ -228,6 +228,32 @@ pub fn source_contract_with_preimage_root(
             .join("SUCCESSOR_027_MEASUREMENT.json")
             .is_file();
         crate::source_tools::next_successor_027::verify_preview(
+            &source_root,
+            &candidate_root,
+            measured,
+        )?;
+    } else if (30..=35).contains(&epoch.epoch) {
+        let measured = candidate_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join(format!(
+                "SERVICE_SUCCESSOR_{:03}_MEASUREMENT.json",
+                epoch.epoch
+            ))
+            .is_file();
+        crate::source_tools::service_successors::verify_preview(
+            &source_root,
+            &candidate_root,
+            epoch.epoch,
+            measured,
+        )?;
+    } else if epoch.epoch == 29 {
+        let measured = candidate_root
+            .join("database/migrations")
+            .join(BASELINE)
+            .join("SUCCESSOR_029_MEASUREMENT.json")
+            .is_file();
+        crate::source_tools::next_successor_029::verify_preview(
             &source_root,
             &candidate_root,
             measured,
@@ -328,7 +354,7 @@ async fn denied(conn: &mut PgConnection, sql: &str) -> Result<()> {
 async fn connect(o: &ProbeOptions, role: &str) -> Result<PgConnection> {
     let dsn = credentials::dsn_for_principal(role)?;
     measure_successors::validate_loopback_dsn(&dsn, &o.database, &format!("{}{role}", o.prefix))?;
-    let mut conn = PgConnection::connect(&dsn).await?;
+    let mut conn = credentials::connect_principal(role).await?;
     sqlx::raw_sql(
         "SET default_transaction_read_only=on;SET statement_timeout='5000';SET lock_timeout='1000'",
     )
@@ -432,7 +458,28 @@ async fn matrix(
         }
         require(!boolean(conn,"SELECT has_sequence_privilege(current_user,'knowledge.kb_document_progress_events_event_sequence_seq','USAGE,SELECT,UPDATE')",&[]).await?)?;
     }
-    Ok(json!({"role":role,"actual_login":true,"acl":"passed"}))
+    let installed = identity["epoch"].as_i64().ok_or_else(fail)? as i32;
+    for sql in crate::source_tools::service_successors::admission_checks(installed, role)? {
+        require(boolean(conn, &sql, &[]).await?)?;
+    }
+    if installed >= 35 {
+        for sql in [
+            "SELECT * FROM partition_ops.families LIMIT 0",
+            "SELECT * FROM partition_ops.partitions LIMIT 0",
+            "SELECT * FROM partition_ops.foreign_keys LIMIT 0",
+            "SELECT * FROM partition_ops.statement_policies LIMIT 0",
+            "SELECT * FROM partition_ops.operator_approvals LIMIT 0",
+            "UPDATE partition_ops.families SET phase='active' WHERE false",
+            "SELECT partition_ops.expand('gateway.audit_logs',clock_timestamp(),'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')",
+            "SELECT partition_ops.approve_operator_stage('gateway.audit_logs','expand',0,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','{}'::jsonb)",
+            "CREATE TABLE partition_ops.__authority_probe_denied(id integer)",
+        ] {
+            denied(conn, sql).await?;
+        }
+    }
+    Ok(
+        json!({"role":role,"actual_login":true,"acl":"passed","service_admission_queries_checked":installed>=30,"partition_owner_operations_denied":installed>=35}),
+    )
 }
 async fn add_document(
     conn: &mut PgConnection,
@@ -615,6 +662,23 @@ pub async fn run(o: ProbeOptions) -> std::result::Result<Value, ProbeError> {
                 "source_validation",
                 None,
             )?;
+        } else if (30..=35).contains(&candidate_epoch) {
+            contextual(
+                crate::source_tools::service_successors::verify_preview(
+                    source_root,
+                    &o.root,
+                    candidate_epoch,
+                    true,
+                ),
+                "source_validation",
+                None,
+            )?;
+        } else if candidate_epoch == 29 {
+            contextual(
+                crate::source_tools::next_successor_029::verify_preview(source_root, &o.root, true),
+                "source_validation",
+                None,
+            )?;
         } else if candidate_epoch == 28 {
             contextual(
                 crate::source_tools::next_successor_028::verify_preview(source_root, &o.root, true),
@@ -728,7 +792,8 @@ mod tests {
     const LEDGER_ACL_PREIMAGE_PATH: &str = "database/authority/ledger_acl.py";
     const LEDGER_ACL_PREIMAGE_SHA256: &str =
         "9df9e3a5d6f572da0ea325720b9b346dac774055de8e9d900f3f82c2b55857fc";
-    const LEDGER_ACL_PREIMAGE_FIXTURE: &str = include_str!("test_fixtures/ledger_acl_preimage_v1.json");
+    const LEDGER_ACL_PREIMAGE_FIXTURE: &str =
+        include_str!("test_fixtures/ledger_acl_preimage_v1.json");
 
     fn pinned_ledger_acl_preimage() -> Vec<u8> {
         let fixture: Value = serde_json::from_str(LEDGER_ACL_PREIMAGE_FIXTURE)
@@ -779,7 +844,7 @@ mod tests {
             let current_epoch = manifest::load_epoch_manifest(&epoch_path).unwrap();
             assert!(matches!(
                 current_epoch.epoch,
-                17 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28
+                17 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35
             ));
             if current_epoch.epoch == 25 {
                 let receipt =

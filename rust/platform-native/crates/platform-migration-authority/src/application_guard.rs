@@ -11,7 +11,7 @@ use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
 const ADMISSION_SNAPSHOT_VERSION: &str = "ai-platform/schema-admission-snapshot/v1";
-const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 28;
+const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 35;
 const BASELINE_MANIFEST_BYTES: &[u8] =
     include_bytes!("../../../../../database/baselines/2026_08_post_kb_v1/manifest.json");
 const EPOCH_MANIFEST_BYTES: &[u8] =
@@ -185,6 +185,16 @@ fn snapshot_value(contract: &AdmissionContract, epoch: i32) -> Value {
 }
 
 fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
+    // Each source-owned service prefix is an exact compiled admission boundary.
+    if source_epoch >= 30 {
+        return (source_epoch, source_epoch);
+    }
+    // Gateway startup requires the measured singleton-worker functions in029.
+    // Every service uses the same frozen, exact canonical successor prefix.
+    if source_epoch >= 29 {
+        return (29, source_epoch);
+    }
+
     // Request-metered model contracts become usable after the measured028 contraction.
     if source_epoch >= 28 {
         return (28, source_epoch);
@@ -335,7 +345,7 @@ fn classify_reader_error(error: sqlx::Error) -> ReaderFailure {
 
 // This catalog query runs as the connected login, before SECURITY DEFINER.
 // The reader's schema is chosen by code, never by the DSN or search_path.
-const PRINCIPAL_IDENTITY_SQL: &str = r#"
+pub(crate) const PRINCIPAL_IDENTITY_SQL: &str = r#"
 SELECT pg_catalog.jsonb_build_object(
     'current_user', current_user, 'session_user', session_user,
     'login', caller.rolcanlogin, 'inherit', caller.rolinherit,
@@ -356,7 +366,7 @@ WHERE namespace.nspname = $1
   AND reader.pronargs = 0
 "#;
 
-fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
+pub(crate) fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
     match principal {
         ApplicationPrincipal::Gateway | ApplicationPrincipal::GatewayDurable => "gateway",
         ApplicationPrincipal::KnowledgeApi => "knowledge_api",
@@ -366,7 +376,10 @@ fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
     }
 }
 
-fn validate_principal_identity(identity: &Value, principal: ApplicationPrincipal) -> Result<()> {
+pub(crate) fn validate_principal_identity(
+    identity: &Value,
+    principal: ApplicationPrincipal,
+) -> Result<()> {
     let owner = identity["owner"].as_str().unwrap_or_default();
     let stem = owner.strip_suffix("_owner").unwrap_or_default();
     let valid_prefix = !stem.is_empty()
@@ -408,6 +421,9 @@ pub async fn require_compatible_schema(
     conn: &mut PgConnection,
     principal: ApplicationPrincipal,
 ) -> Result<()> {
+    if crate::fresh_schema::admit_if_fresh(conn, principal).await? {
+        return Ok(());
+    }
     let contract = compiled_contract(BASELINE_MANIFEST_BYTES, EPOCH_MANIFEST_BYTES)?;
     let reader_schema = match principal {
         ApplicationPrincipal::Runtime | ApplicationPrincipal::CapabilityWorker => "assistant",
@@ -429,7 +445,22 @@ pub async fn require_compatible_schema(
         .fetch_one(&mut *conn)
         .await
         .map_err(classify_reader_error);
-    validate_reader_result(snapshot, principal, &contract)
+    validate_reader_result(snapshot, principal, &contract)?;
+    for sql in crate::source_tools::service_successors::admission_checks(
+        contract.source_epoch,
+        principal_role_suffix(principal),
+    )? {
+        let admitted: bool = sqlx::query_scalar(&sql)
+            .fetch_one(&mut *conn)
+            .await
+            .map_err(|_| refused("service schema privilege probe unavailable"))?;
+        if !admitted {
+            return Err(refused(
+                "service schema minimum/forbidden privilege mismatch",
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

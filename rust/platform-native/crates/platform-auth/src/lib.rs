@@ -6,6 +6,7 @@ pub mod contract;
 pub mod http;
 mod knowledge_actor_verifier;
 pub mod rbac;
+pub mod cedar;
 pub mod service;
 pub mod sessions;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -306,3 +307,8 @@ mod browser_authority;
 pub mod browser_contract;
 pub mod enterprise;
 pub mod enterprise_contract;
+
+pub mod device_flow;
+pub mod device_contract;
+
+pub mod workload;

@@ -1,5 +1,6 @@
 //! Fixed internal bridge from Agent dynamic tool calls to the Gateway capability plane.
 
+use crate::workload_identity::WorkloadSend;
 use std::net::IpAddr;
 
 use codex_app_server_protocol::DynamicToolCallParams;
@@ -73,7 +74,7 @@ pub(crate) async fn invoke_dynamic_tool(
     trace_context: &InternalTraceContext,
 ) -> Result<Value, String> {
     let url = endpoint(capability_plane_url)?;
-    if internal_token.is_empty() {
+    if internal_token.is_empty() && !crate::workload_identity::required() {
         return Err("capability_plane_token_missing".to_string());
     }
     let thread_id = ThreadId::from_string(&params.thread_id)
@@ -106,7 +107,7 @@ pub(crate) async fn invoke_dynamic_tool(
             capability_allowlist,
             expected_tool,
         ))
-        .send()
+        .workload_send()
         .await
         .map_err(|_| "capability_plane_unavailable".to_string())?;
     if !response.status().is_success() {

@@ -24,6 +24,7 @@ pub struct DatasetDefaults {
     pub embedding_provider: String,
     pub embedding_model: String,
     pub embedding_dimension: usize,
+    pub embedding_model_version: String,
     pub rerank: bool,
 }
 #[derive(Clone)]
@@ -73,7 +74,7 @@ impl IngestionService {
         if actor.anonymous() {
             return Err(IngestError::Permission);
         }
-        let embedding = object(&input["embedding_config"]);
+        let mut embedding = object(&input["embedding_config"]);
         let defaults = self.dataset_defaults.as_ref().filter(|_| {
             [
                 "embedding_provider",
@@ -100,6 +101,7 @@ impl IngestionService {
             ));
         }
         ChunkingConfig::from_value(&index["chunking"])?;
+        crate::migration_knowledge_query::retrieval_v2::Profile::from_index_config(&index)?;
         super::structured::resolve_config(&index)?;
         super::parsing_v2::integration::Config::resolve(&index)?;
         let provider = if string(input, "embedding_provider").is_empty() {
@@ -116,6 +118,7 @@ impl IngestionService {
             "multimodal",
         ]
         .contains(&provider)
+            && index["serving_v2"]["multimodal"] != true
         {
             return Err(IngestError::Validation(
                 "multimodal dataset profiles are disabled".into(),
@@ -142,6 +145,17 @@ impl IngestionService {
         if self.indexer.vectors.is_read_only() {
             let mut queued_input = input.clone();
             queued_input["dataset_id"] = json!(id);
+            if let Some(defaults) = defaults {
+                queued_input["embedding_provider"] = json!(defaults.embedding_provider);
+                queued_input["embedding_model"] = json!(defaults.embedding_model);
+                queued_input["embedding_dimension"] = json!(defaults.embedding_dimension);
+                queued_input["embedding_model_version"] = json!(defaults.embedding_model_version);
+                let mut pinned = embedding.clone();
+                pinned["model_version"] = json!(defaults.embedding_model_version);
+                queued_input["embedding_config"] = pinned;
+                queued_input["index_config"] = index.clone();
+            }
+
             return super::vector_jobs::submit(
                 &self.store.pool,
                 actor,
@@ -155,10 +169,35 @@ impl IngestionService {
         if self.store.dataset_exists(&id).await? {
             return Err(IngestError::Validation("dataset_id already exists".into()));
         }
-        let mut d = json!({"dataset_id":id,"name":if string(input,"name").is_empty(){id.as_str()}else{string(input,"name")},"description":string(input,"description"),"tenant_id":actor.tenant_id,"visibility":if string(input,"visibility").is_empty(){"private"}else{string(input,"visibility")},"embedding_provider":provider,"embedding_model":if string(input,"embedding_model").is_empty(){defaults.map_or("text-embedding-v4", |d| d.embedding_model.as_str())}else{string(input,"embedding_model")},"embedding_dimension":dimension,"embedding_config":embedding,"index_config":index,"collection_name":input["collection_name"],"created_by":actor.user_id});
+        let revision = input["embedding_model_version"]
+            .as_str()
+            .or_else(|| embedding["model_version"].as_str())
+            .map(str::to_owned)
+            .or_else(|| defaults.map(|d| d.embedding_model_version.clone()))
+            .unwrap_or_default();
+        if provider == "local_semantic" && revision.trim().is_empty() {
+            return Err(IngestError::Validation(
+                "semantic default requires an operator-pinned model revision".into(),
+            ));
+        }
+        if !revision.is_empty() {
+            embedding["model_version"] = json!(revision);
+        }
+        let mut d = json!({"dataset_id":id,"name":if string(input,"name").is_empty(){id.as_str()}else{string(input,"name")},"description":string(input,"description"),"tenant_id":actor.tenant_id,"visibility":if string(input,"visibility").is_empty(){"private"}else{string(input,"visibility")},"embedding_provider":provider,"embedding_model":if string(input,"embedding_model").is_empty(){defaults.map_or("text-embedding-v4", |d| d.embedding_model.as_str())}else{string(input,"embedding_model")},"embedding_dimension":dimension,"embedding_model_version":revision,"embedding_config":embedding,"index_config":index,"collection_name":input["collection_name"],"created_by":actor.user_id});
         require_index_writable(&d)?;
         let mut typed: Dataset = serde_json::from_value(d.clone())?;
+        crate::migration_knowledge_query::serving_profile::require(&typed)?;
         let resolved = self.indexer.embeddings.resolve(&typed).await?;
+        if resolved.provider == "local_semantic" {
+            self.indexer
+                .embeddings
+                .embed_resolved(
+                    &resolved,
+                    &["Semantic model availability".into()],
+                    "document",
+                )
+                .await?;
+        }
         typed.embedding_dimension = Some(resolved.dimension);
         d["embedding_dimension"] = json!(resolved.dimension);
         let collection = self
@@ -308,6 +347,7 @@ impl IngestionService {
         ChunkingConfig::from_value(&index["chunking"])?;
         let snapshot = json!({"index_config":index,"chunking":object(&index["chunking"]),"processing_mode":processing_mode});
         let mut tx = sqlx::Connection::begin(lease.connection()).await?;
+        crate::database::bind_current(&mut tx).await?;
         let rule = KnowledgeWriteStore::record_process_rule(
             &mut tx,
             dataset,
@@ -357,6 +397,8 @@ impl IngestionService {
         )
     }
     pub async fn ingest_document(&self, dataset: &str, document: &str) -> Result<Vec<String>> {
+        use ai_platform_service_primitives::genai_telemetry::{Operation, OperationKind};
+        let mut operation = Operation::start(OperationKind::Ingestion);
         let mut lease = match self.store.document_lease(dataset, document).await {
             Ok(lease) => lease,
             Err(error) => {
@@ -366,6 +408,7 @@ impl IngestionService {
                 return Err(error);
             }
         };
+        super::pipeline::resume_claim(lease.connection(), dataset, document).await?;
         if !KnowledgeWriteStore::claim_processing(lease.connection(), dataset, document).await? {
             crate::migration_knowledge_query::pipeline_metrics::worker_claim("contended");
             lease.release().await?;
@@ -388,6 +431,11 @@ impl IngestionService {
                 started.elapsed().as_secs_f64(),
             );
         }
+        if super::pipeline::yielded() {
+            lease.release().await?;
+            operation.success();
+            return Ok(vec![]);
+        }
         if let Err(error) = &result
             && *error != IngestError::PublicationContended
         {
@@ -408,6 +456,9 @@ impl IngestionService {
             }
         }
         lease.release().await?;
+        if result.is_ok() {
+            operation.success();
+        }
         // Do not expose the worker-only disposition through the public error
         // contract. The same document generation is durably rediscovered.
         result.map_err(|error| match error {
@@ -435,6 +486,10 @@ impl IngestionService {
             .unwrap_or("ingest");
         let (execution, index, processing_mode) =
             self.prepare_execution(lease, &d, &doc, action).await?;
+        // Execution creation pins process_rule_id and its replay owner. All
+        // durable stage digests must observe that committed pin.
+        let doc =
+            KnowledgeWriteStore::document_on(lease.connection(), &dataset_id, &document_id).await?;
         let result = self
             .ingest_standard(
                 lease,
@@ -458,6 +513,7 @@ impl IngestionService {
                 )
                 .await?;
             }
+            Err(IngestError::PublicationContended) if super::pipeline::yielded() => {}
             Err(IngestError::PublicationContended) => {
                 // Publication admission failed before this worker mutated the
                 // index. Keep the immutable rule/execution pin, and requeue only
@@ -502,7 +558,7 @@ impl IngestionService {
         let dataset = string(d, "dataset_id");
         let document = string(doc, "document_id");
         if !linked.is_empty() {
-            let execution:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1").bind(linked).fetch_optional(lease.connection()).await?.ok_or_else(||IngestError::Validation("replay execution snapshot is missing".into()))?;
+            let execution:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM knowledge.document_pipeline_executions e WHERE execution_id=$1").bind(linked).fetch_optional(crate::database::connection(lease.connection())).await?.ok_or_else(||IngestError::Validation("replay execution snapshot is missing".into()))?;
             if string(&execution, "status") != "running"
                 || string(&execution, "action") != action
                 || string(&execution, "dataset_id") != dataset
@@ -521,7 +577,7 @@ impl IngestionService {
             )
             .bind(rule)
             .bind(dataset)
-            .fetch_optional(lease.connection())
+            .fetch_optional(crate::database::connection(lease.connection()))
             .await?
             .ok_or_else(|| {
                 IngestError::Validation("pinned process-rule snapshot is missing".into())
@@ -547,7 +603,7 @@ impl IngestionService {
             )
             .bind(pinned_rule)
             .bind(dataset)
-            .fetch_optional(lease.connection())
+            .fetch_optional(crate::database::connection(lease.connection()))
             .await?
             .ok_or_else(|| {
                 IngestError::Validation("recover process-rule snapshot missing".into())
@@ -589,7 +645,7 @@ impl IngestionService {
         sqlx::query("UPDATE knowledge.documents SET process_rule_id=$2 WHERE document_id=$1")
             .bind(document)
             .bind(&rule)
-            .execute(lease.connection())
+            .execute(crate::database::connection(lease.connection()))
             .await?;
         let execution = KnowledgeWriteStore::record_execution(
             lease.connection(),
@@ -799,7 +855,7 @@ impl IngestionService {
             sqlx::query("DELETE FROM knowledge.documents WHERE document_id=$1 AND dataset_id=$2")
                 .bind(document)
                 .bind(dataset)
-                .execute(lease.connection())
+                .execute(crate::database::connection(lease.connection()))
                 .await?
                 .rows_affected()
                 > 0;
@@ -869,7 +925,7 @@ impl IngestionService {
             "SELECT document_id FROM knowledge.documents WHERE dataset_id=$1 ORDER BY document_id",
         )
         .bind(dataset)
-        .fetch_all(lease.connection())
+        .fetch_all(crate::database::connection(lease.connection()))
         .await?;
         for id in &documents {
             self.assets
@@ -881,6 +937,7 @@ impl IngestionService {
             .delete_dataset_collections(&typed)
             .await?;
         let mut tx = sqlx::Connection::begin(lease.connection()).await?;
+        crate::database::bind_current(&mut tx).await?;
         let changed=sqlx::query("UPDATE knowledge.datasets SET is_deleted=TRUE,deleted_at=NOW(),deleted_by=$2,delete_reason=$3,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE").bind(dataset).bind(&actor.user_id).bind(reason).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
             return Err(IngestError::GenerationChanged);
@@ -924,6 +981,7 @@ impl IngestionService {
         let doc = lease.document_id.clone();
         let ds = lease.dataset_id.clone();
         let mut tx = sqlx::Connection::begin(lease.connection()).await?;
+        crate::database::bind_current(&mut tx).await?;
         KnowledgeWriteStore::record_special(&mut tx, execution, &doc, &ds, &generation, hash, keys)
             .await?;
         tx.commit().await?;

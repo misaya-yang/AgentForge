@@ -1,90 +1,35 @@
 # 03 Agent execution (Agent Runtime, Capability Worker, SDK Agent Worker)
 
-status: proposed · domain_id: platform-upgrade-2026-10 · last_verified: 2026-10-16 (HEAD `22d9ce0`)
+按完整模块交付；进度只在[现有账本](../../../deploy/runbooks/native-enterprise-upgrade/loop-state.json)。
+原始工作包用于需求与验收核对，执行顺序使用[主计划的三个批次](README.md#6-roadmap)。
 
-## 1. Role
+## 1. 本模块要交付什么
 
-The agent-execution context runs agents and executes their actions under the Gateway's authority.
+让一次 Agent 执行从接收、工具审批、持久化到终态和重启恢复完整成立；继续使用开源 Codex harness，只修改平台自有集成。
 
-- **Agent Runtime.** The only managed kernel. It owns model and tool iteration, compaction,
-  cancellation state, approval transitions and event ordering (platform law L5).
-- **Capability Worker.** Executes leased capabilities (reads, governed writes, Office artifacts,
-  Python, attachments, Local Node calls) with fences and unknown-effect semantics.
-- **SDK Agent Worker** (optional, ADR-012). A private worker for SDK-protocol runs with its own
-  native engine. It is not a second managed kernel.
+| 交付部分 | 原需求 ID | 连通的结果 |
+| --- | --- | --- |
+| Runtime 生命周期 | `U-RT-01`, `U-RT-02`, `U-RT-03`, `U-RT-04`, `U-RT-05` | 线程归属、事件观察、interrupt/approval、终态与历史恢复一起接通。 |
+| 平台接缝与交付 | `U-RT-07`, `U-RT-08`, `U-RT-09` | 完成自有 overlay、配对镜像与遥测接线；上游提案/发布另按授权，不先改上游源码。 |
+| Worker 执行与隔离 | `U-CW-01`, `U-CW-02`, `U-CW-03`, `U-CW-04`, `U-CW-05`, `U-CW-07` | 公平队列、控制/沙箱分离、凭据边界、Python 用户代码和隔离等级形成可用执行通路。 |
+| 能力与插件 | `U-CW-06`, `U-CW-08` | 插件包和 Quiz 接入同一发布者、权限及审批链；Wasm 子项保留原条件。 |
+| SDK 与外部 Agent | `U-SW-01`, `U-SW-02`, `U-SW-03`, `U-SW-04` | 启用的 SDK 引擎走 Gateway 模型面和可撤销租约；A2A 与导入窗口按原契约处理。 |
+| 按需能力 | `U-RT-06` | 上游 memory 后端仅在产品需要时启用，不为凑齐清单实现第二套状态存储。 |
 
-## 2. Current architecture (SRC)
+以上部分在同一模块中连续完成，不分别创建小任务、审批、审核或交接记录。
 
-### 2.1 Agent Runtime
+## 2. 接线与真实依赖
 
-| Aspect | Current state |
-| --- | --- |
-| Composition | Platform crate `ai-platform-agent-runtime` (16.8k lines) composed over OpenAI Codex `rust-v0.162.1` (`092d3acd`). The [overlay manifest](../../../rust/agent-runtime-overlay/manifest.json) lists 148 files: 111 platform-owned and 37 modified upstream files in `app-server`, `core` (session, turn, compaction, tools), `ext`, `protocol` and `tools`. Built with the upstream toolchain, Rust 1.95.0. |
-| Kernel | The Codex App Server runs in process (`AgentKernel::start`). The upstream bundled model catalog is written with `use_responses_lite=false`. The per-home SQLite state DB is disabled because it would mix tenants ([main.rs:110, :145](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/main.rs)). Code Mode, hooks, Apps, plugins, Guardian automation and realtime are not enabled ([COMPATIBILITY.md](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/COMPATIBILITY.md)). |
-| Private API | `/internal/v1/threads`, turns, recover, interrupt, resume, archive, approvals, SDK capabilities and SSE events. Authenticated with a static internal token plus tenant, user and session headers ([http_service.rs](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service.rs)). |
-| Persistence | `PostgresThreadStore`: thread membership, native `RolloutItemWire` history, projections and a sequenced V1 event log. Commits are synchronous, and a failed write poisons the thread in that process. |
-| Execution ownership | A renewable per-run claim in `assistant_runtime_execution_owners` (instance ID, monotonically increasing fence, 30 s lease and heartbeat). It is checked on every model call, tool dispatch, rollout write and terminal projection. A recovery loop claims expired runs every 5 s or on notify ([execution.rs:87](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/execution.rs), [recovery.rs:207](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/recovery.rs), [durable recovery design](../../design/agent-runtime-durable-recovery.md)). |
-| Process-local state | One event broadcast channel (capacity 256), an approval broker with waiters (decisions are durable), per-turn cancellation tokens, read-only turn bindings (900 s TTL, 1,024 entries), per-thread gates and the set of recovering threads ([http_service.rs:61–75](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service.rs)). |
-| Events | SSE replays the durable backlog, then follows the broadcast channel. Every subscriber also re-reads PostgreSQL every 500 ms (F-35). |
-| Model plane | Responses wire to the Gateway's private model plane under turn-scoped signed leases; `traceparent`, `tracestate` and request ID travel in model metadata and on internal hops ([trace_context.rs](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/trace_context.rs)). |
-| Tools | With the Worker enabled, every dynamic capability call (reads included) goes to the Capability Worker with a per-call lease the Runtime mints (Capability Contract V2); writes first need an approval. Without the Worker, reads fall back inline to the Gateway capability plane and writes fail closed ([capability_dispatch.rs:403–647](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs), [capability_execution.rs:248](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_execution.rs)). |
-| Telemetry | `tracing_subscriber::fmt` only. The platform crates have no OpenTelemetry exporter. |
-| Image | The final stage is the full `rust:1.95.0-bookworm` toolchain image ([Dockerfile.runtime:79](../../../deploy/agent-runtime-source/Dockerfile.runtime)). Compose defaults to images built from the previous upstream revision `94cbbdda` (F-02). |
+与 Gateway 共享租约/审批/事件契约，与数据模块共享角色及线程/执行结构；先收齐调用接线，再按一个配对执行单元构建和验证。沙箱功能保持真实隔离，拓扑只按原能力需要组织。
 
-### 2.2 Capability Worker
+## 3. 一次集中验证与收尾边界
 
-| Aspect | Current state |
-| --- | --- |
-| Crates | `ai-platform-capability-worker` (16.3k lines), `ai-platform-capability-contract` (Capability Contract V2 descriptors and canonical hashes, 1.7k), `ai-platform-office` (Typst-based Office rendering, 2.4k) |
-| Executors | Reads (file system, web, working memory, proofs, Knowledge), writes, external writes (Confluence broker), Office artifacts, Python, attachments, Local Node broker, quiz persistence. Plugin packs bind already-compiled capabilities by pinned digest ([native plugin packs](../../design/native-plugin-packs.md)). |
-| Lifecycle | PostgreSQL execution records, a dispatch fence per execution, terminal checks before dispatch, cancellation and restart recovery. Unknown writes are never replayed. |
-| Concurrency | **One process-wide execution slot** for all tenants and capability kinds (F-34) |
-| Python sandbox | `unshare` user/net/mount/pid namespaces, cleared environment, `setsid` and parent-death signal, rlimits (CPU, address space, RSS, file size, processes), dropped capabilities, `no_new_privs`, a hand-written default-allow seccomp denylist, a static module and builtin denylist, 300 s and 24 MiB caps. The container needs `seccomp=unconfined` (F-06). Image base is `python:3.11-slim-bookworm`. |
-| Secrets held | Internal token, capability lease signing secret, proof secret ([main.rs:41–56](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/main.rs)) (F-04) |
+集中覆盖一次正常执行，以及审批响应丢失、断流重连、cancel、进程退出和 takeover 的关键边界。状态机单测与真实持久化/进程验收各证明不同内容；同一边界不安排多代理重复演练。
 
-### 2.3 SDK Agent Worker
+纯接缝美化、注释/模块改名及重复上游复查后置；终态一致性、执行栅栏、未知副作用和凭据隔离不能后置。
 
-`platform-sdk-agent-worker` (2.8k lines) supervises one `ai-platform-sdk-agent-engine` process per
-run. The engine receives `{request, provider_key}` on stdin, emits NDJSON events, and runs native
-streamed loops against the OpenAI Responses and Anthropic Messages APIs directly with the provider
-key (F-11). Cost is unavailable because direct APIs do not return it. The parent re-checks authority
-every ten seconds while a run is active. OpenAI Agents SDK 0.23.1 SQLite sessions import read-only;
-opaque Claude resume IDs fail closed
-([engine COMPATIBILITY.md](../../../rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine/COMPATIBILITY.md)).
-The worker owns one private state volume with file-system session locks and is not replicated
-([architecture.md](../../harness/architecture.md)).
-
-## 3. Assessment
-
-Strengths to keep: one kernel whose loop belongs to upstream; synchronous durable persistence with
-sticky failure; run claims with fences checked at every side effect; unknown-effect semantics that
-never replay uncertain writes; descriptors with schema hashes and immutable thread ceilings; an
-isolated agent home; strict input and output caps; bounded trace-context validation.
-
-Gaps, in order of consequence:
-
-1. **Tool capacity (F-34).** One execution slot serializes every tenant's tool calls. A five-minute
-   Python run stalls all other agents' reads and writes. This is the cheapest high-value fix in the
-   context.
-2. **Sandbox strength (F-06).** The design is sound, but the boundary is the shared host kernel
-   behind a default-allow filter. The sandbox shares a container with brokers that hold the
-   internal token and the lease signing secret, so an escape reaches platform authority.
-3. **Upgrade cost of the overlay.** Codex shipped about 16 releases in the 30 days before this
-   review (WEB). Each sync must carry 37 modified upstream files through `core/session`,
-   `core/tools`, `app-server` and `ext`. History uses the native upstream format, and N-1 decoding
-   is unproven: the older `94cbbdda` binary cannot decode newer records.
-4. **Single instance (F-10, F-35).** Fences already make a takeover safe, but interrupts, approval
-   waiters, cancellation tokens and live fan-out are process-local. A second instance cannot
-   serve a thread it does not own, and SSE costs two database reads per subscriber per second.
-5. **Trust (F-04).** The Runtime mints per-call capability leases with an HMAC secret that the
-   Worker (and Gateway) also hold, so the Worker can mint the leases it verifies, and a leaked
-   secret mints leases for any tenant. All hops share one bearer token.
-6. **Observability (F-14).** There are no spans from the Runtime or Worker, so time-to-first-token,
-   tool latency and approval wait time cannot be attributed per stage.
-7. **Images (F-22).** The Runtime ships a compiler toolchain. Both images are on Debian 12, which
-   moved to LTS on 2026-07-12. Python 3.11 is security-only.
-8. **SDK governance (F-11).** Provider keys leave the Gateway; no receipts, quotas or guardrails
-   apply to SDK model calls.
+<details>
+<summary>设计约束与技术选择（实现涉及该边界时按需查阅）</summary>
 
 ## 4. Target architecture
 
@@ -231,7 +176,12 @@ first, because takeover multiplies any terminal-state bug.
 | Telemetry | `fmt` logs | OTLP traces, metrics and logs; GenAI agent spans with a pinned semconv version | U-RT-09 |
 | Configuration | `clap` arguments and environment variables, some read at request time (readiness) | Typed configuration file validated at start; secrets from files | Same schema approach as U-GW-19 |
 
+</details>
+
 ## 6. Work packages
+
+<details>
+<summary>原始需求和验收对照；Prio / Phase 是原计划标签，不是逐项执行流程</summary>
 
 | ID | Work package | Prio | Phase | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -257,7 +207,12 @@ first, because takeover multiplies any terminal-state bug.
 | U-SW-03 | External framework agents through A2A (with U-GW-15) | P3 | Ph3 | Governed end-to-end run of one external framework agent |
 | U-SW-04 | Retire parity modules and session importers after the import window | P3 | Ph3 | Modules deleted; import path closed with a documented cutoff |
 
+</details>
+
 ## 7. Verification gates
+
+以下场景在上述模块验证和最终验收批次中覆盖。同一场景由一个执行者运行一次，关联
+多个需求即可；未变化的适用结果直接复用。关键边界和原门槛不能由重复的局部测试替代。
 
 - **Fault injection.** Kill -9 at every persistence checkpoint; terminal-state fixtures shared
   with the Gateway consumers (Stage A); duplicate terminal and stale-owner cases.

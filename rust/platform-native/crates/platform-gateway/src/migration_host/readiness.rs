@@ -15,6 +15,9 @@ use std::{
 };
 #[derive(Clone, Default)]
 pub struct ReadinessConfig {
+    pub ha_lease: Option<Arc<super::bootstrap::ha::LeaseHealth>>,
+    pub authorization_audit: Option<Arc<super::authorization_audit::DecisionLogWriter>>,
+    pub authorization_enforced: bool,
     pub auth_config_ready: bool,
     pub model_plane_ready: bool,
     pub runtime_url: Option<String>,
@@ -23,6 +26,8 @@ pub struct ReadinessConfig {
     pub qdrant_url: Option<String>,
     pub knowledge_service_url: Option<String>,
     pub image_worker_status: Option<String>,
+    pub process_role: Option<super::worker_roles::ProcessRole>,
+    pub worker_health: Option<Arc<super::worker_roles::WorkerHealth>>,
 }
 pub struct ReadinessState {
     pub resources: Arc<ConnectionResources>,
@@ -177,23 +182,64 @@ impl ReadinessState {
             }
             .into(),
         );
-        let capabilities = BTreeMap::from([
+        if let Some(lease) = &config.ha_lease {
+            core.insert(
+                "gateway_ha_directory".into(),
+                if lease.healthy() {
+                    "healthy"
+                } else {
+                    "unavailable"
+                }
+                .into(),
+            );
+        }
+        if let Some(health) = &config.worker_health {
+            core.insert(
+                "worker_leases".into(),
+                if health.ready() {
+                    "healthy"
+                } else {
+                    "unavailable"
+                }
+                .into(),
+            );
+        }
+        let image_worker_status = config
+            .worker_health
+            .as_ref()
+            .map(|health| health.image_status().to_owned())
+            .or(config.image_worker_status);
+        let mut capabilities = BTreeMap::from([
             ("knowledge_service", knowledge),
             ("knowledge_worker", worker),
             ("qdrant", qdrant),
             ("capability_worker", capability),
             (
                 "image_worker",
-                config
-                    .image_worker_status
-                    .unwrap_or_else(|| "unavailable".into()),
+                image_worker_status.unwrap_or_else(|| "unavailable".into()),
             ),
         ]);
+        if let Some(writer) = &config.authorization_audit {
+            let health = if writer.healthy() {
+                "healthy"
+            } else {
+                "unavailable"
+            }
+            .to_owned();
+            if config.authorization_enforced {
+                core.insert("authorization_audit".into(), health);
+            } else {
+                capabilities.insert("authorization_audit", health);
+            }
+        }
         let ready = core.values().all(|v| v == "healthy");
-        let degraded = capabilities
-            .values()
-            .any(|v| !matches!(v.as_str(), "healthy" | "not_configured" | "disabled"));
-        let snapshot = json!({"status":if ready{"ready"}else{"not_ready"},"core_ready":ready,"degraded":degraded,"core":core,"capabilities":capabilities});
+        let degraded = capabilities.values().any(|v| {
+            !matches!(
+                v.as_str(),
+                "healthy" | "not_configured" | "disabled" | "standby"
+            )
+        });
+        let snapshot = json!({"status":if ready{"ready"}else{"not_ready"},"core_ready":ready,"degraded":degraded,"core":core,"capabilities":capabilities,"process_role":config.process_role.map(|r|r.name())});
         *self
             .last_snapshot
             .write()

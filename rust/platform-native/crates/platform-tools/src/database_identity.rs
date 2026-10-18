@@ -61,6 +61,38 @@ fn inspect_env(env: &Value, prefix: &str, principal: &str) -> Result<()> {
     )
 }
 
+/// Public Compose source only: substitute inert render-fixture values, never
+/// read a private env or expand process variables. The existing scoped-role
+/// validator remains the authority for every DSN/user classification.
+pub(crate) fn check_source(config: &Value) -> Result<usize> {
+    let mut public = config.clone();
+    let interpolation = regex::Regex::new(r"\$\{([^{}]+)\}")?;
+    for unit in public["services"]
+        .as_object_mut()
+        .ok_or("Compose services missing")?
+        .values_mut()
+    {
+        if let Some(env) = unit["environment"].as_object_mut() {
+            for value in env.values_mut() {
+                if let Some(text) = value.as_str() {
+                    *value = json!(
+                        interpolation
+                            .replace_all(text, |m: &regex::Captures<'_>| {
+                                if &m[1] == "AI_GATEWAY_ROLE_PREFIX:-ai_gateway_" {
+                                    "ai_gateway_".to_owned()
+                                } else {
+                                    "public-render-fixture".to_owned()
+                                }
+                            })
+                            .into_owned()
+                    );
+                }
+            }
+        }
+    }
+    check_compose(&public, "ai_gateway_")
+}
+
 pub fn check_compose(config: &Value, prefix: &str) -> Result<usize> {
     require(
         regex::Regex::new(r"^[a-z][a-z0-9_]{0,20}_$")?.is_match(prefix),

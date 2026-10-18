@@ -6,7 +6,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import { createStore } from "zustand/vanilla";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import { AxiosError, isAxiosError } from "axios";
+import { HttpError, isHttpError } from '../../lib/fetchClient.ts';
 import { pluginLifecycleImpact, pluginLifecycleReviewKey } from "./pluginLifecycleImpact.ts";
 import type { PluginRegistry } from "../../api/plugins.ts";
 
@@ -65,7 +65,7 @@ function host() {
   const modules: Record<string, any> = {
     react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
     "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
-    axios: { isAxiosError }, "lucide-react": named,
+    "@/lib/fetchClient": { isHttpError }, "lucide-react": named,
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: any) => select(auth.getState()), auth) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: authority }, "@/lib/utils": { generateUUID: () => `scope-${++identity}` },
     "./pluginLifecycleImpact": { pluginLifecycleImpact, pluginLifecycleReviewKey },
@@ -136,8 +136,8 @@ for (const filter of ["search", "availability"] as const) test(`pending lifecycl
     assert.equal(h.select().props.disabled, true); oldSave(); await h.flush(); assert.equal(h.writes.length, 1);
   } finally { pending.reject(new Error("controlled completion")); await h.flush(); h.dispose(); }
 });
-for (const status of [403, 409, 503]) test(`Axios ${status} outcome survives filtering and requires post-settlement reread`, async () => {
-  const h = host(); try { await h.start(); h.setWrite(async () => { const error = new AxiosError("fixture rejection"); error.response = { status, statusText: "controlled", data: {}, headers: {}, config: {} as any }; throw error; });
+for (const status of [403, 409, 503]) test(`Fetch ${status} outcome survives filtering and requires post-settlement reread`, async () => {
+  const h = host(); try { await h.start(); h.setWrite(async () => { const error = new HttpError("fixture rejection"); error.response = { status, statusText: "controlled", data: {}, headers: {}, config: {} as any }; throw error; });
     h.prepare(); h.save(); await h.flush(); h.filter("no-match"); h.filter("");
     assert.equal(h.select().props.disabled, true); assert.equal(h.has(status === 403 ? "forbidden" : status === 409 ? "conflict" : "uncertain"), true); assert.equal(h.writes.length, 1); assert.equal(h.reads.length, 1);
     h.refresh(); await h.flush(); assert.equal(h.select().props.disabled, false); h.choose(); h.review(); assert.equal(h.button("save").props.disabled, true);

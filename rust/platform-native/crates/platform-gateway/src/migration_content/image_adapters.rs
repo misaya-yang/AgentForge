@@ -268,7 +268,9 @@ impl ImageTransforms for AdaptiveImageTransforms {
         let backend = self.backend.clone();
         let watermark = self.watermark.clone();
         Box::pin(async move {
+            let effect = ai_platform_gateway_foundation::worker_lease::current_effect();
             let out = tokio::task::spawn_blocking(move || {
+                let _effect = effect;
                 Self { backend, watermark }.watermark_bytes(&raw)
             })
             .await
@@ -280,7 +282,9 @@ impl ImageTransforms for AdaptiveImageTransforms {
         let backend = self.backend.clone();
         let watermark = self.watermark.clone();
         Box::pin(async move {
+            let effect = ai_platform_gateway_foundation::worker_lease::current_effect();
             Ok(tokio::task::spawn_blocking(move || {
+                let _effect = effect;
                 Self { backend, watermark }.thumbnail_bytes(&raw, 256)
             })
             .await

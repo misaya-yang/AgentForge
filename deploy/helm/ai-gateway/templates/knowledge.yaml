@@ -15,6 +15,9 @@ spec:
       app.kubernetes.io/component: knowledge
   template:
     metadata:
+      annotations:
+        agentforge.io/application-secret-generation: {{ .Values.workloadIdentity.applicationSecretGeneration | quote }}
+        agentforge.io/data-generation: {{ .Values.dataSecurity.generation | quote }}
       labels:
 {{ include "ai-gateway.labels" . | indent 8 }}
         app.kubernetes.io/component: knowledge
@@ -35,6 +38,8 @@ spec:
             app.kubernetes.io/instance: {{ .Release.Name }}
             app.kubernetes.io/component: knowledge
       initContainers:
+{{ include "ai-gateway.appSecretInit" (dict "root" . "role" "knowledge" "uid" 1000) | indent 6 }}
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "knowledge" "role" "knowledge" "uid" 1000 "once" true) | indent 6 }}
       - name: database-authority
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "migrate") | quote }}
         command: ["/bin/sh", "-ec"]
@@ -51,6 +56,7 @@ spec:
         - name: AI_GATEWAY_ROLE_PREFIX
           value: {{ .Values.databaseRoles.rolePrefix | quote }}
         volumeMounts:
+{{ include "ai-gateway.dataMount" . | indent 8 }}
         - {name: state, mountPath: /state}
         - {name: tmp, mountPath: /tmp}
       - name: workload-key
@@ -60,12 +66,11 @@ spec:
 {{ toYaml .Values.resources.migration | indent 10 }}
         securityContext:
 {{ include "ai-gateway.security" 1000 | indent 10 }}
-        env:
-{{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
         volumeMounts:
         - {name: knowledge-model-input, mountPath: /input, readOnly: true}
         - {name: knowledge-model-private, mountPath: /output}
       containers:
+{{ include "ai-gateway.workloadImporter" (dict "root" . "service" "knowledge" "role" "knowledge" "uid" 1000 "once" false) | indent 6 }}
       - name: knowledge
         image: {{ include "ai-gateway.image" (dict "root" . "unit" "knowledge") | quote }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -74,14 +79,25 @@ spec:
         resources:
 {{ toYaml (index .Values.resources "knowledge") | indent 10 }}
         env:
+{{- if and (ne .Values.workloadIdentity.mode "disabled") (not .Values.data.objectStore.enabled) }}
+        - {name: KNOWLEDGE_STORAGE__SIGNING_KEY_FILE, value: /run/app-secrets/KNOWLEDGE_STORAGE__SIGNING_KEY}
+{{- end }}
+        - {name: AI_PLATFORM_LEASE_TRUST_MODE, value: verify_only}
+        - {name: AI_PLATFORM_BROKER_PROOF_MODE, value: verify_only}
+        - {name: AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE, value: /run/lease/public.json}
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+        - {name: INTERNAL_AUTH_KEYS_FILE, value: /run/app-secrets/INTERNAL_AUTH_KEYS}
+{{- end }}
+{{ include "ai-gateway.workloadEnv" (dict "root" . "service" "knowledge") | indent 8 }}
+{{ include "ai-gateway.datasetAuthorizationEnv" (dict "root" . "service" "knowledge") | indent 8 }}
+{{ include "ai-gateway.dataEnv" (dict "root" . "role" "knowledge" "prefix" "DATA_KNOWLEDGE" "alias" "knowledge_api" "replicas" .Values.knowledgeService.autoscaling.maxReplicas) | indent 8 }}
 {{- if .Values.routing.internalGrpc.enabled }}
         - {name: KNOWLEDGE_GRPC__BIND_ADDRESS, value: "0.0.0.0:8093"}
 {{- end }}
 {{ include "ai-gateway.roleEnv" (dict "root" . "env" "KNOWLEDGE_DATABASE__DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
 {{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_REDIS__URL" "secret" .Values.credentials.knowledge "key" "REDIS_URL") | indent 8 }}
 {{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_QDRANT__API_KEY" "secret" .Values.data.qdrant.existingSecret "key" "QDRANT_READ_ONLY_API_KEY") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.knowledge "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
-{{ include "ai-gateway.secretEnv" (dict "env" "GATEWAY_ENCRYPTION_KEY" "secret" .Values.credentials.knowledge "key" "GATEWAY_ENCRYPTION_KEY") | indent 8 }}
+{{ include "ai-gateway.appSecretEnv" (dict "root" . "env" "AI_PLATFORM_INTERNAL_TOKEN" "secret" .Values.credentials.knowledge "key" "AI_PLATFORM_INTERNAL_TOKEN") | indent 8 }}
         - name: KNOWLEDGE_QDRANT__URL
           value: {{ .Values.data.qdrant.url | quote }}
         - name: KNOWLEDGE_RUNTIME_ROLE
@@ -102,25 +118,26 @@ spec:
           value: "/run/qdrant/ca-bundle.pem"
         - name: KNOWLEDGE_STORAGE__BACKEND
           value: {{ ternary "s3" "local" .Values.data.objectStore.enabled | quote }}
+        - name: AI_PLATFORM_DEPLOYMENT_MODE
+          value: {{ .Values.global.deploymentMode | quote }}
         - name: KNOWLEDGE_STORAGE__LOCAL_BASE_PATH
           value: "/app/data/files"
 {{ include "ai-gateway.roleEnv" (dict "root" . "env" "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN" "key" "KNOWLEDGE_API_DSN") | indent 8 }}
         - name: AI_PLATFORM_GATEWAY_INTERNAL_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
         - name: AI_PLATFORM_AGENT_RUNTIME_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-runtime:8094
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-runtime") }}
         - name: AI_PLATFORM_CAPABILITY_WORKER_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-agent-capability-worker:8095
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "agent-capability-worker") }}
         - name: AI_PLATFORM_KNOWLEDGE_SERVICE_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-knowledge:8092
-{{ include "ai-gateway.secretEnv" (dict "env" "AI_PLATFORM_CAPABILITY_PROOF_SECRET" "secret" .Values.credentials.knowledge "key" "AI_PLATFORM_CAPABILITY_PROOF_SECRET") | indent 8 }}
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "knowledge") }}
 {{ include "ai-gateway.secretEnv" (dict "env" "INTERNAL_COMM_REDIS_URL" "secret" .Values.credentials.knowledge "key" "INTERNAL_COMM_REDIS_URL") | indent 8 }}
         - {name: INTERNAL_COMM_STATE_BACKEND, value: redis}
         - {name: INTERNAL_IDEMPOTENCY_BACKEND, value: redis}
         - name: GATEWAY_URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
         - name: KNOWLEDGE_MODEL_PLANE__URL
-          value: http://{{ include "ai-gateway.fullname" . }}-gateway:8080
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
         - name: KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE
           value: /run/knowledge-model-private/private.json
         - name: KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE
@@ -138,6 +155,9 @@ spec:
 {{ include "ai-gateway.secretEnv" (dict "env" "KNOWLEDGE_STORAGE__S3__SECRET_KEY" "secret" .Values.data.objectStore.existingSecret "key" "SECRET_KEY") | indent 8 }}
 {{- end }}
         ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+        - {name: workload, containerPort: 8452}
+{{- end }}
         - {name: http, containerPort: 8092}
         readinessProbe:
           httpGet: {path: /health/ready, port: http}
@@ -146,12 +166,21 @@ spec:
           httpGet: {path: /health/ready, port: http}
           initialDelaySeconds: 30
         volumeMounts:
+        - {name: lease-public, mountPath: /run/lease/public.json, subPath: public.json, readOnly: true}
+{{ include "ai-gateway.workloadMount" . | indent 8 }}
+{{ include "ai-gateway.dataMount" . | indent 8 }}
+{{ include "ai-gateway.appSecretMount" (dict "root" . "role" "knowledge") | indent 8 }}
         - {name: knowledge-model-private, mountPath: /run/knowledge-model-private, readOnly: true}
         - {name: gateway-public, mountPath: /run/gateway-public/public.json, subPath: public.json, readOnly: true}
         - {name: tmp, mountPath: /tmp}
         - {name: state, mountPath: /app/data}
         - {name: qdrant-ca, mountPath: /run/qdrant, readOnly: true}
       volumes:
+      - name: lease-public
+        configMap: {name: {{ .Values.lease.publicConfigMap | quote }}}
+{{ include "ai-gateway.workloadVolumes" (dict "root" . "role" "knowledge") | indent 6 }}
+{{ include "ai-gateway.dataVolumes" (dict "root" . "role" "knowledge") | indent 6 }}
+{{ include "ai-gateway.appSecretVolume" (dict "root" . "role" "knowledge") | indent 6 }}
       - name: tmp
         emptyDir: {medium: Memory, sizeLimit: 128Mi}
       - name: config
@@ -182,6 +211,9 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: knowledge
   ports:
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+  - {name: workload, port: 8452, targetPort: workload}
+{{- end }}
   - {name: http, port: 8092, targetPort: http}
 {{- if .Values.routing.internalGrpc.enabled }}
   - {name: grpc, port: 8093, targetPort: 8093}

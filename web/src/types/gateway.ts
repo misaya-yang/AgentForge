@@ -1,3 +1,4 @@
+import type { RequestBody, Defined } from "@/api/contracts";
 export type ContentType =
   | "text"
   | "image"
@@ -57,17 +58,7 @@ export interface ContentItem {
   metadata?: Record<string, unknown>;
 }
 
-export interface UnifiedRequest {
-  request_id?: string;
-  service_id: string;
-  session_id?: string;
-  inputs: ContentItem[];
-  parameters?: Record<string, unknown>;
-  callback_url?: string;
-  priority?: number;
-  user_id?: string;
-  tenant_id?: string;
-}
+export type UnifiedRequest = Defined<RequestBody<"POST /api/v1/invoke">, "service_id" | "inputs">;
 
 export interface UnifiedResponse {
   request_id: string;

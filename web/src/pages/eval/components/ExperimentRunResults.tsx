@@ -210,7 +210,7 @@ export function ExperimentRunResults({
           scored: qualityCaseCount ?? scoredCount ?? "unknown",
           expected: expectedCaseCount ?? "unknown",
           excluded: excludedCaseCount ?? "unknown",
-          defaultValue: "Scored {{scored}} of {{expected}} expected cases; excluded {{excluded}}. Formal publication validation remains separate.",
+          defaultValue: "Scored {scored} of {expected} expected cases; excluded {excluded}. Formal publication validation remains separate.",
         })}
       /> : null}
 
@@ -219,7 +219,7 @@ export function ExperimentRunResults({
           {progressPercent === null ? <Spin size="small" /> : <Progress percent={progressPercent} status="active" />}
           <span>
             {total !== null
-              ? t("eval.workbench.realProgress", "{{completed}} / {{total}} completed · {{failed}} failed", { completed: completed ?? 0, total, failed: failed ?? 0 })
+              ? t("eval.workbench.realProgress", "{completed} / {total} completed · {failed} failed", { completed: completed ?? 0, total, failed: failed ?? 0 })
               : run.status === "running" ? t("eval.workbench.scoringCases", "Scoring test cases…") : t("eval.workbench.waitingEvaluator", "Waiting for evaluator worker…")}
           </span>
         </div>

@@ -1,0 +1,23 @@
+{
+  "schema": "ai-platform/canonical-fixed-successor-receipt/v1",
+  "status": "measured_external_preview",
+  "baseline_id": "2026_08_post_kb_v1",
+  "predecessor_epoch": 28,
+  "candidate_epoch": 29,
+  "database_actions": true,
+  "source_activation": false,
+  "source_plan_sha256": "fac120210f2b72e4df1050e167864d1be986b5643ee19d9a1499a3a889ae2239",
+  "approved_predecessor_package_lock_sha256": "1d45dc6faae144ab72cbb64eaa4b4eb849fc4c649acbdd74ad9e2921aed38f01",
+  "predecessor_manifest_sha256": "988f445e7faf70e604938d98eeaf798c1ac99a242c0c22ded6c478108e81fab9",
+  "predecessor_reference_sha256": "a0ae5dee780ca0fc429b8523502bd8c1f337f5e5d3c08d65ad33c54070c8372a",
+  "predecessor_measurement_sha256": "c2c8e2b2552480a0c8fae3a8558f8133a127bde3f52e73f2daa5718039745851",
+  "predecessor_activation_sha256": "2d045bb350077ed94e0027527ca5af3e7f4dddaa0f0b6a68f83eeb8f30a5ee1b",
+  "candidate_manifest_sha256": "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "candidate_sql_sha256": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745",
+  "expected_database": "schema_successor_verify_upgrade029b",
+  "verification_ref_sha256": "358f374d5bbe79a946d2aba860fbe07c6b2e87df3775d01d9f4d408c50fa07a0",
+  "measurement_receipt_sha256": null,
+  "post_migration_noop": true,
+  "batch_submission_activated": false
+}

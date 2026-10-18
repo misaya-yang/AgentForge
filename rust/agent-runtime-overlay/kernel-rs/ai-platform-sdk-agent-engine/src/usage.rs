@@ -121,3 +121,66 @@ mod tests {
 #[cfg(test)]
 #[path = "sdk_migration_parity_usage.rs"]
 mod sdk_migration_parity_usage;
+
+/// A platform cost is asserted only from a complete set of Gateway-settled call
+/// receipts. Provider usage fields remain observations, not a second charge.
+pub fn with_model_receipts(
+    raw: &[Value],
+    receipts: &[Value],
+    claude: bool,
+) -> Result<Value, &'static str> {
+    if raw.is_empty() || raw.len() != receipts.len() || receipts.len() > 32 {
+        return Err("sdk_model_receipt_missing");
+    }
+    let mut total = 0u64;
+    let mut ids = std::collections::HashSet::new();
+    for receipt in receipts {
+        let id = receipt["receipt_id"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .ok_or("sdk_model_receipt_invalid")?;
+        if receipt["settled"] != true || !ids.insert(id) {
+            return Err("sdk_model_receipt_invalid");
+        }
+        total = total
+            .checked_add(
+                receipt["cost_nanos"]
+                    .as_u64()
+                    .ok_or("sdk_model_receipt_invalid")?,
+            )
+            .ok_or("sdk_model_cost_overflow")?;
+    }
+    let mut usage = aggregate(raw, claude);
+    // The existing outer SDK accounting path accepts only two_rate_compatible.
+    // A settled inner model call must never be charged again as a service call.
+    usage["sdk_usage"]["platform_pricing_state"] = "model_plane_settled".into();
+    usage["sdk_usage"]["model_plane"] =
+        json!({"state":"settled","cost_nanos":total,"receipts":receipts});
+    Ok(usage)
+}
+#[cfg(test)]
+mod model_receipt_tests {
+    use super::*;
+    #[test]
+    fn costs_require_every_unique_settled_gateway_receipt() {
+        let usage = json!({"input_tokens":2,"output_tokens":1});
+        let receipt = json!({"settled":true,"receipt_id":"one","cost_nanos":23});
+        assert_eq!(
+            with_model_receipts(&[usage.clone()], &[receipt.clone()], false).unwrap()["sdk_usage"]
+                ["model_plane"]["cost_nanos"],
+            23
+        );
+        assert!(with_model_receipts(&[usage.clone()], &[], false).is_err());
+        assert!(
+            with_model_receipts(
+                &[usage.clone(), usage.clone()],
+                &[receipt.clone(), receipt.clone()],
+                false
+            )
+            .is_err()
+        );
+        let mut unsettled = receipt;
+        unsettled["settled"] = false.into();
+        assert!(with_model_receipts(&[usage], &[unsettled], false).is_err());
+    }
+}

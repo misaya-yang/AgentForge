@@ -3,6 +3,8 @@ use serde_json::Value;
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 
 const EXPECTED: &str = include_str!("schema_admission_expected.json");
+#[path = "startup_admission_fresh.rs"]
+mod fresh;
 
 fn validate(snapshot: &Value) -> anyhow::Result<()> {
     let expected: Value = serde_json::from_str(EXPECTED)?;
@@ -50,9 +52,28 @@ pub async fn require_compatible_schema(options: &PgConnectOptions) -> anyhow::Re
         .await
         .map_err(|_| anyhow::anyhow!("schema admission connection timed out"))?
         .map_err(|_| anyhow::anyhow!("schema admission connection failed"))?;
+    // Select from the actual connected database, never an environment flag or
+    // a claimed metadata field. A missing/denied fresh reader cannot fall back.
+    let database = tokio::time::timeout(
+        QUERY_TIMEOUT,
+        sqlx::query_scalar::<_, String>("SELECT current_database()::text").fetch_one(&mut conn),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("schema admission database check timed out"))?
+    .map_err(|_| anyhow::anyhow!("schema admission database check failed"))?;
+    let fresh = fresh::selected(&database);
+    let principal_sql = if fresh {
+        fresh::principal_sql(PRINCIPAL_SQL)
+    } else {
+        PRINCIPAL_SQL.to_owned()
+    };
     let principal_valid = tokio::time::timeout(
         QUERY_TIMEOUT,
-        sqlx::query_scalar::<_, bool>(PRINCIPAL_SQL)
+        // Audited SQLx0.9 boundary: this is PRINCIPAL_SQL or its closed,
+        // source-only fresh::principal_sql transformation. No database value,
+        // environment input or caller string contributes SQL text; the service
+        // role remains a bound value below.
+        sqlx::query_scalar::<_, bool>(sqlx::AssertSqlSafe(principal_sql.as_str()))
             .bind(SERVICE_ROLE_SUFFIX)
             .fetch_one(&mut conn),
     )
@@ -64,13 +85,39 @@ pub async fn require_compatible_schema(options: &PgConnectOptions) -> anyhow::Re
     }
     let snapshot = tokio::time::timeout(
         QUERY_TIMEOUT,
-        sqlx::query_scalar::<_, Value>("SELECT assistant.platform_schema_admission_snapshot_v1()")
-            .fetch_one(&mut conn),
+        sqlx::query_scalar::<_, Value>(if fresh {
+            fresh::READER_SQL
+        } else {
+            "SELECT assistant.platform_schema_admission_snapshot_v1()"
+        })
+        .fetch_one(&mut conn),
     )
     .await
     .map_err(|_| anyhow::anyhow!("schema admission metadata query timed out"))?
     .map_err(|_| anyhow::anyhow!("schema admission metadata reader unavailable or denied"))?;
-    validate(&snapshot)?;
+    if fresh {
+        fresh::validate(&database, &snapshot)?;
+        for query in fresh::privilege_queries()? {
+            let admitted = tokio::time::timeout(
+                QUERY_TIMEOUT,
+                // Audited SQLx0.9 boundary: privilege_queries decodes only
+                // include_str!("fresh_schema_privileges.json"). The two complete
+                // source-frozen SELECTs contain no runtime interpolation.
+                sqlx::query_scalar::<_, bool>(sqlx::AssertSqlSafe(query.as_str()))
+                    .fetch_one(&mut conn),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("fresh schema admission privilege probe timed out"))?
+            .map_err(|_| {
+                anyhow::anyhow!("fresh schema admission privilege probe unavailable or denied")
+            })?;
+            if !admitted {
+                anyhow::bail!("fresh schema admission exact service privileges refused");
+            }
+        }
+    } else {
+        validate(&snapshot)?;
+    }
     tokio::time::timeout(CLOSE_TIMEOUT, conn.close())
         .await
         .map_err(|_| anyhow::anyhow!("schema admission connection close timed out"))?

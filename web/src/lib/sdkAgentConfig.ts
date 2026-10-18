@@ -1,3 +1,4 @@
+import type { RequestBody } from "@/api/contracts";
 import { validateSdkCapabilitySelection, type SdkCapabilityOption } from "@/lib/sdkCapabilitySelection";
 import { validateSdkKnowledgeSelection, type SdkKnowledgeOption } from "@/lib/sdkKnowledgeSelection";
 
@@ -20,7 +21,7 @@ export interface SdkAgentFormValues {
   capabilityIds?: string[];
 }
 
-export function buildSdkAgentDefinition(values: SdkAgentFormValues, visibleDatasets: readonly SdkKnowledgeOption[] = [], visibleCapabilities: readonly SdkCapabilityOption[] = []): Record<string, unknown> {
+export function buildSdkAgentDefinition(values: SdkAgentFormValues, visibleDatasets: readonly SdkKnowledgeOption[] = [], visibleCapabilities: readonly SdkCapabilityOption[] = []): RequestBody<"POST /api/v1/service-registrations"> {
   const capabilityIds = validateSdkCapabilitySelection(values.capabilityIds ?? [], visibleCapabilities);
   const knowledgeIds = validateSdkKnowledgeSelection(values.knowledgeDatasetIds ?? [], visibleDatasets);
   if (!isNativeAgentSdk(values.sdk) ||

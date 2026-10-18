@@ -33,10 +33,10 @@ impl PollingStore {
     pub async fn bindings(&self) -> Result<Vec<Value>> {
         // Exact source fallback: explicit binding polling does not require an
         // active connection; only inherited connection-level polling does.
-        Ok(sqlx::query_scalar("SELECT to_jsonb(b) || jsonb_build_object('polling_interval_minutes',CASE WHEN b.sync_mode='polling' THEN COALESCE(NULLIF(b.polling_interval_minutes,0),60) ELSE c.polling_interval_minutes END) FROM (SELECT * FROM confluence_space_bindings ORDER BY created_at DESC LIMIT 100) b LEFT JOIN confluence_connections c ON c.connection_id=b.connection_id WHERE b.sync_enabled IS DISTINCT FROM FALSE AND (b.sync_mode='polling' OR (b.sync_mode IS NULL AND c.sync_mode='polling' AND c.status='active')) ORDER BY b.created_at DESC").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(b) || jsonb_build_object('polling_interval_minutes',CASE WHEN b.sync_mode='polling' THEN COALESCE(NULLIF(b.polling_interval_minutes,0),60) ELSE c.polling_interval_minutes END) FROM (SELECT * FROM confluence_space_bindings ORDER BY created_at DESC LIMIT 100) b LEFT JOIN confluence_connections c ON c.connection_id=b.connection_id WHERE b.sync_enabled IS DISTINCT FROM FALSE AND (b.sync_mode='polling' OR (b.sync_mode IS NULL AND c.sync_mode='polling' AND c.status='active')) ORDER BY b.created_at DESC").fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?)
     }
     pub async fn pages(&self) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE sync_enabled=TRUE AND sync_mode='polling' ORDER BY sync_priority DESC,next_sync_at ASC NULLS FIRST LIMIT 500").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(p) FROM confluence_pages p WHERE sync_enabled=TRUE AND sync_mode='polling' ORDER BY sync_priority DESC,next_sync_at ASC NULLS FIRST LIMIT 500").fetch_all(ai_platform_knowledge_domain::database::executor(&self.pool)).await?)
     }
     async fn next(&self, id: &str, page: bool, minutes: i64) -> Result<()> {
         let next = Utc::now() + Delta::minutes(minutes);
@@ -44,10 +44,10 @@ impl PollingStore {
             sqlx::query("UPDATE confluence_pages SET next_sync_at=$2,updated_at=NOW() WHERE id=$1")
                 .bind(id)
                 .bind(next)
-                .execute(&self.pool)
+                .execute(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?;
         } else {
-            sqlx::query("UPDATE confluence_space_bindings SET next_sync_at=$2,updated_at=NOW() WHERE binding_id=$1").bind(id).bind(next).execute(&self.pool).await?;
+            sqlx::query("UPDATE confluence_space_bindings SET next_sync_at=$2,updated_at=NOW() WHERE binding_id=$1").bind(id).bind(next).execute(ai_platform_knowledge_domain::database::executor(&self.pool)).await?;
         }
         Ok(())
     }

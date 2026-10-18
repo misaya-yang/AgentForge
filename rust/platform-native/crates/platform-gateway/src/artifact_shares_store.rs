@@ -79,7 +79,7 @@ impl ArtifactSharesDatabase for PgArtifactSharesDatabase {
     ) -> ArtifactSharesFuture<'a, Option<Value>> {
         let (tenant, user, id) = (user.tenant_id.clone(), user.user_id.clone(), id.to_owned());
         Box::pin(async move {
-            self.operations.acquire().await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{sqlx::query_scalar("SELECT jsonb_build_object('id',id::text,'tenant_id',tenant_id,'title',title,'description',description,'question_count',question_count,'difficulty',difficulty,'dataset_ids',dataset_ids) FROM quizzes WHERE id=$1::text::uuid AND tenant_id=$2 AND created_by=$3").bind(id).bind(tenant).bind(user).fetch_optional(connection).await})).await.map_err(pg_error)
+            self.operations.acquire_for_tenant(tenant.as_deref()).await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{sqlx::query_scalar("SELECT jsonb_build_object('id',id::text,'tenant_id',tenant_id,'title',title,'description',description,'question_count',question_count,'difficulty',difficulty,'dataset_ids',dataset_ids) FROM quizzes WHERE id=$1::text::uuid AND tenant_id=$2 AND created_by=$3").bind(id).bind(tenant).bind(user).fetch_optional(connection).await})).await.map_err(pg_error)
         })
     }
     fn questions<'a>(&'a self, id: &'a str) -> ArtifactSharesFuture<'a, Vec<Value>> {
@@ -106,7 +106,7 @@ impl ArtifactSharesDatabase for PgArtifactSharesDatabase {
                 .map(i32::try_from)
                 .transpose()
                 .map_err(|_| ArtifactSharesError::Internal)?;
-            self.operations.acquire().await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{
+            self.operations.acquire_for_tenant(s.tenant_id.as_deref()).await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{
    let sql=if s.audience=="internal" {"INSERT INTO assistant.artifact_shares (id,share_code,kind,title,payload,answer_keys,tenant_id,created_by,is_active,max_attempts,expires_at,require_name,time_limit_minutes,created_at,audience,source_scope) VALUES ($1::text::uuid,$2,'quiz',$3,$4,$5,$6,$7,TRUE,$8,$9,$10,$11,$12,$13,$14::jsonb)"} else {"INSERT INTO assistant.artifact_shares (id,share_code,kind,title,payload,answer_keys,tenant_id,created_by,is_active,max_attempts,expires_at,require_name,time_limit_minutes,created_at) VALUES ($1::text::uuid,$2,'quiz',$3,$4,$5,$6,$7,TRUE,$8,$9,$10,$11,$12)"};
    let query=sqlx::query(sql).bind(s.share_id).bind(s.share_code).bind(s.title).bind(s.payload).bind(s.answer_keys).bind(s.tenant_id).bind(s.created_by).bind(max).bind(s.expires_at).bind(s.require_name).bind(time).bind(s.created_at);
    let query=if s.audience=="internal" {query.bind(s.audience).bind(s.source_scope)}else{query};query.execute(connection).await?;Ok(())
@@ -121,7 +121,7 @@ impl ArtifactSharesDatabase for PgArtifactSharesDatabase {
     ) -> ArtifactSharesFuture<'a, Vec<Value>> {
         let (tenant, user, id) = (user.tenant_id.clone(), user.user_id.clone(), id.to_owned());
         Box::pin(async move {
-            self.operations.acquire().await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{
+            self.operations.acquire_for_tenant(tenant.as_deref()).await.map_err(pg_error)?.execute(move|connection|Box::pin(async move{
   let rows=sqlx::query(ARTIFACT_SHARE_LIST_SQL).bind(tenant).bind(user).bind(id).bind(limit).fetch_all(connection).await?;
   rows.into_iter().map(|r|Ok(json!({"share_id":r.try_get::<String,_>("share_id")?,"share_code":r.try_get::<String,_>("share_code")?,"is_active":r.try_get::<bool,_>("is_active")?,"expired":r.try_get::<bool,_>("expired")?,"created_at":r.try_get::<DateTime<Utc>,_>("created_at")?,"expires_at":r.try_get::<Option<DateTime<Utc>>,_>("expires_at")?,"revoked_at":r.try_get::<Option<DateTime<Utc>>,_>("revoked_at")?,"require_name":r.try_get::<bool,_>("require_name")?,"audience":r.try_get::<String,_>("audience")?}))).collect::<Result<Vec<_>,sqlx::Error>>()
  })).await.map_err(pg_error)
@@ -138,7 +138,7 @@ impl ArtifactSharesDatabase for PgArtifactSharesDatabase {
                 return Err(ArtifactSharesError::Internal);
             }
             self.operations
-                .acquire()
+                .acquire_for_tenant(tenant.as_deref())
                 .await
                 .map_err(pg_error)?
                 .execute(move |connection| {

@@ -78,7 +78,11 @@ impl AtomicDispatchAdmission {
         // ledger identity from client-supplied request-body tenant/user fields.
         let tenant = context.admission_tenant_id();
         let user = context.admission_user_id();
-        let estimate = if verified_batch { 0 } else { estimate(&request).map_err(refusal)? };
+        let estimate = if verified_batch {
+            0
+        } else {
+            estimate(&request).map_err(refusal)?
+        };
         let admission = AdmissionRequest {
             tenant_id: tenant.into(),
             user_id: user.into(),
@@ -97,18 +101,31 @@ impl AtomicDispatchAdmission {
             user: user.into(),
             request: context.request_id.clone(),
             service: service.service_id.clone(),
-            request_type: if verified_batch { "provider_batch" } else if class == "sync" { "invoke" } else { "stream" }.into(),
+            request_type: if verified_batch {
+                "provider_batch"
+            } else if class == "sync" {
+                "invoke"
+            } else {
+                "stream"
+            }
+            .into(),
             member: uuid::Uuid::new_v4().to_string(),
             logical_id: logical_id.clone(),
         };
-        let prepared = if verified_batch {self.reservations.prepare_provider_batch(&id,self.ttl_ms).await} else {self.reservations.prepare(&id,estimate,self.ttl_ms).await}
-            .map_err(|error| {
-                refusal(match error {
-                    ReservationError::QuotaExceeded => Refusal::Tokens,
-                    ReservationError::Unavailable => Refusal::Unavailable,
-                    ReservationError::Duplicate => Refusal::Duplicate,
-                })
-            })?;
+        let prepared = if verified_batch {
+            self.reservations
+                .prepare_provider_batch(&id, self.ttl_ms)
+                .await
+        } else {
+            self.reservations.prepare(&id, estimate, self.ttl_ms).await
+        }
+        .map_err(|error| {
+            refusal(match error {
+                ReservationError::QuotaExceeded => Refusal::Tokens,
+                ReservationError::Unavailable => Refusal::Unavailable,
+                ReservationError::Duplicate => Refusal::Duplicate,
+            })
+        })?;
         let mut global = SlotPlan::default();
         let mut scoped = SlotPlan::default();
         for budget in budgets
@@ -198,21 +215,12 @@ impl AtomicDispatchAdmission {
             .acquire_logical(&r.connection, &r.id.member, self.ttl_ms, &logical_id)
             .await
             .map_err(refusal)?;
-        if has_rpm {
-            lease
-                .resources
-                .as_mut()
-                .expect("owned resources")
-                .quota_proof = Some(AdmittedQuota::new(
-                tenant.into(),
-                user.into(),
-                crate::billing::MinuteQuotaCheck {
-                    allowed: true,
-                    used,
-                    retry_after_seconds: 0,
-                },
-            ));
-        }
+        let quota_proof = AdmittedQuota::new(tenant.into(), user.into(), has_rpm.then_some(used));
+        lease
+            .resources
+            .as_mut()
+            .expect("owned resources")
+            .quota_proof = Some(quota_proof);
         // A successful uncertain/abandoned commit is still only PREPARED and
         // cannot dispatch without the separate acknowledged state transition.
         prepared
@@ -304,9 +312,37 @@ fn refusal(error: Refusal) -> DispatchError {
     .into()
 }
 impl DispatchAdmission for AtomicDispatchAdmission {
-    fn acquire_provider_batch<'a>(&'a self,_marker:&'a crate::provider_batch_lane::BatchAdmission,context:&'a DispatchContext,service:&'a DispatchService,budgets:&'a [CapacityBudget],request:&'a UnifiedRequest,logical_id:&'a str)->DispatchFuture<'a,Box<dyn DispatchLease>> {
-        let this=self.clone();let context=context.clone();let service=service.clone();let budgets=budgets.to_vec();let request=request.clone();let logical_id=logical_id.to_owned();
-        Box::pin(async move{tokio::spawn(async move{this.acquire_owned(context,service,"provider_batch".into(),budgets,Some(request),logical_id,true).await}).await.map_err(|_|DispatchError::CleanupFailed)?})
+    fn acquire_provider_batch<'a>(
+        &'a self,
+        _marker: &'a crate::provider_batch_lane::BatchAdmission,
+        context: &'a DispatchContext,
+        service: &'a DispatchService,
+        budgets: &'a [CapacityBudget],
+        request: &'a UnifiedRequest,
+        logical_id: &'a str,
+    ) -> DispatchFuture<'a, Box<dyn DispatchLease>> {
+        let this = self.clone();
+        let context = context.clone();
+        let service = service.clone();
+        let budgets = budgets.to_vec();
+        let request = request.clone();
+        let logical_id = logical_id.to_owned();
+        Box::pin(async move {
+            tokio::spawn(async move {
+                this.acquire_owned(
+                    context,
+                    service,
+                    "provider_batch".into(),
+                    budgets,
+                    Some(request),
+                    logical_id,
+                    true,
+                )
+                .await
+            })
+            .await
+            .map_err(|_| DispatchError::CleanupFailed)?
+        })
     }
     fn acquire<'a>(
         &'a self,

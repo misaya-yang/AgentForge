@@ -1,4 +1,5 @@
 //! Gateway-owned Worker V2 catalog authority. Local resolution avoids Gateway self-HTTP.
+use crate::migration_agent::control::execution_transport::WorkloadSend;
 mod descriptor;
 pub mod http;
 pub mod session_tools;
@@ -70,7 +71,10 @@ impl CatalogService {
             sqlx::query_scalar("SELECT to_jsonb(u) FROM users u WHERE user_id=$1 AND tenant_id=$2")
                 .bind(&scope.user_id)
                 .bind(&scope.tenant_id)
-                .fetch_optional(&self.pool)
+                .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+                    &self.pool,
+                    &scope.tenant_id,
+                ))
                 .await
                 .map_err(|_| unavailable())?
                 .ok_or_else(|| AgentError::code(403, "CAPABILITY_CATALOG_SCOPE_UNAUTHORIZED"))?;
@@ -81,12 +85,12 @@ impl CatalogService {
             .chain(user["permissions"].as_array().into_iter().flatten())
             .map(pystr)
             .collect();
-        let roles:Vec<String>=sqlx::query_scalar("SELECT role_name FROM user_roles WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW()) ORDER BY granted_at").bind(&scope.user_id).fetch_all(&self.pool).await.map_err(|_|unavailable())?;
+        let roles:Vec<String>=sqlx::query_scalar("SELECT role_name FROM user_roles WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW()) ORDER BY granted_at").bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.map_err(|_|unavailable())?;
         subjects.extend(roles);
         // The canonical database authority tolerates missing permission tables and uses the documented fallbacks.
-        let mut permissions:BTreeSet<String>=sqlx::query_scalar::<_,String>("SELECT DISTINCT rp.permission_code FROM user_roles ur JOIN role_permissions rp ON ur.role_name=rp.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())").bind(&scope.user_id).fetch_all(&self.pool).await.unwrap_or_default().into_iter().collect();
+        let mut permissions:BTreeSet<String>=sqlx::query_scalar::<_,String>("SELECT DISTINCT rp.permission_code FROM user_roles ur JOIN role_permissions rp ON ur.role_name=rp.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())").bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.unwrap_or_default().into_iter().collect();
         if permissions.is_empty() {
-            permissions.extend(sqlx::query_scalar::<_,String>("SELECT DISTINCT unnest(rr.permissions) FROM user_roles ur JOIN rbac_roles rr ON ur.role_name=rr.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())").bind(&scope.user_id).fetch_all(&self.pool).await.unwrap_or_default());
+            permissions.extend(sqlx::query_scalar::<_,String>("SELECT DISTINCT unnest(rr.permissions) FROM user_roles ur JOIN rbac_roles rr ON ur.role_name=rr.role_name WHERE ur.user_id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())").bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.unwrap_or_default());
         }
         if permissions.is_empty() {
             permissions.extend(
@@ -103,12 +107,12 @@ impl CatalogService {
                 .map(pystr)
                 .collect();
             if !own_roles.is_empty() {
-                permissions.extend(sqlx::query_scalar::<_,String>("SELECT unnest(permissions) FROM rbac_roles WHERE role_name=ANY($1::text[])").bind(own_roles).fetch_all(&self.pool).await.unwrap_or_default());
+                permissions.extend(sqlx::query_scalar::<_,String>("SELECT unnest(permissions) FROM rbac_roles WHERE role_name=ANY($1::text[])").bind(own_roles).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.unwrap_or_default());
             }
         }
-        permissions.extend(sqlx::query_scalar::<_,String>("SELECT permission_code FROM user_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW())").bind(&scope.user_id).fetch_all(&self.pool).await.unwrap_or_default());
+        permissions.extend(sqlx::query_scalar::<_,String>("SELECT permission_code FROM user_permissions WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>NOW())").bind(&scope.user_id).fetch_all(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.unwrap_or_default());
         subjects.extend(permissions);
-        let policy=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('allowed_tools',allowed_tools,'blocked_tools',blocked_tools,'allowed_categories',allowed_categories) FROM tenant_tool_policies WHERE tenant_id=$1").bind(&scope.tenant_id).fetch_optional(&self.pool).await.map_err(|_|error("CAPABILITY_CATALOG_POLICY_UNAVAILABLE"))?.unwrap_or(json!({}));
+        let policy=sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('allowed_tools',allowed_tools,'blocked_tools',blocked_tools,'allowed_categories',allowed_categories) FROM tenant_tool_policies WHERE tenant_id=$1").bind(&scope.tenant_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await.map_err(|_|error("CAPABILITY_CATALOG_POLICY_UNAVAILABLE"))?.unwrap_or(json!({}));
         Ok((subjects, policy))
     }
     pub async fn resolve(
@@ -146,7 +150,8 @@ impl CatalogService {
             || url.query().is_some()
             || url.fragment().is_some()
             || !["", "/"].contains(&url.path())
-            || self.internal_token.is_empty()
+            || (!crate::migration_agent::control::execution_transport::required()
+                && self.internal_token.is_empty())
         {
             return Err(error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"));
         }
@@ -172,7 +177,8 @@ impl CatalogService {
         for (k, v) in headers {
             request = request.header(k, v);
         }
-        let mut response=request.json(&json!({"tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"capability_revision":revision,"schema_version":"capability-catalog/v2"})).send().await.map_err(|_|error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"))?;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let mut response=request.json(&json!({"tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"capability_revision":revision,"schema_version":"capability-catalog/v2"})).timeout(Duration::from_secs(10)).workload_send().await.map_err(|_|error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"))?;
         if response.status().as_u16() >= 400 {
             return Err(error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"));
         }
@@ -186,9 +192,9 @@ impl CatalogService {
                 .and_then(|value| value.to_str().ok()),
         )?;
         let mut bytes = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
+        while let Some(chunk) = tokio::time::timeout_at(deadline, response.chunk())
             .await
+            .map_err(|_| error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"))?
             .map_err(|_| error("CAPABILITY_CATALOG_WORKER_UNAVAILABLE"))?
         {
             if bytes.len() + chunk.len() > 4 * 1024 * 1024 {
@@ -218,6 +224,11 @@ impl CatalogService {
         for raw in envelope["capabilities"].as_array().unwrap() {
             let record = self.records.records().iter().find(|r| r["id"] == raw["id"]);
             let descriptor = descriptor::Descriptor::parse(raw, record)?;
+            if record.is_some_and(|record| {
+                !crate::assistant_catalog::publisher_admitted(record, &scope.tenant_id)
+            }) {
+                continue;
+            }
             let name = text(raw, "name");
             if !seen.insert(name) {
                 return Err(error("CAPABILITY_CATALOG_INVALID"));

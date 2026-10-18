@@ -88,6 +88,13 @@ pub fn extend_document(document: &mut Value) {
         }
         document["paths"][path][method] = operation;
     }
+    document["paths"]["/api/auth/session/step-up"]["get"] = json!({
+        "operationId":"browser_session_step_up_status","security":[{"browserSession":[]}],
+        "x-native-owner":"platform-auth::browser",
+        "parameters":[{"name":"Sec-Fetch-Site","in":"header","required":true,"schema":{"type":"string","enum":["same-origin","same-site"]}},{"name":"Origin","in":"header","schema":{"type":"string","format":"uri"}}],
+        "description":"Current server policy and session-bound recent passkey assurance. Feature-disabled is explicit; dependency errors never imply disabled.",
+        "responses":{"200":{"description":"Current policy","content":{"application/json":{"schema":{"type":"object","required":["enabled","verified","passkey_enrolled"],"properties":{"enabled":{"type":"boolean"},"verified":{"type":"boolean"},"passkey_enrolled":{"type":"boolean"}}}}}},"401":error,"403":error,"503":error}
+    });
 }
 #[cfg(test)]
 mod tests {
@@ -113,5 +120,9 @@ mod tests {
             );
         }
         assert!(!doc.to_string().contains("access_token"));
+        assert_eq!(
+            doc["paths"]["/api/auth/session/step-up"]["get"]["security"],
+            json!([{"browserSession":[]}])
+        );
     }
 }

@@ -1,5 +1,6 @@
 //! One-shot bounded Runtime command transport. No retries and no authority minting.
 use super::AgentError;
+use super::execution_transport::WorkloadSend;
 use crate::migration_host::context;
 use ai_platform_capability_contract::private_transport::Edge;
 use reqwest::{RequestBuilder, StatusCode};
@@ -57,8 +58,8 @@ pub(super) async fn send_json(
     *request.timeout_mut() = Some(timeout);
     tokio::time::timeout(timeout, async move {
         // Underlying client also disables all transport retries and redirects.
-        let mut response = client
-            .execute(request)
+        let mut response = reqwest::RequestBuilder::from_parts(client, request)
+            .workload_send()
             .await
             .map_err(|_| AgentError::code(503, code))?;
         let status = response.status();

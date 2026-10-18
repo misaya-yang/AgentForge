@@ -128,7 +128,7 @@ function host(engine = "dify_chat", response: Record<string, unknown>, patchFail
   const utilityExports: Record<string, (...args: unknown[]) => unknown> = {};
   const utilities = readFileSync(new URL("../../../lib/utils.ts", import.meta.url), "utf8");
   vm.runInNewContext(ts.transpileModule(utilities, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
-    { exports: utilityExports, Error, require: (name: string) => { if (name === "clsx") return { clsx: noop }; if (name === "tailwind-merge") return { twMerge: noop }; if (name === "axios") return { AxiosError: class AxiosError extends Error {} }; throw new Error(name); } });
+    { exports: utilityExports, Error, require: (name: string) => { if (name === "clsx") return { clsx: noop }; if (name === "@/lib/fetchClient") return { HttpError: class HttpError extends Error {} }; throw new Error(name); } });
   const utils = utilityExports;
   const api = {
     async get(url: string) {

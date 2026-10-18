@@ -14,6 +14,30 @@ pub struct ObjectInfo {
     pub metadata: BTreeMap<String, String>,
 }
 pub trait ObjectStorage: Send + Sync {
+    /// Paginated logical keys relative to this backend's configured deployment prefix.
+    fn list_keys<'a>(
+        &'a self,
+        _prefix: &'a str,
+        _cursor: Option<String>,
+    ) -> ContentFuture<'a, (Vec<String>, Option<String>)> {
+        Box::pin(async { Err(ContentError::new(501, "Object listing is unsupported")) })
+    }
+
+    /// Conditional creation for migration: never replace a concurrently created object.
+    fn upload_if_absent<'a>(
+        &'a self,
+        _key: &'a str,
+        _content: Vec<u8>,
+        _mime: &'a str,
+        _metadata: BTreeMap<String, String>,
+    ) -> ContentFuture<'a, ()> {
+        Box::pin(async {
+            Err(ContentError::new(
+                501,
+                "Conditional object creation is unsupported",
+            ))
+        })
+    }
     fn local_path(&self, _key: &str) -> Result<Option<PathBuf>, ContentError> {
         Ok(None)
     }
@@ -119,6 +143,21 @@ impl LocalStorage {
         }
         Ok(target)
     }
+}
+/// Legacy Gateway file sidecars used MD5. Migration verifies this historical
+/// field independently; SHA-256 remains the destination integrity digest.
+pub fn legacy_content_md5(mut reader: impl std::io::Read) -> Result<String, ContentError> {
+    use md5::{Digest, Md5};
+    let mut hash = Md5::new();
+    let mut buffer = [0; 65536];
+    loop {
+        let n = reader.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        hash.update(&buffer[..n]);
+    }
+    Ok(format!("{:x}", hash.finalize()))
 }
 fn object_too_large() -> ContentError {
     ContentError::new(413, "Object exceeds maximum size")
@@ -249,6 +288,42 @@ async fn blocking<T: Send + 'static>(
         .map_err(|_| ContentError::storage())?
 }
 impl ObjectStorage for LocalStorage {
+    fn upload_if_absent<'a>(
+        &'a self,
+        key: &'a str,
+        content: Vec<u8>,
+        mime: &'a str,
+        mut metadata: BTreeMap<String, String>,
+    ) -> ContentFuture<'a, ()> {
+        Box::pin(async move {
+            let path = self.path(key)?;
+            let mime = mime.to_owned();
+            blocking(move || {
+                use std::io::Write;
+                std::fs::create_dir_all(path.parent().ok_or_else(ContentError::storage)?)?;
+                // Reject orphan sidecars before claiming a new data path.
+                if sidecar(&path).try_exists()? {
+                    return Err(ContentError::new(409, "Object metadata already exists"));
+                }
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&path)?;
+                file.write_all(&content)?;
+                file.sync_all()?;
+                metadata.insert("content_type".into(), mime);
+                let mut meta = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(sidecar(&path))?;
+                meta.write_all(&serde_json::to_vec(&metadata)?)?;
+                meta.sync_all()?;
+                Ok(())
+            })
+            .await
+        })
+    }
+
     fn local_path(&self, key: &str) -> Result<Option<PathBuf>, ContentError> {
         Self::new(self.root.clone(), String::new())
             .path(key)
@@ -442,6 +517,25 @@ impl ObjectStorage for LocalStorage {
 /// signing and credentials and returns provider-normalized errors; no public URL
 /// is accepted as a download input.
 pub trait CloudObjectTransport: Send + Sync {
+    fn put_if_absent<'a>(
+        &'a self,
+        _bucket: &'a str,
+        _key: &'a str,
+        _content: Vec<u8>,
+        _mime: &'a str,
+        _metadata: BTreeMap<String, String>,
+    ) -> ContentFuture<'a, ()> {
+        Box::pin(async {
+            Err(ContentError::new(
+                501,
+                "Conditional object creation is unsupported",
+            ))
+        })
+    }
+
+    fn upload_headers(&self) -> BTreeMap<String, String> {
+        BTreeMap::new()
+    }
     fn put<'a>(
         &'a self,
         bucket: &'a str,
@@ -505,6 +599,58 @@ pub struct CloudStorage {
     pub s3: bool,
 }
 impl ObjectStorage for CloudStorage {
+    fn list_keys<'a>(
+        &'a self,
+        prefix: &'a str,
+        cursor: Option<String>,
+    ) -> ContentFuture<'a, (Vec<String>, Option<String>)> {
+        Box::pin(async move {
+            let physical = prefixed_key(&self.prefix, prefix);
+            let (keys, next) = self
+                .transport
+                .list(&self.bucket, &physical, cursor.clone())
+                .await?;
+            if keys.len() > 1000 || next.as_ref().is_some_and(|v| Some(v) == cursor.as_ref()) {
+                return Err(ContentError::storage());
+            }
+            let base = self.prefix.trim_matches('/');
+            let mut logical = Vec::with_capacity(keys.len());
+            for key in keys {
+                if !key.starts_with(&physical) {
+                    return Err(ContentError::storage());
+                }
+                logical.push(if base.is_empty() {
+                    key
+                } else {
+                    key.strip_prefix(&format!("{base}/"))
+                        .ok_or_else(ContentError::storage)?
+                        .to_owned()
+                });
+            }
+            Ok((logical, next))
+        })
+    }
+
+    fn upload_if_absent<'a>(
+        &'a self,
+        key: &'a str,
+        content: Vec<u8>,
+        mime: &'a str,
+        metadata: BTreeMap<String, String>,
+    ) -> ContentFuture<'a, ()> {
+        Box::pin(async move {
+            self.transport
+                .put_if_absent(
+                    &self.bucket,
+                    &prefixed_key(&self.prefix, key),
+                    content,
+                    mime,
+                    metadata,
+                )
+                .await
+        })
+    }
+
     fn upload<'a>(
         &'a self,
         key: &'a str,
@@ -646,11 +792,10 @@ impl ObjectStorage for CloudStorage {
             if !self.s3 {
                 return Ok(None);
             }
-            let mut headers = BTreeMap::new();
+            let expiry = expiry.clamp(1, 900);
+            let mut headers = self.transport.upload_headers();
             headers.insert("Content-Type".into(), mime.into());
-            for (k, v) in metadata {
-                headers.insert(format!("x-amz-meta-{}", s3_metadata(&k)), s3_metadata(&v));
-            }
+            headers.extend(s3_metadata_headers(metadata)?);
             let url = self
                 .transport
                 .presign(
@@ -681,6 +826,7 @@ pub struct S3HttpTransport {
     access_key: String,
     secret_key: Vec<u8>,
     endpoint: Option<reqwest::Url>,
+    encryption_headers: BTreeMap<String, String>,
 }
 impl S3HttpTransport {
     pub fn new(
@@ -700,6 +846,8 @@ impl S3HttpTransport {
                 || u.host_str().is_none()
                 || !u.username().is_empty()
                 || u.password().is_some()
+                || u.query().is_some()
+                || u.fragment().is_some()
         }) {
             return Err(ContentError::new(400, "Invalid S3 endpoint"));
         }
@@ -709,7 +857,37 @@ impl S3HttpTransport {
             access_key,
             secret_key,
             endpoint,
+            encryption_headers: BTreeMap::new(),
         })
+    }
+    /// Empty mode uses bucket policy/default encryption, including non-AWS providers.
+    pub fn with_encryption(
+        mut self,
+        mode: &str,
+        kms_key: Option<&str>,
+    ) -> Result<Self, ContentError> {
+        match mode {
+            "" if kms_key.is_none() => {}
+            "AES256" if kms_key.is_none() => {
+                self.encryption_headers
+                    .insert("x-amz-server-side-encryption".into(), mode.into());
+            }
+            "aws:kms" => {
+                self.encryption_headers
+                    .insert("x-amz-server-side-encryption".into(), mode.into());
+                if let Some(key) = kms_key {
+                    if key.is_empty() || !key.is_ascii() || key.chars().any(char::is_control) {
+                        return Err(ContentError::new(400, "Invalid SSE key"));
+                    }
+                    self.encryption_headers.insert(
+                        "x-amz-server-side-encryption-aws-kms-key-id".into(),
+                        key.into(),
+                    );
+                }
+            }
+            _ => return Err(ContentError::new(400, "Invalid SSE configuration")),
+        }
+        Ok(self)
     }
     fn sign(
         &self,
@@ -787,7 +965,7 @@ impl S3HttpTransport {
             format!("{}/{scope}", self.access_key),
         );
         query.insert("X-Amz-Date".into(), timestamp.clone());
-        query.insert("X-Amz-Expires".into(), expiry.to_string());
+        query.insert("X-Amz-Expires".into(), expiry.clamp(1, 900).to_string());
         query.insert("X-Amz-SignedHeaders".into(), signed_headers.clone());
         let mut encoded = query
             .into_iter()
@@ -847,7 +1025,7 @@ impl S3HttpTransport {
             return Err(ContentError::new(
                 match response.status().as_u16() {
                     // Authorization failures must not become retryable storage outages.
-                    status @ (401 | 403 | 404) => status,
+                    status @ (401 | 403 | 404 | 409 | 412) => status,
                     _ => 503,
                 },
                 "Object storage request failed",
@@ -857,6 +1035,35 @@ impl S3HttpTransport {
     }
 }
 impl CloudObjectTransport for S3HttpTransport {
+    fn put_if_absent<'a>(
+        &'a self,
+        bucket: &'a str,
+        key: &'a str,
+        content: Vec<u8>,
+        mime: &'a str,
+        metadata: BTreeMap<String, String>,
+    ) -> ContentFuture<'a, ()> {
+        Box::pin(async move {
+            let mut headers = self.encryption_headers.clone();
+            headers.insert("content-type".into(), mime.into());
+            headers.insert("if-none-match".into(), "*".into());
+            headers.extend(s3_metadata_headers(metadata)?);
+            self.request(
+                bucket,
+                key,
+                reqwest::Method::PUT,
+                Some(content),
+                headers,
+                BTreeMap::new(),
+            )
+            .await?;
+            Ok(())
+        })
+    }
+
+    fn upload_headers(&self) -> BTreeMap<String, String> {
+        self.encryption_headers.clone()
+    }
     fn put<'a>(
         &'a self,
         bucket: &'a str,
@@ -866,10 +1073,9 @@ impl CloudObjectTransport for S3HttpTransport {
         metadata: BTreeMap<String, String>,
     ) -> ContentFuture<'a, ()> {
         Box::pin(async move {
-            let mut headers = BTreeMap::from([("content-type".into(), mime.into())]);
-            for (k, v) in metadata {
-                headers.insert(format!("x-amz-meta-{}", s3_metadata(&k)), s3_metadata(&v));
-            }
+            let mut headers = self.encryption_headers.clone();
+            headers.insert("content-type".into(), mime.into());
+            headers.extend(s3_metadata_headers(metadata)?);
             self.request(
                 bucket,
                 key,
@@ -1072,7 +1278,7 @@ impl CloudObjectTransport for S3HttpTransport {
                 .get("content-type")
                 .and_then(|v| v.to_str().ok())
                 .map(str::to_owned);
-            let metadata = h
+            let metadata: BTreeMap<String, String> = h
                 .iter()
                 .filter_map(|(k, v)| {
                     Some((
@@ -1084,7 +1290,7 @@ impl CloudObjectTransport for S3HttpTransport {
             Ok(Some(ObjectInfo {
                 size_bytes: size,
                 content_type,
-                metadata,
+                metadata: decode_s3_metadata(metadata),
             }))
         })
     }
@@ -1097,7 +1303,13 @@ impl CloudObjectTransport for S3HttpTransport {
         headers: BTreeMap<String, String>,
         query: BTreeMap<String, String>,
     ) -> ContentFuture<'a, String> {
-        Box::pin(async move { self.sign(bucket, key, method, expiry, &headers, query) })
+        Box::pin(async move {
+            let mut headers = headers;
+            if method == "PUT" {
+                headers.extend(self.encryption_headers.clone());
+            }
+            self.sign(bucket, key, method, expiry, &headers, query)
+        })
     }
 }
 
@@ -1466,4 +1678,203 @@ fn s3_metadata(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+const S3_METADATA_FORMAT: &str = "agentforge-internal-metadata-format";
+fn s3_metadata_headers(
+    metadata: BTreeMap<String, String>,
+) -> Result<BTreeMap<String, String>, ContentError> {
+    let mut headers = BTreeMap::new();
+    let mut encoded = false;
+    for (key, value) in metadata {
+        let key = s3_metadata(&key);
+        if key.eq_ignore_ascii_case(S3_METADATA_FORMAT) {
+            return Err(ContentError::new(400, "Reserved object metadata key"));
+        }
+        let wire = s3_metadata_value(&value);
+        encoded |= wire != value;
+        headers.insert(format!("x-amz-meta-{key}"), wire);
+    }
+    if encoded {
+        headers.insert(
+            format!("x-amz-meta-{S3_METADATA_FORMAT}"),
+            "base64-v1".into(),
+        );
+    }
+    Ok(headers)
+}
+fn decode_s3_metadata(mut metadata: BTreeMap<String, String>) -> BTreeMap<String, String> {
+    // Legacy values, even those matching our new value prefix, remain untouched.
+    if metadata
+        .get(S3_METADATA_FORMAT)
+        .is_some_and(|v| v == "base64-v1")
+    {
+        metadata.remove(S3_METADATA_FORMAT);
+        for value in metadata.values_mut() {
+            *value = decode_s3_metadata_value(value);
+        }
+    }
+    metadata
+}
+/// Preserve Unicode and significant whitespace without invalid HTTP header bytes.
+fn s3_metadata_value(value: &str) -> String {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    if value.starts_with("af-b64-v1:")
+        || s3_metadata(value) != value
+        || value.chars().any(char::is_control)
+    {
+        format!("af-b64-v1:{}", STANDARD.encode(value.as_bytes()))
+    } else {
+        value.to_owned()
+    }
+}
+fn decode_s3_metadata_value(value: &str) -> String {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    value
+        .strip_prefix("af-b64-v1:")
+        .and_then(|v| STANDARD.decode(v).ok())
+        .and_then(|v| String::from_utf8(v).ok())
+        .unwrap_or_else(|| value.to_owned())
+}
+#[cfg(test)]
+mod shared_storage_tests {
+    use super::*;
+    #[test]
+    fn metadata_values_roundtrip_without_loss() {
+        let legacy = BTreeMap::from([("filename".into(), "af-b64-v1:YWJj".into())]);
+        assert_eq!(decode_s3_metadata(legacy.clone()), legacy);
+        for value in [
+            "filename.pdf",
+            "你好.pdf",
+            " two  spaces ",
+            "af-b64-v1:YWJj",
+            "line\nbreak",
+        ] {
+            assert_eq!(decode_s3_metadata_value(&s3_metadata_value(value)), value);
+        }
+    }
+    #[tokio::test]
+    async fn short_lived_presigns_include_sse_and_matching_upload_headers() {
+        let transport = S3HttpTransport::new(
+            reqwest::Client::new(),
+            "region".into(),
+            "key".into(),
+            b"secret".to_vec(),
+            Some("https://objects.example".into()),
+        )
+        .unwrap()
+        .with_encryption("AES256", None)
+        .unwrap();
+        let store = CloudStorage {
+            transport: Arc::new(transport),
+            bucket: "bucket".into(),
+            prefix: "env".into(),
+            public_base: String::new(),
+            s3: true,
+        };
+        let result = store
+            .upload_url("uploads/tenant/file", "text/plain", 3600, BTreeMap::new())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result["expires_in"], "900");
+        assert!(result["upload_url"].contains("X-Amz-Expires=900"));
+        assert!(result["upload_url"].contains("x-amz-server-side-encryption"));
+        assert!(result["headers"].contains("AES256"));
+        let url = store.download_url("file", 0, None).await.unwrap().unwrap();
+        assert!(url.contains("X-Amz-Expires=1"));
+    }
+    async fn mock_response(response: String) -> (String, tokio::task::JoinHandle<String>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = vec![];
+            let mut buf = [0; 4096];
+            loop {
+                let n = stream.read(&mut buf).await.unwrap();
+                assert!(n > 0);
+                bytes.extend_from_slice(&buf[..n]);
+                if bytes.windows(4).any(|v| v == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            stream.write_all(response.as_bytes()).await.unwrap();
+            String::from_utf8(bytes).unwrap()
+        });
+        (endpoint, task)
+    }
+    #[tokio::test]
+    async fn conditional_put_cannot_overwrite_and_head_decodes_metadata() {
+        let (endpoint, request) = mock_response(
+            "HTTP/1.1 412 Precondition Failed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                .into(),
+        )
+        .await;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let transport = S3HttpTransport::new(
+            client.clone(),
+            "region".into(),
+            "key".into(),
+            b"secret".to_vec(),
+            Some(endpoint),
+        )
+        .unwrap()
+        .with_encryption("AES256", None)
+        .unwrap();
+        let result = transport
+            .put_if_absent(
+                "bucket",
+                "env/uploads/tenant-a/file",
+                b"hello".to_vec(),
+                "text/plain",
+                BTreeMap::from([("filename".into(), "你好.txt".into())]),
+            )
+            .await;
+        assert_eq!(result.unwrap_err().status, 412);
+        let request = request.await.unwrap();
+        assert!(request.contains("if-none-match: *"));
+        assert!(request.contains("x-amz-server-side-encryption: AES256"));
+        assert!(request.contains(&format!(
+            "x-amz-meta-filename: {}",
+            s3_metadata_value("你好.txt")
+        )));
+        let (endpoint, request) = mock_response(format!("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nContent-Type: text/plain\r\nx-amz-meta-filename: {}\r\nx-amz-meta-agentforge-internal-metadata-format: base64-v1\r\nConnection: close\r\n\r\n", s3_metadata_value("你好.txt"))).await;
+        let transport = S3HttpTransport::new(
+            client,
+            "region".into(),
+            "key".into(),
+            b"secret".to_vec(),
+            Some(endpoint),
+        )
+        .unwrap();
+        let head = transport
+            .head("bucket", "env/uploads/tenant-a/file")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(head.size_bytes, 5);
+        assert_eq!(head.metadata["filename"], "你好.txt");
+        request.await.unwrap();
+    }
+    #[test]
+    fn invalid_sse_is_rejected_without_io() {
+        assert!(
+            S3HttpTransport::new(
+                reqwest::Client::new(),
+                "region".into(),
+                "key".into(),
+                vec![],
+                None
+            )
+            .unwrap()
+            .with_encryption("AES256", Some("kms"))
+            .is_err()
+        );
+    }
 }

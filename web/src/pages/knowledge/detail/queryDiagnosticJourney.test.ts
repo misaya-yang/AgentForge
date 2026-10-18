@@ -1,3 +1,4 @@
+import ICU from "i18next-icu";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -38,7 +39,7 @@ function text(value: unknown): string {
 }
 function environment(locale = "en-US") {
   const resources = JSON.parse(readFileSync(new URL(`../../../i18n/locales/knowledge-${locale}.json`, import.meta.url), "utf8"));
-  const i18n = createInstance();
+  const i18n = createInstance().use(ICU);
   void i18n.init({ lng: locale, fallbackLng: false, initAsync: false, resources: { [locale]: { translation: { knowledge: resources } } } });
   const auth = { token: "synthetic-session-a", user: { user_id: "user-a", permissions: ["console:eval:view", "console:eval:run"], roles: ["member"], tier: "normal" },
     hasPermission: (permission: string) => auth.user.permissions.includes(permission) };
@@ -95,6 +96,7 @@ function host(file: string, exported: string, env: ReturnType<typeof environment
   });
   const toast = Object.assign((value: unknown) => env.toasts.push(value), { error: (...args: unknown[]) => env.toasts.push(args) });
   const modules: Record<string, unknown> = {
+    "@/components/deferComponent": { deferComponent: (_load: unknown, name: string) => name },
     react, "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" }, "lucide-react": named,
     "react-i18next": { useTranslation: () => ({ t: env.i18n.t.bind(env.i18n), i18n: env.i18n }) },
     "react-router-dom": { useParams: () => ({ datasetId: env.state.datasetId }), useNavigate: () => (url: string) => env.navigation.push(url),
@@ -104,7 +106,7 @@ function host(file: string, exported: string, env: ReturnType<typeof environment
     "@/hooks/useKnowledge": { useDataset: () => ({ isError: env.state.datasetError, data: { dataset_id: env.state.datasetId, my_permission: env.state.permission } }),
       useDocuments: () => ({ data: { items: [], total: 0 } }), useDatasetSources: () => ({}) },
     "@/pages/knowledge/detail/useDatasetUploadDialog": { useDatasetUploadDialog: () => ({}) },
-    "@/lib/api": { api: env.api }, "@/hooks/use-toast": { toast }, "axios": { isAxiosError: () => false },
+    "@/lib/api": { api: env.api }, "@/hooks/use-toast": { toast }, "@/lib/fetchClient": { isHttpError: () => false },
   };
   function load(path: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};

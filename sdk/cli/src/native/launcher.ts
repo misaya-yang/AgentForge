@@ -1,4 +1,5 @@
 import { accessSync, constants, existsSync, lstatSync, statSync, type Stats } from "node:fs";
+import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { constants as osConstants } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -24,10 +25,13 @@ import {
   type ProductConfig,
   type ProviderProfile,
 } from "../provider/config.js";
+import { runAcpStdio } from "../acp/adapter.js";
+import { RELEASE_TARGETS } from "./release_signature.mjs";
 import { assertNativeSourceMatch, readNativeSourceIdentity, verifyNativeArtifact } from "./identity.js";
 
 const NATIVE_CHILD_ENV_ALLOWLIST = [
   "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TMP", "TEMP",
+  "SystemRoot", "SYSTEMROOT", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "PATHEXT",
   "LANG", "LC_ALL", "LC_CTYPE", "TERM", "COLORTERM", "NO_COLOR", "FORCE_COLOR",
   "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR",
   "SSH_AUTH_SOCK", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME",
@@ -56,6 +60,9 @@ export async function runIndependentCli(
 ): Promise<number> {
   const stdout = dependencies.stdout ?? process.stdout;
   const stderr = dependencies.stderr ?? process.stderr;
+  if (argv.length===1 && ["--help","-h"].includes(argv[0]!)) {
+    stdout.write("Usage: ai-gateway [native agent arguments]\n  config init|path|validate\n  provider add|list|use\n  doctor [--json]\n  acp [--cli-provider ID]  ACP v1 over local stdio\n  gateway auth login|status|logout --base-url <origin>\n  gateway [--api-key-file FILE]  Hosted mode; AI_GATEWAY_API_KEY for CI\nProvider setup and the independent Runtime stay local. Gateway tokens use the OS vault.\n");return 0;
+  }
   const home = productHome(env);
   const configPath = productConfigPath(home);
   if (argv[0] === "doctor") return handleDoctorCommand(argv.slice(1), env, dependencies, stdout, stderr);
@@ -113,6 +120,10 @@ export async function runIndependentCli(
       arch: dependencies.arch,
       moduleUrl: dependencies.moduleUrl,
     });
+    if (forwardedArgs[0]==="acp") {
+      if (forwardedArgs.length!==1) throw new Error("Usage: ai-gateway acp [--cli-provider ID]");
+      return await runAcpStdio(binary,childEnv);
+    }
     return await spawnAndWait(
       dependencies.spawnProcess ?? spawn,
       binary,
@@ -309,12 +320,13 @@ export function resolveNativeBinary(
   const extension = platform === "win32" ? ".exe" : "";
   const currentModule = options.moduleUrl ?? import.meta.url;
   const packageRoot = resolve(dirname(fileURLToPath(currentModule)), "..");
-  const packaged = join(packageRoot, "vendor", `${platform}-${arch}`, `codex${extension}`);
-  if (existsSync(packaged)) {
-    const expectedSource = readNativeSourceIdentity(join(packageRoot, "dist", "native-source.json"));
-    const vendorSource = readNativeSourceIdentity(join(packageRoot, "vendor", "source.json"));
-    assertNativeSourceMatch(expectedSource, vendorSource);
-    verifyNativeArtifact(packaged, join(dirname(packaged), "artifact.json"), platform, arch, expectedSource);
+  const directory=packagedDirectory(packageRoot,currentModule,platform,arch);
+  if (directory && existsSync(join(directory,`codex${extension}`))) {
+    const packaged=join(directory,`codex${extension}`);
+    const expectedSource=readNativeSourceIdentity(join(packageRoot,"dist","native-source.json"));
+    const source=readNativeSourceIdentity(existsSync(join(directory,"source.json")) ? join(directory,"source.json") : join(directory,"..","source.json"));
+    assertNativeSourceMatch(expectedSource,source);
+    verifyNativeArtifact(packaged,join(directory,"artifact.json"),platform,arch,expectedSource);
     return packaged;
   }
   if (env.AI_GATEWAY_USE_SYSTEM_CODEX === "1" && env.AI_GATEWAY_UNSAFE_DEV_RUNTIME === "1") {
@@ -324,6 +336,25 @@ export function resolveNativeBinary(
     `No packaged Agent Runtime binary for ${platform}-${arch}. ` +
     "Set AI_GATEWAY_AGENT_RUNTIME_BIN to the composed-source codex binary or explicitly opt into AI_GATEWAY_USE_SYSTEM_CODEX=1.",
   );
+}
+
+function packagedDirectory(root:string,moduleUrl:string,platform:NodeJS.Platform,arch:string):string|undefined {
+  if (!RELEASE_TARGETS.includes(`${platform}-${arch}`)) return undefined;
+  const embedded=join(root,"vendor",`${platform}-${arch}`);
+  if (existsSync(embedded)) return embedded;
+  try { return dirname(createRequire(moduleUrl).resolve(`@agentforge/cli-${platform}-${arch}/package.json`)); }
+  catch { return undefined; }
+}
+/** A release-signed portable platformctl owns all OS vault operations. */
+export function resolveClientAuthHelper(moduleUrl=import.meta.url,platform:NodeJS.Platform=process.platform,arch=process.arch):string {
+  const root=resolve(dirname(fileURLToPath(moduleUrl)),"..");
+  const directory=packagedDirectory(root,moduleUrl,platform,arch);
+  if (!directory) throw new Error("Signed client credential helper is not installed");
+  const source=readNativeSourceIdentity(join(root,"dist","native-source.json"));
+  const name=platform==="win32"?"platformctl.exe":"platformctl";
+  const binary=join(directory,name);
+  verifyNativeArtifact(binary,join(directory,"platformctl-artifact.json"),platform,arch,source,name);
+  return binary;
 }
 
 function spawnAndWait(
@@ -430,9 +461,10 @@ function handleDoctorCommand(
       guidance: "Configure a local provider and select it with ai-gateway provider use <id>, or pass --cli-provider <id>." });
     checks.push({ id: "credentials", status: "not_checked", code: "provider_required", guidance: "Credential presence can be checked after a valid provider is selected." });
   }
-  checks.push({ id: "release_target", status: platform === "linux" && arch === "x64" ? "pass" : "fail",
-    code: platform === "linux" && arch === "x64" ? "linux_x64_declared" : "unsupported_release_target",
-    guidance: "The current package declares Linux x64 support; other targets are not certified by this doctor." });
+  const supportedTarget=RELEASE_TARGETS.includes(`${platform}-${arch}`);
+  checks.push({ id: "release_target", status: supportedTarget ? "pass" : "fail",
+    code: supportedTarget ? "release_target_declared" : "unsupported_release_target",
+    guidance: "The target is in the five-target source release matrix; installed artifact identity and signature are checked separately." });
   try {
     const binary = resolveNativeBinary(env, dependencies);
     const development = Boolean(env.AI_GATEWAY_AGENT_RUNTIME_BIN?.trim()) || binary === "codex" || binary === "codex.exe";

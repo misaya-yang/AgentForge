@@ -14,7 +14,7 @@ const compiled = ts.transpileModule(source, {
 // Execute the actual inbox and row functions. React/router/query/UI primitives are
 // controlled doubles; this is visible tree evidence, not browser/layout acceptance.
 function render(progress: unknown, status = "processing", language = "en-US", omitted = false) {
-  const locale = JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}.json`, import.meta.url), "utf8"));
+  const locale = { ...JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}.json`, import.meta.url), "utf8")), tasks: JSON.parse(readFileSync(new URL(`../../i18n/locales/tasks-${language}.json`, import.meta.url), "utf8")) };
   const row: Record<string, unknown> = {
     task_id: "task-progress-observation", service_id: "service-a", status,
     created_at: "2026-10-14T00:00:00Z", ...(omitted ? {} : { progress }),

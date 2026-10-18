@@ -1,4 +1,5 @@
-import { isAxiosError } from "axios";
+import type { RequestBody, Defined, RequestQuery } from "@/api/contracts";
+import { isHttpError } from '@/lib/fetchClient';
 import { api } from "@/lib/api";
 
 export type TraceFamily = "assistant" | "langgraph_proxy" | "rag";
@@ -114,30 +115,7 @@ export interface AgentTraceDetailResponse {
   scores: AgentTraceScore[];
 }
 
-export interface ListAgentTracesParams {
-  trace_family?: TraceFamily;
-  status?: TraceStatus;
-  model_id?: string;
-  user_id?: string;
-  session_id?: string;
-  run_id?: string;
-  request_id?: string;
-  transcript_query?: string;
-  turn_index?: number;
-  span_kind?: string;
-  score_name?: string;
-  score_label?: string;
-  min_score?: number;
-  max_score?: number;
-  min_latency_ms?: number;
-  max_latency_ms?: number;
-  dataset_id?: string;
-  metadata_dataset_id?: string;
-  started_after?: string;
-  started_before?: string;
-  limit?: number;
-  offset?: number;
-}
+export type ListAgentTracesParams = RequestQuery<"GET /api/v1/eval/traces">;
 
 export interface KbRagasMetricSummary {
   metric: string;
@@ -202,13 +180,7 @@ export interface EvalDataset {
   updated_at?: string | null;
 }
 
-export interface EvalDatasetCreate {
-  name: string;
-  description?: string;
-  version?: string;
-  schema?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}
+export type EvalDatasetCreate = Defined<RequestBody<"POST /api/v1/eval/datasets">, "name">;
 
 export interface EvalExample {
   example_id: string;
@@ -227,39 +199,9 @@ export interface EvalExample {
   created_at?: string | null;
 }
 
-export interface EvalExampleImportItem {
-  case_id: string;
-  split?: string;
-  input?: Record<string, unknown>;
-  expected_output?: Record<string, unknown>;
-  expected_trajectory?: Record<string, unknown>;
-  assertions?: Array<Record<string, unknown>>;
-  metadata?: Record<string, unknown>;
-  source_trace_id?: string | null;
-  source_span_id?: string | null;
-}
+export type EvalExampleImportItem = RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/examples:import">["examples"][number];
 
-export interface EvalKbFailureSavePayload {
-  case_id: string;
-  kb_dataset_id: string;
-  query: string;
-  expected_answer: string;
-  source: "kb-hit-test" | "kb-qa";
-  observed_segment_ids: string[];
-  source_versions: Array<{
-    kb_dataset_id: string;
-    document_id: string;
-    segment_id: string;
-    source_version: number;
-    source_hash: string;
-  }>;
-  source_trace_id?: string | null;
-  kb_trace_id?: string | null;
-  query_fingerprint?: string | null;
-  observed_answer?: string | null;
-  failure_reason?: string | null;
-  expected_revision: number;
-}
+export type EvalKbFailureSavePayload = Defined<RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/kb-failures:save">, "case_id" | "kb_dataset_id" | "query" | "expected_answer" | "source" | "observed_segment_ids" | "source_versions" | "expected_revision">;
 
 export interface EvalKbFailureSaveResponse {
   example: EvalExample;
@@ -267,18 +209,7 @@ export interface EvalKbFailureSaveResponse {
   revision: number;
 }
 
-export interface EvalExampleUpdate {
-  split?: string;
-  input?: Record<string, unknown>;
-  expected_output?: Record<string, unknown>;
-  expected_trajectory?: Record<string, unknown>;
-  assertions?: Array<Record<string, unknown>>;
-  tags?: string[];
-  difficulty?: string;
-  owner?: string;
-  review_status?: EvalReviewStatus;
-  metadata?: Record<string, unknown>;
-}
+export type EvalExampleUpdate = RequestBody<"PATCH /api/v1/eval/datasets/{dataset_id}/examples/{example_id}">;
 
 export type EvalExamplesImportMode = "skip_duplicates" | "append";
 
@@ -534,55 +465,36 @@ export interface EvalGateDryRunResponse {
   report: Record<string, unknown>;
 }
 
-export interface AgentTraceScoreCreate {
-  span_id?: string | null;
-  score_name: string;
-  score_type?: ScoreType;
-  numeric_value?: number | null;
-  boolean_value?: boolean | null;
-  categorical_value?: string | null;
-  text_value?: string | null;
-  label?: string | null;
-  explanation?: string | null;
-  scorer_type?: ScorerType;
-  evaluator_version?: string | null;
-  target_type?: ScoreTargetType;
-  target_id?: string | null;
-  evaluator_id?: string | null;
-  evaluator_name?: string | null;
-  score_source?: string;
-  confidence?: number | null;
-  metadata?: Record<string, unknown>;
-}
+export type AgentTraceScoreCreate = Defined<RequestBody<"POST /api/v1/eval/traces/{id}/scores">, "score_name">;
 
-function compactParams(params: Record<string, unknown>) {
+function compactParams<T extends object>(params: T): T {
   return Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "")
-  );
+  ) as T;
 }
 
 export async function getEvalSummary(days = 7): Promise<EvalTraceMonitoringSummary> {
   const response = await api.get<EvalTraceMonitoringSummary>("/api/v1/eval/summary", {
-    params: { days },
+    params: ({ days } satisfies RequestQuery<"GET /api/v1/eval/summary">),
   });
   return response.data;
 }
 
 export async function getEvalDashboard(days = 7): Promise<EvalDashboardResponse> {
   const response = await api.get<EvalDashboardResponse>("/api/v1/eval/dashboard", {
-    params: { days },
+    params: ({ days } satisfies RequestQuery<"GET /api/v1/eval/dashboard">),
   });
   return response.data;
 }
 
 export async function listAgentTraces(params: ListAgentTracesParams = {}): Promise<AgentTraceListResponse> {
   const response = await api.get<AgentTraceListResponse>("/api/v1/eval/traces", {
-    params: compactParams({
+    params: (compactParams({
       trace_family: "assistant",
       limit: 50,
       offset: 0,
       ...params,
-    }),
+    }) satisfies RequestQuery<"GET /api/v1/eval/traces">),
   });
   return response.data;
 }
@@ -600,7 +512,7 @@ export async function getAgentTraceDetail(
 ): Promise<AgentTraceDetailResponse> {
   const response = await api.get<AgentTraceDetailResponse>(
     `/api/v1/eval/traces/${encodeURIComponent(traceId)}`,
-    { params: { trace_family: traceFamily } }
+    { params: ({ trace_family: traceFamily } satisfies RequestQuery<"GET /api/v1/eval/traces/{id}">) }
   );
   return response.data;
 }
@@ -612,8 +524,8 @@ export async function createAgentTraceScore(
 ): Promise<AgentTraceScore> {
   const response = await api.post<AgentTraceScore>(
     `/api/v1/eval/traces/${encodeURIComponent(traceId)}/scores`,
-    payload,
-    { params: { trace_family: traceFamily } }
+    (payload satisfies RequestBody<"POST /api/v1/eval/traces/{id}/scores">),
+    { params: ({ trace_family: traceFamily } satisfies RequestQuery<"POST /api/v1/eval/traces/{id}/scores">) }
   );
   return response.data;
 }
@@ -625,14 +537,14 @@ export async function exportAgentTrace(
 ): Promise<EvalTraceExportResponse> {
   const response = await api.get<EvalTraceExportResponse>(
     `/api/v1/eval/traces/${encodeURIComponent(traceId)}/export`,
-    { params: { trace_family: traceFamily, format } }
+    { params: ({ trace_family: traceFamily, format } satisfies RequestQuery<"GET /api/v1/eval/traces/{id}/export">) }
   );
   return response.data;
 }
 
-export async function listEvalDatasets(params: { limit?: number; offset?: number } = {}): Promise<EvalDatasetListResponse> {
+export async function listEvalDatasets(params: RequestQuery<"GET /api/v1/eval/datasets"> = {}): Promise<EvalDatasetListResponse> {
   const response = await api.get<EvalDatasetListResponse>("/api/v1/eval/datasets", {
-    params: compactParams({ limit: 50, offset: 0, ...params }),
+    params: (compactParams({ limit: 50, offset: 0, ...params }) satisfies RequestQuery<"GET /api/v1/eval/datasets">),
   });
   return response.data;
 }
@@ -657,11 +569,11 @@ export async function listAllEvalDatasets(): Promise<EvalDatasetListResponse> {
 
 export async function listEvalExamples(
   datasetId: string,
-  params: { split?: string; limit?: number; offset?: number } = {}
+  params: RequestQuery<"GET /api/v1/eval/datasets/{dataset_id}/examples"> = {}
 ): Promise<EvalExampleListResponse> {
   const response = await api.get<EvalExampleListResponse>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/examples`,
-    { params: compactParams({ limit: 200, offset: 0, ...params }) }
+    { params: (compactParams({ limit: 200, offset: 0, ...params }) satisfies RequestQuery<"GET /api/v1/eval/datasets/{dataset_id}/examples">) }
   );
   return response.data;
 }
@@ -684,24 +596,17 @@ export async function listAllEvalExamples(datasetId: string): Promise<EvalExampl
 }
 
 export async function createEvalDataset(payload: EvalDatasetCreate): Promise<EvalDataset> {
-  const response = await api.post<EvalDataset>("/api/v1/eval/datasets", payload);
+  const response = await api.post<EvalDataset>("/api/v1/eval/datasets", (payload satisfies RequestBody<"POST /api/v1/eval/datasets">));
   return response.data;
 }
 
 export async function createEvalExampleFromTrace(
   datasetId: string,
-  payload: {
-    source_trace_id: string;
-    source_span_id?: string | null;
-    trace_family?: TraceFamily;
-    split?: string;
-    expected_output?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }
+  payload: RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/examples:from-trace">
 ): Promise<EvalExample> {
   const response = await api.post<EvalExample>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/examples:from-trace`,
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/examples:from-trace">)
   );
   return response.data;
 }
@@ -716,7 +621,7 @@ export async function getLatestKbFailureExample(
     );
     return response.data;
   } catch (error: unknown) {
-    if (isAxiosError(error) && error.response?.status === 404) return null;
+    if (isHttpError(error) && error.response?.status === 404) return null;
     throw error;
   }
 }
@@ -727,7 +632,7 @@ export async function saveKbFailureRevision(
 ): Promise<EvalKbFailureSaveResponse> {
   const response = await api.post<EvalKbFailureSaveResponse>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/kb-failures:save`,
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/kb-failures:save">)
   );
   return response.data;
 }
@@ -739,7 +644,7 @@ export async function updateEvalExample(
 ): Promise<EvalExample> {
   const response = await api.patch<EvalExample>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/examples/${encodeURIComponent(exampleId)}`,
-    payload
+    (payload satisfies RequestBody<"PATCH /api/v1/eval/datasets/{dataset_id}/examples/{example_id}">)
   );
   return response.data;
 }
@@ -757,46 +662,38 @@ export async function importEvalExamples(
 ): Promise<EvalExamplesImportResponse> {
   const response = await api.post<EvalExamplesImportResponse>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/examples:import`,
-    { examples, mode: options.mode ?? "skip_duplicates" }
+    ({ examples, mode: options.mode ?? "skip_duplicates" } satisfies RequestBody<"POST /api/v1/eval/datasets/{dataset_id}/examples:import">)
   );
   return response.data;
 }
 
 export async function exportEvalExamples(
   datasetId: string,
-  params: { split?: string } = {}
+  params: RequestQuery<"GET /api/v1/eval/datasets/{dataset_id}/examples:export"> = {}
 ): Promise<EvalExamplesExportResponse> {
   const response = await api.get<EvalExamplesExportResponse>(
     `/api/v1/eval/datasets/${encodeURIComponent(datasetId)}/examples:export`,
-    { params: compactParams(params) }
+    { params: (compactParams(params) satisfies RequestQuery<"GET /api/v1/eval/datasets/{dataset_id}/examples:export">) }
   );
   return response.data;
 }
 
-export async function listEvalEvaluators(params: { limit?: number; offset?: number } = {}): Promise<EvalEvaluatorListResponse> {
+export async function listEvalEvaluators(params: RequestQuery<"GET /api/v1/eval/evaluators"> = {}): Promise<EvalEvaluatorListResponse> {
   const response = await api.get<EvalEvaluatorListResponse>("/api/v1/eval/evaluators", {
-    params: compactParams({ limit: 50, offset: 0, ...params }),
+    params: (compactParams({ limit: 50, offset: 0, ...params }) satisfies RequestQuery<"GET /api/v1/eval/evaluators">),
   });
   return response.data;
 }
 
 
-export async function createEvalEvaluator(payload: {
-  name: string;
-  evaluator_type?: EvalEvaluator["evaluator_type"];
-  rubric?: string;
-  version?: string;
-  sampling_config?: Record<string, unknown>;
-  filter_config?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}): Promise<EvalEvaluator> {
-  const response = await api.post<EvalEvaluator>("/api/v1/eval/evaluators", payload);
+export async function createEvalEvaluator(payload: RequestBody<"POST /api/v1/eval/evaluators">): Promise<EvalEvaluator> {
+  const response = await api.post<EvalEvaluator>("/api/v1/eval/evaluators", (payload satisfies RequestBody<"POST /api/v1/eval/evaluators">));
   return response.data;
 }
 
-export async function listEvalExperiments(params: { limit?: number; offset?: number } = {}): Promise<EvalExperimentListResponse> {
+export async function listEvalExperiments(params: RequestQuery<"GET /api/v1/eval/experiments"> = {}): Promise<EvalExperimentListResponse> {
   const response = await api.get<EvalExperimentListResponse>("/api/v1/eval/experiments", {
-    params: compactParams({ limit: 50, offset: 0, ...params }),
+    params: (compactParams({ limit: 50, offset: 0, ...params }) satisfies RequestQuery<"GET /api/v1/eval/experiments">),
   });
   return response.data;
 }
@@ -816,7 +713,7 @@ export async function cancelEvalExperimentRun(runId: string): Promise<{
   status: EvalExperimentRun["status"];
   runtime_interrupt_pending: number;
 }> {
-  const response = await api.post(`/api/v1/eval/experiment-runs/${encodeURIComponent(runId)}:cancel`);
+  const response = await api.post<{ run_id: string; status: EvalExperimentRun["status"]; runtime_interrupt_pending: number }>(`/api/v1/eval/experiment-runs/${encodeURIComponent(runId)}:cancel`);
   return response.data;
 }
 
@@ -826,9 +723,10 @@ export async function retryFailedEvalExperimentCases(
   acknowledgeReplay: boolean,
   idempotencyKey: string,
 ): Promise<EvalExperimentRunBatchResponse> {
+  if (!acknowledgeReplay) throw new Error("Explicit replay acknowledgement is required");
   const response = await api.post<EvalExperimentRunBatchResponse>(
     `/api/v1/eval/experiment-runs/${encodeURIComponent(runId)}:retry-failed`,
-    { case_ids: caseIds, acknowledge_replay: acknowledgeReplay },
+    ({ case_ids: caseIds, acknowledge_replay: acknowledgeReplay } satisfies RequestBody<"POST /api/v1/eval/experiment-runs/{run_id}:retry-failed">),
     { headers: { "Idempotency-Key": idempotencyKey } },
   );
   return response.data;
@@ -836,12 +734,12 @@ export async function retryFailedEvalExperimentCases(
 
 export async function getEvalExperimentRunResults(
   runId: string,
-  params: { limit?: number; offset?: number } = {}
+  params: RequestQuery<"GET /api/v1/eval/experiment-runs/{run_id}/results"> = {}
 ): Promise<EvalExperimentRunResultsResponse> {
   const pageLimit = params.limit ?? 200;
   const first = await api.get<EvalExperimentRunResultsResponse>(
     `/api/v1/eval/experiment-runs/${encodeURIComponent(runId)}/results`,
-    { params: compactParams({ limit: pageLimit, offset: 0, ...params }) }
+    { params: (compactParams({ limit: pageLimit, offset: 0, ...params }) satisfies RequestQuery<"GET /api/v1/eval/experiment-runs/{run_id}/results">) }
   );
   if (params.limit !== undefined || first.data.cases.length >= first.data.total) {
     return first.data;
@@ -852,7 +750,7 @@ export async function getEvalExperimentRunResults(
   while (offset < first.data.total) {
     const next = await api.get<EvalExperimentRunResultsResponse>(
       `/api/v1/eval/experiment-runs/${encodeURIComponent(runId)}/results`,
-      { params: { limit: pageLimit, offset } }
+      { params: ({ limit: pageLimit, offset } satisfies RequestQuery<"GET /api/v1/eval/experiment-runs/{run_id}/results">) }
     );
     if (next.data.cases.length === 0) break;
     cases.push(...next.data.cases);
@@ -861,35 +759,18 @@ export async function getEvalExperimentRunResults(
   return { ...first.data, cases, limit: cases.length };
 }
 
-export async function createEvalExperiment(payload: {
-  name: string;
-  description?: string;
-  dataset_id?: string | null;
-  target_config?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}): Promise<EvalExperiment> {
-  const response = await api.post<EvalExperiment>("/api/v1/eval/experiments", payload);
+export async function createEvalExperiment(payload: RequestBody<"POST /api/v1/eval/experiments">): Promise<EvalExperiment> {
+  const response = await api.post<EvalExperiment>("/api/v1/eval/experiments", (payload satisfies RequestBody<"POST /api/v1/eval/experiments">));
   return response.data;
 }
 
 export async function runEvalExperiment(
   experimentId: string,
-  payload: {
-    dataset_id?: string | null;
-    evaluator_ids: string[];
-    run_mode?: EvalExperimentRunMode;
-    repetitions?: number;
-    baseline_run_id?: string | null;
-    candidate_config?: EvalCandidateConfig;
-    target_snapshot?: Record<string, unknown>;
-    candidate_label?: string;
-    baseline_label?: string | null;
-    metadata?: Record<string, unknown>;
-  }
+  payload: RequestBody<"POST /api/v1/eval/experiments/{experiment_id}:run">
 ): Promise<EvalExperimentRunBatchResponse> {
   const response = await api.post<EvalExperimentRunBatchResponse>(
     `/api/v1/eval/experiments/${encodeURIComponent(experimentId)}:run`,
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/experiments/{experiment_id}:run">)
   );
   return response.data;
 }
@@ -900,7 +781,7 @@ export async function promoteEvalExperimentBaseline(
 ): Promise<EvalBaselinePromotionResponse> {
   const response = await api.post<EvalBaselinePromotionResponse>(
     `/api/v1/eval/experiments/${encodeURIComponent(experimentId)}:promote-baseline`,
-    { run_id: runId },
+    ({ run_id: runId } satisfies RequestBody<"POST /api/v1/eval/experiments/{experiment_id}:promote-baseline">),
   );
   return response.data;
 }
@@ -911,74 +792,49 @@ export async function compareEvalExperimentRuns(
 ): Promise<EvalExperimentRunComparisonResponse> {
   const response = await api.get<EvalExperimentRunComparisonResponse>(
     "/api/v1/eval/experiment-runs:compare",
-    { params: { baseline_run_id: baselineRunId, candidate_run_id: candidateRunId } }
+    { params: ({ baseline_run_id: baselineRunId, candidate_run_id: candidateRunId } satisfies RequestQuery<"GET /api/v1/eval/experiment-runs:compare">) }
   );
   return response.data;
 }
 
-export async function dryRunEvalGate(payload: {
-  baseline_run_id?: string | null;
-  candidate_run_id?: string | null;
-  result_payload?: Record<string, unknown>;
-  thresholds?: Record<string, number>;
-}): Promise<EvalGateDryRunResponse> {
-  const response = await api.post<EvalGateDryRunResponse>("/api/v1/eval/gates:dry-run", payload);
+export async function dryRunEvalGate(payload: RequestBody<"POST /api/v1/eval/gates:dry-run">): Promise<EvalGateDryRunResponse> {
+  const response = await api.post<EvalGateDryRunResponse>("/api/v1/eval/gates:dry-run", (payload satisfies RequestBody<"POST /api/v1/eval/gates:dry-run">));
   return response.data;
 }
 
 export async function runEvalEvaluatorAsync(
   evaluatorId: string,
-  payload: {
-    experiment_id?: string | null;
-    dataset_id?: string | null;
-    trace_id?: string | null;
-    target_snapshot?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }
+  payload: RequestBody<"POST /api/v1/eval/evaluators/{evaluator_id}:run-async">
 ): Promise<EvalAsyncJobResponse> {
   const response = await api.post<EvalAsyncJobResponse>(
     `/api/v1/eval/evaluators/${encodeURIComponent(evaluatorId)}:run-async`,
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/evaluators/{evaluator_id}:run-async">)
   );
   return response.data;
 }
 
-export async function getKbRagasKnowledgeSummary(params: {
-  days?: number;
-  dataset_id?: string;
-} = {}): Promise<KbRagasKnowledgeSummary> {
+export async function getKbRagasKnowledgeSummary(params: RequestQuery<"GET /api/v1/eval/knowledge/summary"> = {}): Promise<KbRagasKnowledgeSummary> {
   const response = await api.get<KbRagasKnowledgeSummary>("/api/v1/eval/knowledge/summary", {
-    params: compactParams(params),
+    params: (compactParams(params) satisfies RequestQuery<"GET /api/v1/eval/knowledge/summary">),
   });
   return response.data;
 }
 
 export async function batchScoreKbRagasDataset(
   datasetId: string,
-  payload: {
-    evaluator_id: string;
-    limit?: number;
-    only_unscored?: boolean;
-  }
+  payload: RequestBody<"POST /api/v1/eval/knowledge/{dataset_id}/batch-score">
 ): Promise<KbRagasBatchScoreResponse> {
   const response = await api.post<KbRagasBatchScoreResponse>(
     `/api/v1/eval/knowledge/${encodeURIComponent(datasetId)}/batch-score`,
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/knowledge/{dataset_id}/batch-score">)
   );
   return response.data;
 }
 
-export async function scoreKbRagasRetrieval(payload: {
-  query: string;
-  contexts: string[];
-  metrics?: string[];
-  ground_truth?: string | null;
-  dataset_id?: string | null;
-  llm_config?: Record<string, unknown>;
-}): Promise<KbRagasScoreRetrievalResponse> {
+export async function scoreKbRagasRetrieval(payload: RequestBody<"POST /api/v1/eval/knowledge/score-retrieval">): Promise<KbRagasScoreRetrievalResponse> {
   const response = await api.post<KbRagasScoreRetrievalResponse>(
     "/api/v1/eval/knowledge/score-retrieval",
-    payload
+    (payload satisfies RequestBody<"POST /api/v1/eval/knowledge/score-retrieval">)
   );
   return response.data;
 }

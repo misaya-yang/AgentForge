@@ -85,13 +85,64 @@ pub fn owners(root: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-pub fn execute(
+fn source_writer_identity(
+    root: &Path,
+    mounts: &[crate::binary_run::SourceMount],
+) -> Result<String, String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let owner = std::fs::metadata(root).map_err(|e| e.to_string())?;
+        for mount in mounts {
+            if std::fs::symlink_metadata(&mount.host)
+                .map_err(|e| e.to_string())?
+                .uid()
+                != owner.uid()
+            {
+                return Err(
+                    "generated source directory must belong to the repository owner".into(),
+                );
+            }
+        }
+        // The compiler UID owns its cache, not the host checkout. A scoped source
+        // writer runs as the checkout owner without chmod/chown or extra caps.
+        Ok(format!("{}:{}", owner.uid(), owner.gid()))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, mounts);
+        Err("source write mounts require Unix ownership validation".into())
+    }
+}
+
+fn source_write_preflight(mounts: &[crate::binary_run::SourceMount]) -> String {
+    let mut script = String::new();
+    // Classifier-owned paths are fixed public container destinations.
+    for mount in mounts {
+        script.push_str(&format!("test -d '{0}' && test -w '{0}' || {{ printf '%s\\n' 'generated source directory is not writable: {0}' >&2; exit 2; }}; ", mount.container));
+    }
+    script
+}
+
+fn command(
     root: &Path,
     cargo: &[String],
     fetch: bool,
     binary: Option<&(String, bool, Vec<String>)>,
     public_registry: Option<&Path>,
-) -> Result<ExitStatus, String> {
+) -> Result<Command, String> {
+    let mounts = crate::binary_run::source_mounts(root, binary)?;
+    if !mounts.is_empty() {
+        if fetch || public_registry.is_some() {
+            return Err("source synchronization cannot select fetch or registry overlays".into());
+        }
+        crate::binary_run::verify_source_command(root, binary.unwrap(), cargo)?;
+    }
+    // These two paths already exist as RO bind targets in the base Compose file.
+    // A short `run --volume ...:rw` merge can retain that target's read_only bit.
+    // Use an explicit false scalar in a narrowly selected public override instead.
+    let plugin_override =
+        !mounts.is_empty() && binary.is_some_and(|(_, _, args)| args[1] == "sync-plugin-source");
     let mut command = Command::new("docker");
     command.env_clear();
     for key in [
@@ -122,6 +173,11 @@ pub fn execute(
         .arg(root)
         .args(["--env-file", "/dev/null", "--file"])
         .arg(root.join("deploy/platform-native/dev/compose.yml"));
+    if plugin_override {
+        command
+            .arg("--file")
+            .arg(root.join("deploy/platform-native/dev/compose.source-plugin-sync.yml"));
+    }
     if let Some(path) = public_registry {
         command
             .env("NATIVE_PUBLIC_REGISTRY_SOURCE", path)
@@ -146,11 +202,26 @@ pub fn execute(
         "--entrypoint",
         "/bin/sh",
         "-T",
-        "native-build",
-        "-ec",
     ]);
+    if !mounts.is_empty() {
+        command
+            .arg("--user")
+            .arg(source_writer_identity(root, &mounts)?);
+    }
+    if !plugin_override {
+        for mount in &mounts {
+            command
+                .arg("--volume")
+                .arg(format!("{}:{}:rw", mount.host.display(), mount.container));
+        }
+    }
+    command.args(["native-build", "-ec"]);
     if binary.is_some() {
-        command.arg("test \"$(rustc --version | cut -d' ' -f2)\" = 1.99.0; test -x \"$1\" || { echo 'native binary not built; use native-container build --bin first' >&2; exit 2; }; exec \"$@\"").arg("native-binary").args(cargo);
+        let mut script = "test \"$(rustc --version | cut -d' ' -f2)\" = 1.99.0; ".to_owned();
+        // Check effective mounts before writing either package.
+        script.push_str(&source_write_preflight(&mounts));
+        script.push_str("test -x \"$1\" || { echo 'native binary not built; use native-container build --bin first' >&2; exit 2; }; exec \"$@\"");
+        command.arg(script).arg("native-binary").args(cargo);
     } else if fetch {
         command.arg("test \"$(rustc --version | cut -d' ' -f2)\" = 1.99.0; target=$(rustc -vV | sed -n 's/^host: //p'); test -n \"$target\"; printf 'public registry fetch compiler target=%s\\n' \"$target\"; exec cargo \"$@\" --target \"$target\"").arg("native-cargo").args(cargo);
     } else {
@@ -159,7 +230,21 @@ pub fn execute(
             .arg("native-cargo")
             .args(cargo);
     }
-    command
+    Ok(command)
+}
+
+pub fn execute(
+    root: &Path,
+    cargo: &[String],
+    fetch: bool,
+    binary: Option<&(String, bool, Vec<String>)>,
+    public_registry: Option<&Path>,
+) -> Result<ExitStatus, String> {
+    command(root, cargo, fetch, binary, public_registry)?
         .status()
         .map_err(|e| format!("Docker execution failed: {e}"))
 }
+
+#[cfg(test)]
+#[path = "native-container-docker-tests.rs"]
+mod tests;

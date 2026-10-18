@@ -48,6 +48,7 @@ pub struct ExchangeResponse {
 }
 pub struct HttpsTransport {
     http: reqwest::Client,
+    stream_http: reqwest::Client,
     endpoint: Url,
     device_signer: Option<std::sync::Arc<dyn PairingSigner>>,
 }
@@ -73,21 +74,32 @@ impl HttpsTransport {
         {
             return Err(Error::Denied("HTTPS endpoint required"));
         }
-        let builder = reqwest::Client::builder()
-            .retry(reqwest::retry::never())
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(timeout);
-        let builder = if let Some(ca_pem) = ca_pem {
-            let certificate = reqwest::Certificate::from_pem(ca_pem)
-                .map_err(|_| Error::Denied("TLS CA certificate invalid"))?;
-            builder.tls_certs_only([certificate])
-        } else {
-            builder
+        let make_builder = || -> Result<reqwest::ClientBuilder> {
+            let builder = reqwest::Client::builder()
+                .retry(reqwest::retry::never())
+                .no_proxy()
+                .redirect(reqwest::redirect::Policy::none());
+            Ok(if let Some(ca_pem) = ca_pem {
+                let certificate = reqwest::Certificate::from_pem(ca_pem)
+                    .map_err(|_| Error::Denied("TLS CA certificate invalid"))?;
+                builder.tls_certs_only([certificate])
+            } else {
+                builder
+            })
         };
-        let http = builder.build().map_err(|_| Error::Transport)?;
+        let http = make_builder()?
+            .timeout(timeout)
+            .build()
+            .map_err(|_| Error::Transport)?;
+        // No total response deadline: the stream lives until disconnect or local
+        // shutdown. Both connection setup and a complete frame have short limits.
+        let stream_http = make_builder()?
+            .connect_timeout(crate::control_stream::FRAME_TIMEOUT)
+            .build()
+            .map_err(|_| Error::Transport)?;
         Ok(Self {
             http,
+            stream_http,
             endpoint,
             device_signer: None,
         })
@@ -98,6 +110,14 @@ impl HttpsTransport {
     }
     pub async fn post(&self, payload: &Value, credential: Option<&Credential>) -> Result<Value> {
         let body = serde_json::to_vec(payload).map_err(|_| Error::Protocol)?;
+        let proof = self.request_proof(&body, credential).await?;
+        self.post_raw(&body, credential, proof.as_deref()).await
+    }
+    async fn request_proof(
+        &self,
+        body: &[u8],
+        credential: Option<&Credential>,
+    ) -> Result<Option<String>> {
         let proof = if let Some(c) = credential.filter(|c| c.request_proof_required) {
             let signer = self
                 .device_signer
@@ -123,7 +143,7 @@ impl HttpsTransport {
                 &c.device_id,
                 "POST",
                 self.endpoint.as_str(),
-                &body,
+                body,
                 c.secret.as_bytes(),
                 nonce_value,
                 issued,
@@ -137,7 +157,7 @@ impl HttpsTransport {
         } else {
             None
         };
-        self.post_raw(&body, credential, proof.as_deref()).await
+        Ok(proof)
     }
     async fn post_raw(
         &self,
@@ -185,6 +205,68 @@ impl HttpsTransport {
             return Err(Error::Protocol);
         }
         Ok(v)
+    }
+    /// Open the same authenticated outbound endpoint. Old gateways reject the
+    /// new kind and the runner continues through the unchanged poll interface.
+    pub async fn open_control_stream(
+        &self,
+        credential: &Credential,
+        after_cursor: Option<&str>,
+    ) -> Result<Box<dyn crate::control_stream::ControlStream>> {
+        use crate::control_stream::{FRAME_TIMEOUT, HttpControlStream};
+        if crate::now() >= credential.expires_at {
+            return Err(Error::Denied("device credential expired"));
+        }
+        let sequence = crate::control_stream::resume_sequence(after_cursor)?;
+        let stream_id = uuid::Uuid::new_v4().to_string();
+        let body = serde_json::to_vec(&serde_json::json!({
+            "protocol_version": PROTOCOL_VERSION,
+            "kind": "control_stream",
+            "device_id": credential.device_id,
+            "stream_id": stream_id,
+            "after_cursor": after_cursor,
+            "sent_at": crate::now(),
+        }))
+        .map_err(|_| Error::Protocol)?;
+        let proof = self.request_proof(&body, Some(credential)).await?;
+        let mut request = self
+            .stream_http
+            .post(self.endpoint.clone())
+            .header("Accept", "application/x-ndjson")
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "AI-Platform-Local-Node/0.1")
+            .header("Authorization", format!("Device {}", credential.secret))
+            .body(body);
+        if let Some(proof) = proof {
+            request = request.header("X-Local-Node-Proof", proof);
+        }
+        let response = tokio::time::timeout(FRAME_TIMEOUT, request.send())
+            .await
+            .map_err(|_| Error::Transport)?
+            .map_err(|_| Error::Transport)?;
+        if matches!(
+            response.status().as_u16(),
+            404 | 405 | 406 | 415 | 422 | 501
+        ) {
+            return Err(Error::Denied("control stream unsupported"));
+        }
+        if response.status() != reqwest::StatusCode::OK
+            || response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.split(';').next())
+                .map(str::trim)
+                != Some("application/x-ndjson")
+        {
+            return Err(Error::Protocol);
+        }
+        Ok(Box::new(HttpControlStream::new(
+            response,
+            stream_id,
+            credential.device_id.clone(),
+            sequence,
+        )))
     }
     pub async fn exchange(
         &self,
@@ -292,6 +374,9 @@ mod tests {
 }
 
 pub trait PairingSigner: Send + Sync {
+    fn key_class(&self) -> &str {
+        "os-vault-software-ed25519"
+    }
     fn algorithm(&self) -> &str;
     fn public_key(&self) -> &str;
     fn sign(&self, payload: &[u8]) -> Result<String>;
@@ -390,31 +475,7 @@ impl HttpsTransport {
         if request.capability_claims.windows(2).any(|w| w[0] == w[1]) {
             return Err(Error::Protocol);
         }
-        let mut value = serde_json::to_value(&request).map_err(|_| Error::Protocol)?;
-        let o = value.as_object_mut().unwrap();
-        o.insert(
-            "protocol_version".into(),
-            serde_json::json!(PROTOCOL_VERSION),
-        );
-        o.insert("kind".into(), serde_json::json!("pairing_redeem"));
-        o.insert(
-            "proof_algorithm".into(),
-            serde_json::json!(signer.algorithm()),
-        );
-        o.insert(
-            "proof_public_key".into(),
-            serde_json::json!(signer.public_key()),
-        );
-        value["request_proof_version"] = serde_json::json!(1);
-        let mut preproof = value.clone();
-        preproof.as_object_mut().unwrap().remove("user_code");
-        preproof["user_code_digest"] =
-            serde_json::json!(crate::sha256(request.user_code.as_bytes()));
-        let redemption = format!("sha256:{}", crate::digest(&preproof));
-        let proof = signer.sign(
-            crate::canonical(&serde_json::json!({"redemption_digest":redemption})).as_bytes(),
-        )?;
-        value["device_proof"] = serde_json::json!(proof);
+        let value = signed_pairing_request(&request, signer)?;
         let response: PairingResponse =
             serde_json::from_value(self.post(&value, None).await?).map_err(|_| Error::Protocol)?;
         let mut credential = verify_pairing_response(response, &request, platform_verifier)?;
@@ -430,6 +491,36 @@ impl HttpsTransport {
         Ok(credential)
     }
 }
+fn signed_pairing_request(request: &PairingRequest, signer: &dyn PairingSigner) -> Result<Value> {
+    let mut value = serde_json::to_value(request).map_err(|_| Error::Protocol)?;
+    let o = value.as_object_mut().unwrap();
+    o.insert(
+        "protocol_version".into(),
+        serde_json::json!(PROTOCOL_VERSION),
+    );
+    o.insert("kind".into(), serde_json::json!("pairing_redeem"));
+    o.insert(
+        "proof_algorithm".into(),
+        serde_json::json!(signer.algorithm()),
+    );
+    o.insert(
+        "proof_public_key".into(),
+        serde_json::json!(signer.public_key()),
+    );
+    value["request_proof_version"] = serde_json::json!(1);
+    if signer.algorithm() == "ES256" {
+        value["proof_key_class"] = serde_json::json!(signer.key_class());
+    }
+    let mut preproof = value.clone();
+    preproof.as_object_mut().unwrap().remove("user_code");
+    preproof["user_code_digest"] = serde_json::json!(crate::sha256(request.user_code.as_bytes()));
+    let redemption = format!("sha256:{}", crate::digest(&preproof));
+    let proof = signer
+        .sign(crate::canonical(&serde_json::json!({"redemption_digest":redemption})).as_bytes())?;
+    value["device_proof"] = serde_json::json!(proof);
+    Ok(value)
+}
+
 pub fn load_credential(
     store: &dyn crate::credentials::SecureCredentialStore,
     reference: &str,
@@ -457,6 +548,57 @@ pub fn load_credential(
 #[cfg(test)]
 mod possession_migration_tests {
     use super::*;
+    #[test]
+    fn production_pairing_builder_matches_gateway_cross_end_signed_wire() {
+        struct Fixture<'a> {
+            case: &'a Value,
+        }
+        impl PairingSigner for Fixture<'_> {
+            fn algorithm(&self) -> &str {
+                self.case["pairing"]["proof_algorithm"].as_str().unwrap()
+            }
+            fn key_class(&self) -> &str {
+                self.case["proof"]["key_class"].as_str().unwrap()
+            }
+            fn public_key(&self) -> &str {
+                self.case["pairing"]["proof_public_key"].as_str().unwrap()
+            }
+            fn sign(&self, payload: &[u8]) -> Result<String> {
+                if payload != self.case["pairing_payload"].as_str().unwrap().as_bytes() {
+                    return Err(Error::Integrity);
+                }
+                Ok(self.case["pairing"]["device_proof"]
+                    .as_str()
+                    .unwrap()
+                    .into())
+            }
+        }
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../../sdk/fixtures/local-node-key-assurance.json"
+        ))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let p = &case["pairing"];
+            let request = PairingRequest {
+                challenge_id: p["challenge_id"].as_str().unwrap().into(),
+                user_code: p["user_code"].as_str().unwrap().into(),
+                device_id: p["device_id"].as_str().unwrap().into(),
+                display_name: p["display_name"].as_str().unwrap().into(),
+                platform: p["platform"].as_str().unwrap().into(),
+                node_version: p["node_version"].as_str().unwrap().into(),
+                capability_claims: vec!["file.read".into()],
+                permission_snapshot_digest: p["permission_snapshot_digest"]
+                    .as_str()
+                    .unwrap()
+                    .into(),
+            };
+            assert_eq!(
+                signed_pairing_request(&request, &Fixture { case }).unwrap(),
+                *p
+            );
+        }
+    }
+
     #[test]
     fn stored_v2_credentials_preserve_explicit_upgrade_state() {
         let legacy = serde_json::json!({"protocol_version":PROTOCOL_VERSION,"device_id":"dev_test","credential":"test-only","expires_at":9999999999.0});

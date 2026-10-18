@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "channel": "stable",
+  "policy_url": "",
+  "download_origin": "",
+  "policy_public_key": "",
+  "updater_public_key": ""
+}

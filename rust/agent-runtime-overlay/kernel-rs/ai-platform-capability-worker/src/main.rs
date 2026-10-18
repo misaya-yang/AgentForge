@@ -3,6 +3,8 @@ mod lease_verification;
 mod sandbox_bootstrap;
 mod startup_admission;
 
+#[path = "../../ai-platform-capability-contract/src/database_connection.rs"]
+mod database_connection;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -28,7 +30,6 @@ use ai_platform_capability_worker::{
 };
 use anyhow::Context;
 use clap::Parser;
-use sqlx::postgres::PgConnectOptions;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -42,45 +43,21 @@ struct Args {
     )]
     bind: SocketAddr,
 
-    #[arg(long, env = "AI_PLATFORM_INTERNAL_TOKEN", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "AI_PLATFORM_INTERNAL_TOKEN",
+        default_value = "",
+        hide_env_values = true
+    )]
     internal_token: String,
 
     #[arg(
         long,
-        env = "AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET",
+        env = "AI_PLATFORM_CAPABILITY_PROOF_SECRET",
         default_value = "",
         hide_env_values = true
     )]
-    lease_signing_secret: String,
-
-    #[arg(
-        long,
-        env = "AI_PLATFORM_CAPABILITY_PROOF_SECRET",
-        hide_env_values = true
-    )]
     proof_secret: String,
-
-    #[arg(long, env = "POSTGRES_HOST", default_value = "127.0.0.1")]
-    postgres_host: String,
-
-    #[arg(long, env = "POSTGRES_PORT", default_value_t = 5432)]
-    postgres_port: u16,
-
-    #[arg(long, env = "POSTGRES_USER")]
-    postgres_user: String,
-
-    #[arg(long, env = "POSTGRES_PASSWORD", hide_env_values = true)]
-    postgres_password: String,
-
-    #[arg(long, env = "POSTGRES_DB")]
-    postgres_database: String,
-
-    #[arg(
-        long,
-        env = "AI_PLATFORM_CAPABILITY_WORKER_DB_POOL_MAX_SIZE",
-        default_value_t = 4
-    )]
-    postgres_pool_max_size: u32,
 
     #[arg(
         long,
@@ -151,38 +128,34 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .try_init()
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let telemetry = ai_platform_capability_worker::telemetry::init("ai-platform-capability-worker").await.map_err(anyhow::Error::msg)?;
-    let args = Args::parse();
-    if args.internal_token.len() < 32 || args.proof_secret.len() < 32 {
-        anyhow::bail!("internal token and capability proof secret must be at least 32 bytes");
-    }
-    lease_verification::validate_configuration(args.lease_signing_secret.as_bytes())
+    let telemetry = ai_platform_capability_worker::telemetry::init("ai-platform-capability-worker")
+        .await
         .map_err(anyhow::Error::msg)?;
-    let postgres_options = PgConnectOptions::new()
-        .host(&args.postgres_host)
-        .port(args.postgres_port)
-        .username(&args.postgres_user)
-        .password(&args.postgres_password)
-        .database(&args.postgres_database)
-        .options([
-            ("search_path", "pg_catalog,assistant"),
-            ("statement_timeout", "30000"),
-            ("idle_in_transaction_session_timeout", "15000"),
-        ]);
-    startup_admission::require_compatible_schema(&postgres_options).await?;
-    let store = Arc::new(
-        PostgresExecutionStore::connect_with_options(postgres_options, args.postgres_pool_max_size)
-            .await
-            .context("connect capability execution store")?,
-    );
-    let read_http_client = reqwest::Client::builder()
-        .retry(reqwest::retry::never())
-        .no_proxy()
-        .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(std::time::Duration::from_secs(5))
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .context("build capability HTTP client")?;
+    let args = Args::parse();
+    if args.internal_token.len() < 32
+        && !ai_platform_capability_worker::workload_identity::required()
+    {
+        anyhow::bail!("internal token must be at least 32 bytes");
+    }
+    lease_verification::validate_production_configuration().map_err(anyhow::Error::msg)?;
+    ai_platform_capability_worker::broker_proof::validate_configuration(&args.gateway_url)
+        .map_err(anyhow::Error::msg)?;
+    if !args.proof_secret.is_empty() {
+        anyhow::bail!("worker_broker_signing_secret_forbidden");
+    }
+    let database = database_connection::ServiceDatabase::from_environment(
+        "DATA_CAPABILITY_WORKER",
+        database_connection::policy::DatabaseRole::CapabilityWorker,
+    )?;
+    let postgres_options = database.options();
+    startup_admission::require_compatible_schema(postgres_options).await?;
+    let store = Arc::new(PostgresExecutionStore::from_pool(database.connect().await?));
+    let read_http_client = ai_platform_capability_worker::workload_identity::internal_client(
+        &[&args.gateway_url, &args.knowledge_service_url],
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_secs(30),
+    )
+    .map_err(anyhow::Error::msg)?;
     let external_write_executor = if args.writes_enabled {
         let mut brokers = GatewayWriteBrokerRouter::default();
         brokers.register(
@@ -300,7 +273,7 @@ async fn main() -> anyhow::Result<()> {
     let state = WorkerState::try_new_with_writes(
         store,
         args.internal_token,
-        args.lease_signing_secret.into_bytes(),
+        Vec::new(),
         args.fixtures_enabled,
         args.writes_enabled,
     )?
@@ -355,15 +328,17 @@ async fn main() -> anyhow::Result<()> {
             "plugin store, trust and activation must be selected together without fixtures"
         ),
     };
-    let listener = tokio::net::TcpListener::bind(args.bind)
-        .await
-        .context("bind capability worker")?;
     info!(address = %args.bind, "Agent capability worker is ready");
-    let serve_result = axum::serve(listener, router(state))
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("serve capability worker");
-    if let Some(telemetry) = telemetry { telemetry.shutdown().await; }
+    let serve_result = ai_platform_capability_worker::workload_identity::serve(
+        args.bind,
+        router(state),
+        shutdown_signal(),
+    )
+    .await
+    .context("serve capability worker");
+    if let Some(telemetry) = telemetry {
+        telemetry.shutdown().await;
+    }
     serve_result?;
     Ok(())
 }

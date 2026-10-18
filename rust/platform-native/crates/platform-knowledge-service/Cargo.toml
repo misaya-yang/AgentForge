@@ -9,6 +9,7 @@ name = "platform-knowledge-service"
 path = "src/main.rs"
 
 [dependencies]
+ai-platform-auth = { version = "0.1.0", path = "../platform-auth" }
 ai-platform-rpc = { version = "0.1.0", path = "../platform-rpc"  }
 tower = { version = "0.5", features = ["util"] }
 tokio-stream = { version = "0.1", features = ["net"] }

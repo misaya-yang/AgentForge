@@ -36,7 +36,7 @@ impl LegacySyncService {
         )
         .bind(text(&e.binding, "binding_id"))
         .bind(page_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
         .await?;
         let sync_images = e.binding["sync_images"] == true;
         let attachments = if sync_images {
@@ -81,7 +81,7 @@ impl LegacySyncService {
                 )
                 .bind(&id)
                 .bind(text(&e.binding, "dataset_id"))
-                .fetch_optional(&self.pool)
+                .fetch_optional(ai_platform_knowledge_domain::database::executor(&self.pool))
                 .await?;
                 if doc
                     .as_ref()
@@ -126,6 +126,7 @@ impl LegacySyncService {
             .await
             .map_err(|_| Error::conflict("Confluence source document lease is busy"))?;
         let mut tx = lease.connection().begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
         self.guard_on(e, &mut tx).await?;
         let doc: Option<Value> =
             sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1")
@@ -183,7 +184,8 @@ impl LegacySyncService {
             let images=self.image_sources(e,credentials,&page,&id,&generation,&attachments,max_image,lease.connection()).await?;
             let mut metadata=json!({"confluence_page_id":page_id,"confluence_space_key":e.binding["space_key"],"confluence_version":version,"confluence_labels":labels,"confluence_author":page["authorId"],"confluence_updated_at":page["version"]["createdAt"],"markdown_content":markdown,"_confluence_attachment_manifest":manifest});
             for (key,value) in images.as_object().ok_or_else(||Error::unavailable("Confluence image source shape failed"))?{metadata[key]=value.clone();}
-            let mut tx=lease.connection().begin().await?;self.guard_on(e,&mut tx).await?;
+            let mut tx=lease.connection().begin().await?;
+        ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;self.guard_on(e,&mut tx).await?;
             let current:Value=sqlx::query_scalar("SELECT to_jsonb(d) FROM documents d WHERE document_id=$1 AND dataset_id=$2").bind(&id).bind(dataset).fetch_one(&mut *tx).await?;
             let previous=text(&current,"content");
             if !previous.is_empty()&&previous!=content {
@@ -199,6 +201,7 @@ impl LegacySyncService {
         }.await;
         if prepared.is_err() {
             let mut tx = lease.connection().begin().await?;
+            ai_platform_knowledge_domain::database::bind_current(&mut tx).await?;
             let _: Option<String> = sqlx::query_scalar(super::sql::ABORT_CONFLUENCE_DOCUMENT_SYNC)
                 .bind(&id)
                 .bind(dataset)

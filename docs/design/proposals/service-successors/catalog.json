@@ -1,0 +1,615 @@
+{
+  "schema": "ai-platform/source-owned-service-successors/v1",
+  "anchor_epoch": 29,
+  "anchor_files_sha256": {
+    "database/authority/package-authority-lock.json": "b8580e5d3ee6d8fa25966e9857d5372082e664788616db91cac2f678fb10f87b",
+    "database/migrations/2026_08_post_kb_v1/manifest.yml": "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa",
+    "database/migrations/2026_08_post_kb_v1/029_verification.json": "358f374d5bbe79a946d2aba860fbe07c6b2e87df3775d01d9f4d408c50fa07a0",
+    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_029_MEASUREMENT.json": "d8e766e1fa1141ffab3d8f13ab692d4b475a9b3dd0d78688025cc011d34a47b9",
+    "database/migrations/2026_08_post_kb_v1/SUCCESSOR_029_ACTIVATION.json": "847086885f59742d1f68ccd12c91cb93c88b20a8ac512db13ec9f785e8c0a430"
+  },
+  "proposal_inputs_sha256": {
+    "docs/design/proposals/runtime-thread-owners.sql": "19128372d96ec5b88ee4bfc2784b46aef68588dde9949f92ed0cf7629e5bb296",
+    "docs/design/proposals/sdk-model-plane.sql": "366b3c38f73807bd283f16079b12c33bbe1916b8de57864f85fd39bb2ea57d17",
+    "rust/platform-native/crates/platform-knowledge-ops/proposals/knowledge-pipeline-v2.sql": "c1dd84dfb62dfdd8e8178ef8d196279d08bb5470a330c8b8c7ceb40c6f7da25b",
+    "docs/design/proposals/gateway-authorization-decisions.sql": "79a9a9a2b2a2151567dde8b3d92f72c4231ec28af1a6b8deea78c64430c31d41",
+    "docs/design/proposals/gateway-cedar-resource-audit.sql": "a64565576fbe5aa8e321bd5e4cc64b0fc7da97bfd82668bbf9e4d58d040748e3",
+    "docs/design/proposals/gateway-a2a-task-effects.sql": "cfa5abbcb7612ae250e15b1ec234c913b862b2f880450cba1aeb68d68178348f",
+    "database/proposals/local-node-key-assurance.sql": "91f1a3baec4ee214d466444743356e633660d72605ba17ae32bb6c2858133f9c",
+    "docs/design/proposals/gateway-a2a-outbound-authority.sql": "04890716396f98177d486d976e46e4a883c037d00a4cdd260e5c28439c782b9a",
+    "docs/design/proposals/data-platform/append-partitions/expand.sql": "d445a89d178515499b1de9a45ce0723c05ab2592b263fabecf04418c4bb866ef",
+    "docs/design/proposals/data-platform/append-partitions/write-compatibility.sql": "21a546a8423381bda4e76594125dea4874b87bac9e0406ccde80c592c3bce164",
+    "docs/design/proposals/data-platform/append-partitions/migrate.sql": "e005043697417f67288cadc6a7fb17d21fdbd61bf63865bdbea7d4362bb7e5c5",
+    "docs/design/proposals/data-platform/append-partitions/legacy-retention-adapters.sql": "f174b7df243b666e29919a1490b194f8018a88df4252c4e5622aaecfdc12cc86",
+    "docs/design/proposals/data-platform/append-partitions/native-writer-policies.sql": "c827a7047261765dd757bd08683f16c1a66a709bcc9fac63edab24377cff0402",
+    "docs/design/proposals/data-platform/append-partitions/retention.sql": "2d5ca7eac560403c6a6c7a77d3ec0c52ac461d478e733dac72bd33c4484e4b19",
+    "docs/design/proposals/data-platform/append-partitions/acceptance-catalog.sql": "c1f2ea024841a89daf0f9c248ebd299fb9c182b06b42228c5712e59cb7fe9f95",
+    "docs/design/proposals/service-successors/partition-authority-policy.json": "12f213f1246908a270c619e9ccc9f174b873cc5fb6f8faba165506e8deae8d85"
+  },
+  "steps": [
+    {
+      "sequence": 30,
+      "pieces": [
+        {
+          "literal": "-- INACTIVE source-owned030 service core. Native authority owns the transaction.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\n"
+        },
+        {
+          "source": "docs/design/proposals/runtime-thread-owners.sql",
+          "sha256": "19128372d96ec5b88ee4bfc2784b46aef68588dde9949f92ed0cf7629e5bb296",
+          "edits": [
+            {
+              "from": "SET search_path=pg_catalog,assistant AS $$",
+              "to": "SET search_path=pg_catalog,assistant,pg_temp AS $$",
+              "occurrences": 3
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/sdk-model-plane.sql",
+          "sha256": "366b3c38f73807bd283f16079b12c33bbe1916b8de57864f85fd39bb2ea57d17",
+          "edits": [
+            {
+              "from": "\nBEGIN;\nCREATE TABLE",
+              "to": "\nCREATE TABLE",
+              "occurrences": 1
+            },
+            {
+              "from": "COMMIT;\n",
+              "to": "",
+              "occurrences": 1
+            },
+            {
+              "from": "SET search_path=pg_catalog,gateway AS $$",
+              "to": "SET search_path=pg_catalog,gateway,pg_temp AS $$",
+              "occurrences": 2
+            },
+            {
+              "from": "SET search_path=pg_catalog,assistant AS $$",
+              "to": "SET search_path=pg_catalog,assistant,pg_temp AS $$",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "rust/platform-native/crates/platform-knowledge-ops/proposals/knowledge-pipeline-v2.sql",
+          "sha256": "c1dd84dfb62dfdd8e8178ef8d196279d08bb5470a330c8b8c7ceb40c6f7da25b",
+          "edits": []
+        },
+        {
+          "source": "docs/design/proposals/gateway-authorization-decisions.sql",
+          "sha256": "79a9a9a2b2a2151567dde8b3d92f72c4231ec28af1a6b8deea78c64430c31d41",
+          "edits": [
+            {
+              "from": "GRANT INSERT ON gateway.authorization_decisions TO ai_gateway_gateway;",
+              "to": "-- Dedicated prefix-derived audit INSERT is appended by native authority.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/gateway-cedar-resource-audit.sql",
+          "sha256": "a64565576fbe5aa8e321bd5e4cc64b0fc7da97bfd82668bbf9e4d58d040748e3",
+          "edits": []
+        },
+        {
+          "source": "docs/design/proposals/gateway-a2a-task-effects.sql",
+          "sha256": "cfa5abbcb7612ae250e15b1ec234c913b862b2f880450cba1aeb68d68178348f",
+          "edits": []
+        },
+        {
+          "literal": "REVOKE ALL ON assistant.assistant_runtime_thread_owners FROM PUBLIC;\nREVOKE ALL ON gateway.sdk_model_calls FROM PUBLIC;\nREVOKE ALL ON knowledge.pipeline_work FROM PUBLIC;\nREVOKE ALL ON gateway.authorization_decisions FROM PUBLIC;\nREVOKE ALL ON gateway.authorization_resource_decisions FROM PUBLIC;\nREVOKE ALL ON gateway.gateway_a2a_contexts FROM PUBLIC;\nREVOKE ALL ON gateway.gateway_a2a_tasks FROM PUBLIC;\nREVOKE ALL ON gateway.gateway_a2a_outbound_effects FROM PUBLIC;\nDO $service_grants$\nDECLARE prefix text:=left(current_user,length(current_user)-length('owner'));\nBEGIN\n IF prefix !~ '^[a-z][a-z0-9_]{0,20}_$' THEN RAISE EXCEPTION 'invalid canonical prefix'; END IF;\n EXECUTE format('GRANT SELECT ON assistant.assistant_runtime_thread_owners TO %I',prefix||'runtime');\n EXECUTE format('GRANT SELECT ON gateway.sdk_model_calls TO %I',prefix||'gateway');\n EXECUTE format('GRANT INSERT,SELECT ON knowledge.pipeline_work TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT INSERT ON gateway.authorization_decisions TO %I',prefix||'gateway');\n EXECUTE format('GRANT INSERT ON gateway.authorization_resource_decisions TO %I',prefix||'gateway');\n EXECUTE format('GRANT INSERT,SELECT ON gateway.gateway_a2a_contexts TO %I',prefix||'gateway');\n EXECUTE format('GRANT INSERT,SELECT ON gateway.gateway_a2a_tasks TO %I',prefix||'gateway');\n EXECUTE format('GRANT INSERT,SELECT ON gateway.gateway_a2a_outbound_effects TO %I',prefix||'gateway');\n EXECUTE format('GRANT UPDATE(created_at) ON gateway.gateway_a2a_contexts TO %I',prefix||'gateway');\n EXECUTE format('GRANT UPDATE(state,dispatched_at,provider_request_id,error_code,observation) ON gateway.sdk_model_calls TO %I',prefix||'gateway');\n EXECUTE format('GRANT UPDATE(job_id,phase,status,execution_id,checkpoints,owner_token,lease_expires_at,fence,updated_at) ON knowledge.pipeline_work TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT UPDATE(effect_state,run_id,thread_id,updated_at) ON gateway.gateway_a2a_tasks TO %I',prefix||'gateway');\n EXECUTE format('GRANT UPDATE(effect_state,response,updated_at) ON gateway.gateway_a2a_outbound_effects TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION assistant.claim_runtime_thread_owner(uuid, uuid, text) TO %I',prefix||'runtime');\n EXECUTE format('GRANT EXECUTE ON FUNCTION assistant.assert_runtime_thread_owner_for_run(uuid, uuid, text) TO %I',prefix||'runtime');\n EXECUTE format('GRANT EXECUTE ON FUNCTION assistant.heartbeat_runtime_thread_owner(uuid, uuid) TO %I',prefix||'runtime');\n EXECUTE format('GRANT EXECUTE ON FUNCTION gateway.reserve_sdk_model_call(text, text, text, text, uuid, jsonb, jsonb, jsonb, jsonb, bigint, bigint, bigint) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION gateway.settle_sdk_model_call(uuid, text, text, bigint, bigint, bigint, bigint, jsonb, jsonb) TO %I',prefix||'gateway');\nEND $service_grants$;\n"
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/030_platform_service_core.sql",
+      "change": {
+        "sequence": 30,
+        "name": "platform_service_core",
+        "file": "030_platform_service_core.sql",
+        "sha256": "5f77352a3923e4fd2be47ab17dd4ea3e0fc34a81417d001b1d6d2706797c5813",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT pg_catalog.to_regclass('assistant.assistant_runtime_threads') IS NOT NULL AND pg_catalog.to_regclass('assistant.assistant_runtime_execution_owners') IS NOT NULL AND pg_catalog.to_regclass('assistant.assistant_sdk_runs') IS NOT NULL AND pg_catalog.to_regclass('gateway.user_quotas') IS NOT NULL AND pg_catalog.to_regclass('knowledge.documents') IS NOT NULL AND pg_catalog.to_regclass('knowledge.datasets') IS NOT NULL",
+          "SELECT pg_catalog.to_regclass('assistant.assistant_runtime_thread_owners') IS NULL AND pg_catalog.to_regclass('gateway.sdk_model_calls') IS NULL AND pg_catalog.to_regclass('knowledge.pipeline_work') IS NULL AND pg_catalog.to_regclass('gateway.authorization_decisions') IS NULL AND pg_catalog.to_regclass('gateway.authorization_resource_decisions') IS NULL AND pg_catalog.to_regclass('gateway.gateway_a2a_contexts') IS NULL AND pg_catalog.to_regclass('gateway.gateway_a2a_tasks') IS NULL AND pg_catalog.to_regclass('gateway.gateway_a2a_outbound_effects') IS NULL"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='assistant' AND c.relname='assistant_runtime_thread_owners' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='sdk_model_calls' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='pipeline_work' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='authorization_decisions' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='authorization_resource_decisions' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='gateway_a2a_contexts' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='gateway_a2a_tasks' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='gateway_a2a_outbound_effects' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='assistant' AND p.proname='claim_runtime_thread_owner' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='p_thread uuid, p_owner uuid, p_address text' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[]) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='assistant' AND p.proname='assert_runtime_thread_owner_for_run' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='p_run uuid, p_owner uuid, p_address text' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[]) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='assistant' AND p.proname='heartbeat_runtime_thread_owner' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='p_thread uuid, p_owner uuid' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[]) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='gateway' AND p.proname='reserve_sdk_model_call' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='p_tenant text, p_user text, p_call text, p_hash text, p_lease uuid, p_token jsonb, p_body jsonb, p_snapshot jsonb, p_price jsonb, p_input bigint, p_output bigint, p_cost bigint' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, gateway, pg_temp']::text[]) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='gateway' AND p.proname='settle_sdk_model_call' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='p_lease uuid, p_tenant text, p_user text, p_input bigint, p_output bigint, p_input_cost bigint, p_output_cost bigint, p_result jsonb, p_record jsonb' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=true AND p.proconfig=ARRAY['search_path=pg_catalog, gateway, pg_temp']::text[]) AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='assistant' AND p.proname='notify_sdk_execution_revocation' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND p.prosecdef=false AND p.proconfig=ARRAY['search_path=pg_catalog, assistant, pg_temp']::text[])",
+          "SELECT (SELECT count(*)=2 FROM pg_catalog.pg_trigger WHERE NOT tgisinternal AND tgenabled='O' AND tgname IN ('sdk_execution_revocation_push','sdk_execution_terminal_push') AND tgfoid='assistant.notify_sdk_execution_revocation()'::pg_catalog.regprocedure) AND NOT EXISTS(SELECT 1 FROM gateway.task_batch_contract)"
+        ],
+        "timeout_seconds": 600,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Source-owned fixed service successor; no startup DDL or automatic activation. Exact minimal ACL, unchanged extensions/reference data, real isolated measurement and N-1 acceptance required."
+      },
+      "acl_additions": [
+        "acl:assistant.assistant_runtime_thread_owners:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:assistant.assistant_runtime_thread_owners:runtime:SELECT:grantopt=0",
+        "acl:gateway.authorization_decisions:gateway:INSERT:grantopt=0",
+        "acl:gateway.authorization_decisions:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.authorization_resource_decisions:gateway:INSERT:grantopt=0",
+        "acl:gateway.authorization_resource_decisions:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.gateway_a2a_contexts:gateway:INSERT,SELECT:grantopt=0",
+        "acl:gateway.gateway_a2a_contexts:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.gateway_a2a_outbound_effects:gateway:INSERT,SELECT:grantopt=0",
+        "acl:gateway.gateway_a2a_outbound_effects:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.gateway_a2a_tasks:gateway:INSERT,SELECT:grantopt=0",
+        "acl:gateway.gateway_a2a_tasks:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.sdk_model_calls:gateway:SELECT:grantopt=0",
+        "acl:gateway.sdk_model_calls:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:knowledge.pipeline_work:knowledge_worker:INSERT,SELECT:grantopt=0",
+        "acl:knowledge.pipeline_work:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_contexts.created_at:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_outbound_effects.effect_state:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_outbound_effects.response:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_outbound_effects.updated_at:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_tasks.effect_state:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_tasks.run_id:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_tasks.thread_id:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_tasks.updated_at:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.sdk_model_calls.dispatched_at:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.sdk_model_calls.error_code:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.sdk_model_calls.observation:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.sdk_model_calls.provider_request_id:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.sdk_model_calls.state:gateway:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.checkpoints:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.execution_id:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.fence:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.job_id:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.lease_expires_at:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.owner_token:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.phase:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.status:knowledge_worker:UPDATE:grantopt=0",
+        "column_acl:knowledge.pipeline_work.updated_at:knowledge_worker:UPDATE:grantopt=0",
+        "function_acl:assistant.assert_runtime_thread_owner_for_run(p_run uuid, p_owner uuid, p_address text):owner:EXECUTE:grantopt=0",
+        "function_acl:assistant.assert_runtime_thread_owner_for_run(p_run uuid, p_owner uuid, p_address text):runtime:EXECUTE:grantopt=0",
+        "function_acl:assistant.claim_runtime_thread_owner(p_thread uuid, p_owner uuid, p_address text):owner:EXECUTE:grantopt=0",
+        "function_acl:assistant.claim_runtime_thread_owner(p_thread uuid, p_owner uuid, p_address text):runtime:EXECUTE:grantopt=0",
+        "function_acl:assistant.heartbeat_runtime_thread_owner(p_thread uuid, p_owner uuid):owner:EXECUTE:grantopt=0",
+        "function_acl:assistant.heartbeat_runtime_thread_owner(p_thread uuid, p_owner uuid):runtime:EXECUTE:grantopt=0",
+        "function_acl:assistant.notify_sdk_execution_revocation():owner:EXECUTE:grantopt=0",
+        "function_acl:gateway.reserve_sdk_model_call(p_tenant text, p_user text, p_call text, p_hash text, p_lease uuid, p_token jsonb, p_body jsonb, p_snapshot jsonb, p_price jsonb, p_input bigint, p_output bigint, p_cost bigint):gateway:EXECUTE:grantopt=0",
+        "function_acl:gateway.reserve_sdk_model_call(p_tenant text, p_user text, p_call text, p_hash text, p_lease uuid, p_token jsonb, p_body jsonb, p_snapshot jsonb, p_price jsonb, p_input bigint, p_output bigint, p_cost bigint):owner:EXECUTE:grantopt=0",
+        "function_acl:gateway.settle_sdk_model_call(p_lease uuid, p_tenant text, p_user text, p_input bigint, p_output bigint, p_input_cost bigint, p_output_cost bigint, p_result jsonb, p_record jsonb):gateway:EXECUTE:grantopt=0",
+        "function_acl:gateway.settle_sdk_model_call(p_lease uuid, p_tenant text, p_user text, p_input bigint, p_output bigint, p_input_cost bigint, p_output_cost bigint, p_result jsonb, p_record jsonb):owner:EXECUTE:grantopt=0",
+        "function_owner:assistant.assert_runtime_thread_owner_for_run(p_run uuid, p_owner uuid, p_address text):owner",
+        "function_owner:assistant.claim_runtime_thread_owner(p_thread uuid, p_owner uuid, p_address text):owner",
+        "function_owner:assistant.heartbeat_runtime_thread_owner(p_thread uuid, p_owner uuid):owner",
+        "function_owner:assistant.notify_sdk_execution_revocation():owner",
+        "function_owner:gateway.reserve_sdk_model_call(p_tenant text, p_user text, p_call text, p_hash text, p_lease uuid, p_token jsonb, p_body jsonb, p_snapshot jsonb, p_price jsonb, p_input bigint, p_output bigint, p_cost bigint):owner",
+        "function_owner:gateway.settle_sdk_model_call(p_lease uuid, p_tenant text, p_user text, p_input bigint, p_output bigint, p_input_cost bigint, p_output_cost bigint, p_result jsonb, p_record jsonb):owner",
+        "owner:assistant.assistant_runtime_thread_owners:owner",
+        "owner:gateway.authorization_decisions:owner",
+        "owner:gateway.authorization_resource_decisions:owner",
+        "owner:gateway.gateway_a2a_contexts:owner",
+        "owner:gateway.gateway_a2a_outbound_effects:owner",
+        "owner:gateway.gateway_a2a_tasks:owner",
+        "owner:gateway.sdk_model_calls:owner",
+        "owner:knowledge.pipeline_work:owner"
+      ],
+      "compatibility_phase": "expand"
+    },
+    {
+      "sequence": 31,
+      "pieces": [
+        {
+          "literal": "-- INACTIVE031 Local Node expansion. Retain old checks until032 validation.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\n"
+        },
+        {
+          "source": "database/proposals/local-node-key-assurance.sql",
+          "sha256": "91f1a3baec4ee214d466444743356e633660d72605ba17ae32bb6c2858133f9c",
+          "edits": [
+            {
+              "from": "ADD COLUMN algorithm text NOT NULL DEFAULT 'ed25519';",
+              "to": "ADD COLUMN algorithm text DEFAULT 'ed25519';",
+              "occurrences": 1
+            },
+            {
+              "from": "ALTER TABLE gateway.local_node_request_keys\n    DROP CONSTRAINT local_node_request_keys_public_key_check,\n    DROP CONSTRAINT local_node_request_keys_key_class_check;\n",
+              "to": "",
+              "occurrences": 1
+            },
+            {
+              "from": "    );\n\nCOMMENT ON COLUMN gateway.local_node_request_keys.key_class",
+              "to": "    ) NOT VALID;\nALTER TABLE gateway.local_node_request_keys ADD CONSTRAINT local_node_algorithm_not_null CHECK (algorithm IS NOT NULL) NOT VALID;\n\nCOMMENT ON COLUMN gateway.local_node_request_keys.key_class",
+              "occurrences": 1
+            }
+          ]
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/031_local_node_assurance_expand.sql",
+      "change": {
+        "sequence": 31,
+        "name": "local_node_assurance_expand",
+        "file": "031_local_node_assurance_expand.sql",
+        "sha256": "04c11c4e1f8847d93ba9becb590715fc3945a0da8e462aa8f839755e3a541876",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT pg_catalog.to_regclass('gateway.local_node_request_keys') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND attname='algorithm' AND NOT attisdropped) AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_public_key_check' AND convalidated) AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_key_class_check' AND convalidated)"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='local_node_identity_policy' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='local_node_attestation_verifiers' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='gateway' AND c.relname='local_node_hardware_attestations' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user)",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_algorithm_class_format_check') AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_algorithm_not_null') AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND attname='algorithm' AND atttypid='text'::pg_catalog.regtype AND NOT attisdropped)"
+        ],
+        "timeout_seconds": 600,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Source-owned fixed service successor; no startup DDL or automatic activation. Exact minimal ACL, unchanged extensions/reference data, real isolated measurement and N-1 acceptance required."
+      },
+      "acl_additions": [
+        "acl:gateway.local_node_attestation_verifiers:gateway:SELECT:grantopt=0",
+        "acl:gateway.local_node_attestation_verifiers:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.local_node_hardware_attestations:gateway:SELECT:grantopt=0",
+        "acl:gateway.local_node_hardware_attestations:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "acl:gateway.local_node_identity_policy:gateway:SELECT:grantopt=0",
+        "acl:gateway.local_node_identity_policy:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",
+        "owner:gateway.local_node_attestation_verifiers:owner",
+        "owner:gateway.local_node_hardware_attestations:owner",
+        "owner:gateway.local_node_identity_policy:owner"
+      ],
+      "compatibility_phase": "expand"
+    },
+    {
+      "sequence": 32,
+      "pieces": [
+        {
+          "literal": "-- INACTIVE032 Local Node contract. No new objects or backfill.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\n"
+        },
+        {
+          "literal": "ALTER TABLE gateway.local_node_request_keys VALIDATE CONSTRAINT local_node_request_keys_algorithm_class_format_check;\nALTER TABLE gateway.local_node_request_keys VALIDATE CONSTRAINT local_node_algorithm_not_null;\nALTER TABLE gateway.local_node_request_keys\n    DROP CONSTRAINT local_node_request_keys_public_key_check,\n    DROP CONSTRAINT local_node_request_keys_key_class_check;\nALTER TABLE gateway.local_node_request_keys ALTER COLUMN algorithm SET NOT NULL;\n"
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/032_local_node_assurance_contract.sql",
+      "change": {
+        "sequence": 32,
+        "name": "local_node_assurance_contract",
+        "file": "032_local_node_assurance_contract.sql",
+        "sha256": "fabd8515f561263fb105616117355ec250e6d5fa31af611c665a07f6ff72e6b6",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_algorithm_class_format_check') AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_algorithm_not_null')"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_algorithm_class_format_check' AND convalidated) AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_algorithm_not_null' AND convalidated) AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND attname='algorithm' AND attnotnull AND NOT attisdropped) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname IN ('local_node_request_keys_public_key_check','local_node_request_keys_key_class_check'))"
+        ],
+        "timeout_seconds": 600,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Source-owned fixed service successor; no startup DDL or automatic activation. Exact minimal ACL, unchanged extensions/reference data, real isolated measurement and N-1 acceptance required."
+      },
+      "acl_additions": [],
+      "compatibility_phase": "contract"
+    },
+    {
+      "sequence": 33,
+      "pieces": [
+        {
+          "literal": "-- Inactive033. Cedar resource audit is already exactly pinned/installed by030; never recreate it.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\n"
+        },
+        {
+          "source": "docs/design/proposals/gateway-a2a-outbound-authority.sql",
+          "sha256": "04890716396f98177d486d976e46e4a883c037d00a4cdd260e5c28439c782b9a",
+          "edits": [
+            {
+              "from": "-- Existing app SELECT/INSERT/UPDATE grants remain sufficient. No DELETE or\n-- privilege escalation.",
+              "to": "-- Native source-owned033 explicitly adds only UPDATE(remote_task_id,cancel_state). No DELETE or\n-- table-wide UPDATE/grant option is granted.",
+              "occurrences": 1
+            },
+            {
+              "from": "remote_task_id text CHECK(remote_task_id IS NULL OR length(remote_task_id)<=255)",
+              "to": "remote_task_id text",
+              "occurrences": 1
+            },
+            {
+              "from": "card_sha256 text CHECK(card_sha256 IS NULL OR card_sha256~'^[0-9a-f]{64}$')",
+              "to": "card_sha256 text",
+              "occurrences": 1
+            },
+            {
+              "from": "card_key_id text CHECK(card_key_id IS NULL OR length(card_key_id)<=128)",
+              "to": "card_key_id text",
+              "occurrences": 1
+            },
+            {
+              "from": "cancel_state text NOT NULL DEFAULT 'none' CHECK(cancel_state IN ('none','unknown','confirmed','rejected'));",
+              "to": "cancel_state text DEFAULT 'none';\nALTER TABLE gateway.gateway_a2a_outbound_effects ADD CONSTRAINT a2a_outbound_remote_task_bound CHECK(remote_task_id IS NULL OR length(remote_task_id)<=255) NOT VALID;\nALTER TABLE gateway.gateway_a2a_outbound_effects ADD CONSTRAINT a2a_outbound_card_sha256_format CHECK(card_sha256 IS NULL OR card_sha256~'^[0-9a-f]{64}$') NOT VALID;\nALTER TABLE gateway.gateway_a2a_outbound_effects ADD CONSTRAINT a2a_outbound_card_key_bound CHECK(card_key_id IS NULL OR length(card_key_id)<=128) NOT VALID;\nALTER TABLE gateway.gateway_a2a_outbound_effects ADD CONSTRAINT a2a_outbound_cancel_state_domain CHECK(cancel_state IN ('none','unknown','confirmed','rejected')) NOT VALID;\nALTER TABLE gateway.gateway_a2a_outbound_effects ADD CONSTRAINT a2a_outbound_cancel_state_required CHECK(cancel_state IS NOT NULL) NOT VALID;",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "literal": "DO $service_grants$\nDECLARE prefix text:=left(current_user,length(current_user)-length('owner'));\nBEGIN\n IF prefix !~ '^[a-z][a-z0-9_]{0,20}_$' THEN RAISE EXCEPTION 'invalid canonical prefix'; END IF;\n EXECUTE format('GRANT UPDATE(remote_task_id,cancel_state) ON gateway.gateway_a2a_outbound_effects TO %I',prefix||'gateway');\nEND $service_grants$;\n"
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/033_gateway_outbound_authority.sql",
+      "change": {
+        "sequence": 33,
+        "name": "gateway_outbound_authority",
+        "file": "033_gateway_outbound_authority.sql",
+        "sha256": "37c2e513ff070f189e76cbad8b76b0536616f5d73bd4742176bbe59658d2c17f",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT to_regclass('gateway.authorization_resource_decisions') IS NOT NULL AND to_regclass('gateway.gateway_a2a_outbound_effects') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.gateway_a2a_outbound_effects'::regclass AND attname=ANY(ARRAY['remote_message_id','remote_task_id','card_sha256','card_key_id','cancel_state']) AND NOT attisdropped)"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT count(*)=5 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.gateway_a2a_outbound_effects'::regclass AND attnum>0 AND NOT attisdropped AND ((attname='remote_message_id' AND atttypid='uuid'::regtype) OR (attname IN('remote_task_id','card_sha256','card_key_id','cancel_state') AND atttypid='text'::regtype))",
+          "SELECT NOT EXISTS(SELECT 1 FROM gateway.task_batch_contract)"
+        ],
+        "timeout_seconds": 600,
+        "lock_budget_seconds": 5,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Fixed source-owned successor; real complete-prefix measurement and N-1 required. No operator cutover, concurrent DDL, retention, or feature activation occurs in migration."
+      },
+      "acl_additions": [
+        "column_acl:gateway.gateway_a2a_outbound_effects.cancel_state:gateway:UPDATE:grantopt=0",
+        "column_acl:gateway.gateway_a2a_outbound_effects.remote_task_id:gateway:UPDATE:grantopt=0"
+      ],
+      "compatibility_phase": "expand"
+    },
+    {
+      "sequence": 34,
+      "pieces": [
+        {
+          "literal": "-- Inactive034: validate033 checks before SET NOT NULL; no backfill/default rewrite.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\nALTER TABLE gateway.gateway_a2a_outbound_effects VALIDATE CONSTRAINT a2a_outbound_remote_task_bound;\nALTER TABLE gateway.gateway_a2a_outbound_effects VALIDATE CONSTRAINT a2a_outbound_card_sha256_format;\nALTER TABLE gateway.gateway_a2a_outbound_effects VALIDATE CONSTRAINT a2a_outbound_card_key_bound;\nALTER TABLE gateway.gateway_a2a_outbound_effects VALIDATE CONSTRAINT a2a_outbound_cancel_state_domain;\nALTER TABLE gateway.gateway_a2a_outbound_effects VALIDATE CONSTRAINT a2a_outbound_cancel_state_required;\nALTER TABLE gateway.gateway_a2a_outbound_effects ALTER COLUMN cancel_state SET NOT NULL;\n"
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/034_gateway_outbound_authority_contract.sql",
+      "change": {
+        "sequence": 34,
+        "name": "gateway_outbound_authority_contract",
+        "file": "034_gateway_outbound_authority_contract.sql",
+        "sha256": "ae0eee298f11c1e8c4ba2cb99ebe18deefe8586d1af3317d2897d335bc0aaa25",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT count(*)=5 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.gateway_a2a_outbound_effects'::regclass AND conname=ANY(ARRAY['a2a_outbound_remote_task_bound','a2a_outbound_card_sha256_format','a2a_outbound_card_key_bound','a2a_outbound_cancel_state_domain','a2a_outbound_cancel_state_required'])"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT (SELECT count(*)=5 AND bool_and(convalidated) FROM pg_catalog.pg_constraint WHERE conrelid='gateway.gateway_a2a_outbound_effects'::regclass AND conname=ANY(ARRAY['a2a_outbound_remote_task_bound','a2a_outbound_card_sha256_format','a2a_outbound_card_key_bound','a2a_outbound_cancel_state_domain','a2a_outbound_cancel_state_required'])) AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.gateway_a2a_outbound_effects'::regclass AND attname='cancel_state' AND attnotnull AND NOT attisdropped)"
+        ],
+        "timeout_seconds": 60,
+        "lock_budget_seconds": 2,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Fixed source-owned successor; real complete-prefix measurement and N-1 required. No operator cutover, concurrent DDL, retention, or feature activation occurs in migration."
+      },
+      "acl_additions": [],
+      "compatibility_phase": "contract"
+    },
+    {
+      "sequence": 35,
+      "pieces": [
+        {
+          "literal": "-- Inactive035: install six complete Data inputs; all22 families remain registered. No concurrent DDL, expansion, cutover or retention is invoked.\nDO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;\n"
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/expand.sql",
+          "sha256": "d445a89d178515499b1de9a45ce0723c05ab2592b263fabecf04418c4bb866ef",
+          "edits": [
+            {
+              "from": " IF TG_WHEN='AFTER' THEN\n  IF TG_OP='DELETE' THEN\n   -- Partition-key UPDATE is implemented as DELETE+INSERT. Its BEFORE UPDATE\n   -- already moved the directory identity/time; do not fire DELETE FK actions.\n   EXECUTE format('DELETE FROM %s WHERE af_identity=$1 AND af_time=$2 AND af_moving_xid IS NULL',f.registry_oid::regclass) USING old_key,old_time;\n  ELSE\n   IF TG_OP='INSERT' THEN\n    -- Reserve only after the real INSERT's RLS WITH CHECK, NOT NULL and\n    -- CHECK constraints. A BEFORE unique error would let an invoker catch a\n    -- collision before those original checks and accidentally bypass them.\n    EXECUTE format('SELECT af_moving_xid FROM %s WHERE af_identity=$1',f.registry_oid::regclass) INTO moving USING new_key;\n    IF moving IS DISTINCT FROM txid_current() THEN PERFORM partition_ops.claim_row(f.family,to_jsonb(NEW),new_key); END IF;\n   END IF;\n   EXECUTE format('UPDATE %s SET af_moving_xid=NULL WHERE af_identity=$1 AND af_moving_xid=txid_current()',f.registry_oid::regclass) USING new_key;\n  END IF;\n  RETURN NULL;\n END IF;\n",
+              "to": " IF TG_WHEN='AFTER' THEN\n  IF TG_OP='DELETE' THEN\n   EXECUTE format('DELETE FROM %s WHERE af_identity=$1 AND af_time=$2 AND af_moving_xid IS NULL',f.registry_oid::regclass) USING old_key,old_time;\n  ELSE\n   -- The real payload INSERT/UPDATE has now passed original RLS WITH CHECK,\n   -- NOT NULL and CHECK constraints. Only now may global key/scope change.\n   IF TG_OP='UPDATE' THEN\n    EXECUTE format('SELECT af_identity FROM %s WHERE af_identity=$1 AND af_moving_xid=$2 AND af_move_identity=$3 FOR UPDATE',f.registry_oid::regclass) INTO move_from USING old_key,txid_current(),new_key;\n   ELSE\n    EXECUTE format('SELECT af_identity FROM %s WHERE af_moving_xid=$1 AND af_move_identity=$2 FOR UPDATE',f.registry_oid::regclass) INTO move_from USING txid_current(),new_key;\n   END IF;\n   IF move_from IS NULL THEN\n    IF TG_OP='UPDATE' THEN RAISE EXCEPTION 'pending global UPDATE marker missing'; END IF;\n    PERFORM partition_ops.claim_row(f.family,to_jsonb(NEW),new_key);\n   ELSE\n    SELECT relation_oid::text INTO physical FROM partition_ops.partitions WHERE family=f.family AND (lower_at IS NULL OR new_time>=lower_at) AND new_time<upper_at AND state='active' FOR KEY SHARE;\n    IF physical IS NULL THEN RAISE EXCEPTION 'moved row has no active partition'; END IF;\n    patch:=partition_ops.projection(f.key_columns,to_jsonb(NEW))||jsonb_build_object('af_identity',new_key,'af_time',new_time,'af_partition',physical,'af_moving_xid',NULL,'af_move_identity',NULL);\n    SELECT string_agg(format('%1$I=(jsonb_populate_record(NULL::%2$s,$1)).%1$I',a.attname,f.registry_oid::regclass),',') INTO assignments FROM pg_attribute a WHERE a.attrelid=f.registry_oid AND a.attnum>0 AND NOT a.attisdropped;\n    EXECUTE format('UPDATE %s SET %s WHERE af_identity=$2 AND af_moving_xid=$3 AND af_move_identity=$4 RETURNING true',f.registry_oid::regclass,assignments) INTO exists_key USING patch,move_from,txid_current(),new_key;\n    IF exists_key IS NOT TRUE THEN RAISE EXCEPTION 'global move marker changed'; END IF;\n   END IF;\n  END IF;\n  RETURN NULL;\n END IF;\n",
+              "occurrences": 1
+            },
+            {
+              "from": "  patch:=partition_ops.projection(f.key_columns,to_jsonb(NEW))||jsonb_build_object('af_identity',new_key,'af_time',new_time,'af_partition',physical,'af_moving_xid',CASE WHEN old_key<>new_key OR old_time<>new_time THEN txid_current() ELSE NULL END);\n  SELECT string_agg(format('%1$I=(jsonb_populate_record(NULL::%2$s,$1)).%1$I',a.attname,f.registry_oid::regclass),',') INTO assignments FROM pg_attribute a WHERE a.attrelid=f.registry_oid AND a.attnum>0 AND NOT a.attisdropped;\n  EXECUTE format('UPDATE %s SET %s WHERE af_identity=$2',f.registry_oid::regclass,assignments) USING patch,old_key;",
+              "to": "  -- Mark row movement without changing original keys or scope before RLS.\n  -- The partial index keeps AFTER INSERT lookup bounded to pending moves.\n  EXECUTE format('UPDATE %s SET af_moving_xid=txid_current(),af_move_identity=$1 WHERE af_identity=$2',f.registry_oid::regclass) USING new_key,old_key;",
+              "occurrences": 1
+            },
+            {
+              "from": "moving bigint; exists_key boolean;",
+              "to": "moving bigint; move_from jsonb; exists_key boolean;",
+              "occurrences": 1
+            },
+            {
+              "from": "ADD COLUMN af_moving_xid bigint",
+              "to": "ADD COLUMN af_moving_xid bigint, ADD COLUMN af_move_identity jsonb",
+              "occurrences": 1
+            },
+            {
+              "from": " FOR idx IN SELECT i.*,pg_get_indexdef(i.indexrelid) def,c.relname FROM pg_index i",
+              "to": " EXECUTE format('CREATE INDEX %I ON %s(af_moving_xid,af_move_identity) WHERE af_moving_xid IS NOT NULL','af_moving_'||source::oid,registry_name);\n FOR idx IN SELECT i.*,pg_get_indexdef(i.indexrelid) def,c.relname FROM pg_index i",
+              "occurrences": 1
+            },
+            {
+              "from": "CREATE SCHEMA partition_ops AUTHORIZATION ai_gateway_owner;",
+              "to": "CREATE SCHEMA partition_ops AUTHORIZATION CURRENT_USER;",
+              "occurrences": 1
+            },
+            {
+              "from": "a.attname IN('tenant_id','user_id')",
+              "to": "a.attname IN('tenant_id','user_id','session_id')",
+              "occurrences": 1
+            },
+            {
+              "from": "IF p_boundary IS NULL OR p_boundary<>date_trunc(f.cadence,p_boundary,'UTC')",
+              "to": "PERFORM partition_ops.require_operator_approval(p_family,'expand',f.revision,p_admission_sha256);\n IF NOT EXISTS(SELECT 1 FROM partition_ops.operator_approvals WHERE family=p_family AND stage='expand' AND revision=f.revision AND (evidence->>'operation_boundary')::timestamptz IS NOT DISTINCT FROM p_boundary) THEN RAISE EXCEPTION 'operator approved boundary differs'; END IF;\n IF p_boundary IS NULL OR p_boundary<=clock_timestamp() OR p_boundary<>date_trunc(f.cadence,p_boundary,'UTC')",
+              "occurrences": 1
+            },
+            {
+              "from": "SET LOCAL lock_timeout='2s';\nSET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "literal": "CREATE TABLE partition_ops.operator_approvals (\n family text NOT NULL REFERENCES partition_ops.families(family), stage text NOT NULL CHECK(stage IN('expand','cutover')),\n revision bigint NOT NULL CHECK(revision>=0), scope_sha256 text NOT NULL CHECK(scope_sha256~'^[0-9a-f]{64}$'),\n evidence jsonb NOT NULL CHECK(jsonb_typeof(evidence)='object'), approved_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n PRIMARY KEY(family,stage,revision)\n);\nCREATE FUNCTION partition_ops.owner_family_enabled(p_family text) RETURNS boolean LANGUAGE plpgsql\nSET search_path=pg_catalog,pg_temp AS $$\nDECLARE result boolean;\nBEGIN\n PERFORM partition_ops.assert_owner();\n PERFORM pg_advisory_xact_lock_shared(hashtextextended('agentforge.append.family:'||p_family,0));\n SELECT phase<>'registered' INTO STRICT result FROM partition_ops.families WHERE family=p_family;\n RETURN result;\nEND $$;\nCREATE FUNCTION partition_ops.approve_operator_stage(p_family text,p_stage text,p_revision bigint,p_scope_sha256 text,p_evidence jsonb)\nRETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$\nDECLARE f partition_ops.families; a partition_ops.operator_approvals; field text;\nBEGIN\n PERFORM partition_ops.assert_owner();\n SELECT * INTO STRICT f FROM partition_ops.families WHERE family=p_family FOR UPDATE;\n IF p_stage IS NULL OR p_stage NOT IN('expand','cutover') OR p_revision IS DISTINCT FROM f.revision OR COALESCE(p_scope_sha256,'') !~ '^[0-9a-f]{64}$'\n OR (p_stage='expand' AND f.phase<>'registered') OR (p_stage='cutover' AND f.phase<>'validated')\n OR p_evidence IS NULL OR jsonb_typeof(p_evidence)<>'object' OR p_evidence->>'family' IS DISTINCT FROM p_family\n OR p_evidence->>'stage' IS DISTINCT FROM p_stage OR p_evidence->>'operation_scope_sha256' IS DISTINCT FROM p_scope_sha256\n OR (p_stage='expand' AND (NULLIF(p_evidence->>'operation_boundary','') IS NULL OR (p_evidence->>'operation_boundary')::timestamptz<=clock_timestamp()))\n THEN RAISE EXCEPTION 'exact operator phase/revision/scope evidence required'; END IF;\n FOR field IN SELECT unnest(ARRAY['authority_snapshot_sha256','pitr_restore_drill_sha256','role_rls_acceptance_sha256','n_minus_one_compatibility_sha256','dependency_rebind_sha256','authority_approval_sha256','native_writer_acceptance_sha256']) LOOP\n  IF COALESCE(p_evidence->>field,'') !~ '^[0-9a-f]{64}$' THEN RAISE EXCEPTION 'real operator artifact digests required: %',field; END IF;\n END LOOP;\n SELECT * INTO a FROM partition_ops.operator_approvals WHERE family=p_family AND stage=p_stage AND revision=p_revision;\n IF FOUND THEN\n  IF a.scope_sha256 IS DISTINCT FROM p_scope_sha256 OR a.evidence IS DISTINCT FROM p_evidence THEN RAISE EXCEPTION 'operator approval replacement refused'; END IF;\n  RETURN to_jsonb(a);\n END IF;\n INSERT INTO partition_ops.operator_approvals(family,stage,revision,scope_sha256,evidence) VALUES(p_family,p_stage,p_revision,p_scope_sha256,p_evidence) RETURNING * INTO a;\n RETURN to_jsonb(a);\nEND $$;\nCREATE FUNCTION partition_ops.require_operator_approval(p_family text,p_stage text,p_revision bigint,p_scope_sha256 text)\nRETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$\nBEGIN\n PERFORM partition_ops.assert_owner();\n PERFORM 1 FROM partition_ops.operator_approvals WHERE family=p_family AND stage=p_stage AND revision=p_revision AND scope_sha256=p_scope_sha256 FOR KEY SHARE;\n IF NOT FOUND THEN RAISE EXCEPTION 'separate operator authority approval required before expand/cutover'; END IF;\nEND $$;\n"
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/migrate.sql",
+          "sha256": "e005043697417f67288cadc6a7fb17d21fdbd61bf63865bdbea7d4362bb7e5c5",
+          "edits": [
+            {
+              "from": "IF f.phase<>'validated' OR f.revision IS DISTINCT FROM p_revision",
+              "to": "PERFORM partition_ops.require_operator_approval(p_family,'cutover',p_revision,p_compatibility_sha256);\n IF f.phase<>'validated' OR f.revision IS DISTINCT FROM p_revision",
+              "occurrences": 1
+            },
+            {
+              "from": "DECLARE f partition_ops.families; legacy_name text; c record; tr record; q text; acl record; policy record; seq record;\nBEGIN\n PERFORM partition_ops.assert_owner();",
+              "to": "DECLARE f partition_ops.families; legacy_name text; c record; tr record; q text; acl record; policy record; seq record;\nBEGIN\n PERFORM partition_ops.assert_owner();\n PERFORM pg_advisory_xact_lock(hashtextextended('agentforge.append.family:'||p_family,0));",
+              "occurrences": 1
+            },
+            {
+              "from": "SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/write-compatibility.sql",
+          "sha256": "21a546a8423381bda4e76594125dea4874b87bac9e0406ccde80c592c3bce164",
+          "edits": [
+            {
+              "from": "OR p_family IN ('gateway.agent_trace_spans','gateway.agent_trace_events') AND NOT EXISTS(SELECT 1 FROM gateway.agent_traces t WHERE t.trace_id=(existing->>'trace_id')::uuid AND t.tenant_id=current_setting('app.tenant_id',true)))",
+              "to": "OR (existing ? 'user_id') AND existing->'user_id' IS DISTINCT FROM p_row->'user_id' OR (existing ? 'session_id') AND existing->'session_id' IS DISTINCT FROM p_row->'session_id' OR p_family IN ('gateway.agent_trace_spans','gateway.agent_trace_events') AND NOT EXISTS(SELECT 1 FROM gateway.agent_traces t WHERE t.trace_id=(existing->>'trace_id')::uuid AND t.tenant_id=current_setting('app.tenant_id',true)))",
+              "occurrences": 1
+            },
+            {
+              "from": "SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/native-writer-policies.sql",
+          "sha256": "c827a7047261765dd757bd08683f16c1a66a709bcc9fac63edab24377cff0402",
+          "edits": [
+            {
+              "from": "SET LOCAL lock_timeout='2s';SET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/retention.sql",
+          "sha256": "2d5ca7eac560403c6a6c7a77d3ec0c52ac461d478e733dac72bd33c4484e4b19",
+          "edits": [
+            {
+              "from": "SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "source": "docs/design/proposals/data-platform/append-partitions/legacy-retention-adapters.sql",
+          "sha256": "f174b7df243b666e29919a1490b194f8018a88df4252c4e5622aaecfdc12cc86",
+          "edits": [
+            {
+              "from": "IF partition_ops.family_enabled('gateway.usage_records') THEN",
+              "to": "IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('gateway.usage_records') ELSE partition_ops.family_enabled('gateway.usage_records') END THEN",
+              "occurrences": 1
+            },
+            {
+              "from": "IF partition_ops.family_enabled('knowledge.kb_document_progress_events') THEN",
+              "to": "IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('knowledge.kb_document_progress_events') ELSE partition_ops.family_enabled('knowledge.kb_document_progress_events') END THEN",
+              "occurrences": 1
+            },
+            {
+              "from": "SET LOCAL lock_timeout='2s';SET LOCAL statement_timeout='60s';",
+              "to": "-- Native runner enforces the original2s lock/60s statement budget.",
+              "occurrences": 1
+            }
+          ]
+        },
+        {
+          "literal": "CREATE FUNCTION partition_ops.schema_admitted() RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER\nSET search_path=pg_catalog,pg_temp AS $$\nDECLARE prefix text:=left(current_user,length(current_user)-length('owner')); valid boolean;\nBEGIN\n PERFORM partition_ops.assert_owner();\n IF session_user<>ALL(ARRAY[prefix||'gateway',prefix||'runtime',prefix||'capability_worker',prefix||'knowledge_api',prefix||'knowledge_worker']) THEN RETURN false; END IF;\n IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolcanlogin AND NOT (rolsuper OR rolinherit OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) OR EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname=session_user) THEN RETURN false; END IF;\n SELECT (SELECT count(*)=22 AND COALESCE(bool_and(clock_column IS NOT NULL AND cadence IN('day','month') AND phase IN('registered','expanded','backfilled','validated','active')),false) FROM partition_ops.families WHERE family=ANY(ARRAY['gateway.usage_records','gateway.request_traces','gateway.audit_logs','gateway.billing_events','gateway.agent_trace_spans','gateway.agent_trace_events','gateway.tool_audit_log','gateway.login_audit','gateway.service_health_records','assistant.assistant_runtime_items','assistant.assistant_audit_events','assistant.assistant_capability_events','knowledge.kb_document_progress_events','assistant.assistant_runtime_model_calls','assistant.assistant_runtime_model_leases','gateway.knowledge_model_calls','gateway.task_reconciliation_audit','gateway.price_book_v2_activation_audit','gateway.price_book_v2_import_audit','gateway.price_book_v2_usage_receipts','gateway.price_book_v2_accounting_checkpoints','gateway.agent_traces']))\n AND (SELECT count(*)=22 FROM partition_ops.families)\n AND (SELECT count(*)=5 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='partition_ops' AND c.relkind='r' AND c.relname=ANY(ARRAY['families','partitions','foreign_keys','statement_policies','operator_approvals']) AND pg_get_userbyid(c.relowner)=current_user)\n AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl,acldefault('r',c.relowner))) a WHERE n.nspname='partition_ops' AND a.grantee<>c.relowner)\n AND NOT EXISTS(SELECT 1 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE n.nspname='partition_ops' AND x.grantee<>c.relowner)\n AND (SELECT count(*)=1 FROM pg_namespace WHERE nspname='partition_ops' AND pg_get_userbyid(nspowner)=current_user)\n AND NOT EXISTS(SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname='partition_ops' AND a.grantee<>n.nspowner AND (a.privilege_type<>'USAGE' OR a.is_grantable OR pg_get_userbyid(a.grantee)<>ALL(ARRAY[prefix||'gateway',prefix||'runtime',prefix||'capability_worker',prefix||'knowledge_api',prefix||'knowledge_worker'])))\n AND NOT EXISTS(SELECT 1 FROM (VALUES ('assert_owner','',false,ARRAY[]::text[]),('family_enabled','p_family text',true,ARRAY['capability_worker','gateway','knowledge_api','knowledge_worker','runtime']::text[]),('identity','p_columns name[], p_row jsonb',false,ARRAY[]::text[]),('projection','p_columns name[], p_row jsonb',false,ARRAY[]::text[]),('claim_row','p_family text, p_row jsonb, p_identity jsonb, p_moving boolean',false,ARRAY[]::text[]),('row_guard','',true,ARRAY[]::text[]),('expand','p_family text, p_boundary timestamp with time zone, p_admission_sha256 text',false,ARRAY[]::text[]),('owner_family_enabled','p_family text',false,ARRAY[]::text[]),('approve_operator_stage','p_family text, p_stage text, p_revision bigint, p_scope_sha256 text, p_evidence jsonb',false,ARRAY[]::text[]),('require_operator_approval','p_family text, p_stage text, p_revision bigint, p_scope_sha256 text',false,ARRAY[]::text[]),('status','p_family text',false,ARRAY[]::text[]),('backfill','p_family text, p_expected_revision bigint, p_limit integer',false,ARRAY[]::text[]),('validate_legacy','p_family text, p_expected_revision bigint',false,ARRAY[]::text[]),('capture_foreign_keys','p_family text',false,ARRAY[]::text[]),('reference_guard','',true,ARRAY[]::text[]),('rebind_fk','p_oid oid, p_step text',false,ARRAY[]::text[]),('prepare','p_family text, p_first timestamp with time zone, p_count integer',false,ARRAY[]::text[]),('cutover','p_family text, p_revision bigint, p_compatibility_sha256 text',false,ARRAY[]::text[]),('legacy_index_sql','p_family text',false,ARRAY[]::text[]),('write_spec','p_family text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('lookup_conflict','p_family text, p_index text, p_row jsonb',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('statement_spec','p_family text, p_tail text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('column_types','p_family text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('require_payload','p_result jsonb',false,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('write_json','p_family text, p_row jsonb, p_mode text, p_conflict_index text, p_statement text, p_parameters jsonb',false,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('seal_acl','p_relation oid',false,ARRAY[]::text[]),('retention_begin','p_family text, p_relation text, p_cutoff timestamp with time zone, p_evidence jsonb',false,ARRAY[]::text[]),('detach_status','p_family text, p_relation text',false,ARRAY[]::text[]),('record_archive','p_family text, p_relation text, p_receipt jsonb',false,ARRAY[]::text[]),('drop_archived','p_family text, p_relation text, p_archive_manifest_sha256 text',false,ARRAY[]::text[]),('reattach','p_family text, p_relation text',false,ARRAY[]::text[]),('schema_admitted','',true,ARRAY['capability_worker','gateway','knowledge_api','knowledge_worker','runtime']::text[])) e(name,args,definer,roles) LEFT JOIN pg_proc p ON p.pronamespace='partition_ops'::regnamespace AND p.proname=e.name AND pg_get_function_identity_arguments(p.oid)=e.args WHERE p.oid IS NULL OR pg_get_userbyid(p.proowner)<>current_user OR p.prosecdef<>e.definer OR NOT COALESCE(p.proconfig@>ARRAY['search_path=pg_catalog, pg_temp']::text[],false) OR EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee<>p.proowner AND (a.privilege_type<>'EXECUTE' OR a.is_grantable OR NOT pg_get_userbyid(a.grantee)=ANY(ARRAY(SELECT prefix||r FROM unnest(e.roles) r)))) OR EXISTS(SELECT 1 FROM unnest(e.roles) r WHERE NOT has_function_privilege(prefix||r,p.oid,'EXECUTE')))\n AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='partition_ops' AND NOT EXISTS(SELECT 1 FROM (VALUES ('assert_owner','',false,ARRAY[]::text[]),('family_enabled','p_family text',true,ARRAY['capability_worker','gateway','knowledge_api','knowledge_worker','runtime']::text[]),('identity','p_columns name[], p_row jsonb',false,ARRAY[]::text[]),('projection','p_columns name[], p_row jsonb',false,ARRAY[]::text[]),('claim_row','p_family text, p_row jsonb, p_identity jsonb, p_moving boolean',false,ARRAY[]::text[]),('row_guard','',true,ARRAY[]::text[]),('expand','p_family text, p_boundary timestamp with time zone, p_admission_sha256 text',false,ARRAY[]::text[]),('owner_family_enabled','p_family text',false,ARRAY[]::text[]),('approve_operator_stage','p_family text, p_stage text, p_revision bigint, p_scope_sha256 text, p_evidence jsonb',false,ARRAY[]::text[]),('require_operator_approval','p_family text, p_stage text, p_revision bigint, p_scope_sha256 text',false,ARRAY[]::text[]),('status','p_family text',false,ARRAY[]::text[]),('backfill','p_family text, p_expected_revision bigint, p_limit integer',false,ARRAY[]::text[]),('validate_legacy','p_family text, p_expected_revision bigint',false,ARRAY[]::text[]),('capture_foreign_keys','p_family text',false,ARRAY[]::text[]),('reference_guard','',true,ARRAY[]::text[]),('rebind_fk','p_oid oid, p_step text',false,ARRAY[]::text[]),('prepare','p_family text, p_first timestamp with time zone, p_count integer',false,ARRAY[]::text[]),('cutover','p_family text, p_revision bigint, p_compatibility_sha256 text',false,ARRAY[]::text[]),('legacy_index_sql','p_family text',false,ARRAY[]::text[]),('write_spec','p_family text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('lookup_conflict','p_family text, p_index text, p_row jsonb',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('statement_spec','p_family text, p_tail text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('column_types','p_family text',true,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('require_payload','p_result jsonb',false,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('write_json','p_family text, p_row jsonb, p_mode text, p_conflict_index text, p_statement text, p_parameters jsonb',false,ARRAY['gateway','knowledge_api','knowledge_worker']::text[]),('seal_acl','p_relation oid',false,ARRAY[]::text[]),('retention_begin','p_family text, p_relation text, p_cutoff timestamp with time zone, p_evidence jsonb',false,ARRAY[]::text[]),('detach_status','p_family text, p_relation text',false,ARRAY[]::text[]),('record_archive','p_family text, p_relation text, p_receipt jsonb',false,ARRAY[]::text[]),('drop_archived','p_family text, p_relation text, p_archive_manifest_sha256 text',false,ARRAY[]::text[]),('reattach','p_family text, p_relation text',false,ARRAY[]::text[]),('schema_admitted','',true,ARRAY['capability_worker','gateway','knowledge_api','knowledge_worker','runtime']::text[])) e(name,args,definer,roles) WHERE e.name=p.proname AND e.args=pg_get_function_identity_arguments(p.oid)))\n INTO valid;\n RETURN COALESCE(valid,false);\nEND $$;\n"
+        },
+        {
+          "literal": "REVOKE ALL ON ALL TABLES IN SCHEMA partition_ops FROM PUBLIC;\nREVOKE ALL ON ALL FUNCTIONS IN SCHEMA partition_ops FROM PUBLIC;\nDO $partition_acl$\nDECLARE prefix text:=left(current_user,length(current_user)-length('owner'));\nBEGIN\n EXECUTE format('GRANT USAGE ON SCHEMA partition_ops TO %I',prefix||'capability_worker');\n EXECUTE format('GRANT USAGE ON SCHEMA partition_ops TO %I',prefix||'gateway');\n EXECUTE format('GRANT USAGE ON SCHEMA partition_ops TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT USAGE ON SCHEMA partition_ops TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT USAGE ON SCHEMA partition_ops TO %I',prefix||'runtime');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.family_enabled(text) TO %I',prefix||'capability_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.family_enabled(text) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.family_enabled(text) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.family_enabled(text) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.family_enabled(text) TO %I',prefix||'runtime');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_spec(text) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_spec(text) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_spec(text) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.lookup_conflict(text, text, jsonb) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.lookup_conflict(text, text, jsonb) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.lookup_conflict(text, text, jsonb) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.statement_spec(text, text) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.statement_spec(text, text) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.statement_spec(text, text) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.column_types(text) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.column_types(text) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.column_types(text) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.require_payload(jsonb) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.require_payload(jsonb) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.require_payload(jsonb) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_json(text, jsonb, text, text, text, jsonb) TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_json(text, jsonb, text, text, text, jsonb) TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.write_json(text, jsonb, text, text, text, jsonb) TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.schema_admitted() TO %I',prefix||'capability_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.schema_admitted() TO %I',prefix||'gateway');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.schema_admitted() TO %I',prefix||'knowledge_api');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.schema_admitted() TO %I',prefix||'knowledge_worker');\n EXECUTE format('GRANT EXECUTE ON FUNCTION partition_ops.schema_admitted() TO %I',prefix||'runtime');\nEND $partition_acl$;\n"
+        }
+      ],
+      "sql_source": "docs/design/proposals/service-successors/035_complete_append_partition_authority.sql",
+      "change": {
+        "sequence": 35,
+        "name": "complete_append_partition_authority",
+        "file": "035_complete_append_partition_authority.sql",
+        "sha256": "07b86b09926d3ba7e8dc84a503457b770129fff31ea029064e26e969743b20c5",
+        "owner": "owner",
+        "transaction_mode": "transactional",
+        "rollback_class": "forward-fix-only",
+        "preconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT to_regnamespace('partition_ops') IS NULL",
+          "SELECT to_regclass('gateway.usage_records') IS NOT NULL AND to_regclass('gateway.request_traces') IS NOT NULL AND to_regclass('gateway.audit_logs') IS NOT NULL AND to_regclass('gateway.billing_events') IS NOT NULL AND to_regclass('gateway.agent_trace_spans') IS NOT NULL AND to_regclass('gateway.agent_trace_events') IS NOT NULL AND to_regclass('gateway.tool_audit_log') IS NOT NULL AND to_regclass('gateway.login_audit') IS NOT NULL AND to_regclass('gateway.service_health_records') IS NOT NULL AND to_regclass('assistant.assistant_runtime_items') IS NOT NULL AND to_regclass('assistant.assistant_audit_events') IS NOT NULL AND to_regclass('assistant.assistant_capability_events') IS NOT NULL AND to_regclass('knowledge.kb_document_progress_events') IS NOT NULL AND to_regclass('assistant.assistant_runtime_model_calls') IS NOT NULL AND to_regclass('assistant.assistant_runtime_model_leases') IS NOT NULL AND to_regclass('gateway.knowledge_model_calls') IS NOT NULL AND to_regclass('gateway.task_reconciliation_audit') IS NOT NULL AND to_regclass('gateway.price_book_v2_activation_audit') IS NOT NULL AND to_regclass('gateway.price_book_v2_import_audit') IS NOT NULL AND to_regclass('gateway.price_book_v2_usage_receipts') IS NOT NULL AND to_regclass('gateway.price_book_v2_accounting_checkpoints') IS NOT NULL AND to_regclass('gateway.agent_traces') IS NOT NULL"
+        ],
+        "postconditions": [
+          "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')",
+          "SELECT count(*)=22 AND bool_and(phase IN('registered','expanded','backfilled','validated','active')) FROM partition_ops.families",
+          "SELECT count(*)=5 FROM pg_catalog.pg_class c WHERE c.relnamespace='partition_ops'::regnamespace AND c.relkind='r' AND c.relname=ANY(ARRAY['families','partitions','foreign_keys','statement_policies','operator_approvals']) AND pg_catalog.pg_get_userbyid(c.relowner)=current_user",
+          "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='assert_owner' AND pg_catalog.pg_get_function_identity_arguments(oid)='' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='fbd13b7e37c955cc0dd0a1848e2a03c6f2af5b54fc1515a40dc6d977a5eb0b79') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='family_enabled' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='b774cdf6dcd9b04358f5d6abb9b450646b882e749571c0b51404daeac3f2a3fa') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='identity' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_columns name[], p_row jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='4e38d686ec73f2c1555dd804ab2599cfdf0fb5c439fe1e5576dcf510ae687515') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='projection' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_columns name[], p_row jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='d0282f1a95c62d7f0ec759997f5b0545e9da3d53a38707d6a2482a973e4bb018') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='claim_row' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_row jsonb, p_identity jsonb, p_moving boolean' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='a6932d01d77791c9e6b1c6bc0a04b15cc4778e4cc6706de84d051d9ea4253a1b') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='row_guard' AND pg_catalog.pg_get_function_identity_arguments(oid)='' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='1d6e6ce99ce49b8acf56ce200d64390c558d56d592de879a1de33f70c00e3697') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='expand' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_boundary timestamp with time zone, p_admission_sha256 text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='bcebb97385ca4b9ffe96755608a1fab831a2eed12ce0220f72c8d67e93160f03') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='owner_family_enabled' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='19ae22787d1d8f1cd1296214b218e167fd3909d4f6eeed6be68dd761573878f6') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='approve_operator_stage' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_stage text, p_revision bigint, p_scope_sha256 text, p_evidence jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='a301ca0a1d9e1d7efba6d67df404a89c5b21327d30ac93662567bfdbf2e9f185') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='require_operator_approval' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_stage text, p_revision bigint, p_scope_sha256 text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='727ba09d98f88d119d97c11cf64fd95854f996238e75ee7a3115eee888b4c7db') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='status' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='88b7a90c11aec0910e3af5d442959d4b551282b29adb1f0e60387bbf28312fb2') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='backfill' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_expected_revision bigint, p_limit integer' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='0fad81b90d048fb283b1605bb943803d98abca7f5c7b893eea66c7c3aae3f4c6') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='validate_legacy' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_expected_revision bigint' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='8a15521598984f2c6f3aa5cb0f0aa0888312ba6b837121b10f4316eb34fb192f') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='capture_foreign_keys' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='1756ce82d8817de812b0cd1a36705343264517c2442c3a8e6eb777968302d648') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='reference_guard' AND pg_catalog.pg_get_function_identity_arguments(oid)='' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='93ea5ad4b94631002c1c090173e36cc58994ee63ee3ca61252179caf818d1998') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='rebind_fk' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_oid oid, p_step text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='26b928d5ca13b4cd5f3417b4261551820f1711eec44da6168969fcab3f3489f0') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='prepare' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_first timestamp with time zone, p_count integer' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='e29b3e1e5b88b69d284c22e169bdf2b75f69cc990b31ebfcab9ffa5322a41135') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='cutover' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_revision bigint, p_compatibility_sha256 text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='83a8545b954ea94a7177bd6964ea05eadaba3efe61bb980e7648792f01c0470f') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='legacy_index_sql' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='bec10c58624b1ba7e6beb217ac2f1cfb72c6b0e60ebfd5cfa3711976a5b4ecb8') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='write_spec' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='6f5f20a67dadce85a5c3ea03b8ef4e9eba7f4e7143205dffe6f707224925aace') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='lookup_conflict' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_index text, p_row jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='d7f232b7f2cc02ee9499081c233c6410425bfbcba0c018ec430c2e81d5a34e37') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='statement_spec' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_tail text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='e248dc3aa0a82e165be061b5f56f7ec4efc8d2de37b701f5488e7793c751740b') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='column_types' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='2a4e372387af8e48cbb6e0cf1c0618cb7c81cec98fdfd3c45f6e2182044a29ff') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='require_payload' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_result jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='be0f7857445144c1bd4aa793d2b4b61120efeeae2d2304a6a9810f598a0cb8df') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='write_json' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_row jsonb, p_mode text, p_conflict_index text, p_statement text, p_parameters jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='3cb7d76fc364206e6ff63e21ba79657f3870cff2f8d07c17b91153052392feac') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='seal_acl' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_relation oid' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='c5b5218624c6db5f39599738fbf83071f57bdf4f4e9c4ac68c52de2af85565ed') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='retention_begin' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_relation text, p_cutoff timestamp with time zone, p_evidence jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='2a85e260721168a31a9edd85d58e80af9f170b7e7a2ed964d22888ea4a111008') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='detach_status' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_relation text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='a7ed12b7463b29979848910e29223fabefbc1ffa238997b6bee76bc37d34d7e3') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='record_archive' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_relation text, p_receipt jsonb' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='b3026f4e4544a39757a4231a4d3e0578f41e47c4bc2367db33c532eabe4bcc12') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='drop_archived' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_relation text, p_archive_manifest_sha256 text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='2f8ed3c3fa4d2105fc8fccb91d5d5e694bbab07a98f113f1440fe06a2504775c') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='reattach' AND pg_catalog.pg_get_function_identity_arguments(oid)='p_family text, p_relation text' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='acd17571ea37c80325981fa2a19390891c6683a4f86fc0cdd89e6646386ff720') AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='partition_ops'::regnamespace AND proname='schema_admitted' AND pg_catalog.pg_get_function_identity_arguments(oid)='' AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='f8d73318ad9d3825352c227884102c096b7d2c55f869cabf1d3d9055e0e5cfec')",
+          "SELECT NOT EXISTS(SELECT 1 FROM gateway.task_batch_contract)"
+        ],
+        "timeout_seconds": 60,
+        "lock_budget_seconds": 2,
+        "resume_handler": null,
+        "repair_handler": null,
+        "notes": "Fixed source-owned successor; real complete-prefix measurement and N-1 required. No operator cutover, concurrent DDL, retention, or feature activation occurs in migration."
+      },
+      "acl_additions": [],
+      "compatibility_phase": "expand",
+      "auxiliary_inputs_sha256": {
+        "docs/design/proposals/data-platform/append-partitions/acceptance-catalog.sql": "c1f2ea024841a89daf0f9c248ebd299fb9c182b06b42228c5712e59cb7fe9f95",
+        "docs/design/proposals/service-successors/partition-authority-policy.json": "12f213f1246908a270c619e9ccc9f174b873cc5fb6f8faba165506e8deae8d85"
+      }
+    }
+  ],
+  "admission_requirements": {
+    "runtime": "SELECT has_table_privilege(current_user,'assistant.assistant_runtime_thread_owners','SELECT') AND NOT has_table_privilege(current_user,'assistant.assistant_runtime_thread_owners','INSERT,UPDATE,DELETE') AND has_function_privilege(current_user,'assistant.claim_runtime_thread_owner(uuid,uuid,text)','EXECUTE') AND has_function_privilege(current_user,'assistant.assert_runtime_thread_owner_for_run(uuid,uuid,text)','EXECUTE') AND has_function_privilege(current_user,'assistant.heartbeat_runtime_thread_owner(uuid,uuid)','EXECUTE')",
+    "gateway_a2a": "SELECT has_table_privilege(current_user,'gateway.gateway_a2a_contexts','SELECT') AND has_table_privilege(current_user,'gateway.gateway_a2a_contexts','INSERT') AND has_table_privilege(current_user,'gateway.gateway_a2a_tasks','SELECT') AND has_table_privilege(current_user,'gateway.gateway_a2a_tasks','INSERT') AND has_table_privilege(current_user,'gateway.gateway_a2a_outbound_effects','SELECT') AND has_table_privilege(current_user,'gateway.gateway_a2a_outbound_effects','INSERT') AND has_column_privilege(current_user,'gateway.gateway_a2a_contexts','created_at','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_tasks','effect_state','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_tasks','run_id','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_tasks','thread_id','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_tasks','updated_at','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','effect_state','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','response','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','updated_at','UPDATE') AND NOT has_table_privilege(current_user,'gateway.gateway_a2a_contexts','UPDATE,DELETE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_contexts','tenant_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_contexts','user_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_contexts','publication_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_contexts','context_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_contexts','version_id','UPDATE') AND NOT has_table_privilege(current_user,'gateway.gateway_a2a_tasks','UPDATE,DELETE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','tenant_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','user_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','publication_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','context_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','task_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','message_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_tasks','request_hash','UPDATE') AND NOT has_table_privilege(current_user,'gateway.gateway_a2a_outbound_effects','UPDATE,DELETE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','tenant_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','user_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','agent_name','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','message_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','request_hash','UPDATE')",
+    "knowledge_worker": "SELECT has_table_privilege(current_user,'knowledge.pipeline_work','SELECT') AND has_table_privilege(current_user,'knowledge.pipeline_work','INSERT') AND has_column_privilege(current_user,'knowledge.pipeline_work','job_id','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','phase','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','status','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','execution_id','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','checkpoints','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','owner_token','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','lease_expires_at','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','fence','UPDATE') AND has_column_privilege(current_user,'knowledge.pipeline_work','updated_at','UPDATE') AND NOT has_table_privilege(current_user,'knowledge.pipeline_work','UPDATE,DELETE') AND NOT has_column_privilege(current_user,'knowledge.pipeline_work','tenant_id','UPDATE') AND NOT has_column_privilege(current_user,'knowledge.pipeline_work','dataset_id','UPDATE') AND NOT has_column_privilege(current_user,'knowledge.pipeline_work','document_id','UPDATE')",
+    "gateway_sdk": "SELECT has_table_privilege(current_user,'gateway.sdk_model_calls','SELECT') AND NOT has_table_privilege(current_user,'gateway.sdk_model_calls','INSERT,UPDATE,DELETE') AND has_function_privilege(current_user,'gateway.reserve_sdk_model_call(text,text,text,text,uuid,jsonb,jsonb,jsonb,jsonb,bigint,bigint,bigint)','EXECUTE') AND has_function_privilege(current_user,'gateway.settle_sdk_model_call(uuid,text,text,bigint,bigint,bigint,bigint,jsonb,jsonb)','EXECUTE') AND has_column_privilege(current_user,'gateway.sdk_model_calls','state','UPDATE') AND has_column_privilege(current_user,'gateway.sdk_model_calls','dispatched_at','UPDATE') AND has_column_privilege(current_user,'gateway.sdk_model_calls','provider_request_id','UPDATE') AND has_column_privilege(current_user,'gateway.sdk_model_calls','error_code','UPDATE') AND has_column_privilege(current_user,'gateway.sdk_model_calls','observation','UPDATE')",
+    "gateway_audit": "SELECT has_table_privilege(current_user,'gateway.authorization_decisions','INSERT') AND NOT has_table_privilege(current_user,'gateway.authorization_decisions','SELECT,UPDATE,DELETE') AND has_table_privilege(current_user,'gateway.authorization_resource_decisions','INSERT') AND NOT has_table_privilege(current_user,'gateway.authorization_resource_decisions','SELECT,UPDATE,DELETE')",
+    "local_node": "SELECT has_table_privilege(current_user,'gateway.local_node_identity_policy','SELECT') AND NOT has_table_privilege(current_user,'gateway.local_node_identity_policy','INSERT,UPDATE,DELETE') AND has_table_privilege(current_user,'gateway.local_node_attestation_verifiers','SELECT') AND NOT has_table_privilege(current_user,'gateway.local_node_attestation_verifiers','INSERT,UPDATE,DELETE') AND has_table_privilege(current_user,'gateway.local_node_hardware_attestations','SELECT') AND NOT has_table_privilege(current_user,'gateway.local_node_hardware_attestations','INSERT,UPDATE,DELETE') AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint WHERE conrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND conname='local_node_request_keys_algorithm_class_format_check' AND convalidated) AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='gateway.local_node_request_keys'::pg_catalog.regclass AND attname='algorithm' AND attnotnull AND NOT attisdropped)",
+    "knowledge_api": "SELECT (SELECT count(*)=8 AND COALESCE(bool_and(NOT (has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))),false) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind='r' AND n.nspname||'.'||c.relname IN ('assistant.assistant_runtime_thread_owners','gateway.sdk_model_calls','knowledge.pipeline_work','gateway.authorization_decisions','gateway.authorization_resource_decisions','gateway.gateway_a2a_contexts','gateway.gateway_a2a_tasks','gateway.gateway_a2a_outbound_effects')) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname||'.'||p.proname IN ('assistant.claim_runtime_thread_owner','assistant.assert_runtime_thread_owner_for_run','assistant.heartbeat_runtime_thread_owner','gateway.reserve_sdk_model_call','gateway.settle_sdk_model_call','assistant.notify_sdk_execution_revocation') AND has_function_privilege(current_user,p.oid,'EXECUTE'))",
+    "capability_worker": "SELECT (SELECT count(*)=8 AND COALESCE(bool_and(NOT (has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))),false) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind='r' AND n.nspname||'.'||c.relname IN ('assistant.assistant_runtime_thread_owners','gateway.sdk_model_calls','knowledge.pipeline_work','gateway.authorization_decisions','gateway.authorization_resource_decisions','gateway.gateway_a2a_contexts','gateway.gateway_a2a_tasks','gateway.gateway_a2a_outbound_effects')) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname||'.'||p.proname IN ('assistant.claim_runtime_thread_owner','assistant.assert_runtime_thread_owner_for_run','assistant.heartbeat_runtime_thread_owner','gateway.reserve_sdk_model_call','gateway.settle_sdk_model_call','assistant.notify_sdk_execution_revocation') AND has_function_privilege(current_user,p.oid,'EXECUTE'))",
+    "gateway_outbound": "SELECT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','remote_task_id','UPDATE') AND has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','cancel_state','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','remote_message_id','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','card_sha256','UPDATE') AND NOT has_column_privilege(current_user,'gateway.gateway_a2a_outbound_effects','card_key_id','UPDATE') AND NOT has_table_privilege(current_user,'gateway.gateway_a2a_outbound_effects','UPDATE,DELETE')",
+    "partition_capability_worker": "SELECT partition_ops.schema_admitted()",
+    "partition_gateway": "SELECT partition_ops.schema_admitted()",
+    "partition_knowledge_api": "SELECT partition_ops.schema_admitted()",
+    "partition_knowledge_worker": "SELECT partition_ops.schema_admitted()",
+    "partition_runtime": "SELECT partition_ops.schema_admitted()"
+  },
+  "admission_minimum_epochs": {
+    "runtime": 30,
+    "gateway_a2a": 30,
+    "knowledge_worker": 30,
+    "gateway_sdk": 30,
+    "gateway_audit": 30,
+    "local_node": 32,
+    "knowledge_api": 30,
+    "capability_worker": 30,
+    "gateway_outbound": 33,
+    "partition_capability_worker": 35,
+    "partition_gateway": 35,
+    "partition_knowledge_api": 35,
+    "partition_knowledge_worker": 35,
+    "partition_runtime": 35
+  },
+  "deferred": "Data35 installs the complete22-family authority functions and exact native writer policies only. Per-family operator evidence, expansion/backfill/FK/index/cutover, concurrent maintenance, restore/retention acceptance remain separate explicitly authorized stages; no family is auto-enabled."
+}

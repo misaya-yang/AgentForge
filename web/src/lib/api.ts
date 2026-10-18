@@ -1,5 +1,5 @@
 import { browserTraceparent } from "@/observability/browserTelemetry";
-import axios, { AxiosError } from "axios";
+import { createHttpClient, HttpError } from "@/lib/fetchClient";
 import { getApiBaseUrlConfig } from "@/config/runtime";
 import { toast } from "@/hooks/use-toast";
 import i18n from "@/i18n";
@@ -8,10 +8,9 @@ import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 
 // Keep browser requests same-origin by default so local dev and E2E use Vite proxy
 // instead of relying on backend CORS for ephemeral frontend ports.
-const baseURL = getApiBaseUrlConfig();
 const AUTH_STORAGE_KEY = "agent-gateway-auth";
 
-// Keep the credential snapshot out of serialized Axios configuration/errors.
+// Keep the credential snapshot out of serialized Fetch configuration/errors.
 // A response from an old request must not log out a newer login or token refresh.
 const requestAuth = new WeakMap<object, { token: string | null; authority: string; generation: number }>();
 
@@ -36,16 +35,14 @@ if (import.meta.hot) {
 let lastRateLimitToast = 0;
 const RATE_LIMIT_TOAST_COOLDOWN = 5000; // Only show toast once per 5 seconds
 
-export const api = axios.create({
-  baseURL,
-});
+export const api = createHttpClient();
 
 /**
  * Get the API base URL for external references (e.g., code examples).
  * Uses configured VITE_API_BASE_URL or falls back to current origin.
  */
 export function getApiBaseUrl(): string {
-  return baseURL || window.location.origin;
+  return getApiBaseUrlConfig() || window.location.origin;
 }
 
 /** Non-secret in-memory generation for existing UI/SSE ownership fences. */
@@ -58,8 +55,10 @@ function clearAuthStorage(): void {
 
 // Keep the synchronous snapshot boundary: immediate A→B→A replacements must
 // invalidate the original request before the transport adapter can dispatch.
-api.interceptors.request.use(
-  (config) => {
+api.onCreate = (config) => {
+    // Bootstrap loads public JSON before the first request; never capture its
+    // build-time fallback while the static client module is being imported.
+    config.baseURL ??= getApiBaseUrlConfig();
     const identity = useAuthStore.getState();
     const origin = window.location.origin;
     if (origin && new URL(config.url ?? "", new URL(config.baseURL || "/", origin)).origin !== origin) {
@@ -81,7 +80,7 @@ api.interceptors.request.use(
       requestAuth.delete(config);
       // Same-origin XHR always sends ambient cookies. Select Fetch for an
       // explicit SDK bearer so its credentials:"omit" can prevent mixed auth.
-      if (Array.isArray(config.adapter)) config.adapter = "fetch";
+      config.adapter ??= "fetch";
       config.headers.delete("X-CSRF-Token");
     } else {
       requestAuth.set(config, { token: identity.token, authority: sdkAuthorityScope(identity.user), generation: authGeneration });
@@ -90,16 +89,16 @@ api.interceptors.request.use(
       if (!identity.csrfToken) throw new Error("Console session CSRF bootstrap required");
       config.headers.set("X-CSRF-Token", identity.csrfToken);
     }
-    return config;
-  },
-  (error) => { throw error; },
-  { synchronous: true }
-);
+    config.authorityCurrent = () => { const captured=requestAuth.get(config), current=useAuthStore.getState();return !captured || (captured.generation===authGeneration && captured.token===current.token && captured.authority===sdkAuthorityScope(current.user)); };
+};
+api.beforeTransport = config => { if (config.authorityCurrent?.() === false) throw new Error("Console session changed before request"); };
 
 // Response interceptor to handle auth and rate limit errors
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
+  (caught: unknown) => {
+    if (!caught || typeof caught !== "object") return Promise.reject(caught);
+    const error = caught as HttpError;
     const requestIdentity = error.config && requestAuth.get(error.config);
     const currentIdentity = useAuthStore.getState();
     if (error.response?.status === 401 && requestIdentity
@@ -140,7 +139,7 @@ api.interceptors.response.use(
       }
 
       // Attach retry info to error for react-query retry logic
-      (error as AxiosError & { retryAfter?: number }).retryAfter =
+      (error as HttpError & { retryAfter?: number }).retryAfter =
         parseInt(error.response.headers["retry-after"] || "5", 10) * 1000;
     }
 

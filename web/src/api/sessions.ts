@@ -1,8 +1,9 @@
+import type { RequestQuery, RequestBody } from "@/api/contracts";
 import type { TokenProvenance } from "@/features/chat/stream/tokenObservation";
 import { api } from "@/lib/api";
 
 // 会话配置（知识库、模型等）
-export interface SessionConfig {
+export type SessionConfig = NonNullable<RequestBody<"PATCH /api/v1/sessions/{session_id}">["config"]> & {
   selected_model?: string;
   selected_provider?: string;
   selected_datasets?: string[];
@@ -16,7 +17,7 @@ export interface SessionConfig {
   os_agent_enabled?: boolean;
   local_node_device_id?: string;
   local_node_grant_ids?: string[];
-}
+};
 
 export interface SessionSummary {
   session_id: string;
@@ -57,7 +58,7 @@ export interface SessionRetrievedContext {
   top_score?: number;
 }
 
-export interface SessionMessageMetadata {
+export type SessionMessageMetadata = NonNullable<RequestBody<"POST /api/v1/sessions/{session_id}/messages">["metadata"]> & {
   // Gateway's local stream observation; interrupted does not prove a remote stop.
   gateway_stream_status?: "completed" | "failed" | "interrupted";
   // Local stream observation only; run inspection remains the durable authority.
@@ -99,7 +100,7 @@ export interface SessionMessageMetadata {
   artifact_ids?: string[];
   source_kind?: "image_generation";
   process_summary?: Record<string, unknown>;
-}
+};
 
 export interface SessionMessage {
   role: "user" | "assistant" | string;
@@ -108,12 +109,9 @@ export interface SessionMessage {
   metadata?: SessionMessageMetadata | null;
 }
 
-export async function listSessions(params?: {
-  service_id?: string;
-  limit?: number;
-}): Promise<SessionSummary[]> {
+export async function listSessions(params?: RequestQuery<"GET /api/v1/sessions">): Promise<SessionSummary[]> {
   // Use generic sessions endpoint which returns an array
-  const { data } = await api.get<SessionSummary[]>("/api/v1/sessions", { params });
+  const { data } = await api.get<SessionSummary[]>("/api/v1/sessions", { params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/sessions">) });
   return data;
 }
 
@@ -124,7 +122,7 @@ export async function createSession(body?: {
   config?: SessionConfig;
 }): Promise<{ session_id: string }> {
   // Use generic sessions endpoint
-  const { data } = await api.post<{ session_id: string }>("/api/v1/sessions", body || {});
+  const { data } = await api.post<{ session_id: string }>("/api/v1/sessions", (body || {} satisfies RequestBody<"POST /api/v1/sessions">));
   return data;
 }
 
@@ -139,28 +137,24 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 export async function updateSession(
   sessionId: string,
-  body: { metadata?: Record<string, unknown>; config?: SessionConfig }
+  body: RequestBody<"PATCH /api/v1/sessions/{session_id}">
 ): Promise<void> {
-  await api.patch(`/api/v1/sessions/${sessionId}`, body);
+  await api.patch(`/api/v1/sessions/${sessionId}`, (body satisfies RequestBody<"PATCH /api/v1/sessions/{session_id}">));
 }
 
 export async function addSessionMessage(
   sessionId: string,
-  body: {
-    role: string;
-    content: unknown;
-    metadata?: SessionMessageMetadata | null;
-  }
+  body: RequestBody<"POST /api/v1/sessions/{session_id}/messages">
 ): Promise<void> {
-  await api.post(`/api/v1/sessions/${sessionId}/messages`, body);
+  await api.post(`/api/v1/sessions/${sessionId}/messages`, (body satisfies RequestBody<"POST /api/v1/sessions/{session_id}/messages">));
 }
 
 export async function getSessionHistory(
   sessionId: string,
-  params?: { limit?: number }
+  params?: RequestQuery<"GET /api/v1/sessions/{session_id}/history">
 ): Promise<SessionMessage[]> {
   const { data } = await api.get<SessionMessage[]>(`/api/v1/sessions/${sessionId}/history`, {
-    params,
+    params: ((params ?? {}) satisfies RequestQuery<"GET /api/v1/sessions/{session_id}/history">),
   });
   return data;
 }

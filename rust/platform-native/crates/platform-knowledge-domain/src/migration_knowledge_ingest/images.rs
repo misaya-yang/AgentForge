@@ -83,7 +83,7 @@ impl Extraction {
         out
     }
 }
-pub use ai_platform_service_primitives::pdf_ports::images::{PdfImage,PdfImageBackend};
+pub use ai_platform_service_primitives::pdf_ports::images::{PdfImage, PdfImageBackend};
 #[derive(Clone)]
 pub struct DocumentImageExtractor {
     pub pdf: Option<Arc<dyn PdfImageBackend>>,
@@ -439,11 +439,12 @@ impl DocumentImageExtractor {
                     for a in e.attributes().flatten() {
                         attrs.insert(
                             String::from_utf8_lossy(a.key.as_ref()).into_owned(),
-                            a.decode_and_unescape_value(reader.decoder())
-                                .map_err(|_| {
-                                    IngestError::Parser("invalid DOCX relationship".into())
-                                })?
-                                .into_owned(),
+                            a.decoded_and_normalized_value(
+                                quick_xml::XmlVersion::Implicit1_0,
+                                reader.decoder(),
+                            )
+                            .map_err(|_| IngestError::Parser("invalid DOCX relationship".into()))?
+                            .into_owned(),
                         );
                     }
                     if attrs.get("Type").is_some_and(|s| s.contains("image")) {
@@ -689,7 +690,7 @@ impl IngestionService {
             }
         }
         let ordered: Vec<_> = receipts.into_values().collect();
-        let result:Result<()>=async{if failed||ordered.len()!=images.len(){return Err(IngestError::Storage)}let changed=sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(jsonb_set(COALESCE(metadata,'{}'::jsonb),'{extracted_images}',$5::jsonb,TRUE),'{image_count}',to_jsonb(jsonb_array_length($5::jsonb)),TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2 AND status='parsing' AND metadata->>'original_file_key'=$3 AND LOWER(COALESCE(metadata->>'processing_mode','text_only'))=$4 AND ((COALESCE(enabled,TRUE)=TRUE AND COALESCE(archived,FALSE)=FALSE AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_lifecycle_reindex')) OR(metadata->'_document_lifecycle_reindex'->>'status'='pending' AND metadata->'_document_lifecycle_reindex'->>'desired_enabled'='true' AND metadata->'_document_lifecycle_reindex'->>'desired_archived'='false')) AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_upload_generation') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_upload_failed') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_confluence_sync_generation') RETURNING document_id").bind(id).bind(&dataset.dataset_id).bind(original).bind(mode).bind(json!(ordered)).fetch_optional(lease.connection()).await?;if changed.is_none(){return Err(IngestError::GenerationChanged)}Ok(())}.await;
+        let result:Result<()>=async{if failed||ordered.len()!=images.len(){return Err(IngestError::Storage)}let changed=sqlx::query("UPDATE knowledge.documents SET metadata=jsonb_set(jsonb_set(COALESCE(metadata,'{}'::jsonb),'{extracted_images}',$5::jsonb,TRUE),'{image_count}',to_jsonb(jsonb_array_length($5::jsonb)),TRUE),updated_at=NOW() WHERE document_id=$1 AND dataset_id=$2 AND status='parsing' AND metadata->>'original_file_key'=$3 AND LOWER(COALESCE(metadata->>'processing_mode','text_only'))=$4 AND ((COALESCE(enabled,TRUE)=TRUE AND COALESCE(archived,FALSE)=FALSE AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_lifecycle_reindex')) OR(metadata->'_document_lifecycle_reindex'->>'status'='pending' AND metadata->'_document_lifecycle_reindex'->>'desired_enabled'='true' AND metadata->'_document_lifecycle_reindex'->>'desired_archived'='false')) AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_upload_generation') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_document_upload_failed') AND NOT(COALESCE(metadata,'{}'::jsonb)?'_confluence_sync_generation') RETURNING document_id").bind(id).bind(&dataset.dataset_id).bind(original).bind(mode).bind(json!(ordered)).fetch_optional(crate::database::connection(lease.connection())).await?;if changed.is_none(){return Err(IngestError::GenerationChanged)}Ok(())}.await;
         if let Err(error) = result {
             let mut cleanup_failed = false;
             for key in keys {
@@ -787,7 +788,9 @@ impl IngestionService {
         for batch in loaded.chunks(8) {
             let bytes: Vec<_> = batch.iter().map(|(_, (_, bytes))| bytes.clone()).collect();
             let mut vectors = None;
-            for retry in 0..3 {
+            for retry in
+                (0..3).filter(|_| super::pipeline::stage() != super::pipeline::Stage::Parse)
+            {
                 match self.indexer.embeddings.embed_images(dataset, &bytes).await {
                     Ok(v) if v.len() == batch.len() => {
                         vectors = Some(v);
@@ -801,14 +804,26 @@ impl IngestionService {
                     }
                 }
             }
-            let vectors = vectors.ok_or_else(|| {
-                IngestError::Index("image embedding did not produce every required vector".into())
-            })?;
+            let vectors: Vec<Option<Vec<f64>>> =
+                if super::pipeline::stage() == super::pipeline::Stage::Parse {
+                    vec![None; batch.len()]
+                } else {
+                    vectors
+                        .ok_or_else(|| {
+                            IngestError::Index(
+                                "image embedding did not produce every required vector".into(),
+                            )
+                        })?
+                        .into_iter()
+                        .map(Some)
+                        .collect()
+                };
             for ((idx, (meta, _)), vector) in batch.iter().zip(vectors) {
-                if vector.is_empty()
-                    || vector.len() != resolved.dimension
-                    || vector.iter().any(|x| !x.is_finite())
-                {
+                if vector.as_ref().is_some_and(|v| {
+                    v.is_empty()
+                        || v.len() != resolved.dimension
+                        || v.iter().any(|x| !x.is_finite())
+                }) {
                     return Err(IngestError::Index(
                         "image vector dimensions or finite values are invalid".into(),
                     ));
@@ -881,7 +896,9 @@ impl IngestionService {
                     json!({"segment_id":id,"dataset_id":dataset.dataset_id,"document_id":document,"position":position,"text":text,"level":3,"token_count":0,"vector_id":id,"content_type":"image","image_url":meta["storage_url"],"image_attachment_id":attachment,"image_filename":filename,"image_media_type":meta["mime_type"],"image_file_size":meta["size_bytes"],"metadata":metadata,"enabled":!disabled,"status":"indexing"}),
                 )?;
                 let payload = json!({"tenant_id":dataset.tenant_id,"dataset_id":dataset.dataset_id,"document_id":document,"segment_id":id,"position":position,"text":text,"content_type":"image","image_id":meta["image_id"],"image_mime_type":meta["mime_type"],"image_width":meta["width"],"image_height":meta["height"],"image_page":meta["page_number"],"source_location":meta["source_location"],"confluence_attachment_id":meta["confluence_attachment_id"],"attachment_updated_at":meta["attachment_updated_at"],"enabled":!disabled});
-                points.push(json!({"id":id,"vector":{"":vector},"payload":payload}));
+                if let Some(vector) = vector {
+                    points.push(json!({"id":id,"vector":{"":vector},"payload":payload}));
+                }
                 rows.push(row);
             }
         }

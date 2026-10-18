@@ -1,0 +1,6 @@
+apiVersion: v2
+name: agentforge-delivery-guard
+description: Opt-in signed artifact admission and frontend-only SLO canary resources
+type: application
+version: 0.1.0
+appVersion: source-only

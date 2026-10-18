@@ -91,11 +91,10 @@ fn backend(denied: bool, image: bool) -> Arc<Backend> {
     })
 }
 fn app(b: Arc<Backend>) -> axum::Router {
-    capability_router(CapabilityState::with_backend(
-        b,
-        "internal-token".into(),
-        vec![b'p'; 32],
-    ))
+    capability_router(
+        CapabilityState::with_backend(b, "internal-token".into(), vec![b'p'; 32])
+            .with_legacy_window((chrono::Utc::now().timestamp_millis() + 120000) as u64),
+    )
 }
 fn proof() -> String {
     let mut p = json!({"schema_version":"ai-platform-capability-proof/v1","method":"POST","path":"/internal/v2/capabilities/knowledge/ds-a/retrieve","body_sha256":sha256(&canonical_json(&body()).unwrap()),"tenant_id":"tenant-a","user_id":"user-a","session_id":"session-a","execution_id":"11111111-1111-4111-8111-111111111111","run_id":"run-a","expires_at":chrono::Utc::now().timestamp()+60,"nonce":"nonce-a"});

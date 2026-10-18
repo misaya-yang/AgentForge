@@ -79,7 +79,7 @@ function host(count = 1, saved = new Map<string, string>()) {
     "@/lib/sse": {},
     "@/lib/api": { api: {
       async put(url: string, payload: unknown) { calls.push({ method: "PUT", url, payload: structuredClone(payload) }); return { data: await put() }; },
-      async post(url: string, form: FormData) { calls.push({ method: "POST", url, files: [...form].filter(([key]) => key === "file" || key === "files").map(([, value]) => value as File) }); return { data: await post() }; },
+      async post(url: string, body: { file?: File; files?: File[] }) { calls.push({ method: "POST", url, files: body.file ? [body.file] : Array.from(body.files ?? []) }); return { data: await post() }; },
     } },
   };
   function load(file: string) {

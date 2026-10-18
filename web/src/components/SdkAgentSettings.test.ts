@@ -151,7 +151,8 @@ test("existing shared service dialog embeds SDK editor only for the open officia
     "@tanstack/react-query": { useQueryClient: () => ({}), useMutation: () => ({}),
       useQuery: ({ queryKey }: { queryKey: string[] }) => ({ data: queryKey[0] === "service-detail"
         ? { service_id: "selected-service", metadata: { adapter_type: framework } } : undefined }) },
-    "@/lib/api": { api: {} }, "@/api/gateway": {}, "@/api/providers": { providerQueryKeys: { list: () => ["providers"] } }, "@/api/models": {},
+    "@/hooks/useAuthenticatedReadScope": { useAuthenticatedReadScope: () => ({ id: "service-dialog-fixture", isCurrent: () => true }) },
+    "@/lib/api": { api: {} }, "@/api/gateway": {}, "@/api/providers": { providerQueryKeys: { list: () => ["providers"] }, providersOptions: () => ({ queryKey: ["providers"], queryFn: () => [] }) }, "@/api/models": {},
     "@/lib/sdkAgentConfig": { isNativeAgentSdk: (value: unknown) => value === "openai_agents" || value === "claude_agent_sdk" },
     "@/components/SdkAgentSettings": { SdkAgentSettings: "SdkAgentSettings" },
   };

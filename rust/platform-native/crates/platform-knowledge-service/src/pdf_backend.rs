@@ -30,6 +30,8 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub struct PopplerPdfConfig {
+    pub execution_enabled: bool,
+    pub sandbox: Option<crate::migration_knowledge_ingest::parser_sandbox::SandboxPolicy>,
     pub pdfinfo: PathBuf,
     pub pdftotext: PathBuf,
     pub pdftoppm: Option<PathBuf>,
@@ -58,6 +60,8 @@ impl PopplerPdfConfig {
         scratch_root: PathBuf,
     ) -> Self {
         Self {
+            sandbox: None,
+            execution_enabled: true,
             pdfinfo,
             pdftotext,
             pdftoppm,
@@ -113,12 +117,16 @@ impl PopplerPdfBackend {
         {
             return Err(parser("Poppler resource configuration is invalid"));
         }
-        config.pdfinfo = executable(&config.pdfinfo)?;
-        config.pdftotext = executable(&config.pdftotext)?;
-        config.pdftoppm = config.pdftoppm.as_deref().map(executable).transpose()?;
-        config.pdfimages = config.pdfimages.as_deref().map(executable).transpose()?;
-        config.pdfseparate = config.pdfseparate.as_deref().map(executable).transpose()?;
-        config.pdfunite = config.pdfunite.as_deref().map(executable).transpose()?;
+        let resolve = |path: &Path| match &config.sandbox {
+            Some(policy) => policy.executable(path),
+            None => executable(path),
+        };
+        config.pdfinfo = resolve(&config.pdfinfo)?;
+        config.pdftotext = resolve(&config.pdftotext)?;
+        config.pdftoppm = config.pdftoppm.as_deref().map(resolve).transpose()?;
+        config.pdfimages = config.pdfimages.as_deref().map(resolve).transpose()?;
+        config.pdfseparate = config.pdfseparate.as_deref().map(resolve).transpose()?;
+        config.pdfunite = config.pdfunite.as_deref().map(resolve).transpose()?;
         if !config.scratch_root.is_absolute() {
             return Err(parser("Poppler scratch root must be absolute"));
         }
@@ -339,15 +347,26 @@ impl PopplerPdfBackend {
         stdout_cap: usize,
         file_cap: usize,
     ) -> Result<Vec<u8>> {
+        if !self.config.execution_enabled {
+            return Err(parser("converter execution requires a parse worker role"));
+        }
         let _permit = ProcessPermit::acquire(&self.active, self.config.max_processes)?;
         let remaining = deadline
             .checked_duration_since(Instant::now())
             .filter(|t| !t.is_zero())
             .ok_or_else(|| parser("PDF operation timed out"))?;
-        let executable = executable_path_again(executable)?;
-        let mut command = Command::new(executable);
+        let executable = match &self.config.sandbox {
+            Some(policy) => policy.executable(executable)?,
+            None => executable_path_again(executable)?,
+        };
+        let mut command = if let Some(policy) = &self.config.sandbox {
+            policy.command(&executable, args, directory)?
+        } else {
+            let mut command = Command::new(executable);
+            command.args(args);
+            command
+        };
         command
-            .args(args)
             .current_dir(directory)
             .env_clear()
             .env("LANG", "C")

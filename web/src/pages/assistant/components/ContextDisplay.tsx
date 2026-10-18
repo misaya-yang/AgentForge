@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { RetrievedContext } from "../types";
 import { citationSource, type CitationSource } from "./citationSource";
 import { SourceDocumentDialog } from "./SourceDocumentDialog";
+import { RegionCitationEvidence } from "@/components/RegionCitationEvidence";
 
 interface ContextDisplayProps {
   contexts: RetrievedContext[];
@@ -84,6 +85,7 @@ export function ContextDisplay({ contexts }: ContextDisplayProps) {
                         transition={{ delay: Math.min(idx, 2) * 0.05 }}
                         className="text-xs p-3 rounded-xl bg-[hsl(var(--assistant-surface-bg))] border border-[hsl(var(--assistant-border-soft))]"
                       >
+                        <RegionCitationEvidence metadata={chunk.metadata} datasetId={ctx.dataset_id} documentId={chunk.document_id} />
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5">
                             <Badge

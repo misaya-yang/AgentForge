@@ -1,3 +1,4 @@
+import ICU from "i18next-icu";
 /* eslint-disable @typescript-eslint/no-explicit-any -- Controlled component/transport fixtures. */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -9,7 +10,7 @@ import { createInstance } from "i18next";
 type Element = { type: unknown; props: Record<string, any> };
 type Locale = "en-US" | "zh-CN";
 function host(status?: number, locale?: Locale) {
-  const i18n = createInstance();
+  const i18n = createInstance().use(ICU);
   if (locale) {
     // Real locale resolution catches namespace mistakes hidden by t(key) => key.
     void i18n.init({

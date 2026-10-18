@@ -40,7 +40,7 @@ pub struct KnowledgeLifecycle {
     migration_runner: Mutex<Option<MigrationRunner>>,
     transition: Mutex<()>,
     started: AtomicBool,
-    model_plane:Option<Arc<query::model_plane::ModelPlaneClient>>,
+    model_plane: Option<Arc<query::model_plane::ModelPlaneClient>>,
     local_semantic: Option<query::embedding::EmbeddingManager>,
     pdf_parser: Option<ingest::parser::DocumentParser>,
     pdf_ready: AtomicBool,
@@ -64,8 +64,8 @@ impl KnowledgeLifecycle {
             .parser
             .supports_pdf()
             .then(|| ingestion.parser.clone());
-        let ingestion_plane=ingestion.model_plane.clone();
-        let ingestion_actors=ingestion.vector_job_actor_authority.clone();
+        let ingestion_plane = ingestion.model_plane.clone();
+        let ingestion_actors = ingestion.vector_job_actor_authority.clone();
         Self {
             confluence: std::sync::RwLock::new(None),
             pool: connections.database,
@@ -84,22 +84,32 @@ impl KnowledgeLifecycle {
                     worker_config,
                 ))
             }),
-            migration_worker: role.worker().then(|| {
-                Arc::new(query::migration_jobs::MigrationWorker::new(
-                    migrations,
-                    uuid::Uuid::new_v4().to_string(),
-                ).with_model_plane(ingestion_plane,ingestion_actors))
+            migration_worker: matches!(
+                role,
+                RuntimeRole::All | RuntimeRole::Worker | RuntimeRole::Index
+            )
+            .then(|| {
+                Arc::new(
+                    query::migration_jobs::MigrationWorker::new(
+                        migrations,
+                        uuid::Uuid::new_v4().to_string(),
+                    )
+                    .with_model_plane(ingestion_plane, ingestion_actors),
+                )
             }),
             migration_runner: Mutex::new(None),
             transition: Mutex::new(()),
             started: AtomicBool::new(false),
-            model_plane:None,
+            model_plane: None,
             local_semantic,
             pdf_parser,
             pdf_ready: AtomicBool::new(false),
         }
     }
-    pub fn with_model_plane(mut self,client:Arc<query::model_plane::ModelPlaneClient>)->Self {self.model_plane=Some(client);self}
+    pub fn with_model_plane(mut self, client: Arc<query::model_plane::ModelPlaneClient>) -> Self {
+        self.model_plane = Some(client);
+        self
+    }
     async fn qdrant_ready(&self, timeout: Duration) -> bool {
         let mut url = self.qdrant_origin.clone();
         let Ok(mut path) = url.path_segments_mut() else {
@@ -127,7 +137,8 @@ impl KnowledgeLifecycle {
         matches!(
             tokio::time::timeout(
                 timeout,
-                sqlx::query_scalar::<_, i32>("SELECT 1").fetch_one(&self.pool)
+                sqlx::query_scalar::<_, i32>("SELECT 1")
+                    .fetch_one(ai_platform_knowledge_domain::database::executor(&self.pool))
             )
             .await,
             Ok(Ok(1))
@@ -181,14 +192,21 @@ impl KnowledgeLifecycle {
         // Optional PDF absence must not disable text ingestion. When selected,
         // run real bounded extraction before workers or API readiness can pass.
         if let Some(parser) = &self.pdf_parser {
-            let parser = parser.clone();
-            if !matches!(
-                tokio::task::spawn_blocking(move || super::pdf_readiness::probe(&parser)).await,
-                Ok(Ok(()))
+            if matches!(
+                self.role,
+                RuntimeRole::All | RuntimeRole::Worker | RuntimeRole::Parse
             ) {
-                return Err(KnowledgeError::Startup("configured_pdf_backend_probe"));
+                let parser = parser.clone();
+                if !matches!(
+                    tokio::task::spawn_blocking(move || super::pdf_readiness::probe(&parser)).await,
+                    Ok(Ok(()))
+                ) {
+                    return Err(KnowledgeError::Startup("configured_pdf_backend_probe"));
+                }
+                self.pdf_ready.store(true, Ordering::Release);
+            } else {
+                self.pdf_ready.store(true, Ordering::Release);
             }
-            self.pdf_ready.store(true, Ordering::Release);
         }
         for connection in [&self.idempotency_redis, &self.replay_redis]
             .into_iter()
@@ -208,12 +226,16 @@ impl KnowledgeLifecycle {
         if !self.qdrant_ready(self.qdrant_startup_timeout).await {
             return Err(KnowledgeError::Startup("qdrant"));
         }
-        if let Some(client)=&self.model_plane {if !client.ready(Duration::from_secs(5)).await {return Err(KnowledgeError::Startup("gateway_model_plane"));}}
+        if let Some(client) = &self.model_plane {
+            if !client.ready(Duration::from_secs(5)).await {
+                return Err(KnowledgeError::Startup("gateway_model_plane"));
+            }
+        }
         if let Some(embeddings) = &self.local_semantic {
             if !matches!(
                 tokio::time::timeout(
                     Duration::from_secs(60),
-                    embeddings.probe_local_semantic(true)
+                    embeddings.probe_local_semantic(false)
                 )
                 .await,
                 Ok(Ok(()))
@@ -223,7 +245,7 @@ impl KnowledgeLifecycle {
         }
         if let Some(worker) = &self.document_worker {
             let mut worker = worker.lock().await;
-            if worker.start().is_err() {
+            if worker.validate_storage().await.is_err() || worker.start().is_err() {
                 let _ = worker.stop().await;
                 return Err(KnowledgeError::Startup("document_worker"));
             }
@@ -233,6 +255,18 @@ impl KnowledgeLifecycle {
             let worker = worker.clone();
             let handle = tokio::spawn(async move { worker.run(signal).await.map_err(|_| ()) });
             *self.migration_runner.lock().await = Some(MigrationRunner { stop, handle });
+        }
+        if matches!(
+            self.role,
+            RuntimeRole::All | RuntimeRole::Worker | RuntimeRole::Index
+        ) {
+            let sources = self.confluence.read().ok().and_then(|s| s.clone());
+            if let Some(sources) = sources {
+                sources
+                    .start_acl_refresh()
+                    .await
+                    .map_err(|_| KnowledgeError::Startup("connector_acl_refresh"))?;
+            }
         }
         self.started.store(true, Ordering::Release);
         Ok(())
@@ -274,12 +308,13 @@ impl KnowledgeLifecycle {
             .document_worker
             .as_ref()
             .is_some_and(|worker| worker.try_lock().is_ok_and(|worker| worker.is_running()));
-        let migration = self
-            .migration_runner
-            .lock()
-            .await
-            .as_ref()
-            .is_some_and(|runner| !runner.handle.is_finished());
+        let migration = self.migration_worker.is_none()
+            || self
+                .migration_runner
+                .lock()
+                .await
+                .as_ref()
+                .is_some_and(|runner| !runner.handle.is_finished());
         let status = |v| if v { "healthy" } else { "unavailable" };
         let mut core = json!({"startup":status(self.started.load(Ordering::Acquire)),"database":status(database),"qdrant":status(qdrant),"drain":status(!self.drain.draining())});
         if let Some(embeddings) = &self.local_semantic {
@@ -287,9 +322,11 @@ impl KnowledgeLifecycle {
                 tokio::time::timeout(timeout, embeddings.probe_local_semantic(false)).await,
                 Ok(Ok(()))
             );
-            core["local_semantic_model"] = json!(status(available));
+            core["local_semantic_configuration"] = json!(status(available));
         }
-        if let Some(client)=&self.model_plane {core["model_plane"]=json!(status(client.ready(timeout).await));}
+        if let Some(client) = &self.model_plane {
+            core["model_plane"] = json!(status(client.ready(timeout).await));
+        }
         let pdf_ready = self.pdf_ready.load(Ordering::Acquire);
         if self.pdf_parser.is_some() {
             core["pdf_text"] = json!(status(pdf_ready));
@@ -298,12 +335,13 @@ impl KnowledgeLifecycle {
         if pdf_ready {
             upload_formats.push("pdf");
         }
-        let capabilities = json!({
+        let mut capabilities = json!({
+            "local_semantic":{"configured":self.local_semantic.is_some(),"availability_probe":"actor_scoped_on_dataset_creation","quality_acceptance":"not_run"},
             "upload_formats": upload_formats,
             "pdf_text": {
                 "configured": self.pdf_parser.is_some(),
                 "status": if self.pdf_parser.is_none() { "disabled" } else { status(pdf_ready) },
-                "startup_probe_passed": pdf_ready,
+                "startup_probe_passed": if matches!(self.role,RuntimeRole::All|RuntimeRole::Worker|RuntimeRole::Parse){json!(pdf_ready)}else{Value::Null},
             },
         });
         if self.role.api() {
@@ -311,6 +349,11 @@ impl KnowledgeLifecycle {
         }
         if self.role.worker() {
             core["worker"] = json!(status(document && migration));
+            if let Some(worker) = &self.document_worker {
+                if let Ok(depth) = worker.lock().await.queue_depth().await {
+                    capabilities["pipeline"] = depth;
+                }
+            }
         }
         let ready = core
             .as_object()

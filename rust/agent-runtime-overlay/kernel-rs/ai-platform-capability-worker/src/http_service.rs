@@ -29,8 +29,8 @@ mod catalog;
 mod events;
 mod execution;
 mod execution_run;
-mod recovery;
 pub mod pools;
+mod recovery;
 
 use self::catalog::catalog;
 use self::events::get_events;
@@ -106,6 +106,8 @@ impl WorkerState {
             local_node_broker: None,
             capability_registry: Arc::new({
                 let mut registry = worker_capability_catalog_with_writes(writes_enabled)?;
+                // Compiled blueprints support signed-pack pinning, not builtin availability.
+                registry.remove(ai_platform_plugin_quiz::CAPABILITY_ID);
                 if fixtures_enabled {
                     for descriptor in crate::fixture_catalog() {
                         if registry.insert(descriptor.id.clone(), descriptor).is_some() {
@@ -124,8 +126,10 @@ impl WorkerState {
     }
 
     /// Replace pool limits before exposing the router or spawning recovery.
-    pub fn with_execution_pool_config(mut self, config: pools::ExecutionPoolConfig)
-        -> Result<Self, &'static str> {
+    pub fn with_execution_pool_config(
+        mut self,
+        config: pools::ExecutionPoolConfig,
+    ) -> Result<Self, &'static str> {
         self.execution_pools = pools::ExecutionPools::new(config)?;
         Ok(self)
     }
@@ -160,7 +164,10 @@ impl WorkerState {
         self
     }
 
-    pub fn with_remote_python_executor(mut self, executor: Arc<crate::sandbox_transport::RemoteSandboxBroker>) -> Self {
+    pub fn with_remote_python_executor(
+        mut self,
+        executor: Arc<crate::sandbox_transport::RemoteSandboxBroker>,
+    ) -> Self {
         self.remote_python_executor = Some(executor);
         self
     }
@@ -182,9 +189,15 @@ impl WorkerState {
 
     /// Install a verified deployment snapshot after all executors are wired.
     /// A manifest cannot turn an absent/disabled implementation into readiness.
-    pub fn with_plugin_activation(mut self, active: crate::plugin_packs::ActivePacks)
-        -> Result<Self, crate::plugin_packs::PackError> {
-        for id in active.registry.keys().filter(|id| active.managed.contains(*id)) {
+    pub fn with_plugin_activation(
+        mut self,
+        active: crate::plugin_packs::ActivePacks,
+    ) -> Result<Self, crate::plugin_packs::PackError> {
+        for id in active
+            .registry
+            .keys()
+            .filter(|id| active.managed.contains(*id))
+        {
             if !self.plugin_executor_configured(id) {
                 return Err(crate::plugin_packs::PackError::Incompatible);
             }
@@ -196,14 +209,21 @@ impl WorkerState {
 
     fn plugin_executor_configured(&self, id: &str) -> bool {
         match id {
-            "confluence_read" | "search_knowledge_base" | "web_fetch" | "search_web"
-                | "read_tool_artifact" | "todo_read" => self.read_executor.is_some(),
+            "confluence_read"
+            | "search_knowledge_base"
+            | "web_fetch"
+            | "search_web"
+            | "read_tool_artifact"
+            | "todo_read" => self.read_executor.is_some(),
             "read_attachment" => self.attachment_executor.is_some(),
             "todo_write" | "update_user_memory" => self.write_executor.is_some(),
             "generate_quiz" => self.quiz_executor.is_some(),
             "confluence_write" | "generate_image" => self.external_write_executor.is_some(),
             "mcp_docgen__generate_document" => self.office_executor.is_some(),
-            "execute_python_code" => (self.remote_python_executor.is_some() || self.python_executor.is_some()) && self.python_artifact_store.is_some(),
+            "execute_python_code" => {
+                (self.remote_python_executor.is_some() || self.python_executor.is_some())
+                    && self.python_artifact_store.is_some()
+            }
             // The current default LocalNode transport is explicitly unavailable;
             // a future real transport must supply an authoritative readiness seam.
             _ => false,
@@ -212,12 +232,15 @@ impl WorkerState {
 
     /// Dynamic governed MCP keeps its existing authority path. Pack-tagged or
     /// managed IDs must match this exact activation, even after deactivation.
-    fn admits_plugin_descriptor(&self, descriptor: &CapabilityDescriptorV2) -> bool {
+    pub(crate) fn admits_plugin_descriptor(&self, tenant: &str, descriptor: &CapabilityDescriptorV2) -> bool {
         let tagged = descriptor.tags.iter().any(|tag| tag.starts_with("plugin-"));
         match &self.plugin_activation {
-            Some(active) if tagged || active.managed.contains(&descriptor.id) =>
-                self.capability_registry.get(&descriptor.id) == Some(descriptor),
-            _ => !tagged,
+            Some(active) if tagged || active.managed.contains(&descriptor.id)
+                || descriptor.id == ai_platform_plugin_quiz::CAPABILITY_ID => {
+                active.admits_tenant(tenant, &descriptor.id)
+                    && self.capability_registry.get(&descriptor.id) == Some(descriptor)
+            }
+            _ => !tagged && descriptor.id != ai_platform_plugin_quiz::CAPABILITY_ID,
         }
     }
 
@@ -308,7 +331,8 @@ fn store_error(value: StoreError) -> HttpError {
             "runtime capability binding is not active",
         ),
         StoreError::CapacityExhausted => error(
-            StatusCode::SERVICE_UNAVAILABLE, "capacity_exhausted",
+            StatusCode::SERVICE_UNAVAILABLE,
+            "capacity_exhausted",
             "execution queue is full; retry with the same idempotency key",
         ),
         StoreError::Internal => error(
@@ -340,8 +364,16 @@ fn authorize(headers: &HeaderMap, state: &WorkerState) -> Result<CapabilityScope
         .get(INTERNAL_TOKEN_HEADER)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
-    if provided.len() != state.internal_token.len()
-        || !constant_time_eq::constant_time_eq(provided.as_bytes(), state.internal_token.as_bytes())
+    if !crate::workload_identity::authenticated_peer()
+        && if crate::workload_identity::required() {
+            !crate::workload_identity::authenticated_peer()
+        } else {
+            provided.len() != state.internal_token.len()
+                || !constant_time_eq::constant_time_eq(
+                    provided.as_bytes(),
+                    state.internal_token.as_bytes(),
+                )
+        }
     {
         return Err(error(
             StatusCode::UNAUTHORIZED,
@@ -471,9 +503,18 @@ async fn health(State(state): State<WorkerState>) -> impl IntoResponse {
     let store_ready = state.store.ready().await.is_ok();
     let mut capabilities = worker_capability_health(&state);
     if let Some(executor) = &state.remote_python_executor
-        && state.capability_registry.contains_key("execute_python_code")
+        && state
+            .capability_registry
+            .contains_key("execute_python_code")
     {
-        capabilities.insert("python", if executor.ready().await { "healthy" } else { "unavailable" });
+        capabilities.insert(
+            "python",
+            if executor.ready().await {
+                "healthy"
+            } else {
+                "unavailable"
+            },
+        );
     }
     let degraded = capabilities.values().any(|value| *value == "unavailable");
     let response = WorkerHealthResponse {
@@ -489,7 +530,10 @@ async fn health(State(state): State<WorkerState>) -> impl IntoResponse {
             },
         )]),
         capabilities,
-        plugin_activation: state.plugin_activation.as_ref().map(|active| active.receipt.clone()),
+        plugin_activation: state
+            .plugin_activation
+            .as_ref()
+            .map(|active| active.receipt.clone()),
     };
     (
         if store_ready {
@@ -569,7 +613,10 @@ fn worker_capability_health(state: &WorkerState) -> BTreeMap<&'static str, &'sta
             advertised(
                 state,
                 &["execute_python_code"],
-                state.remote_python_executor.as_ref().is_some_and(|executor| executor.configured())
+                state
+                    .remote_python_executor
+                    .as_ref()
+                    .is_some_and(|executor| executor.configured())
                     && state.python_artifact_store.is_some(),
             ),
         ),
@@ -675,6 +722,18 @@ mod tests {
         .expect("checked-in catalog must load")
     }
 
+    #[test]
+    fn quiz_is_never_admitted_as_a_dynamic_builtin_without_activation() {
+        let state = state(false);
+        let quiz = worker_capability_catalog_with_writes(true).unwrap()[ai_platform_plugin_quiz::CAPABILITY_ID].clone();
+        assert!(!state.admits_plugin_descriptor("tenant-a", &quiz));
+        let builtin = &state.capability_registry["todo_read"];
+        assert!(state.admits_plugin_descriptor("tenant-a", builtin));
+        let mut forged = builtin.clone();
+        forged.tags.push("plugin-publisher:unreviewed".into());
+        assert!(!state.admits_plugin_descriptor("tenant-a", &forged));
+    }
+
     #[tokio::test]
     async fn arc05_readiness_uses_store_and_reports_optional_capabilities() {
         let state = state(false);
@@ -737,7 +796,7 @@ mod tests {
         assert!(state.capability_registry.contains_key("update_user_memory"));
         assert!(state.capability_registry.contains_key("confluence_write"));
         assert!(state.capability_registry.contains_key("generate_image"));
-        assert!(state.capability_registry.contains_key("generate_quiz"));
+        assert!(!state.capability_registry.contains_key("generate_quiz"));
         assert!(
             state
                 .capability_registry
@@ -760,7 +819,7 @@ mod tests {
         );
         assert!(state.capability_registry.contains_key("local_node_action"));
         assert!(state.capability_registry.contains_key("search_web"));
-        assert_eq!(state.capability_registry.len(), 19);
+        assert_eq!(state.capability_registry.len(), 18);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+{{- if eq .Values.workloadIdentity.mode "disabled" }}
 {{- if .Values.sdkWorker.enabled }}
 apiVersion: apps/v1
 kind: Deployment
@@ -95,4 +96,6 @@ spec:
     ports: [{protocol: TCP, port: {{ $port }}}]
 {{- end }}
 {{- end }}
+{{- end }}
+
 {{- end }}

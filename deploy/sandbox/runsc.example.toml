@@ -1,0 +1,5 @@
+# Dedicated no-network runtime handler; never use this profile for the control
+# worker. Host UDS is limited by each pod's single-slot bind mount.
+[runsc_config]
+  network = 'none'
+  host-uds = 'open'

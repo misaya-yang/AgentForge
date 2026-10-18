@@ -1,3 +1,4 @@
+import type { RequestQuery } from "@/api/contracts";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getActiveDocumentSource } from "@/api/knowledge";
@@ -68,7 +69,7 @@ export function SourceDocumentDialog({ source, onClose }: SourceDocumentDialogPr
           const { data } = await api.get<HistoricalSourceResponse>(
             `/api/v1/knowledge/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}`
               + `/versions/${sourceVersion}/source`,
-            { params: { hash: sourceHash }, signal: controller.signal },
+            { params: ({ hash: sourceHash } satisfies RequestQuery<"GET /api/v1/knowledge/{dataset_id}/documents/{document_id}/versions/{version_number}/source">), signal: controller.signal },
           );
           if (data.document_id !== documentId || data.version_number !== sourceVersion
             || typeof data.content !== "string" || await contentHash(data.content) !== sourceHash) {

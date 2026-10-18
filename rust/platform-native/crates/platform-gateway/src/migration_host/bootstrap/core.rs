@@ -61,6 +61,8 @@ pub struct CoreServices {
     pub admission: Arc<CapacityAdmissionController>,
     pub rate_limiter: Arc<RateLimiter>,
     pub rbac: Arc<Rbac>,
+    pub authorization_audit:
+        Option<Arc<crate::migration_host::authorization_audit::DecisionLogWriter>>,
     pub health_monitor: Arc<Mutex<HealthMonitor>>,
     pub task_worker: Arc<Mutex<TaskWorker>>,
     pub pricing: Arc<ScopedUsagePricing>,
@@ -139,7 +141,38 @@ impl CoreServices {
             TaskManager::durable(task_storage.clone(), delivery)
         };
         let tasks = Arc::new(manager.with_safe_callback_transport(backends.callbacks));
-        let rbac = Arc::new(Rbac::new(config.roles));
+        let mut rbac = Rbac::new(config.roles);
+        let cedar_configuration =
+            if let Some(raw) = operator_environment.get(ai_platform_auth::cedar::CONFIG_KEY) {
+                serde_json::from_str::<ai_platform_auth::cedar::Configuration>(raw)
+                    .map_err(|_| BootstrapError::Configuration("cedar_configuration"))?
+            } else {
+                crate::migration_host::control_plane::config::Configuration::from_environment(
+                    operator_environment,
+                )
+                .map_err(BootstrapError::Configuration)?
+                .cedar
+            };
+        let authorization_audit = if cedar_configuration.mode == ai_platform_auth::cedar::Mode::Off
+        {
+            ai_platform_auth::cedar::validate_configuration(cedar_configuration, &rbac)
+                .map_err(|_| BootstrapError::Configuration("cedar_configuration"))?;
+            None
+        } else {
+            let writer = crate::migration_host::authorization_audit::DecisionLogWriter::new(
+                pools.data.clone(),
+            );
+            rbac.decision_point = Some(
+                ai_platform_auth::cedar::DecisionPoint::new(
+                    cedar_configuration,
+                    &rbac,
+                    writer.clone(),
+                )
+                .map_err(|_| BootstrapError::Configuration("cedar_policy_or_matrix"))?,
+            );
+            Some(writer)
+        };
+        let rbac = Arc::new(rbac);
         let rates = config.rate_limits;
         let rate_limiter = Arc::new(if redis.is_some() {
             RateLimiter::deferred(rates.clone())
@@ -187,7 +220,20 @@ impl CoreServices {
             }
             None => admission.clone(),
         };
-        if let Some(batch)=crate::task_batch_accounting::configure(pools.data.clone(),pools.control.clone(),preflight.clone(),operator_environment,dispatch_admission.clone(),capacity.clone()).map_err(|_|BootstrapError::Configuration("provider_batch_configuration"))?{tasks.configure_provider_batches(batch).map_err(|_|BootstrapError::Construction("provider_batch_requires_durable"))?;}
+        if let Some(batch) = crate::task_batch_accounting::configure(
+            pools.data.clone(),
+            pools.control.clone(),
+            preflight.clone(),
+            operator_environment,
+            dispatch_admission.clone(),
+            capacity.clone(),
+        )
+        .map_err(|_| BootstrapError::Configuration("provider_batch_configuration"))?
+        {
+            tasks
+                .configure_provider_batches(batch)
+                .map_err(|_| BootstrapError::Construction("provider_batch_requires_durable"))?;
+        }
         let executor = Arc::new(DispatchExecutor::new(
             dispatch_admission.clone(),
             (*capacity).clone(),
@@ -235,6 +281,7 @@ impl CoreServices {
             admission,
             rate_limiter,
             rbac,
+            authorization_audit,
             health_monitor,
             task_worker,
             pricing,
@@ -315,9 +362,31 @@ impl CoreServices {
                 })
             }),
         };
-        (
-            vec![health_start, worker_start],
-            vec![worker_stop, health_stop],
-        )
+        let mut starts = vec![health_start, worker_start];
+        let mut stops = vec![worker_stop, health_stop];
+        if let Some(audit) = &self.authorization_audit {
+            let start = audit.clone();
+            starts.insert(
+                0,
+                LifecycleStep {
+                    name: "authorization_decision_log",
+                    best_effort: false,
+                    operation: Arc::new(move || {
+                        let audit = start.clone();
+                        Box::pin(async move { audit.start().await })
+                    }),
+                },
+            );
+            let stop = audit.clone();
+            stops.push(LifecycleStep {
+                name: "authorization_decision_log",
+                best_effort: false,
+                operation: Arc::new(move || {
+                    let audit = stop.clone();
+                    Box::pin(async move { audit.stop().await })
+                }),
+            });
+        }
+        (starts, stops)
     }
 }

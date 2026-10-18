@@ -7,7 +7,7 @@ use super::{
 use crate::migration_knowledge_query::embedding::EmbeddingManager;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CandidatePlan {
     pub generation_id: String,
     pub document_id: String,
@@ -230,7 +230,10 @@ impl HierarchicalIndexer {
                 "hierarchical candidate output count is invalid".into(),
             ));
         }
-        for level in [3, 2, 1] {
+        for level in [3, 2, 1]
+            .into_iter()
+            .filter(|_| super::pipeline::stage() != super::pipeline::Stage::Parse)
+        {
             let selected: Vec<_> = rows.iter().filter(|s| s.level == level).collect();
             let texts: Vec<_> = selected
                 .iter()

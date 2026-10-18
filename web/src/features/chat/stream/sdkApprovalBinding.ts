@@ -1,9 +1,6 @@
+import type { RequestBody } from "@/api/contracts";
 /** Immutable SDK action identity returned by the authenticated approval endpoint. */
-export interface SdkApprovalBinding {
-  readonly expected_run_id: string;
-  readonly expected_tool_call_id: string;
-  readonly expected_arguments_hash: string;
-}
+export type SdkApprovalBinding = Readonly<Required<Pick<RequestBody<"POST /api/v1/assistant/approvals/{approval_id}">, "expected_run_id" | "expected_tool_call_id" | "expected_arguments_hash">>>;
 
 export function sdkApprovalBinding(
   response: unknown,

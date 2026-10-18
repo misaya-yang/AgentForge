@@ -72,8 +72,10 @@ impl BrowserAuth {
         Router::new()
             .route("/api/auth/session", get(current).post(login).delete(logout))
             .route("/api/auth/session/password", post(password))
+            .route("/api/auth/session/step-up", get(step_up_status))
             .layer(DefaultBodyLimit::max(crate::contract::BODY_LIMIT))
             .with_state(self.clone())
+            .merge(crate::device_flow::router(self.service.clone(), self.policy.origins()).expect("validated BFF device policy"))
     }
     /// Install after merging every application router, including WebSockets.
     /// Explicit API-key/CLI Authorization requests without cookies pass through.
@@ -147,6 +149,25 @@ async fn protect(State(state): State<BrowserAuth>, mut request: Request, next: N
     if principal.account.user_id != session.user_id || principal.expires_at != session.expires_at {
         return Error(ServiceError::Credentials).into_response();
     }
+    if state.service.enterprise_policy_enabled()
+        && crate::enterprise::step_up::sensitive_mutation(request.method(), request.uri().path())
+    {
+        match crate::enterprise::step_up::recent(&state.service, &principal, Some((&id, &session)))
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return no_store(
+                    (
+                        StatusCode::FORBIDDEN,
+                        Json(json!({"detail":"step_up_required","code":"step_up_required"})),
+                    )
+                        .into_response(),
+                );
+            }
+            Err(e) => return no_store(e.into_response()),
+        }
+    }
     let request_bearer = match state.service.browser_request_bearer(&principal) {
         Ok(token) => token,
         Err(e) => return Error(e).into_response(),
@@ -162,6 +183,9 @@ async fn protect(State(state): State<BrowserAuth>, mut request: Request, next: N
 
 fn credential_boundary(method: &axum::http::Method, path: &str, enterprise: bool) -> bool {
     use axum::http::Method;
+    // Static approval shell carries no session data; CLI browser navigation
+    // may be Sec-Fetch-Site:none. Its authenticated fetches retain the gate.
+    if method == Method::GET && path == "/api/auth/device" { return true; }
     if method == Method::POST && path == "/api/auth/session" {
         return true;
     }
@@ -219,6 +243,8 @@ mod credential_boundary_tests {
         for path in [
             "/api/auth/enterprise/passkeys/register/start",
             "/api/auth/enterprise/passkeys/register/finish",
+            "/api/auth/enterprise/passkeys/step-up/start",
+            "/api/auth/enterprise/passkeys/step-up/finish",
             "/api/auth/enterprise/recovery/rotate",
             "/api/auth/enterprise/scim-credentials",
             "/api/auth/enterprise/identities",
@@ -317,6 +343,22 @@ async fn current(State(state): State<BrowserAuth>, headers: HeaderMap) -> Result
     let (_, session) = state.session(&headers).await?;
     let p = state.service.authenticate_browser(&session).await?;
     Ok(no_store(Json(json!({"user":{"user_id":p.account.user_id,"tenant_id":p.account.tenant_id,"email":p.account.email,"display_name":p.account.display_name,"department":p.account.department,"roles":p.authority.roles,"permissions":p.authority.permissions,"effective_permissions":p.authority.permissions,"tier":p.authority.tier,"force_password_change":p.account.force_password_change},"csrf_token":session.csrf,"expires_at":session.expires_at})).into_response()))
+}
+async fn step_up_status(State(state): State<BrowserAuth>, headers: HeaderMap) -> Response {
+    let result = async {
+        let (id, session) = state.session(&headers).await.map_err(Error)?;
+        let p = state.service.authenticate_browser(&session).await.map_err(Error)?;
+        let enabled = state.service.enterprise_policy_enabled();
+        if !enabled { return Ok(no_store(Json(json!({"enabled":false,"verified":false,"passkey_enrolled":false})).into_response())); }
+        let verified = match crate::enterprise::step_up::recent(&state.service, &p, Some((&id, &session))).await {
+            Ok(v) => v, Err(e) => return Ok(no_store(e.into_response())),
+        };
+        let enrolled: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM gateway.enterprise_passkeys WHERE tenant_id=$1 AND user_id=$2)")
+            .bind(&session.tenant_id).bind(&session.user_id).fetch_one(&state.service.accounts.pool).await
+            .map_err(|_| Error(ServiceError::Unavailable))?;
+        Ok::<_, Error>(no_store(Json(json!({"enabled":true,"verified":verified,"passkey_enrolled":enrolled})).into_response()))
+    }.await;
+    no_store(result.unwrap_or_else(IntoResponse::into_response))
 }
 async fn logout(State(state): State<BrowserAuth>, headers: HeaderMap) -> Result<Response, Error> {
     let (id, session) = state.session(&headers).await?;

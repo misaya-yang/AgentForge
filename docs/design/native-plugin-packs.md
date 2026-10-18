@@ -3,7 +3,7 @@
 ## Scope and authority
 
 The Worker image now ships `ai-platform-plugin-packs`, an offline installer and
-activation planner for existing Agent Plugins 1.0.0 packages. A pack can bind only
+activation planner for Agent Plugins 1.0.0 manifests in signed pack-v2 artifacts. A pack can bind only
 reviewed, already-compiled Worker capability IDs. It cannot provide a binary,
 script, subprocess, URL, credential, new permission, MCP grant, or executor.
 Package Markdown remains inert files; this operation does not install prompts or
@@ -14,8 +14,9 @@ release governed by ADR-006. The trust policy pins the exact Worker executable's
 SHA-256 as well as each compiled descriptor and each package archive. The running
 Worker hashes its own executable before admitting the activation. A changed image
 must pass the existing OCI supply-chain gates; a changed Worker binary requires a
-new reviewed trust policy and activation. Digest pinning is local operator trust,
-not a package-signature verification claim.
+new reviewed trust policy and activation. Pack v2 additionally verifies the publisher signature over the exact archive;
+digest pins remain mandatory and independent. Tenant publisher admission is
+explicit and has no wildcard/default fallback.
 
 This implements the compiled-executor branch of the accepted extension boundary.
 Existing governed MCP connections continue through their current registry,
@@ -48,7 +49,8 @@ host extension containing only compiled IDs:
   "description": "Reviewed quiz capability binding",
   "extensions": {
     "com.misaya.ai-gateway": {
-      "worker_capabilities": ["generate_quiz"]
+      "worker_capabilities": ["generate_quiz"],
+      "publisher_id": "reviewed-publisher"
     }
   }
 }
@@ -85,12 +87,22 @@ shape; the digest placeholders must be replaced by actual reviewed release data:
 
 ```json
 {
-  "schema_version": "ai-platform-plugin-trust/v1",
+  "schema_version": "ai-platform-plugin-trust/v2",
+  "publishers": {
+    "reviewed-publisher": {
+      "minisign_public_key": "untrusted comment: reviewed key\n<base64 Ed public-key packet>\n",
+      "allowed_packages": ["ai-quiz"],
+      "revoked": false
+    }
+  },
+  "tenant_publishers": {"exact-tenant-id": ["reviewed-publisher"]},
   "worker_binary_sha256": "sha256:<64 lowercase hex digits>",
   "managed_capabilities": ["generate_quiz"],
   "packages": [{
     "id": "ai-quiz",
     "version": "1.1.0",
+    "publisher_id": "reviewed-publisher",
+    "publisher_signature": "<four-line detached minisign raw-Ed signature>",
     "artifact_sha256": "sha256:<64 lowercase hex digits>",
     "capabilities": {
       "generate_quiz": "sha256:<compiled descriptor fingerprint>"
@@ -98,6 +110,32 @@ shape; the digest placeholders must be replaced by actual reviewed release data:
   }]
 }
 ```
+
+Pack v2 accepts the minisign raw-message **Ed** profile (`minisign -l`), with
+canonical standard base64 packets, the pinned eight-byte key ID and public key,
+primary Ed25519 signature over the archive bytes, exact signed manifest publisher
+ID, distinct publisher key/key IDs, and the global signature over
+the primary signature plus trusted comment. Unknown algorithms, modern `ED`
+prehash packets, missing signatures, wrong/revoked publishers or package names,
+and unknown tenant publishers fail closed. There is no key from a package,
+trust-on-first-use, signature subprocess or network lookup. The placeholders above
+must be replaced with real reviewed release evidence; source test keys grant no
+production trust. Independent official-minisign interoperability remains a release
+check in addition to the software-generated format fixtures.
+
+Trust v1 is not silently accepted. To migrate an existing store, retain every
+reviewed archive/descriptor/Worker digest and managed-ID tombstone, independently
+approve actual publisher keys/signatures and tenant mappings, then stage a fresh
+activation with trust v2. Immutable id/version/digest ledgers keep their original
+format and cannot be overwritten by a changed artifact. Replacing trust changes
+the existing trust SHA/activation handshake; old paths do not admit fresh startup.
+
+`ActivePacks::admits_tenant` is the admission gate. Actual dispatch/recovery uses
+`execution_binding(tenant,id)` to obtain package/activation/publisher provenance
+only after that check. The host must invoke these at admission and execution, as
+well as its existing lease/descriptor/fence checks. Catalog metadata and descriptor
+tags carry the reviewed publisher; tenant allowlists remain private deployment
+policy, not catalog tags exposed to other tenants.
 
 `ai-platform-plugin-packs fingerprints --worker-binary /usr/local/bin/ai-platform-capability-worker`
 prints the actual executable digest and compiled descriptor fingerprints without
@@ -265,3 +303,45 @@ matching binary/generation health, tenant reselection and one real capability
 execution plus rollback through the complete service chain. New tests and generated checks remain outside the repository in the verification
 package; use its test-bearing variants only in an external controlled composition.
 A source review or unexecuted test file is not a passed acceptance gate.
+
+
+## ai-quiz domain delivery
+
+The actual plugin implementation and package producer are under
+`agent-plugins/ai-quiz/`. The Rust plugin owns grading, HTTP request/projection,
+frozen-share and authenticated attempt persistence, and the generation executor.
+Generic CPython formatting/Unicode moved to `platform-python-compat`, so Foundation
+message-queue rendering does not depend on a quiz domain. Gateway compatibility
+modules are imports/authority bridges; Worker imports the compiled plugin executor.
+The plugin's generation adapter additionally rejects durable descriptors without
+matching plugin activation/archive/publisher provenance. A stale built-in path is
+not an alternate writer. Existing quizzes/attempts remain in their original tables;
+no pack install or domain extraction migrates/deletes user data.
+
+No executable-plugin ADR was adopted. USTAR still permits only inert UTF-8
+manifest/Markdown/license assets; native/WASM payloads are rejected. Compiled
+implementation upgrades stay in the reviewed Worker/Gateway OCI release. Real
+activation, cross-tenant rejection, a generated quiz and graded/shared attempt,
+revocation/rollback and persistence recovery require live receipts; source/format
+checks do not establish them.
+
+The production graph now mounts the nine quiz routes once through
+`quiz_plugin_bridge::deployment_router`, using the same selected deployment
+catalog as the Runtime authority. The bundled baseline contains no quiz record;
+the compiled ai-quiz record is injected only into the Worker blueprint used for
+reviewed descriptor pins. Worker state exposes it only after signed activation,
+and repeats exact tenant publisher admission at catalog, create, dispatch and
+recovery. Constructor readiness remains independent from activation admission.
+
+The generated immutable catalog stores `publisher_tenants` as a bounded JSON
+array encoded in a scalar string, preserving the catalog metadata wire shape.
+It is derived from the reviewed trust policy, covered by the activation catalog
+hash and not exposed in tenant tool/plugin projections. Gateway intersects these
+exact tenant IDs with existing account/source/lifecycle controls for discovery
+and quiz routes, including creator deletion and anonymous shares' origin tenant.
+Missing, duplicate, wildcard or malformed mappings fail closed. The Runtime
+also requires the fifth `plugin-publisher` tag; old builtin quiz descriptors do
+not become dynamic fallback capabilities. Published old quiz work with missing
+plugin provenance fails admission; dispatched writes still reconcile their
+durable receipt or terminalize `side_effect_unknown` before considering a new
+activation. Existing stored artifacts and tenant-owned attempt rows are retained.

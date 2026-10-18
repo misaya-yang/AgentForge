@@ -1,4 +1,4 @@
-import axios from "axios";
+import fetchHttp from '@/lib/fetchClient';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -113,7 +113,7 @@ function unavailableModel(reason: string): LocalOSControlSurfaceModel {
 }
 
 function unavailableReason(error: unknown): string {
-  if (axios.isAxiosError(error)) {
+  if (fetchHttp.isHttpError(error)) {
     if (error.response?.status === 404) {
       return "Local Node support is not installed on this deployment.";
     }

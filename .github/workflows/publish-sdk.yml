@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.11.1'
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
       - name: Verify and package Rust client
         run: |
           cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-native
+      - uses: ./.github/actions/setup-native
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.11.1'
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-client-packaging
+      - uses: ./.github/actions/setup-client-packaging
       - id: targets
         name: Read the canonical platformctl target manifest
         run: echo "matrix=$(platform-client-packaging package-platformctl --matrix)" >> "$GITHUB_OUTPUT"
@@ -151,7 +151,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-client-packaging
+      - uses: ./.github/actions/setup-client-packaging
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
         with:
           toolchain: 1.99.0

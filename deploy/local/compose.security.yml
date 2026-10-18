@@ -1,0 +1,10 @@
+# Merge after compose.yml, compose.runtime.yml and compose.apps.yml, then the
+# shared workload-security + data-security overlays. This local boundary file
+# records the supported full profile; it does not create another stack.
+services:
+  gateway:
+    deploy: {replicas: 1}
+  agent-runtime:
+    deploy: {replicas: 1}
+  agent-capability-worker:
+    deploy: {replicas: 1}

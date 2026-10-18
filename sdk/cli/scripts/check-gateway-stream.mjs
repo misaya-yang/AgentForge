@@ -46,6 +46,7 @@ function host(chunks, { status = 200, iteratorError = false } = {}) {
           },
         };
         if (id === "../types/events.js") return load("../src/types/events.ts");
+        if (id === "./problem.js") return load("../src/remote/problem.ts");
         if (id === "../version.js") return load("../src/version.ts");
         throw new Error(`Unexpected import: ${id}`);
       },

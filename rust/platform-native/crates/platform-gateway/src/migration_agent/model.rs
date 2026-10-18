@@ -197,6 +197,8 @@ where
 }
 #[derive(Clone)]
 pub struct AgentModelPlane {
+    pub context_metrics:
+        Option<Arc<crate::migration_host::context_metrics::ContextMetricsCollector>>,
     pub admission: Option<Arc<crate::capacity_admission::CapacityAdmissionController>>,
     pub capacity: Option<Arc<crate::capacity::CapacityResolver>>,
     pub pool: PgPool,
@@ -254,7 +256,16 @@ impl AgentModelPlane {
     ) -> Result<AuthorizedCall, AgentError> {
         let id = super::uuid(text(metadata, "ai_platform_lease_id"))
             .map_err(|_| AgentError::code(401, "RUNTIME_MODEL_LEASE_INVALID"))?;
-        let data:Value=sqlx::query_scalar("SELECT to_jsonb(l)||jsonb_build_object('snapshot',s.snapshot,'snapshot_sha256',s.snapshot_sha256,'execution_owner_id',o.owner_id,'execution_fence',o.fence,'issued_at_ms',floor(extract(epoch from l.issued_at)*1000)::bigint,'expires_at_ms',floor(extract(epoch from l.expires_at)*1000)::bigint) FROM assistant_runtime_model_leases l JOIN assistant_runtime_snapshots s ON s.snapshot_id=l.snapshot_id AND s.run_id=l.run_id AND s.tenant_id=l.tenant_id AND s.user_id=l.user_id AND s.session_id=l.session_id JOIN assistant_runs r ON r.run_id=l.run_id LEFT JOIN assistant_runtime_execution_owners o ON o.run_id=r.run_id WHERE l.lease_id=$1::uuid AND (o.run_id IS NULL OR o.lease_until>NOW()) AND l.status='active' AND l.expires_at>NOW() AND r.status='running' AND r.engine='agent_runtime' AND NOT EXISTS(SELECT 1 FROM assistant_runtime_snapshot_revocations revoked WHERE revoked.snapshot_id=l.snapshot_id)").bind(&id).fetch_optional(&self.pool).await?.ok_or_else(||AgentError::code(401,"RUNTIME_MODEL_LEASE_NOT_FOUND"))?;
+        let tenant =
+            ai_platform_gateway_foundation::tenant_database::model_lease_tenant(&self.pool, &id)
+                .await
+                .map_err(|error| match error {
+                    sqlx::Error::RowNotFound => {
+                        AgentError::code(401, "RUNTIME_MODEL_LEASE_NOT_FOUND")
+                    }
+                    error => AgentError::from(error),
+                })?;
+        let data:Value=sqlx::query_scalar("SELECT to_jsonb(l)||jsonb_build_object('snapshot',s.snapshot,'snapshot_sha256',s.snapshot_sha256,'execution_owner_id',o.owner_id,'execution_fence',o.fence,'issued_at_ms',floor(extract(epoch from l.issued_at)*1000)::bigint,'expires_at_ms',floor(extract(epoch from l.expires_at)*1000)::bigint) FROM assistant_runtime_model_leases l JOIN assistant_runtime_snapshots s ON s.snapshot_id=l.snapshot_id AND s.run_id=l.run_id AND s.tenant_id=l.tenant_id AND s.user_id=l.user_id AND s.session_id=l.session_id JOIN assistant_runs r ON r.run_id=l.run_id LEFT JOIN assistant_runtime_execution_owners o ON o.run_id=r.run_id WHERE l.lease_id=$1::uuid AND (o.run_id IS NULL OR o.lease_until>NOW()) AND l.status='active' AND l.expires_at>NOW() AND r.status='running' AND r.engine='agent_runtime' AND NOT EXISTS(SELECT 1 FROM assistant_runtime_snapshot_revocations revoked WHERE revoked.snapshot_id=l.snapshot_id)").bind(&id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?.ok_or_else(||AgentError::code(401,"RUNTIME_MODEL_LEASE_NOT_FOUND"))?;
         let owner = &data["execution_owner_id"];
         let fence = &data["execution_fence"];
         let scalar = |v: &Value| {
@@ -295,7 +306,7 @@ impl AgentModelPlane {
             ai_platform_gateway_foundation::price_book::validate_token_snapshot(pricing)
                 .map_err(|_| AgentError::code(503, "RUNTIME_CACHE_PRICING_INVALID"))?;
             let admitted:bool=sqlx::query_scalar("SELECT to_regprocedure('assistant.complete_assistant_runtime_model_call_v2(uuid,character varying,bigint,bigint,bigint,character varying,jsonb)') IS NOT NULL")
-                .fetch_one(&self.pool).await?;
+                .fetch_one(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
             if !admitted {
                 return Err(AgentError::code(503, "RUNTIME_CACHE_SCHEMA_NOT_ADMITTED"));
             }
@@ -317,20 +328,23 @@ impl AgentModelPlane {
         } else {
             json!({"body":body,"execution_fence":fence})
         });
-        let result = if owner.is_null() {
-            sqlx::query(
-                "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6)",
-            )
-            .bind(&call)
-            .bind(&id)
-            .bind(&hash)
-            .bind(input)
-            .bind(output)
-            .bind(cost)
-            .execute(&self.pool)
-            .await
-        } else {
-            sqlx::query(
+        let result =
+            if owner.is_null() {
+                sqlx::query(
+                    "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6)",
+                )
+                .bind(&call)
+                .bind(&id)
+                .bind(&hash)
+                .bind(input)
+                .bind(output)
+                .bind(cost)
+                .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                    &self.pool, &tenant,
+                ))
+                .await
+            } else {
+                sqlx::query(
                 "SELECT reserve_assistant_runtime_model_call($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)",
             )
             .bind(&call)
@@ -341,9 +355,9 @@ impl AgentModelPlane {
             .bind(cost)
             .bind(text(&data, "execution_owner_id"))
             .bind(fence.as_i64().unwrap_or(0))
-            .execute(&self.pool)
+            .execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant))
             .await
-        };
+            };
         if let Err(error) = result {
             let message = error.as_database_error().map(|d| d.message()).unwrap_or("");
             return Err(if message.contains("MODEL_CALL_REPLAYED") {
@@ -403,7 +417,7 @@ impl AgentModelPlane {
         for id in [thread, turn, parent] {
             super::uuid(id).map_err(|_| denied())?;
         }
-        let member:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('parent_kernel_thread_id',parent_kernel_thread_id,'relation_kind',relation_kind) FROM assistant_runtime_thread_members WHERE kernel_thread_id=$1::uuid AND runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5").bind(thread).bind(text(claims,"runtime_thread_id")).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(&self.pool).await?;
+        let member:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('parent_kernel_thread_id',parent_kernel_thread_id,'relation_kind',relation_kind) FROM assistant_runtime_thread_members WHERE kernel_thread_id=$1::uuid AND runtime_thread_id=$2::uuid AND tenant_id=$3 AND user_id=$4 AND session_id=$5").bind(thread).bind(text(claims,"runtime_thread_id")).bind(&scope.tenant_id).bind(&scope.user_id).bind(&scope.session_id).fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &scope.tenant_id)).await?;
         let m = member.ok_or_else(denied)?;
         if m["relation_kind"] != "subagent"
             || text(&m, "parent_kernel_thread_id") != super::uuid(parent)?
@@ -425,7 +439,10 @@ impl AgentModelPlane {
             .bind(output)
             .bind(cost_microusd(input, output, &call.snapshot["pricing"]))
             .bind(provider_request_id)
-            .execute(&self.pool)
+            .execute(ai_platform_gateway_foundation::tenant_database::executor(
+                &self.pool,
+                &call.scope.tenant_id,
+            ))
             .await?;
         Ok(())
     }
@@ -453,7 +470,10 @@ impl AgentModelPlane {
         .bind(cost)
         .bind(provider_request)
         .bind(receipt)
-        .execute(&self.pool)
+        .execute(ai_platform_gateway_foundation::tenant_database::executor(
+            &self.pool,
+            &call.scope.tenant_id,
+        ))
         .await?;
         Ok(())
     }
@@ -463,7 +483,16 @@ impl AgentModelPlane {
         code: &str,
         dispatched: bool,
     ) -> Result<(), AgentError> {
-        sqlx::query("UPDATE assistant_runtime_model_calls SET status=$2,error_code=$3,completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).bind(if dispatched{"unknown"}else{"failed"}).bind(code).execute(&self.pool).await?;
+        let tenant = match ai_platform_gateway_foundation::tenant_database::model_call_tenant(
+            &self.pool, id,
+        )
+        .await
+        {
+            Ok(tenant) => tenant,
+            Err(sqlx::Error::RowNotFound) => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        sqlx::query("UPDATE assistant_runtime_model_calls SET status=$2,error_code=$3,completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).bind(if dispatched{"unknown"}else{"failed"}).bind(code).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
         Ok(())
     }
     async fn prepare(&self, body: &Value, call: &AuthorizedCall) -> Result<Prepared, AgentError> {
@@ -605,8 +634,15 @@ impl Drop for CallCleanup {
         let armed = self.armed;
         let lease = self.lease.take();
         tokio::spawn(async move {
-            if armed {
-                let _=sqlx::query("UPDATE assistant_runtime_model_calls SET status=CASE WHEN status='reserved' THEN 'failed' ELSE 'unknown' END,error_code='model_stream_interrupted',completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).execute(&plane.pool).await;
+            if armed
+                && let Ok(tenant) =
+                    ai_platform_gateway_foundation::tenant_database::model_call_tenant(
+                        &plane.pool,
+                        &id,
+                    )
+                    .await
+            {
+                let _=sqlx::query("UPDATE assistant_runtime_model_calls SET status=CASE WHEN status='reserved' THEN 'failed' ELSE 'unknown' END,error_code='model_stream_interrupted',completed_at=NOW(),updated_at=NOW() WHERE call_id=$1::uuid AND status IN ('reserved','dispatched')").bind(id).execute(ai_platform_gateway_foundation::tenant_database::executor(&plane.pool, &tenant)).await;
             }
             if let Some(lease) = lease {
                 lease.release().await;
@@ -1280,28 +1316,60 @@ pub fn router(plane: Arc<AgentModelPlane>) -> Router {
 fn error_response(e: AgentError) -> Response {
     (StatusCode::from_u16(e.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),Json(json!({"error":{"type":"runtime_model_plane_error","code":e.detail["code"],"message":"The private model request was rejected."}}))).into_response()
 }
+fn require_model_transport(
+    headers: &HeaderMap,
+    legacy: &str,
+    peer: bool,
+    required: bool,
+) -> Result<(), AgentError> {
+    let denied = || AgentError::code(401, "RUNTIME_MODEL_PLANE_UNAUTHORIZED");
+    if required {
+        if !peer
+            || !legacy.is_empty()
+            || headers.contains_key("authorization")
+            || headers.contains_key("x-ai-platform-internal-token")
+        {
+            return Err(denied());
+        }
+        return Ok(());
+    }
+    if peer {
+        return Ok(());
+    }
+    if headers.get_all("authorization").iter().count() != 1 {
+        return Err(denied());
+    }
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or("");
+    let mut expected =
+        Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison").expect("HMAC key");
+    expected.update(legacy.as_bytes());
+    let mut actual =
+        Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison").expect("HMAC key");
+    actual.update(token.as_bytes());
+    if token.is_empty()
+        || legacy.is_empty()
+        || actual
+            .verify_slice(&expected.finalize().into_bytes())
+            .is_err()
+    {
+        return Err(denied());
+    }
+    Ok(())
+}
 async fn responses(State(plane): State<Arc<AgentModelPlane>>, request: Request) -> Response {
     let result = async {
+        let peer = crate::workload_tls::mutual_tls(request.extensions());
         let headers = request.headers();
-        let token = headers
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.strip_prefix("Bearer "))
-            .unwrap_or("");
-        let mut expected = Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison")
-            .expect("HMAC key");
-        expected.update(plane.internal_token.as_bytes());
-        let mut actual = Hmac::<Sha256>::new_from_slice(b"agent-model-plane-token-comparison")
-            .expect("HMAC key");
-        actual.update(token.as_bytes());
-        if token.is_empty()
-            || plane.internal_token.is_empty()
-            || actual
-                .verify_slice(&expected.finalize().into_bytes())
-                .is_err()
-        {
-            return Err(AgentError::code(401, "RUNTIME_MODEL_PLANE_UNAUTHORIZED"));
-        }
+        require_model_transport(
+            headers,
+            &plane.internal_token,
+            peer,
+            super::control::execution_transport::required(),
+        )?;
         let primary = headers
             .get("x-agent-turn-metadata")
             .and_then(|v| v.to_str().ok())
@@ -1503,5 +1571,40 @@ mod cache_contract_tests {
         assert!(!has_cache_control(
             &json!({"prompt_cache_key":"public-key"})
         ));
+    }
+}
+
+#[cfg(test)]
+mod transport_auth_tests {
+    use super::*;
+    #[test]
+    fn required_model_transport_requires_verified_peer_and_no_retired_bearer() {
+        let mut headers = HeaderMap::new();
+        assert!(require_model_transport(&headers, "", false, true).is_err());
+        headers.insert(
+            "x-spiffe-id",
+            "spiffe://agentforge.local/service/agent-runtime"
+                .parse()
+                .unwrap(),
+        );
+        assert!(require_model_transport(&headers, "", false, true).is_err());
+        assert!(require_model_transport(&headers, "", true, true).is_ok());
+        assert!(require_model_transport(&headers, "retained-secret", true, true).is_err());
+        for name in ["authorization", "x-ai-platform-internal-token"] {
+            let mut headers = headers.clone();
+            headers.insert(name, "Bearer retained-secret".parse().unwrap());
+            assert!(require_model_transport(&headers, "", true, true).is_err());
+        }
+    }
+    #[test]
+    fn legacy_model_transport_preserves_exact_single_bearer_validation() {
+        let mut headers = HeaderMap::new();
+        assert!(require_model_transport(&headers, "legacy-secret", false, false).is_err());
+        headers.insert("authorization", "Bearer legacy-secret".parse().unwrap());
+        assert!(require_model_transport(&headers, "legacy-secret", false, false).is_ok());
+        assert!(require_model_transport(&headers, "wrong-secret", false, false).is_err());
+        headers.append("authorization", "Bearer legacy-secret".parse().unwrap());
+        assert!(require_model_transport(&headers, "legacy-secret", false, false).is_err());
+        assert!(require_model_transport(&headers, "legacy-secret", true, false).is_ok());
     }
 }

@@ -13,7 +13,6 @@ import {
   getSessionHistory as getAssistantSessionHistory,
   deleteSession as deleteAssistantSession,
   prepareAssistantRunResume,
-  type AssistantMessage,
   type WebSearchResult,
   type ArtifactInfo,
   getSessionArtifacts,
@@ -1870,7 +1869,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
 
     try {
       const styleSystemPrompt = getStyleSystemPrompt(config.selected_style || "default");
-      const history: AssistantMessage[] = messages.map((m) => ({ role: m.role, content: m.content }));
 
       const localNodeBinding = localNodeBindingRef.current?.();
       const localNodeEnabled =
@@ -1901,7 +1899,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         openStream: (id) => chatStream({
         message: messageContent,
         session_id: id || undefined,
-        history,
+        // Runtime V2 reads the persisted session transcript.
         model_id: config.selected_model || undefined,
         provider_id: config.selected_provider || undefined,
         temperature: config.temperature,
@@ -1909,7 +1907,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         kb_dataset_ids: config.selected_datasets,
         kb_mode: config.selected_datasets?.length ? "auto" : "off",
         kb_top_k: 5,
-        kb_include_images: false,
         web_search_enabled: config.web_search_enabled,
         reasoning_option: config.reasoning_option || config.thinking_level || "auto",
         web_search_max_results: 5,

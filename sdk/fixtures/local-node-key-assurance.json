@@ -1,0 +1,80 @@
+{
+  "scope": "Software-generated cross-end wire fixtures only; no TPM, hardware attestation or product acceptance.",
+  "cases": [
+    {
+      "proof": {
+        "version": 1,
+        "device_id": "dev_012345678901234567890123",
+        "key_class": "os-vault-software-ed25519",
+        "algorithm": "ed25519",
+        "public_key": "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw",
+        "method": "POST",
+        "target": "https://node.example/api/v1/local-nodes/control",
+        "body_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "credential_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nonce": "server_nonce_0123456789",
+        "issued_at": 100,
+        "expires_at": 160,
+        "signature": "fXiRRhAT6bU6g5jVgAKpWnb_EmbYXaUs9BCXuZDgMb3zXyPB0v0nlVZic4_P2amOCRnY8g1JIG0qqG0mRCvwCg"
+      },
+      "payload": "{\"algorithm\":\"ed25519\",\"body_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"credential_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"device_id\":\"dev_012345678901234567890123\",\"domain\":\"ai-platform.local-node.request-proof.v1\",\"expires_at\":160,\"issued_at\":100,\"key_class\":\"os-vault-software-ed25519\",\"method\":\"POST\",\"nonce\":\"server_nonce_0123456789\",\"public_key\":\"6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw\",\"target\":\"https://node.example/api/v1/local-nodes/control\",\"version\":1}",
+      "pairing": {
+        "protocol_version": "ai-platform.local-node.v2",
+        "kind": "pairing_redeem",
+        "challenge_id": "00000000-0000-4000-8000-000000000002",
+        "user_code": "FIXT-URE1",
+        "device_id": "dev_012345678901234567890123",
+        "display_name": "cross-end fixture",
+        "platform": "windows",
+        "node_version": "fixture",
+        "capability_claims": [
+          "file.read"
+        ],
+        "permission_snapshot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "proof_algorithm": "ed25519",
+        "proof_public_key": "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw",
+        "request_proof_version": 1,
+        "device_proof": "7hgy_6j_APVmXx2rMtq_kULGsW7kYHngTpmdhr-e8VhgM2tGkg369uJIsujATAskyGEQpO-GB-m3YnKq7qAcDA"
+      },
+      "pairing_payload": "{\"redemption_digest\":\"sha256:a77b2050d49d494b01d565c4a1a71343046fd7a80e60162e1a726094d25eb9ad\"}"
+    },
+    {
+      "proof": {
+        "version": 1,
+        "device_id": "dev_012345678901234567890123",
+        "key_class": "windows-tpm-cng-p256",
+        "algorithm": "ES256",
+        "public_key": "BMT1j_7Kd438EXnNFd5pipI2R-rTrTRwioYRqYBj9msPNgESoss_Kuo1KH3UUsJy1P4W39qZ7qCPWF1l60WlNfo",
+        "method": "POST",
+        "target": "https://node.example/api/v1/local-nodes/control",
+        "body_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "credential_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nonce": "server_nonce_0123456789",
+        "issued_at": 100,
+        "expires_at": 160,
+        "signature": "MEUCIQDf7UsqzAsCQ2M7IPLp5TF4NLNiLH7rwa31ln-E1Rv00QIgS200vX2KYVvtvbwehBWONpyYI9fQ7784OE02fShmNmU"
+      },
+      "payload": "{\"algorithm\":\"ES256\",\"body_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"credential_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"device_id\":\"dev_012345678901234567890123\",\"domain\":\"ai-platform.local-node.request-proof.v1\",\"expires_at\":160,\"issued_at\":100,\"key_class\":\"windows-tpm-cng-p256\",\"method\":\"POST\",\"nonce\":\"server_nonce_0123456789\",\"public_key\":\"BMT1j_7Kd438EXnNFd5pipI2R-rTrTRwioYRqYBj9msPNgESoss_Kuo1KH3UUsJy1P4W39qZ7qCPWF1l60WlNfo\",\"target\":\"https://node.example/api/v1/local-nodes/control\",\"version\":1}",
+      "pairing": {
+        "protocol_version": "ai-platform.local-node.v2",
+        "kind": "pairing_redeem",
+        "challenge_id": "00000000-0000-4000-8000-000000000002",
+        "user_code": "FIXT-URE1",
+        "device_id": "dev_012345678901234567890123",
+        "display_name": "cross-end fixture",
+        "platform": "windows",
+        "node_version": "fixture",
+        "capability_claims": [
+          "file.read"
+        ],
+        "permission_snapshot_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "proof_algorithm": "ES256",
+        "proof_public_key": "BMT1j_7Kd438EXnNFd5pipI2R-rTrTRwioYRqYBj9msPNgESoss_Kuo1KH3UUsJy1P4W39qZ7qCPWF1l60WlNfo",
+        "request_proof_version": 1,
+        "proof_key_class": "windows-tpm-cng-p256",
+        "device_proof": "MEUCIQCPTYxzfyYt1D-5xRNA2LoTYjQPG_XkNJVFAqY3raMGNgIgFedFVTBDL6yRNPDOyf41DbjC2LQmhuCwgP7q60SLonQ"
+      },
+      "pairing_payload": "{\"redemption_digest\":\"sha256:848a79696726aafae70bb149ecf152dad27575a4abce1faeb969854c4525199f\"}"
+    }
+  ]
+}

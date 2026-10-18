@@ -3,7 +3,7 @@ import { getTask, getTaskResult, listTasks } from "@/api/gateway";
 import { useAuthStore } from "@/store/useAuthStore";
 import { TASK_PAGE_SIZE } from "@/pages/tasks/taskNavigation";
 
-export function useTasks(status?: string, offset = 0, scope?: { id: string; isCurrent: () => boolean }) {
+export function useTasks(status?: import("@/api/contracts").RequestQuery<"GET /api/v1/tasks">["status"], offset = 0, scope?: { id: string; isCurrent: () => boolean }) {
   const userId = useAuthStore((state) => state.token ? state.user?.user_id : undefined);
   return useQuery({
     queryKey: ["tasks", userId, { status, offset }, ...(scope ? [scope.id] : [])],

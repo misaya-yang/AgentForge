@@ -309,12 +309,14 @@ async fn stream_admission_503_never_retries_mutation() {
     });
     let (tx, _rx) = mpsc::channel(1);
     let (_cancel, cancel) = watch::channel(false);
-    assert!(matches!(
+    assert_eq!(
         client(&url)
             .assistant_stream(json!({"message":"hello"}), tx, cancel)
-            .await,
-        Err(Error::Status(503))
-    ));
+            .await
+            .unwrap_err()
+            .status(),
+        Some(503)
+    );
     server.await.unwrap();
 }
 

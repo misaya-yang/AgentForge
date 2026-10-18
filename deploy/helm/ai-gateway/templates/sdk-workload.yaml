@@ -1,0 +1,84 @@
+{{- if and .Values.sdkWorker.enabled (ne .Values.workloadIdentity.mode "disabled") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-sdk
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: sdk
+  template:
+    metadata:
+      labels:
+{{ include "ai-gateway.labels" . | indent 8 }}
+        app.kubernetes.io/component: sdk
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "ai-gateway.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      imagePullSecrets: {{ .Values.global.imagePullSecrets | toJson }}
+      initContainers:
+{{ include "ai-gateway.workloadImporter" (dict "root" . "role" "sdk" "service" "sdk" "uid" 10001 "once" true) | indent 6 }}
+      containers:
+{{ include "ai-gateway.workloadImporter" (dict "root" . "role" "sdk" "service" "sdk" "uid" 10001 "once" false) | indent 6 }}
+      - name: sdk
+        image: {{ include "ai-gateway.image" (dict "root" . "unit" "sdk") | quote }}
+        command: [/usr/local/bin/sdk-agent-worker]
+        securityContext:
+{{ include "ai-gateway.security" 10001 | indent 10 }}
+        resources:
+{{ toYaml .Values.resources.sdk | indent 10 }}
+        env:
+{{ include "ai-gateway.workloadEnv" (dict "root" . "service" "sdk") | indent 8 }}
+        - {name: SDK_AGENT_WORKER_BIND, value: "0.0.0.0:8096"}
+        - {name: SDK_AGENT_STATE_ROOT, value: /var/lib/sdk-agent}
+        - name: SDK_AGENT_RETENTION_SECONDS
+          value: {{ .Values.sdkWorker.retentionSeconds | quote }}
+        - name: SDK_AGENT_GATEWAY_URL
+          value: {{ include "ai-gateway.internalOrigin" (dict "root" . "service" "gateway") }}
+{{- if eq .Values.workloadIdentity.mode "dual" }}
+        - {name: SDK_AGENT_WORKER_TOKEN_FILE, value: /run/sdk-token/token}
+{{- end }}
+        ports: [{name: http, containerPort: 8096}, {name: workload, containerPort: 8456}]
+        readinessProbe:
+          httpGet: {path: /health/ready, port: http}
+        livenessProbe:
+          httpGet: {path: /health/ready, port: http}
+          initialDelaySeconds: 30
+        volumeMounts:
+{{ include "ai-gateway.workloadMount" . | indent 8 }}
+        - {name: state, mountPath: /var/lib/sdk-agent}
+        - {name: tmp, mountPath: /tmp}
+{{- if eq .Values.workloadIdentity.mode "dual" }}
+        - {name: sdk-token, mountPath: /run/sdk-token/token, subPath: SDK_AGENT_WORKER_TOKEN, readOnly: true}
+{{- end }}
+      volumes:
+{{ include "ai-gateway.workloadVolumes" (dict "root" . "role" "sdk") | indent 6 }}
+      - name: state
+        persistentVolumeClaim: {claimName: {{ .Values.sdkWorker.existingClaim | quote }}}
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 64Mi}
+{{- if eq .Values.workloadIdentity.mode "dual" }}
+      - name: sdk-token
+        secret:
+          secretName: {{ .Values.sdkWorker.credentialsSecret | quote }}
+          defaultMode: 0440
+          items: [{key: SDK_AGENT_WORKER_TOKEN, path: SDK_AGENT_WORKER_TOKEN}]
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-sdk
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sdk
+  ports: [{name: workload, port: 8456, targetPort: workload}]
+{{- end }}

@@ -12,7 +12,7 @@ pub(super) fn body(stream: bool) -> Value {
 }
 pub(super) fn launch(v: Value) -> Launch {
     let mut l = crate::contract::parse_request(v).unwrap();
-    l.validate("synthetic-provider-key").unwrap();
+    l.validate().unwrap();
     l
 }
 pub(super) fn fixture(
@@ -190,7 +190,7 @@ fn malformed_empty_bridge_rejected() {
             value["capability_bridge"][k] = v.clone();
         }
         let result = crate::contract::parse_request(value)
-            .and_then(|mut l| l.validate("synthetic-provider-key"));
+            .and_then(|mut l| l.validate());
         assert!(result.is_err());
     }
     let mut value = body(true);

@@ -1,7 +1,10 @@
+import type { RequestBody } from "@/api/contracts";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { sensitiveMutationOptions } from "@/lib/consoleStepUp";
+import { PlatformCapabilities } from "@/components/PlatformCapabilities";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,10 +51,7 @@ interface RateLimitRule {
   enabled: boolean;
 }
 
-interface ApiKeyBody {
-  name: string;
-  expires_in?: number;
-}
+type ApiKeyBody = RequestBody<"POST /api/v1/config/api-keys">;
 
 interface CapacityBudgetStatus {
   key: string;
@@ -76,27 +76,27 @@ interface ApiKey {
 // ===== API 调用 =====
 
 async function getSystemStatus() {
-  const { data } = await api.get("/api/v1/config/status");
+  const { data } = await api.get<{ database?: { enabled: boolean; connected: boolean }; redis?: { enabled: boolean; connected: boolean }; load_balancer?: { strategy: string }; capacity?: { mode: string; budgets: CapacityBudgetStatus[]; gateway_instance_id?: string; cluster_epoch?: number } }>("/api/v1/config/status");
   return data;
 }
 
 async function getRateLimits() {
-  const { data } = await api.get("/api/v1/config/rate-limits");
+  const { data } = await api.get<{ rules: RateLimitRule[] }>("/api/v1/config/rate-limits");
   return data;
 }
 
-async function createRateLimit(rule: RateLimitRule) {
-  const { data } = await api.post("/api/v1/config/rate-limits", rule);
+async function createRateLimit(rule: RequestBody<"POST /api/v1/config/rate-limits">) {
+  const { data } = await api.post("/api/v1/config/rate-limits", (rule satisfies RequestBody<"POST /api/v1/config/rate-limits">));
   return data;
 }
 
 async function getApiKeys() {
-  const { data } = await api.get("/api/v1/config/api-keys");
+  const { data } = await api.get<{ keys: ApiKey[] }>("/api/v1/config/api-keys");
   return data;
 }
 
 async function createApiKey(body: ApiKeyBody) {
-  const { data } = await api.post("/api/v1/config/api-keys", body);
+  const { data } = await api.post<ApiKey & { api_key: string }>("/api/v1/config/api-keys", (body satisfies RequestBody<"POST /api/v1/config/api-keys">));
   return data;
 }
 
@@ -114,8 +114,8 @@ export function SettingsPage() {
   const status = statusQuery.data ?? {};
   const rateLimits = rateLimitsQuery.data?.rules ?? [];
   const apiKeys = apiKeysQuery.data?.keys ?? [];
-  const capacity = status.capacity ?? {};
-  const capacityBudgets: CapacityBudgetStatus[] = capacity.budgets ?? [];
+  const capacity = status.capacity;
+  const capacityBudgets: CapacityBudgetStatus[] = capacity?.budgets ?? [];
 
   // 限流表单
   const [rateLimitForm, setRateLimitForm] = useState({
@@ -143,6 +143,7 @@ export function SettingsPage() {
   });
 
   const createApiKeyMutation = useMutation({
+    ...sensitiveMutationOptions,
     mutationFn: createApiKey,
     onSuccess: (data) => {
       setNewApiKey(data.api_key);
@@ -153,6 +154,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <PlatformCapabilities />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("settings.title")}</h1>
@@ -215,7 +217,7 @@ export function SettingsPage() {
           </div>
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 border border-border/50">
             <span className="text-xs font-medium text-muted-foreground">{t("settings.systemStatus.capacity")}</span>
-            <span className="text-xs font-semibold text-foreground font-mono">{capacity.mode || "single-node"}</span>
+            <span className="text-xs font-semibold text-foreground font-mono">{capacity?.mode || "single-node"}</span>
           </div>
         </div>
 
@@ -397,7 +399,7 @@ export function SettingsPage() {
             <CardHeader>
               <CardTitle>{t("settings.capacity.title")}</CardTitle>
               <CardDescription>
-                {capacity.gateway_instance_id || "gateway-1"} · {capacity.cluster_epoch || "uat-2026-05"}
+                {capacity?.gateway_instance_id || "gateway-1"} · {capacity?.cluster_epoch || "uat-2026-05"}
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -1,5 +1,6 @@
 //! Config-only executable input. The process reads one explicitly supplied JSON
-//! document; secrets are never discovered from files, ambient environment or ADC.
+//! document. The config loader resolves explicit secret files before this boundary;
+//! this module never searches files or ambient credentials.
 use super::{BootstrapError, graph::GatewayConfiguration, settings_projection::SettingsProjection};
 use crate::migration_host::{pdf_backend::PopplerPdfConfig, settings::HostSettings};
 use serde::Deserialize;
@@ -24,11 +25,15 @@ pub(super) fn provider_environment(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayDocument {
+    #[serde(default)]
+    pub schema_version: ai_platform_config_loader::versioned::SchemaVersion,
     /// Already-resolved source settings (same shape as Settings.model_dump()).
     pub settings: Value,
     #[serde(default)]
     pub environment: BTreeMap<String, String>,
     pub native: NativeDeployment,
+    #[serde(default)]
+    pub control_plane: Option<crate::migration_host::control_plane::config::Configuration>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -66,7 +71,37 @@ pub struct PdfDeployment {
 }
 impl GatewayDocument {
     pub fn parse(bytes: &[u8]) -> Result<Self, BootstrapError> {
-        serde_json::from_slice(bytes).map_err(|_| BootstrapError::Configuration("gateway_document"))
+        let value: Value = serde_json::from_slice(bytes)
+            .map_err(|_| BootstrapError::Configuration("gateway_document"))?;
+        ai_platform_config_loader::versioned::validate_document(&value)
+            .map_err(|_| BootstrapError::Configuration("gateway_document_schema"))?;
+        let mut document: Self = serde_json::from_value(value)
+            .map_err(|_| BootstrapError::Configuration("gateway_document"))?;
+        if let Some(configuration) = &document.control_plane {
+            for (key, value) in [
+                (
+                    "GATEWAY_CONTROL_PLANE_CONFIGURATION",
+                    serde_json::to_string(configuration),
+                ),
+                (
+                    ai_platform_auth::cedar::CONFIG_KEY,
+                    serde_json::to_string(&configuration.cedar),
+                ),
+            ] {
+                let value = value.map_err(|_| BootstrapError::Configuration("control_plane"))?;
+                if document
+                    .environment
+                    .get(key)
+                    .is_some_and(|old| old != &value)
+                {
+                    return Err(BootstrapError::Configuration(
+                        "control_plane_conflicting_environment",
+                    ));
+                }
+                document.environment.insert(key.into(), value);
+            }
+        }
+        Ok(document)
     }
     pub fn settings(&self) -> Result<HostSettings, BootstrapError> {
         HostSettings::from_resolved_json(self.settings.clone(), &self.environment)
@@ -110,6 +145,11 @@ impl GatewayDocument {
         })
     }
     pub fn project(&self, settings: &HostSettings) -> Result<GatewayConfiguration, BootstrapError> {
+        if super::ha::Configuration::from_environment(&self.environment)?.is_some()
+            && settings.task_delivery_mode == "memory"
+        {
+            return Err(BootstrapError::Configuration("ha_requires_durable_tasks"));
+        }
         let p = SettingsProjection {
             settings,
             environment: &self.environment,
@@ -249,9 +289,42 @@ impl GatewayDocument {
             tavily_api_key: p.env("TAVILY_API_KEY", ""),
         };
         let (rate_config, _) = project_rates(&p);
+        let core = p.core()?;
+        let control_plane =
+            crate::migration_host::control_plane::config::Configuration::from_environment(
+                &self.environment,
+            )
+            .map_err(BootstrapError::Configuration)?;
+        control_plane
+            .validate(&self.native.kernel_revision)
+            .map_err(BootstrapError::Configuration)?;
+        if let Some(mcp) = &control_plane.mcp {
+            if settings.authentication.jwt.audience.as_deref() != Some(mcp.resource.as_str())
+                || !settings
+                    .authentication
+                    .jwt
+                    .issuer
+                    .as_ref()
+                    .is_some_and(|issuer| mcp.authorization_servers.contains(issuer))
+            {
+                return Err(BootstrapError::Configuration("mcp_authorization_issuer"));
+            }
+        }
+        let cedar = if let Some(raw) = self.environment.get(ai_platform_auth::cedar::CONFIG_KEY) {
+            serde_json::from_str(raw)
+                .map_err(|_| BootstrapError::Configuration("cedar_configuration"))?
+        } else {
+            control_plane.cedar
+        };
+        ai_platform_auth::cedar::validate_configuration(
+            cedar,
+            &ai_platform_auth::rbac::Rbac::new(core.roles.clone()),
+        )
+        .map_err(|_| BootstrapError::Configuration("cedar_policy_or_matrix"))?;
+
         Ok(GatewayConfiguration {
             auth: p.auth(),
-            core: p.core()?,
+            core,
             callback_allowlist: p
                 .env("CALLBACK_URL_ALLOWLIST", "")
                 .split(',')
@@ -333,19 +406,28 @@ impl GatewayDocument {
         )?;
         // GatewayAuth signs with its first map entry. Give the outbound signer
         // exactly the selected active key; retain all rotated keys for verification.
-        let signer = GatewayAuth::new(
-            signing.primary_secret.clone(),
-            BTreeMap::from([(signing.active_key_id, signing.active_secret)]),
-            "v2".into(),
-            ReplayStore::Redis(redis.clone()),
-        )
+        let outbound_keys = BTreeMap::from([(signing.active_key_id, signing.active_secret)]);
+        let signer = if signing.primary_secret.is_empty() {
+            GatewayAuth::signed_v2(outbound_keys, ReplayStore::Redis(redis.clone()))
+        } else {
+            GatewayAuth::new(
+                signing.primary_secret.clone(),
+                outbound_keys,
+                "v2".into(),
+                ReplayStore::Redis(redis.clone()),
+            )
+        }
         .map_err(|_| BootstrapError::Configuration("knowledge_signer"))?;
-        let mut verifier = GatewayAuth::new(
-            signing.primary_secret,
-            signing.keys,
-            "v2".into(),
-            ReplayStore::Redis(redis),
-        )
+        let mut verifier = if signing.primary_secret.is_empty() {
+            GatewayAuth::signed_v2(signing.keys, ReplayStore::Redis(redis))
+        } else {
+            GatewayAuth::new(
+                signing.primary_secret,
+                signing.keys,
+                "v2".into(),
+                ReplayStore::Redis(redis),
+            )
+        }
         .map_err(|_| BootstrapError::Configuration("knowledge_actor_verifier"))?;
         verifier.caller_service = "knowledge-service".into();
         verifier.audience = "gateway".into();

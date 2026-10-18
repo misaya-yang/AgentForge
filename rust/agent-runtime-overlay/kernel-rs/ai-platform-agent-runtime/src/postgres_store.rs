@@ -25,13 +25,14 @@ use sqlx::Row;
 use uuid::Uuid;
 
 mod approval_decision;
-mod events;
 pub(crate) mod event_notifications;
+mod events;
 pub(crate) mod execution;
-mod identity;
 pub(crate) mod history_codec;
+mod identity;
 pub(crate) mod projection;
 pub(crate) mod recovery_terminal;
+pub(crate) mod thread_owner;
 mod thread_store;
 
 pub(crate) use self::events::PlatformLifecycleEvent;
@@ -70,6 +71,7 @@ impl PlatformThreadIdentity {
 pub struct PostgresThreadStore {
     pub(crate) pool: PgPool,
     pub(crate) instance_id: Uuid,
+    pub(crate) owner_routing: Arc<std::sync::Mutex<Option<thread_owner::OwnerRouting>>>,
     pub(crate) execution_claims:
         Arc<std::sync::Mutex<HashMap<ThreadId, execution::ExecutionClaim>>>,
     pending_metadata: Arc<tokio::sync::Mutex<HashMap<ThreadId, ThreadMetadataPatch>>>,
@@ -142,6 +144,32 @@ pub(crate) struct ThreadProjection {
 }
 
 impl PostgresThreadStore {
+    pub(crate) async fn tenant_transaction(
+        &self,
+        tenant: &str,
+    ) -> ThreadStoreResult<sqlx::Transaction<'static, sqlx::Postgres>> {
+        let mut transaction = self.pool.begin().await.map_err(store_error)?;
+        ai_platform_capability_contract::database_connection::bind_tenant(
+            &mut transaction,
+            tenant,
+            ai_platform_capability_contract::database_connection::policy::DatabaseRole::Runtime,
+        )
+        .await
+        .map_err(store_error)?;
+        Ok(transaction)
+    }
+
+    pub(crate) async fn tenant_controls_enabled(&self) -> ThreadStoreResult<bool> {
+        // Authority activation and rollback can happen while this process lives.
+        ai_platform_capability_contract::database_connection::tenant_controls_enabled(
+            &self.pool,
+            "assistant.assistant_runtime_threads",
+            "assistant.runtime_thread_scope_v1(uuid,boolean,boolean)",
+        )
+        .await
+        .map_err(store_error)
+    }
+
     /// Tombstone the root Runtime thread for one platform session while
     /// retaining its append-only item log.  Session deletion is deliberately
     /// idempotent: a missing or already-deleted thread is reported as false.
@@ -151,7 +179,7 @@ impl PostgresThreadStore {
         user_id: &str,
         session_id: &str,
     ) -> ThreadStoreResult<bool> {
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
+        let mut transaction = self.tenant_transaction(tenant_id).await?;
         let runtime_thread_id: Option<Uuid> = sqlx::query_scalar(
             "SELECT runtime_thread_id FROM assistant_runtime_threads \
              WHERE tenant_id=$1 AND user_id=$2 AND session_id=$3 \
@@ -236,7 +264,7 @@ impl PostgresThreadStore {
         };
         let creation_metadata = serde_json::to_value(&params).map_err(json_error)?;
         let projection_json = serde_json::to_value(&projection).map_err(json_error)?;
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         self.lock_root(&mut transaction, scope.root_thread_id)
             .await?;
         sqlx::query(
@@ -379,7 +407,7 @@ impl PostgresThreadStore {
         }
         let kernel_thread_id = thread_uuid(thread_id)?;
         let scope = self.member_scope(kernel_thread_id).await?;
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         self.lock_root(&mut transaction, scope.root_thread_id)
             .await?;
         let visible: bool = sqlx::query_scalar(
@@ -410,8 +438,10 @@ impl PostgresThreadStore {
         transaction.commit().await.map_err(store_error)?;
         if crate::http_service::recovery_fault::armed("core_output_saved").await {
             for call_id in output_calls {
+                let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
                 let row = sqlx::query("SELECT params FROM assistant_runtime_invocations WHERE kernel_thread_id=$1 AND call_id=$2 ORDER BY created_at DESC LIMIT 1")
-                    .bind(kernel_thread_id).bind(call_id).fetch_optional(&self.pool).await.map_err(store_error)?;
+                    .bind(kernel_thread_id).bind(call_id).fetch_optional(&mut *transaction).await.map_err(store_error)?;
+                transaction.commit().await.map_err(store_error)?;
                 if let Some(row) = row {
                     let params: codex_app_server_protocol::DynamicToolCallParams =
                         serde_json::from_value(row.try_get("params").map_err(store_error)?)
@@ -471,6 +501,8 @@ impl PostgresThreadStore {
     ) -> ThreadStoreResult<StoredThreadHistory> {
         self.ensure_visible(params.thread_id, params.include_archived)
             .await?;
+        let scope = self.member_scope(thread_uuid(params.thread_id)?).await?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         let rows = sqlx::query(
             r#"
             SELECT payload
@@ -481,9 +513,10 @@ impl PostgresThreadStore {
             "#,
         )
         .bind(thread_uuid(params.thread_id)?)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *transaction)
         .await
         .map_err(store_error)?;
+        transaction.commit().await.map_err(store_error)?;
         let items = rows
             .into_iter()
             .map(|row| {
@@ -537,7 +570,7 @@ impl PostgresThreadStore {
         let kernel_thread_id = thread_uuid(params.thread_id)?;
         let scope = self.member_scope(kernel_thread_id).await?;
         let mut pending = self.pending_metadata.lock().await;
-        let mut transaction = self.pool.begin().await.map_err(store_error)?;
+        let mut transaction = self.tenant_transaction(&scope.tenant_id).await?;
         self.lock_root(&mut transaction, scope.root_thread_id)
             .await?;
         let row = sqlx::query(

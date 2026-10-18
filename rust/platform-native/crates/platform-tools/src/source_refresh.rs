@@ -627,6 +627,15 @@ pub fn generate(args: &Args) -> Result<Value> {
 }
 
 pub fn composed(args: &Args) -> Result<Value> {
+    composed_inner(args, false)
+}
+// Called only after source_batch has admitted the full v2 command/test/ELF set.
+// All original export, metadata/lock, schema, toolchain, license and SBOM gates
+// below still execute; the old public entry continues requiring v1 receipts.
+pub(crate) fn composed_batch(args: &Args) -> Result<Value> {
+    composed_inner(args, true)
+}
+fn composed_inner(args: &Args, batch: bool) -> Result<Value> {
     let canonical = |key| -> Result<PathBuf> { Ok(std::fs::canonicalize(args.get(key)?)?) };
     let package = canonical("--package")?;
     let checkout = canonical("--upstream")?;
@@ -651,7 +660,11 @@ pub fn composed(args: &Args) -> Result<Value> {
     }
     let unit_path = package.join("source-unit.json");
     let unit = object(&unit_path)?;
-    verify_payload(&package, &unit)?;
+    if batch {
+        verify_payload_integrity(&package, &unit, crate::source_batch::UNIT_SCHEMA)?;
+    } else {
+        verify_payload(&package, &unit)?;
+    }
     let entries = upstream(&unit, &checkout)?;
     verify_composed(&unit, &entries, &composed)?;
     live_preimages(&package, &root)?;
@@ -705,15 +718,27 @@ pub fn composed(args: &Args) -> Result<Value> {
     )?;
     let schema_run = object(&exported("schema_command_receipt")?)?;
     let metadata_run = object(&exported("metadata_command_receipt")?)?;
-    let export_paths = source_export::paths(
-        &evidence,
-        &unit,
-        &unit_sha,
-        &composed,
-        &schema_dir,
-        &exported,
-        &[&schema_run, &metadata_run],
-    )?;
+    let export_paths = if batch {
+        source_export::paths_batch(
+            &evidence,
+            &unit,
+            &unit_sha,
+            &composed,
+            &schema_dir,
+            &exported,
+            &[&schema_run, &metadata_run],
+        )
+    } else {
+        source_export::paths(
+            &evidence,
+            &unit,
+            &unit_sha,
+            &composed,
+            &schema_dir,
+            &exported,
+            &[&schema_run, &metadata_run],
+        )
+    }?;
     export_paths.validate_runs(&[&schema_run, &metadata_run])?;
     let toolchain: toml::Value =
         std::fs::read_to_string(cwd.join("rust-toolchain.toml"))?.parse()?;

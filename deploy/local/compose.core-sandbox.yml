@@ -1,0 +1,73 @@
+# Explicit Python sandbox lane. Never load for disabled core.
+services:
+  agent-python-sandbox:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    - seccomp=../security/capability-worker-seccomp.json
+    pids_limit: 256
+    user: 10001:10001
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    image: ${AGENT_PYTHON_SANDBOX_IMAGE:?Select the admitted independent sandbox image}
+    entrypoint:
+    - ai-platform-python-sandbox
+    command:
+    - --public-key-id
+    - ${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}
+    - --public-key-hex
+    - ${AGENT_SANDBOX_PUBLIC_KEY_HEX:?Select the purpose-specific Ed25519 public verifier}
+    - --socket
+    - /run/agentforge-sandbox/control.sock
+    - --workspace-root
+    - /workspace
+    - --journal-root
+    - /var/lib/agentforge-sandbox/jobs
+    - --cgroup-root
+    - /sys/fs/cgroup/agentforge-sandbox
+    network_mode: none
+    volumes:
+    - sandbox-control-socket-fresh:/run/agentforge-sandbox
+    - sandbox-private-workspaces-fresh:/workspace
+    - sandbox-private-journal-fresh:/var/lib/agentforge-sandbox/jobs
+    - type: bind
+      source: ${AGENT_CAPABILITY_SANDBOX_CGROUP_DELEGATION:?Select this sandbox's predelegated empty cgroup2 subtree}
+      target: /sys/fs/cgroup/agentforge-sandbox
+      read_only: false
+      bind:
+        create_host_path: false
+    healthcheck:
+      test:
+      - CMD
+      - ai-platform-python-sandbox-health
+      - /run/agentforge-sandbox/control.sock
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    mem_limit: ${AGENT_PYTHON_SANDBOX_MEMORY_LIMIT:-1536m}
+    cpus: ${AGENT_PYTHON_SANDBOX_CPUS:-2.0}
+    init: true
+    restart: unless-stopped
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_SANDBOX_SOCKET: /run/agentforge-sandbox/control.sock
+      AI_PLATFORM_SANDBOX_KEY_ID: ${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}
+      AI_PLATFORM_SANDBOX_SIGNING_KEY_FILE: /run/agentforge-sandbox-signing/signing.seed
+    volumes:
+    - sandbox-control-socket-fresh:/run/agentforge-sandbox:ro
+    - type: bind
+      source: ${AGENT_SANDBOX_SIGNING_KEY_FILE:?Provision the purpose-specific control-only 32-byte seed}
+      target: /run/agentforge-sandbox-signing/signing.seed
+      read_only: true
+      bind:
+        create_host_path: false
+    depends_on:
+      agent-python-sandbox:
+        condition: service_healthy
+volumes:
+  sandbox-control-socket-fresh: {}
+  sandbox-private-workspaces-fresh: {}
+  sandbox-private-journal-fresh: {}
