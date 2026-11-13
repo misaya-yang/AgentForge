@@ -1,7 +1,7 @@
-# Managed Runtime compatibility candidate at upstream 69231e119bfc
+# Managed Runtime compatibility candidate at upstream 69231e119b
 
-This externally staged source candidate targets official stable release
-`rust-v0.162.1`, commit `69231e119bfca0b14453515e97d99688ce1c47c9`.
+This externally staged source candidate targets upstream commit
+`69231e119bfca0b14453515e97d99688ce1c47c9`.
 It has not passed the prescribed Docker/hosted-CI build or release gates; the
 production pin and existing artifact admission must not be advanced from this
 source document alone.
