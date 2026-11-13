@@ -435,7 +435,17 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
                     .into(),
             ));
         }
-        let (plan, manifest) = if (30..=35).contains(&active_manifest.epoch) {
+        let (plan, manifest) = if active_manifest.epoch == 30
+            && active_manifest
+                .changes
+                .last()
+                .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
+        {
+            (
+                ai_platform_migration_authority::source_tools::knowledge_spaces_030::verify_installed(&root)?,
+                active_manifest,
+            )
+        } else if (30..=35).contains(&active_manifest.epoch) {
             (ai_platform_migration_authority::source_tools::service_successors::verify_activated_source(&root)?,active_manifest)
         } else if active_manifest.epoch == 29 {
             (

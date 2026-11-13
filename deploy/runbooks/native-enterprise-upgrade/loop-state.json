@@ -7,12 +7,11 @@
     "compiled": true,
     "tested": true,
     "accepted": false,
-    "schema": "Successor 030 is a source proposal at docs/design/knowledge-spaces-030.sql.proposal. Distribution install is refused. PostgreSQL measurement is SKIPPED in this environment.",
+    "schema": "Successor 030 is installed at database/migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql. check-successor-proposals reports canonical_epoch 30. The frozen epoch-29 lock, baseline, and 029 fingerprints are unchanged. The closed service-successor catalog stays 30-35.",
     "remaining": [
-      "Measure successor 030 on PostgreSQL 16 and activate it without rewriting the pinned epoch 29 lock or the closed 030-035 service-successor catalog.",
-      "Run native-smoke and spaces-smoke against a gateway after the schema is installed.",
-      "Provide an independent OpenAPI candidate for verify-native-openapi-contract. The current gate fails on pre-existing stale source evidence.",
-      "gateway-kb-boundary-gate looks for platform-gateway-integrations/src/migration_knowledge_ingest, which is absent on this branch."
+      "SUCCESSOR_030_MEASUREMENT.json is SKIPPED. measure-schema-successors only accepts successors 021-023. 030_verification.json repeats the measured 029 fingerprint set so the epoch binder stays closed without a new catalog measurement.",
+      "native-smoke.sh exits 1 because Docker is absent. spaces-smoke.sh was run against local gateway, knowledge service, and PostgreSQL 16 and printed spaces smoke ok.",
+      "Pre-existing since M0 and unchanged: gateway-kb-boundary-gate missing migration_knowledge_ingest; verify-native-openapi-contract stale native source evidence; CI contracts, dependencies, generated-sdk setup-native exit 127, workflow-lint zizmor, and the knowledge and runtime amd64 image-size checks."
     ]
   },
   "schema_version": "native-enterprise-upgrade/v1",

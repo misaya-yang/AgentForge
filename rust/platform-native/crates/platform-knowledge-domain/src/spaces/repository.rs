@@ -181,17 +181,32 @@ impl Spaces {
         if !allow_record(user, &current, Action::Admin) {
             return Err(SpaceError::NotFound);
         }
-        let changed = sqlx::query(
-            "UPDATE knowledge.spaces SET archived_at = now(), updated_at = now() WHERE space_id = $1 AND tenant_id = $2 AND archived_at IS NULL",
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        let archived = sqlx::query(
+            "UPDATE knowledge.spaces SET archived_at = now(), updated_at = now() WHERE space_id = $1 AND tenant_id = $2 AND archived_at IS NULL RETURNING dataset_id",
         )
         .bind(space_id)
         .bind(&user.tenant_id)
-        .execute(database::executor(&self.pool))
+        .fetch_optional(&mut *tx)
         .await
         .map_err(db)?;
-        if changed.rows_affected() == 0 {
+        let Some(row) = archived else {
             return Err(SpaceError::NotFound);
+        };
+        let dataset_id: String = row.get("dataset_id");
+        let hidden = sqlx::query(
+            "UPDATE knowledge.datasets SET is_deleted = true, deleted_at = now(), deleted_by = $2, delete_reason = 'space_archived' WHERE dataset_id = $1 AND is_deleted = false",
+        )
+        .bind(&dataset_id)
+        .bind(&user.user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        if hidden.rows_affected() != 1 {
+            return Err(SpaceError::Unavailable);
         }
+        tx.commit().await.map_err(db)?;
         Ok(())
     }
 
@@ -923,6 +938,16 @@ fn db(error: sqlx::Error) -> SpaceError {
         sqlx::Error::Database(database) if database.code().as_deref() == Some("42P01") => {
             SpaceError::SchemaUnavailable
         }
-        _ => SpaceError::Unavailable,
+        other => {
+            let sqlstate = match other {
+                sqlx::Error::Database(database) => database.code().map(|code| code.to_string()),
+                _ => None,
+            };
+            tracing::warn!(
+                sqlstate = sqlstate.as_deref().unwrap_or("none"),
+                "knowledge space database request failed"
+            );
+            SpaceError::Unavailable
+        }
     }
 }

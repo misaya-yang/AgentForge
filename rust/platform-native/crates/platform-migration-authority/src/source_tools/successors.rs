@@ -942,6 +942,15 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join("manifest.yml"),
     )?;
     if (30..=35).contains(&current_manifest.epoch) {
+        if current_manifest.epoch == 30
+            && current_manifest
+                .changes
+                .last()
+                .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
+        {
+            let receipt = crate::source_tools::knowledge_spaces_030::verify_installed(&root)?;
+            return Ok((receipt, current_manifest));
+        }
         let receipt = crate::source_tools::service_successors::verify_activated_source(&root)?;
         return Ok((receipt, current_manifest));
     }

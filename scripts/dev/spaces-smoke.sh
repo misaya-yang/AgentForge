@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Walk create-space, create-page, and list against a running knowledge gateway.
-# Successor 030 is a source proposal until it is measured and activated, so a
-# gateway on the pinned schema answers schema-unavailable. Set SPACE_SMOKE_BASE_URL
-# only after that schema is installed. The token is read from the environment and
+# SPACE_SMOKE_BASE_URL is required. The token is read from the environment and
 # is never printed.
 set -euo pipefail
 
 if [[ -z "${SPACE_SMOKE_BASE_URL:-}" ]]; then
-  echo "SKIPPED: SPACE_SMOKE_BASE_URL is unset; no running gateway was measured in this environment"
-  exit 0
+  echo "SPACE_SMOKE_BASE_URL is unset; spaces smoke requires a running gateway" >&2
+  exit 1
 fi
 
 base="${SPACE_SMOKE_BASE_URL%/}"

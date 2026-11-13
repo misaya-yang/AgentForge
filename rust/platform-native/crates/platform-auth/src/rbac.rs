@@ -232,6 +232,34 @@ pub const KNOWLEDGE_SPACE_PERMISSIONS: &[&str] = &[
     "knowledge:space:admin",
 ];
 
+/// Default console role grants for spaces. Membership still filters rows.
+/// `admin` keeps `admin:*` and is not listed here.
+pub fn knowledge_space_role_grants() -> &'static [(&'static str, &'static [&'static str])] {
+    &[
+        ("user", &["knowledge:space:view", "knowledge:space:create"]),
+        (
+            "manager",
+            &[
+                "knowledge:space:view",
+                "knowledge:space:create",
+                "knowledge:space:edit",
+                "knowledge:space:share",
+            ],
+        ),
+        (
+            "developer",
+            &[
+                "knowledge:space:view",
+                "knowledge:space:create",
+                "knowledge:space:edit",
+                "knowledge:space:share",
+            ],
+        ),
+        ("cs_staff", &["knowledge:space:view"]),
+        ("sales_staff", &["knowledge:space:view"]),
+    ]
+}
+
 pub fn permission_denied_detail(
     capability: Capability,
     trace_id: &str,
@@ -255,5 +283,10 @@ mod tests {
         }
         assert!(Rbac::matches_permission(&view, "knowledge:space:view"));
         assert!(!Rbac::matches_permission(&view, "knowledge:space:edit"));
+        for (_, grants) in knowledge_space_role_grants() {
+            for permission in *grants {
+                assert!(KNOWLEDGE_SPACE_PERMISSIONS.contains(permission));
+            }
+        }
     }
 }

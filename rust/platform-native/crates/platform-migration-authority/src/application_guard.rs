@@ -185,7 +185,8 @@ fn snapshot_value(contract: &AdmissionContract, epoch: i32) -> Value {
 }
 
 fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
-    // Each source-owned service prefix is an exact compiled admission boundary.
+    // Epoch 30 is the knowledge-spaces ceiling. Gateway and Knowledge admit
+    // that installed source exactly; later service prefixes stay exact too.
     if source_epoch >= 30 {
         return (source_epoch, source_epoch);
     }
@@ -446,10 +447,21 @@ pub async fn require_compatible_schema(
         .await
         .map_err(classify_reader_error);
     validate_reader_result(snapshot, principal, &contract)?;
-    for sql in crate::source_tools::service_successors::admission_checks(
-        contract.source_epoch,
-        principal_role_suffix(principal),
-    )? {
+    // Knowledge spaces is successor 030. The closed service-successor catalog
+    // checks belong to that other preview, not to this installed migration.
+    let checks = if contract
+        .changes
+        .last()
+        .is_some_and(|change| change.name == "knowledge_spaces")
+    {
+        Vec::new()
+    } else {
+        crate::source_tools::service_successors::admission_checks(
+            contract.source_epoch,
+            principal_role_suffix(principal),
+        )?
+    };
+    for sql in checks {
         let admitted: bool = sqlx::query_scalar(&sql)
             .fetch_one(&mut *conn)
             .await

@@ -68,7 +68,7 @@
 - 页面视图：面包屑 + 页面树侧栏（拖拽排序/嵌套）+ 块编辑器 + 右侧面板（AI 助手、评论、版本、反向链接）。
 
 **数据模型（Knowledge 上下文，新 schema successor 030，表在 `knowledge` schema）**
-- `spaces(space_id, tenant_id, name, icon, kind[personal|team|tenant], visibility[private|members|tenant], dataset_id → knowledge.datasets, created_by, created_at, updated_at, archived_at)`；每个空间绑定一个隐式知识数据集，复用现有入库/检索/ACL。
+- `spaces(space_id, tenant_id, name, icon, kind[personal|team|tenant], visibility[private|members|tenant], dataset_id → knowledge.datasets, created_by, created_at, updated_at, archived_at)`；每个空间绑定一个隐式知识数据集，复用现有入库/检索/ACL。该行写入 `knowledge.datasets`，`index_config.hidden_space` 为 `true`。数据集列表（`dataset_reads`）排除 `hidden_space=true` 的行，因此它不出现在知识库目录。归档空间时同一事务把该行标成 `is_deleted=true`。
 - `space_items(item_id, tenant_id, space_id, parent_id, kind[page|folder|file|link|slide|site|image|external], title, icon, position(text, fractional index), source[native|upload|connector:<id>], external_ref jsonb, document_id → knowledge.documents NULL, content_format[blocknote_json|markdown|binary], current_revision, created_by, updated_by, created_at, updated_at, last_activity_at, deleted_at)`。
 - `space_item_revisions(item_id, revision, blocks jsonb, markdown text, content_sha256, author, created_at)`：每次保存一条（M1 加 Yjs 快照 `ydoc_state bytea` 与增量合并）。
 - `space_members(space_id, principal_type[user|group|role], principal_id, role[owner|editor|commenter|viewer])`；`space_item_shares(item_id, principal…, role)` 用于单条共享（"与你共享"）。

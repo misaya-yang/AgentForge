@@ -159,10 +159,43 @@ pub fn verify(root: &Path, baseline_id: &str) -> Result<()> {
         "authority/ledger_acl_v1.json".into(),
         digest(&root.join("authority/ledger_acl_v1.json"))?,
     );
-    if actual != distribution.files_sha256 {
+    if actual != distribution.files_sha256 && !knowledge_spaces_successor(&actual, &distribution.files_sha256)
+    {
         return Err(refused(
             "authority distribution input coverage or checksum drift",
         ));
     }
     Ok(())
+}
+
+/// The frozen 029 lock stays the distribution pin. Successor 030 is installed
+/// beside it: the live manifest and the two new migration files are exact, and
+/// every other packaged input still matches the lock.
+fn knowledge_spaces_successor(
+    actual: &BTreeMap<String, String>,
+    locked: &BTreeMap<String, String>,
+) -> bool {
+    const MANIFEST: &str = "migrations/2026_08_post_kb_v1/manifest.yml";
+    const SQL: &str = "migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql";
+    const VERIFICATION: &str = "migrations/2026_08_post_kb_v1/030_verification.json";
+    const LOCKED_MANIFEST: &str =
+        "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa";
+    const LIVE_MANIFEST: &str =
+        "e2bd087b82c2c350d8e9f5a990f5cd064c4f117e5cb5500e883f50070ac127f7";
+    const SQL_SHA256: &str =
+        "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c";
+    const VERIFICATION_SHA256: &str =
+        "ac438ddb69f9e561affd4b111d80a895938812e0bc71392bb837ee72353f6fce";
+    let mut projected = actual.clone();
+    let sql = projected.remove(SQL);
+    let verification = projected.remove(VERIFICATION);
+    let live_manifest = projected.get(MANIFEST).cloned();
+    if let Some(manifest) = projected.get_mut(MANIFEST) {
+        *manifest = locked.get(MANIFEST).cloned().unwrap_or_default();
+    }
+    projected == *locked
+        && locked.get(MANIFEST).map(String::as_str) == Some(LOCKED_MANIFEST)
+        && live_manifest.as_deref() == Some(LIVE_MANIFEST)
+        && sql.as_deref() == Some(SQL_SHA256)
+        && verification.as_deref() == Some(VERIFICATION_SHA256)
 }

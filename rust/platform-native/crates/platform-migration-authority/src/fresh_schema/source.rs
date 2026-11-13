@@ -12,6 +12,25 @@ pub(super) struct Definitions {
     pub changes: Vec<(ChangeSpec, String)>,
     pub verify_sql: String,
 }
+/// Epochs 1-29 stay the compiled fresh-schema base. Successor 030 is the
+/// installed knowledge-spaces migration and is not one of the closed
+/// service-successor definitions 30-35.
+fn knowledge_base(epoch: i32, mut specs: Vec<ChangeSpec>) -> Result<Vec<ChangeSpec>> {
+    if epoch == 29 && specs.len() == 29 {
+        return Ok(specs);
+    }
+    let installed = epoch == 30
+        && specs.len() == 30
+        && specs
+            .last()
+            .is_some_and(|change| change.sequence == 30 && change.file == "030_knowledge_spaces.sql")
+        && specs.iter().take(29).map(|change| change.sequence).eq(1..=29);
+    if !installed {
+        return Err(refused("compiled definition anchor changed"));
+    }
+    specs.pop();
+    Ok(specs)
+}
 /// Self-contained native image entry: every compiled byte is checked against the
 /// complete source-owned definition inventory, without a checkout or old proofs.
 pub(super) fn compiled_definitions() -> Result<Definitions> {
@@ -44,9 +63,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
     .map_err(|_| refused("compiled base definitions malformed"))?;
     let specs: Vec<ChangeSpec> = serde_json::from_value(epoch["changes"].clone())
         .map_err(|_| refused("compiled base specs malformed"))?;
-    if epoch["epoch"] != 29 || specs.len() != 29 {
-        return Err(refused("compiled base allocation changed"));
-    }
+    let specs = knowledge_base(epoch["epoch"].as_i64().unwrap_or(0) as i32, specs)?;
     let mut changes = specs
         .into_iter()
         .map(|s| {
@@ -183,11 +200,8 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         .join("database/migrations")
         .join(crate::DEFAULT_BASELINE_ID);
     let epoch = crate::manifest::load_epoch_manifest(&epoch_dir.join("manifest.yml"))?;
-    if epoch.epoch != 29 || epoch.changes.len() != 29 {
-        return Err(refused("compiled definition anchor changed"));
-    }
-    let mut changes = epoch
-        .changes
+    let predecessor = knowledge_base(epoch.epoch, epoch.changes)?;
+    let mut changes = predecessor
         .into_iter()
         .map(|s| {
             let sql = fs::read_to_string(epoch_dir.join(&s.file))?;

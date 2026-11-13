@@ -339,8 +339,16 @@ pub(crate) fn verify_current_chain(root: &Path) -> manifest::EpochManifest {
             manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()
         }
         30..=35 => {
-            let receipt =
-                crate::source_tools::service_successors::verify_activated_source(root).unwrap();
+            let receipt = if active.epoch == 30
+                && active
+                    .changes
+                    .last()
+                    .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
+            {
+                crate::source_tools::knowledge_spaces_030::verify_installed(root).unwrap()
+            } else {
+                crate::source_tools::service_successors::verify_activated_source(root).unwrap()
+            };
             assert_eq!(receipt["candidate_epoch"], active.epoch);
             manifest::load_epoch_manifest(&root.join(ACTIVE_MANIFEST_RELATIVE)).unwrap()
         }

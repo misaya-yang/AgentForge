@@ -53,11 +53,23 @@ fn anchor() -> Scratch {
                 reference_name(step.sequence),
                 receipt_name(step.sequence),
             ] {
-                fs::remove_file(file(&scratch.0, &name)).unwrap();
+                let path = file(&scratch.0, &name);
+                if path.exists() {
+                    fs::remove_file(path).unwrap();
+                }
             }
         }
         for n in 30..=epoch {
-            fs::remove_file(file(&scratch.0, &activation_name(n))).unwrap();
+            let path = file(&scratch.0, &activation_name(n));
+            if path.exists() {
+                fs::remove_file(path).unwrap();
+            }
+        }
+        for name in ["030_knowledge_spaces.sql", "030_verification.json"] {
+            let path = file(&scratch.0, name);
+            if path.exists() {
+                fs::remove_file(path).unwrap();
+            }
         }
     }
     validate(&scratch.0, 30).unwrap();

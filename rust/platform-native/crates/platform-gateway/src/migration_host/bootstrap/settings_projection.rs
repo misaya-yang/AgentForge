@@ -346,14 +346,25 @@ fn coerce_rate_numbers(v: &mut Value) -> Result<(), BootstrapError> {
     Ok(())
 }
 fn source_roles() -> HashMap<String, Vec<String>> {
-    serde_json::from_value(json!({
+    let mut roles: HashMap<String, Vec<String>> = serde_json::from_value(json!({
         "guest":["console:dashboard:view"],
-        "user":["console:dashboard:view","conversation:playground:access","conversation:thread:create","knowledge:space:view","knowledge:space:create"],
-        "manager":["console:dashboard:view","console:services:view","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view","knowledge:space:view","knowledge:space:create","knowledge:space:edit","knowledge:space:share","user:list"],
-        "cs_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view","knowledge:space:view"],
-        "sales_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view","knowledge:space:view"],
-        "developer":["console:dashboard:view","console:services:view","console:services:edit","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view","knowledge:space:view","knowledge:space:create","knowledge:space:edit","knowledge:space:share"],"admin":["admin:*"]
-    })).expect("source role constants")
+        "user":["console:dashboard:view","conversation:playground:access","conversation:thread:create"],
+        "manager":["console:dashboard:view","console:services:view","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view","user:list"],
+        "cs_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view"],
+        "sales_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view"],
+        "developer":["console:dashboard:view","console:services:view","console:services:edit","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view"],"admin":["admin:*"]
+    })).expect("source role constants");
+    for (role, grants) in ai_platform_auth::rbac::knowledge_space_role_grants() {
+        let Some(existing) = roles.get_mut(*role) else {
+            continue;
+        };
+        for permission in *grants {
+            if !existing.iter().any(|held| held == permission) {
+                existing.push((*permission).to_owned());
+            }
+        }
+    }
+    roles
 }
 
 #[cfg(test)]
