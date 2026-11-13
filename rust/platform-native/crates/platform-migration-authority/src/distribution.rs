@@ -168,9 +168,13 @@ pub fn verify(root: &Path, baseline_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// The frozen 029 lock stays the distribution pin. Successor 030 is installed
-/// beside it: the live manifest and the two new migration files are exact, and
-/// every other packaged input still matches the lock.
+/// Successor 030 is installed beside the frozen 029 package lock. That lock file
+/// is the byte pin shared with `SOURCE_OWNED_029_ANCHOR_LOCK_SHA256`, and
+/// `knowledge_spaces_030::verify_installed` refuses any rewrite of it. The live
+/// tree therefore differs by exactly three files, each hashed here: the epoch-30
+/// manifest, `030_knowledge_spaces.sql`, and `030_verification.json`. Every other
+/// packaged path must still match the lock. Dropping this predicate would require
+/// rewriting the frozen 029 pin.
 fn knowledge_spaces_successor(
     actual: &BTreeMap<String, String>,
     locked: &BTreeMap<String, String>,
@@ -185,7 +189,7 @@ fn knowledge_spaces_successor(
     const SQL_SHA256: &str =
         "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c";
     const VERIFICATION_SHA256: &str =
-        "7c93c70edf1e8dcfc35dd738e5674bdf494427aacfa52f499c35224aee44ede7";
+        "e33aafd267690ac670e35acd3b8f35773e641fc35c95991225e2b0592e2c2fd8";
     let mut projected = actual.clone();
     let sql = projected.remove(SQL);
     let verification = projected.remove(VERIFICATION);
@@ -198,4 +202,50 @@ fn knowledge_spaces_successor(
         && live_manifest.as_deref() == Some(LIVE_MANIFEST)
         && sql.as_deref() == Some(SQL_SHA256)
         && verification.as_deref() == Some(VERIFICATION_SHA256)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pinned_delta() -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+        let mut locked = BTreeMap::new();
+        locked.insert(
+            "migrations/2026_08_post_kb_v1/manifest.yml".into(),
+            "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa".into(),
+        );
+        locked.insert("baselines/unchanged".into(), "abc".into());
+        let mut actual = locked.clone();
+        actual.insert(
+            "migrations/2026_08_post_kb_v1/manifest.yml".into(),
+            "e2bd087b82c2c350d8e9f5a990f5cd064c4f117e5cb5500e883f50070ac127f7".into(),
+        );
+        actual.insert(
+            "migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql".into(),
+            "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c".into(),
+        );
+        actual.insert(
+            "migrations/2026_08_post_kb_v1/030_verification.json".into(),
+            "e33aafd267690ac670e35acd3b8f35773e641fc35c95991225e2b0592e2c2fd8".into(),
+        );
+        (actual, locked)
+    }
+
+    #[test]
+    fn knowledge_spaces_delta_is_exact_and_rejects_other_drift() {
+        let (actual, locked) = pinned_delta();
+        assert!(knowledge_spaces_successor(&actual, &locked));
+        let mut changed_sql = actual.clone();
+        changed_sql.insert(
+            "migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql".into(),
+            "0".repeat(64),
+        );
+        assert!(!knowledge_spaces_successor(&changed_sql, &locked));
+        let mut extra = actual.clone();
+        extra.insert("migrations/extra.sql".into(), "abc".into());
+        assert!(!knowledge_spaces_successor(&extra, &locked));
+        let mut missing = actual.clone();
+        missing.remove("baselines/unchanged");
+        assert!(!knowledge_spaces_successor(&missing, &locked));
+    }
 }

@@ -488,3 +488,25 @@ fn source_owned_service_epochs_require_their_complete_exact_prefix() {
         }
     }
 }
+
+#[test]
+fn knowledge_spaces_admission_names_tables_and_both_service_roles() {
+    let checks = knowledge_spaces_admission_checks("knowledge_api").unwrap();
+    assert_eq!(checks.len(), 1);
+    let sql = &checks[0];
+    for table in [
+        "spaces",
+        "space_items",
+        "space_item_revisions",
+        "space_members",
+        "space_item_shares",
+        "space_item_stars",
+        "space_item_activity",
+    ] {
+        assert!(sql.contains(table), "{table}");
+    }
+    assert!(sql.contains("knowledge_api"));
+    assert!(sql.contains("knowledge_worker"));
+    assert!(knowledge_spaces_admission_checks("owner").is_err());
+    assert!(knowledge_spaces_admission_checks("").is_err());
+}

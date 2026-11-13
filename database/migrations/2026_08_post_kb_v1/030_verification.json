@@ -52,9 +52,18 @@
   },
   "fingerprint_measurement": {
     "status": "measured",
-    "engine": "PostgreSQL 16",
+    "engine": "PostgreSQL 16.15",
     "principal": "ai_gateway_owner",
-    "chain": "baseline plus changes 001-030 on database agentforge",
-    "acl_basis": "catalog digest without the versioned public migrator USAGE delta"
+    "database": "agentforge",
+    "chain": "baseline plus applied changes 001 through 030",
+    "tool": "ai_platform_migration_authority::fingerprint::compute_fingerprints",
+    "predecessor_029": {
+      "structural": "differs",
+      "acl": "differs",
+      "extensions": "recomputed and unchanged because 030 installs no extension",
+      "reference_data": "recomputed and unchanged because 030 inserts no reference rows"
+    },
+    "acl_basis": "raw catalog digest; on this chain database it equals the digest with schema_acl:public:migrator:USAGE removed because that delta line is absent",
+    "fresh_catalog": "not stored here; fresh-development-init also installs service successors 30-35 and measures a different catalog"
   }
 }

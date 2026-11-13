@@ -1,6 +1,7 @@
 //! PostgreSQL coverage for spaces.
-//! DDL and cleanup use the owner/migrator URL. The repository uses the
-//! knowledge_api URL, because tenant binding requires that login.
+//! The database must already contain migration 030 from fresh-development-init.
+//! This test never applies that SQL. Cleanup uses the owner/migrator URL.
+//! The repository uses the knowledge_api URL, because tenant binding requires that login.
 //! Without those URLs the test stays ignored instead of passing silently.
 use ai_platform_knowledge_domain::spaces::{
     ItemFilter, ItemView, MemberInput, NewItem, NewSpace, SharePut, SpaceError, Spaces,
@@ -40,7 +41,7 @@ async fn connect(url: &str) -> PgPool {
         .unwrap()
 }
 
-async fn ensure_spaces(owner: &PgPool) {
+async fn require_installed_spaces(owner: &PgPool) {
     let mut connection = owner
         .acquire()
         .await
@@ -57,16 +58,10 @@ async fn ensure_spaces(owner: &PgPool) {
         .await
         .map_err(|_| "space schema probe failed")
         .unwrap();
-    if present {
-        return;
-    }
-    sqlx::raw_sql(include_str!(
-        "../../../../../database/migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql"
-    ))
-    .execute(&mut *connection)
-    .await
-    .map_err(|_| "030 migration was not applied")
-    .unwrap();
+    assert!(
+        present,
+        "knowledge.spaces is absent; install it with fresh-development-init"
+    );
 }
 
 async fn cleanup(owner: &PgPool) {
@@ -122,7 +117,7 @@ async fn spaces_api() {
         .expect("AI_GATEWAY_TEST_DATABASE_URL is unset");
     let owner = connect(&owner_url).await;
     let api = connect(&api_url).await;
-    ensure_spaces(&owner).await;
+    require_installed_spaces(&owner).await;
     cleanup(&owner).await;
     let result = run(&owner, &api).await;
     cleanup(&owner).await;
