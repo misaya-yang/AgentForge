@@ -591,6 +591,9 @@ impl TokenCodec {
     pub(crate) fn has_eddsa(&self) -> bool {
         self.eddsa.is_some()
     }
+    pub fn keyring(&self) -> Arc<JwtKeyRing> {
+        Arc::clone(&self.keyring)
+    }
     pub fn jwks(&self, now: u64) -> serde_json::Value {
         self.eddsa
             .as_ref()

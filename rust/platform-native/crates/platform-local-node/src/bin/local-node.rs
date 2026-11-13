@@ -18,6 +18,27 @@ use std::{
     time::Duration,
 };
 
+#[derive(Debug)]
+enum PairingError {
+    Message(&'static str),
+    HttpStatus(u16),
+}
+
+impl fmt::Display for PairingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Message(msg) => write!(f, "{}", msg),
+            Self::HttpStatus(code) => write!(f, "HTTP {}", code),
+        }
+    }
+}
+
+impl From<&'static str> for PairingError {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
 const HELP: &str = "local-node doctor [--endpoint URL | --config FILE]
 local-node config validate --file FILE
 local-node pair --config FILE --challenge-id ID --user-code-stdin

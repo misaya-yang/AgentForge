@@ -85,6 +85,7 @@ listed in [`harness/architecture.md`](harness/architecture.md) §6.
 
 | Plan | Subject |
 | --- | --- |
+| [`plans/dot_1113/PRD.md`](plans/dot_1113/PRD.md) & [`PLAN.md`](plans/dot_1113/PLAN.md) | **active** — dot_1113 branch PRD and milestone plan: enterprise platform + universal agent + knowledge spaces (M0–M5); M0 restores green baseline (2026-11-13). |
 | [`plans/platform-upgrade-2026-10/README.md`](plans/platform-upgrade-2026-10/README.md) | **adopted for execution** — 109 work packages in four phases; scope and acceptance contract from the 2026-10-16 review. Current package status and evidence stay in the `native-enterprise-upgrade` ledger. |
 | [现有功能完善 PRD](plans/product-feature-completion-2026-09-23/README.md) | **PRD v1.0 / 待产品评审** — 对13个现有模块进行产品分析，定义功能需求、优先级、正常/异常验收及R0～R5迭代；本轮仅规划，未启动开发。 |
 | [Codex内核更新与Gateway兼容优化](plans/codex-harness-refresh-2026-09-22.md) | **active / 实现与集成中** — 从`94cbbdda`升级到指定快照`279ba894`；用户授权多代理代码更新、优化/review及本地Docker/内置浏览器验收。状态以执行账本为准。 |

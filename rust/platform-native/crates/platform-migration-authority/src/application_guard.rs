@@ -371,7 +371,9 @@ WHERE namespace.nspname = $1
 
 pub(crate) fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
     match principal {
-        ApplicationPrincipal::Gateway | ApplicationPrincipal::GatewayDurable => "gateway",
+        ApplicationPrincipal::Gateway 
+        | ApplicationPrincipal::GatewayLocalNode 
+        | ApplicationPrincipal::GatewayDurable => "gateway",
         ApplicationPrincipal::KnowledgeApi => "knowledge_api",
         ApplicationPrincipal::KnowledgeWorker => "knowledge_worker",
         ApplicationPrincipal::Runtime => "runtime",

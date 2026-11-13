@@ -53,10 +53,9 @@ fn build_router(
     configured_roles: BTreeMap<String, Vec<String>>,
     introspection: Option<Arc<dyn CredentialIntrospectionResolver>>,
 ) -> Router {
-    let jwks = jwks_router(service.jwt_keyring());
+    let jwks_routes = jwks_router(service.jwt_keyring());
     Router::new()
         .route(contract::LOGIN, post(login))
-        .route("/.well-known/jwks.json", get(jwks))
         .route(contract::LOGOUT, post(logout))
         .route(contract::ME, get(me))
         .route(contract::VALIDATE, post(validate))
@@ -67,7 +66,7 @@ fn build_router(
             introspection,
             configured_roles: Arc::new(configured_roles),
         })
-        .merge(jwks)
+        .merge(jwks_routes)
 }
 
 /// Public standards-compatible key discovery. The verifier ring owns no public
@@ -366,8 +365,4 @@ mod contract_tests {
             assert!(document["keys"][0].get(private_field).is_none());
         }
     }
-}
-
-async fn jwks(State(s): State<HttpState>) -> Result<Json<Value>, ApiError> {
-    Ok(Json(s.service.codec.jwks((s.service.clock)()?)))
 }
