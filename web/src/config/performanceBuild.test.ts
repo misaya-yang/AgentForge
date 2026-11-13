@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
-import { compressAsset } from "../../build/precompression.ts";
+import { compressAsset } from "../../scripts/precompression.ts";
 test("all precompressed representations retain exact UTF-8 bytes", () => {
   const value = "日本語 中文 🌍\nconsole();".repeat(50), bytes = compressAsset(value);
   for (const [suffix, decode] of [[".br", brotliDecompressSync], [".gz", gunzipSync], [".zst", zstdDecompressSync]] as const) assert.equal(decode(bytes[suffix]).toString(), value);
