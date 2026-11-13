@@ -214,6 +214,26 @@ fn measured_contract() -> AdmissionContract {
 }
 
 #[test]
+fn epoch_30_admits_gateway_and_knowledge_only_at_exactly_30() {
+    let contract = fixture_contract(30);
+    for principal in [
+        ApplicationPrincipal::Gateway,
+        ApplicationPrincipal::GatewayDurable,
+        ApplicationPrincipal::KnowledgeApi,
+        ApplicationPrincipal::KnowledgeWorker,
+    ] {
+        assert!(
+            validate_snapshot_value(&snapshot(&contract, 30), principal, &contract).is_ok(),
+            "{principal:?} must admit the exact epoch 30 window"
+        );
+        assert!(
+            validate_snapshot_value(&snapshot(&contract, 29), principal, &contract).is_err(),
+            "{principal:?} must not widen epoch 30 down to 29"
+        );
+    }
+}
+
+#[test]
 fn memory_knowledge_and_durable_profiles_have_distinct_windows() {
     let contract = measured_contract();
     for epoch in 18..=20 {

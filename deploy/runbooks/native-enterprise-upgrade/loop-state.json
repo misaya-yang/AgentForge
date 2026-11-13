@@ -1,4 +1,20 @@
 {
+  "dot_1113_m1": {
+    "milestone": "M1",
+    "branch": "cursor/m1-space",
+    "base": "dot_1113",
+    "implemented": true,
+    "compiled": true,
+    "tested": true,
+    "accepted": false,
+    "schema": "Successor 030 is a source proposal at docs/design/knowledge-spaces-030.sql.proposal. Distribution install is refused. PostgreSQL measurement is SKIPPED in this environment.",
+    "remaining": [
+      "Measure successor 030 on PostgreSQL 16 and activate it without rewriting the pinned epoch 29 lock or the closed 030-035 service-successor catalog.",
+      "Run native-smoke and spaces-smoke against a gateway after the schema is installed.",
+      "Provide an independent OpenAPI candidate for verify-native-openapi-contract. The current gate fails on pre-existing stale source evidence.",
+      "gateway-kb-boundary-gate looks for platform-gateway-integrations/src/migration_knowledge_ingest, which is absent on this branch."
+    ]
+  },
   "schema_version": "native-enterprise-upgrade/v1",
   "goal": "Deliver the complete enterprise AI Gateway product against the existing plan, including connected functionality, integrations, reliability and final acceptance.",
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",

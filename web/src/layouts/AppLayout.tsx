@@ -68,6 +68,7 @@ function getPageChrome(pathname: string) {
       subtitleKey: "knowledge.datasets.subtitle",
       subtitleFallback: "Manage and search your AI knowledge assets",
     },
+    spaces: { titleKey: "nav.spaces", titleFallback: "Spaces" },
     playground: { titleKey: "nav.playground", titleFallback: "Playground" },
     assistant: { titleKey: "nav.assistant", titleFallback: "AI Assistant" },
     agents: {

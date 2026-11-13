@@ -1,0 +1,97 @@
+{
+  "brand": "资料空间",
+  "create": "创建",
+  "recent": "最近",
+  "expandRecent": "展开显示",
+  "spaces": "资料空间",
+  "trash": "回收站",
+  "search": "搜索",
+  "searchLabel": "搜索条目",
+  "list": "列表",
+  "grid": "网格",
+  "empty": "还没有条目",
+  "emptyTrash": "回收站是空的",
+  "error": "资料列表暂时无法加载。",
+  "retry": "重试",
+  "preparing": "正在准备列表",
+  "save": "保存",
+  "cancel": "取消",
+  "close": "关闭",
+  "account": "当前用户 {name}",
+  "itemCount": "{count, plural, other {# 个条目}}",
+  "columns": {
+    "name": "名称",
+    "source": "来源",
+    "activity": "上次活动时间"
+  },
+  "nav": {
+    "all": "全部",
+    "page": "页面",
+    "slide": "幻灯片",
+    "site": "站点",
+    "image": "图像",
+    "drive": "Google Drive"
+  },
+  "tabs": {
+    "all": "推荐",
+    "starred": "收藏",
+    "mine": "你的条目",
+    "shared": "与你共享"
+  },
+  "kind": {
+    "page": "页面",
+    "folder": "文件夹",
+    "file": "文件",
+    "link": "链接",
+    "slide": "幻灯片",
+    "site": "站点",
+    "image": "图像",
+    "external": "外部"
+  },
+  "menu": {
+    "page": "页面",
+    "space": "空间",
+    "upload": "上传文件",
+    "import": "导入 Markdown",
+    "actions": "{title} 的操作"
+  },
+  "actions": {
+    "rename": "重命名",
+    "share": "共享",
+    "move": "移动",
+    "star": "收藏",
+    "unstar": "取消收藏",
+    "delete": "删除",
+    "restore": "恢复"
+  },
+  "dialog": {
+    "createSpace": "新建空间",
+    "createPage": "新建页面",
+    "rename": "重命名",
+    "share": "共享",
+    "move": "移动",
+    "delete": "删除此条目？",
+    "drive": "连接 Google Drive",
+    "driveBody": "Google Drive 连接会在后续版本提供。这一行不会请求连接器。",
+    "needSpace": "先创建一个空间，再添加页面。"
+  },
+  "field": {
+    "name": "名称",
+    "title": "标题",
+    "visibility": "可见性",
+    "space": "空间",
+    "user": "用户 ID",
+    "role": "角色"
+  },
+  "visibility": {
+    "private": "私有",
+    "members": "成员",
+    "tenant": "租户"
+  },
+  "deleteConfirm": "将 {title} 移到回收站。",
+  "preview": {
+    "empty": "此页面还没有 Markdown。",
+    "missing": "此条目不可用。",
+    "back": "返回全部条目"
+  }
+}

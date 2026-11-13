@@ -222,10 +222,38 @@ pub fn require_capability(
         ))
     }
 }
+/// Console and Knowledge API permission points for a space. Membership still
+/// decides which rows a caller can see; these points gate the console.
+pub const KNOWLEDGE_SPACE_PERMISSIONS: &[&str] = &[
+    "knowledge:space:view",
+    "knowledge:space:create",
+    "knowledge:space:edit",
+    "knowledge:space:share",
+    "knowledge:space:admin",
+];
+
 pub fn permission_denied_detail(
     capability: Capability,
     trace_id: &str,
     message: Option<&str>,
 ) -> Value {
-    json!({"message":message.filter(|s|!s.is_empty()).map(str::to_owned).unwrap_or_else(||format!("Permission denied: {} required",capability.canonical_permission())),"required_capability":capability.name(),"required_permission":capability.canonical_permission(),"accepted_permissions":capability.accepted_permissions(),"trace_id":trace_id})
+        json!({"message":message.filter(|s|!s.is_empty()).map(str::to_owned).unwrap_or_else(||format!("Permission denied: {} required",capability.canonical_permission())),"required_capability":capability.name(),"required_permission":capability.canonical_permission(),"accepted_permissions":capability.accepted_permissions(),"trace_id":trace_id})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn space_permissions_follow_existing_wildcard_matching() {
+        let admin = HashSet::from(["admin:*"]);
+        let space = HashSet::from(["knowledge:space:*"]);
+        let view = HashSet::from(["knowledge:space:view"]);
+        for permission in KNOWLEDGE_SPACE_PERMISSIONS {
+            assert!(Rbac::matches_permission(&admin, permission));
+            assert!(Rbac::matches_permission(&space, permission));
+        }
+        assert!(Rbac::matches_permission(&view, "knowledge:space:view"));
+        assert!(!Rbac::matches_permission(&view, "knowledge:space:edit"));
+    }
 }

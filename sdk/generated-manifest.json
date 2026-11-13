@@ -1,8 +1,8 @@
 {
   "schema": "agentforge/generated-sdk/v2",
   "openapi": "3.2.0",
-  "source_sha256": "aaf53606fa79aae928ceb0d185a4432f7678ebead3d519d317ba6c2f676f35b1",
-  "operations": 591,
+  "source_sha256": "555d115ff6aa0bad4f759b1c1e451c2238b6603d017b02f3d3eae55f4a614f96",
+  "operations": 610,
   "schema_models": 83,
   "stream_operations": [
     "POST /api/v1/agent-runtime/{public_id}/chat/stream",
@@ -122,6 +122,18 @@
     },
     "DELETE /api/v1/knowledge/datasets/{dataset_id}/permissions": {
       "request": "operation_console_delete_api_v1_knowledge_datasets__dataset_id__permissions_20dbaef08e6c",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/space-items/{item_id}": {
+      "request": "operation_delete_space_item_api_v1_knowledge_space_items__item_id__delete_90e18871867c",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/space-items/{item_id}/star": {
+      "request": "operation_unstar_space_item_api_v1_knowledge_space_items__item_id__star_delete_da2af9226868",
+      "stream": null
+    },
+    "DELETE /api/v1/knowledge/spaces/{space_id}": {
+      "request": "operation_archive_space_api_v1_knowledge_spaces__space_id__delete_c1ac494ddf05",
       "stream": null
     },
     "DELETE /api/v1/knowledge/{dataset_id}/documents/{document_id}": {
@@ -708,6 +720,34 @@
       "request": "operation_console_get_api_v1_knowledge_retrieval_presets_ea425c297fd3",
       "stream": null
     },
+    "GET /api/v1/knowledge/space-items": {
+      "request": "operation_list_space_items_api_v1_knowledge_space_items_get_7893d57191a1",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-items/{item_id}": {
+      "request": "operation_get_space_item_api_v1_knowledge_space_items__item_id__get_dab887aff951",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-items/{item_id}/content": {
+      "request": "operation_get_space_item_content_api_v1_knowledge_space_items__item_id__content_get_f8548e399158",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-trash": {
+      "request": "operation_list_space_trash_api_v1_knowledge_space_trash_get_e315e6fd5675",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/spaces": {
+      "request": "operation_list_spaces_api_v1_knowledge_spaces_get_41ee17cdca4b",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/spaces/{space_id}": {
+      "request": "operation_get_space_api_v1_knowledge_spaces__space_id__get_d6bf8f3876f0",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/spaces/{space_id}/members": {
+      "request": "operation_list_space_members_api_v1_knowledge_spaces__space_id__members_get_e2ad94303833",
+      "stream": null
+    },
     "GET /api/v1/knowledge/worker/status": {
       "request": "operation_console_get_api_v1_knowledge_worker_status_9eba7e5644cd",
       "stream": null
@@ -1268,6 +1308,14 @@
       "request": "operation_console_patch_api_v1_knowledge_datasets__dataset_id__archive_71286c133be8",
       "stream": null
     },
+    "PATCH /api/v1/knowledge/space-items/{item_id}": {
+      "request": "operation_patch_space_item_api_v1_knowledge_space_items__item_id__patch_8d86b1ecfdda",
+      "stream": null
+    },
+    "PATCH /api/v1/knowledge/spaces/{space_id}": {
+      "request": "operation_patch_space_api_v1_knowledge_spaces__space_id__patch_0e9c990c0452",
+      "stream": null
+    },
     "PATCH /api/v1/knowledge/{dataset_id}/documents/metadata/batch": {
       "request": "operation_console_patch_api_v1_knowledge__dataset_id__documents_metadata_batch_8d0d15705759",
       "stream": null
@@ -1726,6 +1774,18 @@
     },
     "POST /api/v1/knowledge/preview": {
       "request": "operation_console_post_api_v1_knowledge_preview_866ca8c7c9d2",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/space-items/{item_id}/restore": {
+      "request": "operation_restore_space_item_api_v1_knowledge_space_items__item_id__restore_post_e4b78d3ea9cc",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/spaces": {
+      "request": "operation_create_space_api_v1_knowledge_spaces_post_b48391b753df",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/spaces/{space_id}/items": {
+      "request": "operation_create_space_item_api_v1_knowledge_spaces__space_id__items_post_5b985b385323",
       "stream": null
     },
     "POST /api/v1/knowledge/{dataset_id}/chunk/preview": {
@@ -2294,6 +2354,22 @@
     },
     "PUT /api/v1/knowledge/datasets/{dataset_id}": {
       "request": "operation_console_put_api_v1_knowledge_datasets__dataset_id_eba49b35ec90",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/space-items/{item_id}/content": {
+      "request": "operation_put_space_item_content_api_v1_knowledge_space_items__item_id__content_put_ed352d88cd2b",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/space-items/{item_id}/shares": {
+      "request": "operation_replace_space_item_shares_api_v1_knowledge_space_items__item_id__shares_put_a3315ab8644a",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/space-items/{item_id}/star": {
+      "request": "operation_star_space_item_api_v1_knowledge_space_items__item_id__star_put_22d50cfce64a",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/spaces/{space_id}/members": {
+      "request": "operation_replace_space_members_api_v1_knowledge_spaces__space_id__members_put_5f173c51b201",
       "stream": null
     },
     "PUT /api/v1/knowledge/{dataset_id}/config": {

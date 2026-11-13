@@ -15,7 +15,7 @@
     "type-check": "node scripts/type-check-native.mjs",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "i18n:check": "node scripts/check-i18n-keys.mjs",
-    "e2e:opensource": "playwright test --config playwright.opensource.config.ts e2e/dynamic-route-render.spec.ts e2e/eval-trace.spec.ts e2e/agent-studio.spec.ts e2e/agent-publish.spec.ts e2e/first-run.spec.ts e2e/nav-groups.spec.ts e2e/all-routes-accessibility.spec.ts",
+    "e2e:opensource": "playwright test --config playwright.opensource.config.ts e2e/dynamic-route-render.spec.ts e2e/eval-trace.spec.ts e2e/agent-studio.spec.ts e2e/agent-publish.spec.ts e2e/first-run.spec.ts e2e/nav-groups.spec.ts e2e/all-routes-accessibility.spec.ts e2e/spaces.spec.ts",
     "e2e": "../scripts/dev/start_e2e_stack.sh test",
     "e2e:headed": "../scripts/dev/start_e2e_stack.sh test --headed",
     "type-check:legacy": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.contracts.json",

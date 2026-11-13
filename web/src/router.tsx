@@ -62,6 +62,10 @@ const ConnectorsSettingsPage = lazyNamed(
 const UserManagementPage = lazyNamed(() => import("@/pages/UserManagement"), "UserManagementPage");
 const UserEditPage = lazyNamed(() => import("@/pages/UserEdit"), "UserEditPage");
 const KnowledgeDatasetsPage = lazyNamed(() => import("@/pages/knowledge/Datasets"), "KnowledgeDatasetsPage");
+const SpacesLayout = lazyNamedWithNamespaces(() => import("@/pages/spaces/SpacesLayout"), "SpacesLayout", "spaces");
+const SpacesHome = lazyNamed(() => import("@/pages/spaces/SpacesHome"), "SpacesHome");
+const TrashView = lazyNamed(() => import("@/pages/spaces/TrashView"), "TrashView");
+const ItemPreview = lazyNamed(() => import("@/pages/spaces/ItemPreview"), "ItemPreview");
 const KnowledgeDatasetDetailPage = lazyNamedWithNamespaces(() => import("@/pages/knowledge/DatasetDetail"), "KnowledgeDatasetDetailPage", "knowledge", "eval");
 const DatasetCreatePage = lazyNamedWithNamespaces(() => import("@/pages/knowledge/DatasetCreate"), "default", "knowledge");
 const AssistantPage = lazyNamed(() => import("@/pages/assistant"), "AssistantPage");
@@ -145,6 +149,12 @@ export function AppRouter() {
               </ProtectedRoute>
             }
           />
+          <Route element={<ProtectedRoute requiredPermission="knowledge:space:view"><SpacesLayout /></ProtectedRoute>}>
+            <Route path="/spaces" element={<SpacesHome />} />
+            <Route path="/spaces/trash" element={<TrashView />} />
+            <Route path="/spaces/item/:itemId" element={<ItemPreview />} />
+            <Route path="/spaces/:spaceId" element={<SpacesHome />} />
+          </Route>
           <Route
             path="/playground"
             element={

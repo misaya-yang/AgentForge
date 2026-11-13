@@ -1429,6 +1429,7 @@
     },
     "services": "服务管理",
     "knowledge": "知识库",
+    "spaces": "资料空间",
     "playground": "模型调试",
     "assistant": "AI 助手",
     "agents": "智能体",

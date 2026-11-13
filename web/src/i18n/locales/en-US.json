@@ -1429,6 +1429,7 @@
     },
     "services": "Services",
     "knowledge": "Knowledge Base",
+    "spaces": "Spaces",
     "playground": "Model Debug",
     "assistant": "AI Assistant",
     "agents": "Agents",
