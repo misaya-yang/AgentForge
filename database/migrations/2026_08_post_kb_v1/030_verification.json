@@ -45,9 +45,16 @@
     "SELECT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'knowledge_api', 'knowledge.spaces', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'knowledge_api', 'knowledge.spaces', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'knowledge.spaces', 'SELECT')"
   ],
   "fingerprints": {
-    "acl": "0eeb24c10844000707216be1ee1adf57e1f175033c736b37c750f535757269d9",
+    "acl": "d6449e1a61edc1665c646371120c99bcad8cdde5a29c0dc61aa4bc3df0d2fbdd",
     "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
     "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318",
-    "structural": "e2b8725e50e76d482b4ac439b6c6de30db359970c684bb52b3068097d88dbc0b"
+    "structural": "f9428241b6ac9ff5d50055c843a8b718d2078a7464dea4b437f5997c92f5a4c4"
+  },
+  "fingerprint_measurement": {
+    "status": "measured",
+    "engine": "PostgreSQL 16",
+    "principal": "ai_gateway_owner",
+    "chain": "baseline plus changes 001-030 on database agentforge",
+    "acl_basis": "catalog digest without the versioned public migrator USAGE delta"
   }
 }

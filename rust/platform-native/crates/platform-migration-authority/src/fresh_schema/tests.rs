@@ -27,6 +27,14 @@ fn fresh_source_contains_every_definition_and_all_22_data_families_without_upgra
             .collect::<Vec<_>>()
     );
     assert_eq!(defs.changes.len(), 35);
+    assert_eq!(defs.knowledge_spaces.0.file, "030_knowledge_spaces.sql");
+    assert_eq!(defs.knowledge_spaces.0.name, "knowledge_spaces");
+    assert_eq!(
+        defs.knowledge_spaces.0.sha256,
+        sha(defs.knowledge_spaces.1.as_bytes())
+    );
+    assert_eq!(defs.knowledge_spaces.1, compiled.knowledge_spaces.1);
+    assert!(defs.knowledge_spaces.1.contains("CREATE TABLE knowledge.spaces ("));
     assert!(
         defs.changes
             .iter()

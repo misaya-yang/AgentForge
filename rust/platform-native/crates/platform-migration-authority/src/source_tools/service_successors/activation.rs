@@ -234,13 +234,52 @@ pub fn verify_activated_source(root: &Path) -> Result<Value> {
     Ok(activation)
 }
 
+fn knowledge_spaces_epoch(epoch: &manifest::EpochManifest) -> bool {
+    epoch.epoch == 30
+        && epoch
+            .changes
+            .last()
+            .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
+}
+
+/// Epoch 30 knowledge spaces is not a service-successor activation. Restore the
+/// archived 029 manifest and lock, drop the two 030 files, and verify that prefix.
+fn restore_knowledge_spaces_prefix(root: &Path) -> Result<Anchor> {
+    let path = std::env::temp_dir().canonicalize()?.join(format!(
+        "knowledge-spaces-029-prefix-{}",
+        uuid::Uuid::new_v4()
+    ));
+    fs::create_dir(&path)?;
+    let anchor = Anchor(path);
+    safe::copy_tree(&root.join("database"), &anchor.0.join("database"))?;
+    fs::create_dir(anchor.0.join("docs"))?;
+    safe::copy_tree(&root.join("docs/design"), &anchor.0.join("docs/design"))?;
+    fs::write(
+        anchor.0.join(LOCK),
+        fs::read(safe::source_file(root, ARCHIVED_LOCK)?)?,
+    )?;
+    fs::write(
+        anchor.0.join(MANIFEST),
+        fs::read(safe::source_file(root, ARCHIVED_MANIFEST)?)?,
+    )?;
+    for name in ["030_knowledge_spaces.sql", "030_verification.json"] {
+        fs::remove_file(file(&anchor.0, name))?;
+    }
+    Ok(anchor)
+}
+
 /// Read-only historical029 witness, after verifying any actual activated service prefix.
 pub fn verify_anchor_029(root: &Path) -> Result<Value> {
-    let epoch = manifest::load_epoch_manifest(&root.join(MANIFEST))?.epoch;
-    if epoch == 29 {
+    let epoch = manifest::load_epoch_manifest(&root.join(MANIFEST))?;
+    if epoch.epoch == 29 {
         return next_successor_029::verify_activated_source(root);
     }
+    if knowledge_spaces_epoch(&epoch) {
+        crate::source_tools::knowledge_spaces_030::verify_installed(root)?;
+        let anchor = restore_knowledge_spaces_prefix(root)?;
+        return next_successor_029::verify_activated_source(&anchor.0);
+    }
     verify_activated_source(root)?;
-    let anchor = restore_anchor(root, epoch)?;
+    let anchor = restore_anchor(root, epoch.epoch)?;
     next_successor_029::verify_activated_source(&anchor.0)
 }

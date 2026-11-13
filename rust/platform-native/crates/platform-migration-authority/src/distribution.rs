@@ -185,7 +185,7 @@ fn knowledge_spaces_successor(
     const SQL_SHA256: &str =
         "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c";
     const VERIFICATION_SHA256: &str =
-        "ac438ddb69f9e561affd4b111d80a895938812e0bc71392bb837ee72353f6fce";
+        "7c93c70edf1e8dcfc35dd738e5674bdf494427aacfa52f499c35224aee44ede7";
     let mut projected = actual.clone();
     let sql = projected.remove(SQL);
     let verification = projected.remove(VERIFICATION);

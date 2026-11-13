@@ -10,15 +10,14 @@ pub(super) struct Definitions {
     pub owner_setup: String,
     pub extensions: String,
     pub changes: Vec<(ChangeSpec, String)>,
+    /// Installed knowledge-spaces successor. Sequences 30-35 stay the closed
+    /// service-successor definitions, so this change is applied beside them.
+    pub knowledge_spaces: (ChangeSpec, String),
     pub verify_sql: String,
 }
-/// Epochs 1-29 stay the compiled fresh-schema base. Successor 030 is the
-/// installed knowledge-spaces migration and is not one of the closed
-/// service-successor definitions 30-35.
-fn knowledge_base(epoch: i32, mut specs: Vec<ChangeSpec>) -> Result<Vec<ChangeSpec>> {
-    if epoch == 29 && specs.len() == 29 {
-        return Ok(specs);
-    }
+/// Epochs 1-29 stay the compiled fresh-schema base. Successor 030 is installed
+/// beside the closed service-successor definitions 30-35, not instead of them.
+fn knowledge_base(epoch: i32, mut specs: Vec<ChangeSpec>) -> Result<(Vec<ChangeSpec>, ChangeSpec)> {
     let installed = epoch == 30
         && specs.len() == 30
         && specs
@@ -28,8 +27,18 @@ fn knowledge_base(epoch: i32, mut specs: Vec<ChangeSpec>) -> Result<Vec<ChangeSp
     if !installed {
         return Err(refused("compiled definition anchor changed"));
     }
-    specs.pop();
-    Ok(specs)
+    let spaces = specs.pop().ok_or_else(|| refused("030 knowledge spaces change is missing"))?;
+    Ok((specs, spaces))
+}
+fn exact_change(spec: &ChangeSpec, sql: &str) -> Result<()> {
+    if spec.owner != "owner"
+        || spec.transaction_mode != TransactionMode::Transactional
+        || spec.sha256 != sha(sql.as_bytes())
+        || spec.postconditions.is_empty()
+    {
+        return Err(refused("compiled current definition failed exact contract"));
+    }
+    crate::sql::reject_embedded_transactions(sql, &spec.name)
 }
 /// Self-contained native image entry: every compiled byte is checked against the
 /// complete source-owned definition inventory, without a checkout or old proofs.
@@ -63,7 +72,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
     .map_err(|_| refused("compiled base definitions malformed"))?;
     let specs: Vec<ChangeSpec> = serde_json::from_value(epoch["changes"].clone())
         .map_err(|_| refused("compiled base specs malformed"))?;
-    let specs = knowledge_base(epoch["epoch"].as_i64().unwrap_or(0) as i32, specs)?;
+    let (specs, spaces) = knowledge_base(epoch["epoch"].as_i64().unwrap_or(0) as i32, specs)?;
     let mut changes = specs
         .into_iter()
         .map(|s| {
@@ -96,15 +105,14 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
         return Err(refused("current definitions incomplete"));
     }
     for (s, sql) in &changes {
-        if s.owner != "owner"
-            || s.transaction_mode != TransactionMode::Transactional
-            || s.sha256 != sha(sql.as_bytes())
-            || s.postconditions.is_empty()
-        {
-            return Err(refused("compiled current definition failed exact contract"));
-        }
-        crate::sql::reject_embedded_transactions(sql, &s.name)?;
+        exact_change(s, sql)?;
     }
+    let spaces_sql = get(&format!(
+        "database/migrations/{}/{}",
+        crate::DEFAULT_BASELINE_ID, spaces.file
+    ))?;
+    exact_change(&spaces, &spaces_sql)?;
+    let knowledge_spaces = (spaces, spaces_sql);
     let roles = get("database/bootstrap/roles.sql")?;
     let owner_setup = roles
         .split_once("-- 5. Stable schema ownership")
@@ -120,6 +128,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
         owner_setup,
         extensions: get("database/bootstrap/extensions.sql")?,
         changes,
+        knowledge_spaces,
         verify_sql: get(&format!("{base}verify.sql"))?,
     })
 }
@@ -200,7 +209,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         .join("database/migrations")
         .join(crate::DEFAULT_BASELINE_ID);
     let epoch = crate::manifest::load_epoch_manifest(&epoch_dir.join("manifest.yml"))?;
-    let predecessor = knowledge_base(epoch.epoch, epoch.changes)?;
+    let (predecessor, spaces) = knowledge_base(epoch.epoch, epoch.changes)?;
     let mut changes = predecessor
         .into_iter()
         .map(|s| {
@@ -215,17 +224,15 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         return Err(refused("incomplete current definition set"));
     }
     for (spec, sql) in &changes {
-        if spec.owner != "owner"
-            || spec.transaction_mode != TransactionMode::Transactional
-            || sha(sql.as_bytes()) != spec.sha256
-            || spec.postconditions.is_empty()
-        {
-            return Err(refused(
-                "fresh definition must be exact, owner-owned and transactional",
-            ));
-        }
-        crate::sql::reject_embedded_transactions(sql, &spec.name)?;
+        exact_change(spec, sql).map_err(|_| {
+            refused("fresh definition must be exact, owner-owned and transactional")
+        })?;
     }
+    let spaces_sql = fs::read_to_string(epoch_dir.join(&spaces.file))?;
+    exact_change(&spaces, &spaces_sql).map_err(|_| {
+        refused("fresh definition must be exact, owner-owned and transactional")
+    })?;
+    let knowledge_spaces = (spaces, spaces_sql);
     let role_sql = fs::read_to_string(root.join("database/bootstrap/roles.sql"))?;
     let owner_setup = role_sql
         .split_once("-- 5. Stable schema ownership")
@@ -246,6 +253,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         owner_setup,
         extensions: fs::read_to_string(root.join("database/bootstrap/extensions.sql"))?,
         changes,
+        knowledge_spaces,
         verify_sql: fs::read_to_string(base.join("verify.sql"))?,
     })
 }

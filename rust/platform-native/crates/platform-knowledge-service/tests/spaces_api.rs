@@ -41,24 +41,25 @@ async fn connect(url: &str) -> PgPool {
 }
 
 async fn ensure_spaces(owner: &PgPool) {
+    let mut connection = owner
+        .acquire()
+        .await
+        .map_err(|_| "owner connection failed")
+        .unwrap();
+    // The migrator login cannot see knowledge until it assumes the schema owner.
+    sqlx::query("SET ROLE ai_gateway_owner")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| "owner role is unavailable")
+        .unwrap();
     let present: bool = sqlx::query_scalar("SELECT to_regclass('knowledge.spaces') IS NOT NULL")
-        .fetch_one(owner)
+        .fetch_one(&mut *connection)
         .await
         .map_err(|_| "space schema probe failed")
         .unwrap();
     if present {
         return;
     }
-    let mut connection = owner
-        .acquire()
-        .await
-        .map_err(|_| "owner connection failed")
-        .unwrap();
-    sqlx::query("SET ROLE ai_gateway_owner")
-        .execute(&mut *connection)
-        .await
-        .map_err(|_| "owner role is unavailable")
-        .unwrap();
     sqlx::raw_sql(include_str!(
         "../../../../../database/migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql"
     ))
@@ -73,6 +74,11 @@ async fn cleanup(owner: &PgPool) {
         .acquire()
         .await
         .map_err(|_| "owner connection failed")
+        .unwrap();
+    sqlx::query("SET ROLE ai_gateway_owner")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| "owner role is unavailable")
         .unwrap();
     sqlx::query("SELECT pg_catalog.set_config('search_path','pg_catalog, knowledge, public', false)")
         .execute(&mut *connection)
