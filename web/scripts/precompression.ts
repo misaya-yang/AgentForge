@@ -1,9 +1,9 @@
 import type { Plugin } from "vite";
-import { gzipSync, brotliCompressSync } from "zlib";
+import { gzipSync, brotliCompressSync, zstdCompressSync } from "zlib";
 
 /**
- * Vite plugin for precompressing build assets with gzip and brotli.
- * Generates .gz and .br files alongside originals for static serving.
+ * Vite plugin for precompressing build assets with gzip, brotli, and zstd.
+ * Generates .gz, .br, and .zst files alongside originals for static serving.
  */
 export function precompression(): Plugin {
   return {
@@ -24,6 +24,11 @@ export function precompression(): Plugin {
             fileName: `${fileName}.br`,
             source: brotliCompressSync(buffer),
           });
+          this.emitFile({
+            type: "asset",
+            fileName: `${fileName}.zst`,
+            source: zstdCompressSync(buffer),
+          });
         } else if (asset.type === "chunk") {
           const buffer = Buffer.from(asset.code, "utf-8");
           this.emitFile({
@@ -36,6 +41,11 @@ export function precompression(): Plugin {
             fileName: `${fileName}.br`,
             source: brotliCompressSync(buffer),
           });
+          this.emitFile({
+            type: "asset",
+            fileName: `${fileName}.zst`,
+            source: zstdCompressSync(buffer),
+          });
         }
       }
     },
@@ -44,11 +54,13 @@ export function precompression(): Plugin {
 
 /**
  * Compress a single asset for testing purposes.
+ * Returns buffers keyed by file extension including the dot.
  */
-export function compressAsset(content: string | Buffer): { gzip: Buffer; brotli: Buffer } {
+export function compressAsset(content: string | Buffer): { ".gz": Buffer; ".br": Buffer; ".zst": Buffer } {
   const buffer = typeof content === "string" ? Buffer.from(content, "utf-8") : content;
   return {
-    gzip: gzipSync(buffer, { level: 9 }),
-    brotli: brotliCompressSync(buffer),
+    ".gz": gzipSync(buffer, { level: 9 }),
+    ".br": brotliCompressSync(buffer),
+    ".zst": zstdCompressSync(buffer),
   };
 }
