@@ -719,7 +719,7 @@
     "qaInterruptedEmpty": "No completed answer was received.",
     "qaAuthRequired": "The session needs to be renewed before QA can run. Sign in again, then reuse the preserved question.",
     "qaPermissionDenied": "You do not have permission to run QA for this knowledge base. The question is preserved.",
-    "qaRequestRejected": "The QA request was rejected (HTTP {{status}}). Review the QA settings, then reuse the preserved question.",
+    "qaRequestRejected": "The QA request was rejected (HTTP {status}). Review the QA settings, then reuse the preserved question.",
     "qaEmptyAnswer": "The service completed this request without answer text.",
     "qaReuseQuestion": "Put question back in input",
     "qaGeneratingAnswer": "Generating answer...",

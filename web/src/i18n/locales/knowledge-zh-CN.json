@@ -719,7 +719,7 @@
     "qaInterruptedEmpty": "未收到已完成的回答。",
     "qaAuthRequired": "运行问答前需要重新验证会话。请重新登录，然后使用已保留的问题。",
     "qaPermissionDenied": "你没有运行此知识库问答的权限。问题已保留。",
-    "qaRequestRejected": "问答请求被拒绝（HTTP {{status}}）。请检查问答设置，然后使用已保留的问题。",
+    "qaRequestRejected": "问答请求被拒绝（HTTP {status}）。请检查问答设置，然后使用已保留的问题。",
     "qaEmptyAnswer": "服务已完成本次请求，但未返回回答文字。",
     "qaReuseQuestion": "将问题放回输入框",
     "qaGeneratingAnswer": "正在生成回答...",
