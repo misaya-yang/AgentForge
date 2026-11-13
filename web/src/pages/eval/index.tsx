@@ -1369,11 +1369,11 @@ export function EvalPage() {
         <div className="eval-overview-bars">
           <div>
             <span>{t("eval.workbench.passRate", "Pass rate")}</span>
-            <Progress percent={Math.round(asNumber(dashboardMetrics.pass_rate) * 100)} size="small" />
+            <Progress percent={Math.round(asNumber(dashboardMetrics.pass_rate) * 100)} size="small" aria-label={t("eval.workbench.passRate", "Pass rate")} />
           </div>
           <div>
             <span>{t("eval.workbench.trajectoryPass", "Trajectory pass")}</span>
-            <Progress percent={Math.round(asNumber(dashboardMetrics.trajectory_pass_rate) * 100)} size="small" />
+            <Progress percent={Math.round(asNumber(dashboardMetrics.trajectory_pass_rate) * 100)} size="small" aria-label={t("eval.workbench.trajectoryPass", "Trajectory pass")} />
           </div>
         </div>
         <Descriptions

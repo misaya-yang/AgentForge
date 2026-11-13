@@ -719,7 +719,7 @@
     "qaInterruptedEmpty": "未收到已完成的回答。",
     "qaAuthRequired": "运行问答前需要重新验证会话。请重新登录，然后使用已保留的问题。",
     "qaPermissionDenied": "你没有运行此知识库问答的权限。问题已保留。",
-    "qaRequestRejected": "问答请求被拒绝（HTTP {{status}}）。请检查问答设置，然后使用已保留的问题。",
+    "qaRequestRejected": "问答请求被拒绝（HTTP {status}）。请检查问答设置，然后使用已保留的问题。",
     "qaEmptyAnswer": "服务已完成本次请求，但未返回回答文字。",
     "qaReuseQuestion": "将问题放回输入框",
     "qaGeneratingAnswer": "正在生成回答...",
@@ -928,7 +928,10 @@
       "accepted": "已接受，等待处理",
       "rejected": "接受前已拒绝，可重新选择",
       "created": "已创建文档记录，请勿重新上传"
-    }
+    },
+    "searchFieldLabel": "搜索字段",
+    "statusFilterLabel": "按状态筛选",
+    "formatFilterLabel": "按格式筛选"
   },
   "feedback": {
     "commentPlaceholder": "可选：补充给审核人员的说明",
@@ -1042,9 +1045,9 @@
   },
   "documentTextEditor": {
     "title": "编辑文本源",
-    "description": "编辑 \"{{title}}\" 的当前文本源。新版本准备期间仍使用当前版本。",
+    "description": "编辑 \"{title}\" 的当前文本源。新版本准备期间仍使用当前版本。",
     "contentLabel": "源文本",
-    "currentVersion": "当前版本 {{version}}",
+    "currentVersion": "当前版本 {version}",
     "loading": "正在加载当前源…",
     "loadFailed": "无法加载当前文本。源可能已更改或不可用。",
     "notEditable": "此处只能编辑有效且已完成的文本源。",
@@ -1053,10 +1056,10 @@
     "save": "保存为新版本",
     "close": "关闭",
     "contentRequired": "请输入非空文本后再保存。",
-    "processing": "版本 {{version}} 正在处理中；发布成功前仍使用当前版本。",
-    "processingProgress": "处理中 {{progress}}%",
+    "processing": "版本 {version} 正在处理中；发布成功前仍使用当前版本。",
+    "processingProgress": "处理中 {progress}%",
     "checkStatus": "检查状态",
-    "success": "版本 {{version}} 已生效。",
+    "success": "版本 {version} 已生效。",
     "unchanged": "源内容未更改，没有创建新版本。",
     "failed": "文本替换失败，之前的版本仍然有效。",
     "conflict": "源已更改或另一个更新正在进行。请重新加载最新源后再编辑。",

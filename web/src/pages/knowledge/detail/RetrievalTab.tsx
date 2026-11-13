@@ -107,7 +107,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
             <div>
               <Label className="text-sm text-muted-foreground flex items-center gap-1">
                 {t("knowledge.detail.retrievalPreset")} {t("knowledge.detail.apiProjection")}
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden="true" />
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               </Label>
               <Select
                 value={selectedPreset}
@@ -165,7 +165,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
             <div>
               <Label className="text-sm text-muted-foreground flex items-center gap-1">
                 {t("knowledge.detail.selectRerankModel")}
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
               </Label>
               <Select
                 value={hitRerankModel}
@@ -206,7 +206,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
             <div>
               <Label className="text-sm text-muted-foreground flex items-center gap-1">
                 {t("knowledge.detail.similarityThreshold")}
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
               </Label>
               <div className="mt-2 flex items-center gap-3">
                 <input
@@ -236,7 +236,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                   max={1}
                 />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>0</span>
                 <span>1</span>
               </div>
@@ -246,7 +246,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
             <div>
               <Label className="text-sm text-muted-foreground flex items-center gap-1">
                 {t("knowledge.detail.maxRecall")}
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
               </Label>
               <div className="mt-2 flex items-center gap-3">
                 <input
@@ -275,7 +275,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                   max={20}
                 />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>1</span>
                 <span>20</span>
               </div>
@@ -297,7 +297,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
               <div className="flex justify-end mt-1">
                 <button
                   type="button"
-                  className="text-muted-foreground/70 hover:text-muted-foreground"
+                  className="text-muted-foreground hover:text-muted-foreground"
                   aria-label={t("knowledge.detail.image")}
                 >
                   <ImageIcon className="h-4 w-4" aria-hidden="true" />
@@ -479,7 +479,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                 </div>
 
                 {typeof hitMeta.collection_name === 'string' && hitMeta.collection_name && (
-                  <div className="mt-2 text-xs text-muted-foreground/70 truncate font-mono">
+                  <div className="mt-2 text-xs text-muted-foreground truncate font-mono">
                     {t("knowledge.detail.collection", { name: hitMeta.collection_name })}
                   </div>
                 )}
@@ -555,12 +555,12 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                   {t(hitFailed ? "knowledge.detail.retrievalFailed"
                     : hitExecutedQuery ? "knowledge.detail.noResults" : "knowledge.detail.retrievalReady")}
                 </p>
-                <p className="text-sm text-muted-foreground/70 mt-2 max-w-sm mx-auto">
+                <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
                   {t(hitFailed ? "knowledge.detail.retrievalFailedHint"
                     : hitExecutedQuery ? "knowledge.detail.retrievalEmptyHint" : "knowledge.detail.noResultsHint")}
                 </p>
                 {!hitFailed && hitExecutedQuery && (
-                  <p className="text-sm text-muted-foreground/70 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     {t("knowledge.detail.vectorHitsCount", {
                       vector: hitCount(vectorHitCount), keyword: hitCount(keywordHitCount),
                     })}

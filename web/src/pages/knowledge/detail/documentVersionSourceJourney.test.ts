@@ -12,7 +12,11 @@ type Lane = { slots: unknown[]; cleanups: Array<()=>void> };
 type Request = { kind:string; args:unknown[]; resolve:(value:unknown)=>void; reject:(error:unknown)=>void };
 function nodes(value:unknown):Tree[]{if(Array.isArray(value))return value.flatMap(nodes);if(!value||typeof value!=="object")return[];const n=value as Tree;return n.props?[n,...nodes(n.props.children)]:[];}
 function text(value:unknown):string{if(typeof value==="string"||typeof value==="number")return String(value);if(Array.isArray(value))return value.map(text).join(" ");return value&&typeof value==="object"?text((value as Tree).props?.children):"";}
-async function settle(){for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout(resolve,0));}
+// SHA-256 verification runs on real WebCrypto, whose latency is not bounded by
+// event-loop ticks under load; settle waits for every digest it started.
+const pendingDigests=new Set<Promise<unknown>>();
+const trackedCrypto={subtle:{digest:(...args:Parameters<typeof webcrypto.subtle.digest>)=>{const p=webcrypto.subtle.digest(...args);pendingDigests.add(p);p.finally(()=>pendingDigests.delete(p)).catch(()=>{});return p;}}};
+async function settle(){for(let i=0;i<3;i++){await Promise.allSettled([...pendingDigests]);await new Promise(resolve=>setTimeout(resolve,0));}}
 function version(n=1,changes:Record<string,unknown>={}){return{version_id:`v${n}`,document_id:"doc",version_number:n,content_hash:hash,created_at:"2026-10-15",word_count:3,change_type:"updated",...changes};}
 function page(rows=[version(2),version(1)]){return{versions:rows,total:rows.length,current_version:2};}
 function host(){
@@ -29,7 +33,7 @@ function host(){
  "@/store/useAuthStore":{useAuthStore:Object.assign((select:(value:typeof auth)=>unknown)=>select(auth),{getState:()=>auth,subscribe:(fn:(a:typeof auth,b:typeof auth)=>void)=>{subscribers.add(fn);return()=>subscribers.delete(fn);}})},"@/lib/sdkAuthorityScope":{sdkAuthorityScope},"@/hooks/use-toast":{toast:()=>{}},
  "@/api/knowledge":{listDocumentVersions:request("list"),compareDocumentVersions:request("compare"),restoreDocumentVersion:request("restore"),getActiveDocumentSource:request("active-source")},"@/lib/api":{api:{get:request("source")}},
  "@/components/ui/button":named,"@/components/ui/badge":named,"@/components/ui/dialog":named,"@/components/ui/alert-dialog":named};
- function compile(relative:string){const exports:Record<string,(props:unknown)=>Tree>={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(relative,import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:(name:string)=>{assert.ok(name in modules,name);return modules[name];},crypto:webcrypto,TextEncoder,Uint8Array,AbortController,window:{setInterval:(fn:()=>void)=>{timers.set(++timer,fn);return timer;},clearInterval:(id:number)=>timers.delete(id)}});return exports;}
+ function compile(relative:string){const exports:Record<string,(props:unknown)=>Tree>={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(relative,import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:(name:string)=>{assert.ok(name in modules,name);return modules[name];},crypto:trackedCrypto,TextEncoder,Uint8Array,AbortController,window:{setInterval:(fn:()=>void)=>{timers.set(++timer,fn);return timer;},clearInterval:(id:number)=>timers.delete(id)}});return exports;}
  modules["./useDocumentVersionNavigation"]=compile("./useDocumentVersionNavigation.ts");
  const source=compile("../../assistant/components/SourceDocumentDialog.tsx");modules["@/pages/assistant/components/SourceDocumentDialog"]=source;
  const history=compile("./DocumentVersionHistory.tsx").DocumentVersionHistory;

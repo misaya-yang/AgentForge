@@ -4,7 +4,7 @@ use super::*;
 use axum::{
     Router,
     extract::{DefaultBodyLimit, Path, Query, State},
-    http::{HeaderValue, Method},
+    http::HeaderValue,
     response::Response,
     routing::{delete, get, post},
 };

@@ -885,7 +885,12 @@ validate_example_config() {
     done
 
     validate_ports
-    validate_compose_config
+    # The public example deliberately leaves credentials and TLS file inputs
+    # unset (`${VAR:?}` in Compose), so an interpolated render of the bare
+    # example can never succeed. Check structure here; the interpolated render
+    # plus image identity runs in `platform-tools compose-image-matrix` with
+    # render-only, deliberately unusable fixtures (see validate-example-config).
+    validate_compose_config --no-interpolate
 
     if [ "$ERRORS" -eq 0 ]; then
         log_success "Example configuration validation passed"

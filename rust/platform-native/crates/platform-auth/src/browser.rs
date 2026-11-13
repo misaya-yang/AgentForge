@@ -15,7 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use std::sync::Arc;
 #[derive(Clone)]
 pub struct BrowserAuth {

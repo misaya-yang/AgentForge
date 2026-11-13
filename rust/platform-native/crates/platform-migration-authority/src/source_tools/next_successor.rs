@@ -1542,32 +1542,6 @@ mod tests {
                 assert_eq!(verified.epoch, active.epoch);
                 assert_eq!(verified.changes.len(), active.epoch as usize);
             }
-            epoch if epoch == crate::source_tools::next_successor_023::CANDIDATE_EPOCH => {
-                let (_, verified) =
-                    crate::source_tools::next_successor_023::verify_activated_source(&root)
-                        .unwrap();
-                assert_eq!(
-                    verified.epoch,
-                    crate::source_tools::next_successor_023::CANDIDATE_EPOCH
-                );
-                assert_eq!(
-                    verified.changes.len(),
-                    crate::source_tools::next_successor_023::CANDIDATE_EPOCH as usize
-                );
-            }
-            epoch if epoch == crate::source_tools::next_successor_024::CANDIDATE_EPOCH => {
-                let (_, verified) =
-                    crate::source_tools::next_successor_024::verify_activated_source(&root)
-                        .unwrap();
-                assert_eq!(
-                    verified.epoch,
-                    crate::source_tools::next_successor_024::CANDIDATE_EPOCH
-                );
-                assert_eq!(
-                    verified.changes.len(),
-                    crate::source_tools::next_successor_024::CANDIDATE_EPOCH as usize
-                );
-            }
             _ => panic!("unexpected canonical schema epoch"),
         }
     }

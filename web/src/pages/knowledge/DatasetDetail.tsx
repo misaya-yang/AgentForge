@@ -257,8 +257,8 @@ export function KnowledgeDatasetDetailPage() {
                 <ArrowLeft className="h-4 w-4" />
                 <span className="hidden sm:inline">{t("knowledge.detail.knowledgeBase")}</span>
               </button>
-              <span className="hidden text-muted-foreground/70 sm:inline">/</span>
-              <span className="truncate font-semibold text-foreground">{dataset?.name || t("knowledge.detail.loading")}</span>
+              <span className="hidden text-muted-foreground sm:inline">/</span>
+              <span className="truncate font-semibold text-foreground">{dataset?.name || (dsQuery.isError ? datasetId : t("knowledge.detail.loading"))}</span>
               {dataset?.visibility && (
                 <Badge variant="outline" className="hidden text-xs bg-muted/40 text-muted-foreground border-border sm:flex items-center gap-1">
                   {visibilityIcons[dataset.visibility]}

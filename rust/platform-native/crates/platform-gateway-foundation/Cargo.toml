@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+tracing = "0.1"
 ai-platform-python-compat = { version = "0.1.0", path = "../platform-python-compat" }
 ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
 rustls.workspace = true
@@ -49,6 +50,7 @@ unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 
 [dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 opentelemetry = { version = "=0.32.0", default-features = false, features = ["trace"] }
 # Exercise the mounted callback Router in-process; already locked transitively.
 tower = { version = "0.5", features = ["util"] }

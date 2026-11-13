@@ -1,6 +1,6 @@
 //! Explicit local preparation only. No running services, certificate issuance,
 //! ownership changes, existing-file replacement or credential output.
-use ai_platform_service_primitives::valkey::{acl, Instance};
+use ai_platform_service_primitives::valkey::{Instance, acl};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
@@ -84,8 +84,13 @@ mod tests {
     }
     #[test]
     fn file_creation_never_overwrites() {
-        let p =
-            std::env::temp_dir().join(format!("valkey-material-contract-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let p = std::env::temp_dir().join(format!(
+            "valkey-material-contract-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         write_new(&p, b"public-test").unwrap();
         assert!(write_new(&p, b"replaced").is_err());
         assert_eq!(fs::read(&p).unwrap(), b"public-test");

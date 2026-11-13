@@ -222,7 +222,7 @@ export function SegmentList({
           
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-border text-sm text-muted-foreground">
             {stats.totalChars.toLocaleString()} {t("knowledge.segment.chars")}
-            <span className="text-xs text-muted-foreground/60">
+            <span className="text-xs text-muted-foreground">
               (~{Math.ceil(stats.totalChars / 4)} tokens)
             </span>
           </span>

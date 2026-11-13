@@ -818,7 +818,9 @@
       "reset": "Reset",
       "anonymousUser": "Anonymous user {id}",
       "byDay": "Daily",
-      "byHour": "Hourly"
+      "byHour": "Hourly",
+      "granularity": "Time granularity",
+      "refreshInterval": "Auto refresh interval"
     },
     "fullscreen": {
       "enter": "Enter fullscreen",
@@ -850,7 +852,8 @@
       "window": "Requested window: {start} – {end}",
       "latestBucket": "Statistics: latest returned bucket {date} ({count} requests), not the whole window.",
       "readAt": "Last successful read: {time} (browser time; not source ingestion time).",
-      "noSamples": "Performance data is unavailable. This does not establish zero traffic, zero latency or healthy service."
+      "noSamples": "Performance data is unavailable. This does not establish zero traffic, zero latency or healthy service.",
+      "metric": "Latency percentile"
     },
     "refresh": {
       "manual": "Manual",

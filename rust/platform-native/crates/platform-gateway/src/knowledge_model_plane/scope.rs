@@ -15,6 +15,7 @@ impl KnowledgeModelPlane {
             roles: actor.roles.clone(),
             permissions: vec![],
             is_authenticated: true,
+            allowed_models: None,
         };
         let knowledge_actor = crate::knowledge::KnowledgeActor::from_identity(&identity)
             .map_err(|_| PlaneError::new(403, "knowledge_scope_actor_invalid"))?;

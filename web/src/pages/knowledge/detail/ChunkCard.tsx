@@ -161,7 +161,7 @@ function ChildChunkCard({
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="font-mono">{formatNumber(charCount)} {t("knowledge.segment.chars")}</span>
-              <span className="text-muted-foreground/50">|</span>
+              <span className="text-muted-foreground">|</span>
               <span className="font-mono">~{tokenCount} tokens</span>
             </div>
             {child.enabled === false && <DisabledBadge />}

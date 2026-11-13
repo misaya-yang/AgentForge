@@ -53,10 +53,9 @@ fn build_router(
     configured_roles: BTreeMap<String, Vec<String>>,
     introspection: Option<Arc<dyn CredentialIntrospectionResolver>>,
 ) -> Router {
-    let jwks = jwks_router(service.jwt_keyring());
     Router::new()
         .route(contract::LOGIN, post(login))
-        .route("/.well-known/jwks.json", get(jwks))
+        .route(contract::JWKS, get(codec_jwks))
         .route(contract::LOGOUT, post(logout))
         .route(contract::ME, get(me))
         .route(contract::VALIDATE, post(validate))
@@ -67,7 +66,32 @@ fn build_router(
             introspection,
             configured_roles: Arc::new(configured_roles),
         })
-        .merge(jwks)
+}
+
+/// Mounted discovery for the login authority: every verifier key the codec
+/// accepts (configured keyring and optional EdDSA access-token ring).
+async fn codec_jwks(State(s): State<HttpState>) -> Response {
+    match (s.service.clock)() {
+        Ok(now) => jwks_response(s.service.codec.jwks(now)),
+        Err(_) => jwks_unavailable(),
+    }
+}
+
+fn jwks_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"detail":"Authentication authority unavailable"})),
+    )
+        .into_response()
+}
+
+fn jwks_response(keys: Value) -> Response {
+    let mut response = Json(keys).into_response();
+    response.headers_mut().insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=60"),
+    );
+    response
 }
 
 /// Public standards-compatible key discovery. The verifier ring owns no public
@@ -81,20 +105,9 @@ pub fn jwks_router(keyring: Arc<JwtKeyRing>) -> Router {
 async fn jwks(State(keyring): State<Arc<JwtKeyRing>>) -> Response {
     let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
         Ok(duration) => duration.as_secs(),
-        Err(_) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"detail":"Authentication authority unavailable"})),
-            )
-                .into_response();
-        }
+        Err(_) => return jwks_unavailable(),
     };
-    let mut response = Json(keyring.jwks_at(now)).into_response();
-    response.headers_mut().insert(
-        CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=60"),
-    );
-    response
+    jwks_response(keyring.jwks_at(now))
 }
 #[derive(Debug)]
 enum ApiError {
@@ -366,8 +379,4 @@ mod contract_tests {
             assert!(document["keys"][0].get(private_field).is_none());
         }
     }
-}
-
-async fn jwks(State(s): State<HttpState>) -> Result<Json<Value>, ApiError> {
-    Ok(Json(s.service.codec.jwks((s.service.clock)()?)))
 }

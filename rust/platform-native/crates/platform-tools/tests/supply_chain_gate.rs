@@ -1,5 +1,5 @@
 //! Real CLI with mock cryptographic verifier only; never accesses credentials/registries.
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
@@ -125,8 +125,11 @@ fn signed_fresh_both_platforms_pass_and_both_verifier_commands_bind_identity_and
     let f = Fixture::new();
     f.check(IMAGE, false, false, true);
     let calls = fs::read_to_string(f.root.join("calls")).unwrap();
-    assert!(calls
-        .contains("--certificate-identity-regexp ^https://github\\.com/misaya-yang/AgentForge/"));
+    assert!(
+        calls.contains(
+            "--certificate-identity-regexp ^https://github\\.com/misaya-yang/AgentForge/"
+        )
+    );
     assert_eq!(
         calls
             .matches("--certificate-oidc-issuer https://token.actions.githubusercontent.com")
@@ -202,9 +205,11 @@ fn actual_release_workflow_checks_critical_findings_and_signatures_before_promot
     .unwrap();
     let jobs = &workflow["jobs"];
     assert_eq!(jobs["merge"]["permissions"]["id-token"], "write");
-    assert!(jobs["build-and-push"]["permissions"]
-        .get("id-token")
-        .is_none());
+    assert!(
+        jobs["build-and-push"]["permissions"]
+            .get("id-token")
+            .is_none()
+    );
     let build = jobs["build-and-push"]["steps"].as_array().unwrap();
     let scan = build
         .iter()
@@ -285,13 +290,17 @@ fn sdk_release_uses_only_oidc_publishing_and_disables_release_package_caches() {
     let publish = &workflow["jobs"]["publish-cli"];
     assert_eq!(publish["permissions"]["id-token"], "write");
     let steps = publish["steps"].as_array().unwrap();
-    assert!(steps
-        .iter()
-        .any(|s| s["run"] == "node .github/scripts/check-npm-trusted-publisher.mjs"));
-    assert!(steps.iter().any(|s| s["run"]
-        .as_str()
-        .unwrap_or("")
-        .contains("npm publish --access public --provenance")));
+    assert!(
+        steps
+            .iter()
+            .any(|s| s["run"] == "node .github/scripts/check-npm-trusted-publisher.mjs")
+    );
+    assert!(steps.iter().any(|s| {
+        s["run"]
+            .as_str()
+            .unwrap_or("")
+            .contains("npm publish --access public --provenance")
+    }));
     for job in workflow["jobs"].as_object().unwrap().values() {
         for step in job["steps"].as_array().into_iter().flatten() {
             let used = step["uses"].as_str().unwrap_or("");

@@ -2,11 +2,7 @@
 use serde_json::Value;
 use std::{collections::BTreeMap, fs, path::Path};
 fn ensure(ok: bool, message: &str) -> Result<(), String> {
-    if ok {
-        Ok(())
-    } else {
-        Err(message.into())
-    }
+    if ok { Ok(()) } else { Err(message.into()) }
 }
 fn config(text: &str, coord: bool) -> Result<(), String> {
     let mut values = BTreeMap::new();
@@ -264,11 +260,13 @@ mod tests {
         assert!(validate_identity("999", "999").is_ok());
         assert!(validate_identity("0", "999").is_err());
         assert!(validate_identity("999", "REPLACE").is_err());
-        assert!(validate_image(&format!(
-            "docker.io/valkey/valkey:9.1.2@sha256:{}",
-            "a".repeat(64)
-        ))
-        .is_ok());
+        assert!(
+            validate_image(&format!(
+                "docker.io/valkey/valkey:9.1.2@sha256:{}",
+                "a".repeat(64)
+            ))
+            .is_ok()
+        );
         for bad in [
             "valkey/valkey:latest",
             "docker.io/valkey/valkey:9.1.2",

@@ -988,6 +988,74 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             let device_id = value_str(&credential, "device_id")?;
             let channel_id = value_str(&credential, "channel_id")?;
             Self::authorize_channel_identity(&mut tx, channel_id).await?;
+            let previous_seen_at = [
+                credential["last_seen_at_epoch"].as_f64(),
+                credential["credential_last_seen_at_epoch"].as_f64(),
+            ]
+            .into_iter()
+            .flatten()
+            .reduce(f64::max);
+            if !heartbeat_timestamp_is_fresh(request.sent_at, now_seconds(), previous_seen_at) {
+                return Err(ChannelStoreError::Rejected);
+            }
+            // An empty doctor is the Gateway-synthesized control-stream liveness
+            // heartbeat; device heartbeats always pass the strict doctor check.
+            let snapshot = if request.doctor.as_object().is_some_and(|d| d.is_empty()) {
+                None
+            } else {
+                Some(permission_snapshot(&request.doctor)?)
+            };
+            let (next_revision, device_claims_json, permission_snapshot_digest) = match snapshot {
+                None => (None, None, String::new()),
+                Some((permission_snapshot_digest, device_claims)) => {
+                    let owner_grants = sqlx::query_scalar::<_, Value>(
+                        "SELECT g.capabilities FROM gateway.local_node_grants g \
+                 WHERE g.tenant_id=$1 AND g.user_id=$2 AND g.device_id=$3 \
+                   AND g.kind='workspace' AND g.status='active' AND g.revoked_at IS NULL \
+                   AND (g.expires_at IS NULL OR g.expires_at>now()) \
+                 ORDER BY g.grant_id FOR SHARE",
+                    )
+                    .bind(tenant_id)
+                    .bind(user_id)
+                    .bind(device_id)
+                    .fetch_all(&mut *tx)
+                    .await
+                    .map_err(|_| ChannelStoreError::Unavailable)?;
+                    // An out-of-date local snapshot cannot refresh device authority,
+                    // but the authenticated heartbeat may still carry receipts and
+                    // cancellation controls for already durable executions.
+                    let snapshot_authorized =
+                        claims_supported_by_grants(&owner_grants, &device_claims);
+                    let current_claims = credential["capabilities"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect::<BTreeSet<_>>();
+                    let (next_revision, device_claims_json) = if snapshot_authorized {
+                        let changed = credential["permission_snapshot_digest"].as_str()
+                            != Some(permission_snapshot_digest.as_str())
+                            || current_claims != device_claims;
+                        let next_revision = credential["capability_revision"]
+                            .as_i64()
+                            .filter(|revision| *revision >= 1)
+                            .ok_or(ChannelStoreError::Rejected)?
+                            .checked_add(if changed { 1 } else { 0 })
+                            .ok_or(ChannelStoreError::Rejected)?;
+                        let device_claims_json = serde_json::to_value(&device_claims)
+                            .map_err(|_| ChannelStoreError::Rejected)?;
+                        (Some(next_revision), Some(device_claims_json))
+                    } else {
+                        (None, None)
+                    };
+                    (
+                        next_revision,
+                        device_claims_json,
+                        permission_snapshot_digest,
+                    )
+                }
+            };
             let mut accepted = credential["accepted_through_sequence"]
                 .as_i64()
                 .ok_or(ChannelStoreError::Rejected)?;

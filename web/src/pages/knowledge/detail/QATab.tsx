@@ -517,7 +517,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
         {qaHistory.length > 0 && (
           <Card className="p-0 overflow-hidden border-border">
             <div className="px-5 py-4 border-b border-border/60 bg-card flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground/70" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
               <h4 className="text-sm font-semibold text-foreground/80">{t("knowledge.detail.qaRecentQuestions")}</h4>
             </div>
             <div className="p-4 space-y-2 max-h-64 overflow-auto">
@@ -532,10 +532,10 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                     <Badge variant="outline" className="text-xs font-mono">
                       {h.response.timing.total_ms}ms
                     </Badge>
-                    <span className="text-xs text-muted-foreground/70">
+                    <span className="text-xs text-muted-foreground">
                       {t("knowledge.detail.qaSegmentsCount", { count: h.response.context_segments.length })}
                     </span>
-                    <span className="text-xs text-muted-foreground/70 font-mono">
+                    <span className="text-xs text-muted-foreground font-mono">
                       {h.response.model}
                     </span>
                   </div>
@@ -576,7 +576,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                   <Sparkles className="h-10 w-10 text-primary/70" />
                 </div>
                 <p className="text-lg font-medium text-foreground/80">{t("knowledge.detail.qaStartTitle")}</p>
-                <p className="text-sm text-muted-foreground/70 mt-1 max-w-md">
+                <p className="text-sm text-muted-foreground mt-1 max-w-md">
                   {t("knowledge.detail.qaStartHint")}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2 justify-center">
@@ -750,7 +750,7 @@ export function QATab({ datasetId, hitTest, identityScope }: QATabProps) {
                 )}
               </Button>
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground/70">
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
               <span>{t("knowledge.detail.qaInputHint")}</span>
               <span className="font-mono">TopK {topK} · {mode}</span>
             </div>

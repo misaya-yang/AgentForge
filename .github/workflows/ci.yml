@@ -19,6 +19,13 @@ env:
 permissions:
   contents: read
 
+# Explicit `shell: bash` runs steps as `bash --noprofile --norc -eo pipefail`,
+# so `cmd 2>&1 | tee log` fails the step when `cmd` fails (the implicit default
+# shell is `bash -e` without pipefail, which silently masked gate failures).
+defaults:
+  run:
+    shell: bash
+
 jobs:
   script-contracts:
     name: Script Contracts

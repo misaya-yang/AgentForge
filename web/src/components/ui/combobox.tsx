@@ -245,7 +245,7 @@ export function Combobox({
         {option.description && (
           <div className={cn(
             "ui-combobox-slot-3",
-            isSelected ? "text-muted-foreground" : "text-muted-foreground/70"
+            isSelected ? "text-muted-foreground" : "text-muted-foreground"
           )}>
             {option.description}
           </div>
@@ -303,7 +303,7 @@ export function Combobox({
           {/* Search Input Area */}
           <div className="p-3 bg-linear-to-b from-muted/40 to-muted/20 border-b border-border/40">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 ref={inputRef}
                 type="text"
@@ -316,7 +316,7 @@ export function Combobox({
                   "bg-background",
                   "ui-combobox-slot-11",
                   "outline-hidden",
-                  "placeholder:text-muted-foreground/50",
+                  "placeholder:text-muted-foreground",
                   "ui-combobox-slot-14",
                   "ui-combobox-slot-15"
                 )}
@@ -386,7 +386,7 @@ export function Combobox({
 
           {/* Footer hint */}
           <div className="px-3 py-2 bg-muted/30 border-t border-border/40">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>↑↓ Navigate</span>
               <span>↵ Select</span>
               <span>Esc Close</span>

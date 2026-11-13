@@ -61,7 +61,7 @@ impl AuthService {
         Self {
             accounts,
             sessions,
-            codec: std::sync::Arc::new(codec),
+            codec,
             passwords,
             domain,
             enterprise_policy_enabled: false,
@@ -81,6 +81,9 @@ impl AuthService {
     }
     pub fn enterprise_policy_enabled(&self) -> bool {
         self.enterprise_policy_enabled
+    }
+    pub fn jwt_keyring(&self) -> std::sync::Arc<JwtKeyRing> {
+        self.codec.keyring()
     }
     pub(crate) fn password_engine(&self) -> PasswordEngine {
         self.passwords.clone()

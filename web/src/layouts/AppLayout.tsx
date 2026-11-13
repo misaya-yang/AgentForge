@@ -260,7 +260,7 @@ export function AppLayout() {
                   return (
                     <div
                       key={row.group}
-                      className="app-nav-group-label mt-2.5 px-[10px] text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60 first:mt-0"
+                      className="app-nav-group-label mt-2.5 px-[10px] text-[11px] font-medium uppercase tracking-wide text-muted-foreground first:mt-0"
                     >
                       {t(`nav.group.${row.group}`)}
                     </div>

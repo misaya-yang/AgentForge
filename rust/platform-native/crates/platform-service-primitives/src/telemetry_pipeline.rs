@@ -48,6 +48,13 @@ impl TelemetryGuard {
         result
     }
 }
+/// Flush the process-wide providers, when initialized, during graceful shutdown.
+/// Exporter failures stay nonfatal; call on a blocking thread after drain.
+pub fn shutdown() {
+    if let Some(providers) = PROVIDERS.get() {
+        let _ = providers.shutdown();
+    }
+}
 pub fn initialize_with_options(service: &str, options: TracingOptions) -> TelemetryGuard {
     PROVIDERS
         .get_or_init(|| {
@@ -70,9 +77,8 @@ pub fn initialize_with_options(service: &str, options: TracingOptions) -> Teleme
                         logs: None,
                     }
                 });
-            global::set_text_map_propagator(
-                opentelemetry_sdk::propagation::TraceContextPropagator::new(),
-            );
+            install_log_subscriber();
+            global::set_text_map_propagator(super::w3c_propagator());
             global::set_tracer_provider(providers.traces.clone());
             if let Some(metrics) = &providers.metrics {
                 global::set_meter_provider(metrics.clone());
@@ -80,6 +86,20 @@ pub fn initialize_with_options(service: &str, options: TracingOptions) -> Teleme
             providers
         })
         .clone()
+}
+/// Keep first-party `tracing` diagnostics visible as structured JSON on stderr
+/// without replacing a subscriber installed by an embedding host. The
+/// process-wide PROVIDERS OnceLock makes this a single attempt per process.
+fn install_log_subscriber() {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn"));
+    let _ = tracing_subscriber::fmt()
+        .json()
+        .with_current_span(false)
+        .with_span_list(false)
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
 }
 fn build(service: &str, options: TracingOptions) -> Result<TelemetryGuard, ()> {
     let resource = options.resource(service);
@@ -96,6 +116,15 @@ fn build(service: &str, options: TracingOptions) -> Result<TelemetryGuard, ()> {
     }
     validate_endpoint(&endpoint)?;
     let endpoint = endpoint.trim_end_matches('/');
+    // A signal-specific metrics URL is used verbatim; otherwise metrics share the
+    // trace base. Credential-bearing URLs are rejected for both.
+    let metrics_url = match options.resolved_metrics_endpoint() {
+        url if options.metrics_endpoint_is_signal_url() && !url.is_empty() => {
+            validate_endpoint(&url)?;
+            url
+        }
+        _ => format!("{endpoint}/v1/metrics"),
+    };
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(3))
         .redirect(reqwest::redirect::Policy::none())
@@ -113,7 +142,7 @@ fn build(service: &str, options: TracingOptions) -> Result<TelemetryGuard, ()> {
         .with_http()
         .with_http_client(client.clone())
         .with_protocol(Protocol::HttpBinary)
-        .with_endpoint(format!("{endpoint}/v1/metrics"))
+        .with_endpoint(metrics_url.clone())
         .with_timeout(Duration::from_secs(3))
         .build()
         .map_err(|_| ())?;

@@ -344,7 +344,7 @@ function AgentDirectoryContent({ scopeId, isCurrent }: { scopeId: string; isCurr
               </Button>
             ) : (
               <>
-              <div className="agent-empty-why text-sm text-muted-foreground/70 max-w-md">
+              <div className="agent-empty-why text-sm text-muted-foreground max-w-md">
                 {t(
                   "agents.list.emptyWhy",
                   "Agents package your prompts, tools, and knowledge into a reusable runtime."

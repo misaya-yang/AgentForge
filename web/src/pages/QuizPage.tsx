@@ -246,7 +246,7 @@ function QuizPageSession({ userId }: { userId?: string }) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="max-w-md space-y-4 px-6 text-center" role="alert">
-          <BookOpen className="w-12 h-12 mx-auto text-muted-foreground/40" />
+          <BookOpen className="w-12 h-12 mx-auto text-muted-foreground" />
           <h1 className="text-xl font-semibold text-foreground">{error}</h1>
           <p className="text-sm text-muted-foreground">
             {t("assistant.quiz.publicExpiredHint")}

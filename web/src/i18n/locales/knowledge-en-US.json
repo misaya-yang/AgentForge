@@ -719,7 +719,7 @@
     "qaInterruptedEmpty": "No completed answer was received.",
     "qaAuthRequired": "The session needs to be renewed before QA can run. Sign in again, then reuse the preserved question.",
     "qaPermissionDenied": "You do not have permission to run QA for this knowledge base. The question is preserved.",
-    "qaRequestRejected": "The QA request was rejected (HTTP {{status}}). Review the QA settings, then reuse the preserved question.",
+    "qaRequestRejected": "The QA request was rejected (HTTP {status}). Review the QA settings, then reuse the preserved question.",
     "qaEmptyAnswer": "The service completed this request without answer text.",
     "qaReuseQuestion": "Put question back in input",
     "qaGeneratingAnswer": "Generating answer...",
@@ -928,7 +928,10 @@
       "accepted": "Accepted for processing",
       "rejected": "Rejected before acceptance; may be reselected",
       "created": "Document record created; do not re-upload"
-    }
+    },
+    "searchFieldLabel": "Search by",
+    "statusFilterLabel": "Filter by status",
+    "formatFilterLabel": "Filter by format"
   },
   "feedback": {
     "commentPlaceholder": "Optional note for reviewers",
@@ -1042,9 +1045,9 @@
   },
   "documentTextEditor": {
     "title": "Edit text source",
-    "description": "Edit the active text source for \"{{title}}\". A new version is prepared while the current version remains in use.",
+    "description": "Edit the active text source for \"{title}\". A new version is prepared while the current version remains in use.",
     "contentLabel": "Source text",
-    "currentVersion": "Current version {{version}}",
+    "currentVersion": "Current version {version}",
     "loading": "Loading current source…",
     "loadFailed": "The current text could not be loaded. It may have changed or is no longer available.",
     "notEditable": "Only active, completed text sources can be edited here.",
@@ -1053,10 +1056,10 @@
     "save": "Save new version",
     "close": "Close",
     "contentRequired": "Enter non-empty text before saving.",
-    "processing": "Version {{version}} is processing. The current version remains active until publication succeeds.",
-    "processingProgress": "Processing {{progress}}%",
+    "processing": "Version {version} is processing. The current version remains active until publication succeeds.",
+    "processingProgress": "Processing {progress}%",
     "checkStatus": "Check status",
-    "success": "Version {{version}} is now active.",
+    "success": "Version {version} is now active.",
     "unchanged": "The source is unchanged. No new version was created.",
     "failed": "The text replacement failed. The previous version remains active.",
     "conflict": "The source changed or another update is in progress. Reload the latest source before editing.",

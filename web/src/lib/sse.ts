@@ -13,6 +13,8 @@ export interface SSEFetchOptions extends RequestInit {
   idleTimeoutMs?: number;
   preserveControlFrames?: boolean;
   onConnectionState?: (state: SSEConnectionState) => void;
+  /** When "status", HTTP error messages omit response body detail (for upstream provider privacy). */
+  httpErrorMode?: "status" | "full";
   /** sseFetchEvents only: enable on a read-only GET endpoint that supports Last-Event-ID replay. Never replays a POST. */
   resume?: {
     maxRetries?: number;
@@ -33,6 +35,10 @@ export class SSEInterruptedError extends Error {
 export class SSERequestError extends Error {
   readonly status: number;
   constructor(status: number, detail: string) { super(`SSE request failed: ${status}${detail ? ` ${detail}` : ""}`); this.name = "SSERequestError"; this.status = status; }
+}
+export class SSEHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) { super(`SSE request failed: ${status}${detail ? ` ${detail}` : ""}`); this.name = "SSEHttpError"; this.status = status; }
 }
 const DEFAULT_SSE_IDLE_MS = 45_000;
 function authenticatedHeaders(headers?: HeadersInit): Headers {
@@ -108,10 +114,14 @@ async function* readSseParts(url: string, init: SSEFetchOptions): AsyncGenerator
   const cancel = () => { void reader?.cancel().catch(() => {}); };
   notify(init, "connecting");
   try {
-    const { timeoutMs: _timeout, idleTimeoutMs: _idle, preserveControlFrames: _control, onConnectionState: _state, resume: _resume, ...request } = init;
-    void _timeout; void _idle; void _control; void _state; void _resume;
+    const { timeoutMs: _timeout, idleTimeoutMs: _idle, preserveControlFrames: _control, onConnectionState: _state, resume: _resume, httpErrorMode: _mode, ...request } = init;
+    void _timeout; void _idle; void _control; void _state; void _resume; void _mode;
     const response = await sendStreamRequest(url, { ...request, headers: authenticatedHeaders(init.headers), signal: budget.signal });
-    if (!response.ok || !response.body) throw new SSERequestError(response.status, await readResponseErrorDetail(response));
+    if (!response.ok || !response.body) {
+      const detail = init.httpErrorMode === "status" ? "" : await readResponseErrorDetail(response);
+      const ErrorClass = init.httpErrorMode === "status" ? SSEHttpError : SSERequestError;
+      throw new ErrorClass(response.status, detail);
+    }
     budget.touch();
     reader = response.body.getReader();
     budget.signal.addEventListener("abort", cancel, { once: true });
@@ -138,7 +148,7 @@ async function* readSseParts(url: string, init: SSEFetchOptions): AsyncGenerator
   } catch (error) {
     if (!init.signal?.aborted) {
       notify(init, "unknown_outcome");
-      if (!(error instanceof SSERequestError) && !(error instanceof SSEIdleTimeoutError)) throw new SSEInterruptedError(error);
+      if (!(error instanceof SSERequestError) && !(error instanceof SSEHttpError) && !(error instanceof SSEIdleTimeoutError)) throw new SSEInterruptedError(error);
     }
     throw error;
   } finally {
@@ -316,7 +326,8 @@ export async function* sseFetchEvents<T>(url: string, init: SSEFetchOptions): As
       }
       if (!resume || init.signal?.aborted) return;
     } catch (error) {
-      if (!resume || init.signal?.aborted || (error instanceof SSERequestError && error.status < 500 && ![408, 425, 429].includes(error.status))) throw error;
+      const isHttpError = (error instanceof SSERequestError || error instanceof SSEHttpError) && error.status < 500 && ![408, 425, 429].includes(error.status);
+      if (!resume || init.signal?.aborted || isHttpError) throw error;
     }
     // An event without an ID cannot be replayed without possibly repeating tokens/effects.
     if (deliveredWithoutCursor || attempts >= (resume?.maxRetries ?? 5)) {

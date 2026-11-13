@@ -302,13 +302,7 @@ impl IngestionService {
                 lexical.as_ref().map(|c| (&lifecycle, c)),
                 docir.map(|prepared| (prepared, &self.assets)),
             )
-            .await
-            .map_err(|error| {
-                error.with_database_context(
-                    "commit_text_publication",
-                    "knowledge.document_publication",
-                )
-            })?;
+            .await?;
             Ok::<_, IngestError>(staged_ids.clone())
         }
         .await;

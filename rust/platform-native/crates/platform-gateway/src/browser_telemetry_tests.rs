@@ -54,6 +54,7 @@ fn principal(tenant: &str) -> ContentIdentity {
         tier: "normal".into(),
         roles: vec!["user".into()],
         permissions: vec![],
+        allowed_models: None,
     }
 }
 fn api(identity: ContentIdentity) -> BrowserTelemetryApi {

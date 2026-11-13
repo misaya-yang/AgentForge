@@ -170,7 +170,7 @@ function TaskQueryContent({ searchedId, inboxHref, onSearch }: {
         <CardContent className="p-4">
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9 h-10 bg-background"
                 placeholder={t("tasks.searchPlaceholder")}
@@ -250,7 +250,7 @@ function TaskQueryContent({ searchedId, inboxHref, onSearch }: {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="rounded-full bg-muted p-4">
-              <FileSearch className="h-8 w-8 text-muted-foreground/60" />
+              <FileSearch className="h-8 w-8 text-muted-foreground" />
             </div>
             <p className="mt-4 text-sm font-medium text-foreground">
               {t("tasks.states.notFound")}

@@ -2,28 +2,15 @@
 pub mod approvals;
 pub mod computer;
 pub mod config;
-pub mod credentials;
-pub mod credential_lock;
-pub mod signing;
-pub mod identity;
-pub mod hardware_key;
-pub mod approvals;
-pub mod envelope;
-pub mod ledger;
-pub mod outbox;
-pub mod transport;
 pub mod control_stream;
-pub mod runner;
-#[cfg(unix)]
-pub mod workspace;
-#[cfg(unix)]
-pub mod files;
-#[cfg(unix)]
-pub mod processes;
+pub mod credential_lock;
+pub mod credentials;
+pub mod envelope;
 #[cfg(unix)]
 pub mod file_dispatch;
 #[cfg(unix)]
 pub mod files;
+pub mod hardware_key;
 pub mod identity;
 pub mod ledger;
 #[cfg(unix)]

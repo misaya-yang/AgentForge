@@ -8,12 +8,7 @@ use super::{
 use crate::pdf_backend::{PopplerPdfBackend, PopplerPdfConfig};
 use crate::{migration_knowledge_ingest as ingest, migration_knowledge_query as query};
 use serde_json::Value;
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc, time::Duration};
 
 fn retired_model_setting(key: &str) -> bool {
     ([
@@ -442,7 +437,7 @@ impl ProcessSettings {
             .collect();
         let mut qa = QaSettings::default();
         qa.model = e.text("LLM_MODEL", "gemini-2.0-flash");
-        qa.allowed_models = BTreeSet::from([qa.model.clone()]);
+        qa.allowed_models = std::collections::BTreeSet::from([qa.model.clone()]);
         let scratch = working_directory
             .join(e.text("KNOWLEDGE_NATIVE__SCRATCH_ROOT", "data/knowledge-scratch"));
         let sandbox = match (

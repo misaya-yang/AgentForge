@@ -28,7 +28,7 @@ const hooks = registerHooks({
     return { ...loaded, source: `import.meta.env = { DEV: false };\n${loaded.source}` };
   },
 });
-const { sseFetch, sseFetchEvents, sseFetchAGUI, sseReconnectDelayMs, SSEIdleTimeoutError, SSEInterruptedError, waitForSseReconnect } = await import("./sse.ts");
+const { sseFetch, sseFetchEvents, sseFetchAGUI, sseReconnectDelayMs, SSEIdleTimeoutError, SSEInterruptedError, SSEHttpError, waitForSseReconnect } = await import("./sse.ts");
 hooks.deregister();
 
 const transports = [sseFetch, sseFetchEvents, sseFetchAGUI];
