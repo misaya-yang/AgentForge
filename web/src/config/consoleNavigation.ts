@@ -1,4 +1,4 @@
-import { LayoutDashboard, Server, BookOpen, Zap, Bot, ChartLine, ListTodo, Users, Settings, Boxes, PanelsTopLeft, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Server, BookOpen, Files, Zap, Bot, ChartLine, ListTodo, Users, Settings, Boxes, PanelsTopLeft, type LucideIcon } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isAgentStudioEnabled } from "@/config/runtime";
 
@@ -23,6 +23,7 @@ export const navItems: NavItem[] = [
   { key: "/assistant", labelKey: "nav.assistant", icon: Bot, permission: "conversation:playground:access", group: "use" },
   { key: "/agents", labelKey: "nav.agents", icon: Boxes, permission: null, group: "use" },
   { key: "/knowledge", labelKey: "nav.knowledge", icon: BookOpen, permission: "knowledge:dataset:view", group: "build" },
+  { key: "/spaces", labelKey: "nav.spaces", icon: Files, permission: "knowledge:space:view", group: "build" },
   { key: "/playground", labelKey: "nav.playground", icon: Zap, permission: "conversation:playground:access", group: "build" },
   { key: "/eval", labelKey: "nav.eval", icon: ChartLine, permission: "console:eval:view", group: "build" },
   { key: "/services", labelKey: "nav.services", icon: Server, permission: "console:services:view", group: "govern" },

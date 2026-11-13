@@ -174,6 +174,47 @@ pub fn extend_document(document: &mut Value) {
     let mut upload = operation("upload_document", path, "post", 200, None, vec![]);
     upload["requestBody"] = json!({"required":true,"content":{"multipart/form-data":{"schema":{"type":"object","required":["file"],"properties":{"file":{"type":"string","format":"binary"},"processing_mode":{"type":"string","maxLength":64,"default":"auto","description":"scanned and multimodal currently rejected by the source bounded publication policy"}}}}}});
     document["paths"][path]["post"] = upload;
+    let space_write = json!({"type":"object","additionalProperties":false,"required":["name"],"properties":{"name":text(200),"icon":{"type":"string","maxLength":32},"kind":{"type":"string","enum":["personal","team","tenant"]},"visibility":{"type":"string","enum":["private","members","tenant"]}}});
+    let space_patch = json!({"type":"object","additionalProperties":false,"properties":space_write["properties"].clone()});
+    let item_write = json!({"type":"object","additionalProperties":false,"required":["title"],"properties":{"title":text(500),"kind":{"type":"string","enum":["page","folder","file","link","slide","site","image","external"]},"icon":{"type":"string","maxLength":32},"parent_id":{"type":"string","maxLength":255},"position":{"type":"string","minLength":1,"maxLength":64},"content_format":{"type":"string","enum":["blocknote_json","markdown","binary"]},"source":{"type":"string","maxLength":96}}});
+    let item_patch = json!({"type":"object","additionalProperties":false,"properties":{"title":text(500),"icon":{"type":"string","maxLength":32},"parent_id":{"type":"string","maxLength":255},"clear_parent":{"type":"boolean"},"position":{"type":"string","minLength":1,"maxLength":64},"space_id":{"type":"string","maxLength":255}}});
+    let principal = json!({"type":"object","additionalProperties":false,"required":["principal_type","principal_id","role"],"properties":{"principal_type":{"type":"string","enum":["user","group","role"]},"principal_id":text(255),"role":{"type":"string","enum":["owner","editor","commenter","viewer"]}}});
+    let members = json!({"type":"object","additionalProperties":false,"required":["members"],"properties":{"members":{"type":"array","maxItems":200,"items":principal}}});
+    let shares = json!({"type":"object","additionalProperties":false,"required":["shares"],"properties":{"shares":{"type":"array","maxItems":200,"items":principal}}});
+    let content = json!({"type":"object","additionalProperties":false,"required":["content_format","blocks","markdown"],"properties":{"content_format":{"type":"string","enum":["blocknote_json","markdown","binary"]},"blocks":{},"markdown":{"type":"string","maxLength":1000000}}});
+    let item_query = vec![
+        json!({"name":"view","in":"query","required":false,"schema":{"type":"string","enum":["all","recent","starred","mine","shared"]}}),
+        json!({"name":"kind","in":"query","required":false,"schema":{"type":"string","enum":["page","folder","file","link","slide","site","image","external"]}}),
+        json!({"name":"q","in":"query","required":false,"schema":{"type":"string","maxLength":200}}),
+        json!({"name":"space_id","in":"query","required":false,"schema":{"type":"string","maxLength":255}}),
+        json!({"name":"cursor","in":"query","required":false,"schema":{"type":"string","maxLength":512}}),
+        json!({"name":"limit","in":"query","required":false,"schema":{"type":"integer","minimum":1,"maximum":200}}),
+    ];
+    let trash_query = item_query[1..].to_vec();
+    let if_match = vec![json!({"name":"If-Match","in":"header","required":false,"schema":{"type":"string","maxLength":32}})];
+    for (path, method, function, status_code, body, query) in [
+        ("/api/v1/knowledge/spaces", "get", "list_spaces", 200, None, vec![]),
+        ("/api/v1/knowledge/spaces", "post", "create_space", 201, Some(space_write), vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}", "get", "get_space", 200, None, vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}", "patch", "patch_space", 200, Some(space_patch), vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}", "delete", "archive_space", 204, None, vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}/members", "get", "list_space_members", 200, None, vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}/members", "put", "replace_space_members", 200, Some(members), vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}/items", "post", "create_space_item", 201, Some(item_write), vec![]),
+        ("/api/v1/knowledge/space-items", "get", "list_space_items", 200, None, item_query),
+        ("/api/v1/knowledge/space-items/{item_id}", "get", "get_space_item", 200, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}", "patch", "patch_space_item", 200, Some(item_patch), vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}", "delete", "delete_space_item", 204, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/restore", "post", "restore_space_item", 200, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/star", "put", "star_space_item", 204, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/star", "delete", "unstar_space_item", 204, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/shares", "put", "replace_space_item_shares", 200, Some(shares), vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/content", "get", "get_space_item_content", 200, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/content", "put", "put_space_item_content", 200, Some(content), if_match),
+        ("/api/v1/knowledge/space-trash", "get", "list_space_trash", 200, None, trash_query),
+    ] {
+        document["paths"][path][method] = operation(function, path, method, status_code, body, query);
+    }
     let mut sources = json!({});
     for (name, source) in [
         ("confluence/http.rs", include_str!("confluence/http.rs")),
@@ -186,10 +227,11 @@ pub fn extend_document(document: &mut Value) {
             include_str!("confluence/bindings.rs"),
         ),
         ("upload.rs", include_str!("upload.rs")),
+        ("spaces_http.rs", include_str!("spaces_http.rs")),
     ] {
         sources[name] = json!(format!("sha256:{:x}", Sha256::digest(source.as_bytes())));
     }
-    document["x-native-knowledge-owner"] = json!({"declaration_version":1,"source_sha256":sources,"coverage":"owned Confluence routes and path-backed upload; reused query/ingest routes require their owner declarations"});
+    document["x-native-knowledge-owner"] = json!({"declaration_version":1,"source_sha256":sources,"coverage":"owned Confluence routes, path-backed upload, and knowledge spaces; reused query/ingest routes require their owner declarations"});
 }
 #[cfg(test)]
 mod tests {
@@ -204,7 +246,7 @@ mod tests {
             .values()
             .map(|v| v.as_object().unwrap().len())
             .sum();
-        assert_eq!(count, 13);
+        assert_eq!(count, 32);
         let op =
             &doc["paths"]["/api/v1/knowledge/{dataset_id}/sources/confluence/connections"]["post"];
         assert_eq!(

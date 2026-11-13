@@ -11,7 +11,7 @@
       "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98"
     }
   ],
-  "epoch": 29,
+  "epoch": 30,
   "changes": [
     {
       "baseline_id": "2026_08_post_kb_v1",
@@ -186,6 +186,12 @@
       "sequence": 29,
       "name": "platform_upgrade_gateway_workers_batch_029",
       "checksum_sha256": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 30,
+      "name": "knowledge_spaces",
+      "checksum_sha256": "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c"
     }
   ],
   "has_attempts": false,

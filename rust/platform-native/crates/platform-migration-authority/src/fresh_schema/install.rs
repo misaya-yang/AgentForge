@@ -344,7 +344,11 @@ async fn install(
     )
     .await?;
     set_role(&mut tx, &owner).await?;
-    for (spec, sql) in &defs.changes {
+    for (spec, sql) in defs
+        .changes
+        .iter()
+        .chain(std::iter::once(&defs.knowledge_spaces))
+    {
         sqlx::query(
             "SELECT set_config('statement_timeout',$1,true),set_config('lock_timeout',$2,true)",
         )
@@ -353,8 +357,8 @@ async fn install(
         .execute(&mut *tx)
         .await?;
         eprintln!(
-            "fresh-schema phase=definition sequence={} state=started",
-            spec.sequence
+            "fresh-schema phase=definition sequence={} name={} state=started",
+            spec.sequence, spec.name
         );
         stage(
             "definition.preconditions",
@@ -375,8 +379,8 @@ async fn install(
         )
         .await?;
         eprintln!(
-            "fresh-schema phase=definition sequence={} state=complete",
-            spec.sequence
+            "fresh-schema phase=definition sequence={} name={} state=complete",
+            spec.sequence, spec.name
         );
     }
     stage(
@@ -447,7 +451,7 @@ async fn install(
         json!({"status":"initialized_actual_fresh_database","database":DATABASE,"schema_epoch":EPOCH,
         "source_contract_sha256":source_sha256(),"fingerprints":fingerprints,
         "catalog_sha256":sha(&serde_json::to_vec(&observed).map_err(|_|refused("catalog encoding failed"))?),
-        "partition_catalog":partition,"definitions_installed":defs.changes.len(),
+        "partition_catalog":partition,"definitions_installed":defs.changes.len()+1,
         "historical_upgrade_acceptance":false,"one_atomic_schema_transaction":true}),
     )
 }

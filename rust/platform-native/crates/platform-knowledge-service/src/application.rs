@@ -22,6 +22,10 @@ pub struct KnowledgeApplication {
 impl KnowledgeApplication {
     pub fn into_router(self) -> query::types::Result<Router> {
         self.service_auth.validate_service_boundary()?;
+        let spaces = crate::spaces_http::routes(
+            self.writes.service.store.pool.clone(),
+            self.service_auth.clone(),
+        );
         let object_policy = self.writes.service.store.object_policy.clone();
         Ok(Router::new()
             .merge(crate::confluence::routes(
@@ -64,6 +68,7 @@ impl KnowledgeApplication {
                 self.source_store,
                 self.service_auth.clone(),
             )?)
+            .merge(spaces)
             .merge(query::actor::capability_router(self.capabilities))
             .merge(query::model_scope::signed_router(
                 self.model_scope,

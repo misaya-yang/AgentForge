@@ -74,7 +74,7 @@ function fixture(initial: Partial<Session> = {}, enabled = true, namespaceReady:
       exports.__esModule = true;
       exports.default = () => jsx("main", { "data-page": "DatasetCreatePage" }, "DatasetCreatePage");
     } else if (name.startsWith("@/pages/") && name !== "@/pages/Connections") {
-      for (const component of ["LoginPage", "SharePage", "QuizPage", "WorkbenchPage", "AssistantPage", "AgentListPage", "AgentHostedPage", "KnowledgeDatasetsPage", "KnowledgeDatasetDetailPage", "EvalPage", "ConnectorsSettingsPage"]) {
+      for (const component of ["LoginPage", "SharePage", "QuizPage", "WorkbenchPage", "AssistantPage", "AgentListPage", "AgentHostedPage", "KnowledgeDatasetsPage", "KnowledgeDatasetDetailPage", "EvalPage", "ConnectorsSettingsPage", "SpacesLayout", "SpacesHome", "TrashView", "ItemPreview"]) {
         exports[component] = () => jsx("main", { "data-page": component }, component);
       }
     } else {
@@ -230,6 +230,18 @@ test("Knowledge and Eval routes await all required namespaces while keeping the 
     assert.match(await rendering, new RegExp(`data-page="${component}"`));
     assert.match(await f.render(path), new RegExp(`data-page="${component}"`));
     assert.deepEqual(f.namespaceLoads, [...namespaces]);
+  }
+});
+
+test("the space shell loads its deferred catalog and stays unloaded without permission", async () => {
+  const allowed = fixture({ isAuthenticated: true, permissions: ["knowledge:space:view"] });
+  assert.match(await allowed.render("/spaces"), /data-page="SpacesLayout"/);
+  assert.deepEqual(allowed.namespaceLoads, ["spaces"]);
+  for (const isAuthenticated of [false, true]) {
+    const denied = fixture({ isAuthenticated });
+    await denied.render("/spaces");
+    assert.deepEqual(denied.namespaceLoads, []);
+    assert.equal(denied.redirects.at(-1)?.to, isAuthenticated ? "/403" : "/login");
   }
 });
 

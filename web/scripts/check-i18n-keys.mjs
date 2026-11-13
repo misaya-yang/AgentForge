@@ -49,7 +49,7 @@ async function collectCodeKeys() {
 
 async function main() {
   const baseDir = path.resolve("src/i18n/locales");
-  const [en, zh, evalEn, evalZh, agentsEn, agentsZh, knowledgeEn, knowledgeZh, tasksEn, tasksZh] = await Promise.all([
+  const [en, zh, evalEn, evalZh, agentsEn, agentsZh, knowledgeEn, knowledgeZh, tasksEn, tasksZh, spacesEn, spacesZh] = await Promise.all([
     readJson(path.join(baseDir, "en-US.json")),
     readJson(path.join(baseDir, "zh-CN.json")),
     readJson(path.join(baseDir, "eval-en-US.json")),
@@ -60,10 +60,12 @@ async function main() {
     readJson(path.join(baseDir, "knowledge-zh-CN.json")),
     readJson(path.join(baseDir, "tasks-en-US.json")),
     readJson(path.join(baseDir, "tasks-zh-CN.json")),
+    readJson(path.join(baseDir, "spaces-en-US.json")),
+    readJson(path.join(baseDir, "spaces-zh-CN.json")),
   ]);
 
-  const enKeys = flatten({ ...en, tasks: tasksEn, eval: evalEn, agents: agentsEn, knowledge: { ...en.knowledge, ...knowledgeEn } });
-  const zhKeys = flatten({ ...zh, tasks: tasksZh, eval: evalZh, agents: agentsZh, knowledge: { ...zh.knowledge, ...knowledgeZh } });
+  const enKeys = flatten({ ...en, tasks: tasksEn, eval: evalEn, agents: agentsEn, spaces: spacesEn, knowledge: { ...en.knowledge, ...knowledgeEn } });
+  const zhKeys = flatten({ ...zh, tasks: tasksZh, eval: evalZh, agents: agentsZh, spaces: spacesZh, knowledge: { ...zh.knowledge, ...knowledgeZh } });
 
   const missingInZh = difference(enKeys, zhKeys);
   const missingInEn = difference(zhKeys, enKeys);

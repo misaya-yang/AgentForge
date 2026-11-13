@@ -55,6 +55,7 @@ impl IngestionService {
             "SELECT to_jsonb(d) FROM knowledge.datasets d WHERE is_deleted=FALSE AND is_archived=",
         );
         query.push_bind(archived);
+        query.push(" AND COALESCE(d.index_config->>'hidden_space','false')<>'true'");
         if !actor.tenant_id.is_empty() {
             query
                 .push(" AND (tenant_id=")

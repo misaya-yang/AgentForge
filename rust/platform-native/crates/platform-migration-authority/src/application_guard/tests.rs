@@ -214,6 +214,26 @@ fn measured_contract() -> AdmissionContract {
 }
 
 #[test]
+fn epoch_30_admits_gateway_and_knowledge_only_at_exactly_30() {
+    let contract = fixture_contract(30);
+    for principal in [
+        ApplicationPrincipal::Gateway,
+        ApplicationPrincipal::GatewayDurable,
+        ApplicationPrincipal::KnowledgeApi,
+        ApplicationPrincipal::KnowledgeWorker,
+    ] {
+        assert!(
+            validate_snapshot_value(&snapshot(&contract, 30), principal, &contract).is_ok(),
+            "{principal:?} must admit the exact epoch 30 window"
+        );
+        assert!(
+            validate_snapshot_value(&snapshot(&contract, 29), principal, &contract).is_err(),
+            "{principal:?} must not widen epoch 30 down to 29"
+        );
+    }
+}
+
+#[test]
 fn memory_knowledge_and_durable_profiles_have_distinct_windows() {
     let contract = measured_contract();
     for epoch in 18..=20 {
@@ -467,4 +487,26 @@ fn source_owned_service_epochs_require_their_complete_exact_prefix() {
             }
         }
     }
+}
+
+#[test]
+fn knowledge_spaces_admission_names_tables_and_both_service_roles() {
+    let checks = knowledge_spaces_admission_checks("knowledge_api").unwrap();
+    assert_eq!(checks.len(), 1);
+    let sql = &checks[0];
+    for table in [
+        "spaces",
+        "space_items",
+        "space_item_revisions",
+        "space_members",
+        "space_item_shares",
+        "space_item_stars",
+        "space_item_activity",
+    ] {
+        assert!(sql.contains(table), "{table}");
+    }
+    assert!(sql.contains("knowledge_api"));
+    assert!(sql.contains("knowledge_worker"));
+    assert!(knowledge_spaces_admission_checks("owner").is_err());
+    assert!(knowledge_spaces_admission_checks("").is_err());
 }

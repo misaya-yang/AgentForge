@@ -19,6 +19,7 @@ pub mod langgraph_tools;
 pub mod lifecycle;
 pub mod model_plane_identity;
 pub mod native_contract;
+mod spaces_http;
 pub mod native_cross_encoder;
 pub mod native_rerank;
 pub mod ocr_utils;

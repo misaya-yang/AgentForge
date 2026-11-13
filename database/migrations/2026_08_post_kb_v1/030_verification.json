@@ -1,0 +1,69 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "sequence": 30,
+  "name": "knowledge_spaces",
+  "predecessor_epoch": 29,
+  "predecessor_manifest_sha256": "2780972d37314780d96012a8bdb1805b4e3a50118b8d61956ce645c10f4832fa",
+  "predecessor_lock_sha256": "b8580e5d3ee6d8fa25966e9857d5372082e664788616db91cac2f678fb10f87b",
+  "sql_sha256": "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "changes": {
+    "1": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "2": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+    "3": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09",
+    "4": "d24958b1edf5e7735a91fcd256e1c32abb2778109a6b3270cceb68380874fa59",
+    "5": "13a08304508c8ab686116e2d597a80a5079f27642c3cdac383a1285aca474b81",
+    "6": "d47e7d07ad46588859ccf136aa949c5467b363bc0ed4192a81e7cdcd40a29249",
+    "7": "40e352e8b71e5105554f38bdebb01e02aff65ba13cbd619b97456c9496c97132",
+    "8": "e5d3dc757d908e08d06a8f83802f990abe52506a36a74cb72b0148f0c5f8583e",
+    "9": "6df4cfa2532457e35fa5204934f14aee90f4d52e731a5bd9502793df8f45b947",
+    "10": "1b1cda6570185efff0402e9dbed58d894650f00251f94e04af235bbb2199b8cf",
+    "11": "6516cb0f53f97ee90e26c137b35867aedffd7a1944872e069f0d78ad76404f7c",
+    "12": "8febf4cf126f8e5bd041ae058b1ee16a00bb629873cb2b3215839d68edaa2146",
+    "13": "720dc875b0c6db222f3c9f6620a29d625fdc6d7403745009a09f16328964b8a8",
+    "14": "7be3a1a0d97535c99f07efc8c57063dc4d4f6801894acdf46a44f07ac3dc9773",
+    "15": "234a85f7666c807e7506cd4b2a5ba9e5b166cdf0a0b94f6aab778b2182795a87",
+    "16": "986198ff37db3515894f6a989cb2292938af696ac3528f501e72d379547d3a55",
+    "17": "b5041b00ea9c1524162fb2f32cbbe77e9f30441018a2f3d9fb578bb688c3d4b1",
+    "18": "d24f6d8b4b04eb3429e2672983be9b3aef033a5026ff357ff15f82f942af9442",
+    "19": "9349f691a519ec9f9f8cfc4217ca75ddd816192e9a4e254aa7c397377070d11c",
+    "20": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
+    "21": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1",
+    "22": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+    "23": "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118",
+    "24": "74c1667fa594267a85701aec9915ffad5a4f73192c8aab2ec5759a14d86bbec9",
+    "25": "ce6c2c8f0894c976107037dd2da2d7d59d2ef6af0c129a694e25cbb12602cc5d",
+    "26": "8d716380f32c5ea3ff815e9228153d6161ae9a94bc68949f7dab02abfaf87b07",
+    "27": "e22a46ef53f48f7839d6b06f121f8c57e3fa18a8065ffcc4e6b2af8760c9ed7f",
+    "28": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4",
+    "29": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745",
+    "30": "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c"
+  },
+  "postconditions": [
+    "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))",
+    "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='spaces' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_items' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_item_revisions' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_members' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_item_shares' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_item_stars' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user) AND EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='knowledge' AND c.relname='space_item_activity' AND c.relkind='r' AND pg_catalog.pg_get_userbyid(c.relowner)=current_user)",
+    "SELECT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'knowledge_api', 'knowledge.spaces', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'knowledge_api', 'knowledge.spaces', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'knowledge.spaces', 'SELECT')"
+  ],
+  "fingerprints": {
+    "acl": "d6449e1a61edc1665c646371120c99bcad8cdde5a29c0dc61aa4bc3df0d2fbdd",
+    "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+    "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318",
+    "structural": "f9428241b6ac9ff5d50055c843a8b718d2078a7464dea4b437f5997c92f5a4c4"
+  },
+  "fingerprint_measurement": {
+    "status": "measured",
+    "engine": "PostgreSQL 16.15",
+    "principal": "ai_gateway_owner",
+    "database": "agentforge",
+    "chain": "baseline plus applied changes 001 through 030",
+    "tool": "ai_platform_migration_authority::fingerprint::compute_fingerprints",
+    "predecessor_029": {
+      "structural": "differs",
+      "acl": "differs",
+      "extensions": "recomputed and unchanged because 030 installs no extension",
+      "reference_data": "recomputed and unchanged because 030 inserts no reference rows"
+    },
+    "acl_basis": "raw catalog digest; on this chain database it equals the digest with schema_acl:public:migrator:USAGE removed because that delta line is absent",
+    "fresh_catalog": "not stored here; fresh-development-init also installs service successors 30-35 and measures a different catalog"
+  }
+}

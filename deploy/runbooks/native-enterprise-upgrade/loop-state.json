@@ -1,4 +1,19 @@
 {
+  "dot_1113_m1": {
+    "milestone": "M1",
+    "branch": "cursor/m1-space",
+    "base": "dot_1113",
+    "implemented": true,
+    "compiled": true,
+    "tested": true,
+    "accepted": false,
+    "schema": "Successor 030 is installed at database/migrations/2026_08_post_kb_v1/030_knowledge_spaces.sql and also by fresh-development-init beside service successors 30-35. check-successor-proposals reports canonical_epoch 30. verify_anchor_029 checks the archived 029 prefix. The frozen epoch-29 lock and baseline are unchanged.",
+    "remaining": [
+      "030_verification.json fingerprints were measured on PostgreSQL 16 as ai_gateway_owner after changes 001-030. There is still no SUCCESSOR_030_MEASUREMENT.json because measure-schema-successors only accepts 021-023.",
+      "fresh-development-init and fresh-development-verify passed on gateway_dev_fresh with knowledge.spaces present. native-smoke.sh still exits 1 because Docker is absent.",
+      "Pre-existing since M0 and unchanged: gateway-kb-boundary-gate missing migration_knowledge_ingest; verify-native-openapi-contract stale native source evidence; CI contracts, dependencies, generated-sdk setup-native exit 127, workflow-lint zizmor, and the knowledge and runtime amd64 image-size checks."
+    ]
+  },
   "schema_version": "native-enterprise-upgrade/v1",
   "goal": "Deliver the complete enterprise AI Gateway product against the existing plan, including connected functionality, integrations, reliability and final acceptance.",
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",

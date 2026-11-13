@@ -80,5 +80,18 @@ pub async fn admit_if_fresh(
             return Err(refused("fresh exact service privilege contract refused"));
         }
     }
+    for query in application_guard::knowledge_spaces_admission_checks(
+        application_guard::principal_role_suffix(principal),
+    )? {
+        if !sqlx::query_scalar::<_, bool>(&query)
+            .fetch_one(&mut *conn)
+            .await
+            .map_err(|_| refused("fresh knowledge spaces privilege probe unavailable"))?
+        {
+            return Err(refused(
+                "fresh knowledge spaces tables or grants do not match successor 030",
+            ));
+        }
+    }
     Ok(true)
 }

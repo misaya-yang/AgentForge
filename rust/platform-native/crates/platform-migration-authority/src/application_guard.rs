@@ -185,7 +185,8 @@ fn snapshot_value(contract: &AdmissionContract, epoch: i32) -> Value {
 }
 
 fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
-    // Each source-owned service prefix is an exact compiled admission boundary.
+    // Epoch 30 is the knowledge-spaces ceiling. Gateway and Knowledge admit
+    // that installed source exactly; later service prefixes stay exact too.
     if source_epoch >= 30 {
         return (source_epoch, source_epoch);
     }
@@ -413,6 +414,138 @@ pub(crate) fn validate_principal_identity(
     Ok(())
 }
 
+const KNOWLEDGE_SPACES_ADMISSION_SQL: &str = r#"
+WITH named AS (
+  SELECT left(current_user, length(current_user) - length('__PRINCIPAL_SUFFIX__')) AS prefix
+),
+roles AS (
+  SELECT prefix,
+         prefix || 'knowledge_api' AS api_name,
+         prefix || 'knowledge_worker' AS worker_name,
+         prefix || 'owner' AS owner_name
+  FROM named
+),
+ids AS (
+  SELECT roles.prefix, api.oid AS api_oid, worker.oid AS worker_oid, owner.oid AS owner_oid
+  FROM roles
+  JOIN pg_catalog.pg_roles api ON api.rolname = roles.api_name
+  JOIN pg_catalog.pg_roles worker ON worker.rolname = roles.worker_name
+  JOIN pg_catalog.pg_roles owner ON owner.rolname = roles.owner_name
+),
+rels AS (
+  SELECT c.oid, c.relname, c.relkind, c.relacl, c.relowner
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'knowledge'
+    AND (
+      (c.relkind = 'r' AND c.relname = ANY (ARRAY['spaces','space_items','space_item_revisions','space_members','space_item_shares','space_item_stars','space_item_activity']))
+      OR (c.relkind = 'S' AND c.relname = 'space_item_activity_activity_id_seq')
+    )
+),
+expected_cols(relname, attname) AS (
+  VALUES
+    ('spaces','archived_at'),
+    ('spaces','dataset_id'),
+    ('spaces','space_id'),
+    ('spaces','tenant_id'),
+    ('space_items','content_format'),
+    ('space_items','current_revision'),
+    ('space_items','deleted_at'),
+    ('space_items','document_id'),
+    ('space_items','item_id'),
+    ('space_items','space_id'),
+    ('space_items','tenant_id'),
+    ('space_items','title'),
+    ('space_item_revisions','content_sha256'),
+    ('space_item_revisions','item_id'),
+    ('space_item_revisions','markdown'),
+    ('space_item_revisions','revision')
+),
+worker_cols AS (
+  SELECT c.relname, a.attname, acl.privilege_type, acl.is_grantable, acl.grantee
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+  JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) acl
+  WHERE n.nspname = 'knowledge'
+    AND c.relname = ANY (ARRAY['spaces','space_items','space_item_revisions','space_members','space_item_shares','space_item_stars','space_item_activity'])
+)
+SELECT
+  length(current_user) > length('__PRINCIPAL_SUFFIX__')
+  AND right(current_user, length('__PRINCIPAL_SUFFIX__')) = '__PRINCIPAL_SUFFIX__'
+  AND (SELECT prefix FROM named) ~ '^[a-z][a-z0-9_]{0,20}_$'
+  AND (SELECT count(*) FROM rels WHERE relkind = 'r') = 7
+  AND (SELECT count(*) FROM rels WHERE relkind = 'S') = 1
+  AND (SELECT count(*) FROM ids) = 1
+  AND NOT EXISTS (SELECT 1 FROM rels r, ids i WHERE r.relowner <> i.owner_oid)
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r
+    CROSS JOIN LATERAL pg_catalog.aclexplode(r.relacl) acl
+    WHERE acl.grantee = 0 OR acl.is_grantable
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r, ids i
+    WHERE r.relkind = 'r'
+      AND (
+        SELECT COALESCE(array_agg(acl.privilege_type ORDER BY acl.privilege_type), ARRAY[]::text[])
+        FROM pg_catalog.aclexplode(r.relacl) acl
+        WHERE acl.grantee = i.api_oid
+      ) IS DISTINCT FROM ARRAY['INSERT','SELECT','UPDATE']::text[]
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r, ids i
+    WHERE r.relkind = 'S'
+      AND (
+        SELECT COALESCE(array_agg(acl.privilege_type ORDER BY acl.privilege_type), ARRAY[]::text[])
+        FROM pg_catalog.aclexplode(r.relacl) acl
+        WHERE acl.grantee = i.api_oid
+      ) IS DISTINCT FROM ARRAY['SELECT','USAGE']::text[]
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r
+    CROSS JOIN LATERAL pg_catalog.aclexplode(r.relacl) acl
+    JOIN ids i ON acl.grantee = i.worker_oid
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r
+    CROSS JOIN LATERAL pg_catalog.aclexplode(r.relacl) acl
+    JOIN ids i ON acl.grantee <> i.api_oid AND acl.grantee <> i.owner_oid
+  )
+  AND NOT EXISTS (
+    SELECT relname, attname FROM expected_cols
+    EXCEPT
+    SELECT w.relname, w.attname FROM worker_cols w, ids i
+    WHERE w.grantee = i.worker_oid AND w.privilege_type = 'SELECT' AND NOT w.is_grantable
+  )
+  AND NOT EXISTS (
+    SELECT w.relname, w.attname FROM worker_cols w, ids i
+    WHERE w.grantee = i.worker_oid AND w.privilege_type = 'SELECT' AND NOT w.is_grantable
+    EXCEPT
+    SELECT relname, attname FROM expected_cols
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM worker_cols w, ids i
+    WHERE w.grantee <> i.worker_oid OR w.privilege_type <> 'SELECT' OR w.is_grantable
+  )
+"#;
+
+/// Successor 030 admission. The seven space relations must exist and be owned by
+/// the canonical owner. knowledge_api gets table SELECT/INSERT/UPDATE and sequence
+/// USAGE/SELECT. knowledge_worker gets only the column SELECTs from 030.
+/// No other grantee, PUBLIC, DELETE, or grant option is accepted.
+pub(crate) fn knowledge_spaces_admission_checks(principal_suffix: &str) -> Result<Vec<String>> {
+    if !matches!(
+        principal_suffix,
+        "gateway" | "runtime" | "knowledge_api" | "knowledge_worker" | "capability_worker"
+    ) {
+        return Err(refused("unknown business principal"));
+    }
+    Ok(vec![KNOWLEDGE_SPACES_ADMISSION_SQL.replace(
+        "__PRINCIPAL_SUFFIX__",
+        principal_suffix,
+    )])
+}
+
 /// Run before exposing routes or starting background work, on the application's
 /// own connection. This verifies login identity, then performs one EXECUTE-only
 /// metadata read. It never reads
@@ -446,18 +579,33 @@ pub async fn require_compatible_schema(
         .await
         .map_err(classify_reader_error);
     validate_reader_result(snapshot, principal, &contract)?;
-    for sql in crate::source_tools::service_successors::admission_checks(
-        contract.source_epoch,
-        principal_role_suffix(principal),
-    )? {
+    // Migration 030 is the installed knowledge-spaces successor. Its privilege
+    // probe is the spaces tables and the knowledge_api / knowledge_worker grants.
+    // The closed service-successor catalog is a different preview and is not
+    // admitted by this migration.
+    let spaces = contract
+        .changes
+        .last()
+        .is_some_and(|change| change.name == "knowledge_spaces");
+    let checks = if spaces {
+        knowledge_spaces_admission_checks(principal_role_suffix(principal))?
+    } else {
+        crate::source_tools::service_successors::admission_checks(
+            contract.source_epoch,
+            principal_role_suffix(principal),
+        )?
+    };
+    for sql in checks {
         let admitted: bool = sqlx::query_scalar(&sql)
             .fetch_one(&mut *conn)
             .await
             .map_err(|_| refused("service schema privilege probe unavailable"))?;
         if !admitted {
-            return Err(refused(
-                "service schema minimum/forbidden privilege mismatch",
-            ));
+            return Err(refused(if spaces {
+                "knowledge spaces tables or grants do not match successor 030"
+            } else {
+                "service schema minimum/forbidden privilege mismatch"
+            }));
         }
     }
     Ok(())

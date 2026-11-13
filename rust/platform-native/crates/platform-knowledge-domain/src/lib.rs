@@ -10,5 +10,6 @@ pub mod observation_redaction;
 pub use ai_platform_service_primitives::{provider_cipher, provider_service};
 
 pub mod database;
+pub mod spaces;
 
 pub mod cedar_dataset_policy;

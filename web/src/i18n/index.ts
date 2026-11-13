@@ -5,7 +5,7 @@ import { loadForFinalLocale, LocaleOperationQueue } from "./localeOperationQueue
 
 export const APP_LOCALES = ["zh-CN", "en-US"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];
-export type DeferredTranslationNamespace = "eval" | "agents" | "knowledge" | "tasks";
+export type DeferredTranslationNamespace = "eval" | "agents" | "knowledge" | "tasks" | "spaces";
 
 const DEFAULT_LOCALE: AppLocale = "en-US";
 const APP_LOCALE_SET = new Set<string>(APP_LOCALES);
@@ -38,6 +38,12 @@ async function loadDeferredLocale(
   locale: AppLocale,
   namespace: DeferredTranslationNamespace,
 ): Promise<Record<string, unknown>> {
+  if (namespace === "spaces") {
+    const module = locale === "zh-CN"
+      ? await import("./locales/spaces-zh-CN.json")
+      : await import("./locales/spaces-en-US.json");
+    return module.default;
+  }
   if (namespace === "tasks") {
     const module = locale === "zh-CN"
       ? await import("./locales/tasks-zh-CN.json")

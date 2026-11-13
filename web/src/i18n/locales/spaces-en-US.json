@@ -1,0 +1,97 @@
+{
+  "brand": "Spaces",
+  "create": "Create",
+  "recent": "Recent",
+  "expandRecent": "Show more",
+  "spaces": "Spaces",
+  "trash": "Trash",
+  "search": "Search",
+  "searchLabel": "Search items",
+  "list": "List",
+  "grid": "Grid",
+  "empty": "No items yet",
+  "emptyTrash": "Trash is empty",
+  "error": "The space list could not be loaded.",
+  "retry": "Try again",
+  "preparing": "Preparing the list",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "account": "Signed in as {name}",
+  "itemCount": "{count, plural, one {# item} other {# items}}",
+  "columns": {
+    "name": "Name",
+    "source": "Source",
+    "activity": "Last activity"
+  },
+  "nav": {
+    "all": "All",
+    "page": "Pages",
+    "slide": "Slides",
+    "site": "Sites",
+    "image": "Images",
+    "drive": "Google Drive"
+  },
+  "tabs": {
+    "all": "Recommended",
+    "starred": "Starred",
+    "mine": "Your items",
+    "shared": "Shared with you"
+  },
+  "kind": {
+    "page": "Page",
+    "folder": "Folder",
+    "file": "File",
+    "link": "Link",
+    "slide": "Slides",
+    "site": "Site",
+    "image": "Image",
+    "external": "External"
+  },
+  "menu": {
+    "page": "Page",
+    "space": "Space",
+    "upload": "Upload file",
+    "import": "Import Markdown",
+    "actions": "Actions for {title}"
+  },
+  "actions": {
+    "rename": "Rename",
+    "share": "Share",
+    "move": "Move",
+    "star": "Star",
+    "unstar": "Remove star",
+    "delete": "Delete",
+    "restore": "Restore"
+  },
+  "dialog": {
+    "createSpace": "New space",
+    "createPage": "New page",
+    "rename": "Rename",
+    "share": "Share",
+    "move": "Move",
+    "delete": "Delete this item?",
+    "drive": "Connect Google Drive",
+    "driveBody": "Google Drive connection arrives in a later release. This row does not contact a connector.",
+    "needSpace": "Create a space before adding a page."
+  },
+  "field": {
+    "name": "Name",
+    "title": "Title",
+    "visibility": "Visibility",
+    "space": "Space",
+    "user": "User id",
+    "role": "Role"
+  },
+  "visibility": {
+    "private": "Private",
+    "members": "Members",
+    "tenant": "Tenant"
+  },
+  "deleteConfirm": "Move {title} to the trash.",
+  "preview": {
+    "empty": "This page has no markdown yet.",
+    "missing": "This item is not available.",
+    "back": "Back to all items"
+  }
+}
