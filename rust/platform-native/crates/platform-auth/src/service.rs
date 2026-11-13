@@ -82,7 +82,7 @@ impl AuthService {
     pub fn enterprise_policy_enabled(&self) -> bool {
         self.enterprise_policy_enabled
     }
-    pub fn jwt_keyring(&self) -> Arc<JwtKeyRing> {
+    pub fn jwt_keyring(&self) -> std::sync::Arc<JwtKeyRing> {
         self.codec.keyring()
     }
     pub(crate) fn password_engine(&self) -> PasswordEngine {

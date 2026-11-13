@@ -105,6 +105,7 @@ function PerformanceContent({ scope, selectedMetric, onMetricChange }: { scope: 
           value={selectedMetric}
           onChange={(metric: LatencyMetric) => { if (isCurrent()) onMetricChange(metric); }}
           options={metricOptions}
+          aria-label={t("dashboard.performance.metric")}
           size="small"
           style={{ width: 100 }}
         />

@@ -67,6 +67,10 @@ async fn correlation_discards_duplicate_or_orphan_trace_and_never_promotes_exist
     assert_eq!(headers["authorization"], "existing-auth");
 }
 
+/// Carries the detached future out of its capture scopes unpolled; the outer
+/// scopes must resolve to it without awaiting it.
+struct Detached<F>(F);
+
 #[tokio::test]
 async fn detached_future_captures_object_scope_and_budget_before_spawn_polls_it() {
     use ai_platform_auth::cedar::resources::{self, ObjectSubject, PolicyScope};
@@ -91,7 +95,7 @@ async fn detached_future_captures_object_scope_and_budget_before_spawn_polls_it(
             },
             Some(budget),
             async {
-                scoped(
+                Detached(scoped(
                     OutboundContext {
                         request_id: "detached-a".into(),
                         ..Default::default()
@@ -102,7 +106,7 @@ async fn detached_future_captures_object_scope_and_budget_before_spawn_polls_it(
                         assert!(capture_budget().is_some());
                         assert_eq!(current().request_id, "detached-a");
                     },
-                )
+                ))
             },
         )
         .await
@@ -110,7 +114,7 @@ async fn detached_future_captures_object_scope_and_budget_before_spawn_polls_it(
     .await;
     assert!(resources::current_subject().is_none());
     assert!(capture_budget().is_none());
-    tokio::spawn(future).await.unwrap();
+    tokio::spawn(future.0).await.unwrap();
     assert!(resources::current_subject().is_none());
     assert!(current().request_id.is_empty());
 }

@@ -594,11 +594,29 @@ impl TokenCodec {
     pub fn keyring(&self) -> Arc<JwtKeyRing> {
         Arc::clone(&self.keyring)
     }
+    pub fn jwks_at(&self, now: u64) -> Value {
+        self.keyring.jwks_at(now)
+    }
+    /// Public keys for every verifier this codec accepts: the configured
+    /// keyring plus the optional EdDSA access-token ring, deduplicated by kid.
     pub fn jwks(&self, now: u64) -> serde_json::Value {
-        self.eddsa
-            .as_ref()
-            .map(|keys| keys.jwks(now))
-            .unwrap_or_else(|| serde_json::json!({"keys":[]}))
+        let mut keys: Vec<Value> = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        let eddsa = self.eddsa.as_ref().map(|ring| ring.jwks(now));
+        for set in eddsa.iter().chain(std::iter::once(&self.keyring.jwks_at(now))) {
+            for key in set["keys"].as_array().into_iter().flatten() {
+                let kid = key["kid"].as_str().unwrap_or_default().to_owned();
+                if kid.is_empty() || seen.insert(kid) {
+                    keys.push(key.clone());
+                }
+            }
+        }
+        serde_json::json!({ "keys": keys })
+    }
+    pub fn signer(&self) -> JwtSigner {
+        JwtSigner {
+            keyring: Arc::clone(&self.keyring),
+        }
     }
     pub fn issue(&self, claims: Claims, now: u64) -> Result<String, AuthError> {
         self.issue_for_session(claims, now, &uuid::Uuid::new_v4().to_string())
@@ -628,8 +646,7 @@ impl TokenCodec {
         if let Some(keys) = &self.eddsa {
             return keys.issue(&claims, now);
         }
-        jsonwebtoken::encode(&Header::new(Algorithm::HS256), &claims, &self.encode)
-            .map_err(|_| AuthError::Crypto)
+        self.signer().sign(&claims)
     }
     /// Verifies cryptographic claims only, not account state or Redis allowlisting.
     /// The caller must enforce those durable authorities before authorizing access.
@@ -640,9 +657,18 @@ impl TokenCodec {
         let algorithm = jsonwebtoken::decode_header(token)
             .map_err(|_| AuthError::Token)?
             .alg;
-        if algorithm != Algorithm::HS256 && algorithm != Algorithm::EdDSA {
+        if !matches!(
+            algorithm,
+            Algorithm::HS256 | Algorithm::RS256 | Algorithm::ES256 | Algorithm::EdDSA
+        ) {
             return Err(AuthError::Token);
         }
+        // The EdDSA access-token ring owns EdDSA tokens when configured; every
+        // other token is verified by exact kid/algorithm against the keyring.
+        let eddsa_ring = self
+            .eddsa
+            .as_ref()
+            .filter(|_| algorithm == Algorithm::EdDSA);
         let mut validation = Validation::new(algorithm);
         validation.required_spec_claims = ["exp", "sub"].into_iter().map(str::to_owned).collect();
         validation.validate_exp = false; // Injected clock; exact expiry below.
@@ -656,15 +682,9 @@ impl TokenCodec {
             validation.set_issuer(&[iss]);
             validation.required_spec_claims.insert("iss".into());
         }
-        let claims = if algorithm == Algorithm::EdDSA {
-            self.eddsa
-                .as_ref()
-                .ok_or(AuthError::Token)?
-                .verify(token, &validation, now)?
-        } else {
-            jsonwebtoken::decode::<Claims>(token, &self.decode, &validation)
-                .map_err(|_| AuthError::Token)?
-                .claims
+        let claims = match eddsa_ring {
+            Some(ring) => ring.verify(token, &validation, now)?,
+            None => self.keyring.decode::<Claims>(token, &validation, now)?,
         };
         if claims.sub.is_empty()
             || claims.sub != claims.user_id
@@ -675,7 +695,7 @@ impl TokenCodec {
             || claims.nbf.is_some_and(|nbf| nbf > now)
             || claims.exp <= claims.iat
             || claims.exp - claims.iat
-                > if algorithm == Algorithm::EdDSA {
+                > if eddsa_ring.is_some() {
                     access_tokens::ACCESS_TOKEN_TTL
                 } else {
                     10_800

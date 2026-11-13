@@ -68,7 +68,10 @@ fn prepares_distinct_roles_without_printing_values_and_is_byte_idempotent() {
     }
     for (application, authority) in [
         ("GATEWAY_DATABASE__DSN", "AI_GATEWAY_DATABASE_GATEWAY_DSN"),
-        ("KNOWLEDGE_DATABASE__DSN", "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN"),
+        (
+            "KNOWLEDGE_DATABASE__DSN",
+            "AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN",
+        ),
     ] {
         let mut app = reqwest::Url::parse(&values[application]).unwrap();
         let login = reqwest::Url::parse(&values[authority]).unwrap();

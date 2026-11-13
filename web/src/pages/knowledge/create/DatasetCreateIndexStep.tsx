@@ -156,7 +156,7 @@ Try pasting your own content here to test.`);
                         key={index}
                         className="bg-card p-3 rounded border shadow-xs text-sm"
                       >
-                        <div className="mb-2 text-xs text-muted-foreground/70 flex justify-between">
+                        <div className="mb-2 text-xs text-muted-foreground flex justify-between">
                           <span># {index + 1}</span>
                           <span>{chunk.char_count} chars</span>
                         </div>
@@ -169,7 +169,7 @@ Try pasting your own content here to test.`);
                       </div>
                     ))}
                     {chunks.length === 0 && !loading && (
-                      <div className="text-center text-muted-foreground/70 py-10">
+                      <div className="text-center text-muted-foreground py-10">
                         {t("knowledge.create.clickToPreview")}
                       </div>
                     )}
@@ -305,7 +305,7 @@ export function DatasetCreateIndexStep({
             className="w-24"
           />
         </div>
-        <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
           <span>50</span>
           <span>6000</span>
         </div>
@@ -328,8 +328,8 @@ export function DatasetCreateIndexStep({
             </span>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+                <TooltipTrigger aria-label={t("knowledge.create.metadataExtractHint")}>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">{t("knowledge.create.metadataExtractHint")}</p>
@@ -347,8 +347,8 @@ export function DatasetCreateIndexStep({
             </span>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+                <TooltipTrigger aria-label={t("knowledge.create.excelHeaderConcatHint")}>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">{t("knowledge.create.excelHeaderConcatHint")}</p>
@@ -369,8 +369,8 @@ export function DatasetCreateIndexStep({
             </span>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+                <TooltipTrigger aria-label={t("knowledge.create.multiTurnRewriteHint")}>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">{t("knowledge.create.multiTurnRewriteHint")}</p>
@@ -388,8 +388,8 @@ export function DatasetCreateIndexStep({
             <Label className="text-sm font-medium">{t("knowledge.create.rerankModel")}</Label>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+                <TooltipTrigger aria-label={t("knowledge.create.rerankModelHint")}>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">{t("knowledge.create.rerankModelHint")}</p>
@@ -422,8 +422,8 @@ export function DatasetCreateIndexStep({
               </Label>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+                  <TooltipTrigger aria-label={t("knowledge.create.scoreThresholdHint")}>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">{t("knowledge.create.scoreThresholdHint")}</p>
@@ -454,7 +454,7 @@ export function DatasetCreateIndexStep({
               step={0.01}
             />
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
             <span>0.01</span>
             <span>1</span>
           </div>
@@ -485,7 +485,7 @@ export function DatasetCreateIndexStep({
               className="w-24"
             />
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground/70 mt-1">
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
             <span>1</span>
             <span>20</span>
           </div>

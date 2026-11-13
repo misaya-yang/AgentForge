@@ -226,7 +226,7 @@ impl KnowledgeSources {
             } else {
                 ui.label("Drop one document for text_only ingestion.");
                 if !self.job.busy {
-                    for file in ctx.input(|i| i.raw.dropped_files.clone()) {
+                    if let Some(file) = ctx.input(|i| i.raw.dropped_files.clone()).into_iter().next() {
                         self.file_name = file
                             .path
                             .as_ref()
@@ -236,7 +236,6 @@ impl KnowledgeSources {
                         self.file = file.path;
                         self.file_bytes = file.bytes.map(|b| b.to_vec());
                         self.upload_confirm = false;
-                        break;
                     }
                 }
                 ui.label(&self.file_name);

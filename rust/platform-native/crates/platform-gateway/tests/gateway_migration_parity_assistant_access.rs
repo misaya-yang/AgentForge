@@ -34,9 +34,12 @@ fn assistant_request_requires_local_node_device_and_grant_selection() {
             .status,
         422
     );
-    let selected=normalize_v1(&json!({"message":"analyze authorized files","os_agent_enabled":true,"local_node_device_id":"device-a","local_node_grant_ids":["grant-a"]})).unwrap();
+    let selected=normalize_v1(&json!({"message":"analyze authorized files","os_agent_enabled":true,"local_node_device_id":"device-a","local_node_grant_ids":["cfbfa9d4-18b3-4470-b3f2-f13660a993dc"]})).unwrap();
     assert_eq!(selected["local_node_device_id"], "device-a");
-    assert_eq!(selected["local_node_grant_ids"], json!(["grant-a"]));
+    assert_eq!(
+        selected["local_node_grant_ids"],
+        json!(["cfbfa9d4-18b3-4470-b3f2-f13660a993dc"])
+    );
 }
 #[test]
 fn user_model_access_preserves_known_access_rules_and_rejects_unknown_for_every_tier() {

@@ -3,7 +3,7 @@
 .console-skip-link { position: fixed; top: -80px; left: 16px; z-index: 200; padding: 12px 18px; border-radius: 8px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .console-skip-link:focus { top: 12px; }
 .console-search-trigger { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 6px 10px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); font-size: 12px; cursor: pointer; }
-.console-search-trigger kbd { margin-left: 24px; font-size: 10px; opacity: .8; }
+.console-search-trigger kbd { margin-left: 24px; font-size: 10px; color: hsl(var(--muted-foreground)); }
 .console-command-input { display: flex; align-items: center; gap: 12px; padding: 12px; background: hsl(var(--muted)); border: 1px solid hsl(var(--border)); border-radius: 8px; }
 .console-command-input:focus-within { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .console-command-input input { min-width: 0; flex: 1; border: 0; background: transparent; outline: none; font-size: 14px; }

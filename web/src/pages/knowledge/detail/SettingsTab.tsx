@@ -638,7 +638,7 @@ export function SettingsTab({
 
         {configLoading ? (
           <div className="py-12 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground/70" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
           </div>
         ) : configEditing ? (
           <div className="space-y-4">
@@ -746,7 +746,7 @@ export function SettingsTab({
                     <Label className="text-xs text-muted-foreground">{t("knowledge.detail.parentBlockSize")}</Label>
                     <span className="text-xs text-muted-foreground">{t("knowledge.detail.characters", { count: 2000 })}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground/70 mt-1">{t("knowledge.detail.parentBlockHint")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t("knowledge.detail.parentBlockHint")}</p>
                 </div>
               </div>
             )}
@@ -800,7 +800,7 @@ export function SettingsTab({
               <div className="relative p-3.5 rounded-xl border border-border/50 bg-muted/30 group hover:border-primary/20 transition-colors">
                 <div className="flex items-baseline justify-between">
                   <p className="text-xs text-muted-foreground">{t("knowledge.detail.blockSize")}</p>
-                  <span className="text-[10px] text-muted-foreground/60">chars</span>
+                  <span className="text-[10px] text-muted-foreground">chars</span>
                 </div>
                 <p className="text-xl font-bold text-foreground mt-1 tabular-nums tracking-tight">
                   {datasetConfig.chunking?.chunk_size || 2000}
@@ -812,7 +812,7 @@ export function SettingsTab({
               <div className="relative p-3.5 rounded-xl border border-border/50 bg-muted/30 group hover:border-primary/20 transition-colors">
                 <div className="flex items-baseline justify-between">
                   <p className="text-xs text-muted-foreground">{t("knowledge.detail.overlapSize")}</p>
-                  <span className="text-[10px] text-muted-foreground/60">chars</span>
+                  <span className="text-[10px] text-muted-foreground">chars</span>
                 </div>
                 <p className="text-xl font-bold text-foreground mt-1 tabular-nums tracking-tight">
                   {datasetConfig.chunking?.chunk_overlap ?? 50}
@@ -855,7 +855,7 @@ export function SettingsTab({
 
         {configLoading ? (
           <div className="py-12 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground/70" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
           </div>
         ) : retrievalEditing ? (
           <div className="space-y-4">
@@ -1073,7 +1073,7 @@ export function SettingsTab({
                   <p className="text-xs font-medium text-primary">{t("knowledge.detail.fusionWeight")}</p>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <span>{t("knowledge.detail.vectorWeight", { pct: ((datasetConfig.retrieval.fusion?.alpha ?? DEFAULT_RETRIEVAL_CONFIG.fusion.alpha) * 100).toFixed(0) })}</span>
-                    <span className="text-muted-foreground/40">|</span>
+                    <span className="text-muted-foreground">|</span>
                     <span>BM25 {((1 - (datasetConfig.retrieval.fusion?.alpha ?? DEFAULT_RETRIEVAL_CONFIG.fusion.alpha)) * 100).toFixed(0)}%</span>
                   </div>
                 </div>
@@ -1397,8 +1397,8 @@ export function SettingsTab({
                   <div key={i} className="p-2 bg-card rounded border text-xs">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="secondary">#{i + 1}</Badge>
-                      <span className="text-muted-foreground/70">{t("knowledge.detail.characters", { count: chunk.char_count })}</span>
-                      <span className="text-muted-foreground/70">~{chunk.token_count} tokens</span>
+                      <span className="text-muted-foreground">{t("knowledge.detail.characters", { count: chunk.char_count })}</span>
+                      <span className="text-muted-foreground">~{chunk.token_count} tokens</span>
                     </div>
                     <div className="text-foreground/80 whitespace-pre-wrap line-clamp-3">
                       {chunk.content}
@@ -1407,7 +1407,7 @@ export function SettingsTab({
                 ))}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground/70 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 {t("knowledge.detail.previewHint")}
               </div>
             )}

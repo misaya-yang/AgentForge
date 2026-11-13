@@ -1413,6 +1413,71 @@
         }
       }
     },
+    "/api/v1/knowledge/{dataset_id}/documents/{document_id}/content": {
+      "put": {
+        "operationId": "console_put_api_v1_knowledge__dataset_id__documents__document_id__content",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "NativeBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native handler response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Owner authorization, validation, dependency or transport rejection",
+            "x-native-undeclared": true
+          }
+        },
+        "x-native-declaration": {
+          "source": "platform-knowledge-domain/src/migration_knowledge_ingest/http_routes.rs",
+          "handler": "replace_text_source",
+          "route_verified": true,
+          "request_schema_source": "owner DTO or explicit validator",
+          "response_schema_source": "explicit DTO/projection when available; dynamic JSON boundary otherwise"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleTextSourceReplacement"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/knowledge/{dataset_id}/documents/{document_id}/statistics": {
       "get": {
         "operationId": "console_get_api_v1_knowledge__dataset_id__documents__document_id__statistics",
@@ -18062,6 +18127,28 @@
             "platform-gateway/src/browser_telemetry.rs"
           ]
         }
+      },
+      "ConsoleTextSourceReplacement": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000000,
+            "description": "Replacement text source; at most 1 MiB UTF-8 and not blank."
+          },
+          "expected_current_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Optimistic fence: the document's current published version."
+          }
+        },
+        "required": [
+          "content",
+          "expected_current_version"
+        ],
+        "additionalProperties": false
       }
     }
   },

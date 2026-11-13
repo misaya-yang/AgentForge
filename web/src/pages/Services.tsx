@@ -493,7 +493,7 @@ export function ServicesPage() {
             ) : filteredServices.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/40 px-6 py-14 text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted/50">
-                  <Server className="h-6 w-6 text-muted-foreground/60" />
+                  <Server className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <p className="font-medium text-foreground">{t("services.page.noServices")}</p>
                 {searchQuery ? (
@@ -536,7 +536,7 @@ export function ServicesPage() {
             ) : filteredProviders.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/40 px-6 py-14 text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted/50">
-                  <Cloud className="h-6 w-6 text-muted-foreground/60" />
+                  <Cloud className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <p className="font-medium text-foreground">{t("services.page.noProviders")}</p>
                 {(searchQuery || statusFilter !== "all") && <Button variant="ghost" className="mt-2" onClick={() => { setSearchInput(""); setStatusFilter("all"); }}>{t("management.clearFilters")}</Button>}
@@ -573,7 +573,7 @@ export function ServicesPage() {
             ) : models.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/40 px-6 py-14 text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted/50">
-                  <Cpu className="h-6 w-6 text-muted-foreground/60" />
+                  <Cpu className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <p className="font-medium text-foreground">{t("services.page.noModels")}</p>
                 {(searchQuery || statusFilter !== "all") && <Button variant="ghost" className="mt-2" onClick={() => { setSearchInput(""); setStatusFilter("all"); }}>{t("management.clearFilters")}</Button>}

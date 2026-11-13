@@ -618,7 +618,7 @@ function DatasetCreateWizard({ isScopeCurrent }: { isScopeCurrent: () => boolean
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="text-muted-foreground/70">/</div>
+          <div className="text-muted-foreground">/</div>
           <h1 className="text-lg font-semibold text-foreground">
             {t("knowledge.create.title")}
           </h1>
@@ -659,7 +659,7 @@ function DatasetCreateWizard({ isScopeCurrent }: { isScopeCurrent: () => boolean
                   </div>
                   <span
                     className={`text-sm font-medium ${
-                      step >= wizardStep.num ? "text-foreground" : "text-muted-foreground/70"
+                      step >= wizardStep.num ? "text-foreground" : "text-muted-foreground"
                     }`}
                   >
                     {wizardStep.label}

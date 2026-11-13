@@ -15,6 +15,9 @@ use std::sync::Arc;
 
 pub struct AuthConfiguration {
     pub jwt_secret: String,
+    pub jwt_mode: JwtSigningMode,
+    pub jwt_active_kid: Option<String>,
+    pub jwt_keys: Vec<JwtKeyConfig>,
     pub access_keys: Option<ai_platform_auth::access_tokens::EdDsaKeyRing>,
     pub jwt_audience: Option<String>,
     pub jwt_issuer: Option<String>,
@@ -40,9 +43,13 @@ impl AuthServices {
         redis: ConnectionManager,
         config: AuthConfiguration,
     ) -> Result<Self, BootstrapError> {
-        // The existing algorithm setting owns legacy HS256 compatibility.
-        // EdDSA issuance/rotation uses a separate explicit asymmetric key ring.
-        if config.jwt_algorithms != ["HS256"] {
+        // Legacy mode keeps the single HS256 algorithm setting; keyring mode must
+        // name exactly the configured key algorithms. EdDSA access-token
+        // issuance/rotation remains a separate explicit key ring (access_keys).
+        if config.jwt_mode == JwtSigningMode::LegacySingleHs256
+            && !config.jwt_algorithms.is_empty()
+            && config.jwt_algorithms != ["HS256"]
+        {
             return Err(BootstrapError::Configuration("jwt_algorithms"));
         }
         if config.jwt_mode == JwtSigningMode::AsymmetricKeyring {
@@ -59,21 +66,24 @@ impl AuthServices {
         }
         let header = HeaderName::from_bytes(config.api_key_header.as_bytes())
             .map_err(|_| BootstrapError::Configuration("api_key_header"))?;
+        let mut codec = TokenCodec::from_keyring(
+            config.jwt_mode,
+            config.jwt_secret.as_bytes(),
+            config.jwt_active_kid.as_deref(),
+            &config.jwt_keys,
+            config.jwt_audience.clone(),
+            config.jwt_issuer.clone(),
+        )
+        .map_err(|_| BootstrapError::Configuration("jwt_keyring"))?;
+        // The introspection decoder verifies exactly the keyring the codec signs with.
         let legacy_decoder = Arc::new(
-            super::super::jwt::JwtDecoder::new(
-                &config.jwt_secret,
-                &config.jwt_algorithms,
+            super::super::jwt::JwtDecoder::from_keyring(
+                codec.keyring(),
                 config.jwt_audience.as_deref(),
                 config.jwt_issuer.as_deref(),
             )
-            .map_err(|_| BootstrapError::Configuration("jwt"))?,
+            .map_err(|_| BootstrapError::Configuration("jwt_keyring"))?,
         );
-        let mut codec = TokenCodec::new(
-            config.jwt_secret.as_bytes(),
-            config.jwt_audience,
-            config.jwt_issuer,
-        )
-        .map_err(|_| BootstrapError::Configuration("jwt"))?;
         if let Some(keys) = config.access_keys {
             codec = codec
                 .with_eddsa(keys)

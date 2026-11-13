@@ -185,11 +185,11 @@ export function DatasetUploadDialog({
                 onFilesSelected(event.dataTransfer.files);
               }}
             >
-              <Upload className="h-8 w-8 mx-auto text-muted-foreground/70 mb-2" />
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
                 {t("knowledge.detail.clickOrDragUpload")}
               </p>
-              <p className="text-xs text-muted-foreground/70 mt-1">{t("knowledge.upload.supportedFormats")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("knowledge.upload.supportedFormats")}</p>
             </div>
 
             <div className="flex-1 min-w-0">
@@ -219,7 +219,7 @@ export function DatasetUploadDialog({
                   </Badge>
                 ))}
                 {pendingFiles.length === 0 && (
-                  <p className="text-sm text-muted-foreground/70">
+                  <p className="text-sm text-muted-foreground">
                     {t("knowledge.detail.selectFilesHint")}
                   </p>
                 )}

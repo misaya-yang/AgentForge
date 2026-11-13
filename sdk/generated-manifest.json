@@ -1,9 +1,9 @@
 {
   "schema": "agentforge/generated-sdk/v2",
   "openapi": "3.2.0",
-  "source_sha256": "709d71dfdeddc810cf9cfa000344bafee63f216a4438f3c9ec0a706ddd0ef3ce",
-  "operations": 590,
-  "schema_models": 82,
+  "source_sha256": "aaf53606fa79aae928ceb0d185a4432f7678ebead3d519d317ba6c2f676f35b1",
+  "operations": 591,
+  "schema_models": 83,
   "stream_operations": [
     "POST /api/v1/agent-runtime/{public_id}/chat/stream",
     "POST /api/v1/agents/{agent}/preview/chat/stream",
@@ -2298,6 +2298,10 @@
     },
     "PUT /api/v1/knowledge/{dataset_id}/config": {
       "request": "operation_console_put_api_v1_knowledge__dataset_id__config_b92b90bbd161",
+      "stream": null
+    },
+    "PUT /api/v1/knowledge/{dataset_id}/documents/{document_id}/content": {
+      "request": "operation_console_put_api_v1_knowledge__dataset_id__documents__document_id__content_08f3e94e4e30",
       "stream": null
     },
     "PUT /api/v1/knowledge/{dataset_id}/feedback": {

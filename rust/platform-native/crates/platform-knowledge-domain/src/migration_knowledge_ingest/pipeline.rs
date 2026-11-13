@@ -104,6 +104,9 @@ pub struct Parsed {
     pub content: String,
     pub patch: Value,
     pub pending: Option<Value>,
+    /// Pending text-source replacement pointer; absent in older checkpoints.
+    #[serde(default)]
+    pub pending_update: Option<Value>,
     pub old: Vec<Chunk>,
     pub chunks: Vec<Chunk>,
     pub reembed: bool,

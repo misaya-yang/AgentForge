@@ -135,20 +135,6 @@ fn parse_args_from(arguments: impl IntoIterator<Item = String>) -> Result<Option
                 expected_database,
                 run_approved,
             })))
-        } else if next_023 {
-            Ok(Some(Measurement::Next023(NextMeasure023Options {
-                source_root,
-                preview_root,
-                expected_database,
-                run_approved,
-            })))
-        } else {
-            Ok(Some(Measurement::Next024(NextMeasure024Options {
-                source_root,
-                preview_root,
-                expected_database,
-                run_approved,
-            })))
         }
     } else {
         Ok(Some(Measurement::Historical(MeasureOptions {

@@ -327,7 +327,7 @@ impl AttachmentWorkspace {
             ui.add_enabled_ui(!self.busy && !self.job.busy, |ui| {
                 ui.label("Drop a supported file here. Selection does not upload it.");
                 if !self.busy && !self.job.busy {
-                    for file in ctx.input(|i| i.raw.dropped_files.clone()) {
+                    if let Some(file) = ctx.input(|i| i.raw.dropped_files.clone()).into_iter().next() {
                         self.selected_name = file
                             .path
                             .as_ref()
@@ -345,7 +345,6 @@ impl AttachmentWorkspace {
                         self.preview = None;
                         self.texture = None;
                         self.generation = self.generation.wrapping_add(1);
-                        break;
                     }
                 }
                 ui.label(&self.selected_name);

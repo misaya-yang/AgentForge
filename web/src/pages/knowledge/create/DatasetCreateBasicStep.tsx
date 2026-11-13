@@ -155,13 +155,13 @@ export function DatasetCreateBasicStep({
           {nameError ? (
             <span className="text-xs text-red-500">{nameError}</span>
           ) : (
-            <span className="text-xs text-muted-foreground/70">
+            <span className="text-xs text-muted-foreground">
               {t("knowledge.create.nameLength")}
             </span>
           )}
           <span
             className={`text-xs ${
-              name.length > MAX_NAME_LENGTH ? "text-red-500" : "text-muted-foreground/70"
+              name.length > MAX_NAME_LENGTH ? "text-red-500" : "text-muted-foreground"
             }`}
           >
             {name.length}/{MAX_NAME_LENGTH}
@@ -185,7 +185,7 @@ export function DatasetCreateBasicStep({
       <div>
         <Label className="text-sm font-medium">{t("knowledge.create.embeddingModel")}</Label>
         <Select value={embeddingModel} onValueChange={onEmbeddingModelChange}>
-          <SelectTrigger className="mt-2">
+          <SelectTrigger className="mt-2" aria-label={t("knowledge.create.embeddingModel")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -197,7 +197,7 @@ export function DatasetCreateBasicStep({
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span>{t(model.nameKey)}</span>
-                  <span className="text-muted-foreground/70 text-xs">
+                  <span className="text-muted-foreground text-xs">
                     ({t("knowledge.create.dimension", { dim: model.dimension })})
                   </span>
                 </div>
@@ -214,8 +214,8 @@ export function DatasetCreateBasicStep({
           </Label>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+              <TooltipTrigger aria-label={t("knowledge.create.kbTypeHint")}>
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{t("knowledge.create.kbTypeHint")}</p>
@@ -290,8 +290,8 @@ export function DatasetCreateBasicStep({
           <Label className="text-sm font-medium">{t("knowledge.create.useCase")}</Label>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+              <TooltipTrigger aria-label={t("knowledge.create.useCaseHint")}>
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{t("knowledge.create.useCaseHint")}</p>
@@ -345,8 +345,8 @@ export function DatasetCreateBasicStep({
           <Label className="text-sm font-medium">{t("knowledge.create.visibility")}</Label>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-4 w-4 text-muted-foreground/70" />
+              <TooltipTrigger aria-label={t("knowledge.create.visibilityHint")}>
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{t("knowledge.create.visibilityHint")}</p>

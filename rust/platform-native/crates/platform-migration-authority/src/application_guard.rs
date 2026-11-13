@@ -21,8 +21,6 @@ const EPOCH_MANIFEST_BYTES: &[u8] =
 pub enum ApplicationPrincipal {
     /// Default Gateway task delivery uses the in-memory queue.
     Gateway,
-    /// Explicit Local Node channel support requires its selected-column grants.
-    GatewayLocalNode,
     /// Explicit durable delivery requires successor020.
     GatewayDurable,
     KnowledgeApi,
@@ -223,7 +221,6 @@ fn window(principal: ApplicationPrincipal, source_epoch: i32) -> (i32, i32) {
             (25, source_epoch)
         }
         ApplicationPrincipal::Gateway => (18, source_epoch),
-        ApplicationPrincipal::GatewayLocalNode => (24, source_epoch),
         ApplicationPrincipal::GatewayDurable => (20, source_epoch),
         ApplicationPrincipal::KnowledgeApi => (19, source_epoch),
         ApplicationPrincipal::KnowledgeWorker if source_epoch >= 21 => (21, source_epoch),
@@ -371,9 +368,7 @@ WHERE namespace.nspname = $1
 
 pub(crate) fn principal_role_suffix(principal: ApplicationPrincipal) -> &'static str {
     match principal {
-        ApplicationPrincipal::Gateway 
-        | ApplicationPrincipal::GatewayLocalNode 
-        | ApplicationPrincipal::GatewayDurable => "gateway",
+        ApplicationPrincipal::Gateway | ApplicationPrincipal::GatewayDurable => "gateway",
         ApplicationPrincipal::KnowledgeApi => "knowledge_api",
         ApplicationPrincipal::KnowledgeWorker => "knowledge_worker",
         ApplicationPrincipal::Runtime => "runtime",

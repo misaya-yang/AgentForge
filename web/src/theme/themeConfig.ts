@@ -32,11 +32,11 @@ const sharedComponents: ThemeConfig['components'] = {
 
 export const lightTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#5b5bd6',
-    colorInfo: '#5b5bd6',
+    colorPrimary: '#4b4bd2',
+    colorInfo: '#4b4bd2',
     colorSuccess: '#2f8f68',
     colorWarning: '#a86d26',
-    colorError: '#d64545',
+    colorError: '#c02a2a',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
     fontFamilyCode: '"IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace',
     colorBgContainer: '#ffffff',
@@ -44,7 +44,8 @@ export const lightTheme: ThemeConfig = {
     colorBgLayout: '#f7f7f9',
     colorText: '#17181c',
     colorTextSecondary: '#62656e',
-    colorTextTertiary: '#6d707a',
+    colorTextTertiary: '#5f626b',
+    colorTextPlaceholder: '#6d707a',
     colorBorder: '#dcdde2',
     colorBorderSecondary: '#e7e8ec',
     borderRadius: 6,

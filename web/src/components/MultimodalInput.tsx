@@ -376,7 +376,7 @@ export function MultimodalInput({
           onChange={(e) => { setText(e.target.value); onTextChange?.(e.target.value); }}
           rows={1}
           disabled={disabled}
-          className="min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent focus-visible:ring-0 text-base placeholder:text-muted-foreground/60"
+          className="min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent focus-visible:ring-0 text-base placeholder:text-muted-foreground"
           onKeyDown={(e) => {
             if (e.key === "Escape" && canStop) {
               e.preventDefault();

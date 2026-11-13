@@ -194,6 +194,9 @@ fn account_profiles_and_model_lifecycle_use_current_object_facts() {
     model.enabled = false;
     assert!(!p.evaluate(&s, &model, ObjectAction::Invoke).unwrap());
 }
+/// Carries the retained future out of its scope unpolled; the scope must
+/// resolve to it without awaiting it.
+struct Detached<F>(F);
 #[tokio::test]
 async fn retained_scope_survives_spawn_without_cross_request_subject_leakage() {
     let audit = Arc::new(Audit::default());
@@ -207,15 +210,15 @@ async fn retained_scope_survives_spawn_without_cross_request_subject_leakage() {
         },
         async {
             remember_subject(s.clone());
-            retained(async {
+            Detached(retained(async {
                 assert_eq!(capture().request_id, "first");
                 assert_eq!(current_subject().unwrap().user_id, "owner");
                 capture().point.is_some()
-            })
+            }))
         },
     )
     .await;
-    assert!(tokio::spawn(future).await.unwrap());
+    assert!(tokio::spawn(future.0).await.unwrap());
     assert!(capture().point.is_none());
     assert!(current_subject().is_none());
     scoped(

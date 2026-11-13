@@ -115,7 +115,7 @@ export function TaskInboxTab() {
         </CardContent></Card>
       ) : tasks.length === 0 ? (
         <Card className="border-dashed"><CardContent className="flex flex-col items-center py-14 text-center">
-          <Inbox className="h-8 w-8 text-muted-foreground/60" />
+          <Inbox className="h-8 w-8 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium">{t("tasks.inbox.empty")}</p>
           <p className="mt-1 max-w-md text-xs text-muted-foreground">{t("tasks.inbox.emptyDescription")}</p>
         </CardContent></Card>

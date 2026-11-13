@@ -183,6 +183,7 @@ function DashboardContent() {
               value={serviceId}
               onChange={setServiceId}
               options={serviceOptions}
+              aria-label={t("dashboard.filters.selectService")}
               style={{ width: 170, flex: "0 0 170px" }}
               className="dash-filter-select"
             />
@@ -191,6 +192,7 @@ function DashboardContent() {
               value={userId}
               onChange={setUserId}
               options={userOptions}
+              aria-label={t("dashboard.filters.selectUser")}
               style={{ width: 160, flex: "0 0 160px" }}
               className="dash-filter-select"
             />
@@ -198,6 +200,7 @@ function DashboardContent() {
               size="middle"
               value={source}
               onChange={(v: string) => setSource(v as SourceFilter)}
+              aria-label={t("dashboard.filters.selectSource")}
               options={[
                 { label: t("dashboard.filters.allSources", "全部来源"), value: "all" },
                 { label: t("dashboard.filters.internal", "内部"), value: "internal" },
@@ -219,6 +222,7 @@ function DashboardContent() {
               size="middle"
               value={granularity}
               onChange={setGranularity}
+              aria-label={t("dashboard.filters.granularity")}
               options={[
                 { label: t("dashboard.filters.byDay", "按天"), value: "day" },
                 { label: t("dashboard.filters.byHour", "按小时"), value: "hour" },
@@ -231,6 +235,7 @@ function DashboardContent() {
               size="middle"
               value={refreshInterval}
               onChange={setRefreshInterval}
+              aria-label={t("dashboard.filters.refreshInterval")}
               options={refreshOptions}
               style={{ width: 96 }}
               className="dash-filter-select"

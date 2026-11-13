@@ -73,31 +73,31 @@ export const getColors = (darkMode: boolean) => ({
   // Ink
   textPrimary:   darkMode ? '#f4f4f5' : '#17181c',
   textSecondary: darkMode ? '#acadb5' : '#62656e',
-  textMuted:     darkMode ? '#898c96' : '#6d707a',
+  textMuted:     darkMode ? '#898c96' : '#5f626b',
   textFaint:     darkMode ? '#7d808a' : '#6e717b',
 
   // Brand and operations accents
-  accent:       darkMode ? '#a5a5ff' : '#5b5bd6',
+  accent:       darkMode ? '#a5a5ff' : '#4b4bd2',
   accentBright: darkMode ? '#c3c3ff' : '#6f6fe0',
   accentDeep:   darkMode ? '#8585ea' : '#4848b8',
   accentSoft:   darkMode ? 'rgba(165,165,255,0.14)' : '#ececff',
-  operator:     darkMode ? '#a5a5ff' : '#5b5bd6',
+  operator:     darkMode ? '#a5a5ff' : '#4b4bd2',
   operatorSoft: darkMode ? 'rgba(165,165,255,0.12)' : '#ececff',
   navy:         darkMode ? '#c3c3ff' : '#4848b8',
 
   // Semantic
   success:      darkMode ? '#69c294' : '#2f8f68',
   successSoft:  darkMode ? 'rgba(105,194,148,0.14)' : '#e6f3ed',
-  error:        darkMode ? '#f07c78' : '#d64545',
+  error:        darkMode ? '#f07c78' : '#c02a2a',
   errorSoft:    darkMode ? 'rgba(240,124,120,0.14)' : '#fff0ef',
   warning:      darkMode ? '#d9aa62' : '#a86d26',
   warningSoft:  darkMode ? 'rgba(217,170,98,0.14)' : '#f7eddb',
-  danger:       darkMode ? '#f07c78' : '#d64545',
+  danger:       darkMode ? '#f07c78' : '#c02a2a',
 
   // Back-compat aliases
   gold:   darkMode ? '#d9aa62' : '#a86d26',
   purple: darkMode ? '#e89a83' : '#d0795f',
-  info:   darkMode ? '#a5a5ff' : '#5b5bd6',
+  info:   darkMode ? '#a5a5ff' : '#4b4bd2',
 
   // Tinted fills
   successBg: darkMode ? 'rgba(105,194,148,0.15)' : '#e6f3ed',

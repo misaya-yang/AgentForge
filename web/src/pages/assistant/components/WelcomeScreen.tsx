@@ -28,7 +28,7 @@ export function WelcomeScreen() {
           "Select a model and knowledge bases, then send a message to begin."
         )}
       </p>
-      <p className="max-w-md text-xs leading-relaxed text-muted-foreground/70">
+      <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
         {t(
           "assistant.welcomeWhy",
           "This assistant talks to the model services you configure in the console."

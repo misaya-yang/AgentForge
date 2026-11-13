@@ -12,9 +12,14 @@ use std::{sync::Arc, time::Duration};
 #[path = "eval_ragas_actor.rs"]
 pub(crate) mod ragas_actor;
 
+enum EvalSigning {
+    /// Explicit single-key judge credential (legacy configuration).
+    Key { key: EncodingKey, algorithm: Algorithm },
+    /// Gateway keyring signer: active kid and algorithm, no key bytes exposed.
+    Keyring(ai_platform_auth::JwtSigner),
+}
 pub struct EvalJwtSigner {
-    key: EncodingKey,
-    algorithm: Algorithm,
+    signing: EvalSigning,
     audience: Option<String>,
     issuer: Option<String>,
 }
@@ -45,11 +50,23 @@ impl EvalJwtSigner {
             Algorithm::EdDSA => EncodingKey::from_ed_pem(secret).map_err(|_| invalid())?,
         };
         Ok(Self {
-            key,
-            algorithm,
+            signing: EvalSigning::Key { key, algorithm },
             audience,
             issuer,
         })
+    }
+
+    /// Sign judge tokens with the Gateway's configured JWT keyring.
+    pub fn from_signer(
+        signer: ai_platform_auth::JwtSigner,
+        audience: Option<String>,
+        issuer: Option<String>,
+    ) -> Self {
+        Self {
+            signing: EvalSigning::Keyring(signer),
+            audience,
+            issuer,
+        }
     }
     pub fn token(&self, tenant: &str, delegation: Option<&Value>) -> Result<String, CompatError> {
         let user = if let Some(delegation) = delegation {
@@ -76,8 +93,15 @@ impl EvalJwtSigner {
         if let Some(issuer) = &self.issuer {
             payload["iss"] = json!(issuer);
         }
-        jsonwebtoken::encode(&Header::new(self.algorithm), &payload, &self.key)
-            .map_err(|_| CompatError::new(503, "Eval judge JWT signing failed"))
+        match &self.signing {
+            EvalSigning::Key { key, algorithm } => {
+                jsonwebtoken::encode(&Header::new(*algorithm), &payload, key)
+            }
+            EvalSigning::Keyring(signer) => signer.sign(&payload).map_err(|_| {
+                jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidKeyFormat)
+            }),
+        }
+        .map_err(|_| CompatError::new(503, "Eval judge JWT signing failed"))
     }
 }
 #[derive(Clone, Default)]

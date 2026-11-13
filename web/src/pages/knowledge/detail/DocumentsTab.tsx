@@ -1432,7 +1432,7 @@ export function DocumentsTab({
         <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-2 sm:flex sm:gap-3">
           {/* 筛选下拉 */}
           <Select value={searchField} onValueChange={(v) => setSearchField(v as "name" | "id")}>
-            <SelectTrigger className="w-28 bg-card h-9">
+            <SelectTrigger aria-label={t("knowledge.detail.searchFieldLabel")} className="w-28 bg-card h-9">
               <SelectValue placeholder={t("knowledge.detail.searchByName")} />
             </SelectTrigger>
             <SelectContent>
@@ -1449,13 +1449,13 @@ export function DocumentsTab({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-9 w-full bg-card pr-8 sm:w-64"
             />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <SelectTrigger data-testid="doc-status-filter" className="w-28 bg-card h-9">
+            <SelectTrigger data-testid="doc-status-filter" aria-label={t("knowledge.detail.statusFilterLabel")} className="w-28 bg-card h-9">
               <SelectValue placeholder={t("knowledge.detail.allStatus")} />
             </SelectTrigger>
             <SelectContent>
@@ -1468,7 +1468,7 @@ export function DocumentsTab({
             </SelectContent>
           </Select>
           <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="w-32 bg-card h-9">
+            <SelectTrigger aria-label={t("knowledge.detail.formatFilterLabel")} className="w-32 bg-card h-9">
               <SelectValue placeholder={t("knowledge.detail.allFormats")} />
             </SelectTrigger>
             <SelectContent>
@@ -1483,6 +1483,7 @@ export function DocumentsTab({
             variant="outline"
             size="icon"
             className="h-9 w-9 bg-card"
+            aria-label={t("knowledge.detail.refreshData")}
             onClick={() => qc.invalidateQueries({ queryKey: ["kb-documents", datasetId] })}
           >
             <RefreshCcw className={`h-4 w-4 ${docsQuery.isFetching ? "animate-spin" : ""}`} />
@@ -1730,9 +1731,9 @@ export function DocumentsTab({
           ))}
           {filteredDocs.length === 0 && !docsQuery.isLoading && (
             <div className="text-center py-16">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">{t("knowledge.detail.noDocuments")}</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">{t("knowledge.detail.noDocumentsHint")}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("knowledge.detail.noDocumentsHint")}</p>
             </div>
           )}
         </div>
@@ -1798,7 +1799,7 @@ export function DocumentsTab({
             </div>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t("knowledge.detail.searchSegments")}
                   value={segmentSearch}
@@ -1914,10 +1915,10 @@ export function DocumentsTab({
             ) : segments.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-linear-to-br from-muted/40 to-muted flex items-center justify-center mb-4">
-                  <Hash className="h-8 w-8 text-muted-foreground/70" />
+                  <Hash className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <p className="text-muted-foreground font-medium">{t("knowledge.detail.noSegments")}</p>
-                <p className="text-sm text-muted-foreground/70 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {t(selectedDocFailed ? "knowledge.detail.noSegmentsFailedHint" : "knowledge.detail.noSegmentsHint")}
                 </p>
               </div>

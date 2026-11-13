@@ -238,7 +238,7 @@ function ConnectorsPanelContent({ open, onClose, onCountChange, isCurrent: paren
             <div className="text-sm text-zinc-500 py-4 text-center">{t("connectors.loading")}</div>
           ) : loadFailed ? (
             <div className="space-y-3">
-              <p role="alert" className="text-sm text-red-500">{t("connectors.loadFailed")}</p>
+              <p role="alert" className="text-sm text-destructive">{t("connectors.loadFailed")}</p>
               <button type="button" onClick={() => void loadConnectors()} className="rounded-lg border px-3 py-1 text-sm">{t("common.retry")}</button>
             </div>
           ) : connectors.length === 0 ? (
@@ -307,7 +307,7 @@ function ConnectorsPanelContent({ open, onClose, onCountChange, isCurrent: paren
                       </>
                     ) : (
                       <>
-                        <span role="status" className="text-xs text-zinc-400">{t(conn.status === "expired" ? "connectors.authorizationExpired" : conn.status === "revoked" ? "connectors.authorizationRevoked" : "connectors.notConnected")}</span>
+                        <span role="status" className="text-xs text-muted-foreground">{t(conn.status === "expired" ? "connectors.authorizationExpired" : conn.status === "revoked" ? "connectors.authorizationRevoked" : "connectors.notConnected")}</span>
                         <div className="flex gap-2">
                         <button
                           onClick={() => handleConnect(conn.provider)}
@@ -332,12 +332,12 @@ function ConnectorsPanelContent({ open, onClose, onCountChange, isCurrent: paren
             })
           )}
 
-          {error && <div role="alert" className="text-xs text-red-500">{error}</div>}
+          {error && <div role="alert" className="text-xs text-destructive">{error}</div>}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-          <span className="text-xs text-zinc-400">{t("connectors.footer")}</span>
+          <span className="text-xs text-muted-foreground">{t("connectors.footer")}</span>
         </div>
       </div>
     </div>

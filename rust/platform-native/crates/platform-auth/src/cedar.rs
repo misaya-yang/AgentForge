@@ -7,7 +7,7 @@ use cedar_policy::{
     Validator,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, sync::Arc};
 pub mod resources;

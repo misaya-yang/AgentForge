@@ -226,7 +226,7 @@ export function DocumentVersionHistory({
                             : "text-muted-foreground"
                         }`}
                       >
-                        <span className="inline-block w-6 text-muted-foreground/50">
+                        <span className="inline-block w-6 text-muted-foreground">
                           {item.type === "insert" ? "+" : item.type === "delete" ? "-" : " "}
                         </span>
                         {item.content}

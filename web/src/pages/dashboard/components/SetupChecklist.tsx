@@ -51,7 +51,7 @@ export function SetupChecklist() {
             {step.done ? (
               <CheckCircle2 size={18} className="shrink-0 text-primary" />
             ) : (
-              <Circle size={18} className="shrink-0 text-muted-foreground/60" />
+              <Circle size={18} className="shrink-0 text-muted-foreground" />
             )}
             <span className="min-w-0 flex-1 truncate text-sm">
               {t(`setup.checklist.step.${step.key}`)}

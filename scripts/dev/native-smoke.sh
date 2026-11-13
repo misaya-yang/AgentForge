@@ -162,10 +162,9 @@ main() {
     # - Gateway and Knowledge API startup
     # - Health and login endpoint testing
     
-    log_info "LOGIN_OK (placeholder)"
-    log_info "Smoke test structure verified"
-    
-    return 0
+    # Never print LOGIN_OK without a real login round trip: the M0 gate reads it.
+    log_error "LOGIN_OK not reached: service startup and login are not implemented yet"
+    return 3
 }
 
 main "$@"

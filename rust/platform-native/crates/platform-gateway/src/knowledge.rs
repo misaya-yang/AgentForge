@@ -1205,6 +1205,7 @@ mod read_identity_tests {
             roles: vec!["admin".into()],
             permissions: vec!["admin:*".into()],
             tier: "admin".into(),
+            allowed_models: None,
         })
         .unwrap();
         assert!(!actor.authenticated);
@@ -1221,6 +1222,7 @@ mod read_identity_tests {
             roles: vec!["premium".into()],
             permissions: vec!["dataset:read".into()],
             tier: "standard".into(),
+            allowed_models: None,
         })
         .unwrap();
         assert!(actor.authenticated);

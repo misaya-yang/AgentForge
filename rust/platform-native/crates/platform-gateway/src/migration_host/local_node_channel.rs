@@ -723,7 +723,7 @@ async fn open_control_stream(
         receipts: Vec::new(),
         sent_at: open.sent_at,
     };
-    if validate_heartbeat(&request).is_err() {
+    if validate_heartbeat_envelope(&request).is_err() {
         return error_response(StatusCode::UNPROCESSABLE_ENTITY, "STREAM_BODY_INVALID");
     }
     let first = match state.repository.heartbeat(&request, &credential_hash).await {
@@ -1345,7 +1345,9 @@ fn validate_pairing(request: &PairingRedeemRequest) -> Result<(), StatusCode> {
     Ok(())
 }
 
-fn validate_heartbeat(request: &HeartbeatRequest) -> Result<(), ()> {
+/// Envelope checks shared by device heartbeats and the Gateway-synthesized
+/// control-stream liveness heartbeat (empty doctor: no snapshot refresh).
+fn validate_heartbeat_envelope(request: &HeartbeatRequest) -> Result<(), ()> {
     if request.protocol_version != PROTOCOL_V2
         || request.kind != "heartbeat"
         || !valid_text(&request.device_id, 255)
@@ -1358,6 +1360,13 @@ fn validate_heartbeat(request: &HeartbeatRequest) -> Result<(), ()> {
     {
         return Err(());
     }
+    Ok(())
+}
+
+/// Device-sent heartbeats carry a doctor report whose permission snapshot may
+/// refresh device authority, so its digest and claims must be canonical.
+fn validate_heartbeat(request: &HeartbeatRequest) -> Result<(), ()> {
+    validate_heartbeat_envelope(request)?;
     if !request.doctor["permission_snapshot_digest"]
         .as_str()
         .is_some_and(|digest| lower_hex(digest, 64))

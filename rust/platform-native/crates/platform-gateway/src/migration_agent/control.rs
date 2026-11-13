@@ -1311,7 +1311,7 @@ impl RuntimeControlPlane {
             }
             let model_ref =
                 json!({"id":request.model_id,"provider":provider_id,"parameters":parameters});
-            let launch = entry::builtin_launch(
+            let mut launch = entry::builtin_launch(
                 &scope,
                 &model_ref,
                 profile,

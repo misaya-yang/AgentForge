@@ -818,7 +818,9 @@
       "reset": "重置",
       "anonymousUser": "匿名用户 {id}",
       "byDay": "按天",
-      "byHour": "按小时"
+      "byHour": "按小时",
+      "granularity": "时间粒度",
+      "refreshInterval": "自动刷新间隔"
     },
     "fullscreen": {
       "enter": "进入全屏",
@@ -850,7 +852,8 @@
       "window": "请求时间窗：{start} 至 {end}",
       "latestBucket": "统计：最后返回的时间桶 {date}（{count} 个请求），不是整个时间窗。",
       "readAt": "最近成功读取：{time}（浏览器时间，不是来源入库时间）。",
-      "noSamples": "性能数据不可用。这不能证明没有流量、延迟为 0 或服务健康。"
+      "noSamples": "性能数据不可用。这不能证明没有流量、延迟为 0 或服务健康。",
+      "metric": "延迟分位"
     },
     "refresh": {
       "manual": "手动",

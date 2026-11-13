@@ -68,14 +68,14 @@ export function DatasetCreateSourcesStep({
           onFilesSelect(event.dataTransfer.files);
         }}
       >
-        <Upload className="h-10 w-10 mx-auto text-muted-foreground/70" />
+        <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
         <p className="mt-3 text-sm font-medium text-foreground/80">
           {t("knowledge.create.uploadFiles")}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           {t("knowledge.create.supportedFormats")}
         </p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           {t("knowledge.create.fileSizeLimit")}
         </p>
         <input
@@ -128,7 +128,7 @@ export function DatasetCreateSourcesStep({
                     onClick={() => onRemoveFile(pendingFile.id)}
                     className="p-1 hover:bg-secondary/60 rounded"
                   >
-                    <Trash2 className="h-4 w-4 text-muted-foreground/70" />
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </button>
                 )}
               </div>
@@ -199,7 +199,7 @@ export function DatasetCreateSourcesStep({
                     onClick={() => onRemoveUrl(pendingUrl.id)}
                     className="p-1 hover:bg-secondary/60 rounded"
                   >
-                    <Trash2 className="h-4 w-4 text-muted-foreground/70" />
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </button>
                 )}
               </div>

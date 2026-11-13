@@ -25,6 +25,16 @@ use std::{collections::BTreeMap, net::SocketAddr, sync::Arc};
 impl GatewayDocument {
     pub async fn construct(mut self) -> Result<(GatewayHost, SocketAddr), BootstrapError> {
         super::workload::configure_outbound(&self.environment)?;
+        // Optional Prometheus scrape credential; a weak or non-printable token fails closed.
+        let scrape_token = match self.environment.remove("METRICS_SCRAPE_TOKEN") {
+            Some(token)
+                if token.len() >= 32 && token.bytes().all(|byte| byte.is_ascii_graphic()) =>
+            {
+                Some(Arc::new(token))
+            }
+            Some(_) => return Err(BootstrapError::Configuration("metrics_scrape_token")),
+            None => None,
+        };
         let process_role = crate::migration_host::worker_roles::ProcessRole::parse(
             self.environment
                 .get("GATEWAY_PROCESS_ROLE")
@@ -118,15 +128,13 @@ impl GatewayDocument {
                 "durable_profile_requires_database_and_redis",
             ));
         }
-        let delivery_principal = match settings.task_delivery_mode.as_str() {
+        // As in the canonical epoch-29 chain, the delivery profile alone selects
+        // schema admission; a dedicated Local Node principal would need a new
+        // database/ successor for its selected-column grants.
+        let admission_principal = match settings.task_delivery_mode.as_str() {
             "memory" => ApplicationPrincipal::Gateway,
             "durable" | "schema_admitted" => ApplicationPrincipal::GatewayDurable,
             _ => return Err(BootstrapError::Configuration("task_delivery_mode")),
-        };
-        let admission_principal = if local_node_channel_config.is_some() {
-            ApplicationPrincipal::GatewayLocalNode
-        } else {
-            delivery_principal
         };
         let address = SocketAddr::new(
             settings

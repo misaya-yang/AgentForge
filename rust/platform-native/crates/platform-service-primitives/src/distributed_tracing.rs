@@ -1,18 +1,32 @@
 //! Native equivalent of shared tracing bootstrap and non-buffering inbound middleware.
 //! Export is optional; a broken exporter never prevents service startup.
-use axum::{extract::Request, http::HeaderMap, middleware::Next, response::Response};
+use axum::{
+    extract::Request,
+    http::{HeaderMap, HeaderName, HeaderValue},
+    middleware::Next,
+    response::Response,
+};
 use opentelemetry::{
     Context, KeyValue, global,
-    propagation::{Extractor, Injector, TextMapPropagator},
+    metrics::{Counter, Histogram},
+    propagation::{Extractor, Injector, TextMapCompositePropagator, TextMapPropagator},
     trace::{FutureExt, SpanKind, Status, TraceContextExt, Tracer},
 };
-use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator, trace::Sampler};
-use std::collections::HashMap;
+use opentelemetry_sdk::{
+    Resource,
+    propagation::{BaggagePropagator, TraceContextPropagator},
+};
+use std::{collections::HashMap, future::Future, sync::OnceLock};
+
+static GENAI_TOKEN_USAGE: OnceLock<Counter<u64>> = OnceLock::new();
+static GENAI_TTFT: OnceLock<Histogram<f64>> = OnceLock::new();
+static GENAI_FAILURES: OnceLock<Counter<u64>> = OnceLock::new();
+const MAX_PROPAGATION_HEADER_BYTES: usize = 2048;
 
 #[path = "telemetry_pipeline.rs"]
 mod pipeline;
 pub use opentelemetry_sdk::trace::SdkTracerProvider;
-pub use pipeline::{TelemetryGuard, initialize_with_options};
+pub use pipeline::{TelemetryGuard, initialize_with_options, shutdown};
 #[derive(Clone)]
 pub struct RequestId(pub String);
 pub fn initialize(service_name: &'static str) -> TelemetryGuard {
@@ -20,14 +34,35 @@ pub fn initialize(service_name: &'static str) -> TelemetryGuard {
 }
 #[derive(Clone, Default)]
 pub struct TracingOptions {
+    /// OTLP/HTTP base URL; signal paths (`/v1/traces`, ...) are appended.
+    /// An explicit empty value disables export and wins over the environment.
     pub otlp_endpoint: Option<String>,
+    /// Optional full OTLP/HTTP metrics URL, independent of the trace base.
+    pub otlp_metrics_endpoint: Option<String>,
     pub resource_attributes: Vec<KeyValue>,
 }
 impl TracingOptions {
     pub fn resolved_endpoint(&self) -> String {
-        self.otlp_endpoint
+        self.otlp_endpoint.clone().unwrap_or_else(|| {
+            std::env::var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+                .or_else(|_| std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT"))
+                .unwrap_or_default()
+        })
+    }
+    /// Explicit metrics endpoint, then the explicit trace base, then the
+    /// signal-specific environment, then the shared OTLP environment base.
+    pub fn resolved_metrics_endpoint(&self) -> String {
+        self.otlp_metrics_endpoint
             .clone()
+            .or_else(|| self.otlp_endpoint.clone())
+            .or_else(|| std::env::var("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT").ok())
             .unwrap_or_else(|| std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_default())
+    }
+    /// True when the metrics URL is a full signal URL rather than a base.
+    pub(crate) fn metrics_endpoint_is_signal_url(&self) -> bool {
+        self.otlp_metrics_endpoint.is_some()
+            || (self.otlp_endpoint.is_none()
+                && std::env::var_os("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT").is_some())
     }
     pub fn resource(&self, service_name: &str) -> Resource {
         Resource::builder_empty()
@@ -38,10 +73,24 @@ impl TracingOptions {
     }
 }
 
+/// W3C trace context plus baggage, shared by inbound extraction and carriers.
+pub(crate) fn w3c_propagator() -> TextMapCompositePropagator {
+    TextMapCompositePropagator::new(vec![
+        Box::new(BaggagePropagator::new()),
+        Box::new(TraceContextPropagator::new()),
+    ])
+}
+
 struct Headers<'a>(&'a HeaderMap);
 impl Extractor for Headers<'_> {
+    /// Duplicate or oversized propagation headers are ignored, never merged.
     fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key)?.to_str().ok()
+        let mut values = self.0.get_all(key).iter();
+        let value = values.next()?.to_str().ok()?;
+        if values.next().is_some() || value.len() > MAX_PROPAGATION_HEADER_BYTES {
+            return None;
+        }
+        Some(value)
     }
     fn keys(&self) -> Vec<&str> {
         self.0.keys().map(|key| key.as_str()).collect()
@@ -58,11 +107,116 @@ impl Injector for TraceCarrier {
 }
 pub fn current_carrier() -> TraceCarrier {
     let mut carrier = TraceCarrier::default();
-    TraceContextPropagator::new().inject_context(&Context::current(), &mut carrier);
+    w3c_propagator().inject_context(&Context::current(), &mut carrier);
     carrier
 }
+
+/// Replace caller-supplied correlation headers with the current span before a
+/// trusted internal HTTP or RPC hop. The propagated baggage value is bounded.
+pub fn inject_current_context(headers: &mut HeaderMap) {
+    inject_carrier(headers, true);
+}
+
+/// External provider calls carry trace context only. Caller baggage stays
+/// inside the platform service graph and is not disclosed to provider APIs.
+pub fn inject_current_trace_context(headers: &mut HeaderMap) {
+    inject_carrier(headers, false);
+}
+
+/// Run an outbound client operation in a child span so the remote receiver's
+/// extracted parent is the concrete HTTP/RPC call.
+pub async fn client_span<F: Future>(name: &'static str, future: F) -> F::Output {
+    let parent = Context::current();
+    let tracer = global::tracer("ai_platform.http.client");
+    let span = tracer
+        .span_builder(name)
+        .with_kind(SpanKind::Client)
+        .start_with_context(&tracer, &parent);
+    let context = parent.with_span(span);
+    let output = future.with_context(context.clone()).await;
+    context.span().end();
+    output
+}
+
+fn inject_carrier(headers: &mut HeaderMap, include_baggage: bool) {
+    let carrier = current_carrier();
+    for name in ["traceparent", "tracestate", "baggage"] {
+        headers.remove(name);
+        if name == "baggage" && !include_baggage {
+            continue;
+        }
+        let Some(value) = carrier.0.get(name) else {
+            continue;
+        };
+        if value.len() > MAX_PROPAGATION_HEADER_BYTES {
+            continue;
+        }
+        if let (Ok(name), Ok(value)) = (
+            HeaderName::from_bytes(name.as_bytes()),
+            HeaderValue::from_str(value),
+        ) {
+            headers.insert(name, value);
+        }
+    }
+}
+
+fn genai_token_usage() -> &'static Counter<u64> {
+    GENAI_TOKEN_USAGE.get_or_init(|| {
+        global::meter("ai_platform.gen_ai")
+            .u64_counter("gen_ai.client.token.usage")
+            .with_unit("token")
+            .build()
+    })
+}
+
+fn genai_ttft() -> &'static Histogram<f64> {
+    GENAI_TTFT.get_or_init(|| {
+        global::meter("ai_platform.gen_ai")
+            .f64_histogram("ai_platform.gen_ai.time_to_first_visible_seconds")
+            .with_unit("s")
+            .build()
+    })
+}
+
+fn genai_failures() -> &'static Counter<u64> {
+    GENAI_FAILURES.get_or_init(|| {
+        global::meter("ai_platform.gen_ai")
+            .u64_counter("ai_platform.gen_ai.request.failures")
+            .with_unit("{request}")
+            .build()
+    })
+}
+
+/// Record model token usage without tenant, user, prompt, or model-id labels.
+pub fn record_genai_token_usage(input_tokens: i64, output_tokens: i64) {
+    let meter = genai_token_usage();
+    meter.add(
+        input_tokens.max(0) as u64,
+        &[KeyValue::new("gen_ai.token.type", "input")],
+    );
+    meter.add(
+        output_tokens.max(0) as u64,
+        &[KeyValue::new("gen_ai.token.type", "output")],
+    );
+}
+
+/// Record first user-visible output timing. Invalid durations are discarded.
+pub fn record_genai_ttft(seconds: f64) {
+    if seconds.is_finite() && seconds >= 0.0 {
+        genai_ttft().record(seconds, &[]);
+    }
+}
+
+/// Record one failure using a finite stage label, never provider error text.
+pub fn record_genai_failure(stage: &'static str) {
+    let stage = match stage {
+        "pre_dispatch" | "post_dispatch" => stage,
+        _ => "other",
+    };
+    genai_failures().add(1, &[KeyValue::new("error.type", stage)]);
+}
 pub async fn inbound(mut request: Request, next: Next) -> Response {
-    let propagator = TraceContextPropagator::new();
+    let propagator = w3c_propagator();
     let parent = propagator.extract(&Headers(request.headers()));
     let tracer = global::tracer("ai_gateway_core.tracing");
     // Route templates are bounded and never contain query, tenant IDs or content.
@@ -132,6 +286,7 @@ pub async fn inbound(mut request: Request, next: Next) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use opentelemetry_sdk::trace::Sampler;
     use opentelemetry::trace::TracerProvider;
     #[tokio::test]
     async fn inbound_propagates_active_span_and_never_buffers_body() {
