@@ -131,7 +131,7 @@ passed 6/6 with zero skips; the formal services were then recreated with
 | Full open-source browser regression | `corepack pnpm@10.33.0 -C web e2e:opensource` -> first run exposed the AS-05 mock missing the new Eval Dataset read; after adding the exact empty catalog response, final run 41 passed, 0 failed, 0 skipped |
 | Python static checks | Focused Ruff and Python compile invocations exit 0 |
 | Migration execution | Local authorized development DB applied 078 once; migration table reports 74 applied and pending `(none)`; disposable PostgreSQL applies 077 and 078 twice |
-| Compose ownership | Expected containers report `/Users/yang/projects/AI--Platfform` as `com.docker.compose.project.working_dir` |
+| Compose ownership | Expected containers report `<repo-root>` as `com.docker.compose.project.working_dir` |
 | Low-memory operation | Services were hot-copied/restarted serially with no image build; final total around 0.78 GiB and temporary-test peak around 1.0 GiB, below the user-provided 3.5 GiB stop line |
 | Live provider-free release | Remote Playwright 1/1: stable Eval Dataset/example, content hash, cancelled and passed lifecycles, two Versions/promotions, rollback to v1, three chronological audit operations and cleanup |
 | Live restored fail-closed | Remote Playwright 1/1 after `stub=false`: exact model-unavailable alert and zero Eval/Version/Publication/event |

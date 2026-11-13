@@ -37,7 +37,7 @@ All four AS-F001 steps have substantive evidence in the Actor report and indepen
 
 ## Test and Regression Assessment
 
-The Critic independently ran the required commands from `/Users/yang/projects/AI--Platfform`:
+The Critic independently ran the required commands from `<repo-root>`:
 
 | Check | Result |
 | --- | --- |

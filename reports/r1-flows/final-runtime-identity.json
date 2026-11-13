@@ -2,35 +2,35 @@
   "services": [
     {
       "name": "/ai-gateway-backend",
-      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "compose_owner": "<repo-root>",
       "image": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
       "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
       "health": "healthy"
     },
     {
       "name": "/ai-gateway-frontend",
-      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "compose_owner": "<repo-root>",
       "image": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
       "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
       "health": "healthy"
     },
     {
       "name": "/ai-gateway-agent-runtime",
-      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "compose_owner": "<repo-root>",
       "image": "ai-gateway-agent-runtime:local-279ba894152b-a55739b4a6c5",
       "image_id": "sha256:78e9d72d85502070bed377fa521f2fc01a19f9114e541a5c761f7ad529b6904a",
       "health": "healthy"
     },
     {
       "name": "/ai-gateway-agent-capability-worker-1",
-      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "compose_owner": "<repo-root>",
       "image": "ai-gateway-agent-capability-worker:local-279ba894152b-a55739b4a6c5",
       "image_id": "sha256:f7674ea29025cc6211e52f59460a0860ffc9012a43c950e1ffc7d9a449f4e0b3",
       "health": "healthy"
     },
     {
       "name": "/ai-gateway-pg",
-      "compose_owner": "/Users/yang/projects/AI--Platfform",
+      "compose_owner": "<repo-root>",
       "image": "postgres:16-alpine",
       "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
       "health": "healthy"

@@ -17,7 +17,7 @@ packages:
   - scripts/rust/build-update.sh
   - scripts/harness/loc_no_growth_gate.py
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:
@@ -68,7 +68,7 @@ packages:
   - scripts/harness/build_agent_capability_worker_image.sh
   - tests/harness/test_agent_runtime_supply_chain.py
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:
@@ -118,7 +118,7 @@ packages:
   - scripts/harness/agent_runtime_supply_chain.py
   - tests/harness/test_agent_runtime_supply_chain.py
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:
@@ -187,7 +187,7 @@ packages:
   - src/api/schemas/agent_runtime.py
   - src/api/schemas/assistant.py
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:
@@ -252,7 +252,7 @@ packages:
   - reports/architecture/codex-harness-refresh-2026-09-22/
   - web/e2e/
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:
@@ -321,7 +321,7 @@ packages:
   - tests/services/agent_runtime/
   - reports/architecture/codex-harness-refresh-2026-09-22/
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths: []
@@ -372,7 +372,7 @@ packages:
   - docs/plans/codex-harness-refresh-2026-09-22.md
   - docs/plans/codex-harness-refresh-2026-09-22-acceptance.md
   forbidden_paths:
-  - /Users/yang/projects/opensource-harness/codex-harness/**
+  - <codex-harness-checkout>/**
   - .env* values
   - unrelated services and new public product surfaces
   integration_paths:

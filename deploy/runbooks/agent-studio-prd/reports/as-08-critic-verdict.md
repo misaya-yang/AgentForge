@@ -30,7 +30,7 @@ PostgreSQL tenant-deletion test.
 
 Before PostgreSQL execution, all eight `ai-gateway-*` services were healthy and
 each Compose `com.docker.compose.project.working_dir` label matched
-`/Users/yang/projects/AI--Platfform`. The tests used disposable isolated schemas.
+`<repo-root>`. The tests used disposable isolated schemas.
 
 ## C-04-R2 Disposition
 

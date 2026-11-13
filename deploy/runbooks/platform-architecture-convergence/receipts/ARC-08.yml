@@ -19,7 +19,7 @@ live_verdict: PARTIAL
 deferred_live_scenarios: []
 review_findings: {blocker: 0, high: 0, medium: 0}
 rollback_class: restore-required
-runtime_owner: /Users/yang/projects/AI--Platfform
+runtime_owner: <repo-root>
 provider: DashScope/Qwen
 live_observations: [login, Assistant, tool approvals, cancel/resume, Knowledge upload/retrieval/failure, Studio Preview, trace, admin status]
 blocked_by:

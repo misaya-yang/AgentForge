@@ -125,7 +125,7 @@
     "web/e2e/agent-hosted.spec.ts": "814abf4def452f5dc0c9cd29d27bd618c6758f4d881d65e5864d990991aa8edc"
   },
   "final_local_runtime": {
-    "compose_owner": "/Users/yang/projects/AI--Platfform",
+    "compose_owner": "<repo-root>",
     "gateway_health": "passed",
     "assistant_health": "passed",
     "frontend_health": "passed",

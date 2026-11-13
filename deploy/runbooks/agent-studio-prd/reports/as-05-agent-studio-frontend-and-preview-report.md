@@ -135,7 +135,7 @@ product architecture or enlarging any timeout.
 | Agent Studio E2E | `corepack pnpm@10.33.0 -C web exec playwright test e2e/agent-studio.spec.ts --config playwright.opensource.config.ts` | exit 0: 25 passed, 0 failed, 0 skipped in 1.1m |
 | Existing route E2E | `corepack pnpm@10.33.0 -C web e2e:opensource` | exit 0: 31 passed, 0 failed, 0 skipped in 1.1m |
 | Preview contract | `uv run pytest -q --no-cov tests/api/test_agents_api.py && uv run --package assistant-service pytest -q --no-cov tests/services/assistant/test_agent_runtime_resolver.py` | exit 0: 9 passed + 11 passed, 0 failed, 0 skipped |
-| Supported phase claim | `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --claim-check --phase AS-05 --quality-score` | exit 0 after the truthful Oracle/loop transition; metadata internally consistent; structure score 100/100. The first invocation correctly failed while loop state was still `running` and is not counted as a pass. |
+| Supported phase claim | `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --claim-check --phase AS-05 --quality-score` | exit 0 after the truthful Oracle/loop transition; metadata internally consistent; structure score 100/100. The first invocation correctly failed while loop state was still `running` and is not counted as a pass. |
 
 The existing-route command initially returned 28/29 because its long Eval test
 clicked a mobile Ant tab while that overflow tab was being repositioned. Trace
@@ -161,7 +161,7 @@ warning is not an AS-05 functional failure.
 | Live Agent Studio | Remote Playwright against repository-owned containers passed after final true restore: one combined metadata/Draft save, reload persistence, Preview boundary, three viewports and `finally` delete |
 | Live rollback flag | Frontend recreated from Compose with `VITE_AGENT_STUDIO_ENABLED=false`; actual runtime config returned false and browser 1/1 proved Agent surfaces absent plus existing Assistant usable. Frontend was restored to true and the live Agent test passed again. |
 | Cleanup | PostgreSQL returned `0` live rows matching `AS05 Live %` after the live test |
-| Compose ownership | All eight `ai-gateway-*` containers report `/Users/yang/projects/AI--Platfform` in `com.docker.compose.project.working_dir` |
+| Compose ownership | All eight `ai-gateway-*` containers report `<repo-root>` in `com.docker.compose.project.working_dir` |
 | Health and memory | 8/8 services healthy after serial frontend build/recreate and bounded Gateway/Assistant hot update; final sample about 763 MiB total |
 | Rendered inspection | Latest deterministic and live desktop/tablet/mobile images were opened with direct image inspection; no clipping, unreadable content or unreachable primary action remained |
 | Working-tree whitespace | `git diff --check` exited zero after evidence writeback |
@@ -216,7 +216,7 @@ copied into evidence.
 
 The implementation follows the existing protected AppLayout, Assistant and
 Knowledge form language and the four generated AS-05 concepts beneath
-`/Users/yang/.codex/generated_images/019f7317-747b-7e41-98de-91658f1f5287/`.
+`<local-codex-home>/generated_images/019f7317-747b-7e41-98de-91658f1f5287/`.
 Generated images were treated as design specifications only; all shipped text
 and controls are real responsive code.
 

@@ -57,7 +57,7 @@
 
 ## Known Blockers
 
-- The earlier Compose-owner blocker is resolved: all expected runtime containers are now labeled with `/Users/yang/projects/AI--Platfform` as their Compose working directory.
+- The earlier Compose-owner blocker is resolved: all expected runtime containers are now labeled with `<repo-root>` as their Compose working directory.
 - No AS-00 through AS-09 local implementation blocker remains. AS-F010 is `passing`; post-Critic completion metadata verification passed and only final review remains.
 - Production Secret Store/OAuth/egress policy, provider credentials and formal production Eval threshold inputs remain deployment/readiness gaps. They do not block the local `ready-but-not-deployed` decision unless AS-09 finds a required local contract failure.
 - Production deployment still requires explicit provider, Secret/OAuth/egress, monitoring-window and rollout authorization; these are not implied by `ready-but-not-deployed`.

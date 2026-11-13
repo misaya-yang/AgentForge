@@ -12,7 +12,7 @@ The composed Docker source expands the complete selected upstream tree at `94cbb
 
 In:
 
-- `/Users/yang/projects/opensource-harness/codex-harness@94cbbddafc` as a read-only source.
+- `<codex-harness-checkout>@94cbbddafc` as a read-only source.
 - `rust/agent-runtime-overlay/**` and `deploy/agent-runtime-source/{lock.json,source-receipt.json,*sbom*.json}`.
 - Existing Docker-context materialization and identity scripts.
 
@@ -30,7 +30,7 @@ Out:
 
 | Check | Command or observation | Proves |
 | --- | --- | --- |
-| Upstream exists | `git -C /Users/yang/projects/opensource-harness/codex-harness cat-file -e 94cbbddafc1776d5e377bca1b05932c697e82238^{commit}` | The selected source object is locally available. |
+| Upstream exists | `git -C <codex-harness-checkout> cat-file -e 94cbbddafc1776d5e377bca1b05932c697e82238^{commit}` | The selected source object is locally available. |
 | Source identity | `make agent-runtime-source-contract` | Receipt, SBOM, overlay, Cargo lock, and image/source identity agree. |
 
 Use the smallest check that can falsify the outcome. Add runtime, browser, migration, or reviewer evidence only when the outcome requires it.

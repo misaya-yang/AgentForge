@@ -5,7 +5,7 @@
     "mismatches": [],
     "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
     "image_ref": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-knowledge-service",
@@ -13,7 +13,7 @@
     "mismatches": [],
     "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
     "image_ref": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-knowledge-worker-1",
@@ -21,7 +21,7 @@
     "mismatches": [],
     "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
     "image_ref": "ai-gateway-knowledge-local-f3c50c535bf1:2.0.0",
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-agent-runtime",
@@ -29,7 +29,7 @@
     "image_ref": "ai-gateway-agent-runtime:local-94cbbddafc17-80992c9505b0",
     "state": "running",
     "exit_code": 0,
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-agent-capability-worker-1",
@@ -37,7 +37,7 @@
     "image_ref": "ai-gateway-agent-capability-worker:local-94cbbddafc17-80992c9505b0",
     "state": "running",
     "exit_code": 0,
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-migrate",
@@ -45,7 +45,7 @@
     "image_ref": "ai-gateway-migrate-local-c87697503830:2.0.0",
     "state": "exited",
     "exit_code": 0,
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-frontend",
@@ -53,7 +53,7 @@
     "image_ref": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
     "state": "running",
     "exit_code": 0,
-    "compose_owner": "/Users/yang/projects/AI--Platfform"
+    "compose_owner": "<repo-root>"
   },
   {
     "container": "ai-gateway-frontend",

@@ -18,7 +18,7 @@
 - Phase 变更文件 Ruff、Web type-check、lint、build、bundle budgets、Harness 均通过。
   用户指定的全目录 Ruff 命令仍会命中大量与该分支无关的仓库既有债务，因此不被
   误报为本批次回归。
-- Compose ownership 确认为 `/Users/yang/projects/AI--Platfform`；执行
+- Compose ownership 确认为 `<repo-root>`；执行
   `make hot-update ARGS="--all"`、`make validate`、`make status` 后，PostgreSQL、
   Redis、Qdrant、Knowledge API/worker、Assistant、Docgen、Gateway、metrics、Frontend
   全部 Healthy。配置仅保留“本地 bootstrap 默认密码在共享部署前需轮换”的既有警告。
@@ -35,8 +35,8 @@
   root 未连接该可选后端；Docker 实际仍以进程内租约为主。分布式原子 Lua/续租属于
   后续组合工作，不能用本轮健康检查冒充完成。
 
-- **审查对象**: `/Users/yang/projects/AI--Platfform-sota-opt` (分支: `feat/phase1-runtime-resilience`)
-- **基准架构标准**: `/Users/yang/projects/AI--Platfform/reports/2026_agent_architecture_and_product_audit_report.md` (2026 SOTA Agent 架构基准)
+- **审查对象**: `<repo-root>-sota-opt` (分支: `feat/phase1-runtime-resilience`)
+- **基准架构标准**: `<repo-root>/reports/2026_agent_architecture_and_product_audit_report.md` (2026 SOTA Agent 架构基准)
 - **审查编排体系**: Multi-Agent 5路并行专家审查组 (Module 1 弹性专家, Module 2/3 并发存储专家, Module 4/5 安全前端专家, 2026 架构合规审计师, 构建测试验证员)
 - **审查日期**: 2026-08-20
 - **总评得分**: **84.8 / 100** (加权综合得分)
@@ -70,7 +70,7 @@
 | **功能完备度与代码真实性** | **94 / 100** | ✅ 无阻断 | 100% 真实算法实现，无 Facade 假实现，无硬编码测试绕过。完整实现 Kahn 拓扑排序、26 类错误分类器、Redis ZSet 优先队列、PostgreSQL JSONB 原子追加。 |
 | **单测验证与全量回归** | **100 / 100** | ✅ 无阻断 | 27 个 Phase 1-3 单元测试 100% 通过（0.41s）；全量 171 个单元测试无回归（4.79s）。 |
 | **Python 代码规范与类型安全** | **100 / 100** | ✅ 无阻断 | `ruff check` 在所有 Phase 1-3 修改与新增 Python 文件上 0 错误、0 警告。 |
-| **主仓库物理隔离度** | **100 / 100** | ✅ 无阻断 | 主仓库 `/Users/yang/projects/AI--Platfform` 保持绝对纯净，零污染。 |
+| **主仓库物理隔离度** | **100 / 100** | ✅ 无阻断 | 主仓库 `<repo-root>` 保持绝对纯净，零污染。 |
 | **AST 安全沙箱防护深度** | **78 / 100** | ⚠️ 需加固 | `ast_guard.py` 的局部黑名单机制存在 7 处绕过途径（`from os import system`、`importlib`、Dunder 反射等），需在合入前扩展属性拦截与白名单机制。 |
 | **前端代码规范与交互状态** | **72 / 100** | ❌ **阻断点** | `DualModeCanvasWorkbench.tsx` 存在 6 处 ESLint 未使用变量致命错误导致 `pnpm -C web lint` 失败，且存在受控/非受控状态冲突导致的 Tab 切换锁死 Bug。必须应用提供的热修复补丁。 |
 
@@ -214,7 +214,7 @@
 
 ## 3. 2026 SOTA 架构演进与路线图对齐审计 (Roadmap Alignment & SOTA Audit)
 
-本审计对标 `/Users/yang/projects/AI--Platfform/reports/2026_agent_architecture_and_product_audit_report.md` 中的 2026 SOTA Agent 核心架构指标：
+本审计对标 `<repo-root>/reports/2026_agent_architecture_and_product_audit_report.md` 中的 2026 SOTA Agent 核心架构指标：
 
 ```
 +---------------------------------------------------------------------------------------------------------+
@@ -297,7 +297,7 @@ uv run --all-packages --extra test pytest -v --no-cov \
   - `pnpm -C web build` $\rightarrow$ **Built in 992ms (构建成功，无超大路由警告)**。
 
 ### 4.3 仓库物理隔离验证
-- 主仓库 `/Users/yang/projects/AI--Platfform` 执行 `git status` 确认未受任何修改污染，保持 100% 纯净与独立。
+- 主仓库 `<repo-root>` 执行 `git status` 确认未受任何修改污染，保持 100% 纯净与独立。
 
 ---
 

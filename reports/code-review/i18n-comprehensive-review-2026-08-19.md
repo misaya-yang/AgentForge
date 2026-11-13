@@ -486,85 +486,85 @@ Reviewed 1058 lines of en-US.json (confluence through quota sections) against zh
 Reviewed all 560 lines of eval-en-US.json against eval-zh-CN.json. No high-severity defects: all {{placeholders}} match between locales, no Chinese characters/punctuation in English values, no mixed-language leakage. Found 4 medium issues (wrong concept word "bounded" for zh 脱敏预览 "redacted previews"; ungrammatical "Scored in view"; "Failures" losing zh 阻断原因 "blocking reasons"; missing article in the ragas no-evaluator sentence) and 10 low issues (en-US spelling of "Cancelled", dropped "rate"/"type"/"credibility" nuances, the "(s)"/"(es)" plural hack, and trailing-punctuation/capitalization inconsistencies).
 ### 🟠 MEDIUM
 
-- **`description`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:4
+- **`description`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:4
 - 问题: zh 脱敏预览 means "redacted previews", but the en value says "bounded previews" — "bounded" (有界) is a different concept used elsewhere in this file (runtime.schema "bounded runtime evidence"), and the en value also drops zh's 回归沉淀 (regression accumulation) while adding "human scoring" that zh does not mention.
 - 建议: "Review assistant, LangGraph proxy, and RAG traces with redacted previews, human scoring, and regression cases."
 
 ### 🟠 MEDIUM
 
-- **`ragas.summary.scoredTraces`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:335
+- **`ragas.summary.scoredTraces`** · fluency · <repo-root>/web/src/i18n/locales/eval-en-US.json:335
 - 问题: "Scored in view" is a broken noun phrase (zh 当前视图已评分 = "scored in the current view"); a native speaker would write "Scored in this view".
 - 建议: "Scored in this view"
 
 ### 🟠 MEDIUM
 
-- **`comparison.failures`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:286
+- **`comparison.failures`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:286
 - 问题: zh 阻断原因 means "blocking reasons", but the en value is the generic "Failures" (also duplicated from workbench.failures 失败项), losing both the "blocking" and "reasons" nuance of what this section lists.
 - 建议: "Blocking reasons"
 
 ### 🟠 MEDIUM
 
-- **`ragas.noEvaluatorDescription`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:330
+- **`ragas.noEvaluatorDescription`** · fluency · <repo-root>/web/src/i18n/locales/eval-en-US.json:330
 - 问题: "online sampling on trace family rag" reads unnaturally — the definite article and the word "trace" are missing (zh: 开启 trace family 为 rag 的在线采样).
 - 建议: "Create a ragas evaluator with online sampling on the rag trace family to score retrieval automatically."
 
 ### 🟡 LOW
 
-- **`status.cancelled`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:423
+- **`status.cancelled`** · inconsistent · <repo-root>/web/src/i18n/locales/eval-en-US.json:423
 - 问题: The default locale is en-US, where the standard spelling is "Canceled" (single l); "Cancelled" is en-GB.
 - 建议: "Canceled"
 
 ### 🟡 LOW
 
-- **`workbench.executionErrorRate`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:219
+- **`workbench.executionErrorRate`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:219
 - 问题: zh 执行错误率 is "execution error rate", but the en value "Execution errors" drops "rate", reading as a raw count, and is inconsistent with comparison.metrics.execution_error_rate rendered as "Error rate" for the same metric.
 - 建议: "Execution error rate"
 
 ### 🟡 LOW
 
-- **`workbench.trajectoryPass / criticalPass (119) / behaviorPassRate (214)`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:60
+- **`workbench.trajectoryPass / criticalPass (119) / behaviorPassRate (214)`** · inconsistent · <repo-root>/web/src/i18n/locales/eval-en-US.json:60
 - 问题: zh renders these as ...通过率 (pass rate) for all three, but en mixes forms: "Trajectory pass" and "Critical pass" drop "rate" while "Behavior pass" also omits it — all three are percentage metrics and should be parallel.
 - 建议: "Trajectory pass rate" / "Critical pass rate" / "Behavior pass rate"
 
 ### 🟡 LOW
 
-- **`toolChanges, ragChanges (294), batchQueued (360), caseCount (541), batchPlan (542), validationFailed (546), validationPassed (547), importSuccess (555)`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:293
+- **`toolChanges, ragChanges (294), batchQueued (360), caseCount (541), batchPlan (542), validationFailed (546), validationPassed (547), importSuccess (555)`** · fluency · <repo-root>/web/src/i18n/locales/eval-en-US.json:293
 - 问题: The "{{count}} ...(s)" / "(es)" pattern is translation-ese a native writer would not produce; i18next plural keys (_one/_other) are the standard fix, e.g. "1 tool change" vs "3 tool changes".
 - 建议: Use i18next plural suffixes, e.g. "{{count}} tool change" / "{{count}} tool changes"; "Queued {{queued}} traces, skipped {{skipped}}"; "{{count}} cases parsed"
 
 ### 🟡 LOW
 
-- **`comparison.attribution`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:278
+- **`comparison.attribution`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:278
 - 问题: zh 归因可信度 is "attribution credibility/confidence", but en "Attribution" alone reads as attribution mapping and drops the credibility nuance.
 - 建议: "Attribution credibility"
 
 ### 🟡 LOW
 
-- **`behavior.toolMode`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:239
+- **`behavior.toolMode`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:239
 - 问题: zh 预期类型 is "expectation type", but en "Expectation" alone is vague as a field label for the Required/Forbidden mode picker.
 - 建议: "Expectation type"
 
 ### 🟡 LOW
 
-- **`detail.loading`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:429
+- **`detail.loading`** · inconsistent · <repo-root>/web/src/i18n/locales/eval-en-US.json:429
 - 问题: "Loading trace detail" lacks the trailing ellipsis used by its siblings loadingRun "Loading run…" (209) and ragas.loadingDetail "Loading retrieval trace detail…" (320).
 - 建议: "Loading trace detail…"
 
 ### 🟡 LOW
 
-- **`score.form.scoreNameRequired`** · punctuation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:509
+- **`score.form.scoreNameRequired`** · punctuation · <repo-root>/web/src/i18n/locales/eval-en-US.json:509
 - 问题: Validation messages inconsistently end with a period: "Case ID is required." (263) and "A runnable user message is required." (264) have one, but "Score name is required" (509) and "Dataset ID is required for batch scoring" (359) do not.
 - 建议: "Score name is required." (and "Dataset ID is required for batch scoring.")
 
 ### 🟡 LOW
 
-- **`detail.runtime.resumeReady`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:463
+- **`detail.runtime.resumeReady`** · mistranslation · <repo-root>/web/src/i18n/locales/eval-en-US.json:463
 - 问题: zh 可恢复 means "resumable" (a property of the trace), but en "Resume ready" describes a readiness state and sounds like an imperative.
 - 建议: "Resumable"
 
 ### 🟡 LOW
 
-- **`workbench.promoteToGolden / addToReview (78) / createFailureCase (79)`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:77
+- **`workbench.promoteToGolden / addToReview (78) / createFailureCase (79)`** · inconsistent · <repo-root>/web/src/i18n/locales/eval-en-US.json:77
 - 问题: These three action labels use Title Case ("Promote to Golden", "Add to Review", "Create Failure Case") while every sibling action uses sentence case ("Add trace to dataset", "Create dataset", "Queue evaluator"), breaking the label capitalization system.
 - 建议: "Promote to golden" / "Add to review" / "Create failure case" (keep Title Case only if these are rendered as styled buttons and the others are not)
 
@@ -574,91 +574,91 @@ Reviewed all 560 lines of eval-en-US.json against eval-zh-CN.json. No high-sever
 Reviewed all 655 lines of agents-en-US.json against agents-zh-CN.json. No placeholder mismatches, Chinese punctuation, or full-width characters found; the English is mostly fluent. Main issues: (1) the analytics page title drops "governance" that the zh title explicitly carries; (2) a few machine-translation-style phrasings ("No publication is disabled in AS-05", "Read through the explicit Preview credential principal"); (3) dropped nuance in several keys (positiveFeedback missing "rate", noDatasetTitle missing "evaluation", retentionDescription "Durable" vs "immutable"); (4) recurring capitalization/terminology inconsistency for the same concepts (Workspace dataset vs Workspace Dataset, All Versions vs All channels, choices vs selections, versions vs Versions). 5 medium, 10 low findings; none high.
 ### 🟠 MEDIUM
 
-- **`analytics.title`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:526
+- **`analytics.title`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:526
 - 问题: Title reads 'Analytics' but the zh value is '分析与治理' (Analytics and governance), silently dropping a domain the zh title promises even though the subtitle still lists data governance.
 - 建议: Analytics & Governance
 
 ### 🟠 MEDIUM
 
-- **`list.archiveConfirmDescription`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:63
+- **`list.archiveConfirmDescription`** · fluency · <repo-root>/web/src/i18n/locales/agents-en-US.json:63
 - 问题: The second sentence 'No publication is disabled in AS-05.' is a literal passive rendering of 'AS-05 不会停用任何发布' that reads like spec-checklist English in a user-facing confirmation dialog.
 - 建议: The Agent becomes read-only and remains available for audit and rollback. AS-05 does not disable any publication.
 
 ### 🟠 MEDIUM
 
-- **`create.catalogs.connectorReady`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:152
+- **`create.catalogs.connectorReady`** · fluency · <repo-root>/web/src/i18n/locales/agents-en-US.json:152
 - 问题: 'Read through the explicit Preview credential principal' reads as 'peruse the principal' rather than 'access happens via this principal' (zh: 通过明确的预览凭证主体读取); same phrase recurs at line 261.
 - 建议: Reads via the explicit Preview credential principal
 
 ### 🟠 MEDIUM
 
-- **`analytics.positiveFeedback`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:551
+- **`analytics.positiveFeedback`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:551
 - 问题: zh is '正向反馈率' (positive feedback RATE); the en drops 'rate' and is inconsistent with its sibling metric labels (Success rate, Tool success rate, Knowledge hit rate).
 - 建议: Positive feedback rate
 
 ### 🟠 MEDIUM
 
-- **`analytics.operationsDescription`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:596
+- **`analytics.operationsDescription`** · fluency · <repo-root>/web/src/i18n/locales/agents-en-US.json:596
 - 问题: 'Each sensitive operation is audited and preserves immutable release history' grammatically makes the operation the subject that preserves history (zh: 每项敏感操作均写入审计，并保留不可变发布历史).
 - 建议: Each sensitive operation is audited, and immutable release history is preserved.
 
 ### 🟡 LOW
 
-- **`analytics.retentionDescription`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:576
+- **`analytics.retentionDescription`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:576
 - 问题: 'Durable history' renders '不可变历史' (immutable history), a different concept and inconsistent with the product's everywhere-else 'immutable' terminology; the zh '仅' (only) is also dropped.
 - 建议: Immutable history stays intact; these settings control only runtime and derived data.
 
 ### 🟡 LOW
 
-- **`studio.release.noDatasetTitle`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:330
+- **`studio.release.noDatasetTitle`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:330
 - 问题: zh is '尚未配置生产评测 Dataset' (no production EVALUATION dataset configured); the en drops 'evaluation', which matters because this title heads the release-evaluation gate.
 - 建议: No production evaluation dataset is configured
 
 ### 🟡 LOW
 
-- **`list.supportTemplate`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:47
+- **`list.supportTemplate`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:47
 - 问题: 'Support template' drops '分流' from '支持分流模板' (triage), and line 48 'Knowledge template' drops '向导' from '知识向导模板' (guide), so the list labels no longer match the templates' own titles (Support triage / Knowledge guide).
 - 建议: Support triage template (line 48: Knowledge guide template)
 
 ### 🟡 LOW
 
-- **`create.catalogs.workspaceDataset`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:154
+- **`create.catalogs.workspaceDataset`** · inconsistent · <repo-root>/web/src/i18n/locales/agents-en-US.json:154
 - 问题: Same label rendered 'Workspace dataset' here but 'Workspace Dataset' at studio.knowledge.workspaceDataset (line 278); capitalization of the 'Dataset' product concept is inconsistent between the two files.
 - 建议: Workspace Dataset (unify both occurrences)
 
 ### 🟡 LOW
 
-- **`analytics.allVersions`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:535
+- **`analytics.allVersions`** · inconsistent · <repo-root>/web/src/i18n/locales/agents-en-US.json:535
 - 问题: In one filter list, 'All Versions' and 'All Publications' are capitalized while 'All channels' and 'All statuses' (lines 537-538) are lowercase, and 'Version'/'Publication' are elsewhere capitalized as product concepts.
 - 建议: All Versions / All Publications / All Channels / All Statuses
 
 ### 🟡 LOW
 
-- **`public.unavailable`** · mistranslation · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:630
+- **`public.unavailable`** · mistranslation · <repo-root>/web/src/i18n/locales/agents-en-US.json:630
 - 问题: zh '已撤回' means withdrawn/recalled, rendered as the vaguer 'no longer available', which overlaps with 'disabled' and loses the specific meaning.
 - 建议: The publication may be private, disabled, or withdrawn.
 
 ### 🟡 LOW
 
-- **`studio.capabilities.none`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:269
+- **`studio.capabilities.none`** · fluency · <repo-root>/web/src/i18n/locales/agents-en-US.json:269
 - 问题: Status value 'No' (zh: 无) reads unnaturally as a standalone chip label; 'None' is the natural English rendering of 无 in this position.
 - 建议: None
 
 ### 🟡 LOW
 
-- **`studio.channels.description`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:462
+- **`studio.channels.description`** · inconsistent · <repo-root>/web/src/i18n/locales/agents-en-US.json:462
 - 问题: 'Publish immutable versions' lowercases the product concept that is consistently capitalized elsewhere ('Publish immutable Version' line 366, 'Immutable Versions' line 384).
 - 建议: Publish immutable Versions, manage release channels and Runtime API tokens, and roll back to prior versions.
 
 ### 🟡 LOW
 
-- **`create.catalogs.unavailable`** · inconsistent · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:148
+- **`create.catalogs.unavailable`** · inconsistent · <repo-root>/web/src/i18n/locales/agents-en-US.json:148
 - 问题: Same zh '已有选择会保留' rendered as 'Existing choices are preserved' here but 'Existing selections are preserved' at studio.degraded/degradedPlural (lines 439-440).
 - 建议: {{label}} catalog is unavailable. Existing selections are preserved.
 
 ### 🟡 LOW
 
-- **`studio.release.providerFreeTitle`** · fluency · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:333
+- **`studio.release.providerFreeTitle`** · fluency · <repo-root>/web/src/i18n/locales/agents-en-US.json:333
 - 问题: 'Provider-free release profile' (zh: 不调用模型的发布 profile, a profile that makes no model calls) is ambiguous - a native reader may parse 'provider-free' as 'no provider needed' rather than 'does not call a provider/model'.
 - 建议: Model-free release profile (also update providerFreeScope at line 361 to match)
 
@@ -1400,157 +1400,157 @@ Scanned all listed files in full against en-US.json / zh-CN.json / eval-*.json /
 Audited 275 non-test TS/TSX files (2,897 literal t() keys + 45 dynamic-key sites) against 6 locale files (main/eval/agents x en-US/zh-CN) with regex extraction, brace-scoped default-value detection, flattened-locale diffing, and runtime i18next verification (missing key renders raw key; count without plural forms falls back to base string — confirmed against the repo's own i18next). Findings: (1) 0 literal keys render raw — every missing key has a fallback — BUT 227 keys are absent from ALL bundles and show hardcoded English (or Chinese) fallback text in the other locale, concentrated in newly added sections (assistant.quiz 44, knowledge.eval 44, eval.workbench 19, assistant.activity 13, services.* 26, dashboard.trend 8, playground.thinking 5, tasks.ribbon 4); (2) eval namespace is never preloaded for /knowledge routes, so eval.ragas.metrics.* / eval.ragas.labels.* dynamic labels on DatasetDetail.tsx render raw key tokens until /eval is visited once; (3) dead keys: main 846, eval 18, agents 17 (confluence.* 278 looks like a removed feature); (4) 99 count-usages lack _one/_other plural forms -> "1 rows" fluency bugs in en-US (correct for zh); (5) duplicate keys across bundles: CLEAN — main bundle has no eval/agents top-level sections, zero full-path collisions; (6) locale switch: sound — boot awaits initializeI18n() before createRoot.render, queue serializes ops, bundles pre-loaded before changeLanguage, router awaits loadTranslationNamespace before rendering lazy pages; no first-paint race; minor issues: one-shot initialization promise with no retry, namespace marked active before load completes, redundant double-load pass; (7) en/zh key-set parity is perfect (0 drift in all 3 bundles); no malformed keys, no namespace collisions. CAVEAT: several code files (Datasets.tsx, DatasetDetail.tsx, eval/index.tsx, ProviderStatusCard.tsx) were being concurrently edited during the audit (mtimes changed mid-run); key-level conclusions are stable because locale files were untouched, but cited line numbers in those files may drift by a few lines.
 ### 🔴 HIGH
 
-- **`eval.ragas.metrics.* / eval.ragas.labels.*`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/knowledge/DatasetDetail.tsx:1881
+- **`eval.ragas.metrics.* / eval.ragas.labels.*`** · missing-key · <repo-root>/web/src/pages/knowledge/DatasetDetail.tsx:1881
 - 问题: DatasetDetail (loaded via lazyNamed WITHOUT a namespace preload) calls t(`eval.ragas.metrics.${metric}`) and t(`eval.ragas.labels.${label}`) at lines 1881/1898, but the eval namespace is only loaded by the /eval route (router.tsx:58); a user who opens /knowledge/:id before ever visiting /eval sees the raw key token (e.g. 'faithfulness') as the metric label.
 - 建议: Call loadTranslationNamespace('eval') in the knowledge dataset detail page (or move those label keys to the main bundle); e.g. fire-and-forget in a useEffect on DatasetDetail mount.
 
 ### 🔴 HIGH
 
-- **`assistant.quiz.* (44 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/assistant/components/Quiz/QuizCard.tsx:925
+- **`assistant.quiz.* (44 keys)`** · missing-key · <repo-root>/web/src/pages/assistant/components/Quiz/QuizCard.tsx:925
 - 问题: The entire assistant.quiz section (44 keys: questions, startQuiz, kbdSelect/kbdNext/kbdPrev/kbdSubmit, submitErrorGeneric, prev, next, submit, chipAnswering, chipResult, correctOf, wrongDetail, reviewAll/reviewWrong/reviewUnanswered, etc.) is absent from all six locale files, so the whole quiz flow renders hardcoded English defaults in the zh-CN UI.
 - 建议: Add the 44 assistant.quiz.* keys to en-US.json and zh-CN.json (they are all listed in /tmp/rawkeys2.json with their call sites: QuizCard.tsx:322-952, QuizResult.tsx:104-151, QuizIdle.tsx:73-129).
 
 ### 🔴 HIGH
 
-- **`knowledge.eval.* (44 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx:645
+- **`knowledge.eval.* (44 keys)`** · missing-key · <repo-root>/web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx:645
 - 问题: The whole knowledge.eval.* section (44 keys: title, subtitle, hitRate, recall, precision, mrr, ndcg, map, annotate, removeCase, run, pass, fail, metric, presetA/presetB/gateK, ...) is missing from the main bundle, so the eval workbench embedded in DatasetDetail renders hardcoded fallbacks; additionally markRelevant's defaultValue is Chinese ('标记为正确分段：{{segmentId}}'), so en-US users see Chinese text (mixed-language bug).
 - 建议: Add all knowledge.eval.* keys to en-US.json and zh-CN.json (44 keys, call sites in RetrievalEvalWorkbench.tsx) and translate the markRelevant default into en-US when adding it.
 
 ### 🔴 HIGH
 
-- **`eval.workbench.* (19 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/eval/components/ExperimentRunResults.tsx:102
+- **`eval.workbench.* (19 keys)`** · missing-key · <repo-root>/web/src/pages/eval/components/ExperimentRunResults.tsx:102
 - 问题: 19 eval.workbench.* keys are absent from eval-en-US.json/eval-zh-CN.json (runLoadFailed, runEmpty, runResults, scoringCases, waitingEvaluator, resultsLoadFailed, averageScore, scored, needsReview, skipped, searchRunResults, noFailureDetail, openTrace, resultsPending, noMatchingCases, traceVolume, qualityGates, createOrConfigure, gateNeedsRun), so the run-results panel shows English defaults in zh-CN.
 - 建议: Add the 19 keys to both eval locale files (call sites: ExperimentRunResults.tsx:102-246, eval/index.tsx:1125-1803).
 
 ### 🔴 HIGH
 
-- **`assistant.activity.* (13 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/assistant/components/ActivityPanel.tsx:83
+- **`assistant.activity.* (13 keys)`** · missing-key · <repo-root>/web/src/pages/assistant/components/ActivityPanel.tsx:83
 - 问题: 13 assistant.activity.* keys missing from all bundles (approvalRequired, approve, reject, queueState, contextUsedWindow, contextUsed, historyDropped, contextCompactedDropped, contextCompacted, contextState, retrievedContext, retrievedContextBody, generatedArtifact) — the assistant activity/process timeline renders English defaults in zh-CN.
 - 建议: Add the 13 keys to en-US.json and zh-CN.json (call sites: ActivityPanel.tsx:83-282, buildTimeline.ts:341-592).
 
 ### 🔴 HIGH
 
-- **`services.providersStatus.* / services.configDialog.* / services.page.* / services.overview.* (26 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/components/ProviderStatusCard.tsx:783
+- **`services.providersStatus.* / services.configDialog.* / services.page.* / services.overview.* (26 keys)`** · missing-key · <repo-root>/web/src/components/ProviderStatusCard.tsx:783
 - 问题: 26 services.* keys missing from all bundles: providersStatus.modelUnit and col.* headers (ProviderStatusCard.tsx:803-858), configDialog.description/model.failover/maxAttempts/addFallback/noFallbacks/failoverInvalid/failoverReady (ServiceConfigDialog.tsx:852-1282), registerServiceDescription, page.title/subtitle, overview.* — services pages show hardcoded English in zh-CN.
 - 建议: Add the 26 keys to both main locale files (key list and call sites in /tmp/rawkeys2.json).
 
 ### 🟠 MEDIUM
 
-- **`dashboard.trend.* (8) + dashboard.reliability`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/dashboard/components/panels/ServiceHealthPanel.tsx:1
+- **`dashboard.trend.* (8) + dashboard.reliability`** · missing-key · <repo-root>/web/src/pages/dashboard/components/panels/ServiceHealthPanel.tsx:1
 - 问题: dashboard.trend.refreshedAt and 7 more dashboard.trend.* keys plus dashboard.reliability are missing from all bundles; the trend panel and reliability stats show hardcoded English/zh-ternary fallbacks in the other locale.
 - 建议: Add dashboard.trend.* and dashboard.reliability keys to en-US.json and zh-CN.json (call sites ProviderStatusCard.tsx:783, ServiceHealthPanel.tsx).
 
 ### 🟠 MEDIUM
 
-- **`playground.thinking.* (5) + playground.stats/activity/hideHistory/showHistory`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/components/ThinkingIndicator.tsx:43
+- **`playground.thinking.* (5) + playground.stats/activity/hideHistory/showHistory`** · missing-key · <repo-root>/web/src/components/ThinkingIndicator.tsx:43
 - 问题: playground.thinking.analyzing/thinking/searching/planning/preparing (ThinkingIndicator.tsx:43-72), playground.stats.ttft, playground.activity.* and playground.hideHistory/showHistory are missing from all bundles — thinking indicator and playground labels show English defaults in zh-CN.
 - 建议: Add these playground.* keys to both main locale files.
 
 ### 🟠 MEDIUM
 
-- **`tasks.ribbon.* (4), llm.provider/model (5), knowledge.* (8), users.* (3), common.* (5)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/UserManagement.tsx:456
+- **`tasks.ribbon.* (4), llm.provider/model (5), knowledge.* (8), users.* (3), common.* (5)`** · missing-key · <repo-root>/web/src/pages/UserManagement.tsx:456
 - 问题: Remaining scattered missing keys: tasks.ribbon.concurrency/cron/dispatcher/queue (4), llm.provider.template/guidedMode/advancedMode + llm.model.catalogMismatch/enableAdvancedOverride, knowledge.detail.*/datasets.*/create.* (8 incl. knowledge.datasets.loadFailed at Datasets.tsx:824), users.actions.batchDelete + users.pagination.perPage, common.loadFailed/remove/debug/approve/review — all with hardcoded fallbacks, untranslated in the other locale.
 - 建议: Add all remaining 40+ keys from /tmp/rawkeys2.json to en-US.json and zh-CN.json.
 
 ### 🟠 MEDIUM
 
-- **`assistant.* misc (~35 keys)`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/components/ConversationSidebar.tsx:79
+- **`assistant.* misc (~35 keys)`** · missing-key · <repo-root>/web/src/components/ConversationSidebar.tsx:79
 - 问题: ~35 scattered assistant.* keys missing (artifacts/artifactsEmpty/artifactsEmptySubtitle/artifactsEmptyHint/noCode/noOutput in ArtifactsPanel.tsx, moveToFolder/folderHint/folderPlaceholder/rename/more/removeFromFolder/delete/projects in ConversationSidebar.tsx, share/shareConversation/shareLinkReady/messages/includeArtifacts/shareNote/creating/createShareLink/linkCopied/shareCreated/shareFailed in ShareDialog.tsx, thinkingLevel/thinkingOff/thinkingLow/thinkingMedium/thinkingHigh/thinkingInProgress/thoughtFor/thoughtProcess, mcpTools, connectors, citationsTitle, subagents, localFiles*), all rendering English defaults in zh-CN.
 - 建议: Add all remaining assistant.* keys from /tmp/rawkeys2.json to both main locale files.
 
 ### 🟠 MEDIUM
 
-- **`confluence.* (278), knowledge.* (173), tasks.* (115), assistant.* (72), dashboard.* (38), playground.* (27), quota.* (25), analytics.* (23), metrics.* (22), common.* (20)`** · dead-key · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/en-US.json:1
+- **`confluence.* (278), knowledge.* (173), tasks.* (115), assistant.* (72), dashboard.* (38), playground.* (27), quota.* (25), analytics.* (23), metrics.* (22), common.* (20)`** · dead-key · <repo-root>/web/src/i18n/locales/en-US.json:1
 - 问题: 846 of 2,718 main-bundle keys are never referenced by any code (checked including dynamic prefixes, nameKey/labelKey/titleKey/subtitleKey fields, plural bases): confluence.* 278 (looks like a removed feature), knowledge.* 173 (e.g. knowledge.datasets.typeAudioVideo, knowledge.create.embeddingBgeM3), tasks.* 115 (e.g. tasks.status.completed, tasks.tabs.confluence), assistant.* 72, dashboard.* 38, playground.* 27, quota.* 25, analytics.* 23, metrics.* 22, common.* 20 (incl. the entire common.time.* relative-time set: justNow/minutesAgo/hoursAgo/daysAgo/... — no formatRelativeTime helper exists).
 - 建议: Prune or archive the 846 dead keys (largest first: confluence.*, knowledge.*, tasks.*); keep common.time.* only if a relative-time formatter is planned.
 
 ### 🟠 MEDIUM
 
-- **`workbench.datasets, workbench.experiments, workbench.datasetsDescription, workbench.experimentsDescription, workbench.currentExperiment, workbench.target, workbench.runExperiment, workbench.listedExperiments, workbench.latestRun, workbench.comparison, workbench.thread.selected, summary.* (6), ragas.evaluatorRubric, score.title`** · dead-key · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/eval-en-US.json:1
+- **`workbench.datasets, workbench.experiments, workbench.datasetsDescription, workbench.experimentsDescription, workbench.currentExperiment, workbench.target, workbench.runExperiment, workbench.listedExperiments, workbench.latestRun, workbench.comparison, workbench.thread.selected, summary.* (6), ragas.evaluatorRubric, score.title`** · dead-key · <repo-root>/web/src/i18n/locales/eval-en-US.json:1
 - 问题: 18 eval-bundle keys are never referenced in code (workbench 11, summary 6, ragas 1, score 1) — left over from earlier UI revisions; note eval.title and eval.description top-level keys are also unused.
 - 建议: Delete the 18 unused eval keys after confirming the new workbench UI doesn't need them (summary.* look like an abandoned trace-summary strip).
 
 ### 🟠 MEDIUM
 
-- **`studio.validation.modelRequired, studio.overview.notSet, studio.model.required/supported/unsupported, studio.eval.readiness/ready/boundary, studio.release.evalComplete, studio.degraded, studio.degradedPlural, studio.validationSummaryOne/Other, list.countOne/countOther, preview.citationOne/citationOther`** · dead-key · /Users/yang/projects/AI--Platfform/web/src/i18n/locales/agents-en-US.json:1
+- **`studio.validation.modelRequired, studio.overview.notSet, studio.model.required/supported/unsupported, studio.eval.readiness/ready/boundary, studio.release.evalComplete, studio.degraded, studio.degradedPlural, studio.validationSummaryOne/Other, list.countOne/countOther, preview.citationOne/citationOther`** · dead-key · <repo-root>/web/src/i18n/locales/agents-en-US.json:1
 - 问题: 17 agents-bundle keys are never referenced (studio 13, list 2, preview 2) — including orphaned plural pairs list.countOne/countOther, preview.citationOne/citationOther and studio.degraded/degradedPlural whose singular is unused.
 - 建议: Delete the 17 unused agents keys, or wire them up if the referenced UI (validation summary, degraded states) was intended.
 
 ### 🟠 MEDIUM
 
-- **`common.rows, knowledge.detail.characters, dashboard.refresh.seconds/minutes, eval.detail.bytes, users.pagination.perPage, agents.create.characterCount, ... (99 call sites)`** · fluency · /Users/yang/projects/AI--Platfform/web/src/components/agent/TaskResultCard.tsx:525
+- **`common.rows, knowledge.detail.characters, dashboard.refresh.seconds/minutes, eval.detail.bytes, users.pagination.perPage, agents.create.characterCount, ... (99 call sites)`** · fluency · <repo-root>/web/src/components/agent/TaskResultCard.tsx:525
 - 问题: 99 t(key, { count }) call sites pass count where the locale defines only a base string with no _one/_other (or nested one/other) plural forms — verified at runtime that i18next falls back to the base string, so en-US renders '1 rows', '1 characters', '1 segments', '1 docs' etc. (zh-CN is unaffected; Chinese has no plural rules).
 - 建议: Add _one/_other variants for en-US (e.g. common.rows_one '{{count}} row' / common.rows_other '{{count}} rows') for the 99 call sites listed in the audit output (biggest clusters: knowledge.detail.* ~40, eval.* ~30, dashboard.* ~10, agents.* ~8).
 
 ### 🟠 MEDIUM
 
-- **`agents.analytics.confirm.${kind}Title/Description/Action, agents.analytics.deletion.${status}, eval.comparison.metrics.${metric.key}, agents.studio.memory.${mode}, settings.connectors.${MODE_LABELS[mode]}, nav.group.${row.group}`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/pages/agents/AgentAnalyticsPage.tsx:240
+- **`agents.analytics.confirm.${kind}Title/Description/Action, agents.analytics.deletion.${status}, eval.comparison.metrics.${metric.key}, agents.studio.memory.${mode}, settings.connectors.${MODE_LABELS[mode]}, nav.group.${row.group}`** · locale-switch-bug · <repo-root>/web/src/pages/agents/AgentAnalyticsPage.tsx:240
 - 问题: These template-literal keys have NO fallback argument, so any enum value not present in the locale renders the raw key: confirm.* (kinds come from delete-confirmation flows), deletion.* (backend result.status), comparison.metrics.* (metric.key from experiment config), studio.memory.*, settings.connectors.* and nav.group.* — coverage was verified present today, but any new backend/dataset value silently renders a raw key.
 - 建议: Add a fallback (t(`...${x}`, x)) or a map lookup with default for these six dynamic families; document the allowed enum values.
 
 ### 🟠 MEDIUM
 
-- **`initialization promise (module-level)`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/i18n/index.ts:70
+- **`initialization promise (module-level)`** · locale-switch-bug · <repo-root>/web/src/i18n/index.ts:70
 - 问题: The module-level `initialization` promise (line 13/71) is never reset: if the initial dynamic import of a locale JSON fails (network hiccup), every future initializeI18n() call returns the same rejected promise, bootstrap never renders, and recovery requires a manual reload (the boot watchdog only offers a reload button after 15s).
 - 建议: Cache only successful inits: `initialization = init().catch(err => { initialization = undefined; throw err; })`.
 
 ### 🟠 MEDIUM
 
-- **`knowledge.eval.markRelevant`** · mixed-language · /Users/yang/projects/AI--Platfform/web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx:645
+- **`knowledge.eval.markRelevant`** · mixed-language · <repo-root>/web/src/pages/knowledge/detail/RetrievalEvalWorkbench.tsx:645
 - 问题: The defaultValue for knowledge.eval.markRelevant is hardcoded Chinese ('标记为正确分段：{{segmentId}}'), so en-US users see Chinese text for this aria-label/UI string (verified inline at line 645; other knowledge.eval.* defaults are English, so the section is mixed-language).
 - 建议: Once knowledge.eval.* keys are added to the bundles, remove the defaultValue entirely; meanwhile localize it by locale like the ProviderStatusCard pattern or use a language-conditional default.
 
 ### 🟡 LOW
 
-- **`eval.status.${status}, eval.ragas.metrics.${metric}, eval.ragas.labels.${label}, eval.score.types.${type}, models.providers.${providerName}, dashboard.userQuota.strategy_labels.${strategy}`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/pages/eval/components/AssistantTraceList.tsx:115
+- **`eval.status.${status}, eval.ragas.metrics.${metric}, eval.ragas.labels.${label}, eval.score.types.${type}, models.providers.${providerName}, dashboard.userQuota.strategy_labels.${strategy}`** · locale-switch-bug · <repo-root>/web/src/pages/eval/components/AssistantTraceList.tsx:115
 - 问题: These template-literal keys pass the raw enum value as the fallback (t(`eval.status.${status}`, status)), so unknown values render the code-level token (e.g. a new trace status from a newer backend shows 'eval.status.new_status' — actually shows the token itself) instead of a human label; also the fallback is locale-invariant English.
 - 建议: Use a fixed fallback string (e.g. t(`eval.status.${s}`, s === 'succeeded' ? 'Succeeded' : s)) or a dedicated label map so unknown values degrade gracefully.
 
 ### 🟡 LOW
 
-- **`playground.beat.${cat}`** · fluency · /Users/yang/projects/AI--Platfform/web/src/components/chat/WorkflowBeat.tsx:85
+- **`playground.beat.${cat}`** · fluency · <repo-root>/web/src/components/chat/WorkflowBeat.tsx:85
 - 问题: t(`playground.beat.${cat}`, { count }) passes count to keys that have no _one/_other plural forms, so beat labels can't pluralize in en-US ('1 step(s)' style), and a new beat category renders a raw key.
 - 建议: Add _one/_other forms for the five playground.beat.* keys and keep the category list in sync with the locale keys.
 
 ### 🟡 LOW
 
-- **`activeDeferredNamespaces`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/i18n/index.ts:107
+- **`activeDeferredNamespaces`** · locale-switch-bug · <repo-root>/web/src/i18n/index.ts:107
 - 问题: loadTranslationNamespace adds the namespace to activeDeferredNamespaces before the bundle import completes; if ensureDeferredLocale rejects, the failed namespace stays active and every subsequent changeAppLanguage re-attempts the failing import (and the lazy page chunk's Promise.all rejects, hitting the error boundary).
 - 建议: Move activeDeferredNamespaces.add(namespace) after a successful load, or remove it in a catch.
 
 ### 🟡 LOW
 
-- **`changeAppLanguage second load pass`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/i18n/index.ts:128
+- **`changeAppLanguage second load pass`** · locale-switch-bug · <repo-root>/web/src/i18n/index.ts:128
 - 问题: The second Promise.all after i18n.changeLanguage (lines 128-134) re-ensures the same locale's bundles — in practice a no-op because loadedBundles already contains both, and the earlier ensure call ran before changeLanguage; harmless but misleading dead code.
 - 建议: Drop the second pass, or keep only a resolveAppLocale re-check comment documenting why it exists.
 
 ### 🟡 LOW
 
-- **`i18n.language.startsWith('zh') ? '...' : '...' ternaries`** · hardcoded-string · /Users/yang/projects/AI--Platfform/web/src/components/ProviderStatusCard.tsx:783
+- **`i18n.language.startsWith('zh') ? '...' : '...' ternaries`** · hardcoded-string · <repo-root>/web/src/components/ProviderStatusCard.tsx:783
 - 问题: ProviderStatusCard.tsx:783-858 (10+ spots) bypasses the locale system with inline bilingual ternaries (e.g. t('services.providersStatus.modelUnit', i18n.language.startsWith('zh') ? '个模型' : 'models')) — the locale files can never translate these strings, and the zh/en split is duplicated in code.
 - 建议: Add the keys to the locale files (they are already in the missing set) and call plain t(key) without ternary fallbacks.
 
 ### 🟡 LOW
 
-- **`interpolation.escapeValue: false`** · other · /Users/yang/projects/AI--Platfform/web/src/i18n/index.ts:95
+- **`interpolation.escapeValue: false`** · other · <repo-root>/web/src/i18n/index.ts:95
 - 问题: escapeValue is disabled globally, so interpolated values are inserted unescaped; safe today because all t() output flows through React JSX (which escapes) and the only dangerouslySetInnerHTML (DocumentPreview.tsx:256) sanitizes with DOMPurify, but any future t() output into antd message/notification or document.title sinks would inject raw HTML.
 - 建议: Keep escapeValue default true and escape only where React JSX already handles it, or add a lint rule banning t() output into non-JSX sinks.
 
 ### 🟡 LOW
 
-- **`knowledge.chunkModeLabels.<mode> (doc placeholders)`** · placeholder-mismatch · /Users/yang/projects/AI--Platfform/web/src/types/knowledge.ts:567
+- **`knowledge.chunkModeLabels.<mode> (doc placeholders)`** · placeholder-mismatch · <repo-root>/web/src/types/knowledge.ts:567
 - 问题: The deprecated helpers getChunkingModeLabel/getChunkingModeDescription/getRetrievalModeLabel carry t('knowledge.chunkModeLabels.<mode>') in comments and @deprecated tags — the '<mode>' literal is not a real key; if anyone revives these helpers they will render the raw literal.
 - 建议: Update the comments to the concrete keys (e.g. knowledge.detail.chunkModeLabels.${mode}) or remove the deprecated helpers.
 
 ### 🟡 LOW
 
-- **`t(lang.nameKey, lang.nativeName)`** · locale-switch-bug · /Users/yang/projects/AI--Platfform/web/src/layouts/AppLayout.tsx:167
+- **`t(lang.nameKey, lang.nativeName)`** · locale-switch-bug · <repo-root>/web/src/layouts/AppLayout.tsx:167
 - 问题: The language-menu label uses the dynamic key t(lang.nameKey) with a nativeName fallback — this works only because i18n/index.ts's languages array literals (language.zhCN/enUS) happen to exist in the bundle; the dynamic lookup is invisible to static checks and would silently regress if the array or bundle drift.
 - 建议: Keep as-is but add the two language.* keys to the static allowlist used by the key-audit script (already covered in this audit).
 
 ### 🟡 LOW
 
-- **`knowledge.datasets.loadFailed / loadFailedDesc`** · missing-key · /Users/yang/projects/AI--Platfform/web/src/pages/knowledge/Datasets.tsx:824
+- **`knowledge.datasets.loadFailed / loadFailedDesc`** · missing-key · <repo-root>/web/src/pages/knowledge/Datasets.tsx:824
 - 问题: knowledge.datasets.loadFailed/loadFailedDesc are absent from all bundles and rely on inline English defaults ('Couldn't load knowledge bases'), untranslated for zh-CN (this file was concurrently edited during the audit, so line numbers may drift).
 - 建议: Add both keys to en-US.json and zh-CN.json (call sites around Datasets.tsx:824-827).
 

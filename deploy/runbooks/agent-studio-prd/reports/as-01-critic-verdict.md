@@ -77,7 +77,7 @@ Supplemental evidence:
   expected content-difference status for comparison against `/dev/null`.
 - After Compose ownership was checked, every running `ai-gateway-*` dependency
   inspected was labeled with
-  `com.docker.compose.project.working_dir=/Users/yang/projects/AI--Platfform`.
+  `com.docker.compose.project.working_dir=<repo-root>`.
 - The running stack was healthy and consumed about 720 MiB in the final sample,
   comfortably below the 3.5 GiB ceiling. No container, image, or volume was
   mutated.

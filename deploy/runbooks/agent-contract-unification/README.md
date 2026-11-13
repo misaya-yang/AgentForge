@@ -1,7 +1,7 @@
 # Agent Contract Unification
 
 - Owner: AI--Platfform
-- Repository: `/Users/yang/projects/AI--Platfform`
+- Repository: `<repo-root>`
 - Target architecture: [`docs/harness/platform-architecture.md`](../../../docs/harness/platform-architecture.md)
 
 ## Goal

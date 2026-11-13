@@ -1917,18 +1917,18 @@
   ],
   "ownership_check": {
     "checked_container": "ai-gateway-backend",
-    "expected_root": "/Users/yang/projects/AI--Platfform",
+    "expected_root": "<repo-root>",
     "label": "com.docker.compose.project.working_dir",
     "observed": {
-      "ai-gateway-agent-capability-worker": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-agent-runtime": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-backend": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-frontend": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-knowledge-service": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-knowledge-worker": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-pg": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-qdrant": "/Users/yang/projects/AI--Platfform",
-      "ai-gateway-redis": "/Users/yang/projects/AI--Platfform"
+      "ai-gateway-agent-capability-worker": "<repo-root>",
+      "ai-gateway-agent-runtime": "<repo-root>",
+      "ai-gateway-backend": "<repo-root>",
+      "ai-gateway-frontend": "<repo-root>",
+      "ai-gateway-knowledge-service": "<repo-root>",
+      "ai-gateway-knowledge-worker": "<repo-root>",
+      "ai-gateway-pg": "<repo-root>",
+      "ai-gateway-qdrant": "<repo-root>",
+      "ai-gateway-redis": "<repo-root>"
     },
     "ownership_ok": true
   },

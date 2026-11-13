@@ -2,7 +2,7 @@
 
 - Owner: Product/engineering
 - Initial base: `1713b3b4c1f222ff23c62ac144da91f5f002bb81`; synchronized to upgrade SHA `f6390bca`
-- Worktree: `/Users/yang/projects/AI--Platfform-cli-runtime-client-2026-08-30`
+- Worktree: `<repo-root>-cli-runtime-client-2026-08-30`
 - Upstream source: `codex-harness@94cbbddafc1776d5e377bca1b05932c697e82238`
 
 ## Goal
@@ -25,7 +25,7 @@ Deliver an independent local Agent Runtime CLI with CLI-owned provider profiles,
 - Safe local reads, CLI-owned edits, and non-destructive offline checks may proceed.
 - Native Rust builds run only in the repository's Docker/hosted-CI paths.
 - Docker/provider operations are serialized by the integration owner. The
-  current running Compose project belongs to `/Users/yang/projects/AI--Platfform`.
+  current running Compose project belongs to `<repo-root>`.
 - Provider secret values may be read only at live execution time and must never
   be printed, stored, committed, or included in evidence.
 

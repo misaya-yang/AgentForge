@@ -3,7 +3,7 @@
 **文档状态：** Ready for PPR-00 only；后续实现由 PPR-02 的已批准 ADR 解锁
 **规划版本：** V1
 **基线日期：** 2026-08-26
-**目标仓库：** `/Users/yang/projects/AI--Platfform`
+**目标仓库：** `<repo-root>`
 **程序代号：** PPR（Platform Plane Restructure）
 **分析依据：** [`docs/plans/rust-expansion-and-service-topology-2026-08.md`](../../../docs/plans/rust-expansion-and-service-topology-2026-08.md)
 

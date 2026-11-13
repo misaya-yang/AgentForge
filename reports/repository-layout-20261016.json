@@ -1,7 +1,7 @@
 {
   "schema": "agentforge/repository-layout-checkpoint/v1",
   "captured_at": "2026-10-16T07:20:40.517Z",
-  "git_root": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild",
+  "git_root": "<repo-root>",
   "pre_checkpoint_head": "ed6ea2e3917bb30ace43f3b2f19846670d36c169",
   "relocation_preserved_files": 4666,
   "python_recovery_material_deleted": true,
@@ -47,27 +47,27 @@
   ],
   "logs": {
     "native_check": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-native-check.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-native-check.log",
       "sha256": "8765394e2bec2e108d6e02f20f649fedf9fb6bdaa5aa89be7169ab6a7d72d461"
     },
     "harness_check": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-harness-check.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-harness-check.log",
       "sha256": "c0583ac183288b3a82e6f7ff502047399f6a9faa5c209294510b784666a62e73"
     },
     "deployment_and_topology_tests": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-tools-tests.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-tools-tests.log",
       "sha256": "db3ea7ffe495e86977b55b4d753f6ad00bca23303c553cfaf79fe69f12c441aa"
     },
     "overlay_refresh": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-overlay-refresh.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-overlay-refresh.log",
       "sha256": "ede656ccd9f5f02c8ea2c9fb8861076dfe9b848d737d770d97cb6723fd6a7c89"
     },
     "release_compose_render": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-release-development-render.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-release-development-render.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "local_compose_render": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/repository-layout-existing-local-render.log",
+      "path": "<local-cache>/agentforge/runtime-work/repository-layout-existing-local-render.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   },

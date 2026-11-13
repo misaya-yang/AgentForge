@@ -33,7 +33,7 @@ discarded:
 ## Runtime identity and ownership
 
 - All active `ai-gateway-*` Compose containers are owned by
-  `/Users/yang/projects/AI--Platfform`; the deleted `.claude/worktrees/kb-rag-upgrade` checkout is
+  `<repo-root>`; the deleted `.claude/worktrees/kb-rag-upgrade` checkout is
   no longer the runtime owner.
 - Runtime image:
   `ai-gateway-agent-runtime:local-93c54bca3899-c489b7e4d147`,

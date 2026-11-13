@@ -30,7 +30,7 @@
     "schema_downgrade_allowed": false
   },
   "running_stack_observed_at_capture": {
-    "compose_project_working_dir": "/Users/yang/projects/AI--Platfform",
+    "compose_project_working_dir": "<repo-root>",
     "caveat": "Image IDs below are what the user's local stack ran at capture time; they are provenance of the observed baseline, not the program-start build. A rollback to exact program-start artifacts rebuilds from git_commit above.",
     "containers": [
       { "service": "gateway", "reference": "ghcr.io/misaya-yang/ai-gateway:2.0.0", "image_id": "sha256:182915465264a181972ab3662ce442339cb2676ea6507258d1b5c7d1d1117635" },

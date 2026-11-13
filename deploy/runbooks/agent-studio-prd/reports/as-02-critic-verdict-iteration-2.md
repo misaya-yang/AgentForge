@@ -268,7 +268,7 @@ This Critic changed only
 ## Runtime Restore and Rollback Assessment
 
 Before mutation, the repository Compose runtime was 8/8 healthy, all running
-containers were owned by `/Users/yang/projects/AI--Platfform`, Gateway and
+containers were owned by `<repo-root>`, Gateway and
 Assistant were `stub=false`, reviewed provider inputs were absent, and sampled
 stack memory was approximately 714 MiB.
 
@@ -286,7 +286,7 @@ were restarted. Final verification showed:
 
 - all eight services running and healthy;
 - every running service owner label equals
-  `/Users/yang/projects/AI--Platfform`;
+  `<repo-root>`;
 - Gateway and Assistant `stub=false`;
 - reviewed provider API-key inputs absent;
 - valid Assistant CORS JSON;

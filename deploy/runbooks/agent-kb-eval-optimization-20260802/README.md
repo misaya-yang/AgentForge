@@ -77,9 +77,9 @@ Both paths
 
 | 上游 | 本地路径 | 只吸收 | 明确不吸收 |
 | --- | --- | --- | --- |
-| Grok Build | `/Users/yang/projects/grok-build` | tool progress/terminal 配对、dangling tool repair、取消与并发回收、catalog search、`deny > ask > allow` shell policy、边界安全 compaction | Rust actor/session host、computer hub、JSON-RPC runtime 与多套 compaction engine |
-| OpenClaw | `/Users/yang/projects/open claw/openclaw` | memory plugin boundary、source-of-truth 与派生索引分离、分层 tool policy、default-deny exec approval、tool-result repair | channel/plugin/qmd/subagent registry 整个平台和永久后台代理状态机 |
-| Hermes Agent | `/Users/yang/projects/Hermes_agent` | capability toolsets、prompt-cache stable prefix、compression lock/anti-thrashing、completed-turn memory sync、并发 approval queue、显式 fan-out/depth/budget | ThreadPool 子代理循环、cron/Kanban/curator/provider 周边和无 durable resume 的路径 |
+| Grok Build | `<local-home>/projects/grok-build` | tool progress/terminal 配对、dangling tool repair、取消与并发回收、catalog search、`deny > ask > allow` shell policy、边界安全 compaction | Rust actor/session host、computer hub、JSON-RPC runtime 与多套 compaction engine |
+| OpenClaw | `<openclaw-checkout>/openclaw` | memory plugin boundary、source-of-truth 与派生索引分离、分层 tool policy、default-deny exec approval、tool-result repair | channel/plugin/qmd/subagent registry 整个平台和永久后台代理状态机 |
+| Hermes Agent | `<hermes-agent-checkout>` | capability toolsets、prompt-cache stable prefix、compression lock/anti-thrashing、completed-turn memory sync、并发 approval queue、显式 fan-out/depth/budget | ThreadPool 子代理循环、cron/Kanban/curator/provider 周边和无 durable resume 的路径 |
 
 对应决策不是继续复制代码，而是把上述能力压成当前 `TurnKernel`、`ToolInvoker`、`ContextPacket`、`MemoryPort` 和 `RunBudget` 的合同测试。多代理也必须复用主 kernel；现有 `subagent_manager.py` 的第二套模型循环在 replay 对齐后退出。
 

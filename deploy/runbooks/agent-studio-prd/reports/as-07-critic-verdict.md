@@ -26,7 +26,7 @@
 
 Independent total: `40 passed`, `0 failed`, `0 skipped`, plus the passing config-only shell gate. Pytest emitted only the existing Starlette `httpx` deprecation warning. Playwright emitted only the declared Node 24 versus requested Node 22 engine warning. The four durable browser screenshot SHA-256 values were identical before and after the 8-case run.
 
-Before live PostgreSQL validation, the Critic confirmed that every running `ai-gateway-*` container is healthy and has `com.docker.compose.project.working_dir=/Users/yang/projects/AI--Platfform`. Gateway readiness also returned ready.
+Before live PostgreSQL validation, the Critic confirmed that every running `ai-gateway-*` container is healthy and has `com.docker.compose.project.working_dir=<repo-root>`. Gateway readiness also returned ready.
 
 ## Iteration-1 Finding Re-evaluation
 

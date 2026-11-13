@@ -528,67 +528,67 @@
   ],
   "evidence": [
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-test.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-test.stdout",
       "sha256": "d8dc17fbb438476b3a7128f6b427a5d27a72c45db18d93244c329ab3bb0f562c"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-test.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-test.stdout",
       "sha256": "f46ebfe89783812086589195310a29c1bf3ee3056243296c78573b35fda50f24"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-list.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/worker-list.stdout",
       "sha256": "978ddc2e9f408da7ada52d6909d82a2bd6fa7366247843db81becfc170950dce"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-list.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/runtime-list.stdout",
       "sha256": "68b22d3e7a4feddf84bb1d95eabc24a90e61d12998fdf7e7c74964115165d505"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/resolved-metadata.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/historical/full-tests/resolved-metadata.json",
       "sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/evidence/codex-ce032-full-tests-r3.log",
+      "path": "<local-cache>/agentforge-upgrade/evidence/codex-ce032-full-tests-r3.log",
       "sha256": "464e7abd7ef7391a8164b0dedba12d779caa82355210d1d9a4955ed16733a6a1"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.json",
       "sha256": "757bc3edd4f189d40a33bb6a900f70eab42f6cb6811a2ceeb6ef5f2b8ed5e561"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/worker-lib-tests.stdout",
       "sha256": "4874341839bd1056468ecd15da448c43e86ffaaf62c4710e87185b970c24868b"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.json",
       "sha256": "1da652f58e533fb057170272d7fb2d01fe108829032f00000a5815699c033bd3"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/runtime-lib-tests.stdout",
       "sha256": "1305527b6920b304c550519c9d25729f0ff1e791ea1f913308ca3a98d0d4f1ed"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/resolved-metadata.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/resolved-metadata.json",
       "sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-tests.stdout",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-tests.stdout",
       "sha256": "352a5a6865ed51c3eb8a99c41ca59c9fc3611870d8f8d3c5c88262390fb99cb6"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-test-inventory.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/evidence/contract-test-inventory.json",
       "sha256": "4157388ecc9c087db8f2e76499e8633287123b97754693447ada2febaf9ba01e"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/source-unit.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/export/source-package/source-unit.json",
       "sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/candidate-verify.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/candidate-verify.json",
       "sha256": "3ad216318fe0e7e86085a9e7da96ef74c691fadd1f3d319b3a4e2d75c6d77e9f"
     },
     {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/generate-composed.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/generate-composed.json",
       "sha256": "84e9b14faa95c107935572df269553e9ab2582e38908ac753e376d9fe23c87f7"
     }
   ]

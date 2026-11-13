@@ -444,30 +444,30 @@ tenant policy
 
 ### 同组本地仓库快照
 
-- OpenClaw：`/Users/yang/projects/open claw/openclaw`，只读检查快照 `fbf5d56366ba1dcf01e63c18cc3a4231212b9504`。确认了 Local Gateway/Daemon、Browser、host tools、审批和设备侧能力；其单一可信操作员、默认 sandbox 关闭及宽 host 权限不能直接复制到多租户平台。
-- Hermes Agent：`/Users/yang/projects/Hermes_agent`，只读检查快照 `7230fcb7`。确认了本地 CLI/daemon、工具 registry、文件/terminal/browser、macOS CUA 封装与 Electron 控制台；该快照没有通用实时文件监听或 OpenAI 原生 `computer` loop，且明显落后远端，因此只作架构证据，不作当前产品能力证明。
+- OpenClaw：`<openclaw-checkout>/openclaw`，只读检查快照 `fbf5d56366ba1dcf01e63c18cc3a4231212b9504`。确认了 Local Gateway/Daemon、Browser、host tools、审批和设备侧能力；其单一可信操作员、默认 sandbox 关闭及宽 host 权限不能直接复制到多租户平台。
+- Hermes Agent：`<hermes-agent-checkout>`，只读检查快照 `7230fcb7`。确认了本地 CLI/daemon、工具 registry、文件/terminal/browser、macOS CUA 封装与 Electron 控制台；该快照没有通用实时文件监听或 OpenAI 原生 `computer` loop，且明显落后远端，因此只作架构证据，不作当前产品能力证明。
 
 ### 关键实现证据路径
 
 OpenClaw 本地快照：
 
-- Gateway composition：`/Users/yang/projects/open claw/openclaw/src/gateway/server.impl.ts`
-- Gateway/runtime network policy：`/Users/yang/projects/open claw/openclaw/src/gateway/server-runtime-config.ts`
-- Daemon installation：`/Users/yang/projects/open claw/openclaw/src/daemon/service.ts`
-- Tool registry/policy：`/Users/yang/projects/open claw/openclaw/src/agents/pi-tools.ts`、`src/agents/tool-policy-pipeline.ts`
-- Browser action contract：`/Users/yang/projects/open claw/openclaw/src/agents/tools/browser-tool.schema.ts`、`browser-tool.ts`
-- Sandbox defaults：`/Users/yang/projects/open claw/openclaw/src/agents/sandbox/config.ts`
-- Exec approvals：`/Users/yang/projects/open claw/openclaw/src/infra/exec-approvals.ts`
-- Session/Memory：`/Users/yang/projects/open claw/openclaw/src/config/sessions/store.ts`、`src/agents/memory-search.ts`
+- Gateway composition：`<openclaw-checkout>/openclaw/src/gateway/server.impl.ts`
+- Gateway/runtime network policy：`<openclaw-checkout>/openclaw/src/gateway/server-runtime-config.ts`
+- Daemon installation：`<openclaw-checkout>/openclaw/src/daemon/service.ts`
+- Tool registry/policy：`<openclaw-checkout>/openclaw/src/agents/pi-tools.ts`、`src/agents/tool-policy-pipeline.ts`
+- Browser action contract：`<openclaw-checkout>/openclaw/src/agents/tools/browser-tool.schema.ts`、`browser-tool.ts`
+- Sandbox defaults：`<openclaw-checkout>/openclaw/src/agents/sandbox/config.ts`
+- Exec approvals：`<openclaw-checkout>/openclaw/src/infra/exec-approvals.ts`
+- Session/Memory：`<openclaw-checkout>/openclaw/src/config/sessions/store.ts`、`src/agents/memory-search.ts`
 
 Hermes Agent 本地快照：
 
-- Runtime loop：`/Users/yang/projects/Hermes_agent/agent/conversation_loop.py`
-- Tool registry/toolsets：`/Users/yang/projects/Hermes_agent/tools/registry.py`、`toolsets.py`
-- File tools：`/Users/yang/projects/Hermes_agent/tools/file_tools.py`
-- Terminal/process：`/Users/yang/projects/Hermes_agent/tools/terminal_tool.py`
-- Browser：`/Users/yang/projects/Hermes_agent/tools/browser_tool.py`
-- Computer Use wrapper/backend：`/Users/yang/projects/Hermes_agent/tools/computer_use/tool.py`、`cua_backend.py`
-- Responses transport：`/Users/yang/projects/Hermes_agent/agent/transports/codex.py`
-- Desktop/IPC：`/Users/yang/projects/Hermes_agent/apps/desktop/electron/main.cjs`、`preload.cjs`
-- Memory lifecycle：`/Users/yang/projects/Hermes_agent/tools/memory_tool.py`、`agent/memory_manager.py`
+- Runtime loop：`<hermes-agent-checkout>/agent/conversation_loop.py`
+- Tool registry/toolsets：`<hermes-agent-checkout>/tools/registry.py`、`toolsets.py`
+- File tools：`<hermes-agent-checkout>/tools/file_tools.py`
+- Terminal/process：`<hermes-agent-checkout>/tools/terminal_tool.py`
+- Browser：`<hermes-agent-checkout>/tools/browser_tool.py`
+- Computer Use wrapper/backend：`<hermes-agent-checkout>/tools/computer_use/tool.py`、`cua_backend.py`
+- Responses transport：`<hermes-agent-checkout>/agent/transports/codex.py`
+- Desktop/IPC：`<hermes-agent-checkout>/apps/desktop/electron/main.cjs`、`preload.cjs`
+- Memory lifecycle：`<hermes-agent-checkout>/tools/memory_tool.py`、`agent/memory_manager.py`

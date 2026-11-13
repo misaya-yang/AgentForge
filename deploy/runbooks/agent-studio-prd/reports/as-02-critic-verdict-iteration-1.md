@@ -146,7 +146,7 @@ The passing suites establish substantial positive behavior, but they do not cont
 
 ## Runtime and Rollback Assessment
 
-Before runtime mutation, all eight repository services were healthy and the gateway/assistant Compose ownership labels pointed to `/Users/yang/projects/AI--Platfform`. The required isolation command was run after serially recreating only gateway and assistant in stub mode with provider inputs explicitly blank, using the current source and no image build. Both services were then serially restored to `ASSISTANT_E2E_STUB_LLM=false`, source-refreshed, restarted, and health-checked.
+Before runtime mutation, all eight repository services were healthy and the gateway/assistant Compose ownership labels pointed to `<repo-root>`. The required isolation command was run after serially recreating only gateway and assistant in stub mode with provider inputs explicitly blank, using the current source and no image build. Both services were then serially restored to `ASSISTANT_E2E_STUB_LLM=false`, source-refreshed, restarted, and health-checked.
 
 Final state:
 

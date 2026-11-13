@@ -4,7 +4,7 @@
   "target": {
     "base_url": "http://127.0.0.1:8080",
     "compose_project": "agentforge-dev-7801d4a9a4",
-    "compose_working_dir_verified": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+    "compose_working_dir_verified": "<repo-root>",
     "gateway_pid_from_operator": 50938,
     "database_epoch": 21,
     "gateway_binary_sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d",

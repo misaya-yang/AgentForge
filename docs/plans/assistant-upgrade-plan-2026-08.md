@@ -234,7 +234,7 @@ A1 单独就能消化截图里的 13 秒问题。B 防止下一轮模型对寒�
 
 **已验证**
 
-- 本仓库 compose 标签正确（`working_dir=/Users/yang/projects/AI--Platfform`）。
+- 本仓库 compose 标签正确（`working_dir=<repo-root>`）。
 - 网关 `/health` 正常。
 - 生产「你好」日志：prep 88ms，1 轮，TTFT 13310ms，总 13486ms。
 - 源码：Qwen3 思考写死开启；`QueryIntentAnalyzer` 只构造不调用；`ALWAYS_INCLUDE` 每轮挂子代理；`should_use_native_search` 是关键词表。

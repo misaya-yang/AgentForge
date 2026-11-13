@@ -197,17 +197,17 @@
       }
     },
     "browser_screenshot": {
-      "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/local-application/screenshots/sdk-qwen-browser-cancel-recovery-20261016.png",
+      "path": "<local-cache>/agentforge/local-application/screenshots/sdk-qwen-browser-cancel-recovery-20261016.png",
       "sha256": "936d53695fecd3a1a9aff73ac5e1ce3bba1a683c7b4dbc3c6d432f25e4a4f1a6",
       "visually_inspected_by_root": true
     },
     "runtime": {
       "gateway_pid": 50938,
-      "gateway_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/gateway",
+      "gateway_binary": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/gateway",
       "worker_pid": 53360,
-      "worker_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
+      "worker_binary": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
       "engine_path_source": "SDK_AGENT_ENGINE_PATH operator setting",
-      "engine_binary": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine"
+      "engine_binary": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine"
     },
     "verification": {
       "read_only_get_requests": 3,
@@ -231,15 +231,15 @@
       },
       "binary_sha256": {
         "gateway": {
-          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/gateway",
+          "path": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/gateway",
           "sha256": "29980eaa75e6fb5548591e4d168ddfabc6bf5d401295197b27f0a2284325310d"
         },
         "worker": {
-          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
+          "path": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/sdk-agent-worker",
           "sha256": "0e8a6976b4b90496a8dca88ebee5d1706ed36590a51fbeb48e96d397551fe918"
         },
         "engine": {
-          "path": "/Users/misaya.yanghejazfs.com.au/.cache/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine",
+          "path": "<local-cache>/agentforge/targets/dots-native-1.99.0/debug/ai-platform-sdk-agent-engine",
           "sha256": "d22afd7c7ac4b0fc58d3d2f8ccfa4700abffb58e7709d64d4f70c463d1032260"
         }
       }

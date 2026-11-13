@@ -25,8 +25,8 @@
   ],
   "source_activated": true,
   "main_database_mutated": false,
-  "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r3-20261017",
-  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema027-bundle-r3-20261017",
+  "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r3-20261017",
+  "bundle": "<local-cache>/agentforge-upgrade/schema027-bundle-r3-20261017",
   "database_actions": "native authority exact026->027v2 single-step only",
   "static_lint": "passed, expansion-only, N-1 not run; exact known four-role precondition verified",
   "not_accepted": [

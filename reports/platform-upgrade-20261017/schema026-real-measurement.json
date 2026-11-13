@@ -29,8 +29,8 @@
   ],
   "source_activated": false,
   "main_database_mutated": false,
-  "preview": "/Users/yang/.cache/agentforge-upgrade/schema026-preview-r2-20261017",
-  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema026-bundle-r2-20261017",
+  "preview": "<local-cache>/agentforge-upgrade/schema026-preview-r2-20261017",
+  "bundle": "<local-cache>/agentforge-upgrade/schema026-bundle-r2-20261017",
   "database_actions": "native authority exact025->026 single-step only",
   "initial_failure": {
     "sqlstate": "42601",

@@ -9,7 +9,7 @@
 - 平台基线：`305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6`
 - 升级前 pin：`94cbbddafc1776d5e377bca1b05932c697e82238`
 - 选定目标：`279ba894152b2c01c5294cc0723b463b209bdca4`
-- 来源：`/Users/yang/projects/opensource-harness/codex-harness` 的本次干净 HEAD；不是对远端永远最新版本的声明。
+- 来源：`<codex-harness-checkout>` 的本次干净 HEAD；不是对远端永远最新版本的声明。
 
 本次结果见[实现与实机报告](../../reports/architecture/codex-harness-refresh-2026-09-22/implementation-verification.md)；下述完整矩阵保留为原设计目标，不能将未执行项视为通过。
 

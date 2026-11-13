@@ -42,8 +42,8 @@ external provider call or deployment is claimed.
 | Gate | Exact command | Actual result |
 | --- | --- | --- |
 | whole-demand-aggregate | `make verify-agent-studio` | exit 0; 39 required, 39 executed, 39 passed, 0 failed; every gate `skipped_count=0`; `source_stable=true` |
-| harness-structure (mandated legacy form) | `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --quality-score` | exit 1; installed lightweight validator explicitly says legacy strict certification is unsupported for a v2 Harness; no strict claim made |
-| harness-structure (supported compatibility form) | `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --quality-score` | exit 0; structure validation passed, diagnostic compatibility score 100/100; metadata only |
+| harness-structure (mandated legacy form) | `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --quality-score` | exit 1; installed lightweight validator explicitly says legacy strict certification is unsupported for a v2 Harness; no strict claim made |
+| harness-structure (supported compatibility form) | `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --quality-score` | exit 0; structure validation passed, diagnostic compatibility score 100/100; metadata only |
 | approved-live-smoke | `bash scripts/new/test-agent-studio-release.sh --live-smoke` | deferred under the PRD waiver: no external-provider or deployment credential was read or used |
 
 The user explicitly authorized skipping obsolete overly strict ritual checks;
@@ -114,7 +114,7 @@ The repair Critic is preserved at
 
 Before the accepted run, all eight `ai-gateway-*` services were healthy and
 their Compose `working_dir` labels matched
-`/Users/yang/projects/AI--Platfform`. Migrations 071 through 081 were present
+`<repo-root>`. Migrations 071 through 081 were present
 with none pending. A disposable ignored local account and provider-free Stub
 made the credentialed isolation nodes execute without skips. No API key was
 read, printed, changed, invented or placed in evidence.
@@ -156,12 +156,12 @@ matched the result, manifest, current source and all 39 log hashes plus the
 browser/header/migration/rollback/security/Assistant evidence. The orchestrator
 then transitioned AS-F010 to `passing` and ran both documented validator forms:
 
-- `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --completion-gate --quality-score`
+- `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --completion-gate --quality-score`
   exited 1 because the installed lightweight validator explicitly does not
   support legacy strict certification for v2; it also noted that
   `--completion-gate` is a deprecated alias for `--claim-check`. This result is
   not counted as a pass.
-- `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score`
+- `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score`
   exited 0: structure validation passed, claim metadata was internally
   consistent and the diagnostic score was 100/100. The tool explicitly states
   that it does not execute or validate cited evidence.

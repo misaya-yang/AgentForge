@@ -55,7 +55,7 @@ a Tenant Admin; another tenant user receives the same not-found boundary.
 ## Local Runtime Evidence
 
 - Compose ownership labels for Gateway, Frontend, Assistant and Knowledge all
-  resolve to `/Users/yang/projects/AI--Platfform`.
+  resolve to `<repo-root>`.
 - All eight services were healthy after the final hot update: Gateway,
   Frontend, Assistant, Knowledge, MCP Docgen, PostgreSQL, Redis and Qdrant.
 - Gateway and Assistant both ended with `ASSISTANT_E2E_STUB_LLM=false`.

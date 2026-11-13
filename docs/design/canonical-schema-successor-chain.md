@@ -163,9 +163,9 @@ authority binaries and explicit isolated-database approval flag. Set
 required by the harness. Example paths and database name:
 
 ```
-REPO=/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform
-PREVIEW=/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/021-candidate-preview-20261016
-ACTIVATION_BUNDLE=/Users/misaya.yanghejazfs.com.au/.cache/agentforge/runtime-work/021-activation-bundle-20261016
+REPO=<repo-root>
+PREVIEW=<local-cache>/agentforge/runtime-work/021-candidate-preview-20261016
+ACTIVATION_BUNDLE=<local-cache>/agentforge/runtime-work/021-activation-bundle-20261016
 DATABASE=schema_successor_verify_knowledge20261016
 cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin check-successor-proposals -- --root "$REPO" --next-successor-021 --preview-output "$PREVIEW"
 cargo run --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-migration-authority --bin measure-schema-successors --next-successor-021 --source-root "$REPO" --preview-root "$PREVIEW" --expected-database "$DATABASE" --run-approved-isolated-measurements

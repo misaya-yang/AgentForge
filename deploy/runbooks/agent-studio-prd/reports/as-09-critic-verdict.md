@@ -93,7 +93,7 @@ evidence. Only candidate 3's complete `39/39` stable-source rerun is accepted.
   `33/77/10/98` tests plus the golden gate, and credentialed Gateway-to-Assistant
   isolation is `6/6` with zero skips. Current read-only runtime inspection found
   all eight Compose services healthy and owned by
-  `/Users/yang/projects/AI--Platfform`; Gateway health is `healthy` version
+  `<repo-root>`; Gateway health is `healthy` version
   `2.0.0`, and both Gateway and Assistant have
   `ASSISTANT_E2E_STUB_LLM=false`.
 
@@ -128,7 +128,7 @@ report and this verdict and updates the Oracle/runtime handoff artifacts. The
 orchestrator **may then run the post-Critic supported completion claim check**
 for AS-09:
 
-`python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score`
+`python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score`
 
 Because this is a v2 Harness, the check uses the supported legacy-compatible
 form without claiming unavailable strict certification. It remains metadata

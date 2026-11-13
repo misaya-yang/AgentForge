@@ -14,7 +14,7 @@
 | --- | --- |
 | 源码HEAD | `26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f` |
 | 初始脏文件 | `docs/README.md`；未提交的`docs/plans/agent-runtime-post-upgrade-core-fixes-2026-08.md` |
-| Compose owner | 本仓`/Users/yang/projects/AI--Platfform`；未发现其他checkout的同名前缀容器 |
+| Compose owner | 本仓`<repo-root>`；未发现其他checkout的同名前缀容器 |
 | 初始运行状态 | 全部既有容器停止；Docker daemon运行 |
 | 本地容量 | Docker约3GiB；doctor建议完整栈约4GiB；本轮复用既有镜像、未重建 |
 | Gateway/Web/KS image revision | `750b25db5d376c5c659ee54cf50175e3c5da2d34` |

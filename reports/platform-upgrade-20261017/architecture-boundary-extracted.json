@@ -2,7 +2,7 @@
   "gate": "architecture-boundary-gate",
   "tier": "L0",
   "result": "pass",
-  "composed_workspace": "/Users/yang/.cache/agentforge-upgrade/composed-092d3acd-f778bc606a5b/codex-rs",
+  "composed_workspace": "<local-cache>/agentforge-upgrade/composed-092d3acd-f778bc606a5b/codex-rs",
   "composed_identity_prerequisites": 4,
   "scanned_manifests": 52,
   "edges": [

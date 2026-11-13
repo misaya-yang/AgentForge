@@ -17,10 +17,10 @@
   },
   "errors": [],
   "warnings": [
-    "program /Users/yang/projects/AgentForge/deploy/runbooks/r1-assistant-closure-2026-09-23 missing init.sh",
-    "program /Users/yang/projects/AgentForge/deploy/runbooks/kb-rag-ui-t5 has unknown schema",
-    "program /Users/yang/projects/AgentForge/deploy/runbooks/native-enterprise-upgrade has unknown schema",
-    "program /Users/yang/projects/AgentForge/deploy/runbooks/r3-agent-eval-2026-09-28 missing init.sh",
-    "program /Users/yang/projects/AgentForge/deploy/runbooks/r2-knowledge-lifecycle-2026-09-27 missing init.sh"
+    "program <repo-root>/deploy/runbooks/r1-assistant-closure-2026-09-23 missing init.sh",
+    "program <repo-root>/deploy/runbooks/kb-rag-ui-t5 has unknown schema",
+    "program <repo-root>/deploy/runbooks/native-enterprise-upgrade has unknown schema",
+    "program <repo-root>/deploy/runbooks/r3-agent-eval-2026-09-28 missing init.sh",
+    "program <repo-root>/deploy/runbooks/r2-knowledge-lifecycle-2026-09-27 missing init.sh"
   ]
 }

@@ -1,6 +1,6 @@
 {
   "captured_at": "2026-10-16T06:00:38.422Z",
-  "canonical_root": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+  "canonical_root": "<repo-root>",
   "project": "agentforge-dev-7801d4a9a4",
   "container_ownership_verified": true,
   "containers": [
@@ -10,7 +10,7 @@
       "image_id": "sha256:c9b889e236343ae331824e10bfa5b17ca76eb88242e87a8400f8077fb182661a",
       "service": "agent-capability-worker",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": "healthy"
     },
@@ -20,7 +20,7 @@
       "image_id": "sha256:6d66b1a04bc2678dc5c0be3b6a230e0ac19344bb96dbe1a8550f7192819af4a8",
       "service": "agent-runtime",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": "healthy"
     },
@@ -30,7 +30,7 @@
       "image_id": "sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
       "service": "object-store",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": "healthy"
     },
@@ -40,7 +40,7 @@
       "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
       "service": "postgres",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": "healthy"
     },
@@ -50,7 +50,7 @@
       "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
       "service": "redis",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": "healthy"
     },
@@ -60,7 +60,7 @@
       "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c",
       "service": "qdrant",
       "project": "agentforge-dev-7801d4a9a4",
-      "working_dir": "/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild/AI--Platfform",
+      "working_dir": "<repo-root>",
       "status": "running",
       "health": null
     }

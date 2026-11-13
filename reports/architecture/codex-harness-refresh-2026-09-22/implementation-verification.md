@@ -81,7 +81,7 @@ LOC 失败含既有超长文件增长、新超阈值文件，以及本轮修改�
 
 ## 私有备份与回滚限制
 
-[backup.log](../../../tmp/codex-refresh-integration/backup.log) 记录升级期间已创建私有 PostgreSQL 备份：`/Users/yang/.local/state/ai-gateway/backups/codex-refresh-20260922/gateway_20260922_120635.sql.gz`（命令完成后移动到本次专用目录），日志大小 90M。此处仅保存位置引用；本次报告整理没有读取、复制或发布备份内容。备份创建日志本身不证明恢复演练成功。[升级前镜像快照](pre-upgrade-local-artifacts.json) 也只记录当时可用的本地制品，不能当作完整已验证恢复包。
+[backup.log](../../../tmp/codex-refresh-integration/backup.log) 记录升级期间已创建私有 PostgreSQL 备份：`<local-home>/.local/state/ai-gateway/backups/codex-refresh-20260922/gateway_20260922_120635.sql.gz`（命令完成后移动到本次专用目录），日志大小 90M。此处仅保存位置引用；本次报告整理没有读取、复制或发布备份内容。备份创建日志本身不证明恢复演练成功。[升级前镜像快照](pre-upgrade-local-artifacts.json) 也只记录当时可用的本地制品，不能当作完整已验证恢复包。
 
 同目录还保留 `runtime-home-before-upgrade.tar.gz`，由 Runtime home 命名卷只读备份；未执行恢复测试。
 

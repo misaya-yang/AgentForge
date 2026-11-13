@@ -173,7 +173,7 @@
   "rollback_class": "source-compatible additive APIs; rolling Knowledge back to an unpatched reader restores role collision, so this is not release-safe rollback evidence",
   "checkpoint_validation": [
     {
-      "command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-platform-vnext --strict",
+      "command": "python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-platform-vnext --strict",
       "exit_code": 0
     },
     {

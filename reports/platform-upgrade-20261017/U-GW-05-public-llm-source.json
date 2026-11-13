@@ -256,7 +256,7 @@
   "verification": {
     "executed": [
       {
-        "command": "/Users/yang/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin/rustfmt --edition 2024 --config skip_children=true --check rust/platform-native/crates/platform-gateway/src/llm_api/codec.rs rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/http.rs rust/platform-native/crates/platform-gateway/src/llm_api/meter.rs rust/platform-native/crates/platform-gateway/src/llm_api/mod.rs rust/platform-native/crates/platform-gateway/src/llm_api/native.rs rust/platform-native/crates/platform-gateway/src/llm_api/raw_json.rs rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/transport.rs",
+        "command": "<local-home>/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin/rustfmt --edition 2024 --config skip_children=true --check rust/platform-native/crates/platform-gateway/src/llm_api/codec.rs rust/platform-native/crates/platform-gateway/src/llm_api/handler_tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/http.rs rust/platform-native/crates/platform-gateway/src/llm_api/meter.rs rust/platform-native/crates/platform-gateway/src/llm_api/mod.rs rust/platform-native/crates/platform-gateway/src/llm_api/native.rs rust/platform-native/crates/platform-gateway/src/llm_api/raw_json.rs rust/platform-native/crates/platform-gateway/src/llm_api/tests.rs rust/platform-native/crates/platform-gateway/src/llm_api/transport.rs",
         "result": "PASS",
         "limit": "Rust syntax/format parsing only; shared capabilities file intentionally frozen by primary"
       },

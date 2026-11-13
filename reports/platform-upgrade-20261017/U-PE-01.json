@@ -9,13 +9,13 @@
     "cargo_jobs": 1,
     "incremental": false,
     "debug_info": false,
-    "external_target_dir": "/Users/yang/.cache/agentforge-upgrade/native-target",
+    "external_target_dir": "<local-cache>/agentforge-upgrade/native-target",
     "target_size_mib": 463,
     "runtime_mutated": false
   },
   "commands": [
     {
-      "command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_TARGET_DIR=/Users/yang/.cache/agentforge-upgrade/native-target cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test compose_image_identity --test deployment_script_contracts --test tools_migration_parity_ci",
+      "command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_TARGET_DIR=<local-cache>/agentforge-upgrade/native-target cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test compose_image_identity --test deployment_script_contracts --test tools_migration_parity_ci",
       "exit": 0,
       "suites": [
         {

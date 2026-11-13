@@ -77,7 +77,7 @@ Passing tests did not cover the save-time HTTPS-private counterexample.
 ## Docker restoration
 
 Before mutation, all repository-owned `ai-gateway-*` containers had
-`com.docker.compose.project.working_dir=/Users/yang/projects/AI--Platfform`.
+`com.docker.compose.project.working_dir=<repo-root>`.
 Current source was hot-copied without a build or prune. After validation:
 
 - all eight services were healthy;

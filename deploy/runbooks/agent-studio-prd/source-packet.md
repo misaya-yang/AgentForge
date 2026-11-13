@@ -1,7 +1,7 @@
 # Agent Studio Source Packet
 
 **Date:** 2026-07-17  
-**Scope:** `/Users/yang/projects/AI--Platfform` 当前 checkout 的只读调研 + 官方竞品/协议资料  
+**Scope:** `<repo-root>` 当前 checkout 的只读调研 + 官方竞品/协议资料  
 **Trust Rule:** 用户意图优先于竞品；仓库当前代码优先于旧文档；官方规范优先于博客；所有实现事实在 AS-00 目标分支复核。
 
 ## Request Summary

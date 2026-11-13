@@ -29,7 +29,7 @@ Out:
 
 | Check | Command or observation | Proves |
 | --- | --- | --- |
-| Docker build | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/Users/yang/projects/opensource-harness/codex-harness scripts/rust/build-update.sh --artifact all` | Serialized Docker builders compile and lock both candidate images. |
+| Docker build | `AI_PLATFORM_AGENT_RUNTIME_SOURCE=<codex-harness-checkout> scripts/rust/build-update.sh --artifact all` | Serialized Docker builders compile and lock both candidate images. |
 | Candidate health | `make status` | This checkout's Gateway, Runtime, Worker, and dependencies are healthy. |
 
 Use the smallest check that can falsify the outcome. Add runtime, browser, migration, or reviewer evidence only when the outcome requires it.

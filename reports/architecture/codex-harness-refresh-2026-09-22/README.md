@@ -10,7 +10,7 @@
 | --- | --- |
 | 平台 | `305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6`，开始时main与origin/main同步、工作区干净 |
 | 平台source lock | `deploy/agent-runtime-source/lock.json` → upstream `94cbbddafc1776d5e377bca1b05932c697e82238` |
-| 目标仓库 | `/Users/yang/projects/opensource-harness/codex-harness`，只读；工作区干净 |
+| 目标仓库 | `<codex-harness-checkout>`，只读；工作区干净 |
 | 选定target | `279ba894152b2c01c5294cc0723b463b209bdca4`；当前本地快照，不声称远端最新 |
 | 当前overlay | 107文件，锁内hash `80992c9505b06a2e9993980efc739ce33ee79c1fcc79b60914c894b2f62129ba` |
 | 旧pin材料核验 | `make agent-runtime-source-contract`：exit 0，17 passed；没有构建/启动任何目标镜像 |

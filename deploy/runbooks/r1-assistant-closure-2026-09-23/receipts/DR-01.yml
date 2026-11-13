@@ -47,7 +47,7 @@ commands:
   passed: 2
   failed: 0
   skipped: 0
-- command: AI_PLATFORM_AGENT_RUNTIME_SOURCE=/Users/yang/projects/opensource-harness/codex-harness
+- command: AI_PLATFORM_AGENT_RUNTIME_SOURCE=<codex-harness-checkout>
     make agent-runtime-recovery-tests
   exit_code: 0
   passed: 160
@@ -132,7 +132,7 @@ review_findings:
 rollback_class: old-binary-compatible
 rollback_condition: Quiesce new durable runs before old Runtime image rollback; additive
   tables and immutable history retained.
-compose_owner: /Users/yang/projects/AI--Platfform
+compose_owner: <repo-root>
 database_revision:
   authority_epoch_sequence: 4
   verified_reference: database/migrations/2026_08_post_kb_v1/004_verification.json

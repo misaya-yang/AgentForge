@@ -21,10 +21,10 @@ reported as `table_similarity_teds_lite`.
 Primary build owner only; external Cargo target, one job, no debug/incremental output:
 
 ```sh
-CARGO_TARGET_DIR=/Users/yang/.cache/agentforge-upgrade/knowledge-target CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 cargo +1.99.0 test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --test knowledge_promotion
-CARGO_TARGET_DIR=/Users/yang/.cache/agentforge-upgrade/knowledge-target CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo +1.99.0 build --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --bin knowledge-eval-gate
-/Users/yang/.cache/agentforge-upgrade/knowledge-target/debug/knowledge-eval-gate evaluator-sha256
-/Users/yang/.cache/agentforge-upgrade/knowledge-target/debug/knowledge-eval-gate . reports/knowledge/quality/promotion-policy.json reports/knowledge/quality/candidate.json MEASURED_SOURCE_SHA
+CARGO_TARGET_DIR=<local-cache>/agentforge-upgrade/knowledge-target CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 cargo +1.99.0 test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --test knowledge_promotion
+CARGO_TARGET_DIR=<local-cache>/agentforge-upgrade/knowledge-target CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 cargo +1.99.0 build --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-knowledge-ops --bin knowledge-eval-gate
+<local-cache>/agentforge-upgrade/knowledge-target/debug/knowledge-eval-gate evaluator-sha256
+<local-cache>/agentforge-upgrade/knowledge-target/debug/knowledge-eval-gate . reports/knowledge/quality/promotion-policy.json reports/knowledge/quality/candidate.json MEASURED_SOURCE_SHA
 ```
 
 Fixture tests freeze the review clock at 2026-10-17 and exercise positive metrics, critical-case

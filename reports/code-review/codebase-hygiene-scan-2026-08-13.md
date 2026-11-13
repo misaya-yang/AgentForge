@@ -970,7 +970,7 @@
 - Four parallel DB migration runners exist: database/cli.py (orphaned, see deadCode), database/run_migration.py (legacy, test-only), database/migrate_per_service.py (used by docker/migrate/Dockerfile + compose `migrate` service), scripts/new/migrate.sh (used by `make migrate`). They also use two different tracking tables (public.schema_migrations vs public.schema_migrations_meta), plus database/schema.sql is a hand-maintained 1962-line aggregate that can drift from the 80 migration files. Consolidation candidate.
 - docker/monitoring/ stack (docker-compose.monitoring.yml + prometheus/alertmanager/otel/grafana) is referenced only by tests/monitoring/test_alert_rules.py; the overlay compose itself is unreferenced by Makefile/README. deploy/helm/ai-gateway/values-production.yaml likewise has zero references (chart itself is exercised by release-guard tests).
 - scripts/goal/ (.txt manifests, port-patch scripts) is one-off 'workstream A' scratch from 2026-07-16 with zero references — see deadCode entry; the dir also references scripts/new/gateway_preflight.py, which is itself only test-referenced.
-- scripts/native_agent_parity_benchmark.py hardcodes machine-specific absolute paths (/Users/yang/projects/Hermes_agent, '/Users/yang/projects/open claw/openclaw') — matches the .gitignore comment at line 180 about machine-specific temp paths; should be env-driven.
+- scripts/native_agent_parity_benchmark.py hardcodes machine-specific absolute paths (<hermes-agent-checkout>, '<openclaw-checkout>/openclaw') — matches the .gitignore comment at line 180 about machine-specific temp paths; should be env-driven.
 - docker-compose.override.yml.example is unreferenced but is an intentionally self-documenting example file (compose convention) — leave, or document in README. docker-compose.capability.yml and docker-compose.kbms.yml are not examples and are flagged dead.
 - scripts/docgen_* family (5 files) imports src.services.assistant.docgen.* which no longer exists — evidence the assistant-service extraction (apps/assistant-service) did not migrate these scripts; they are both orphaned and broken.
 - apps/islamic-content-service/ is an empty shell (single seed JSON, nothing consumes it); RELEASE.md still lists a ghcr image for it and scripts/new/common.sh still probes for a stray `islamic-content-service` container — leftover from a never-shipped service.
@@ -1107,7 +1107,7 @@
 - **CLI 死层**: `src/tools/*`、`src/agent/*`、`src/hooks.ts`、confirm 流从活入口 `cli.tsx → app.tsx` 不可达;`/mcp connect` 成功但 `callTool` 只被死 `agent/loop.ts` 引用 —— MCP 服务器连上后无法被调用。
 - **打包瑕疵**: `sdk/cli/package.json` dependencies 为空(ink/react 等在 devDependencies);esbuild 目标 node18 vs engines node ≥22.12。
 - **scripts/docgen_* 家族**(5 文件)导入已不存在的 `src.services.assistant.docgen.*` —— 既孤儿又已损坏。
-- **机器特定硬编码**: `scripts/native_agent_parity_benchmark.py` 硬编码 `/Users/yang/projects/Hermes_agent`、`/Users/yang/projects/open claw/openclaw`。
+- **机器特定硬编码**: `scripts/native_agent_parity_benchmark.py` 硬编码 `<hermes-agent-checkout>`、`<openclaw-checkout>/openclaw`。
 - **`scripts/goal/`**(2026-07-16 一次性 scratch)零引用。
 
 ### 5.8 测试卫生

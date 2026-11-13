@@ -33,7 +33,7 @@
       "failed": 0,
       "ignored": 0,
       "doc_tests": 0,
-      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/native-dev-config-loader-tests-r2.log"
+      "log": "<local-cache>/agentforge-upgrade/evidence/native-dev-config-loader-tests-r2.log"
     },
     "config_loader_r1": "STOP before Docker: newly required lock-controller option; r2 used canonical controller",
     "make_dry_run": "PASS: check/test/engine/install/gateway targets invoke Docker launcher",
@@ -53,21 +53,21 @@
   "cleanup": {
     "status": "complete",
     "deleted_directories": [
-      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps",
-      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/build",
-      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/.fingerprint",
-      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/incremental",
-      "/Users/yang/.cache/agentforge-upgrade/native-target/debug/examples"
+      "<local-cache>/agentforge-upgrade/native-target/debug/deps",
+      "<local-cache>/agentforge-upgrade/native-target/debug/build",
+      "<local-cache>/agentforge-upgrade/native-target/debug/.fingerprint",
+      "<local-cache>/agentforge-upgrade/native-target/debug/incremental",
+      "<local-cache>/agentforge-upgrade/native-target/debug/examples"
     ],
-    "allocated_sizes_kib_before": "19643536\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps\n285216\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/build\n78928\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/.fingerprint\n0\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/incremental\n28\t/Users/yang/.cache/agentforge-upgrade/native-target/debug/examples\n",
+    "allocated_sizes_kib_before": "19643536\t<local-cache>/agentforge-upgrade/native-target/debug/deps\n285216\t<local-cache>/agentforge-upgrade/native-target/debug/build\n78928\t<local-cache>/agentforge-upgrade/native-target/debug/.fingerprint\n0\t<local-cache>/agentforge-upgrade/native-target/debug/incremental\n28\t<local-cache>/agentforge-upgrade/native-target/debug/examples\n",
     "available_bytes_before": 20419440640,
     "available_bytes_after": 39880601600,
     "observed_filesystem_freed_bytes": 19461160960,
     "observed_filesystem_freed_gib": 18.124618530273438,
     "bootstrap_sha256_unchanged": true,
     "bootstrap_sha256": [
-      "c61c91643faa9192858917baf0e2d5a372278c9ad548c6a56dd278d2ead2c617  /Users/yang/.cache/agentforge-upgrade/native-target/debug/platform-tools",
-      "a7cb77d92590ec262273c413a8af43c87b5fd0ac4e990e2b69ae4919e4f11764  /Users/yang/.cache/agentforge-upgrade/native-target/debug/database-authority"
+      "c61c91643faa9192858917baf0e2d5a372278c9ad548c6a56dd278d2ead2c617  <local-cache>/agentforge-upgrade/native-target/debug/platform-tools",
+      "a7cb77d92590ec262273c413a8af43c87b5fd0ac4e990e2b69ae4919e4f11764  <local-cache>/agentforge-upgrade/native-target/debug/database-authority"
     ],
     "source_or_data_or_volumes_deleted": false
   },

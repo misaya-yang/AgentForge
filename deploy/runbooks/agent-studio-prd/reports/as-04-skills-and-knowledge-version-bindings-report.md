@@ -107,7 +107,7 @@ history and is not counted as completion evidence.
 | Assistant compatibility gate | `make verify-assistant-runtime-dev` passed: AHR-01 `33`, AHR-02 `77`, AHR-03 `8`, AHR-04 `98`, golden pass rate `1.0` |
 | Live Assistant isolation | explicit local stub plus generated local account and valid `qwen3.7-plus` selector: `make test-isolation` exited 0 with `6 passed`, zero skips and zero provider calls; both application containers were then restored to `stub=false` with provider inputs empty |
 | Working-tree integrity | `git diff --check` exited zero; no unrelated user-owned changes were reset, stashed or overwritten |
-| Runtime ownership/health | every `ai-gateway-*` Compose label points to `/Users/yang/projects/AI--Platfform`; 8/8 services healthy after serial hot update/restart |
+| Runtime ownership/health | every `ai-gateway-*` Compose label points to `<repo-root>`; 8/8 services healthy after serial hot update/restart |
 | Production composition probe | The running Assistant image imported the production composition root, opened its real PostgreSQL pool, wired both policy services, retained only signed-and-current tools/Dataset authority, rejected forged expansion, observed Dataset soft-delete revocation, and removed all temporary rows; exit 0 with no provider or secret output |
 | Runtime memory | backend about 100 MiB, Assistant 111 MiB, PostgreSQL 102 MiB, Knowledge 144 MiB, Qdrant 186 MiB; total stack about 725-727 MiB, below the operator's 3.5 GiB ceiling |
 

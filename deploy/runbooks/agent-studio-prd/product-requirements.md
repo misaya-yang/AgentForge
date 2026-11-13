@@ -3,7 +3,7 @@
 **文档状态：** Ready for implementation planning  
 **规划版本：** V1  
 **基线日期：** 2026-07-17  
-**目标仓库：** `/Users/yang/projects/AI--Platfform`
+**目标仓库：** `<repo-root>`
 
 ## 1. 产品定义
 

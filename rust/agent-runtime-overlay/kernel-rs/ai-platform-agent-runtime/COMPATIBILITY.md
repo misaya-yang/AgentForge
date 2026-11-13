@@ -1,7 +1,7 @@
-# Managed Runtime compatibility candidate at upstream 092d3acd
+# Managed Runtime compatibility candidate at upstream 69231e119bfc
 
 This externally staged source candidate targets official stable release
-`rust-v0.162.1`, commit `092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`.
+`rust-v0.162.1`, commit `69231e119bfca0b14453515e97d99688ce1c47c9`.
 It has not passed the prescribed Docker/hosted-CI build or release gates; the
 production pin and existing artifact admission must not be advanced from this
 source document alone.
@@ -52,7 +52,7 @@ attachments and Worker capabilities remain supported.
 ## Native history and rollback
 
 The history format is the complete native upstream `RolloutItemWire` at
-`092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`. No platform filter converts target
+`69231e119bfca0b14453515e97d99688ce1c47c9`. No platform filter converts target
 events to user messages. Target compaction adds authoritative resume metadata,
 and retained assistant delivery has upstream compatibility encoding. Same-database
 rollback to `279ba894` has not been validated; preserve full target history and

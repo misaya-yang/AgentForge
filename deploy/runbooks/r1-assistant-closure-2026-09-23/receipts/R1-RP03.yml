@@ -87,7 +87,7 @@ commands:
   exit_code: 0
 - command: make status
   exit_code: 0
-compose_owner: /Users/yang/projects/AI--Platfform
+compose_owner: <repo-root>
 runtime_source_identity: reports/r1-flows/final-runtime-identity.json
 rust_unit_unchanged: a55739b4a6c5
 python_source_count: 3

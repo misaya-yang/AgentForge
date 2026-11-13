@@ -4,7 +4,7 @@
   "source_epoch": 26,
   "main_database_mutated": false,
   "business_services_started": false,
-  "measured_bundle": "/Users/yang/.cache/agentforge-upgrade/schema026-bundle-r2-20261017",
+  "measured_bundle": "<local-cache>/agentforge-upgrade/schema026-bundle-r2-20261017",
   "lock_sha256": "412f111e43c8bce04096a84beaff05a8c139762ff335e8138f09696936cc711a",
   "manifest_sha256": "c7224df7a5ba48f8a061c416b04928e84f5758de67b941093f8e036bf8b744b7",
   "actual_checks": {

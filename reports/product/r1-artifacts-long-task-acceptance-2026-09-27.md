@@ -56,7 +56,7 @@ PDF实际9451字节、一页，%PDF头、MIME正确，中英标题/数字/两条
 
 ### 新候选的实际命令
 
-- `AI_PLATFORM_AGENT_RUNTIME_SOURCE=/Users/yang/projects/opensource-harness/codex-harness make agent-runtime-build-local`：Docker Runtime编译通过。首次继承宿主机127.0.0.1代理失败，重跑仅移除构建进程HTTP/HTTPS/ALL代理变量；无主机网络修改。
+- `AI_PLATFORM_AGENT_RUNTIME_SOURCE=<codex-harness-checkout> make agent-runtime-build-local`：Docker Runtime编译通过。首次继承宿主机127.0.0.1代理失败，重跑仅移除构建进程HTTP/HTTPS/ALL代理变量；无主机网络修改。
 - 同固定源码 `make agent-capability-worker-build-local`：Worker编译通过；release unit `a55739b4a6c5`与锁一致。
 - 同固定源码 `make agent-runtime-recovery-tests`：Docker内Runtime78、Worker80、Core恢复2，合计160 passed/2 ignored；两个PG fixture是可选忽略项，不冒充通过。新增过期claim读取回归位于该可选fixture，本轮生产过期语义证据来自真实同thread两轮续发。
 - `make hot-update ARGS="--frontend"` 与 `make hot-update ARGS="--gateway"`：分别同步188资源、Python/core和新Rust release unit。仅本地ignored .env三项非秘密Runtime/Worker/revision pin更新，无复制凭据。

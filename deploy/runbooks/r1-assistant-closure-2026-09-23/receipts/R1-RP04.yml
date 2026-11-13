@@ -24,7 +24,7 @@ primary_checks:
   diff_check: pass
   validate: pass_with_one_warning
   status: pass
-compose_owner: /Users/yang/projects/AI--Platfform
+compose_owner: <repo-root>
 identity:
   gateway_changed_python_files: {matched: 3, total: 3}
   frontend_build_files_excluding_runtime_config: {matched: 255, total: 255}

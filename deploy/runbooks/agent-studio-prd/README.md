@@ -55,14 +55,14 @@ rg -n "PHASE_ID: AS-XX" deploy/runbooks/agent-studio-prd
 结构校验：
 
 ```bash
-python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py \
+python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py \
   deploy/runbooks/agent-studio-prd --quality-score
 ```
 
 Phase 完成声明必须额外运行：
 
 ```bash
-python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py \
+python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py \
   deploy/runbooks/agent-studio-prd --claim-check --phase AS-XX --quality-score
 ```
 

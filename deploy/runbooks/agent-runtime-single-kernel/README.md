@@ -1,7 +1,7 @@
 # Agent Runtime source Single-Kernel Runtime Migration
 
 - Owner: AI--Platfform
-- Repository: `/Users/yang/projects/AI--Platfform`
+- Repository: `<repo-root>`
 
 ## Goal
 

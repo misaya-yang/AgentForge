@@ -36,7 +36,7 @@ Out:
 | Check | Command or observation | Proves |
 | --- | --- | --- |
 | Supply-chain lock | `make agent-runtime-source-contract` | Exact immutable source/schema/license/build identity is present and internally consistent. |
-| Program contract | `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-runtime-single-kernel --strict` | No placeholder, phase, dependency, or handoff drift. |
+| Program contract | `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-runtime-single-kernel --strict` | No placeholder, phase, dependency, or handoff drift. |
 | Repository harness | `make harness-check` | New architecture docs and command remain reachable and mechanically valid. |
 
 Use the smallest check that can falsify the outcome. Add runtime, browser, migration, or reviewer evidence only when the outcome requires it.

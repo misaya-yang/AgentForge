@@ -18,10 +18,10 @@
   },
   "test_execution": {
     "kind": "native1.99 external test harness",
-    "cwd": "/Users/yang/.cache/agentforge-upgrade/candle-zip9-test-source-r1",
+    "cwd": "<local-cache>/agentforge-upgrade/candle-zip9-test-source-r1",
     "production_library": "actual repository vendor path dependency; default-features=false matches Knowledge",
     "upstream_tests": "Byte-identical copies, unchanged fixtures and assertions.",
-    "log": "/Users/yang/.cache/agentforge-upgrade/evidence/candle-zip9-archive-tests-r5.log",
+    "log": "<local-cache>/agentforge-upgrade/evidence/candle-zip9-archive-tests-r5.log",
     "sha256": "ee52d952fea4f837b28d6e045b5f6fb9f6189a98d7f0aff8dca6b3389cf6c1c6"
   },
   "repairs": [

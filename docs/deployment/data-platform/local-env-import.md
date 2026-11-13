@@ -16,14 +16,14 @@ actual project's selected networks before installing the generated configuration
 
 ```sh
 platform-data-security prepare-local-env \
-  --repo-root /Users/yang/projects/AgentForge \
-  --local-env /Users/yang/projects/AgentForge/.env.dev \
-  --directory /Users/yang/.cache/agentforge-upgrade/data-private-fresh-20261018-01 \
+  --repo-root <repo-root> \
+  --local-env <repo-root>/.env.dev \
+  --directory <local-cache>/agentforge-upgrade/data-private-fresh-20261018-01 \
   --database gateway_dev_fresh \
   --client-cidr 10.71.10.0/24 --backend-cidr 10.71.11.0/24 \
   --openssl /opt/homebrew/opt/openssl@3/bin/openssl
 platform-data-security validate-local-env \
-  --directory /Users/yang/.cache/agentforge-upgrade/data-private-fresh-20261018-01
+  --directory <local-cache>/agentforge-upgrade/data-private-fresh-20261018-01
 ```
 
 No env file is sourced, interpolated or passed as an environment to a child.

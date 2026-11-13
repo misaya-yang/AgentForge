@@ -1,7 +1,7 @@
 # Repository layout checkpoint — 2026-10-16
 
 The repository and Git root are now
-`/Users/misaya.yanghejazfs.com.au/misaya_project/AI-Platform-Rust-Rebuild`.
+`<repo-root>`.
 The former nested `AI--Platfform/` directory has been removed.
 
 ## Completed changes

@@ -1134,7 +1134,7 @@ gate 先落地，T8 的清理按其规则复核一次。
 - 自身审计：10-agent 工作流（ingestion/api-data/retrieval/api-data/ops/
   gateway/web/plans/tests-eval），结构化发现存档于会话工作流目录
   （`wf_4e8c5079-e7e`）。
-- Dify 1.17.0 本地检出（/Users/yang/projects/opensource-harness/dify）：
+- Dify 1.17.0 本地检出（<local-home>/projects/opensource-harness/dify）：
   12 区域拆解（数据模型/摄入/抽取/分块/嵌入/向量库/检索/管线插件/
   API 面/web UX/运维/质量评测）。
 - SOTA 调研（2026-08）：chunking（Vectara NAACL 2025、FloTorch 2026、

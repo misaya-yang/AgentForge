@@ -113,7 +113,7 @@
     "gateway": {
       "name": "ai-gateway-backend",
       "container_id": "12155beacc9d75e985b99853ef013f93c5606b50319360ed0232ea794af8d552",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "working_dir": "/app",
       "status": "running",
@@ -209,7 +209,7 @@
     {
       "name": "ai-gateway-backend",
       "container_id": "12155beacc9d75e985b99853ef013f93c5606b50319360ed0232ea794af8d552",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -221,7 +221,7 @@
     {
       "name": "ai-gateway-frontend",
       "container_id": "f091701297db35d120091a0ef5703c38ba3062c1b4fbb525d053deab06381b13",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -233,7 +233,7 @@
     {
       "name": "ai-gateway-agent-runtime",
       "container_id": "93e569a9073e838813e055483f1191e61134358c18fc36a5ed84132fe45b6ff4",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -245,7 +245,7 @@
     {
       "name": "ai-gateway-agent-capability-worker-1",
       "container_id": "2202613d390c3c3f88d3b664a41e6fb0495660068e324949e37292588df7a6ac",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -257,7 +257,7 @@
     {
       "name": "ai-gateway-knowledge-service",
       "container_id": "30945739cfb98b98131d335d334b359be8330b60c653e21d4ecc029995aed775",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -269,7 +269,7 @@
     {
       "name": "ai-gateway-knowledge-worker-1",
       "container_id": "0ccbe568b3824806bce7c2f6361504ba68cb6b897cb76bc0978e485f21b4b6f9",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -281,7 +281,7 @@
     {
       "name": "ai-gateway-pg",
       "container_id": "c046b93581923528e4598097be89ff711ea3b7043126653bd5951a5d92fb5657",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -293,7 +293,7 @@
     {
       "name": "ai-gateway-qdrant",
       "container_id": "43f7e8a50463ef6d417344274972d8aeffb99b0a15f803c0b6ff228f77cab23a",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",
@@ -305,7 +305,7 @@
     {
       "name": "ai-gateway-redis",
       "container_id": "b14980440c3b181f241e59017111f6ef92ebbf80145025a91fba5727cbebd083",
-      "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+      "compose_working_dir": "<repo-root>",
       "owner_matches": true,
       "state": "running",
       "health": "healthy",

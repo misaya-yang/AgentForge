@@ -28,9 +28,9 @@ Out:
 
 | Check | Command or observation | Proves |
 | --- | --- | --- |
-| Upstream identity | `git -C /Users/yang/projects/opensource-harness/codex-harness cat-file -t 94cbbddafc1776d5e377bca1b05932c697e82238` | The fixed upstream commit is locally readable without checkout mutation. |
+| Upstream identity | `git -C <codex-harness-checkout> cat-file -t 94cbbddafc1776d5e377bca1b05932c697e82238` | The fixed upstream commit is locally readable without checkout mutation. |
 | CLI baseline | `npm --prefix sdk/cli run typecheck && npm --prefix sdk/cli test` | Existing CLI compiles and its 10 baseline tests pass. |
-| Contract structure | `python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-runtime-cli-client --strict` | The executable independent-product contract has no placeholders or state drift. |
+| Contract structure | `python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-runtime-cli-client --strict` | The executable independent-product contract has no placeholders or state drift. |
 
 Use the smallest check that can falsify the outcome. Add runtime, browser, migration, or reviewer evidence only when the outcome requires it.
 

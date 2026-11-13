@@ -9,7 +9,7 @@
   },
   "prepare_exit_code": 0,
   "verify_preview_exit_code": 0,
-  "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
+  "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r1-20261017",
   "source_plan_sha256": "e10f1c538e8336beea48364069775dc89b979ce7a00b7d8640fac2d900dba5ef",
   "canonical_source_epoch": 26,
   "main_database_epoch": 25,

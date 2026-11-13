@@ -8,7 +8,7 @@ Execute the AS-08-approved, versioned 39-gate aggregate once from one stable sou
 
 1. Confirm AS-F001 through AS-F009 are `passing` and each Phase has Actor plus independent Critic evidence.
 2. Confirm `tests/fixtures/agent-studio/regression_manifest.json` still hashes to `6630592d04cf04b60e1dba1f42068fdfd3bd19a049c36dfff0ad3aafa057dc1d` and contains 39 required gates.
-3. Verify every running `ai-gateway-*` container is owned by `/Users/yang/projects/AI--Platfform`, all eight Compose services are healthy, and migrations 071 through 081 have no pending successor.
+3. Verify every running `ai-gateway-*` container is owned by `<repo-root>`, all eight Compose services are healthy, and migrations 071 through 081 have no pending successor.
 4. Use a disposable local E2E account and provider-free Assistant Stub for the aggregate so credential-dependent isolation tests execute with zero skips. Do not read, print, change or invent provider API keys.
 
 ## Execution

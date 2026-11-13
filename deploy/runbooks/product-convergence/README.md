@@ -1,7 +1,7 @@
 # Product Convergence (PC)
 
 - Owner: AI--Platfform
-- Repository: `/Users/yang/projects/AI--Platfform`
+- Repository: `<repo-root>`
 
 ## Goal
 

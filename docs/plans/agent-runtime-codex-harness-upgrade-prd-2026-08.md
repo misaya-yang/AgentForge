@@ -5,7 +5,7 @@
 - **owner：** 下一轮 Agent Runtime 主实现 Session
 - **last_verified：** 2026-08-30
 - **当前 Runtime pin：** `93c54bca38996b56d344a2ca65f01627b1953b27`
-- **本轮 selected upstream：** `/Users/yang/projects/opensource-harness/codex-harness@94cbbddafc1776d5e377bca1b05932c697e82238`（2026-08-30 session 启动时 fetch `upstream/main` 后固定）
+- **本轮 selected upstream：** `<codex-harness-checkout>@94cbbddafc1776d5e377bca1b05932c697e82238`（2026-08-30 session 启动时 fetch `upstream/main` 后固定）
 
 > 这是实现合同，不是完成证据。任务只做一件事：把平台使用的 Codex Runtime 源码整体更新到固定
 > upstream 快照，修好平台兼容性，并用编译后的系统、真实接口和 UI 点击完成验收。
@@ -51,7 +51,7 @@ selected SHA 的 `codex-rs` 源码及 Runtime/Worker 所需 workspace closure �
 4. 平台未启用的上游功能可以保留在源码中，但不得自动暴露到 Gateway、工具目录或 UI；
 5. 平台差异只留在 overlay/extension seam，优先适配上游，不重写一套等价内核。
 
-本地 upstream 仓库是只读来源。不得在 `/Users/yang/projects/opensource-harness/codex-harness` 中提交平台修改。
+本地 upstream 仓库是只读来源。不得在 `<codex-harness-checkout>` 中提交平台修改。
 
 ### 1.2 冲突处理优先级
 

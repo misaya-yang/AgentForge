@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/yang/projects/AI--Platfform/**)"
+      "Read(<repo-root>/**)"
     ]
   },
   "enabledPlugins": {

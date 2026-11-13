@@ -1,7 +1,7 @@
 # Agent Runtime Upstream Sync
 
 - Owner: Primary Agent Runtime implementation session
-- Repository: `/Users/yang/projects/AI--Platfform`
+- Repository: `<repo-root>`
 
 ## Goal
 

@@ -25,7 +25,7 @@
         "codex-harness cat-file 94cbbddafc1776d5e377bca1b05932c697e82238 -> commit",
         "npm --prefix sdk/cli run typecheck -> exit 0",
         "npm --prefix sdk/cli test -> 1 file, 10 tests passed",
-        "make doctor -> blocked before mutation: Compose owned by /Users/yang/projects/AI--Platfform"
+        "make doctor -> blocked before mutation: Compose owned by <repo-root>"
         ,"docs/architecture/ADR-009-independent-cli-local-runtime.md -> accepted independent local Runtime contract"
       ],
       "review": "not_required"

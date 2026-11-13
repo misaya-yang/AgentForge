@@ -8,7 +8,7 @@ Status: 已核查，与主 PRD 配合使用。本文档是
 （摘要表、附件绑定表、处理输入快照等）遵守主 PRD §9——只落中央迁移账本。
 
 证据基础：2026-08-28 深读工作流 `wf_07d8fa90-edb`（8 agent，256,696
-tokens，522 次工具调用）对本地 Dify 检出（`/Users/yang/projects/
+tokens，522 次工具调用）对本地 Dify 检出（`<local-home>/projects/
 opensource-harness/dify`，HEAD `f7d6cd1a` = 1.17.0 发布后 3 天的 main；
 shallow 克隆，全部结论直接读码、附文件路径）逐子系统对照主 PRD §3.1
 采纳清单；本文档的代码引用另经对抗核查（附录 B）。

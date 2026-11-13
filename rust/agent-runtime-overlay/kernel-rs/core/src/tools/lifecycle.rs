@@ -33,6 +33,10 @@ pub(crate) async fn notify_tool_start(
     if contributors.is_empty() {
         return Ok(());
     }
+    invocation
+        .turn
+        .extension_data
+        .insert_arc(Arc::clone(&invocation.turn.config));
     let thread_store = &invocation.session.services.thread_extension_data;
     let conversation_history = invocation.session.conversation_history_snapshot().await;
     let root_turn_id = invocation.turn.turn_metadata_state.root_turn_id();
@@ -43,6 +47,11 @@ pub(crate) async fn notify_tool_start(
 
     for contributor in contributors {
         let input = || ToolStartInput {
+            serving_assessment: invocation
+                .step_context
+                .serving_assessment
+                .as_ref()
+                .map(|value| value.requires_review),
             session_store: &invocation.session.services.session_extension_data,
             thread_store,
             turn_store: invocation.turn.extension_data.as_ref(),
@@ -52,7 +61,7 @@ pub(crate) async fn notify_tool_start(
             originating_item_id: originating_item_id.as_ref(),
             tool_name: &invocation.tool_name,
             mcp_tool,
-            permissions: Box::pin(async { tool_permission_context(invocation).await.ok() }),
+            permissions: Box::pin(async { tool_permission_context(invocation).ok() }),
             payload: &invocation.payload,
             conversation_history: Arc::clone(&conversation_history),
             source: extension_tool_call_source(invocation.source.clone()),

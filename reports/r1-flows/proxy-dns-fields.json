@@ -1,6 +1,6 @@
 [
   {
-    "path": "/Users/yang/Library/Application Support/com.follow.clash/config.yaml",
+    "path": "<local-library>/Application Support/com.follow.clash/config.yaml",
     "modified_at": 1790262962.8256876,
     "dns_enabled": true,
     "enhanced_mode": "fake-ip",
@@ -15,7 +15,7 @@
     "dns_policy_host_keys": []
   },
   {
-    "path": "/Users/yang/Library/Application Support/clashmac/work/config.yaml",
+    "path": "<local-library>/Application Support/clashmac/work/config.yaml",
     "modified_at": 1784867809.281657,
     "dns_enabled": true,
     "enhanced_mode": "fake-ip",

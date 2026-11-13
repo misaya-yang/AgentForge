@@ -117,7 +117,7 @@
     }
   ],
   "live_stack": {
-    "compose_owner": "/Users/yang/projects/AI--Platfform",
+    "compose_owner": "<repo-root>",
     "services_healthy": 8,
     "observed_container_memory_mib_approx": 784,
     "migration_records": 74,

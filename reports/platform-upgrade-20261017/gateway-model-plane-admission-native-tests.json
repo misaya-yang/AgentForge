@@ -10,35 +10,35 @@
   "log_sha256": "c556a8f8999fa929f21cbe65cd9fdfdfac315240de0569262ba52efac0357c98",
   "suites": [
     {
-      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway-b4894088e9bb17e9)",
+      "target": "Running unittests src/lib.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway-b4894088e9bb17e9)",
       "passed": 229,
       "failed": 0,
       "ignored": 1,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/eval_migration_parity_clients.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_clients-93734b7ede31353e)",
+      "target": "Running tests/eval_migration_parity_clients.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_clients-93734b7ede31353e)",
       "passed": 14,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/eval_migration_parity_scoring.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_scoring-982c3a91ecde8127)",
+      "target": "Running tests/eval_migration_parity_scoring.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/eval_migration_parity_scoring-982c3a91ecde8127)",
       "passed": 17,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway_foundation-4c655876f2f73033)",
+      "target": "Running unittests src/lib.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/ai_platform_gateway_foundation-4c655876f2f73033)",
       "passed": 239,
       "failed": 0,
       "ignored": 3,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/dispatch_admission_boundary.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/dispatch_admission_boundary-bfeb6c8b829b593c)",
+      "target": "Running tests/dispatch_admission_boundary.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/dispatch_admission_boundary-bfeb6c8b829b593c)",
       "passed": 3,
       "failed": 0,
       "ignored": 0,

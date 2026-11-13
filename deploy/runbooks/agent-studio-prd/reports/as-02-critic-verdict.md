@@ -166,7 +166,7 @@ This Critic changed only
 ## Runtime Restore and Rollback Assessment
 
 Before runtime mutation, all eight repository services were healthy, every
-Compose owner label pointed to `/Users/yang/projects/AI--Platfform`, Gateway and
+Compose owner label pointed to `<repo-root>`, Gateway and
 Assistant were non-stub with the reviewed provider inputs absent, and aggregate
 memory was approximately 709 MiB.
 

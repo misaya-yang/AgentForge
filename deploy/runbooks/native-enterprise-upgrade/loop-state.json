@@ -81,7 +81,7 @@
       "status": "passed",
       "command": "scripts/new/native-container.sh check --workspace --all-targets --keep-going",
       "scope": "actual full native workspace/all targets r4,185s; Runtime/Worker are separate controlled workspace",
-      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-all-targets-final-check-r4.log"
+      "log": "<local-cache>/agentforge-upgrade/evidence/today-native-all-targets-final-check-r4.log"
     },
     "schema": {
       "source_epoch": 28,
@@ -395,7 +395,7 @@
       "checkpoint_scope": "Local source checkpoint only. Runtime/Worker current images, real-provider product journeys and required later packages remain open.",
       "checkpoint_sha": "0ff76d7",
       "build_worktree": {
-        "path": "/Users/yang/.codex/worktrees/platform-runtime-build/AgentForge",
+        "path": "<local-codex-home>/worktrees/platform-runtime-build/AgentForge",
         "checkpoint": "9edbc92df4c5eb24a003202dbeada81a1405ad3c",
         "role": "immutable controlled Runtime build only; existing builder/cache; no Compose infrastructure or volumes",
         "active_artifact": "Retained historical epoch24 image; current25/newCodex source requires fresh identity and rebuild."
@@ -484,7 +484,7 @@
       "scope": "Current maintained serde_norway0.9.42/unsafe-libyaml-norway0.2.15/rustls0.23.46/directZIP9; full cargo-deny still failing transitive retired crates/ZIP8.6 and licensing."
     },
     "extra_harness_migration": {
-      "source": "/Users/yang/projects/opensource-harness/codex-harness",
+      "source": "<codex-harness-checkout>",
       "agent": "sol_harness_migration",
       "model": "gpt-6.1-sol",
       "effort": "high",
@@ -963,7 +963,7 @@
       "source_epoch": 26,
       "main_database_mutated": false,
       "business_services_started": false,
-      "measured_bundle": "/Users/yang/.cache/agentforge-upgrade/schema026-bundle-r2-20261017",
+      "measured_bundle": "<local-cache>/agentforge-upgrade/schema026-bundle-r2-20261017",
       "lock_sha256": "412f111e43c8bce04096a84beaff05a8c139762ff335e8138f09696936cc711a",
       "manifest_sha256": "c7224df7a5ba48f8a061c416b04928e84f5758de67b941093f8e036bf8b744b7",
       "actual_checks": {
@@ -1022,10 +1022,10 @@
       },
       "test_execution": {
         "kind": "native1.99 external test harness",
-        "cwd": "/Users/yang/.cache/agentforge-upgrade/candle-zip9-test-source-r1",
+        "cwd": "<local-cache>/agentforge-upgrade/candle-zip9-test-source-r1",
         "production_library": "actual repository vendor path dependency; default-features=false matches Knowledge",
         "upstream_tests": "Byte-identical copies, unchanged fixtures and assertions.",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/candle-zip9-archive-tests-r5.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/candle-zip9-archive-tests-r5.log",
         "sha256": "ee52d952fea4f837b28d6e045b5f6fb9f6189a98d7f0aff8dca6b3389cf6c1c6"
       },
       "repairs": [
@@ -1078,7 +1078,7 @@
       "product_acceptance": false
     },
     "codex_final_source_preparation": {
-      "path": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/preparation.json",
+      "path": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/preparation.json",
       "actual_preflight": "Gitblob+mode and overlaySHA full9433 files PASS; native live/payload bundle identity PASS",
       "overlay_files": 187,
       "candidate_sha256": "8fba768a1b9c7fed1a97c048266d0a6db439e4e7dbd4cdc1be89d67db828a699",
@@ -1103,7 +1103,7 @@
       },
       "prepare_exit_code": 0,
       "verify_preview_exit_code": 0,
-      "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
+      "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r1-20261017",
       "source_plan_sha256": "e10f1c538e8336beea48364069775dc89b979ce7a00b7d8640fac2d900dba5ef",
       "canonical_source_epoch": 26,
       "main_database_epoch": 25,
@@ -1170,8 +1170,8 @@
           "receipt_sha256": "feeeacb92b2401a6d59be07c728e67235b2a10ef7b66d71bf794212bfbb570bd"
         }
       ],
-      "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
-      "bundle": "/Users/yang/.cache/agentforge-upgrade/schema027-bundle-r1-20261017",
+      "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r1-20261017",
+      "bundle": "<local-cache>/agentforge-upgrade/schema027-bundle-r1-20261017",
       "bundle_files_verified": 13,
       "proposed_lock_sha256": "be380ed99ce7fe4cec6a1a0ea16e50be1a38711bbd3662e6b7f62e7bca305ee6",
       "raw_private_measurement_log_sha256": "b8266f0972a6a6baa0f0cd340443d038635ab69972b6bc75866c1f85440d2f34",
@@ -1214,7 +1214,7 @@
         "Actual service startup/provider/browser and model-weight inference not run"
       ],
       "evidence": {
-        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/native-auth-knowledge-vendors-r1.log",
+        "path": "<local-cache>/agentforge-upgrade/evidence/native-auth-knowledge-vendors-r1.log",
         "sha256": "174f5b2f9eb957c7a96a80ad7f83946c83beba36db4b46796899039b9e5a34dc"
       },
       "cargo_lock_sha256": "5d705b0be616a581c840e2c7d8b6484f91154522aa95a2ccc993ceb6c03c5792"
@@ -1242,7 +1242,7 @@
         "028 contraction implementation pending",
         "N-1 application rehearsal not run"
       ],
-      "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/schema027-v2-tests-r3.log",
+      "raw_log": "<local-cache>/agentforge-upgrade/evidence/schema027-v2-tests-r3.log",
       "raw_log_sha256": "47d90fd41a32e1143a91500ed69a3c38e2655e1bbb07e2b662552dcd99451eb7"
     },
     "schema027_v2_real_measurement": {
@@ -1272,8 +1272,8 @@
       ],
       "source_activated": true,
       "main_database_mutated": false,
-      "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r3-20261017",
-      "bundle": "/Users/yang/.cache/agentforge-upgrade/schema027-bundle-r3-20261017",
+      "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r3-20261017",
+      "bundle": "<local-cache>/agentforge-upgrade/schema027-bundle-r3-20261017",
       "database_actions": "native authority exact026->027v2 single-step only",
       "static_lint": "passed, expansion-only, N-1 not run; exact known four-role precondition verified",
       "not_accepted": [
@@ -1293,7 +1293,7 @@
         "official resolver dynamicRef lexical resource bug; fixed absolute equivalent local refs while keeping all official resources unchanged",
         "stream walker inserted absent content:null; fixed get_mut and added actual producer regression"
       ],
-      "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/openapi32-tests-r4.log",
+      "raw_log": "<local-cache>/agentforge-upgrade/evidence/openapi32-tests-r4.log",
       "sha256": "c56dc2354933dcb61dc146fa87dfbaa096f40a020bf444c0e5cedfe7a24ab1a1",
       "not_run": [
         "Every-PR protected released-baseline CI integration",
@@ -1340,7 +1340,7 @@
         "OAuth token exchange",
         "CW04 stdio sandbox"
       ],
-      "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/mcp-foundation-client-tests-r1.log",
+      "raw_log": "<local-cache>/agentforge-upgrade/evidence/mcp-foundation-client-tests-r1.log",
       "sha256": "1b29ad97ac03595ba0d1ff261707697ed406d5e87de055ce97028fa7bb54bdb8"
     },
     "gateway_guardrails_native": {
@@ -1361,7 +1361,7 @@
         "Runtime/Worker latest source Docker tests",
         "All-target compilation after all latest source edits"
       ],
-      "raw_log": "/Users/yang/.cache/agentforge-upgrade/evidence/gateway-guardrails-mcp-tests-r2.log",
+      "raw_log": "<local-cache>/agentforge-upgrade/evidence/gateway-guardrails-mcp-tests-r2.log",
       "sha256": "48e6e8404ddafddd71b53de547350ea389d23e884885c3140ae1ada859aba9bf"
     },
     "authorized_native_executable_cleanup": {
@@ -1370,7 +1370,7 @@
       "deleted_files": 37,
       "actual_freed_gib": 1.83,
       "host_free_gib_after": 22.61,
-      "receipt": "/Users/yang/.cache/agentforge-upgrade/evidence/stale-native-executables-cleanup-receipt.json",
+      "receipt": "<local-cache>/agentforge-upgrade/evidence/stale-native-executables-cleanup-receipt.json",
       "preserved": "all dependency/libraries and current executable artifacts, source, images, volumes, secrets"
     },
     "schema028_current": {
@@ -1418,8 +1418,8 @@
       "browser_e2e": "NOT_RUN",
       "product_acceptance": "not_accepted",
       "logs": [
-        "/Users/yang/.cache/agentforge-upgrade/evidence/guardrails-ui-node-tests-r2.log",
-        "/Users/yang/.cache/agentforge-upgrade/evidence/guardrails-ui-eslint-r2.log"
+        "<local-cache>/agentforge-upgrade/evidence/guardrails-ui-node-tests-r2.log",
+        "<local-cache>/agentforge-upgrade/evidence/guardrails-ui-eslint-r2.log"
       ]
     },
     "ce032_final_export": {
@@ -1447,14 +1447,14 @@
         "all_original_13_present": true
       },
       "non_lib_44": "all-targets compiled; not executed this R2; historical all-target execution not reused",
-      "count_reconciliation": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/count-scope-reconciliation.json",
+      "count_reconciliation": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/count-scope-reconciliation.json",
       "schema_export": "PASS actual compiled protocol example",
       "source_candidate_verify": "PASS191 files/9437 composed files",
       "source_lock_refresh_validate_verify_overlay": "PASS",
       "architecture_boundary": "PASS against real composed workspace",
       "all_4_oci_candidate_start_permissions": false,
-      "r1_interruption_preserved": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source/",
-      "evidence": "/Users/yang/.cache/agentforge-upgrade/sol-final-ce032-source-r2/",
+      "r1_interruption_preserved": "<local-cache>/agentforge-upgrade/sol-final-ce032-source/",
+      "evidence": "<local-cache>/agentforge-upgrade/sol-final-ce032-source-r2/",
       "release_or_product_acceptance": false
     },
     "legacy_thread_store_docker_migration": {
@@ -1462,7 +1462,7 @@
       "script_unchanged": true,
       "no_host_cargo_executed": true,
       "test_scope_preserved": true,
-      "draft": "/Users/yang/.cache/agentforge-upgrade/thread-store-docker-handoff/",
+      "draft": "<local-cache>/agentforge-upgrade/thread-store-docker-handoff/",
       "note": "Existing legacy script remains unported, forbidden under current local Docker-only policy; never replaced with a fixed failure or false pass."
     },
     "web_checkpoint": {
@@ -1475,7 +1475,7 @@
       "build": "PASS external output; existing bundle budget PASS, no thresholds or exceptions changed",
       "fix": "66 stale fixture failures corrected without production changes, assertion deletion or skips",
       "browser_live": "NOT_RUN",
-      "logs": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-web-*-r2.log"
+      "logs": "<local-cache>/agentforge-upgrade/evidence/checkpoint-web-*-r2.log"
     },
     "current_native_workspace_check": {
       "status": "PASS_final_current_source_docker_workspace_all_targets",
@@ -1486,7 +1486,7 @@
       "incremental": false,
       "external_host_server_cache_regenerated": false,
       "log": {
-        "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-native-all-targets-r3.log",
+        "path": "<local-cache>/agentforge-upgrade/evidence/checkpoint-native-all-targets-r3.log",
         "sha256": "d37bc6dd886449b4ee06ed4afb68423c4a417b7ca16ac4b62aa462ab1a7adc25",
         "bytes": 48466
       }
@@ -1507,7 +1507,7 @@
       "full_security_advisory_scan": "Current native all-feature offline cargo-deny executed: no vulnerability records,1 unmaintained and15 license errors; complete image/runtime security acceptance NOT_RUN.",
       "dependency_policy_current": {
         "status": "FAILED_policy_not_product_acceptance",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-dependency-policy-r1.jsonl",
+        "log": "<local-cache>/agentforge-upgrade/evidence/checkpoint-dependency-policy-r1.jsonl",
         "metadata": "current_locked_offline_all_features_resolved_no_host_compilation",
         "vulnerability_findings": 0,
         "unmaintained_findings": [
@@ -1545,7 +1545,7 @@
       "total_passed": 728,
       "ignored": 10,
       "failed": 0,
-      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-native-libs-r3.log",
+      "log": "<local-cache>/agentforge-upgrade/evidence/checkpoint-native-libs-r3.log",
       "scope_note": "The same command later failed in authority. These five completed package suites passed; the full r3 invocation is NOT a pass."
     },
     "recovery_cli_checkpoint": {
@@ -1560,7 +1560,7 @@
         "failed": 0,
         "ignored": 0
       },
-      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-recovery-pg-tests-r1.log",
+      "log": "<local-cache>/agentforge-upgrade/evidence/checkpoint-recovery-pg-tests-r1.log",
       "real_data_backup_upgrade_restore": "NOT_RUN"
     },
     "legacy_live_test_docker_migration": {
@@ -1586,7 +1586,7 @@
         "ignored": 17,
         "suites": 27,
         "log": {
-          "path": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-authority-cli-integration-r6.log",
+          "path": "<local-cache>/agentforge-upgrade/evidence/checkpoint-authority-cli-integration-r6.log",
           "sha256": "7337fa4ac65a4940d9ec96f33a17954f3e3178b42d979e6dc5d93a4f66866f16",
           "bytes": 16955
         },
@@ -1601,7 +1601,7 @@
       "passed": 86,
       "failed": 0,
       "ignored": 0,
-      "log": "/Users/yang/.cache/agentforge-upgrade/evidence/checkpoint-openapi-r5.log"
+      "log": "<local-cache>/agentforge-upgrade/evidence/checkpoint-openapi-r5.log"
     },
     "end_of_day_checkpoint": {
       "status": "paused_by_owner_after_verified_source_checkpoint_push",
@@ -1783,7 +1783,7 @@
       ],
       "observed_combined_native_lib_pass": 724,
       "observed_combined_native_lib_ignored": 13,
-      "source_freeze": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-source-freeze.json"
+      "source_freeze": "<local-cache>/agentforge-upgrade/evidence/today-native-source-freeze.json"
     },
     "service_scope_parallel_completion_20261017": {
       "started_at": "2026-10-18T02:13:25.770973+00:00",
@@ -1823,7 +1823,7 @@
         "passed": 4,
         "failed": 0,
         "ignored": 0,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-blob-cli.log"
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-native-blob-cli.log"
       },
       "source_status": "in_progress",
       "product_acceptance": "not_established",
@@ -1881,7 +1881,7 @@
       "native_build_slot": {
         "owner": "root",
         "state": "Runtime Worker Rust1.95 controlled build/test/export",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run.log"
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run.log"
       },
       "authority029": {
         "measurement": "passed_on_disposable_clone",
@@ -1889,8 +1889,8 @@
         "main_application_database": "unchanged_epoch25",
         "post_migration_noop": true,
         "source_activation": "passed",
-        "activation_bundle": "/Users/yang/.cache/agentforge-upgrade/authority029-artifacts/activation-b/ACTIVATION_029_REVIEW.json",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-authority029-measure-b.log",
+        "activation_bundle": "<local-cache>/agentforge-upgrade/authority029-artifacts/activation-b/ACTIVATION_029_REVIEW.json",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-authority029-measure-b.log",
         "historical_postconditions": "exact pinned constraint-identity supersession; no frozen source bytes changed",
         "canonical_source_epoch": 29,
         "native_tests_passed": 214,
@@ -1899,7 +1899,7 @@
         "old_frozen_inputs_preserved": 209,
         "old_archives_preserved": 15,
         "full_delivery_lint": "still_refused; dedicated owner implements genuine successor/N-1 strategy without weakening gates",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/activation029/HANDOFF.md"
+        "handoff": "<local-cache>/agentforge-upgrade/authority-service-completion/activation029/HANDOFF.md"
       },
       "primary_gateway_workload_wiring": {
         "source": "private listener lifecycle, TLS peer facade, required-mode all-cleartext-copy rejection, scoped catalog guard, exact internal route inventory",
@@ -1934,7 +1934,7 @@
         "failed": 0,
         "scope": "affected performanceBuild/browserSecurity config checks",
         "full_frontend_rerun": "pending final contract/source freeze",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-web-nginx-integration.log"
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-web-nginx-integration.log"
       },
       "config_resource_files": {
         "source": "Gateway secret resolver preserves DATA_* password-file paths for the role/TLS-owning connection adapter; no conversion to forbidden inline passwords",
@@ -1944,7 +1944,7 @@
         "source": "complete_candidate",
         "cryptographic_wire_fixtures_passed": 4,
         "rust_tests": "8 new prepared, not run",
-        "evidence": "/Users/yang/.cache/agentforge-upgrade/clients-service-completion/cl02-gateway/handoff.md",
+        "evidence": "<local-cache>/agentforge-upgrade/clients-service-completion/cl02-gateway/handoff.md",
         "acceptance": "database and physical hardware not run"
       },
       "execution_policy": {
@@ -1960,7 +1960,7 @@
         "static_files_checked": 37,
         "cargo": "combined check in progress",
         "runtime_acceptance": "not_run",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/knowledge-service-completion/trust/handoff.md"
+        "handoff": "<local-cache>/agentforge-upgrade/knowledge-service-completion/trust/handoff.md"
       },
       "deployment_shared_contracts": {
         "runtime_data_prefix": "DATA_RUNTIME",
@@ -1997,21 +1997,21 @@
       "source_deliveries_20261018": {
         "quiz_signed_packs": {
           "state": "complete implementation and all Gateway/Foundation/Worker business source hooks delivered",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/plugin-service-completion/handoff.md",
+          "handoff": "<local-cache>/agentforge-upgrade/plugin-service-completion/handoff.md",
           "node_passed": 4,
           "rust_tests": "19 added; Cargo not yet run",
-          "source_wiring": "/Users/yang/.cache/agentforge-upgrade/plugin-service-completion/source-wiring.md"
+          "source_wiring": "<local-cache>/agentforge-upgrade/plugin-service-completion/source-wiring.md"
         },
         "append_partitions": {
           "state": "complete native12upserts and22family modes delivered; root applied3 exact-sha patches into Runtime/CW/Knowledge source",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/append-partition-completion/handoff/README.md",
+          "handoff": "<local-cache>/agentforge-upgrade/append-partition-completion/handoff/README.md",
           "l0_passed": 21,
           "database": "not mutated or accepted",
           "compile_inference": "owner fixed; final native Cargo pending"
         },
         "qdrant_upgrade": {
           "state": "whole opt-in source handed off; primary CLI/futures-util integrated",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/qdrant-upgrade/handoff.md",
+          "handoff": "<local-cache>/agentforge-upgrade/qdrant-upgrade/handoff.md",
           "tests": "16 added not run",
           "runtime": "snapshot/golden/rollback not run; default pin unchanged"
         },
@@ -2022,12 +2022,12 @@
         },
         "runtime_worker_sdk": {
           "state": "whole implementation delivered; generated Data config and new binary packaging integrated by primary",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/execution-service-completion/handoff.json",
+          "handoff": "<local-cache>/agentforge-upgrade/execution-service-completion/handoff.json",
           "static": "162 Rust files parsed; warm pool chart19 objects rendered; Cargo/live not run",
           "native_sdk_engine_build": {
             "status": "passed",
             "duration_seconds": 10.67,
-            "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-engine-service-build.log"
+            "log": "<local-cache>/agentforge-upgrade/evidence/today-engine-service-build.log"
           },
           "controlled_runtime_lock": "passed actual offline Rust1.95; 8 package updates, no dependency downloads; old source/image receipt stays invalid pending fresh compile/export/admission",
           "sdk_engine_tests": {
@@ -2036,7 +2036,7 @@
             "process_interface_passed": 1,
             "failed": 0,
             "ignored": 0,
-            "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-engine-service-tests.log",
+            "log": "<local-cache>/agentforge-upgrade/evidence/today-engine-service-tests.log",
             "sha256": "f77955b6e7049991c9ed41678aaddba4d8c84fc5d0388e8d24f378cfc682af5a",
             "limits": "Native SDK engine + actual TLS fixtures; no complete SDK Worker/Gateway/provider/product journey"
           },
@@ -2059,20 +2059,20 @@
             "typescript6": true
           },
           "limit": "New final fetch source still requires actual SDK artifacts and full Web checks; earlier 2206 passes belong to preceding checkpoint",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/console-web02-completion/HANDOFF.md"
+          "handoff": "<local-cache>/agentforge-upgrade/console-web02-completion/HANDOFF.md"
         },
         "external_a2a": {
           "state": "whole actual trusted ledger exporter, Gateway writers and isolated signed rehearsal source complete; main and all dependencies integrated",
           "node_passed": 21,
           "rust_tests": "14 prepared; unified Cargo pending",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/external-a2a-agent/handoff.md",
+          "handoff": "<local-cache>/agentforge-upgrade/external-a2a-agent/handoff.md",
           "real_sdk_model_e2e": "not_run"
         },
         "gateway_resource_abac_a2a": {
           "state": "all15 shared hooks actually applied; exact dataset TLS routes plus peer subset rule source complete; native Cargo not run",
           "rust_tests": "26 new not run",
           "wire": "actual Node signature +13 negative cases passed",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/gateway-service-completion/HANDOFF.md",
+          "handoff": "<local-cache>/agentforge-upgrade/gateway-service-completion/HANDOFF.md",
           "product_acceptance": "not established",
           "eval_repair": "complete owner source repair for SHA1/canonical JSON/default-model extraction; actual lock r3 updated; new full check in progress"
         },
@@ -2082,11 +2082,11 @@
           "compose_cases_passed": 10,
           "negative_cases_passed": 26,
           "runtime_chaos": "not_run",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/gateway-ha-completion/production-wiring/handoff.md",
+          "handoff": "<local-cache>/agentforge-upgrade/gateway-ha-completion/production-wiring/handoff.md",
           "ha_static_checks_passed": 22,
           "ha_new_rust_tests": "16 prepared; unified Cargo pending",
           "dataset_pdp": "exact Knowledge API+worker trusted subset and all3 process mode/pins/origin configuration complete; default off",
-          "dataset_pdp_handoff": "/Users/yang/.cache/agentforge-upgrade/dataset-pdp-deployment-completion/handoff.md"
+          "dataset_pdp_handoff": "<local-cache>/agentforge-upgrade/dataset-pdp-deployment-completion/handoff.md"
         },
         "upstream_sync": {
           "state": "native source plus actual main/Make/CI hookup complete; static Rust/actionlint/Make checks passed; actual Cargo not run",
@@ -2096,20 +2096,20 @@
           "actual_monthly_windows": 0,
           "two_window_max15_met": false,
           "upstream_source_changed_by_this_task": false,
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/execution-service-completion/upstream-sync-handoff.json"
+          "handoff": "<local-cache>/agentforge-upgrade/execution-service-completion/upstream-sync-handoff.json"
         },
         "authority_service_successors": {
           "state": "030/031/032 generic factories + file-secret mTLS entry + actual service ACL guards complete; owner now stages final additional Cedar/A2A/22-family Data proposals",
           "canonical_epoch": 29,
           "frozen_preserved": 214,
           "cargo_and_actual_database": "not_run_for_new_source",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/service-successors/HANDOFF.md"
+          "handoff": "<local-cache>/agentforge-upgrade/authority-service-completion/service-successors/HANDOFF.md"
         },
         "performance_baseline": {
           "state": "complete source + standalone autobin delivered; no new dependency; CLI main alias deferred until startup critical path done",
           "owner": "sol_shared_blob_storage",
           "plan": "U-PE-04; actual deterministic provider overhead, retrieval stages, ingest throughput, per-service RSS; no invented pass or changed SLO",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/performance-baseline-completion/handoff.md",
+          "handoff": "<local-cache>/agentforge-upgrade/performance-baseline-completion/handoff.md",
           "static_checks_passed": 10,
           "rust_tests": "18+3 CLI prepared not run",
           "actual_measurement": "not_run"
@@ -2119,7 +2119,7 @@
         "passed": 40,
         "failed": 5,
         "ignored": 0,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-sdk-worker-service-tests.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-sdk-worker-service-tests.log",
         "failure_scope": [
           "completed receipt replay",
           "effect-free cancellation continue",
@@ -2132,15 +2132,15 @@
         "final_passed": 49,
         "final_failed": 0,
         "final_ignored": 0,
-        "final_log": "/Users/yang/.cache/agentforge-upgrade/sdk-worker-service-completion/final-suite.log",
+        "final_log": "<local-cache>/agentforge-upgrade/sdk-worker-service-completion/final-suite.log",
         "repair": "Root noexec fixture failures repaired without weaker assertions; actual Linux subreaper/process-group cleanup and precommit lease expiry fixed by module owner",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/sdk-worker-service-completion/handoff.md"
+        "handoff": "<local-cache>/agentforge-upgrade/sdk-worker-service-completion/handoff.md"
       },
       "openapi_native_full_suite": {
         "passed": 103,
         "failed": 0,
         "ignored": "generated Python/TS caller-transport execution requires compiler-container client toolchains; not a pass",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-openapi-service-tests.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-openapi-service-tests.log",
         "limits": "R4 source checkpoint; final fetch codec/query fields added afterward need final source tests"
       },
       "native_consolidated_check": {
@@ -2149,14 +2149,14 @@
         "errors": [
           "jsonschema0.33 ValidationError.instance_path is a field, not a method: versioned.rs lines44,113"
         ],
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-services-consolidated-check.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-native-services-consolidated-check.log",
         "acceptance": "not established"
       },
       "source_delivery_order": "Complete all source modules and actual business hooks first, then primary-owned concentrated verification. No product-complete claim from source handoffs.",
       "native_consolidated_check_r2": {
         "state": "failed; discovery pass captured all independent reachable errors",
         "keep_going": true,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-services-consolidated-check-r2.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-native-services-consolidated-check-r2.log",
         "source_changed_during_discovery": true,
         "families": {
           "Eval": "owner whole-crate repair delivered; SHA1 actual lock r3 synchronized",
@@ -2171,24 +2171,24 @@
       "source_projection_workflow": {
         "implementation": "strict command-bound pair of generated RW submounts; four Make targets build/run same Docker binary; all other public inputs RO",
         "std_only_tests_passed": 32,
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/source-projection-workflow/handoff.md",
+        "handoff": "<local-cache>/agentforge-upgrade/source-projection-workflow/handoff.md",
         "real_container_sync": {
           "workload_tls_data": "passed actual --apply for7TLS+1Data sources",
           "plugins": "passed actual --apply for compat3files and Quiz5files",
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-source-sync-apply.log",
-          "plugin_final_log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-plugin-sync-actual-r2.log"
+          "log": "<local-cache>/agentforge-upgrade/evidence/today-native-source-sync-apply.log",
+          "plugin_final_log": "<local-cache>/agentforge-upgrade/evidence/today-native-plugin-sync-actual-r2.log"
         }
       },
       "tools_current_build": {
         "passed": true,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-tools-service-completion-build.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-tools-service-completion-build.log",
         "limit": "prior to final performance-source CLI and any later owner edits"
       },
       "python_sdk_current": {
         "import": "passed actual current generated file",
         "typed_dict_annotations_resolved": 2252,
         "manifest_bound_caller_transport": "passed offline invocation",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-python-sdk-complete-consumption-r3.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-python-sdk-complete-consumption-r3.log",
         "earlier_probe_failures": "r1 guessed nonexistent method, r2 guessed absent health operation; actual SDK import and annotations had already passed; r3 uses actual generated manifest identity",
         "limits": "caller transport fixture, no network/provider; original ignored combined language Rust test not reclassified"
       },
@@ -2211,7 +2211,7 @@
       "integration_owner": "root",
       "history_policy": "Retain legacy tools/history, but do not make upgrade-chain/provenance/N-1 preparation a fresh-start prerequisite. Structural/index/constraint/tenant/RLS verification remains mandatory. No historical acceptance is claimed.",
       "actual_first_compose_failure": {
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-real-startup-compose-preflight.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-real-startup-compose-preflight.log",
         "cause": "Qdrant writer/read-only keys and TLS cert/key/CA files absent; config interpolation fails before starting services."
       },
       "actual_core_binary_build": {
@@ -2222,12 +2222,12 @@
           "migration authority"
         ],
         "duration_seconds": 201,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-core-services-actual-build.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-core-services-actual-build.log",
         "limits": "later authority fresh-mode changes require rebuild; no image/startup acceptance implied"
       },
       "runtime_worker_build": {
         "state": "actual controlled run started",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run.log",
         "scope": "current frozen source compile/tests/schema export; final fresh-schema admission rebind still required"
       },
       "authority_previous_tests": {
@@ -2242,7 +2242,7 @@
           "ignored": 0,
           "filtered_out": 162
         },
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-final-authority-affected-r2.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-final-authority-affected-r2.log",
         "limit": "not a new full176-source pass or product/DB acceptance"
       },
       "frontend_current": {
@@ -2259,23 +2259,23 @@
       "data_private_preparation": {
         "status": "passed_prepared_not_deployed",
         "command": "platform-data-security prepare-local-env in dedicated non-networked read-only operational container; exact private input file only",
-        "output_directory": "/Users/yang/.cache/agentforge-upgrade/data-private-fresh-ops01/release-01",
+        "output_directory": "<local-cache>/agentforge-upgrade/data-private-fresh-ops01/release-01",
         "client_cidr": "10.71.10.0/24",
         "backend_cidr": "10.71.11.0/24",
         "passwords_rotated": false,
         "database_contacted": false,
         "hba_installed": false,
-        "receipt": "/Users/yang/.cache/agentforge-upgrade/evidence/today-data-private-fresh-actual-prepare.log"
+        "receipt": "<local-cache>/agentforge-upgrade/evidence/today-data-private-fresh-actual-prepare.log"
       },
       "runtime_worker_actual_attempts": {
         "first": "Failed incorrect daemon image-store preflight before Cargo; preserved. Guard corrected to reuse existing BuildKit cached pinned image.",
         "second": "Executed existing BuildKit path; capability-contract all-targets check passed; Worker check failed before compilation because offline registry lacked opentelemetry 0.32.0. Actual failure receipts retained; owner preparing minimal transfer from existing native cache, no second Cargo target.",
-        "receipt": "/Users/yang/.cache/agentforge-upgrade/service-wave-execution-source-r2/export/source-package/evidence/worker-check.stderr",
+        "receipt": "<local-cache>/agentforge-upgrade/service-wave-execution-source-r2/export/source-package/evidence/worker-check.stderr",
         "owner": "sol_execution_service",
         "third": {
           "status": "failed_worker_quiz_context_missing_field_after_contract_pass",
-          "source_package": "/Users/yang/.cache/agentforge-upgrade/service-wave-execution-source-r3",
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run-r3.log",
+          "source_package": "<local-cache>/agentforge-upgrade/service-wave-execution-source-r3",
+          "log": "<local-cache>/agentforge-upgrade/evidence/today-runtime-worker-actual-controlled-run-r3.log",
           "actual_exact_local_registry_transfer": "passed; only5 archives622940bytes into same existing BuildKit registry cache; no new target/registry/builder/download",
           "contract_all_targets_check": "passed actual exit0",
           "worker_and_runtime_and_remaining_matrix": "Worker binary failed quiz context; later matrix unrun in this attempt. Repaired context included in fourth attempt, which failed owned SQLx startup calls.",
@@ -2285,7 +2285,7 @@
           "status": "failed_actual_worker_binary_SQLx_SqlSafeStr_two_owned_startup_calls",
           "contract_check": "passed",
           "worker_lib": "compiled, binary admission failed E0277 &String at72/99",
-          "log": "/Users/yang/.cache/agentforge-upgrade/service-wave-execution-source-r4/export/source-package/evidence/worker-check.stderr",
+          "log": "<local-cache>/agentforge-upgrade/service-wave-execution-source-r4/export/source-package/evidence/worker-check.stderr",
           "later_commands": "unrun, no success claimed"
         },
         "fifth": {
@@ -2294,7 +2294,7 @@
           "actual_commands_completed": 17,
           "eighteenth": "runtime-bin-tests interrupted via targeted SIGINT by execution owner; actual signal2 receipt, success=false",
           "later_required_commands": "unrun in this attempt; all required coverage remains pending final source",
-          "export": "/Users/yang/.cache/agentforge-upgrade/service-wave-execution-source-r5/export",
+          "export": "<local-cache>/agentforge-upgrade/service-wave-execution-source-r5/export",
           "next": "Execution owner prepares explicit new controlled producer/acceptance version batching equivalent full target tests to avoid feature-unification churn; preserve old24 protocol and all tests/target lists/11 actual ELF/schema/source evidence; no fabricated individual receipts or weakened old gate. Wait for genuinely final native business-verified fresh contract."
         }
       },
@@ -2309,7 +2309,7 @@
         "representations": 1035,
         "chromium_fixture_passed": 8,
         "real_backend_acceptance": false,
-        "receipt": "/Users/yang/.cache/agentforge-upgrade/console-web02-fetch-completion/verification.json"
+        "receipt": "<local-cache>/agentforge-upgrade/console-web02-fetch-completion/verification.json"
       },
       "next": "Native fresh authority initializes complete schema in new database; local startup source consumes actual private material and selected compiled-binary development images; root executes schema/catalog/role checks, service startup and real requests.",
       "fresh_authority_source": {
@@ -2320,9 +2320,9 @@
         "unit_failed": 0,
         "unit_ignored_actual_pg": 1,
         "first_failure_resolution": "Test had assigned outbound effect columns to the task table; actual grants were correct. Correct table assertions and broad UPDATE negative assertions retained.",
-        "unit_log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-development-authority-unit-r2.log",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/fresh-development/HANDOFF.md",
-        "actual_acceptance_receipt": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/fresh-e2e-20261018/acceptance-r7-actual.json"
+        "unit_log": "<local-cache>/agentforge-upgrade/evidence/today-fresh-development-authority-unit-r2.log",
+        "handoff": "<local-cache>/agentforge-upgrade/authority-service-completion/fresh-development/HANDOFF.md",
+        "actual_acceptance_receipt": "<local-cache>/agentforge-upgrade/authority-service-completion/fresh-e2e-20261018/acceptance-r7-actual.json"
       },
       "fresh_core_ops_binaries": {
         "status": "passed",
@@ -2335,7 +2335,7 @@
           "platform-data-security",
           "workload-credentials"
         ],
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-development-core-ops-binaries.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-fresh-development-core-ops-binaries.log",
         "service_startup_acceptance": false,
         "note": "Local fresh preparation owner still completing glue; recompile affected ops target if source subsequently changes."
       },
@@ -2345,7 +2345,7 @@
         "contract_sha256": "b543a3542732804fb7836a8e2453b76bd207a67376d9ff1045be1562537997a1",
         "new_unit_tests_unrun": 8,
         "new_explicit_actual_pg_tests_unrun": 2,
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/gateway-service-completion/overlay-fresh-startup/HANDOFF.md"
+        "handoff": "<local-cache>/agentforge-upgrade/gateway-service-completion/overlay-fresh-startup/HANDOFF.md"
       },
       "local_development_image_packaging": {
         "native_launcher_tests_passed": 41,
@@ -2384,14 +2384,14 @@
         },
         "native_donor_smoke": "Actual minimal-rootfs nonroot curl/CA/OpenSSL/Poppler/ELF checks passed during three native package builds; no Cargo called.",
         "migrate_actual_contract": "Actual freshly built migrate image fresh-development-contract equals frozen b543a354...7997a1 static JSON; no database contacted.",
-        "frontend_log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-frontend-artifact-actual-image-build.log",
+        "frontend_log": "<local-cache>/agentforge-upgrade/evidence/today-frontend-artifact-actual-image-build.log",
         "service_startup_acceptance": false
       },
       "native_final_all_targets": {
         "status": "passed",
         "scope": "entire rust/platform-native workspace, all targets, --keep-going",
         "elapsed_seconds": 185,
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-all-targets-final-check-r4.log",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-native-all-targets-final-check-r4.log",
         "unit_execution_claim": false
       },
       "local_fresh_tools": {
@@ -2402,9 +2402,9 @@
         "image": "agentforge-native-local:tools-fresh-20261018-r1",
         "image_status": "actually_built",
         "logs": [
-          "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-tools-final-binary.log",
-          "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-tools-final-unit.log",
-          "/Users/yang/.cache/agentforge-upgrade/evidence/today-native-image-tools-fresh-20261018-r1.log"
+          "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-tools-final-binary.log",
+          "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-tools-final-unit.log",
+          "<local-cache>/agentforge-upgrade/evidence/today-native-image-tools-fresh-20261018-r1.log"
         ],
         "latest": {
           "binary": "passed",
@@ -2413,13 +2413,13 @@
           "unit_ignored": 0,
           "image": "agentforge-native-local:tools-fresh-20261018-r2",
           "image_status": "actually_built",
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-tools-frozen-unit-r2.log"
+          "log": "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-tools-frozen-unit-r2.log"
         }
       },
       "actual_database_attempt_r1": {
         "status": "failed_memory_preflight_before_SQL_or_service_start",
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-real-database-r1.log",
-        "prepared_generation": "/Users/yang/.cache/agentforge-upgrade/local-fresh-run-20261018-r1",
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-real-database-r1.log",
+        "prepared_generation": "<local-cache>/agentforge-upgrade/local-fresh-run-20261018-r1",
         "prepared_marker_exists": true,
         "docker_memtotal_bytes": 4107141120,
         "cause": "Generic exact4GiB gate rejected configured4GB Docker before database-only startup. Owner repairing stage-specific headroom and replacing invalid sum of per-container MemPerc with actual bytes/daemonTotal; no functional/schema acceptance weakened.",
@@ -2444,8 +2444,8 @@
         "authority_repair_owner": "sol_telemetry_service",
         "repair_scope": "Locate actual protocol wait; complete all schema/ACL/indices/fields and actual verification; keep atomicity/frozen SQL unchanged and bound operation so no orphan transaction.",
         "logs": [
-          "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-real-database-r4.log",
-          "/Users/yang/.cache/agentforge-upgrade/evidence/today-local-fresh-authority-private-r3.log"
+          "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-real-database-r4.log",
+          "<local-cache>/agentforge-upgrade/evidence/today-local-fresh-authority-private-r3.log"
         ],
         "latest_native_owner_evidence": "Original1737 grants and251 baseline checks executed quickly and rolled back in real attempts. Next actual blocker: trusted-extension PUBLIC EXECUTE owned by existing bootstrap postgres; fresh-only single Unix-peer operator transaction converges exact allowed extension members while platform DDL runs as existing NOLOGIN owner. No TCP superuser, global-role/password changes, old data mutation, frozen SQL/acceptance weakening. Actual full rerun in progress.",
         "post_stop_count_scope": "Historical pre-repair r4 rollback count; superseded by committed final r7 catalog below, not current table count.",
@@ -2501,7 +2501,7 @@
           "schema_reexecuted": false
         },
         "protected_global_before_after_identical": true,
-        "receipt_directory": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/fresh-e2e-20261018",
+        "receipt_directory": "<local-cache>/agentforge-upgrade/authority-service-completion/fresh-e2e-20261018",
         "core_application_startup": "not_yet_started",
         "post_acceptance_actual_business_gap": {
           "status": "in_progress_complete_fresh_business_authority_repair",
@@ -2526,7 +2526,7 @@
           "gateway_adapter_lib_passed": 1,
           "failed": 0
         },
-        "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-quiz-context-actual-canonical-executor-tests.log"
+        "log": "<local-cache>/agentforge-upgrade/evidence/today-quiz-context-actual-canonical-executor-tests.log"
       },
       "runtime_worker_continuous_owner": {
         "owner": "sol_execution_service",
@@ -2536,7 +2536,7 @@
       },
       "office_public_font": {
         "status": "ready_official_package_checksum_verified",
-        "receipt": "/Users/yang/.cache/agentforge-upgrade/public-office-font-20261018/receipt.json",
+        "receipt": "<local-cache>/agentforge-upgrade/public-office-font-20261018/receipt.json",
         "retained_font_bytes": 19484784,
         "unneeded_archive_removed": true,
         "only_regular_and_license_retained": true
@@ -2547,7 +2547,7 @@
         "source_protocol_repair": "Source delivered: fully drain original grant statements, bounded raw verification transport/stage deadlines and actual PG regression entrances; not yet actual-verified.",
         "source_contract_sha256": "d6a6a3a3e1c4d3a43af7cbca3c8597e24f0e1e8adf73cc5a9a85d087ee28733a",
         "actual_status": "d6_structural_acceptance_historical_complete_fresh_business_permissions_closure_in_progress",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/authority-service-completion/fresh-development-r4-protocol-fix/HANDOFF.md",
+        "handoff": "<local-cache>/agentforge-upgrade/authority-service-completion/fresh-development-r4-protocol-fix/HANDOFF.md",
         "cross_owner_contract": "Runtime owner must bind final native source contract before source freeze. Existing b543 development images are historical and require rebuild."
       },
       "console_https_bff_completion": {
@@ -2555,7 +2555,7 @@
         "status": "module_actual_installed_tls_and_permissions_passed_core_and_browser_unrun",
         "observed_gap": "Core local Compose exposes frontend HTTP only and omits Gateway BFF origin activation, incompatible with current HTTPS cookie/CSRF Console login.",
         "scope": "Complete local HTTPS/BFF inputs, safe installer/lifecycle, current private generation extension, startup/check and affected actual Tools/Frontend artifacts. No TLS/authentication bypass or global trust mutation. Root owns core start.",
-        "handoff": "/Users/yang/.cache/agentforge-upgrade/local-console-security-completion/handoff.md",
+        "handoff": "<local-cache>/agentforge-upgrade/local-console-security-completion/handoff.md",
         "tools_image": "agentforge-native-local:tools-console-security-20261018-r3",
         "tools_image_id": "sha256:edf34218781191da75ccfabe1ed88b4dbd95daf5e5fd92e4e24791d057a060e3",
         "active_security_generation": "transport-r2",
@@ -2579,13 +2579,13 @@
         "status": "all_targets_check_passed_full_tests_running",
         "check": "actual Contract/Worker/Runtime --all-targets --keep-going exit0 after correcting owned SQLx/Send/OTel API issues",
         "full_tests": "Actual test3 exit0,382 passed/0failed/15explicitignored/0filtered; final frozen full24 source-bound matrix running. No live DB/hardware/product pass inferred.",
-        "receipt": "/Users/yang/.cache/agentforge-upgrade/execution-service-completion/actual-continuation-state.json",
+        "receipt": "<local-cache>/agentforge-upgrade/execution-service-completion/actual-continuation-state.json",
         "source_contract_sha256": "d6a6a3a3e1c4d3a43af7cbca3c8597e24f0e1e8adf73cc5a9a85d087ee28733a",
         "final_frozen_matrix_and_paired_images": "pending final authority source freeze and actual completion",
-        "test_receipt": "/Users/yang/.cache/agentforge-upgrade/execution-iteration-20261018/test-3/export",
+        "test_receipt": "<local-cache>/agentforge-upgrade/execution-iteration-20261018/test-3/export",
         "batch_refinement": "Final explicit batch path reuses all original metadata/lock/full snapshot/schema/toolchain/license/SBOM gates; original protocols remain strict. Actual new9/9 + original48/48 tests, Tools build and RO ELF export passed. Full8-command source-bound Runtime/Worker execution and paired images still wait actual final authority contract.",
         "batch_validator_sha256": "6243828550ea80bf6fadbd9cd7aaad45fcdef87654388273a9bf90667244b9f3",
-        "batch_validator_evidence": "/Users/yang/.cache/agentforge-upgrade/execution-service-batch-native-r2"
+        "batch_validator_evidence": "<local-cache>/agentforge-upgrade/execution-service-batch-native-r2"
       },
       "required_workload_bootstrap_completion": {
         "status": "in_progress_not_accepted",
@@ -2603,7 +2603,7 @@
           "failed": 5,
           "ignored": 2,
           "new_auth_tests_passed": 8,
-          "log": "/Users/yang/.cache/agentforge-upgrade/gateway-service-completion/required-workload/affected-libs.log",
+          "log": "<local-cache>/agentforge-upgrade/gateway-service-completion/required-workload/affected-libs.log",
           "root_cause_owners": {
             "cedar_initialization": "sol_local_node_control: production DecisionPoint policy/schema initialization Configuration errors, four tests; full focused fix/actual verification required.",
             "event_query_contract": "sol_console_step_up: actual producer/handler/consumer limit/after_sequence/Last-Event-ID contract mismatch; preserve functionality and original boundary assertions.",
@@ -2620,7 +2620,7 @@
           "knowledge_passed": 78,
           "knowledge_explicit_ignored": 6,
           "configuration_export_passed": 4,
-          "source_receipt": "/Users/yang/.cache/agentforge-upgrade/gateway-service-completion/required-workload/RESULTS.json",
+          "source_receipt": "<local-cache>/agentforge-upgrade/gateway-service-completion/required-workload/RESULTS.json",
           "actual_full_failures": 6,
           "remaining_owners": {
             "cedar": "sol_local_node_control",
@@ -2641,7 +2641,7 @@
           },
           "root_actual_full_sdk_regeneration": {
             "status": "actual_native_producer_four_sdk_artifacts_generated_and_applied",
-            "producer_actual_build_log": "/Users/yang/.cache/agentforge-upgrade/events-contract-completion/producer-build.log",
+            "producer_actual_build_log": "<local-cache>/agentforge-upgrade/events-contract-completion/producer-build.log",
             "source_sha256": "709d71dfdeddc810cf9cfa000344bafee63f216a4438f3c9ec0a706ddd0ef3ce",
             "operations": 590,
             "schema_models": 82,
@@ -2675,7 +2675,7 @@
               "live_service_acceptance": false
             }
           },
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/events-contract-completion/HANDOFF.md",
+          "handoff": "<local-cache>/agentforge-upgrade/events-contract-completion/HANDOFF.md",
           "remaining": "Final Gateway full-lib and live observation/reconnect/one-submit across paired services still required"
         },
         "cedar_repair": {
@@ -2684,7 +2684,7 @@
           "actual_failed": 0,
           "actual_ignored": 0,
           "root_cause": "Unsupported Cedar exists/lambda in embedded policy. Replaced by schema-declared original set counters, preserving Strict validation, tenant/ACL/differential/digest/audit checks.",
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/cedar-initialization-fix/handoff.md"
+          "handoff": "<local-cache>/agentforge-upgrade/cedar-initialization-fix/handoff.md"
         },
         "append_parser_repair": {
           "status": "actual_default_standalone_full_lib_passed_after_dev_only_chrono_feature_fix",
@@ -2692,8 +2692,8 @@
           "failed": 0,
           "explicit_ignored": 5,
           "new_tests_passed": 4,
-          "handoff": "/Users/yang/.cache/agentforge-upgrade/append-parser-completion/HANDOFF.md",
-          "source_receipt": "/Users/yang/.cache/agentforge-upgrade/append-parser-completion/RESULTS.json",
+          "handoff": "<local-cache>/agentforge-upgrade/append-parser-completion/HANDOFF.md",
+          "source_receipt": "<local-cache>/agentforge-upgrade/append-parser-completion/RESULTS.json",
           "root_manifest_fix": "Add only existing SQLx chrono feature as dev-dependency for ignored real-test DateTime binds; production dependency feature set and versions unchanged. No Cargo.lock edit.",
           "default_gate": {
             "status": "passed",
@@ -2701,8 +2701,8 @@
             "failed": 0,
             "explicit_ignored": 5,
             "filtered_out": 0,
-            "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-primitives-default-chrono-final-r1-attempt-17.log",
-            "receipt": "/Users/yang/.cache/agentforge-upgrade/evidence/today-primitives-default-chrono-final-r1.json",
+            "log": "<local-cache>/agentforge-upgrade/evidence/today-primitives-default-chrono-final-r1-attempt-17.log",
+            "receipt": "<local-cache>/agentforge-upgrade/evidence/today-primitives-default-chrono-final-r1.json",
             "cargo_lock_edited_by_root": false
           }
         }
@@ -2724,10 +2724,10 @@
           "final_passed": 42,
           "final_failed": 0,
           "final_ignored": 0,
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-admin-launcher-unit-r2.log"
+          "log": "<local-cache>/agentforge-upgrade/evidence/today-fresh-admin-launcher-unit-r2.log"
         },
         "native_bin_unit_attempt": "Unrun: canonical resource lock correctly rejected entry while another actual owner was live; no test failure or pass claimed.",
-        "native_bin_unit_log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-unit-r1.log",
+        "native_bin_unit_log": "<local-cache>/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-unit-r1.log",
         "profile_consumer": "sol_device_auth notified actual public image receipt; source Compose has database-fresh -> role-only admin-bootstrap stdin -> Gateway ordering; actual private install/account creation/login still pending",
         "docs": "docs/deployment/fresh-administrator.md",
         "actual_account_or_login_acceptance": false,
@@ -2736,24 +2736,24 @@
           "passed": 3,
           "failed": 0,
           "ignored": 0,
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-unit-r4-attempt-2.log"
+          "log": "<local-cache>/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-unit-r4-attempt-2.log"
         },
         "native_binary": "actually_built",
         "image": {
           "tag": "agentforge-native-local:auth-bootstrap-fresh-20261018-r1",
           "id": "sha256:62036acc306f4ab20b5563bf6d0c04777e05b1aa77a318d8df63b871aa835a31",
-          "env_receipt": "/Users/yang/.cache/agentforge-upgrade/dev-images/auth-bootstrap-fresh-20261018-r1/image.env"
+          "env_receipt": "<local-cache>/agentforge-upgrade/dev-images/auth-bootstrap-fresh-20261018-r1/image.env"
         },
-        "actual_stage_receipts": "/Users/yang/.cache/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-queued-r4.json",
+        "actual_stage_receipts": "<local-cache>/agentforge-upgrade/evidence/today-fresh-admin-bootstrap-queued-r4.json",
         "help_smoke": "not_run; minimal rootfs/application dependency closure validated by package build",
         "prepared_ui_acceptance_script": {
-          "path": "/Users/yang/.cache/agentforge-upgrade/fresh-console-first-login.mjs",
+          "path": "<local-cache>/agentforge-upgrade/fresh-console-first-login.mjs",
           "syntax_check": "passed",
           "actual_run": false,
           "boundary": "Existing-account browser verify only; initialize/reconcile/password writes are refused. Separate normal API setup helper owns initial-password operation; both remain unrun."
         },
         "prepared_api_setup_script": {
-          "path": "/Users/yang/.cache/agentforge-upgrade/fresh-console-account-setup.mjs",
+          "path": "<local-cache>/agentforge-upgrade/fresh-console-account-setup.mjs",
           "syntax_check": "passed",
           "actual_run": false,
           "scope": "Normal HTTPS BFF login -> CSRF/foreign-Origin negatives -> normal first password change -> re-login/current-cookie verification with exact CA and private input/output. No DB privilege bypass, browser credential mutation or secret argv/logs."
@@ -2766,19 +2766,19 @@
         "planned_boundary": "Dedicated private profile certificate manager user-cert trust; Console CA constrained to localhost, no system trust mutation or TLS-ignore bypass. Actual positive/negative TLS and app login still required.",
         "primary_source": "https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/net/cert_verifier_service_browsertest.cc",
         "required_actual_scope": "per-profile CA import, trusted actual Console page with ignoreHTTPSErrors=false and untrusted/hostname-negative rejection",
-        "actual_ca_public_file": "/Users/yang/.cache/agentforge-upgrade/local-fresh-run-20261018-r1/security/releases/transport-r1/frontend/ca.pem",
+        "actual_ca_public_file": "<local-cache>/agentforge-upgrade/local-fresh-run-20261018-r1/security/releases/transport-r1/frontend/ca.pem",
         "actual_ca_der_sha256": "c042690a28f4bb4a0b0b823e98b538eb7895ed60537cd691f9823a5c3cfee923",
         "issuer_reuse": "profile owner states transport-r2 reuses same issuer; no OS trust changed",
-        "queued_inspection_script": "/Users/yang/.cache/agentforge-upgrade/inspect-isolated-browser-trust.mjs",
+        "queued_inspection_script": "<local-cache>/agentforge-upgrade/inspect-isolated-browser-trust.mjs",
         "inspection_session": 42226,
         "inspection_status": "Actual Chromium149 certificate manager inspected with ignoreHTTPSErrors=false; exit0. CA import not yet executed.",
         "browser_env": "Whitelist OS launcher variables only; no provider credentials passed into browser",
-        "inspection_receipt": "/Users/yang/.cache/agentforge-upgrade/browser-trust-20261018/certificate-manager-inspection.json",
+        "inspection_receipt": "<local-cache>/agentforge-upgrade/browser-trust-20261018/certificate-manager-inspection.json",
         "import_initial_attempt": "resource busy, no import performed",
         "import_actual_result": {
           "attempt": 8,
           "exit_code": 1,
-          "log": "/Users/yang/.cache/agentforge-upgrade/evidence/browser-isolated-trust-import-r2-attempt-8.log",
+          "log": "<local-cache>/agentforge-upgrade/evidence/browser-isolated-trust-import-r2-attempt-8.log",
           "cause": "Native Chromium certificate manager opens an OS file dialog, not a Playwright HTML filechooser; headless filechooser timed out. Browser closed, canonical lease released.",
           "system_trust_changed": false,
           "ca_import_claim": false,
@@ -2788,14 +2788,14 @@
       "native_executable_cache_cleanup_20261018": {
         "status": "specific_human_approval_pending_no_deletion",
         "observed_host_free_gib": 12,
-        "read_only_inventory": "/Users/yang/.cache/agentforge-upgrade/evidence/native-executable-readonly-inventory-20261018.tsv",
-        "concrete_plan": "/Users/yang/.cache/agentforge-upgrade/evidence/native-executable-cleanup-plan-20261018.json",
+        "read_only_inventory": "<local-cache>/agentforge-upgrade/evidence/native-executable-readonly-inventory-20261018.tsv",
+        "concrete_plan": "<local-cache>/agentforge-upgrade/evidence/native-executable-cleanup-plan-20261018.json",
         "candidate_files": 121,
         "logical_bytes": 1493666328,
         "logical_size_note": "Approx1.39GiB; actual host release may differ due Docker sparse-file reclamation. Read exact plan for authoritative bytes.",
         "preserve": "Newest2 executables per group; all43 current top-level inode identities and multiply-linked files; every library/dependency/toolchain/image/data-volume/source/evidence. Runtime three exec.cachemount and BuildKit-only Rust1.95 base untouched.",
-        "reviewable_helper": "/Users/yang/.cache/agentforge-upgrade/clean-approved-native-executables.py",
-        "guarded_command_after_approval_only": "python3 /Users/yang/.cache/agentforge-upgrade/clean-approved-native-executables.py --execute",
+        "reviewable_helper": "<local-cache>/agentforge-upgrade/clean-approved-native-executables.py",
+        "guarded_command_after_approval_only": "python3 <local-cache>/agentforge-upgrade/clean-approved-native-executables.py --execute",
         "helper_checks": "Own canonical lock/parent/token, cache/image/container ownership, no running native compiler; re-scan retention and intersect only approved inode/size/mtime/link identities before exact-file unlink; no directories or libraries removed. Fixed metadata checked again inside cache container.",
         "approval_request": "Async question asks exact121-file batch because previous37-file confirmation covered a different list. Continue other implementation meanwhile."
       },
@@ -2807,7 +2807,7 @@
           "docs/harness/work-packages.md"
         ],
         "scope": "Remove obsolete read-only-agent/hosted-only/manual-lock rules; current user-authorized disjoint module implementation, canonical Docker caches/controllers and primary integration ownership. Original functional/data/isolation/rollback/release gates preserved.",
-        "harness_log": "/Users/yang/.cache/agentforge-upgrade/evidence/today-workflow-alignment-harness-r2.log",
+        "harness_log": "<local-cache>/agentforge-upgrade/evidence/today-workflow-alignment-harness-r2.log",
         "actual_harness_errors": 0,
         "existing_harness_warnings": 5,
         "scoped_diff_and_relative_links": "passed"
@@ -3667,7 +3667,7 @@
       "implementation": "All six HA authority constructors, Directory registration/renew/loss drain/release, worker stop, seven owner-provenance callback relays and actual Runtime/SDK prepared-context producers integrated in production startup path; opt-in singleton gate retained.",
       "verification": "22 static source/contract checks passed; 16 new Rust tests prepared not yet run. Actual multi-process kill/recovery/duplicate-effects/capacity acceptance remains open.",
       "evidence": [
-        "/Users/yang/.cache/agentforge-upgrade/gateway-ha-completion/production-wiring/handoff.md"
+        "<local-cache>/agentforge-upgrade/gateway-ha-completion/production-wiring/handoff.md"
       ],
       "parallel_preparation": {
         "owner": "/root/sol_device_auth",
@@ -3828,7 +3828,7 @@
         "builds": "primary only; serialized; no subagent Cargo/Docker",
         "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
         "dependencies": "preserved before activation and acceptance",
-        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_admission/manifest.json",
+        "candidate_manifest": "<local-cache>/agentforge-upgrade/proposals/sol_admission/manifest.json",
         "verification": "candidate source only; primary build/integration/live gates remain open",
         "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
       },
@@ -4596,7 +4596,7 @@
         }
       ],
       "dependency_review": "Initial scheduling edges; recheck owning section and contracts before activation. No dependency may be silently waived.",
-      "implementation": "Incomplete claims/checkpoints/schema draft withdrawn exactly; previous DocIR/model-plane/Valkey/cache/budget source retained. External draft /Users/yang/.cache/agentforge-upgrade/proposals/knowledge-heartbeat-draft/.",
+      "implementation": "Incomplete claims/checkpoints/schema draft withdrawn exactly; previous DocIR/model-plane/Valkey/cache/budget source retained. External draft <local-cache>/agentforge-upgrade/proposals/knowledge-heartbeat-draft/.",
       "verification": "not_compiled_or_accepted; full lease/recovery/checkpoint acceptance remains",
       "evidence": [],
       "parallel_preparation": {
@@ -4988,7 +4988,7 @@
       "implementation": "Fetch transport replacement and generated query key/options/source request contracts in final owner closure; Axios removed; actual pnpm12 metadata-only and frozen-offline lock verification passed. Producer fixed nonexistent v1 query alias to genuine mounted v2 event stream.",
       "verification": "Earlier whole Web2206 and TS7/TS6 passed at preceding checkpoint. Final generated fetch SDK/combined Web checks pending; no completion claimed.",
       "evidence": [
-        "/Users/yang/.cache/agentforge-upgrade/console-service-completion/HANDOFF.md"
+        "<local-cache>/agentforge-upgrade/console-service-completion/HANDOFF.md"
       ],
       "parallel_preparation": {
         "owners": [
@@ -5225,7 +5225,7 @@
         "builds": "primary only; serialized; no subagent Cargo/Docker",
         "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
         "dependencies": "preserved before activation and acceptance",
-        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_delivery/manifest.json",
+        "candidate_manifest": "<local-cache>/agentforge-upgrade/proposals/sol_delivery/manifest.json",
         "verification": "candidate source only; primary build/integration/live gates remain open",
         "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
       },
@@ -5251,7 +5251,7 @@
       "implementation": "source_candidate_integration_pending",
       "verification": "11 Node tests passed; Rust parse/format and config checks passed; Tauri/macOS build, signed install/update, real parity and metrics unrun",
       "evidence": [
-        "/Users/yang/.cache/agentforge-upgrade/desktop-service-completion/source-freeze.json"
+        "<local-cache>/agentforge-upgrade/desktop-service-completion/source-freeze.json"
       ],
       "delivery_module": "产品入口"
     },
@@ -5558,7 +5558,7 @@
       "implementation": "All 22 append-family lifecycle/retention source and maintenance plan controller are wired to native CLIs; bounded archive checks, revision/evidence fences and inactive-family handling implemented.",
       "verification": "Consolidated code tests and original restored-copy/physical retention acceptance pending.",
       "evidence": [
-        "/Users/yang/.cache/agentforge-upgrade/data-service-completion/source-freeze.json"
+        "<local-cache>/agentforge-upgrade/data-service-completion/source-freeze.json"
       ],
       "parallel_preparation": {
         "owners": [
@@ -6207,7 +6207,7 @@
         "builds": "primary only; serialized; no subagent Cargo/Docker",
         "acceptance": "Original dependency/direct/integration/live gates remain unchanged; source code alone is not acceptance",
         "dependencies": "preserved before activation and acceptance",
-        "candidate_manifest": "/Users/yang/.cache/agentforge-upgrade/proposals/sol_delivery/manifest.json",
+        "candidate_manifest": "<local-cache>/agentforge-upgrade/proposals/sol_delivery/manifest.json",
         "verification": "candidate source only; primary build/integration/live gates remain open",
         "write_authorization": "Explicit owner instruction: subagents directly edit disjoint code paths; no candidate approval queue"
       },

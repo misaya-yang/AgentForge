@@ -21,7 +21,7 @@
   },
   "environment": {
     "project": "agentforge-dev-7801d4a9a4",
-    "working_dir": "/Users/yang/projects/AgentForge",
+    "working_dir": "<repo-root>",
     "private_env": "ignored .env.dev, mode0600, values withheld",
     "node": "26.11.1",
     "pnpm": "12.11.2",

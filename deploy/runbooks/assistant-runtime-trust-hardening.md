@@ -40,8 +40,8 @@
 
 | 对象 | 路径 | 语言/规模 |
 |---|---|---|
-| Hermes Agent | `/Users/yang/projects/Hermes_agent` | Python，约 6.5k 源文件 |
-| OpenClaw | `/Users/yang/projects/open claw/openclaw` | TS，约 8k 源文件 |
+| Hermes Agent | `<hermes-agent-checkout>` | Python，约 6.5k 源文件 |
+| OpenClaw | `<openclaw-checkout>/openclaw` | TS，约 8k 源文件 |
 
 两者都在本机完整可读。**不要用文档宣称或版本说明代替读源码。**
 

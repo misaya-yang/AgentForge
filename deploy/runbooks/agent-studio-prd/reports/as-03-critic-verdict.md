@@ -76,7 +76,7 @@ still repeats destination validation and pins the actual connection.
 
 - All eight repository-owned services were healthy after review.
 - Every Compose ownership label was
-  `/Users/yang/projects/AI--Platfform`.
+  `<repo-root>`.
 - Gateway and Assistant were restored to
   `ASSISTANT_E2E_STUB_LLM=false`.
 - Gateway/Assistant hot-source hashes matched the host.

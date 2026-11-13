@@ -77,67 +77,67 @@
       "name": "/ai-gateway-frontend",
       "image_id": "sha256:02ef21b06bae883cb12c372e89f075dae3e74e06b9222e16cbe699d62e8ac4f1",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-backend",
       "image_id": "sha256:b4bcdf61505e4970b20017ee9430d51152245e32dda234bee49d27fa4ac231e6",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-knowledge-service",
       "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-knowledge-worker-1",
       "image_id": "sha256:aa030511f9a2069f0c3c2ea6b4d7b5f3b59e23be1955ee1eb03309ef9996f86a",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-migrate",
       "image_id": "sha256:3d2ba0e569da3ddf6c2aa932babaf572f75db9979ce2b987fb93f7eb2706d647",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-agent-runtime",
       "image_id": "sha256:6f364bbe35eb44fca3ac14c12368150d9989233a652c3a4fb2c93791ccd44981",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-agent-capability-worker-1",
       "image_id": "sha256:592036aadd8c3088f4d0d01ae42a660f03ac0556934c317db7fa4ca68fecd001",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-init",
       "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-pg",
       "image_id": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-redis",
       "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     },
     {
       "name": "/ai-gateway-qdrant",
       "image_id": "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c",
       "state": "exited",
-      "compose_owner": "/Users/yang/projects/AI--Platfform"
+      "compose_owner": "<repo-root>"
     }
   ],
   "scope": "available local stopped-container image identities only; DB backup and rollback rehearsal not yet executed"

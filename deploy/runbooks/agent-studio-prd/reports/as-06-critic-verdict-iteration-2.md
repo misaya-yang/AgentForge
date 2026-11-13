@@ -119,7 +119,7 @@ The exact release suite passed desktop/mobile lifecycle, selected Eval Dataset, 
 
 Fifteen AS-06 screenshots were enumerated and their raster dimensions checked, including 1440x900, 390x844, full-page mobile, dark Publish, live model-unavailable and live rollback audit states. Direct visual inspection of representative desktop, mobile, dark and live rollback captures found no material UI-truth contradiction. Screenshots cannot establish the missing readiness transaction boundary in C-06.
 
-Before Docker work, all eight ai-gateway containers were healthy and labeled with compose working_dir=/Users/yang/projects/AI--Platfform. Temporary provider-free Critic containers kept provider credentials blank, stayed below the 3.5 GiB ceiling, and were removed. Final state: eight repository-owned containers healthy, Gateway and Assistant both stub=false, observed total memory approximately 761 MiB.
+Before Docker work, all eight ai-gateway containers were healthy and labeled with compose working_dir=<repo-root>. Temporary provider-free Critic containers kept provider credentials blank, stayed below the 3.5 GiB ceiling, and were removed. Final state: eight repository-owned containers healthy, Gateway and Assistant both stub=false, observed total memory approximately 761 MiB.
 
 ## Minimal-Change, Rollback, and Handoff Assessment
 

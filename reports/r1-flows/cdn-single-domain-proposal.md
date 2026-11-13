@@ -4,9 +4,9 @@
 
 运行的代理是 FlClash / FlClashCore（PID736/77689），另有ClashMac旧helper。FlClash当前选中profile ID361504683073736704，SQLite overwrite_type=standard，script_id为空；`overrideDns=false`。配置来源位于：
 
-- `/Users/yang/Library/Application Support/com.follow.clash/profiles/361504683073736704.yaml`：当前选中的profile，已有dns和3条fake-ip-filter。
-- `/Users/yang/Library/Preferences/com.follow.clash.plist` 的 `flutter.config` JSON：currentProfileId及patchClashConfig.dns；因overrideDns=false，不能把该patch当作直接覆盖源。
-- `/Users/yang/Library/Application Support/com.follow.clash/config.yaml`：已生成文件包含enhanced-mode=fake-ip、198.18.0.1/16和2条filter；与当前profile和prefs并不逐项相同，不能直接编辑它冒充持久源。REST controller未可用，未读取正在运行Core的完整内存配置。
+- `<local-library>/Application Support/com.follow.clash/profiles/361504683073736704.yaml`：当前选中的profile，已有dns和3条fake-ip-filter。
+- `<local-library>/Preferences/com.follow.clash.plist` 的 `flutter.config` JSON：currentProfileId及patchClashConfig.dns；因overrideDns=false，不能把该patch当作直接覆盖源。
+- `<local-library>/Application Support/com.follow.clash/config.yaml`：已生成文件包含enhanced-mode=fake-ip、198.18.0.1/16和2条filter；与当前profile和prefs并不逐项相同，不能直接编辑它冒充持久源。REST controller未可用，未读取正在运行Core的完整内存配置。
 - ClashMac work/config.yaml更新时间为7月，不能当作当前FlClash选中profile。
 
 实际Docker CDN DNS已解析到198.18/15；原safe_fetch拒绝正确。以上只读取选中ID、DNS字段和配置元数据，没有复制订阅URL、代理密码、controller secret或完整profile。

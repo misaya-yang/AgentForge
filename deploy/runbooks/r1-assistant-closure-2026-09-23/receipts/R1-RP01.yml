@@ -170,7 +170,7 @@ repaired_review_findings:
   high: 1
   medium: 1
 rollback_class: old-binary-compatible
-compose_owner: /Users/yang/projects/AI--Platfform
+compose_owner: <repo-root>
 actual_source_manifest: reports/r1-remaining/runtime-identity.json
 runtime_candidate: C4 overlay22bf4e1ecad5 upstream279ba894152b
 provider_model: DashScope/qwen3.8-flash (real text/knowledge/attachment only)

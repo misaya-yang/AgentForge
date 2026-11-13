@@ -13,203 +13,203 @@
   },
   "suites": [
     {
-      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_domain-c87f13193962bed4)",
+      "target": "Running unittests src/lib.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_domain-c87f13193962bed4)",
       "passed": 91,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/capability_wire.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/capability_wire-01f5c3487375785e)",
+      "target": "Running tests/capability_wire.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/capability_wire-01f5c3487375785e)",
       "passed": 2,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/qa_provider_stream.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/qa_provider_stream-a7a72e69e01e5793)",
+      "target": "Running tests/qa_provider_stream.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/qa_provider_stream-a7a72e69e01e5793)",
       "passed": 2,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_ops-c26001f7aabcc6de)",
+      "target": "Running unittests src/lib.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_ops-c26001f7aabcc6de)",
       "passed": 30,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/bin/knowledge-eval-gate.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_eval_gate-0c948eb1c1f8d704)",
+      "target": "Running unittests src/bin/knowledge-eval-gate.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_eval_gate-0c948eb1c1f8d704)",
       "passed": 0,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_ops-24037603db1a30da)",
+      "target": "Running unittests src/main.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/platform_knowledge_ops-24037603db1a30da)",
       "passed": 0,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_promotion.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_promotion-9ed8b5bac7e6f329)",
+      "target": "Running tests/knowledge_promotion.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_promotion-9ed8b5bac7e6f329)",
       "passed": 6,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/lib.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_service-3f0af8ce3ec8990f)",
+      "target": "Running unittests src/lib.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/ai_platform_knowledge_service-3f0af8ce3ec8990f)",
       "passed": 63,
       "failed": 0,
       "ignored": 6,
       "filtered_out": 0
     },
     {
-      "target": "Running unittests src/main.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/platform_knowledge_service-07b9c584178e4249)",
+      "target": "Running unittests src/main.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/platform_knowledge_service-07b9c584178e4249)",
       "passed": 0,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/agent_studio_knowledge_capability.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/agent_studio_knowledge_capability-66aa04e89baa231f)",
+      "target": "Running tests/agent_studio_knowledge_capability.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/agent_studio_knowledge_capability-66aa04e89baa231f)",
       "passed": 5,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_assets.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_assets-1006f43d93ec187f)",
+      "target": "Running tests/knowledge_migration_parity_assets.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_assets-1006f43d93ec187f)",
       "passed": 5,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_config.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_config-213d8360c29eab68)",
+      "target": "Running tests/knowledge_migration_parity_config.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_config-213d8360c29eab68)",
       "passed": 5,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_display.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_display-2f72d8788f0f4835)",
+      "target": "Running tests/knowledge_migration_parity_display.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_display-2f72d8788f0f4835)",
       "passed": 6,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_embedding.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_embedding-7d12ce6f32f39f79)",
+      "target": "Running tests/knowledge_migration_parity_embedding.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_embedding-7d12ce6f32f39f79)",
       "passed": 5,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_eval.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_eval-a46d55364dae5248)",
+      "target": "Running tests/knowledge_migration_parity_eval.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_eval-a46d55364dae5248)",
       "passed": 6,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_metrics.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_metrics-9603857f896f9c8d)",
+      "target": "Running tests/knowledge_migration_parity_metrics.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_metrics-9603857f896f9c8d)",
       "passed": 1,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_mmr.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_mmr-cb5e846870965960)",
+      "target": "Running tests/knowledge_migration_parity_mmr.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_mmr-cb5e846870965960)",
       "passed": 7,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_multilingual.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_multilingual-6b33c598d021da0a)",
+      "target": "Running tests/knowledge_migration_parity_multilingual.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_multilingual-6b33c598d021da0a)",
       "passed": 6,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_parsing.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_parsing-041a0cf9c2cba34b)",
+      "target": "Running tests/knowledge_migration_parity_parsing.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_parsing-041a0cf9c2cba34b)",
       "passed": 11,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_process.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_process-396c1a1e18f761bb)",
+      "target": "Running tests/knowledge_migration_parity_process.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_process-396c1a1e18f761bb)",
       "passed": 3,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_query_settings.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_query_settings-e9639565261576c5)",
+      "target": "Running tests/knowledge_migration_parity_query_settings.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_query_settings-e9639565261576c5)",
       "passed": 7,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_rerank.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_rerank-d1b40ed82942da3d)",
+      "target": "Running tests/knowledge_migration_parity_rerank.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_rerank-d1b40ed82942da3d)",
       "passed": 3,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_retrieval.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_retrieval-d231d031c5b26f56)",
+      "target": "Running tests/knowledge_migration_parity_retrieval.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_retrieval-d231d031c5b26f56)",
       "passed": 10,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_migration_parity_tools.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_tools-acb8de1586ab5cb3)",
+      "target": "Running tests/knowledge_migration_parity_tools.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_migration_parity_tools-acb8de1586ab5cb3)",
       "passed": 2,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/knowledge_tool_future_layout.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/knowledge_tool_future_layout-60af493ef6751347)",
+      "target": "Running tests/knowledge_tool_future_layout.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/knowledge_tool_future_layout-60af493ef6751347)",
       "passed": 1,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/local_embedding_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/local_embedding_contract-810664e85060db0c)",
+      "target": "Running tests/local_embedding_contract.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/local_embedding_contract-810664e85060db0c)",
       "passed": 3,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/process_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/process_contract-525b42636f4c85ef)",
+      "target": "Running tests/process_contract.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/process_contract-525b42636f4c85ef)",
       "passed": 6,
       "failed": 0,
       "ignored": 0,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/qdrant_integration_smoke.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/qdrant_integration_smoke-ae5c063fe7a61ca3)",
+      "target": "Running tests/qdrant_integration_smoke.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/qdrant_integration_smoke-ae5c063fe7a61ca3)",
       "passed": 0,
       "failed": 0,
       "ignored": 2,
       "filtered_out": 0
     },
     {
-      "target": "Running tests/rerank_contract.rs (/Users/yang/.cache/agentforge-upgrade/native-target/debug/deps/rerank_contract-eb3942551ed51fd0)",
+      "target": "Running tests/rerank_contract.rs (<local-cache>/agentforge-upgrade/native-target/debug/deps/rerank_contract-eb3942551ed51fd0)",
       "passed": 4,
       "failed": 0,
       "ignored": 0,

@@ -12,13 +12,13 @@ rg -n '"command":|"acceptance_gates":|"stop_conditions":' deploy/runbooks/agent-
 结构校验：
 
 ```bash
-python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-studio-prd --quality-score
+python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-studio-prd --quality-score
 ```
 
 单 Phase 完成校验：
 
 ```bash
-python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-studio-prd --claim-check --phase AS-XX --quality-score
+python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py deploy/runbooks/agent-studio-prd --claim-check --phase AS-XX --quality-score
 ```
 
 ## Phase Index

@@ -39,8 +39,8 @@
       "receipt_sha256": "feeeacb92b2401a6d59be07c728e67235b2a10ef7b66d71bf794212bfbb570bd"
     }
   ],
-  "preview": "/Users/yang/.cache/agentforge-upgrade/schema027-preview-r1-20261017",
-  "bundle": "/Users/yang/.cache/agentforge-upgrade/schema027-bundle-r1-20261017",
+  "preview": "<local-cache>/agentforge-upgrade/schema027-preview-r1-20261017",
+  "bundle": "<local-cache>/agentforge-upgrade/schema027-bundle-r1-20261017",
   "bundle_files_verified": 13,
   "proposed_lock_sha256": "be380ed99ce7fe4cec6a1a0ea16e50be1a38711bbd3662e6b7f62e7bca305ee6",
   "raw_private_measurement_log_sha256": "b8266f0972a6a6baa0f0cd340443d038635ab69972b6bc75866c1f85440d2f34",

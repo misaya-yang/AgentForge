@@ -49,7 +49,7 @@
     "vite_headers_used_as_production_evidence": false
   },
   "preflight": {
-    "compose_working_dir": "/Users/yang/projects/AI--Platfform",
+    "compose_working_dir": "<repo-root>",
     "expected_service_count": 8,
     "all_services_healthy": true,
     "migrations_present": "071-081",
@@ -64,10 +64,10 @@
     "gateway_health_endpoint": "passed"
   },
   "structure_validation": {
-    "mandated_legacy_strict_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --quality-score",
+    "mandated_legacy_strict_command": "python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --strict --quality-score",
     "legacy_strict_exit_code": 1,
     "legacy_strict_result": "unsupported by installed lightweight validator for a v2 harness",
-    "supported_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --quality-score",
+    "supported_command": "python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --quality-score",
     "supported_exit_code": 0,
     "supported_result": "Harness structure validation passed; diagnostic compatibility score 100/100",
     "outcome_evidence": false
@@ -104,7 +104,7 @@
     "oracle_status": "passing",
     "legacy_strict_command_exit_code": 1,
     "legacy_strict_result": "unsupported for v2; not counted as passed",
-    "supported_command": "python3 /Users/yang/.codex/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score",
+    "supported_command": "python3 <local-codex-home>/skills/prd-phase-harness/scripts/validate_harness_prd.py docs/agent-studio-prd --completion-gate --phase AS-09 --quality-score",
     "supported_exit_code": 0,
     "supported_result": "structure passed; claim metadata internally consistent; diagnostic score 100/100",
     "validator_executes_cited_product_evidence": false

@@ -162,7 +162,7 @@ PostgreSQL 16 容器完成全门禁，容器随后删除。既有浏览器证据
 | `docker compose config --quiet` + `docker compose up -d --no-build knowledge-service knowledge-worker` | PASS：先核对 Compose owner 指向功能 worktree；仅重建知识服务容器以应用 OCR 专用环境变量，没有删除 volume 或重建镜像。 |
 | `uv run ... pytest` 受影响 OCR/配置/worker/容器分发集合 | PASS：86 passed，1 个既有 Starlette warning；覆盖 Qwen 原生 payload、OCR 独立端点、启动配置、worker provenance 与 env 注入。 |
 | `bash -n scripts/new/init-env.sh` + `git diff --check` | PASS。 |
-| DashScope Qwen-OCR 真实单页 smoke（重建后） | PASS：真实可视 `/Users/yang/Downloads/PDF文档/导入备份文档.pdf` 第 1 页；运行时报告 `provider=dashscope`、`model=qwen-vl-ocr`、`task=document_parsing`、非空输出 34 字符。未输出正文或凭据。 |
+| DashScope Qwen-OCR 真实单页 smoke（重建后） | PASS：真实可视 `<local-home>/Downloads/PDF文档/导入备份文档.pdf` 第 1 页；运行时报告 `provider=dashscope`、`model=qwen-vl-ocr`、`task=document_parsing`、非空输出 34 字符。未输出正文或凭据。 |
 | 35 页候选扫描批量尝试 | **未验证/排除**：`Agent-工程核心模块教学白皮书.pdf` 的渲染页实际为空白；批量请求产生 `InvalidParameter.DataInspection`，且流式计数异常，未计入任何 PASS。 |
 | 活栈 API 回归脚本 | PASS：64 个请求断言；文本/PDF、检索、QA、反馈、遥测、生命周期、批量、迁移、409/404/403、刷新持久性和清理。 |
 | 实际网关文档进度 SSE（`Last-Event-ID=kb_35d11ebc320f:6`） | PASS：HTTP 200，续传 5 个事件（7–11），dataset-scoped、严格单调并包含 terminal。 |
@@ -310,7 +310,7 @@ Completed；浏览器打开文档页期间网关日志记录了
    并发检索→rollback，并记录全局收据。
 4. 完成 T4 真实长 PDF 指标、T7 Helm/Grafana 告警验证和 T9 真实语料灰度。
 5. 补充可视且内容有效的 50–200 页扫描/双栏/表格/公式语料；当前
-   `/Users/yang/Downloads/PDF文档` 中没有可证明的有效大扫描样本，不能用空白页或
+   `<local-home>/Downloads/PDF文档` 中没有可证明的有效大扫描样本，不能用空白页或
    供应商失败响应替代 T4 质量证据。Qwen-OCR 已作为扫描页默认 OCR 接入，但专项
    表格/公式/定位任务和备用解析器的质量门控仍需真实语料后执行。
 

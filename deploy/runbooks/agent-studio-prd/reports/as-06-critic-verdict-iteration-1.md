@@ -54,7 +54,7 @@ Tenant/Agent ACL checks, Owner-only mutations, server-owned profile/candidate fa
 
 C-03 is a stable-error/failure-atomicity defect: the losing transaction rolls back, but clients receive a misleading slug error. C-05 is more serious for authorization freshness because the pointer decision can outlive the model authorization used to construct its candidate. C-01 also leaves the database Dataset/run FKs non-composite even though rows are tenant-scoped; application checks reduce current exploitability, but schema-level tenant integrity should be made explicit when correcting the binding.
 
-Before runtime work, all eight `ai-gateway-*` containers were healthy and their Compose ownership labels pointed to `/Users/yang/projects/AI--Platfform`. Sampled memory was approximately 753 MiB, below 3.5 GiB. Temporary processes were stopped; ports `18080` and `18093` were independently confirmed released. The formal Compose services remained healthy.
+Before runtime work, all eight `ai-gateway-*` containers were healthy and their Compose ownership labels pointed to `<repo-root>`. Sampled memory was approximately 753 MiB, below 3.5 GiB. Temporary processes were stopped; ports `18080` and `18093` were independently confirmed released. The formal Compose services remained healthy.
 
 ## Minimal-Change Assessment
 
