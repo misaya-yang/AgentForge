@@ -147,7 +147,7 @@ fn ensure_builder_with(
         );
     }
 
-    let container = format!("buildx_buildkit_{}", node.name);
+    let container = format!("buildx_buildkit_{}0", name);
     let config = execute(&[
         "container".into(),
         "inspect".into(),
@@ -276,7 +276,7 @@ pub fn run(args: &Args) -> Result<Value> {
         root.canonicalize()?;
         existing_local_builder_with(&selected, memory, cpu_quota, execute_docker)?
     } else {
-        ensure_builder_with(root, memory, cpu_quota, execute_docker)?
+        ensure_builder_with(root, memory, cpu_quota, None, execute_docker)?
     };
     Ok(serde_json::json!({"_plain": name}))
 }
