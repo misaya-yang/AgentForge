@@ -23,6 +23,92 @@ const TERMINAL: &[&str] = &[
     "side_effect_unknown",
 ];
 
+fn permission_snapshot(doctor: &Value) -> Result<(String, BTreeSet<String>), ChannelStoreError> {
+    let digest = doctor["permission_snapshot_digest"]
+        .as_str()
+        .filter(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or(ChannelStoreError::Rejected)?
+        .to_owned();
+    let raw = doctor["capability_claims"]
+        .as_array()
+        .ok_or(ChannelStoreError::Rejected)?;
+    if raw.len() > 32 {
+        return Err(ChannelStoreError::Rejected);
+    }
+    let claims = raw
+        .iter()
+        .map(|value| value.as_str().ok_or(ChannelStoreError::Rejected))
+        .collect::<Result<Vec<_>, _>>()?;
+    if claims.windows(2).any(|pair| pair[0] >= pair[1])
+        || claims.iter().any(|claim| {
+            !matches!(
+                *claim,
+                "file.read" | "file.search" | "file.watch" | "file.write"
+            )
+        })
+    {
+        return Err(ChannelStoreError::Rejected);
+    }
+    Ok((digest, claims.into_iter().map(str::to_owned).collect()))
+}
+
+fn claims_supported_by_grants(grants: &[Value], claims: &BTreeSet<String>) -> bool {
+    let mut supported = BTreeSet::new();
+    for capability in grants
+        .iter()
+        .flat_map(|grant| grant.as_array().into_iter().flatten())
+        .filter_map(Value::as_str)
+    {
+        match capability {
+            "list" | "read" => {
+                supported.insert("file.read".to_owned());
+            }
+            "search" => {
+                supported.insert("file.search".to_owned());
+            }
+            "watch" => {
+                supported.insert("file.watch".to_owned());
+            }
+            "write" | "rollback" => {
+                supported.insert("file.write".to_owned());
+            }
+            _ => {}
+        }
+    }
+    claims.is_subset(&supported)
+}
+
+fn heartbeat_timestamp_is_fresh(sent_at: f64, now: f64, last_seen_at: Option<f64>) -> bool {
+    sent_at.is_finite()
+        && (now - sent_at).abs() <= 300.0
+        && last_seen_at.is_none_or(|last_seen| sent_at > last_seen)
+}
+
+fn log_pair_database_failure(
+    stage: &'static str,
+    error: sqlx::Error,
+    fallback: ChannelStoreError,
+) -> ChannelStoreError {
+    let sqlstate = error
+        .as_database_error()
+        .and_then(|database| database.code())
+        .map(|code| code.into_owned())
+        .unwrap_or_else(|| "non_database_error".to_owned());
+    tracing::error!(
+        target: "platform_gateway::local_node_channel",
+        operation = "pair",
+        stage,
+        sqlstate = %sqlstate,
+        "local node pairing repository operation failed"
+    );
+    fallback
+}
+
 #[derive(Clone)]
 pub struct PostgresLocalNodeChannelRepository {
     pub pool: PgPool,
@@ -294,7 +380,11 @@ impl PostgresLocalNodeChannelRepository {
         let capabilities = json!(required_capabilities);
         let mut query = sqlx::query_scalar::<_, Value>(
             "SELECT to_jsonb(g) FROM gateway.local_node_grants g \
+             JOIN gateway.local_node_devices d ON d.device_id=g.device_id \
+              AND d.tenant_id=g.tenant_id AND d.user_id=g.user_id \
              WHERE g.tenant_id=$1 AND g.user_id=$2 AND g.device_id=$3 \
+               AND d.status='online' AND d.revoked_at IS NULL \
+               AND d.last_seen_at>now()-interval '2 minutes' AND g.updated_at<=d.last_seen_at \
                AND g.kind='workspace' AND g.status='active' AND g.revoked_at IS NULL \
                AND (g.expires_at IS NULL OR g.expires_at>now()) \
                AND (g.session_id IS NULL OR g.session_id=$4) \
@@ -664,7 +754,9 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(user_code_sha256)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?
+            .map_err(|error| {
+                log_pair_database_failure("challenge_lookup", error, ChannelStoreError::Unavailable)
+            })?
             .ok_or(ChannelStoreError::Rejected)?;
             let tenant_id = value_str(&challenge_owner, "tenant_id")?;
             let user_id = value_str(&challenge_owner, "user_id")?;
@@ -686,7 +778,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(challenge_id)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure(
+                    "challenge_consume",
+                    error,
+                    ChannelStoreError::Unavailable,
+                )
+            })?;
             if consumed.is_none() {
                 return Err(ChannelStoreError::Conflict);
             }
@@ -698,7 +796,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(&request.device_id)
             .fetch_one(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure(
+                    "fingerprint_conflict_lookup",
+                    error,
+                    ChannelStoreError::Unavailable,
+                )
+            })?;
             if key_used_elsewhere {
                 return Err(ChannelStoreError::Conflict);
             }
@@ -712,7 +816,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(user_id)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure(
+                    "device_fingerprint_lookup",
+                    error,
+                    ChannelStoreError::Unavailable,
+                )
+            })?;
             if known_fingerprint
                 .as_deref()
                 .is_some_and(|known| known != channel_fingerprint)
@@ -729,7 +839,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(user_id)
             .fetch_one(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure(
+                    "credential_sequence_lookup",
+                    error,
+                    ChannelStoreError::Unavailable,
+                )
+            })?;
             sqlx::query(
                 "UPDATE gateway.local_node_device_credentials SET revoked_at=COALESCE(revoked_at,now()) \
                  WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND revoked_at IS NULL",
@@ -739,7 +855,13 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(user_id)
             .execute(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure(
+                    "credential_revoke",
+                    error,
+                    ChannelStoreError::Unavailable,
+                )
+            })?;
             sqlx::query(
                 "UPDATE gateway.local_node_channels SET status='revoked' \
                  WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND status<>'revoked'",
@@ -749,7 +871,9 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(user_id)
             .execute(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            .map_err(|error| {
+                log_pair_database_failure("channel_revoke", error, ChannelStoreError::Unavailable)
+            })?;
             sqlx::query(
                 "INSERT INTO gateway.local_node_devices( \
                      device_id,tenant_id,user_id,display_name,platform,node_version,protocol_version, \
@@ -774,7 +898,9 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(&request.permission_snapshot_digest)
             .execute(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Conflict)?;
+            .map_err(|error| {
+                log_pair_database_failure("device_upsert", error, ChannelStoreError::Conflict)
+            })?;
             sqlx::query(
                 "INSERT INTO gateway.local_node_channels( \
                      channel_id,device_id,tenant_id,user_id,fingerprint,status,last_seen_at \
@@ -787,7 +913,9 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .bind(channel_fingerprint)
             .execute(&mut *tx)
             .await
-            .map_err(|_| ChannelStoreError::Conflict)?;
+            .map_err(|error| {
+                log_pair_database_failure("channel_insert", error, ChannelStoreError::Conflict)
+            })?;
             sqlx::query(
                 "INSERT INTO gateway.local_node_device_credentials( \
                      credential_id,credential_sha256,tenant_id,user_id,device_id,channel_id,expires_at, \
@@ -835,7 +963,11 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             let credential = sqlx::query_scalar::<_, Value>(
                 "SELECT jsonb_build_object( \
                      'tenant_id',c.tenant_id,'user_id',c.user_id,'device_id',c.device_id, \
-                     'channel_id',c.channel_id,'accepted_through_sequence',c.accepted_through_sequence \
+                     'channel_id',c.channel_id,'accepted_through_sequence',c.accepted_through_sequence, \
+                     'permission_snapshot_digest',d.permission_snapshot_digest, \
+                     'capabilities',d.capabilities,'capability_revision',d.capability_revision, \
+                     'last_seen_at_epoch',extract(epoch FROM d.last_seen_at), \
+                     'credential_last_seen_at_epoch',extract(epoch FROM c.last_seen_at) \
                  ) FROM gateway.local_node_device_credentials c \
                  JOIN gateway.local_node_devices d ON d.device_id=c.device_id \
                   AND d.tenant_id=c.tenant_id AND d.user_id=c.user_id \
@@ -881,25 +1013,35 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
                 accepted = sequence;
             }
             sqlx::query(
-                "UPDATE gateway.local_node_device_credentials SET accepted_through_sequence=$2,last_seen_at=now() \
+                "UPDATE gateway.local_node_device_credentials SET accepted_through_sequence=$2, \
+                     last_seen_at=to_timestamp($4) \
                  WHERE credential_sha256=$1 AND device_id=$3 AND revoked_at IS NULL",
             )
             .bind(credential_sha256)
             .bind(accepted)
             .bind(&request.device_id)
+            .bind(request.sent_at)
             .execute(&mut *tx)
             .await
             .map_err(|_| ChannelStoreError::Unavailable)?;
-            sqlx::query(
-                "UPDATE gateway.local_node_devices SET last_seen_at=now(),status='online',updated_at=now() \
-                 WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND revoked_at IS NULL",
-            )
-            .bind(&request.device_id)
-            .bind(tenant_id)
-            .bind(user_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| ChannelStoreError::Unavailable)?;
+            if let (Some(next_revision), Some(device_claims_json)) =
+                (next_revision, device_claims_json)
+            {
+                sqlx::query(
+                    "UPDATE gateway.local_node_devices SET last_seen_at=clock_timestamp(),status='online', \
+                         permission_snapshot_digest=$4,capabilities=$5::jsonb,capability_revision=$6,updated_at=now() \
+                     WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND revoked_at IS NULL",
+                )
+                .bind(&request.device_id)
+                .bind(tenant_id)
+                .bind(user_id)
+                .bind(permission_snapshot_digest)
+                .bind(device_claims_json)
+                .bind(next_revision)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| ChannelStoreError::Unavailable)?;
+            }
             sqlx::query(
                 "UPDATE gateway.local_node_channels SET last_seen_at=now() \
                  WHERE channel_id=$1 AND device_id=$2 AND tenant_id=$3 AND user_id=$4 AND status='online'",
@@ -1020,11 +1162,19 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .await
             .map_err(|_| ChannelStoreError::Unavailable)?
             .ok_or(ChannelStoreError::Rejected)?;
+            if !resource_binding_snapshot_matches(&source["execution"]["resource_binding"], &device)
+            {
+                return Err(ChannelStoreError::Rejected);
+            }
             let grant_rows = sqlx::query_scalar::<_, Value>(
-                "SELECT capabilities FROM gateway.local_node_grants \
-                 WHERE tenant_id=$1 AND user_id=$2 AND device_id=$3 AND kind='workspace' \
-                   AND status='active' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now()) \
-                   AND (session_id IS NULL OR session_id=$4)",
+                "SELECT g.capabilities FROM gateway.local_node_grants g \
+                 JOIN gateway.local_node_devices d ON d.device_id=g.device_id \
+                  AND d.tenant_id=g.tenant_id AND d.user_id=g.user_id \
+                 WHERE g.tenant_id=$1 AND g.user_id=$2 AND g.device_id=$3 AND g.kind='workspace' \
+                   AND g.status='active' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>now()) \
+                   AND (g.session_id IS NULL OR g.session_id=$4) \
+                   AND d.status='online' AND d.revoked_at IS NULL \
+                   AND d.last_seen_at>now()-interval '2 minutes' AND g.updated_at<=d.last_seen_at",
             )
             .bind(&context.tenant_id)
             .bind(&context.user_id)
@@ -1158,7 +1308,8 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             }
             let device = sqlx::query_scalar::<_, Value>(
                 "SELECT to_jsonb(d) FROM gateway.local_node_devices d \
-                 WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 AND status='online' AND revoked_at IS NULL",
+                 WHERE device_id=$1 AND tenant_id=$2 AND user_id=$3 \
+                   AND status='online' AND revoked_at IS NULL FOR SHARE",
             )
             .bind(&request.device_id)
             .bind(&context.tenant_id)
@@ -1167,6 +1318,9 @@ impl LocalNodeChannelRepository for PostgresLocalNodeChannelRepository {
             .await
             .map_err(|_| ChannelStoreError::Unavailable)?
             .ok_or(ChannelStoreError::Rejected)?;
+            if !resource_binding_snapshot_matches(binding, &device) {
+                return Err(ChannelStoreError::Rejected);
+            }
             if !device["capabilities"].as_array().is_some_and(|values| {
                 values
                     .iter()
@@ -1839,6 +1993,18 @@ fn resource_binding_device_matches(binding: &Value, device_id: &str) -> bool {
             .is_none_or(|(direct, connector)| direct == connector)
 }
 
+fn resource_binding_snapshot_matches(binding: &Value, device: &Value) -> bool {
+    let connector = &binding["connector_binding"];
+    if connector["provider"] != "local_node" {
+        return true;
+    }
+    connector["permission_snapshot_digest"].as_str()
+        == device["permission_snapshot_digest"].as_str()
+        && connector["device_capability_revision"].as_i64()
+            == device["capability_revision"].as_i64()
+        && connector["grant_id"].as_str().is_some()
+}
+
 fn uuid_text(value: &str) -> Result<&str, ChannelStoreError> {
     Uuid::parse_str(value).map_err(|_| ChannelStoreError::Rejected)?;
     Ok(value)
@@ -2105,6 +2271,32 @@ mod tests {
         });
         assert!(!resource_binding_device_matches(&conflict, "dev_fixture"));
         assert!(!resource_binding_device_matches(&json!({}), "dev_fixture"));
+    }
+
+    #[test]
+    fn local_node_dispatch_rejects_a_binding_from_an_old_permission_snapshot() {
+        let binding = json!({
+            "connector_binding":{
+                "provider":"local_node",
+                "grant_id":"cfbfa9d4-18b3-4470-b3f2-f13660a993dc",
+                "permission_snapshot_digest":"a".repeat(64),
+                "device_capability_revision":2
+            }
+        });
+        let current = json!({
+            "permission_snapshot_digest":"a".repeat(64),
+            "capability_revision":2
+        });
+        assert!(resource_binding_snapshot_matches(&binding, &current));
+
+        let updated = json!({
+            "permission_snapshot_digest":"b".repeat(64),
+            "capability_revision":3
+        });
+        assert!(!resource_binding_snapshot_matches(&binding, &updated));
+
+        let missing = json!({"connector_binding":{"provider":"local_node"}});
+        assert!(!resource_binding_snapshot_matches(&missing, &current));
     }
 
     #[test]

@@ -158,7 +158,11 @@ export interface Document {
   archived_by?: string;
   archived_reason?: string;
   metadata?: Record<string, unknown>;
-  source_type?: "upload" | "url" | "confluence";
+  /** Public source classification; text sources are the only editable sources. */
+  source_type?: "text" | "upload" | "url" | "confluence";
+  mime_type?: string;
+  /** Current published source generation, included by source/detail reads. */
+  current_version?: number;
   created_at?: string;
   updated_at?: string;
   created_by?: string;

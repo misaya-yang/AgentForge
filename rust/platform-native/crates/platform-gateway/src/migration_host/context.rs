@@ -91,7 +91,7 @@ fn safe_id(value: &str, limit: usize, colon: bool) -> bool {
         })
 }
 /// Capture only bounded correlation for one request's detached work. This is
-/// not an identity carrier: no actor, authorization, cookies or baggage survive.
+/// not an identity carrier: actor, authorization, cookies and baggage never survive.
 /// An absent tracing adapter remains absent; never use raw incoming headers.
 pub fn capture() -> OutboundContext {
     let context = current();

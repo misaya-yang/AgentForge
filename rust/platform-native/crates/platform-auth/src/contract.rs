@@ -8,6 +8,7 @@ pub const LOGOUT: &str = "/api/v1/auth/logout";
 pub const ME: &str = "/api/v1/auth/me";
 pub const VALIDATE: &str = "/api/v1/auth/validate-token";
 pub const CHANGE_PASSWORD: &str = "/api/v1/auth/change-password";
+pub const JWKS: &str = "/.well-known/jwks.json";
 pub const BODY_LIMIT: usize = 16 * 1024;
 pub const ROUTES: &[(&str, &str, &str)] = &[
     ("POST", LOGIN, "login_api_v1_auth_login_post"),
@@ -23,6 +24,7 @@ pub const ROUTES: &[(&str, &str, &str)] = &[
         CHANGE_PASSWORD,
         "change_password_api_v1_auth_change_password_post",
     ),
+    ("GET", JWKS, "get_jwks"),
 ];
 
 // These remain serde's ordinary unknown-field-tolerant request types. No new
@@ -117,6 +119,12 @@ pub fn success_schema(path: &str) -> Value {
         LOGOUT | CHANGE_PASSWORD => object(
             json!({"status":{"type":"string","const":"success"},"message":{"type":"string"}}),
         ),
+        JWKS => json!({
+            "type":"object",
+            "properties":{"keys":{"type":"array","items":{"type":"object","additionalProperties":true}}},
+            "required":["keys"],
+            "additionalProperties":false
+        }),
         _ => panic!("unknown auth response"),
     }
 }
@@ -128,7 +136,7 @@ pub fn extend_document(document: &mut Value) {
     document["components"]["schemas"]["NativePasswordInput"] = password_request_schema();
     for (method, path, id) in ROUTES {
         let security = match *path {
-            LOGIN => json!([]),
+            LOGIN | JWKS => json!([]),
             LOGOUT => json!([{}, {"NativeBearerAuth":[]}]),
             _ => json!([{"NativeBearerAuth":[]}]),
         };
@@ -139,17 +147,27 @@ pub fn extend_document(document: &mut Value) {
             LOGOUT => {
                 "No Authorization header returns success. A supplied header must contain exactly one Bearer credential. Logout verifies JWT, revokes its Redis session and records an audit event; it does not require an existing allowlist record or reload current account/tenant authority. API keys are not accepted."
             }
+            JWKS => {
+                "Public asymmetric JWT verification keys only. HMAC compatibility mode returns an empty key set; private signing material is never published."
+            }
             _ => {
                 "Exactly one Bearer credential is required. JWT verification, Redis allowlist/credential revision and current PostgreSQL account/tenant authority are checked. API keys are not accepted; failures never fall back to another credential."
             }
+        };
+        let side_effects = if *path == JWKS {
+            "Read-only public-key discovery. It does not issue or revoke credentials or reveal private signing material."
+        } else {
+            "Password change invalidates sessions and returns no replacement token. Logout may revoke a session. Errors/cancellation do not prove storage rollback; do not automatically repeat mutations."
         };
         let mut operation = json!({"operationId":id,"security":security,
             "x-native-owner":"platform-auth::http",
             "x-native-response-schema":"bounded-source-owned",
             "x-native-authorization":authority,
-            "x-native-side-effects":"Password change invalidates sessions and returns no replacement token. Logout may revoke a session. Errors/cancellation do not prove storage rollback; do not automatically repeat mutations.",
+            "x-native-side-effects":side_effects,
             "responses":{"200":response("Success",success_schema(path)),"default":{"description":"Undeclared host or middleware outcome","x-native-undeclared":true}}});
-        let service_statuses: &[&str] = if *path == LOGIN {
+        let service_statuses: &[&str] = if *path == JWKS {
+            &["503"]
+        } else if *path == LOGIN {
             &["401", "403", "423", "503"]
         } else {
             &["401", "503"]

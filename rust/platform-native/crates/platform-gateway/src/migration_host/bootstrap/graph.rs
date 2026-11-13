@@ -307,6 +307,7 @@ impl GatewayGraph {
             &core,
             &auth,
             &models,
+            openai_provider_environment,
             authorities.access.clone(),
             shared.clone(),
             config.foundation,

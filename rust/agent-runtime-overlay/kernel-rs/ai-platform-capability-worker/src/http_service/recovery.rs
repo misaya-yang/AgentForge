@@ -69,10 +69,28 @@ async fn terminalize_rejected_recovery(state: &WorkerState, record: &ExecutionRe
         Ok(value) if value.claimed => value,
         _ => return,
     };
-    let fence = dispatch.record.dispatch_fence.as_deref().unwrap_or(&requested);
-    let payload = BTreeMap::from([("error_code".to_string(), Value::String("plugin_recovery_descriptor_invalid".into()))]);
-    if let Err(error) = state.store.append_event(&scope, id, &event_id_unchecked(id, 4),
-        "terminal", CapabilityExecutionStatus::Failed, payload, Some(fence)).await {
+    let fence = dispatch
+        .record
+        .dispatch_fence
+        .as_deref()
+        .unwrap_or(&requested);
+    let payload = BTreeMap::from([(
+        "error_code".to_string(),
+        Value::String("plugin_recovery_descriptor_invalid".into()),
+    )]);
+    if let Err(error) = state
+        .store
+        .append_event(
+            &scope,
+            id,
+            &event_id_unchecked(id, 4),
+            "terminal",
+            CapabilityExecutionStatus::Failed,
+            payload,
+            Some(fence),
+        )
+        .await
+    {
         tracing::error!(execution_id = %id, %error, "failed to persist invalid recovery descriptor");
     }
 }

@@ -143,7 +143,7 @@ fn actual_serialized_success_types_match_bounded_schemas() {
 fn route_inventory_exports_exact_public_optional_and_bearer_modes() {
     let mut doc = json!({"paths":{},"components":{"schemas":{}}});
     extend_document(&mut doc);
-    assert_eq!(doc["paths"].as_object().unwrap().len(), 5);
+    assert_eq!(doc["paths"].as_object().unwrap().len(), 6);
     for (method, path, id) in ROUTES {
         let operation = &doc["paths"][path][method.to_ascii_lowercase()];
         assert_eq!(operation["operationId"], *id);
@@ -157,6 +157,9 @@ fn route_inventory_exports_exact_public_optional_and_bearer_modes() {
         );
     }
     assert_eq!(doc["paths"][LOGIN]["post"]["security"], json!([]));
+    assert_eq!(doc["paths"][JWKS]["get"]["security"], json!([]));
+    assert!(doc["paths"][JWKS]["get"]["responses"].get("401").is_none());
+    assert!(doc["paths"][JWKS]["get"]["responses"].get("503").is_some());
     assert_eq!(
         doc["paths"][LOGOUT]["post"]["security"],
         json!([{}, {"NativeBearerAuth":[]} ])
@@ -180,6 +183,7 @@ fn route_inventory_exports_exact_public_optional_and_bearer_modes() {
     }
     assert!(doc["paths"][LOGOUT]["post"].get("requestBody").is_none());
     assert!(doc["paths"][VALIDATE]["post"].get("requestBody").is_none());
+    assert!(doc["paths"][JWKS]["get"].get("requestBody").is_none());
 }
 
 #[test]

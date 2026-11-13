@@ -14,9 +14,10 @@ fn main() -> ExitCode {
         }
     };
     let result = runtime.block_on(async {
-        let provider = ai_platform_knowledge_service::tracing::initialize();
+        let _provider = ai_platform_knowledge_service::tracing::initialize();
         let result = run().await;
-        let _ = tokio::task::spawn_blocking(move || provider.shutdown()).await;
+        let _ =
+            tokio::task::spawn_blocking(ai_platform_gateway::distributed_tracing::shutdown).await;
         result
     });
     // Final process boundary, never a claim that a timed-out host can be reused.

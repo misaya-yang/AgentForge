@@ -237,6 +237,7 @@ pub const SOURCE_METADATA_KEYS: &[&str] = &[
     "_document_recover_stage",
     "_document_pipeline_execution_id",
     "_document_pending_restore_version",
+    "_document_pending_text_update_version",
     "_document_restored_source_version",
     "_special_publication_generation_id",
     "_special_source_manifest",
@@ -254,6 +255,13 @@ pub const SOURCE_METADATA_KEYS: &[&str] = &[
     "ocr_processed",
     "structured_parsing",
 ];
+pub(crate) const HIDDEN_VERSION_CHANGE_TYPES_SQL: &str =
+    "'pending_restore','pending_before_restore','pending_update'";
+
+pub(crate) fn is_hidden_version_change_type(change_type: &str) -> bool {
+    change_type.starts_with("pending_")
+}
+
 pub fn source_metadata_key(key: &str) -> bool {
     SOURCE_METADATA_KEYS.contains(&key)
 }

@@ -1,7 +1,7 @@
 //! Authentication service orchestration. Live PostgreSQL/Redis acceptance is required.
 pub use crate::contract::{LoginResponse, UserProfile};
 use crate::{
-    Claims, PasswordEngine, TokenCodec,
+    Claims, JwtKeyRing, PasswordEngine, TokenCodec,
     accounts::{Account, AuditAction, AuditContext, Authority, PgAccounts, StoreError},
     normalize_email,
     sessions::RedisSessions,
@@ -61,7 +61,7 @@ impl AuthService {
         Self {
             accounts,
             sessions,
-            codec,
+            codec: std::sync::Arc::new(codec),
             passwords,
             domain,
             enterprise_policy_enabled: false,

@@ -245,6 +245,20 @@ impl<'a> RequestValidator<'a> {
         };
         self.validate_schema(parameters, &service.input_schema)?;
         self.validate_content_items(&request.inputs)?;
+        self.validate_authorization(request, service, roles, resolve_auth)?;
+        Ok(())
+    }
+
+    /// Apply only the source authorization checks. The OpenAI model catalogue
+    /// uses this same policy to avoid listing services the caller cannot invoke;
+    /// normal requests still run the complete ordered validation above.
+    pub fn validate_authorization(
+        &self,
+        request: &ValidationRequest,
+        service: &ValidationService,
+        roles: &[String],
+        resolve_auth: impl FnOnce() -> ServiceAuthConfig,
+    ) -> Result<(), RequestValidationError> {
         let mut auth_service = service.clone();
         auth_service.auth = resolve_auth();
         self.validate_service_auth(request, &auth_service, roles)?;
@@ -452,4 +466,3 @@ fn python_string_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
         .collect();
     format!("[{}]", values.join(", "))
 }
-

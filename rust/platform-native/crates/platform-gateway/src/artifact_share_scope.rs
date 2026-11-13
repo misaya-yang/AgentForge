@@ -244,6 +244,7 @@ impl ArtifactShareScope for NativeArtifactShareScope {
                 roles: user.roles.clone(),
                 permissions: user.permissions.clone(),
                 is_authenticated: user.is_authenticated,
+                allowed_models: None,
             };
             let visible = access.visible_sources(&principal, sources).await;
             Ok(sources

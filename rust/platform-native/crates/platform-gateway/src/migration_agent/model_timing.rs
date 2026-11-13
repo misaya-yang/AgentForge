@@ -99,9 +99,17 @@ impl TimingEvidence {
             b"event: response.refusal.delta",
         ]
         .contains(&first)
+            && self.timing.first_visible.is_none()
         {
-            self.timing
-                .note_first_visible(self.started.elapsed().as_secs_f64());
+            let now = self.started.elapsed().as_secs_f64();
+            self.timing.note_first_visible(now);
+            if let Some((started, visible)) =
+                self.timing.stream_started.zip(self.timing.first_visible)
+            {
+                ai_platform_gateway_foundation::distributed_tracing::record_genai_ttft(
+                    visible - started,
+                );
+            }
         }
     }
 }

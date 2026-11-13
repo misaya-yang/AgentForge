@@ -86,6 +86,44 @@ fn default_model_round_trip() {
     );
 }
 #[test]
+fn asymmetric_jwt_mode_does_not_require_the_legacy_secret() {
+    let mut s = set(
+        &valid("DASHSCOPE_API_KEY=test-chat-key"),
+        "GATEWAY_JWT_MODE",
+        "asymmetric_keyring",
+    );
+    s = set(
+        &s,
+        "GATEWAY_JWT_ACTIVE_PRIVATE_PEM",
+        "synthetic-private-key",
+    );
+    s = set(&s, "GATEWAY_AUTHENTICATION__JWT__ACTIVE_KID", "current");
+    s = set(
+        &s,
+        "GATEWAY_AUTHENTICATION__JWT__ALGORITHMS",
+        r#"["EdDSA"]"#,
+    );
+    s = set(
+        &s,
+        "GATEWAY_AUTHENTICATION__JWT__KEYRING",
+        r#"[{"kid":"current","algorithm":"EdDSA","private_key_env":"GATEWAY_JWT_ACTIVE_PRIVATE_PEM","public_jwk":{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","kid":"current","x":"fixture"}}]"#,
+    );
+    for key in ["JWT_SECRET", "GATEWAY_AUTHENTICATION__JWT__SECRET"] {
+        s = regex::Regex::new(&format!(r"(?m)^{key}=.*\n?"))
+            .unwrap()
+            .replace_all(&s, "")
+            .into_owned();
+    }
+    validate(
+        &s,
+        &["--config-only"],
+        "",
+        0,
+        &["Configuration validation passed"],
+        &["JWT_SECRET must be set"],
+    );
+}
+#[test]
 fn release_image_required() {
     validate(
         &set(

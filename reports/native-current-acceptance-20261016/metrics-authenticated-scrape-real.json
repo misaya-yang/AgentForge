@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-16T10:55:11.347Z",
+  "gateway_pid": 74559,
+  "unauthenticated_status": 401,
+  "authorized_scrape_status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "metric_name_count": 1,
+  "sample_metric_names": [
+    "gateway_up"
+  ],
+  "scrape_token_rejected_on_model_api": 401,
+  "token_printed": false,
+  "otlp_receiver_acceptance": "pending"
+}

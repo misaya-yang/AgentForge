@@ -174,6 +174,16 @@ fn signed_request(
     url.set_path(path);
     url.set_query((!query.is_empty()).then_some(query));
     headers.remove(api_key_header);
+    ai_platform_gateway_foundation::distributed_tracing::inject_current_context(&mut headers);
+    let request_id = crate::migration_host::context::current().request_id;
+    if request_id.is_empty() {
+        headers.remove("x-request-id");
+    } else {
+        headers.insert(
+            "x-request-id",
+            HeaderValue::from_str(&request_id).map_err(|_| unavailable())?,
+        );
+    }
     let signature = signer
         .sign(
             method.as_str(),
@@ -306,19 +316,27 @@ impl KnowledgeProxy {
                 let message =
                     ai_platform_rpc::request_from_json(dataset_id.to_owned(), body.clone())
                         .map_err(|_| ContentError::new(422, "Invalid retrieval request"))?;
-                let signed = signed_request(
-                    &self.client,
-                    &self.config.origin,
-                    &self.signer,
-                    self.access.identities.api_key_header.as_str(),
-                    method.clone(),
-                    &upstream_path,
-                    "",
-                    headers,
-                    body,
-                )?;
-                let cancel = ai_platform_rpc::CancellationToken::new();
-                let reply = rpc.retrieve(message, signed.headers(), &cancel).await;
+                let reply = ai_platform_gateway_foundation::distributed_tracing::client_span(
+                    "knowledge.rpc.retrieve",
+                    async {
+                        let signed = signed_request(
+                            &self.client,
+                            &self.config.origin,
+                            &self.signer,
+                            self.access.identities.api_key_header.as_str(),
+                            method.clone(),
+                            &upstream_path,
+                            "",
+                            headers,
+                            body,
+                        )?;
+                        let cancel = ai_platform_rpc::CancellationToken::new();
+                        Ok::<_, ContentError>(
+                            rpc.retrieve(message, signed.headers(), &cancel).await,
+                        )
+                    },
+                )
+                .await?;
                 let reply = match reply {
                     Ok(reply) => reply,
                     Err(error) => {

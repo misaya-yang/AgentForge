@@ -128,6 +128,10 @@ pub struct ConnectorBinding {
     pub schema_hash: Option<String>,
     #[serde(default)]
     pub risk_level: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permission_snapshot_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_capability_revision: Option<u64>,
     pub channel: String,
 }
 
@@ -148,7 +152,15 @@ impl ConnectorBinding {
             ));
         }
         match self.binding_type.as_str() {
-            "catalog" if self.principal_type.is_none() && self.grant_id.is_none() => Ok(()),
+            "catalog"
+                if self.provider != "local_node"
+                    && self.principal_type.is_none()
+                    && self.grant_id.is_none()
+                    && self.permission_snapshot_digest.is_none()
+                    && self.device_capability_revision.is_none() =>
+            {
+                Ok(())
+            }
             "grant"
                 if self.provider == "mcp"
                     && matches!(
@@ -163,15 +175,43 @@ impl ConnectorBinding {
                         .is_some_and(valid_schema_hash_value)
                     && self.risk_level.as_deref().is_some_and(|value| {
                         matches!(value, "low" | "medium" | "high" | "critical")
-                    }) =>
+                    })
+                    && self.permission_snapshot_digest.is_none()
+                    && self.device_capability_revision.is_none() =>
             {
                 Ok(())
             }
             "grant"
-                if matches!(
-                    self.principal_type.as_deref(),
-                    Some("service_account") | Some("user_delegated")
-                ) && self.grant_id.as_deref().is_some_and(valid_uuid_string) =>
+                if self.provider == "local_node"
+                    && self.tool_name == "local_node_action"
+                    && self.principal_type.as_deref() == Some("user_delegated")
+                    && self.grant_id.as_deref().is_some_and(valid_uuid_string)
+                    && self
+                        .connection_id
+                        .as_deref()
+                        .is_some_and(valid_local_node_id)
+                    && self
+                        .permission_snapshot_digest
+                        .as_deref()
+                        .is_some_and(valid_sha256_hex)
+                    && self
+                        .device_capability_revision
+                        .is_some_and(|revision| revision > 0)
+                    && self.schema_hash.is_none()
+                    && self.risk_level.is_none()
+                    && self.channel == "builtin" =>
+            {
+                Ok(())
+            }
+            "grant"
+                if self.provider != "local_node"
+                    && matches!(
+                        self.principal_type.as_deref(),
+                        Some("service_account") | Some("user_delegated")
+                    )
+                    && self.grant_id.as_deref().is_some_and(valid_uuid_string)
+                    && self.permission_snapshot_digest.is_none()
+                    && self.device_capability_revision.is_none() =>
             {
                 Ok(())
             }
@@ -180,6 +220,22 @@ impl ConnectorBinding {
             )),
         }
     }
+}
+
+fn valid_local_node_id(value: &str) -> bool {
+    value.strip_prefix("dev_").is_some_and(|suffix| {
+        suffix.len() == 24
+            && suffix
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn valid_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn valid_schema_hash_value(value: &str) -> bool {
@@ -695,8 +751,7 @@ pub fn resolve_dynamic_capability_descriptor(
                 serde_json::from_value(value.clone()).map_err(|_| {
                     ReadonlyCapabilityError::new("runtime_capability_descriptor_invalid")
                 })?;
-            if descriptor.name == tool_name
-                && descriptor_namespace_matches(&descriptor, namespace)
+            if descriptor.name == tool_name && descriptor_namespace_matches(&descriptor, namespace)
             {
                 candidates.push(descriptor);
             }
@@ -1150,6 +1205,30 @@ pub fn project_office_read(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_node_connector_binding_requires_current_device_snapshot_identity() {
+        let mut binding = ConnectorBinding {
+            binding_type: "grant".into(),
+            provider: "local_node".into(),
+            tool_name: "local_node_action".into(),
+            principal_type: Some("user_delegated".into()),
+            grant_id: Some("cfbfa9d4-18b3-4470-b3f2-f13660a993dc".into()),
+            connection_id: Some("dev_aaaaaaaaaaaaaaaaaaaaaaaa".into()),
+            schema_hash: None,
+            risk_level: None,
+            permission_snapshot_digest: Some("a".repeat(64)),
+            device_capability_revision: Some(2),
+            channel: "builtin".into(),
+        };
+        assert!(binding.validate("local_node_action").is_ok());
+
+        binding.device_capability_revision = None;
+        assert!(binding.validate("local_node_action").is_err());
+        binding.device_capability_revision = Some(2);
+        binding.connection_id = Some("dev_short".into());
+        assert!(binding.validate("local_node_action").is_err());
+    }
 
     fn scope() -> RuntimeCapabilityScope {
         RuntimeCapabilityScope {

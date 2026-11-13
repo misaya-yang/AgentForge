@@ -1,31 +1,55 @@
 //! Permissive-claim JWT decoder used by streaming identity. Account/session
 //! authority is still enforced by endpoint dependencies, as in the Python host.
-use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+use ai_platform_auth::{JwtKeyConfig, JwtKeyRing, JwtSigningMode, JwtVerificationError};
+use jsonwebtoken::{Algorithm, Validation};
 use serde_json::Value;
-use std::str::FromStr;
+use std::sync::Arc;
 pub struct JwtDecoder {
-    key: DecodingKey,
+    keyring: Arc<JwtKeyRing>,
     validation: Validation,
 }
 impl JwtDecoder {
+    /// Explicit one-key compatibility constructor for existing HS256 callers.
+    /// New deployments should use from_keyring with asymmetric public JWKs.
     pub fn new(
         secret: &str,
         algorithms: &[String],
         audience: Option<&str>,
         issuer: Option<&str>,
     ) -> Result<Self, String> {
-        let algorithms = if algorithms.is_empty() {
-            vec![Algorithm::HS256]
-        } else {
-            algorithms
-                .iter()
-                .map(|s| {
-                    Algorithm::from_str(s).map_err(|_| "JWT algorithm not supported".to_owned())
-                })
-                .collect::<Result<Vec<_>, _>>()?
-        };
-        let mut validation = Validation::new(algorithms[0]);
-        validation.algorithms = algorithms.clone();
+        if algorithms.iter().any(|algorithm| algorithm != "HS256") || algorithms.len() > 1 {
+            return Err("JWT algorithm not supported".to_owned());
+        }
+        Self::from_keyring_config(
+            JwtSigningMode::LegacySingleHs256,
+            secret,
+            None,
+            &[],
+            audience,
+            issuer,
+        )
+    }
+
+    pub fn from_keyring_config(
+        mode: JwtSigningMode,
+        legacy_secret: &str,
+        active_kid: Option<&str>,
+        keys: &[JwtKeyConfig],
+        audience: Option<&str>,
+        issuer: Option<&str>,
+    ) -> Result<Self, String> {
+        let keyring =
+            JwtKeyRing::for_verification(mode, legacy_secret.as_bytes(), active_kid, keys)
+                .map_err(|_| "JWT keyring configuration invalid".to_owned())?;
+        Self::from_keyring(Arc::new(keyring), audience, issuer)
+    }
+
+    pub fn from_keyring(
+        keyring: Arc<JwtKeyRing>,
+        audience: Option<&str>,
+        issuer: Option<&str>,
+    ) -> Result<Self, String> {
+        let mut validation = Validation::new(Algorithm::HS256);
         validation.required_spec_claims.clear();
         validation.leeway = 0;
         validation.validate_nbf = true;
@@ -38,49 +62,38 @@ impl JwtDecoder {
             validation.set_issuer(&[issuer]);
             validation.required_spec_claims.insert("iss".into());
         }
-        let key =
-            match algorithms[0] {
-                Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
-                    DecodingKey::from_secret(secret.as_bytes())
-                }
-                Algorithm::RS256
-                | Algorithm::RS384
-                | Algorithm::RS512
-                | Algorithm::PS256
-                | Algorithm::PS384
-                | Algorithm::PS512 => DecodingKey::from_rsa_pem(secret.as_bytes())
-                    .map_err(|_| "JWT RSA key invalid")?,
-                Algorithm::ES256 | Algorithm::ES384 => {
-                    DecodingKey::from_ec_pem(secret.as_bytes()).map_err(|_| "JWT EC key invalid")?
-                }
-                Algorithm::EdDSA => DecodingKey::from_ed_pem(secret.as_bytes())
-                    .map_err(|_| "JWT EdDSA key invalid")?,
-            };
-        Ok(Self { key, validation })
+        Ok(Self {
+            keyring,
+            validation,
+        })
     }
     pub fn decode(&self, token: &str) -> Result<Value, String> {
-        let value = jsonwebtoken::decode::<Value>(token, &self.key, &self.validation)
+        let now = chrono::Utc::now().timestamp();
+        if now < 0 {
+            return Err("Invalid token".to_owned());
+        }
+        let value = self
+            .keyring
+            .decode_with_error::<Value>(token, &self.validation, now as u64)
             .map_err(|error| {
                 // Keep diagnostic classes observable without logging the token,
                 // claims, signing material, or provider-generated error text.
-                match error.kind() {
-                    jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                match error {
+                    JwtVerificationError::Expired => {
                         tracing::warn!(event = "gateway.jwt.expired", "JWT token expired");
                     }
-                    jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                    JwtVerificationError::InvalidSignature => {
                         tracing::warn!(
                             event = "gateway.jwt.invalid_signature",
                             "JWT signature invalid"
                         );
                     }
-                    _ => {
+                    JwtVerificationError::InvalidToken => {
                         tracing::warn!(event = "gateway.jwt.invalid", "JWT token invalid");
                     }
                 }
                 "Invalid token".to_owned()
-            })?
-            .claims;
-        let now = chrono::Utc::now().timestamp();
+            })?;
         if let Some(iat) = value.get("iat") {
             let iat = iat
                 .as_i64()

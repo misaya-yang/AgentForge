@@ -9,7 +9,7 @@ use crate::pdf_backend::{PopplerPdfBackend, PopplerPdfConfig};
 use crate::{migration_knowledge_ingest as ingest, migration_knowledge_query as query};
 use serde_json::Value;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     path::PathBuf,
     sync::Arc,
     time::Duration,

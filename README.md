@@ -80,6 +80,9 @@ artifacts; they do not prove the current source has passed acceptance.
 
 ## Verification status and continuation
 
+For development on another PC, use the
+[2026-10-16 continuation checkpoint](docs/handoff/PC_CONTINUATION_20261016.md).
+
 The Rust source import is complete. Full product acceptance is still in progress. Source
 presence and compilation do not establish working Assistant, retrieval, desktop or deployment
 journeys. See the [current acceptance evidence](reports/native-current-acceptance-20261016/),

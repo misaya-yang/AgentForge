@@ -1,4 +1,4 @@
-# Agent Runtime source release lock
+# Agent Runtime source lock and native build
 
 **Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
 
@@ -32,13 +32,29 @@ platform-tools source-lock generate \
   --sbom deploy/agent-runtime-source/sbom.cdx.json
 ```
 
-Then update `lock.json` with the generated hashes and immutable image digest.
-`make agent-runtime-source-contract` is the fail-closed admission gate. A source-only
-receipt is useful during development but does not permit the Agent Runtime
-to start.
+The current CLI operations are:
 
-Refresh and build a new local release unit only after the controlled fork is
-clean and committed:
+| Operation | Native command | Effect |
+| --- | --- | --- |
+| Validate source and release identity | `platform-tools source-lock validate --repo-root . --lock deploy/agent-runtime-source/lock.json [--require-runnable] [--require-artifact ARTIFACT]` | Read-only validation. `--require-runnable` requires the App Server artifact; `ARTIFACT` is `app_server`, `agent_runtime`, or `capability_worker`. |
+| Verify the Runtime and Worker local images | `platform-tools source-lock verify-local-images --repo-root . --lock deploy/agent-runtime-source/lock.json [--runtime-image IMAGE] [--worker-image IMAGE]` | Inspects the selected Docker images and compares their immutable identities with the lock. |
+| Verify the platform overlay | `platform-tools source-lock verify-overlay --repo-root . [--overlay-dir DIR] [--upstream-sha SHA] [--source-revision SHA] [--source CHECKOUT]` | Verifies the overlay inventory and optional source/preimage bindings. |
+| Generate source receipt and SBOM | `platform-tools source-lock generate --fork CHECKOUT --schema-dir DIR --receipt FILE --sbom FILE` | Requires the existing controlled fork to be clean and a generated schema bundle. |
+| Generate evidence for a composed candidate | `platform-tools source-lock generate-composed --package DIR --upstream CHECKOUT --composed DIR --repo-root . --export-evidence FILE --schema-dir DIR --output NEW_DIR` | Validates the candidate and export evidence, then writes evidence to a new output directory. |
+| Refresh the source lock | `platform-tools source-lock refresh-source-lock --repo-root . --lock deploy/agent-runtime-source/lock.json` | Writes the lock from its source receipt and invalidates all prior image identities. |
+| Refresh overlay identities | `platform-tools source-lock refresh-overlay --repo-root . --lock deploy/agent-runtime-source/lock.json --cargo-workspace DIR [--cargo-metadata FILE]` | Writes the overlay and Worker dependency identities from the exact composed Rust workspace. |
+| Verify a source candidate | `platform-tools source-candidate verify --package DIR --upstream CHECKOUT --repo-root . [--composed-source DIR]` | Read-only validation; does not advance the live lock or admit an image. |
+| Assemble a verified source candidate | `platform-tools source-candidate assemble --package DIR --upstream CHECKOUT --repo-root . --output NEW_DIR` | Writes a new composition directory after validating the source package. |
+| Record a local image | `platform-tools source-lock record-local-image --repo-root . --lock deploy/agent-runtime-source/lock.json --artifact ARTIFACT --image IMAGE` | Inspects the image, then updates the lock with its immutable local identity. `ARTIFACT` is `app_server`, `agent_runtime`, or `capability_worker`. |
+
+These command names and options are implemented by the `source-lock` and
+`source-candidate` branches in `platform-tools/src/main.rs`. For the complete
+native command inventory, see the linked `platform-tools` README. The old
+`agent_runtime_supply_chain.py` and `agent_runtime_source_candidate.py` entry
+points are not part of the current workflow.
+
+Build the private Rust Runtime and capability Worker through the existing
+serialized builder:
 
 ```bash
 platform-tools source-lock refresh-source-lock \
@@ -50,10 +66,13 @@ AI_PLATFORM_AGENT_RUNTIME_IMAGE=ai-gateway-agent-runtime:local-<sha> \
 make agent-runtime-contract
 ```
 
-Refreshing source identity invalidates every prior image. The existing
-`scripts/rust/build-update.sh --artifact all` builds Runtime and capability worker
-serially, then checks both selected images against the source lock. App Server
-remains a separate protocol-probe artifact.
+The script accepts `runtime`, `worker`, `app-server`, or `all`; `all` builds the
+Runtime and Worker serially and checks both image identities against the lock.
+The source checkout is the already controlled fork selected by the operator;
+the build does not publish images. `make agent-runtime-contract` and
+`make agent-runtime-source-contract` run the native source-lock gate and require
+a runnable Runtime artifact. Source-only lock validation does not authorize
+Runtime or Worker startup.
 
 `make quickstart-build` and `scripts/new/deploy.sh --build` use both existing Rust
 builders before Compose builds native Gateway/Knowledge/migrate and Web images. A prebuilt Runtime never

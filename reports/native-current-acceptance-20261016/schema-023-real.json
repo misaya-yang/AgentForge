@@ -1,0 +1,53 @@
+{
+  "schema": "agentforge/canonical-schema-023-real-acceptance/v1",
+  "captured_at": "2026-10-16T09:01:52.356Z",
+  "source_epoch": 23,
+  "main_database_epoch": 23,
+  "package_authority_lock_sha256": "97c731f524ae8380cc21c01fb5ba246cb6d1f2862ad805274e825c59066492f6",
+  "locked_inputs": 190,
+  "sql_sha256": "80f3b91376dbc773c71359490801718924c93313a6bfbf10153718fe674dd6e2",
+  "verification_sha256": "63496399d60180d02a80cb570a9992171d0074e7781ef403a2dec3df8409e740",
+  "authority_library_tests_before_activation": 71,
+  "authority_library_tests_after_activation": 71,
+  "isolated_database": "schema_successor_verify_fresh021_codex_20261016",
+  "isolated_transition": "approved22_to23_measured_and_noop_replay_passed",
+  "source_activation": "reviewed_bound_artifacts_and_compiled_pin",
+  "main_transition": "native_authority_migrate_exit0",
+  "main_verification": "native_authority_verify_exit0",
+  "own_role_checks": {
+    "isolated_gateway_definer_guard_smoke": "passed",
+    "isolated_worker_column_smoke": "passed",
+    "main_gateway_definer_guard_smoke": "passed",
+    "main_worker_column_smoke": "passed"
+  },
+  "boundaries": {
+    "gateway_direct_insert_on_four_model_authority_tables": false,
+    "worker_document_versions_table_update": false,
+    "worker_document_versions_column_updates": [
+      "change_type",
+      "metadata"
+    ],
+    "worker_version_content_hash_identity_title_update": false,
+    "frozen001_through022": "preserved",
+    "new_infrastructure_or_builder": false
+  },
+  "services": {
+    "gateway": {
+      "pid": 50396,
+      "binary_sha256": "c1646db20e775a1dc731c5012d3e986534860fd15ad9d1b71a359c9b994b40d7"
+    },
+    "knowledge-api": {
+      "pid": 50320,
+      "binary_sha256": "f150fd4e8ddd78cb146a6f475c49aa1bc88f56bc87f27c239a02f57f1f3311d3"
+    },
+    "knowledge-worker": {
+      "pid": 50343,
+      "binary_sha256": "f150fd4e8ddd78cb146a6f475c49aa1bc88f56bc87f27c239a02f57f1f3311d3"
+    },
+    "sdk-worker": {
+      "pid": 50363,
+      "binary_sha256": "4e8938fe4ebc52b01212ffad44ebe64d704e5b9e9cdeabe0d717ea4349712634"
+    }
+  },
+  "acceptance_boundary": "Migration and role checks passed. Main Assistant and Knowledge real workflows are now running and are not yet accepted by this receipt."
+}

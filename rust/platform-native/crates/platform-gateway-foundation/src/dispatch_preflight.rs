@@ -22,7 +22,7 @@
 use crate::{
     dispatcher_rate_limiter::{RateLimitExceeded, RateLimiter},
     protocol::UnifiedRequest,
-    request_validation::{RequestValidationError, RequestValidator},
+    request_validation::{RequestValidationError, RequestValidator, ValidationRequest},
     service_ownership::ServiceHandle,
     service_registry::{RegistryError, ServiceRegistry},
 };
@@ -33,26 +33,39 @@ use std::{fmt, future::Future, future::poll_fn, pin::Pin, sync::Arc, task::Poll}
 pub struct PreflightAuthority<'a> {
     user_id: &'a str,
     tenant_id: &'a str,
+    tier: &'a str,
     roles: &'a [String],
+    allowed_models: Option<&'a [String]>,
     task_actor: Option<crate::task_actor::TaskActor>,
 }
 impl<'a> PreflightAuthority<'a> {
     pub fn from_principal(principal: &'a RequestPrincipal) -> Self {
-        let mut authority = Self::from_resolved_context(
-            principal.user_id(), principal.tenant_id(), principal.roles(),
+        let mut authority = Self::from_resolved_context_with_tier(
+            principal.user_id(),
+            principal.tenant_id(),
+            principal.tier(),
+            principal.roles(),
         );
-        authority.task_actor = principal.jwt_principal().map(crate::task_actor::TaskActor::from_session);
+        authority.allowed_models = principal.api_key().map(|key| key.allowed_models.as_slice());
+        authority.task_actor = principal
+            .jwt_principal()
+            .map(crate::task_actor::TaskActor::from_session);
         authority
     }
 
     pub fn from_session_principal(principal: &'a ai_platform_auth::service::Principal) -> Self {
-        let mut authority = Self::from_resolved_context(
-            &principal.account.user_id, &principal.account.tenant_id, &principal.authority.roles,
+        let mut authority = Self::from_resolved_context_with_tier(
+            &principal.account.user_id,
+            &principal.account.tenant_id,
+            &principal.authority.tier,
+            &principal.authority.roles,
         );
         authority.task_actor = Some(crate::task_actor::TaskActor::from_session(principal));
         authority
     }
-    pub fn task_actor(&self) -> Option<crate::task_actor::TaskActor> { self.task_actor.clone() }
+    pub fn task_actor(&self) -> Option<crate::task_actor::TaskActor> {
+        self.task_actor.clone()
+    }
 
     pub fn user_id(&self) -> &str {
         self.user_id
@@ -64,6 +77,14 @@ impl<'a> PreflightAuthority<'a> {
 
     pub fn roles(&self) -> &[String] {
         self.roles
+    }
+
+    pub fn tier(&self) -> &str {
+        self.tier
+    }
+
+    pub fn allowed_models(&self) -> Option<&[String]> {
+        self.allowed_models
     }
 
     /// Adapter for already-resolved Python-compatible user contexts, including
@@ -78,7 +99,40 @@ impl<'a> PreflightAuthority<'a> {
         Self {
             user_id,
             tenant_id,
+            tier: "",
             roles,
+            allowed_models: None,
+            task_actor: None,
+        }
+    }
+
+    /// Same trusted resolved identity with its separately projected account/key
+    /// tier. Tier is used only for canonical model-access checks; it does not
+    /// become an RBAC role or grant another Gateway capability.
+    pub fn from_resolved_context_with_tier(
+        user_id: &'a str,
+        tenant_id: &'a str,
+        tier: &'a str,
+        roles: &'a [String],
+    ) -> Self {
+        Self::from_resolved_context_with_tier_and_model_scope(user_id, tenant_id, tier, roles, None)
+    }
+
+    /// Same resolved authority with an optional model allowlist from the
+    /// canonical API-key record. Request fields never supply this value.
+    pub fn from_resolved_context_with_tier_and_model_scope(
+        user_id: &'a str,
+        tenant_id: &'a str,
+        tier: &'a str,
+        roles: &'a [String],
+        allowed_models: Option<&'a [String]>,
+    ) -> Self {
+        Self {
+            user_id,
+            tenant_id,
+            tier,
+            roles,
+            allowed_models,
             task_actor: None,
         }
     }
@@ -188,6 +242,52 @@ impl DispatchPreflight {
         &self.registry
     }
 
+    /// List active services visible to this already-resolved caller. The model
+    /// catalogue shares service auth and AgentInvoke policy with invocation
+    /// preflight, while avoiding rate charging or any execution side effects.
+    pub async fn authorized_services(
+        &self,
+        authority: &PreflightAuthority<'_>,
+    ) -> Result<Vec<ServiceHandle>, RegistryError> {
+        let services = self
+            .registry
+            .list_for_dispatch(authority.tenant_id(), None, &[], Some("active"))
+            .await?;
+        Ok(services
+            .into_iter()
+            .filter(|service| {
+                if !matches!(
+                    crate::openai_model_access::decide(
+                        service,
+                        authority.tenant_id(),
+                        authority.tier(),
+                        authority.roles(),
+                        authority.allowed_models(),
+                    ),
+                    crate::openai_model_access::OpenAiModelScopeDecision::Unscoped
+                        | crate::openai_model_access::OpenAiModelScopeDecision::Allowed
+                ) {
+                    return false;
+                }
+                let snapshot = service.snapshot();
+                let request = ValidationRequest {
+                    service_id: snapshot.service_id.clone(),
+                    inputs: Vec::new(),
+                    parameters: serde_json::Value::Null,
+                    user_id: Some(authority.user_id().to_owned()),
+                };
+                RequestValidator::new(&self.rbac)
+                    .validate_authorization(
+                        &request,
+                        &snapshot.validation_view(),
+                        authority.roles(),
+                        || service.materialize_config().snapshot().auth,
+                    )
+                    .is_ok()
+            })
+            .collect())
+    }
+
     pub async fn prepare(
         &self,
         mut request: UnifiedRequest,
@@ -199,10 +299,44 @@ impl DispatchPreflight {
         request.tenant_id = authority.tenant_id.to_owned();
         let service = self
             .registry
-            .get(&request.service_id)
+            .get_for_dispatch(&request.service_id)
             .await
             .map_err(PreflightError::Registry)?
             .ok_or_else(|| PreflightError::ServiceNotFound(request.service_id.clone()))?;
+        match crate::openai_model_access::decide(
+            &service,
+            authority.tenant_id(),
+            authority.tier(),
+            authority.roles(),
+            authority.allowed_models(),
+        ) {
+            crate::openai_model_access::OpenAiModelScopeDecision::Unscoped
+            | crate::openai_model_access::OpenAiModelScopeDecision::Allowed => {}
+            crate::openai_model_access::OpenAiModelScopeDecision::TenantDenied => {
+                return Err(PreflightError::ServiceNotFound(request.service_id.clone()));
+            }
+            crate::openai_model_access::OpenAiModelScopeDecision::ModelAccessDenied => {
+                return Err(PreflightError::Validation(
+                    RequestValidationError::PermissionDenied("model_access_denied".into()),
+                ));
+            }
+            crate::openai_model_access::OpenAiModelScopeDecision::ApiKeyModelDenied => {
+                return Err(PreflightError::Validation(
+                    RequestValidationError::PermissionDenied("api_key_model_denied".into()),
+                ));
+            }
+        }
+        if mode == PreflightMode::Submit
+            && service
+                .snapshot()
+                .metadata
+                .get("openai_compat_scope")
+                .is_some()
+        {
+            return Err(PreflightError::Validation(
+                RequestValidationError::ValidationFailed("managed_model_submit_unsupported".into()),
+            ));
+        }
         let validation = RequestValidator::new(&self.rbac)
             .validate_with_auth(
                 &request.validation_view(),

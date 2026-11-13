@@ -45,6 +45,9 @@ use tokio::{
     task::JoinHandle,
 };
 
+/// Reserved namespace for volatile tenant model projections.
+pub const MANAGED_OPENAI_SERVICE_ID_PREFIX: &str = "managed-openai-";
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RegistryError {
     ValidationFailed(&'static str),
@@ -262,6 +265,12 @@ impl OrderedServices {
             .collect()
     }
 }
+
+#[derive(Default)]
+struct DispatcherOnlyModelServices {
+    by_id: HashMap<String, ServiceHandle>,
+    by_tenant: HashMap<String, Vec<String>>,
+}
 #[derive(Default)]
 pub struct MemoryRegistryStorage {
     services: Mutex<OrderedServices>,
@@ -441,6 +450,9 @@ pub fn bulkhead_policy(
 pub struct ServiceRegistry {
     pub storage: Arc<dyn RegistryStorage>,
     cache: Mutex<OrderedServices>,
+    /// Live model-catalog projections are private to dispatcher lookup. They do
+    /// not appear in service administration APIs and are never persisted.
+    dispatcher_models: Mutex<DispatcherOnlyModelServices>,
     factories: Mutex<HashMap<String, Arc<dyn AdapterFactory>>>,
     adapter_cache: Mutex<HashMap<String, Arc<dyn ProtocolAdapter>>>,
     shutting_down: std::sync::atomic::AtomicBool,
@@ -462,6 +474,7 @@ impl ServiceRegistry {
         Self {
             storage,
             cache: Mutex::new(OrderedServices::default()),
+            dispatcher_models: Mutex::new(DispatcherOnlyModelServices::default()),
             factories: Mutex::new(HashMap::new()),
             adapter_cache: Mutex::new(HashMap::new()),
             shutting_down: std::sync::atomic::AtomicBool::new(false),
@@ -539,6 +552,11 @@ impl ServiceRegistry {
         if id.is_empty() {
             return Err(RegistryError::ValidationFailed("service_id is required"));
         }
+        if id.starts_with(MANAGED_OPENAI_SERVICE_ID_PREFIX) {
+            return Err(RegistryError::ValidationFailed(
+                "managed_model_service_id_reserved",
+            ));
+        }
         // The typed TransportType cannot contain the source's missing/empty connector.
         if create_only {
             if !self.storage.insert_if_absent(service.clone()).await? {
@@ -586,6 +604,25 @@ impl ServiceRegistry {
         }
         Ok(service)
     }
+
+    /// Dispatcher-only lookup for volatile model projections. Operator and
+    /// service-configuration consumers must use `get`, which never reveals
+    /// connector credentials stored in those ephemeral handles.
+    pub(crate) async fn get_for_dispatch(
+        &self,
+        service_id: &str,
+    ) -> Result<Option<ServiceHandle>, RegistryError> {
+        if service_id.starts_with(MANAGED_OPENAI_SERVICE_ID_PREFIX) {
+            return Ok(self
+                .dispatcher_models
+                .lock()
+                .expect("dispatcher model registry poisoned")
+                .by_id
+                .get(service_id)
+                .cloned());
+        }
+        self.get(service_id).await
+    }
     pub async fn list(
         &self,
         service_type: Option<ServiceType>,
@@ -610,6 +647,119 @@ impl ServiceRegistry {
                     && tags.iter().all(|tag| service.tags.contains(tag))
             })
             .collect())
+    }
+
+    /// Replace one tenant's ephemeral model projections. These service handles
+    /// may contain decrypted provider credentials, so only dispatcher lookup and
+    /// preflight can observe them. Each OpenAI request refreshes this projection
+    /// from the canonical model/provider services before authorization.
+    pub(crate) fn replace_dispatcher_model_services(
+        &self,
+        tenant_id: &str,
+        services: Vec<ServiceHandle>,
+    ) {
+        if tenant_id.trim().is_empty() {
+            return;
+        }
+        let mut replacement = Vec::new();
+        for service in services {
+            let snapshot = service.snapshot();
+            if !snapshot
+                .service_id
+                .starts_with(MANAGED_OPENAI_SERVICE_ID_PREFIX)
+                || snapshot.metadata["openai_compat_scope"]["tenant_id"] != tenant_id
+            {
+                continue;
+            }
+            replacement.push(service);
+        }
+
+        let mut dispatcher_models = self
+            .dispatcher_models
+            .lock()
+            .expect("dispatcher model registry poisoned");
+        let old_ids = dispatcher_models
+            .by_tenant
+            .remove(tenant_id)
+            .unwrap_or_default();
+        let mut old_services = HashMap::with_capacity(old_ids.len());
+        for id in &old_ids {
+            if let Some(service) = dispatcher_models.by_id.remove(id) {
+                old_services.insert(id.clone(), service);
+            }
+        }
+        let mut new_ids = Vec::with_capacity(replacement.len());
+        let mut invalidate_ids = Vec::new();
+        for service in replacement {
+            let id = service.service_id();
+            // Synthetic IDs include tenant identity in their digest. Retain the
+            // first owner if a collision is ever observed across tenant scopes.
+            if dispatcher_models.by_id.contains_key(&id) {
+                continue;
+            }
+            let service = match old_services.remove(&id) {
+                Some(previous) if previous.snapshot() == service.snapshot() => previous,
+                Some(_) => {
+                    invalidate_ids.push(id.clone());
+                    service
+                }
+                None => service,
+            };
+            new_ids.push(id.clone());
+            dispatcher_models.by_id.insert(id, service);
+        }
+        invalidate_ids.extend(old_services.into_keys());
+        if !new_ids.is_empty() {
+            dispatcher_models
+                .by_tenant
+                .insert(tenant_id.to_owned(), new_ids.clone());
+        }
+        drop(dispatcher_models);
+
+        let mut adapters = self.adapter_cache.lock().expect("adapter cache poisoned");
+        for id in invalidate_ids {
+            adapters.remove(&id);
+        }
+    }
+
+    /// Dispatcher-only list used by invocation authorization. Normal registry
+    /// list remains the source for operator/service-management views.
+    pub(crate) async fn list_for_dispatch(
+        &self,
+        tenant_id: &str,
+        service_type: Option<ServiceType>,
+        tags: &[String],
+        status: Option<&str>,
+    ) -> Result<Vec<ServiceHandle>, RegistryError> {
+        let mut services = self.list(service_type, tags, status).await?;
+        let existing: std::collections::HashSet<String> =
+            services.iter().map(ServiceHandle::service_id).collect();
+        let status = status.unwrap_or("active");
+        let dispatcher_models = self
+            .dispatcher_models
+            .lock()
+            .expect("dispatcher model registry poisoned");
+        for id in dispatcher_models
+            .by_tenant
+            .get(tenant_id)
+            .into_iter()
+            .flatten()
+        {
+            let Some(service) = dispatcher_models.by_id.get(id).cloned() else {
+                continue;
+            };
+            if existing.contains(id) {
+                continue;
+            }
+            let snapshot = service.snapshot();
+            if (status.is_empty() || snapshot.status == status)
+                && service_type.is_none_or(|kind| kind == snapshot.service_type)
+                && tags.iter().all(|tag| snapshot.tags.contains(tag))
+            {
+                services.push(service);
+            }
+        }
+        Ok(services)
     }
     pub async fn find_by_capability(
         &self,
@@ -855,5 +1005,144 @@ impl DispatchProducer<StreamChunk> for BulkheadStream {
 impl Drop for BulkheadStream {
     fn drop(&mut self) {
         self.start_cleanup();
+    }
+}
+
+#[cfg(test)]
+mod dispatcher_model_service_tests {
+    use super::*;
+
+    fn managed(id: &str, tenant: &str) -> ServiceHandle {
+        let mut service = ServiceDefinition::new(id, "Managed model");
+        service.metadata = json!({
+            "adapter_type":"openai",
+            "openai_compat_scope":{"tenant_id":tenant,"access_level":"public"}
+        });
+        ServiceHandle::new(service)
+    }
+
+    #[tokio::test]
+    async fn managed_models_refresh_for_dispatch_without_entering_admin_registry_lists() {
+        let registry = ServiceRegistry::new(Arc::new(MemoryRegistryStorage::new()));
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![managed("managed-openai-a", "tenant-a")],
+        );
+        assert!(registry.list(None, &[], None).await.unwrap().is_empty());
+        assert_eq!(
+            registry
+                .list_for_dispatch("tenant-a", None, &[], None)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            registry
+                .list_for_dispatch("tenant-b", None, &[], None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(registry.get("managed-openai-a").await.unwrap().is_none());
+        assert!(
+            registry
+                .get_for_dispatch("managed-openai-a")
+                .await
+                .unwrap()
+                .is_some()
+        );
+
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![managed("managed-openai-b", "tenant-a")],
+        );
+        assert!(
+            registry
+                .get_for_dispatch("managed-openai-a")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            registry
+                .list_for_dispatch("tenant-a", None, &[], None)
+                .await
+                .unwrap()[0]
+                .service_id(),
+            "managed-openai-b"
+        );
+        registry.replace_dispatcher_model_services("tenant-a", Vec::new());
+        assert!(
+            registry
+                .list_for_dispatch("tenant-a", None, &[], None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatcher_model_registration_rejects_wrong_tenant_scope() {
+        let registry = ServiceRegistry::new(Arc::new(MemoryRegistryStorage::new()));
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![managed("managed-openai-bad", "tenant-b")],
+        );
+        assert!(
+            registry
+                .list_for_dispatch("tenant-a", None, &[], None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            registry
+                .get_for_dispatch("managed-openai-bad")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn unchanged_model_projection_keeps_live_handle_but_crud_changes_replace_it() {
+        let registry = ServiceRegistry::new(Arc::new(MemoryRegistryStorage::new()));
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![managed("managed-openai-stable", "tenant-a")],
+        );
+        let first = registry
+            .get_for_dispatch("managed-openai-stable")
+            .await
+            .unwrap()
+            .unwrap();
+
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![managed("managed-openai-stable", "tenant-a")],
+        );
+        let unchanged = registry
+            .get_for_dispatch("managed-openai-stable")
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(first.same_object(&unchanged));
+
+        let mut changed_definition = ServiceDefinition::new("managed-openai-stable", "Changed");
+        changed_definition.metadata = json!({
+            "adapter_type":"openai",
+            "openai_compat_scope":{"tenant_id":"tenant-a","access_level":"premium"}
+        });
+        registry.replace_dispatcher_model_services(
+            "tenant-a",
+            vec![ServiceHandle::new(changed_definition)],
+        );
+        let changed = registry
+            .get_for_dispatch("managed-openai-stable")
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!unchanged.same_object(&changed));
     }
 }

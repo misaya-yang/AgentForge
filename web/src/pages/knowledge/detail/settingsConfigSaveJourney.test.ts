@@ -6,9 +6,10 @@ import ts from "typescript";
 
 type Node = { type: unknown; props: Record<string, unknown> };
 type Data = Record<string, unknown>;
-const initial = (id = "a") => ({ dataset_id: id,
+type RerankConfig = { enabled: boolean; model: string; provider?: "dashscope" | "cohere" | "jina" | "bge" };
+const initial = (id = "a", rerank?: RerankConfig) => ({ dataset_id: id,
   chunking: { mode: "fixed_size", chunk_size: 500, chunk_overlap: 50, strip_html: false },
-  retrieval: { mode: "hybrid", top_k: 5, fusion: { strategy: "rrf", alpha: 0.7, rrf_k: 91 } },
+  retrieval: { mode: "hybrid", top_k: 5, fusion: { strategy: "rrf", alpha: 0.7, rrf_k: 91 }, ...(rerank ? { rerank } : {}) },
   embedding: { provider: "dashscope", model: "text-embedding-v4", dimension: 1024 },
   statistics: { document_count: 0, segment_count: 0 },
 });
@@ -36,13 +37,13 @@ function merge(current: Data, patch: Data): Data {
 }
 // Actual SettingsTab + API functions; React scheduling/storage and HTTP are
 // controlled collaborators. This is no-listener evidence, not browser acceptance.
-function host(storage = new Map<string, string>()) {
+function host(storage = new Map<string, string>(), initialRerank?: RerankConfig) {
   const slots: unknown[] = [], cleanups = new Map<number, () => void>();
   let cursor = 0, dirty = true, effects: (() => void)[] = [], tree: unknown;
   const unsaved: boolean[] = [], events = new Map<string, unknown>(), errors: unknown[] = [];
   const calls: { method: string; url: string; payload?: Data }[] = [];
   const auth = { user: { user_id: "owner-a" }, token: "synthetic-session-a" };
-  const live = new Map<string, ReturnType<typeof initial>>([["a", initial()],["b", initial("b")]]);
+  const live = new Map<string, ReturnType<typeof initial>>([["a", initial("a", initialRerank)],["b", initial("b")]]);
   let read = async (id: string): Promise<unknown> => structuredClone(live.get(id));
   let write = async (id: string, payload: Data) => {
     const data = live.get(id)!;
@@ -106,8 +107,11 @@ function host(storage = new Map<string, string>()) {
   async function edit(section = "Retrieval") { const within = card(section); const node = button(section === "Embedding" ? "modify" : "edit", within); assert.equal(Boolean(node.props.disabled), false); (node.props.onClick as () => void)(); await flush(); }
   async function topK(value: number) { const node = nodes(card("Retrieval"), "input").find(n => n.props.min === 1 && n.props.max === 20)!;
     (node.props.onChange as (e: unknown) => void)({ target: { value: String(value) } }); await flush(); }
+  async function rerankModel(value: string) { const node = nodes(card("Retrieval"), "Input").find(n => typeof n.props.onChange === "function");
+    assert.ok(node, "rerank model input");
+    (node.props.onChange as (e: unknown) => void)({ target: { value } }); await flush(); }
   async function click(key: string, within = tree) { const node = button(key, within); assert.equal(Boolean(node.props.disabled), false, key); await (node.props.onClick as () => Promise<void>)(); await flush(); }
-  return { auth, live, storage, calls, errors, events, unsaved, render, flush, edit, topK, click, button, card,
+  return { auth, live, storage, calls, errors, events, unsaved, render, flush, edit, topK, rerankModel, click, button, card,
     current: () => tree, props: () => props, dispose: () => cleanups.forEach(fn => fn()),
     setRead: (fn: typeof read) => { read = fn; }, setWrite: (fn: typeof write) => { write = fn; },
     defaultWrite: write, defaultRead: read,
@@ -127,6 +131,27 @@ for (const section of ["Chunking", "Retrieval", "Embedding"]) test(`${section}: 
   h.setRead(h.defaultRead); await h.click("configSaveCheck"); await h.flush();
   assert.equal(h.calls.filter(c => c.method === "PUT").length, 1);
   assert.equal(h.unsaved.at(-1), false); assert.equal(h.storage.size, 0);
+  h.dispose();
+});
+
+test("retrieval settings save an explicit rerank model ID while retaining the configured provider", async () => {
+  const h = host(new Map(), { enabled: true, model: "qwen3-rerank", provider: "dashscope" });
+  h.render(); await h.flush(); await h.edit();
+  const modelInput = nodes(h.card("Retrieval"), "Input").find(n => n.props.value === "qwen3-rerank");
+  assert.ok(modelInput, "configured model ID is editable");
+  assert.equal(modelInput.props.id, "knowledge-rerank-model");
+  await h.rerankModel("account-specific-rerank-id");
+  assert.equal(JSON.parse(h.storage.get("kb-settings:owner-a:a")!).rerankModel, "account-specific-rerank-id");
+
+  await h.click("saveConfig", h.card("Retrieval"));
+  const submitted = h.calls.filter(call => call.method === "PUT").at(-1)?.payload?.retrieval_config as Data;
+  const rerank = submitted.rerank as Data;
+  assert.deepEqual(rerank, { enabled: true, model: "account-specific-rerank-id" });
+  assert.equal("provider" in rerank, false, "the editor does not replace the configured provider");
+  assert.deepEqual(h.live.get("a")!.retrieval.rerank, {
+    enabled: true, model: "account-specific-rerank-id", provider: "dashscope",
+  });
+  assert.equal(h.unsaved.at(-1), false);
   h.dispose();
 });
 

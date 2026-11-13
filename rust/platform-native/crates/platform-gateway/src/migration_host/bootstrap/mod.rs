@@ -22,6 +22,7 @@ pub mod langgraph_preparation;
 mod llm_api;
 pub mod models;
 pub mod native_policies;
+pub mod openai_model_catalog;
 pub mod process;
 pub mod runtime;
 pub mod runtime_backends;

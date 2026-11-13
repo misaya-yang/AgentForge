@@ -31,8 +31,11 @@ impl InvocationIdentityResolver for Identity {
             Ok(InvocationIdentity {
                 user_id: "actor".into(),
                 tenant_id: self.tenant.clone(),
+                is_authenticated: true,
+                tier: "public".into(),
                 roles: self.roles.clone(),
                 permissions: vec![],
+                allowed_models: None,
                 session_principal: None,
                 session_jwt_selected: false,
             })

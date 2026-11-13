@@ -1,0 +1,61 @@
+{
+  "status": "partial_latest_rerun_failed",
+  "verified_at": "2026-10-16T12:03:43.823Z",
+  "sdk": {
+    "name": "openai-node",
+    "version": "7.34.0",
+    "stock_sdk": true,
+    "max_retries": 0,
+    "custom_auth_headers": false
+  },
+  "credentials": "Existing scoped service key via standard Authorization Bearer; secret omitted",
+  "model_ids": [
+    "qwen3.8-flash",
+    "text-embedding-v4"
+  ],
+  "checks": {
+    "models_list": "passed",
+    "chat_completion": "passed",
+    "stream_text_finish_and_usage": "passed",
+    "embeddings": "failed_HTTP_502_upstream_error",
+    "embedding_dimensions": "not_verified_on_latest_rerun"
+  },
+  "scope_rejection": {
+    "requested_model": "qwen-plus",
+    "status": 404,
+    "code": "model_not_found",
+    "catalogue_restricted": true
+  },
+  "previous_failures": {
+    "report": "openai-sdk-first-real-failures.json",
+    "bearer_and_scope": "fixed_and_retested",
+    "chat_and_embedding502": "Embeddings 502 recurred on final source after restart; root cause remains unresolved."
+  },
+  "limits": [
+    "External provider billing reconciliation was not available.",
+    "Publicly signed multi-platform release images are not proven by this local SDK acceptance.",
+    "The latest embedding rerun failed; the prior complete SDK run is historical evidence, not final acceptance."
+  ],
+  "previous_complete_run": {
+    "verified_at": "2026-10-16T11:37:14.623Z",
+    "status": "passed",
+    "checks": {
+      "models_list": "passed",
+      "chat_completion": "passed",
+      "stream_text_finish_and_usage": "passed",
+      "embeddings": "passed",
+      "embedding_dimensions": 1024
+    }
+  },
+  "usage_persistence": {
+    "status": "unverified_after_service_id_length_fix",
+    "source_fix": "Managed OpenAI service IDs are stable tenant-scoped 63-character ASCII values, within service_id VARCHAR(64). Regression tests passed.",
+    "previous_observation": "The earlier oversized ID caused asynchronous usage-record INSERT failures. A successful SDK response alone does not prove durable usage.",
+    "next_action": "Reproduce mixed chat/SSE/embedding requests and verify durable usage rows through supported acceptance tooling in the next test environment."
+  },
+  "stop": {
+    "reason": "Owner closed Docker and requested wrap-up",
+    "docker_restarted": false,
+    "no_more_live_requests": true
+  }
+}

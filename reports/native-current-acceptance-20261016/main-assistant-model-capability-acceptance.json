@@ -1,0 +1,277 @@
+{
+  "schema_version": "main-assistant-model-tool-acceptance/v1",
+  "observed_at_utc": "2026-10-16T09:59:13Z",
+  "scope": "sanitized public API runner evidence plus read-only Gateway-role model-call ledger checks",
+  "raw_transcripts_or_credentials_recorded": false,
+  "database_evidence": {
+    "role": "ai_gateway_gateway",
+    "transaction_read_only": true,
+    "provider_request_ids": "presence recorded only; values omitted"
+  },
+  "qwen3_7_plus": {
+    "selection": "explicit AI_PLATFORM_E2E_MODEL_ID override; this does not validate the default model",
+    "runner_status": "passed",
+    "text_memory": {
+      "session_id": "d61a32d3-f9ed-4b69-a02d-a3f534a99f30",
+      "turns": [
+        {
+          "run_id": "6f69da5f-124e-4e02-bc13-0b2004989d62",
+          "request_id": "7eea1fc9-f6ac-4da5-b9a9-f321c0ceada4",
+          "status": "succeeded",
+          "ledger": {
+            "model_id": "qwen3.7-plus",
+            "provider_id": "dashscope",
+            "call_status": "completed",
+            "dispatched": true,
+            "provider_request_id_present": true,
+            "input_tokens": 8437,
+            "output_tokens": 40
+          }
+        },
+        {
+          "run_id": "a32349a6-fd00-4745-a3f8-5266c4b268ab",
+          "request_id": "cbce2f4c-9de3-42a5-906a-5131e6b2811c",
+          "status": "succeeded",
+          "memory_marker_recalled": true,
+          "ledger": {
+            "model_id": "qwen3.7-plus",
+            "provider_id": "dashscope",
+            "call_status": "completed",
+            "dispatched": true,
+            "provider_request_id_present": true,
+            "input_tokens": 8462,
+            "output_tokens": 67
+          }
+        }
+      ]
+    },
+    "web_search": {
+      "run_id": "cd46cf78-aaf2-46ed-a8a0-044f5d7edfdf",
+      "request_id": "9522c30a-c69e-40a1-bb9e-17aff213fe51",
+      "status": "succeeded",
+      "stream_event_count": 299,
+      "tool_call_start_observed": true,
+      "successful_tool_call_result_observed": true,
+      "ledger_calls": [
+        {
+          "model_id": "qwen3.7-plus",
+          "provider_id": "dashscope",
+          "call_status": "completed",
+          "dispatched": true,
+          "provider_request_id_present": true,
+          "input_tokens": 17902,
+          "output_tokens": 286
+        },
+        {
+          "model_id": "qwen3.7-plus",
+          "provider_id": "dashscope",
+          "call_status": "completed",
+          "dispatched": true,
+          "provider_request_id_present": true,
+          "input_tokens": 18598,
+          "output_tokens": 854
+        }
+      ]
+    },
+    "cancellation": {
+      "session_id": "8bfd85e1-bf66-45e1-9e83-b39871e54162",
+      "run_id": "e2d2be7c-57c4-426d-afe0-da1f7ed4deb8",
+      "request_id": "6f10ac0a-5805-4f94-9567-1c6fc2c055e4",
+      "cancel_request_id": "b24bb168-9fec-48d0-ad9e-75ee99b79225",
+      "public_cancel_acknowledged": true,
+      "public_terminal_status": "cancelled",
+      "stream_event_count": 2,
+      "provider_dispatch_phase": "before_dispatch",
+      "model_call_rows": 0,
+      "limitation": "This passed the public cancel path, but it is not evidence of cancelling an in-flight provider request."
+    },
+    "in_flight_cancellation": {
+      "session_id": "bda0258c-4920-459a-ad19-7d662fcd5613",
+      "run_id": "96f35181-2f3f-46ce-abf2-b5cda46a6fed",
+      "request_id": "7c0e1859-dd82-4ffc-a27c-e5800b921e5c",
+      "model_id": "qwen3.7-plus",
+      "provider_id": "dashscope",
+      "pre_cancel_ledger_status": "dispatched",
+      "pre_cancel_dispatched_at_present": true,
+      "provider_text_delta_observed_before_cancel": true,
+      "cancel_http_status": 200,
+      "cancel_request_id": "095af489-8da8-4e02-864c-01af5e50ed91",
+      "cancel_acknowledged": true,
+      "stream_closed_after_cancel": true,
+      "public_terminal_status": "cancelled",
+      "post_cancel_ledger_status": "unknown",
+      "post_cancel_error_code": "model_stream_interrupted",
+      "post_cancel_dispatched": true,
+      "post_cancel_provider_request_id_present": false,
+      "post_cancel_input_tokens": null,
+      "post_cancel_output_tokens": null,
+      "gateway_provider_stream_task_aborted": true,
+      "remote_provider_stop_acknowledgement": "not exposed by the provider protocol; remote-side cancellation cannot be independently confirmed",
+      "scope_note": "A non-empty provider text delta and a dispatched ledger row were observed before the public cancel. Gateway then aborted its provider-stream task and marked the outcome unknown; this does not claim provider-side billing or compute termination."
+    },
+    "post_cancel_recovery": {
+      "run_id": "514f9a77-c360-4a5d-9e15-066499879264",
+      "request_id": "4e179e16-d3c3-42a0-b4f4-0af90a9e3336",
+      "status": "succeeded",
+      "recovery_marker_seen": true,
+      "ledger": {
+        "model_id": "qwen3.7-plus",
+        "provider_id": "dashscope",
+        "call_status": "completed",
+        "dispatched": true,
+        "provider_request_id_present": true,
+        "input_tokens": 8428,
+        "output_tokens": 28
+      },
+      "in_flight_cancel_same_session_recovery": {
+        "session_id": "bda0258c-4920-459a-ad19-7d662fcd5613",
+        "run_id": "6b02052a-6794-4ca0-9ac8-c3086c198bc3",
+        "request_id": "3210e45d-e151-4c06-a9f3-3e2927949dd7",
+        "status": "succeeded",
+        "recovery_marker_seen": true,
+        "ledger": {
+          "model_id": "qwen3.7-plus",
+          "provider_id": "dashscope",
+          "call_status": "completed",
+          "dispatched": true,
+          "provider_request_id_present": true,
+          "input_tokens": 8393,
+          "output_tokens": 39
+        }
+      }
+    },
+    "public_history": {
+      "text_session_total": 6,
+      "text_session_rows": 6,
+      "cancellation_session_total": 4,
+      "cancellation_session_rows": 4,
+      "session_detail_message_count": 0,
+      "note": "The runner's history assertions passed; session detail reported zero while history returned persisted rows."
+    },
+    "runner_stages": {
+      "health_ready": "passed",
+      "authentication": "passed",
+      "text_memory": "passed",
+      "web_search": "passed",
+      "cancellation": "passed_before_provider_dispatch",
+      "post_cancel_recovery": "passed",
+      "text_session_history": "passed",
+      "cancellation_session_history": "passed"
+    }
+  },
+  "qwen3_8_flash_default": {
+    "selection": "configured default model; results preserved separately from the qwen3.7-plus override",
+    "text_memory": {
+      "session_id": "c84ca6e3-5e44-4289-af73-5486e4c7c352",
+      "turns": [
+        {
+          "run_id": "e6b3fe7b-5033-4a68-aec4-63e5579ab41e",
+          "request_id": "6294f4e0-e9b9-49c8-9f58-b7acc5a640b5",
+          "status": "succeeded",
+          "ledger": {
+            "model_id": "qwen3.8-flash",
+            "provider_id": "dashscope",
+            "call_status": "completed",
+            "dispatched": true,
+            "provider_request_id_present": true,
+            "input_tokens": 8522,
+            "output_tokens": 37
+          }
+        },
+        {
+          "run_id": "30ad2462-f905-4ace-ab2a-625042472cbc",
+          "request_id": "2f1777f4-255b-4a3c-9b32-37367ff8e44c",
+          "status": "succeeded",
+          "memory_marker_recalled": false,
+          "ledger": {
+            "model_id": "qwen3.8-flash",
+            "provider_id": "dashscope",
+            "call_status": "completed",
+            "dispatched": true,
+            "provider_request_id_present": true,
+            "input_tokens": 8551,
+            "output_tokens": 27
+          }
+        }
+      ],
+      "public_history": {
+        "http_status": 200,
+        "total": 6,
+        "rows": 6,
+        "user_rows": 3,
+        "assistant_rows": 3,
+        "first_synthetic_marker_input_persisted": true,
+        "second_turn_input_persisted": true,
+        "synthetic_marker_occurrences_across_history": 1,
+        "second_turn_assistant_recalled_marker": false,
+        "first_turn_ack_exact": true,
+        "content_recorded": false
+      }
+    },
+    "session_context_diagnosis": {
+      "both_text_snapshots_match_expected_inputs": true,
+      "both_text_turns_use_same_runtime_thread": true,
+      "snapshot_model": "qwen3.8-flash",
+      "memory_mode": "auto",
+      "memory_service_context_status": "available",
+      "one_user_and_one_assistant_message_persisted_per_text_turn": true,
+      "provider_wire_context_for_second_turn_verified": false,
+      "conclusion": "The correct synthetic input and one response per turn are persisted on the same Runtime thread, but the actual second-turn provider wire context was not captured. Whether the recall miss came from model behavior or omitted prior-turn context remains undetermined."
+    },
+    "web_search": {
+      "run_id": "68aed599-cb7a-4c11-b095-68690eb04171",
+      "request_id": "427cfa4a-d99a-4d5b-b480-916febc2c4d8",
+      "public_status": "failed",
+      "ledger_status": "unknown",
+      "error_code": "RUNTIME_PROVIDER_STREAM_INVALID",
+      "dispatched": true,
+      "provider_request_id_present": false,
+      "input_tokens": null,
+      "output_tokens": null,
+      "tool_call_start_observed": false,
+      "successful_tool_call_result_observed": false
+    },
+    "cancellation_and_recovery": {
+      "cancel_run_id": "bb8d6d06-52d2-4b22-aabb-6ec1dd2923f0",
+      "cancel_status": "cancelled",
+      "cancel_acknowledged": true,
+      "cancel_provider_dispatch_phase": "before_dispatch",
+      "cancel_model_call_rows": 0,
+      "recovery_run_id": "15ba1f59-970c-4850-a311-709083bb1633",
+      "recovery_status": "succeeded",
+      "recovery_provider": "dashscope",
+      "recovery_model": "qwen3.8-flash",
+      "recovery_provider_request_id_present": true,
+      "recovery_input_tokens": 8428,
+      "recovery_output_tokens": 24
+    }
+  },
+  "native_search_gate_public_validation": {
+    "observed_at_utc": "2026-10-16T10:09:24Z",
+    "gateway_pid": 68524,
+    "schema_epoch": 24,
+    "health_http_status": 200,
+    "request": {
+      "model_id": "qwen3.8-flash",
+      "web_search_requested": true,
+      "session_id": "7587f6e0-4030-45da-9d5b-673b34f6f341",
+      "request_id": "a49cc53f-0a45-4e18-9e41-ccdd32b12672"
+    },
+    "response": {
+      "http_status": 422,
+      "error_code": "AI_PLATFORM_AGENT_RUNTIME_NATIVE_SEARCH_UNAVAILABLE",
+      "run_id_header_present": false,
+      "raw_response_recorded": false
+    },
+    "read_only_gateway_role_ledger_counts": {
+      "role": "ai_gateway_gateway",
+      "transaction_read_only": true,
+      "run_rows_before": 0,
+      "run_rows_after": 0,
+      "provider_call_rows_before": 0,
+      "provider_call_rows_after": 0
+    },
+    "result": "passed_no_run_or_provider_call_created",
+    "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/control.rs"
+  }
+}

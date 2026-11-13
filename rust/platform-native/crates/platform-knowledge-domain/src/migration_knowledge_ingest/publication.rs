@@ -40,6 +40,7 @@ impl IngestionService {
         content: &str,
         patch: &Value,
         pending: Option<&Value>,
+        pending_update: Option<&Value>,
         old: &[Chunk],
         chunks: &mut [Chunk],
         reembed: bool,
@@ -296,11 +297,18 @@ impl IngestionService {
                 patch,
                 string(doc, "content"),
                 pending,
+                pending_update,
                 replace_images,
                 lexical.as_ref().map(|c| (&lifecycle, c)),
                 docir.map(|prepared| (prepared, &self.assets)),
             )
-            .await?;
+            .await
+            .map_err(|error| {
+                error.with_database_context(
+                    "commit_text_publication",
+                    "knowledge.document_publication",
+                )
+            })?;
             Ok::<_, IngestError>(staged_ids.clone())
         }
         .await;

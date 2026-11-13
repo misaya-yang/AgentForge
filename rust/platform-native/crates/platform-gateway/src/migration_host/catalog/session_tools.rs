@@ -101,7 +101,7 @@ async fn tools(
         .iter()
         .filter_map(|record| record["name"].as_str().map(|name| (name, record)))
         .collect();
-    let row = sqlx::query_as::<_, (Value, String, String)>("SELECT s.snapshot,r.run_id,r.status FROM assistant_runtime_snapshots AS s JOIN assistant_runs AS r ON r.run_id=s.run_id WHERE s.session_id=$1 AND s.tenant_id=$2 AND s.user_id=$3 ORDER BY s.created_at DESC LIMIT 1")
+    let row = sqlx::query_as::<_, (Value, String, String)>("SELECT s.snapshot,r.run_id::text,r.status FROM assistant_runtime_snapshots AS s JOIN assistant_runs AS r ON r.run_id=s.run_id WHERE s.session_id=$1 AND s.tenant_id=$2 AND s.user_id=$3 ORDER BY s.created_at DESC LIMIT 1")
         .bind(&session_id).bind(&user.tenant_id).bind(&user.user_id).fetch_optional(&state.catalog.pool).await.map_err(|_| ContentError::new(500,"Failed to load session tool snapshot"))?;
     let last = match row {
         None => Value::Null,

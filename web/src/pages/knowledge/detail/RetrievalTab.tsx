@@ -91,6 +91,9 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
       : typeof hitMeta.error === "string" ? hitMeta.error : "";
   const isHitCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
   const hitCount = (value: unknown) => isHitCount(value) ? value : t("knowledge.detail.hitCountUnknown");
+  const vectorHitCount = "vector_hits_count" in hitMeta ? hitMeta.vector_hits_count : hitMeta.dense_hits;
+  const keywordHitCount = "keyword_hits_count" in hitMeta ? hitMeta.keyword_hits_count : hitMeta.bm25_hits;
+  const rerankDegraded = typeof hitMeta.rerank_degraded === "string";
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -423,12 +426,16 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                     <span className="text-muted-foreground">Rerank</span>
                     <Badge
                       className={
-                        typeof hitMeta.rerank_applied_provider === "string"
+                        rerankDegraded
+                          ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+                          : typeof hitMeta.rerank_applied_provider === "string"
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-secondary/60 text-muted-foreground"
                       }
                     >
-                      {typeof hitMeta.rerank_applied_provider === "string"
+                      {rerankDegraded
+                        ? t("knowledge.detail.rerankUnavailable")
+                        : typeof hitMeta.rerank_applied_provider === "string"
                         ? t("knowledge.eval.executed")
                         : hitMeta.rerank
                           ? t("knowledge.eval.requestedUnverified")
@@ -451,20 +458,20 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
 
                 {/* Hit counts */}
                 <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3">
-                  {isHitCount(hitMeta.vector_hits_count) && (
+                  {isHitCount(vectorHitCount) && (
                     <div className="p-2 bg-primary/5 rounded text-center">
-                      <div className="text-lg font-bold text-primary/90">{hitMeta.vector_hits_count}</div>
+                      <div className="text-lg font-bold text-primary/90">{vectorHitCount}</div>
                       <div className="text-xs text-primary">{t("knowledge.detail.vectorHits")}</div>
-                      {isHitCount(hitMeta.vector_hits_raw_count) && hitMeta.vector_hits_raw_count !== hitMeta.vector_hits_count && (
+                      {isHitCount(hitMeta.vector_hits_raw_count) && hitMeta.vector_hits_raw_count !== vectorHitCount && (
                         <div className="text-xs text-primary/70">{t("knowledge.detail.vectorRaw", { count: hitMeta.vector_hits_raw_count })}</div>
                       )}
                     </div>
                   )}
-                  {isHitCount(hitMeta.keyword_hits_count) && (
+                  {isHitCount(keywordHitCount) && (
                     <div className="p-2 bg-amber-500/10 dark:bg-amber-500/15 rounded text-center">
-                      <div className="text-lg font-bold text-amber-700 dark:text-amber-400">{hitMeta.keyword_hits_count}</div>
+                      <div className="text-lg font-bold text-amber-700 dark:text-amber-400">{keywordHitCount}</div>
                       <div className="text-xs text-amber-600 dark:text-amber-500">{t("knowledge.detail.keywordHits")}</div>
-                      {isHitCount(hitMeta.keyword_hits_raw_count) && hitMeta.keyword_hits_raw_count !== hitMeta.keyword_hits_count && (
+                      {isHitCount(hitMeta.keyword_hits_raw_count) && hitMeta.keyword_hits_raw_count !== keywordHitCount && (
                         <div className="text-xs text-amber-400">{t("knowledge.detail.keywordRaw", { count: hitMeta.keyword_hits_raw_count })}</div>
                       )}
                     </div>
@@ -555,7 +562,7 @@ export function RetrievalTab({ datasetId, hitTest }: RetrievalTabProps) {
                 {!hitFailed && hitExecutedQuery && (
                   <p className="text-sm text-muted-foreground/70 mt-2">
                     {t("knowledge.detail.vectorHitsCount", {
-                      vector: hitCount(hitMeta.vector_hits_count), keyword: hitCount(hitMeta.keyword_hits_count),
+                      vector: hitCount(vectorHitCount), keyword: hitCount(keywordHitCount),
                     })}
                   </p>
                 )}

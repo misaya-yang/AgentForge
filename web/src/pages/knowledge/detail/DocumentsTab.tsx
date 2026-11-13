@@ -1725,6 +1725,7 @@ export function DocumentsTab({
               busyLifecycle={pendingDocIds.has(doc.document_id) || pipelineReceipts.attempts.some((item) => item.documentId === doc.document_id)}
               canManageProcessing={canEditMetadata && !pipelineReceipts.storageFailed}
               onVersionRestored={() => qc.invalidateQueries({ queryKey: ["kb-documents", datasetId] })}
+              onTextSourcePublished={() => qc.invalidateQueries({ queryKey: ["kb-documents", datasetId] })}
             />
           ))}
           {filteredDocs.length === 0 && !docsQuery.isLoading && (

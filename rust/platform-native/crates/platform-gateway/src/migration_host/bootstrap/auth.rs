@@ -5,8 +5,8 @@ use crate::migration_content::{
     access::{EndpointIdentityResolver, StaticKeyFallback},
 };
 use ai_platform_auth::{
-    PasswordEngine, TokenCodec, accounts::PgAccounts, admission::AdmissionService,
-    service::AuthService, sessions::RedisSessions,
+    JwtKeyConfig, JwtSigningMode, PasswordEngine, TokenCodec, accounts::PgAccounts,
+    admission::AdmissionService, service::AuthService, sessions::RedisSessions,
 };
 use axum::http::HeaderName;
 use redis::aio::ConnectionManager;
@@ -44,6 +44,18 @@ impl AuthServices {
         // EdDSA issuance/rotation uses a separate explicit asymmetric key ring.
         if config.jwt_algorithms != ["HS256"] {
             return Err(BootstrapError::Configuration("jwt_algorithms"));
+        }
+        if config.jwt_mode == JwtSigningMode::AsymmetricKeyring {
+            let configured: std::collections::BTreeSet<_> =
+                config.jwt_algorithms.iter().map(String::as_str).collect();
+            let keyring_algorithms: std::collections::BTreeSet<_> = config
+                .jwt_keys
+                .iter()
+                .map(|key| key.algorithm.as_str())
+                .collect();
+            if !configured.is_empty() && configured != keyring_algorithms {
+                return Err(BootstrapError::Configuration("jwt_algorithms"));
+            }
         }
         let header = HeaderName::from_bytes(config.api_key_header.as_bytes())
             .map_err(|_| BootstrapError::Configuration("api_key_header"))?;

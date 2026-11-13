@@ -50,6 +50,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -961,16 +962,17 @@ export function SettingsTab({
             </div>
             {editRerankEnabled && (
               <div className="ml-3">
-                <Label className="text-xs text-muted-foreground">{t("knowledge.detail.rerankModelLabel")}</Label>
-                <Select value={editRerankModel} onValueChange={setEditRerankModel}>
-                  <SelectTrigger className="mt-1 h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gte-rerank">{t("knowledge.detail.gteRerank")}</SelectItem>
-                    <SelectItem value="bge-reranker-v2-m3">BGE Reranker</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="knowledge-rerank-model" className="text-xs text-muted-foreground">{t("knowledge.detail.rerankModelLabel")}</Label>
+                <Input
+                  id="knowledge-rerank-model"
+                  className="mt-1 h-8"
+                  value={editRerankModel}
+                  placeholder={t("knowledge.detail.rerankModelIdPlaceholder")}
+                  onChange={(event) => setEditRerankModel(event.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("knowledge.detail.rerankModelIdHint")}
+                </p>
               </div>
             )}
 

@@ -16,6 +16,7 @@ use crate::migration_host::{
     middleware::DrainState,
     readiness::{ReadinessConfig, ReadinessState},
     resources::ConnectionResources,
+    settings::DatabaseApiKeyVerifierAvailability,
     version::VersionConfig,
 };
 use ai_platform_migration_authority::application_guard::ApplicationPrincipal;
@@ -117,10 +118,15 @@ impl GatewayDocument {
                 "durable_profile_requires_database_and_redis",
             ));
         }
-        let admission_principal = match settings.task_delivery_mode.as_str() {
+        let delivery_principal = match settings.task_delivery_mode.as_str() {
             "memory" => ApplicationPrincipal::Gateway,
             "durable" | "schema_admitted" => ApplicationPrincipal::GatewayDurable,
             _ => return Err(BootstrapError::Configuration("task_delivery_mode")),
+        };
+        let admission_principal = if local_node_channel_config.is_some() {
+            ApplicationPrincipal::GatewayLocalNode
+        } else {
+            delivery_principal
         };
         let address = SocketAddr::new(
             settings
@@ -318,6 +324,7 @@ impl GatewayDocument {
             )?),
         };
         let authorities = self.authorities(redis.clone())?;
+        super::models::validate_stored_credentials(&pools, &config.provider_encryption_key).await?;
         let models = super::models::ModelServices::native(
             &pools,
             config.provider_encryption_key.clone(),
@@ -439,6 +446,7 @@ impl GatewayDocument {
                 identity: graph.admission.clone(),
                 rbac: graph.core.rbac.clone(),
                 collector,
+                scrape_token,
             },
         );
         let (_, rates) = project_rates(&SettingsProjection {

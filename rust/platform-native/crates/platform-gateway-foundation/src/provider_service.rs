@@ -8,9 +8,8 @@
 //! Dropping an in-flight future drops the awaited collaborator; no task is spawned.
 //! Adapters must implement cancellation/draining before reusing external resources.
 //!
-//! Crypto authority: src/core/crypto.py reexports ai_gateway_core.security.secrets.
-//! ProviderCipher MUST implement that exact Fernet enc: format and legacy passthrough
-//! behavior (including absent key/invalid ciphertext); this module invents no cipher.
+//! ProviderCipher preserves the Fernet `enc:` format and fails closed for
+//! unencrypted stored credentials, missing keys and invalid ciphertext.
 //! GoogleAuth owns official Google credentials construction and refresh, separately,
 //! preserving the required-project check before refresh. No live adapters are wired.
 //!

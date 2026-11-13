@@ -823,6 +823,28 @@ mod tests {
     }
 
     #[test]
+    fn write_enabled_startup_loads_embedded_local_node_connector_contract() {
+        let state = WorkerState::try_new_with_writes(
+            Arc::new(MemoryStore::default()),
+            "internal-token".to_string(),
+            b"lease-signing-secret-that-is-long-enough".to_vec(),
+            false,
+            true,
+        )
+        .expect("full embedded worker catalog must load at startup");
+        let action = &state.capability_registry["local_node_action"];
+
+        assert_eq!(action.protocol, "local-node-capability/v2");
+        assert!(action.tags.iter().any(|tag| tag == "connector:local_node"));
+        assert!(
+            action
+                .tags
+                .iter()
+                .any(|tag| tag == "binding-type:connector")
+        );
+    }
+
+    #[test]
     fn cloned_state_shares_the_same_immutable_registry() {
         let state = state(false);
         let clone = state.clone();

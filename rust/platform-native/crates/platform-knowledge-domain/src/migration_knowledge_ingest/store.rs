@@ -8,9 +8,28 @@ use sqlx::{PgConnection, PgPool, Postgres, pool::PoolConnection};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn source_version_matches(row: &Value, content: &str) -> bool {
-    !string(row, "change_type").starts_with("pending_")
+    !super::is_hidden_version_change_type(&string(row, "change_type"))
         && string(row, "content") == content
         && string(row, "content_hash") == sha256(content.as_bytes())
+}
+
+fn pending_text_update_matches(
+    current: &Value,
+    pending: &Value,
+    previous: i64,
+    candidate: i64,
+    expected_content: &str,
+    content: &str,
+) -> bool {
+    current["metadata"]["_document_pending_text_update_version"] == *pending
+        && previous > 0
+        && previous == integer(current, "current_version")
+        && candidate > previous
+        && pending["previous_version"] == previous
+        && pending["candidate_version"] == candidate
+        && pending["previous_content_hash"] == sha256(expected_content.as_bytes())
+        && string(current, "content") == expected_content
+        && !content.trim().is_empty()
 }
 
 pub(crate) fn dataset_permission_short_circuit(actor: &Actor, dataset: &Value) -> Option<i32> {
@@ -1007,6 +1026,87 @@ mod source_version_tests {
             "content_hash": hash,
         });
         assert!(!source_version_matches(&pending, content));
+
+        let staged_edit = json!({
+            "change_type": "pending_update",
+            "content": content,
+            "content_hash": hash,
+        });
+        assert!(!source_version_matches(&staged_edit, content));
+    }
+
+    #[test]
+    fn every_pending_version_type_is_hidden_from_public_source_selection() {
+        for change_type in [
+            "pending_restore",
+            "pending_before_restore",
+            "pending_update",
+        ] {
+            assert!(super::super::is_hidden_version_change_type(change_type));
+        }
+        for change_type in ["created", "updated", "restored"] {
+            assert!(!super::super::is_hidden_version_change_type(change_type));
+        }
+        assert!(super::super::HIDDEN_VERSION_CHANGE_TYPES_SQL.contains("'pending_update'"));
+    }
+
+    #[test]
+    fn pending_text_update_requires_the_exact_active_generation_before_activation() {
+        let previous_content = "v1 source";
+        let next_content = "v2 source";
+        let pointer = json!({
+            "previous_version":4,
+            "candidate_version":5,
+            "previous_content_hash":sha256(previous_content.as_bytes()),
+        });
+        let current = json!({
+            "current_version":4,
+            "content":previous_content,
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(pending_text_update_matches(
+            &current,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+
+        let stale_current = json!({
+            "current_version":3,
+            "content":previous_content,
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(!pending_text_update_matches(
+            &stale_current,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+        let stale_content = json!({
+            "current_version":4,
+            "content":"changed after staging",
+            "metadata":{"_document_pending_text_update_version":pointer.clone()},
+        });
+        assert!(!pending_text_update_matches(
+            &stale_content,
+            &pointer,
+            4,
+            5,
+            previous_content,
+            next_content
+        ));
+        assert!(!pending_text_update_matches(
+            &current,
+            &pointer,
+            4,
+            4,
+            previous_content,
+            next_content
+        ));
     }
 }
 

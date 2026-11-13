@@ -1,0 +1,53 @@
+{
+  "schema_version": "native-current-acceptance-diagnostic/v1",
+  "scenario": "main_assistant_first_text_turn",
+  "fixture": {
+    "session_id": "32c4bc62-eb24-421e-a465-34245cc2132e",
+    "public_run_id_observed": false,
+    "public_history_message_count": 0,
+    "public_session_tools_last_run_pinned": null,
+    "ui_outcome": "run_failed",
+    "ui_failure_latency_ms_approx": 199
+  },
+  "postgres_failure": {
+    "time_utc": "2026-10-16T08:20:02.102968587Z",
+    "backend_pid": 4340,
+    "sqlstate": "42501",
+    "class": "insufficient_privilege",
+    "statement_label": "assistant.issue_assistant_runtime_turn",
+    "denied_object": "assistant.assistant_runtime_snapshots",
+    "denied_object_oid": 45469
+  },
+  "live_gateway_catalog": {
+    "role": "ai_gateway_gateway",
+    "database": "agentforge_dev",
+    "database_oid": 16384,
+    "search_path": "pg_catalog, gateway, assistant, knowledge, public",
+    "function_oid": 45178,
+    "function_owner": "ai_gateway_owner",
+    "function_security_definer": false,
+    "function_execute_granted": true,
+    "qualified_and_unqualified_resolution_same_oid": true,
+    "insert_privileges": {
+      "assistant.assistant_runtime_snapshots": false,
+      "assistant.assistant_runs": false,
+      "assistant.assistant_runtime_model_leases": false
+    },
+    "select_privileges": {
+      "assistant.assistant_runtime_snapshots": true,
+      "assistant.assistant_runs": true,
+      "assistant.assistant_runtime_model_leases": true
+    },
+    "table_oids": {
+      "assistant.assistant_runtime_snapshots": 45469,
+      "assistant.assistant_runs": 45384,
+      "assistant.assistant_runtime_model_leases": 45427
+    }
+  },
+  "evidence": {
+    "postgres_log_capture_id": "4d7c724fd05748b4b648ebe8062b6508",
+    "postgres_log_capture_mode": "0600",
+    "catalog_probe": "read_only_gateway_role",
+    "raw_sql_or_error_text_included": false
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-16T10:19:34.177Z",
+  "browser": "Codex in-app browser",
+  "origin": "http://127.0.0.1:4181",
+  "route": "/knowledge/native-knowledge-acceptance-20261016?tab=documents",
+  "document_id": "16cd7956-d4a6-42f5-8e60-d10bc77d3686",
+  "source_version_before_edit": 4,
+  "edited_version": 5,
+  "restored_version": 7,
+  "restored_content_matches_version_1": true,
+  "edited_historical_content_sha256": "e887a5dbc0fcfb00d9f2d0840050914795d87391137902709f9bb29867d66a3f",
+  "restored_content_sha256": "6887ff5903265640ada140e7bc41d2f4114eb0857e6681d4340558daa697c409",
+  "uploaded_pdf_has_no_edit_text_action": true,
+  "ui_processing_and_published_states_observed": true,
+  "public_source_checks": "passed",
+  "new_console_errors_or_warnings": 0,
+  "preexisting_console_messages_before_scope": 5,
+  "screenshots": [
+    "native-text-editor-draft-20261016.png",
+    "native-text-editor-version5-published-20261016.png",
+    "native-text-editor-restored-version7-20261016.png"
+  ],
+  "limits": [
+    "Desktop browser flow verified. Mobile viewport not yet verified."
+  ]
+}

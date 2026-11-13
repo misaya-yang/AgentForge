@@ -1,0 +1,71 @@
+{
+  "status": "schema_and_database_verified",
+  "verified_at": "2026-10-16T11:03:34.656Z",
+  "epoch": 24,
+  "postgres_major": 16,
+  "main_database": "agentforge_dev",
+  "migration_mode": "distribution",
+  "isolated_database": "schema_successor_verify_fresh021_codex_20261016",
+  "isolated_apply_and_noop": "passed",
+  "main_migrate": "passed",
+  "main_verify": "passed",
+  "package_input_count": 194,
+  "package_lock_sha256": "912572fc1a7abad3587051d7c37ca4d999c79a187b96bd1eba9dac09305b7789",
+  "manifest_sha256": "a6428f52d129e9ad2daa6453f61cff4ef7953ba13b147ab46a6703bc5a8765a1",
+  "sql_sha256": "772e6bdd409416444042195d3f320042f83fd29db64807dfabce10987599f2c2",
+  "verification_sha256": "330a3abe40fb6c8932ab3fb9014dff1554961824013a1ff0fcf0f24fa875f22b",
+  "scope": {
+    "gateway_column_select": {
+      "local_node_pairing_challenges": [
+        "challenge_id",
+        "user_code_sha256",
+        "tenant_id",
+        "user_id",
+        "consumed_at",
+        "expires_at"
+      ],
+      "local_node_channels": [
+        "channel_id",
+        "device_id",
+        "tenant_id",
+        "user_id",
+        "status",
+        "receipt_cursor",
+        "fingerprint",
+        "created_at"
+      ]
+    },
+    "table_select_added": false,
+    "frozen_001_through_023": "unchanged"
+  },
+  "authority_tests": {
+    "before_source_activation": {
+      "passed": 74,
+      "failed": 0
+    },
+    "after_source_activation": {
+      "passed": 71,
+      "failed": 3,
+      "cause": "Three source-tools test helpers still assume epoch23; repair in progress. Database and runtime verification passed."
+    },
+    "after_probe_helper_repair": {
+      "passed": 74,
+      "failed": 0,
+      "evidence": "native-authority source tests after epoch24 probe helper repair; private native schema024-probe-repair-tests-20261016.log"
+    }
+  },
+  "local_node_pairing": "passed_real_control_after_fresh_dedicated_keychain_identity",
+  "local_node_complete_workflow": "in_progress",
+  "source_ancestry": {
+    "historical_git_commit_available": false,
+    "development_mode_refused_before_mutation": true,
+    "distribution_mode_uses_reviewed_digest_pinned_package": true
+  },
+  "runtime": {
+    "gateway_pid": 68524,
+    "knowledge_api_pid": 69362,
+    "knowledge_worker_pid": 69393,
+    "sdk_worker_pid": 69377
+  },
+  "new_compose_projects": 0
+}

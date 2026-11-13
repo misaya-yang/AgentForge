@@ -8,8 +8,8 @@ use crate::{
     provider_cipher::NativeProviderCipher,
     provider_probe_http::ReqwestProviderHttp,
     provider_service::{
-        GoogleCredentialState, ProviderClock, ProviderEnvironment, ProviderGoogleAuth,
-        ProviderService, ServiceFuture,
+        GoogleCredentialState, ProviderCipher, ProviderClock, ProviderEnvironment,
+        ProviderGoogleAuth, ProviderService, ServiceFuture,
     },
 };
 use chrono::{DateTime, Utc};
@@ -59,6 +59,26 @@ pub struct ModelServices {
     pub pricing: Arc<dyn ModelPricingCache>,
     pub models: Arc<Models>,
     pub providers: Arc<Providers>,
+}
+
+/// Validate global provider configuration before accepting application traffic.
+/// Startup reads only the protected credential column and emits no row content.
+pub async fn validate_stored_credentials(
+    pools: &DatabasePools,
+    encryption_key: &str,
+) -> Result<(), BootstrapError> {
+    let records: Vec<String> = sqlx::query_scalar(
+        "SELECT api_key_encrypted FROM gateway.llm_providers WHERE COALESCE(api_key_encrypted,'') <> ''",
+    )
+    .fetch_all(&pools.data)
+    .await
+    .map_err(|_| BootstrapError::Construction("provider_credential_validation"))?;
+    for sealed in records {
+        NativeProviderCipher
+            .decrypt(&sealed, encryption_key)
+            .map_err(|_| BootstrapError::Configuration("provider_credential_encryption"))?;
+    }
+    Ok(())
 }
 impl ModelServices {
     pub fn new(

@@ -38,6 +38,11 @@ pub struct ContentIdentity {
     pub permissions: Vec<String>,
     #[serde(default)]
     pub tier: String,
+    /// Bound API-key model restrictions from the canonical admission resolver.
+    /// Empty lists retain the established unrestricted meaning; `None` marks
+    /// identities that are not API keys. Never serialize this request authority.
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub allowed_models: Option<Vec<String>>,
 }
 pub trait ContentAccess: Send + Sync {
     fn resolve<'a>(&'a self, headers: &'a HeaderMap) -> ContentFuture<'a, ContentIdentity>;

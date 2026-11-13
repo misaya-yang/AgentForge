@@ -28,6 +28,7 @@ pub(super) fn write_routes(state: WriteApiState) -> Router {
         .route("/api/v1/knowledge/{dataset_id}/preview-chunks",post(preview_configured))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reindex",post(reindex))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/reprocess",post(reprocess))
+        .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/content",put(replace_text_source))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/retry",post(retry))
         .route("/api/v1/knowledge/{dataset_id}/documents/{document_id}/recover",post(recover))
         .route("/api/v1/knowledge/{dataset_id}/documents/batch-reindex",post(batch_reindex))

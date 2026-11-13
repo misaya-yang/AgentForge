@@ -47,6 +47,24 @@ fn session_cleanup_result(session_id: &str, payload: &Value) -> Result<bool, Age
     ))
 }
 
+fn native_search_selection(readonly: &Value, profile: &Value) -> Result<bool, AgentError> {
+    let requested = readonly["items"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["source"] == "web-search"));
+    let supported = profile["native_search"]["enabled"] == true
+        && profile["tools"]["web_search_wire"] == "native";
+    if requested && !supported {
+        return Err(AgentError::code(
+            422,
+            "AI_PLATFORM_AGENT_RUNTIME_NATIVE_SEARCH_UNAVAILABLE",
+        ));
+    }
+    Ok(requested
+        && readonly["responses_tool_choice"] != "none"
+        && readonly["responses_tool_names"].is_null()
+        && supported)
+}
+
 pub trait RuntimeModels: Send + Sync {
     fn model<'a>(
         &'a self,
@@ -204,6 +222,9 @@ pub struct TurnRequest {
     pub enable_dynamic_tools: bool,
     pub image_inputs: Vec<String>,
     pub resolved_snapshot: Option<Value>,
+    /// Server-resolved built-in Local Node grant binding. Never populated from
+    /// the model-authored tool arguments or a pinned/preview AgentSpec.
+    pub local_node_capability: Option<Value>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AgentTurn {
@@ -249,6 +270,14 @@ fn failed_thread_create(
     }
 }
 
+fn catalog_descriptor_matches_allowlist(descriptor: &Value, allowlist: &Value) -> bool {
+    ["version", "schema_hash"].iter().all(|field| {
+        descriptor[*field] == allowlist[*field]
+            || (matches!(text(allowlist, "type"), "platform" | "connector")
+                && allowlist[*field].is_null())
+    })
+}
+
 pub struct EventReceiver {
     receiver: mpsc::Receiver<Result<Value, AgentError>>,
     task: tokio::task::JoinHandle<()>,
@@ -269,6 +298,40 @@ impl Drop for EventReceiver {
         self.task.abort();
     }
 }
+
+#[cfg(test)]
+mod local_node_catalog_binding_tests {
+    use super::*;
+
+    #[test]
+    fn connector_allowlist_null_version_and_hash_are_pinned_to_catalog_output() {
+        let descriptor = json!({
+            "version":"2",
+            "schema_hash":format!("sha256:{}", "a".repeat(64))
+        });
+        let allowlist = json!({
+            "type":"connector",
+            "version":null,
+            "schema_hash":null
+        });
+        assert!(catalog_descriptor_matches_allowlist(
+            &descriptor,
+            &allowlist
+        ));
+
+        let mut stale = allowlist.clone();
+        stale["version"] = json!("1");
+        assert!(!catalog_descriptor_matches_allowlist(&descriptor, &stale));
+
+        let mut mismatched_schema = allowlist;
+        mismatched_schema["schema_hash"] = json!(format!("sha256:{}", "b".repeat(64)));
+        assert!(!catalog_descriptor_matches_allowlist(
+            &descriptor,
+            &mismatched_schema
+        ));
+    }
+}
+
 impl RuntimeControlPlane {
     pub fn new(
         pool: PgPool,
@@ -920,17 +983,11 @@ impl RuntimeControlPlane {
                     continue;
                 }
                 let a = matching[0];
-                for field in ["version", "schema_hash"] {
-                    if d[field] != a[field]
-                        && !(field == "schema_hash"
-                            && matches!(text(a, "type"), "platform" | "connector")
-                            && a[field].is_null())
-                    {
-                        return Err(AgentError::code(
-                            409,
-                            "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_CATALOG_SCOPE_MISMATCH",
-                        ));
-                    }
+                if !catalog_descriptor_matches_allowlist(d, a) {
+                    return Err(AgentError::code(
+                        409,
+                        "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_CATALOG_SCOPE_MISMATCH",
+                    ));
                 }
                 out.push(d.clone());
             }
@@ -1032,8 +1089,13 @@ impl RuntimeControlPlane {
                         .and_then(|a| a.iter().find(|a| a["id"] == d["id"]))
                         .cloned()
                         .unwrap_or(json!({}));
+                    let capability_type = if a["type"] == "connector" {
+                        json!("connector")
+                    } else {
+                        d["kind"].clone()
+                    };
                     for (k, v) in [
-                        ("type", d["kind"].clone()),
+                        ("type", capability_type),
                         ("id", d["id"].clone()),
                         ("name", d["name"].clone()),
                         ("version", d["version"].clone()),
@@ -1216,6 +1278,12 @@ impl RuntimeControlPlane {
             ));
         }
         let policy = json!({"reasoning_option":request.reasoning_option,"legacy_thinking_level":request.legacy_thinking_level,"max_tokens":request.max_tokens,"temperature":request.temperature,"style_guidance":request.style_guidance,"memory_mode":memory_mode,"memory_profile":memory_profile,"enable_dynamic_tools":request.enable_dynamic_tools});
+        if request.local_node_capability.is_some() && request.resolved_snapshot.is_some() {
+            return Err(AgentError::code(
+                409,
+                "AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_BINDING_INVALID",
+            ));
+        }
         let signed = if let Some(snapshot) = request.resolved_snapshot.clone() {
             if text(&snapshot, "tenant_id") != scope.tenant_id
                 || snapshot["model"]["id"] != request.model_id
@@ -1251,7 +1319,17 @@ impl RuntimeControlPlane {
                 &policy,
                 &instructions,
             );
-            json!({"schema_version":"agent-runtime/v1","tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"agent_id":"__builtin_assistant__","agent_version_id":null,"model":launch["model"],"model_profile":profile,"agent_spec":launch["agent_spec"],"capabilities":[],"knowledge":launch["knowledge_bindings"],"memory":launch["memory_policy"],"channel_policy":launch["channel_policy"],"fingerprints":launch["fingerprints"],"publication":{"channel":"builtin","auth_mode":"private"}})
+            if let Some(capability) = &request.local_node_capability {
+                launch["agent_spec"]["capabilities"] = json!([capability]);
+                launch["fingerprints"]["spec"] =
+                    json!(format!("sha256:{}", spec::hash(&launch["agent_spec"])));
+                launch["fingerprints"]["tool_schema"] = json!(format!(
+                    "sha256:{}",
+                    spec::hash(&launch["agent_spec"]["capabilities"])
+                ));
+            }
+            let capabilities = launch["agent_spec"]["capabilities"].clone();
+            json!({"schema_version":"agent-runtime/v1","tenant_id":scope.tenant_id,"user_id":scope.user_id,"session_id":scope.session_id,"agent_id":"__builtin_assistant__","agent_version_id":null,"model":launch["model"],"model_profile":profile,"agent_spec":launch["agent_spec"],"capabilities":capabilities,"knowledge":launch["knowledge_bindings"],"memory":launch["memory_policy"],"channel_policy":launch["channel_policy"],"fingerprints":launch["fingerprints"],"publication":{"channel":"builtin","auth_mode":"private"}})
         };
         let agent_spec = &signed["agent_spec"];
         let instructions = agent_spec["developerInstructions"]
@@ -1318,13 +1396,7 @@ impl RuntimeControlPlane {
             )
             .await?;
         }
-        let search = readonly["responses_tool_choice"] != "none"
-            && readonly["responses_tool_names"].is_null()
-            && readonly["items"]
-                .as_array()
-                .is_some_and(|a| a.iter().any(|v| v["source"] == "web-search"))
-            && profile["native_search"]["enabled"] == true
-            && profile["tools"]["web_search_wire"] == "native";
+        let search = native_search_selection(&readonly, profile)?;
         let thread = self
             .ensure_thread(
                 &scope,
@@ -2065,5 +2137,53 @@ mod failed_thread_create_tests {
             error.detail,
             json!({"code":"AI_PLATFORM_AGENT_RUNTIME_CAPABILITY_THREAD_RECREATE_REQUIRED"})
         );
+    }
+}
+
+#[cfg(test)]
+mod native_search_admission_tests {
+    use super::*;
+
+    fn readonly(web_search: bool) -> Value {
+        let items = if web_search {
+            json!([{"source":"web-search"}])
+        } else {
+            json!([])
+        };
+        json!({
+            "items": items,
+            "responses_tool_choice": "auto",
+            "responses_tool_names": null
+        })
+    }
+
+    fn profile(enabled: bool, wire: &str) -> Value {
+        json!({
+            "native_search": {"enabled": enabled},
+            "tools": {"web_search_wire": wire}
+        })
+    }
+
+    #[test]
+    fn rejects_web_search_before_dispatch_when_model_does_not_support_it() {
+        for unsupported in [profile(false, "disabled"), profile(true, "disabled")] {
+            let error = native_search_selection(&readonly(true), &unsupported).unwrap_err();
+            assert_eq!(error.status, 422);
+            assert_eq!(
+                error.detail,
+                json!({"code":"AI_PLATFORM_AGENT_RUNTIME_NATIVE_SEARCH_UNAVAILABLE"})
+            );
+        }
+    }
+
+    #[test]
+    fn enables_native_search_only_for_a_supported_selected_request() {
+        assert!(native_search_selection(&readonly(true), &profile(true, "native")).unwrap());
+        let unsupported_profile = profile(false, "disabled");
+        assert!(!native_search_selection(&readonly(false), &unsupported_profile).unwrap());
+
+        let mut tool_choice_none = readonly(true);
+        tool_choice_none["responses_tool_choice"] = json!("none");
+        assert!(!native_search_selection(&tool_choice_none, &profile(true, "native")).unwrap());
     }
 }
