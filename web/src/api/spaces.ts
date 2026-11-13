@@ -133,3 +133,50 @@ export async function putContent(itemId: string, revision: number, body: Request
   const { data } = await api.put<ItemContent>(`${item(itemId)}/content`, body, { headers: { "If-Match": `"${revision}"` } });
   return data;
 }
+
+export interface RevisionMeta {
+  revision: number;
+  author: string;
+  created_at: string;
+  content_sha256: string;
+}
+
+export async function listTree(spaceId: string) {
+  const { data } = await api.get<{ items?: SpaceItem[] }>(`${space(spaceId)}/tree`);
+  return data.items ?? [];
+}
+
+export async function listRevisions(itemId: string) {
+  const { data } = await api.get<{ revisions?: RevisionMeta[] }>(`${item(itemId)}/revisions`);
+  return data.revisions ?? [];
+}
+
+export async function diffRevisions(itemId: string, from: number, to: number) {
+  const { data } = await api.get<{ from: number; to: number; diff: string }>(`${item(itemId)}/diff`, { params: { from, to } });
+  return data;
+}
+
+export async function restoreRevision(itemId: string, revision: number, expected: number) {
+  const { data } = await api.post<ItemContent>(`${item(itemId)}/revisions/${revision}/restore`, undefined, { headers: { "If-Match": `"${expected}"` } });
+  return data;
+}
+
+export async function listBacklinks(itemId: string) {
+  const { data } = await api.get<{ items?: SpaceItem[] }>(`${item(itemId)}/backlinks`);
+  return data.items ?? [];
+}
+
+export async function exportItem(itemId: string, format: "markdown" | "html") {
+  const { data } = await api.get<{ body: string; filename: string; format: string }>(`${item(itemId)}/export`, { params: { format } });
+  return data;
+}
+
+export async function importPages(spaceId: string, body: RequestBody<"POST /api/v1/knowledge/spaces/{space_id}/import">) {
+  const { data } = await api.post<{ items?: SpaceItem[] }>(`${space(spaceId)}/import`, body);
+  return data.items ?? [];
+}
+
+export function collabUrl(itemId: string) {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/api/v1/knowledge/space-items/${encodeURIComponent(itemId)}/collab`;
+}

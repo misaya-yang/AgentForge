@@ -144,6 +144,23 @@ pub struct SharePut {
     pub shares: Vec<MemberInput>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RevisionMeta {
+    pub revision: i64,
+    pub author: String,
+    pub created_at: String,
+    pub content_sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportBody {
+    pub format: String,
+    #[serde(default)]
+    pub filename: String,
+    pub content_base64: String,
+    pub parent_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemView {
     All,

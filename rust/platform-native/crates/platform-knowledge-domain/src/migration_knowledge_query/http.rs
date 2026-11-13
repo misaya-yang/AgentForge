@@ -16,6 +16,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
+    collections::HashMap,
     convert::Infallible,
     pin::Pin,
     sync::Arc,
@@ -211,9 +212,41 @@ async fn retrieve_authorized(
             item
         })
         .collect();
+    let refs = crate::spaces::retrieval_refs(&state.retrieval.store.pool, &user.tenant_id, &ids)
+        .await
+        .map_err(|_| QueryError::Database)?;
+    let values = stamp_space_hits(values, refs, &user);
     Ok(Json(
         json!({"results":values,"metadata":meta,"trace_id":meta["trace_id"],"query_fingerprint":meta["query_fingerprint"]}),
     ))
+}
+
+fn stamp_space_hits(
+    values: Vec<Value>,
+    refs: Vec<crate::spaces::RetrievalRef>,
+    user: &UserContext,
+) -> Vec<Value> {
+    let refs: HashMap<_, _> = refs.into_iter().map(|item| (item.document_id.clone(), item)).collect();
+    values
+        .into_iter()
+        .filter_map(|mut item| {
+            let document_id = item.get("document_id").and_then(Value::as_str).unwrap_or("");
+            let Some(reference) = refs.get(document_id) else {
+                return Some(item);
+            };
+            let space_document = reference.metadata.get("space_id").is_some()
+                || reference.metadata.get("_connector_acl").is_some();
+            if space_document
+                && !crate::spaces::viewer_can_retrieve(&reference.metadata, &user.user_id, &user.tenant_id, &user.roles)
+            {
+                return None;
+            }
+            if !reference.item_id.is_empty() {
+                crate::spaces::stamp_hit(&mut item, &reference.space_id, &reference.item_id, reference.revision);
+            }
+            Some(item)
+        })
+        .collect()
 }
 #[derive(Deserialize)]
 struct BatchRequest {

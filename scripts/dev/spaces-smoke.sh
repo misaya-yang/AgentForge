@@ -28,4 +28,35 @@ curl -fsS "${auth[@]}" -H 'content-type: application/json' \
 curl -fsS "${auth[@]}" "${base}/api/v1/knowledge/space-items?view=all&space_id=${space_id}" \
   | grep -q 'smoke-page'
 
+if [[ "${1:-}" == "--rag" ]]; then
+  phrase="space-rag-$(date +%s)-$$"
+  item_json="$(curl -fsS "${auth[@]}" -H 'content-type: application/json' \
+    -d "{\"title\":\"rag-${phrase}\",\"kind\":\"page\",\"content_format\":\"markdown\",\"source\":\"native\"}" \
+    "${base}/api/v1/knowledge/spaces/${space_id}/items")"
+  item_id="$(printf '%s' "${item_json}" | sed -n 's/.*"item_id":"\([^"]*\)".*/\1/p')"
+  dataset_id="$(printf '%s' "${space_json}" | sed -n 's/.*"dataset_id":"\([^"]*\)".*/\1/p')"
+  test -n "${item_id}"
+  test -n "${dataset_id}"
+  curl -fsS "${auth[@]}" -H 'content-type: application/json' -H 'If-Match: "0"' \
+    -d "{\"content_format\":\"markdown\",\"blocks\":null,\"markdown\":\"${phrase}\"}" \
+    "${base}/api/v1/knowledge/space-items/${item_id}/content" >/dev/null
+  found=""
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    sleep 2
+    retrieved="$(curl -fsS "${auth[@]}" -H 'content-type: application/json' \
+      -d "{\"query\":\"${phrase}\",\"top_k\":5}" \
+      "${base}/api/v1/knowledge/${dataset_id}/retrieve" || true)"
+    if printf '%s' "${retrieved}" | grep -q "${phrase}" && printf '%s' "${retrieved}" | grep -q "${item_id}"; then
+      found="${retrieved}"
+      break
+    fi
+  done
+  test -n "${found}"
+  denied_code="$(curl -sS -o /dev/null -w '%{http_code}' -H 'content-type: application/json' \
+    -d "{\"query\":\"${phrase}\",\"top_k\":5}" \
+    "${base}/api/v1/knowledge/${dataset_id}/retrieve" || true)"
+  test "${denied_code}" != "200"
+  echo "spaces rag smoke ok"
+fi
+
 echo "spaces smoke ok"

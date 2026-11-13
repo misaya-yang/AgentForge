@@ -16,7 +16,8 @@ tokio-stream = { version = "0.1", features = ["net"] }
 ai-platform-knowledge-domain = { version = "0.1.0", path = "../platform-knowledge-domain"  }
 ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
 ai-platform-migration-authority = { version = "0.1.0", path = "../platform-migration-authority"  }
-axum = { workspace = true, features = ["multipart"] }
+axum = { workspace = true, features = ["multipart", "ws"] }
+yrs = { version = "0.28", features = ["sync"] }
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
@@ -37,6 +38,7 @@ candle-nn = { version = "0.11", default-features = false }
 candle-transformers = { version = "0.11", default-features = false }
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 sha2 = "0.10"
+base64 = "0.22"
 tracing = "0.1"
 ed25519-dalek.workspace = true
 hmac = "0.12"

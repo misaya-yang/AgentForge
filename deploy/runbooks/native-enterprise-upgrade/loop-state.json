@@ -1,4 +1,19 @@
 {
+  "dot_1113_m2": {
+    "milestone": "M2",
+    "branch": "m2-space-editor",
+    "base": "dot_1113",
+    "implemented": true,
+    "compiled": true,
+    "tested": true,
+    "accepted": false,
+    "schema": "No successor 031. ydoc_state already exists on knowledge.space_item_revisions from successor 030. The frozen epoch-29 lock and baseline are unchanged.",
+    "remaining": [
+      "SKIPPED: cargo test -p ai-platform-knowledge-service --test spaces_api --test spaces_collab -- --include-ignored panics because AI_GATEWAY_TEST_DATABASE_OWNER_URL and AI_GATEWAY_TEST_DATABASE_URL are unset. The spaces_collab protocol test spaces_collab_two_peers_converge passed; the ignored database test panics the same way.",
+      "SKIPPED: bash scripts/dev/spaces-smoke.sh --rag exits 1 because SPACE_SMOKE_BASE_URL is unset. This environment has no running knowledge gateway or PostgreSQL.",
+      "Gateway WebSocket proxy still strips Upgrade, so the Hocuspocus endpoint on the knowledge service is not yet reachable through the public gateway. Direct knowledge-service /api/v1/knowledge/space-items/{id}/collab is implemented."
+    ]
+  },
   "dot_1113_m1": {
     "milestone": "M1",
     "branch": "cursor/m1-space",

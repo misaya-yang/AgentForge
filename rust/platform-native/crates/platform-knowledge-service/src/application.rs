@@ -22,9 +22,14 @@ pub struct KnowledgeApplication {
 impl KnowledgeApplication {
     pub fn into_router(self) -> query::types::Result<Router> {
         self.service_auth.validate_service_boundary()?;
-        let spaces = crate::spaces_http::routes(
-            self.writes.service.store.pool.clone(),
+        let ingest = self.writes.service.clone();
+        let spaces = crate::spaces_http::routes_with(
+            ingest.store.pool.clone(),
             self.service_auth.clone(),
+            crate::spaces_index::hook(
+                ai_platform_knowledge_domain::spaces::Spaces::new(ingest.store.pool.clone()),
+                ingest.as_ref().clone(),
+            ),
         );
         let object_policy = self.writes.service.store.object_policy.clone();
         Ok(Router::new()
