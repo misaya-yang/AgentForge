@@ -28222,7 +28222,7 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "urn:git:69231e119bfca0b14453515e97d99688ce1c47c9:overlay:b786d491704f1a44727c41ccff3323204b4966fc5685a595a6c6083b6082f6ac",
+      "bom-ref": "urn:git:69231e119bfca0b14453515e97d99688ce1c47c9:overlay:01a8eb9316420189ece7054866fe0da0389d7c9d7cd9207c220a48275bb9d8ce",
       "name": "ai-platform-agent-runtime-source",
       "properties": [
         {
@@ -28231,7 +28231,7 @@
         },
         {
           "name": "ai-platform:overlay.sha256",
-          "value": "b786d491704f1a44727c41ccff3323204b4966fc5685a595a6c6083b6082f6ac"
+          "value": "01a8eb9316420189ece7054866fe0da0389d7c9d7cd9207c220a48275bb9d8ce"
         },
         {
           "name": "ai-platform:cargo-lock.sha256",
@@ -28239,7 +28239,7 @@
         }
       ],
       "type": "application",
-      "version": "69231e119bfca0b14453515e97d99688ce1c47c9+b786d491704f"
+      "version": "69231e119bfca0b14453515e97d99688ce1c47c9+01a8eb931642"
     }
   },
   "serialNumber": "urn:uuid:823a6855-e737-5465-993e-0b607618a5e2",

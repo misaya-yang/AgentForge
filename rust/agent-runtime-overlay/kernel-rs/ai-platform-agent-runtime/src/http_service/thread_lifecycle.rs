@@ -7,6 +7,11 @@ use axum::http::HeaderMap;
 use codex_app_server_protocol::ClientRequest;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ThreadArchiveParams;
+use codex_app_server_protocol::ThreadForkParams;
+use codex_app_server_protocol::ThreadForkResponse;
+use codex_app_server_protocol::TurnSteerParams;
+use codex_app_server_protocol::TurnSteerResponse;
+use codex_app_server_protocol::UserInput;
 use codex_app_server_protocol::ThreadArchiveResponse;
 use codex_app_server_protocol::ThreadResumeParams;
 use codex_app_server_protocol::ThreadResumeResponse;
@@ -417,6 +422,87 @@ pub(super) async fn authorize_thread_scope(
         .await
         .map_err(|_| RuntimeError::not_found("thread_not_found"))?;
     Ok(thread_id)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SteerTurnRequest {
+    message: String,
+}
+
+/// Copies the stored thread through the app-server `thread/fork` method.
+/// The platform does not invent a second thread store; the kernel records
+/// `forked_from_id` and this process only projects the request.
+pub(super) async fn fork_thread(
+    State(state): State<RuntimeHttpState>,
+    Path(thread_id): Path<String>,
+    headers: HeaderMap,
+    Json(_body): Json<EmptyLifecycleRequest>,
+) -> Result<Json<ThreadForkResponse>, RuntimeError> {
+    let thread_id = authorize_thread_scope(&state, &headers, &thread_id).await?;
+    let _thread_guard = state
+        .thread_gate(thread_id)
+        .try_lock_owned()
+        .map_err(|_| RuntimeError::conflict("runtime_turn_recovering"))?;
+    request_typed(
+        &state,
+        ClientRequest::ThreadFork {
+            request_id: lifecycle_request_id("thread-fork", thread_id),
+            params: ThreadForkParams {
+                thread_id: thread_id.to_string(),
+                attach_to_source: false,
+                ..Default::default()
+            },
+        },
+        "invalid_agent_thread_fork_response",
+    )
+    .await
+}
+
+/// Steers the active turn through the app-server `turn/steer` method.
+/// `expected_turn_id` is the platform run id already checked against this thread.
+pub(super) async fn steer_turn(
+    State(state): State<RuntimeHttpState>,
+    Path((thread_id, turn_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<SteerTurnRequest>,
+) -> Result<Json<TurnSteerResponse>, RuntimeError> {
+    let thread_id = authorize_thread_scope(&state, &headers, &thread_id).await?;
+    if turn_id.is_empty() || turn_id.len() > 255 {
+        return Err(RuntimeError::bad_request("invalid_turn_id"));
+    }
+    let message = body.message.trim();
+    if message.is_empty() || message.chars().count() > 256 * 1024 {
+        return Err(RuntimeError::bad_request("invalid_steer_message"));
+    }
+    let belongs_to_thread: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM assistant_runtime_snapshots WHERE runtime_thread_id=$1 AND run_id::text=$2)",
+    )
+    .bind(Uuid::parse_str(&thread_id.to_string()).map_err(|_| RuntimeError::bad_request("invalid_thread_id"))?)
+    .bind(&turn_id)
+    .fetch_one(&state.store.pool)
+    .await
+    .map_err(|_| RuntimeError::unavailable("runtime_lease_store_unavailable"))?;
+    if !belongs_to_thread {
+        return Err(RuntimeError::not_found("turn_not_found"));
+    }
+    request_typed(
+        &state,
+        ClientRequest::TurnSteer {
+            request_id: lifecycle_request_id("turn-steer", thread_id),
+            params: TurnSteerParams {
+                thread_id: thread_id.to_string(),
+                expected_turn_id: turn_id,
+                input: vec![UserInput::Text {
+                    text: message.to_owned(),
+                    text_elements: Vec::new(),
+                }],
+                ..Default::default()
+            },
+        },
+        "invalid_agent_turn_steer_response",
+    )
+    .await
 }
 
 async fn request_typed<T>(

@@ -53,8 +53,10 @@ use self::capability_dispatch::route_kernel_events;
 use self::event_hub::RuntimeEventHub;
 use self::events::events;
 use self::thread_lifecycle::archive_thread;
+use self::thread_lifecycle::fork_thread;
 use self::thread_lifecycle::interrupt_turn;
 use self::thread_lifecycle::resume_thread;
+use self::thread_lifecycle::steer_turn;
 use self::thread_lifecycle::unarchive_thread;
 use self::threads::cleanup_session;
 use self::threads::create_thread;
@@ -381,6 +383,14 @@ impl RuntimeHttpService {
             .route(
                 "/internal/v1/threads/{thread_id}/turns/{turn_id}/interrupt",
                 post(interrupt_turn),
+            )
+            .route(
+                "/internal/v1/threads/{thread_id}/fork",
+                post(fork_thread),
+            )
+            .route(
+                "/internal/v1/threads/{thread_id}/turns/{turn_id}/steer",
+                post(steer_turn).layer(axum::extract::DefaultBodyLimit::max(256 * 1024)),
             )
             .route(
                 "/internal/v1/threads/{thread_id}/resume",

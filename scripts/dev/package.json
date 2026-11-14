@@ -1,0 +1,8 @@
+{
+  "name": "agentforge-a2a-card-validate",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@a2a-js/sdk": "1.3.0"
+  }
+}

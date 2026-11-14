@@ -166,14 +166,36 @@ pub fn responses_message(payload: &Value) -> Result<String, CompatError> {
         Ok(result)
     }
 }
+/// `resp_` plus the 32 hex digits of an assistant run id, the id this projection emits.
+pub fn previous_response_run_id(payload: &Value) -> Result<Option<uuid::Uuid>, CompatError> {
+    let Some(raw) = payload.get("previous_response_id") else {
+        return Ok(None);
+    };
+    if raw.is_null() || raw == &json!("") || raw == &json!([]) {
+        return Ok(None);
+    }
+    let raw = raw
+        .as_str()
+        .ok_or_else(|| invalid("previous_response_id must be a response id"))?;
+    let hex = raw
+        .strip_prefix("resp_")
+        .filter(|hex| hex.len() == 32 && hex.chars().all(|c| c.is_ascii_hexdigit()))
+        .ok_or_else(|| invalid("previous_response_id must be a response id"))?;
+    let dashed = format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    );
+    uuid::Uuid::parse_str(&dashed)
+        .map(Some)
+        .map_err(|_| invalid("previous_response_id must be a response id"))
+}
 pub fn reject_unmigrated_fields(payload: &Value) -> Result<(), CompatError> {
     let mut fields = Vec::new();
-    for field in [
-        "attachments",
-        "conversation",
-        "previous_response_id",
-        "store",
-    ] {
+    for field in ["attachments", "conversation", "store"] {
         if let Some(value) = payload.get(field) {
             let absent = if field == "store" {
                 value.is_null() || value == &json!(false) || value == &json!(0)
@@ -416,6 +438,29 @@ impl ResponseProjection {
             "thinking_delta" => {
                 if let Some(content) = data["content"].as_str() {
                     out.push(self.emit("response.reasoning_summary_text.delta",json!({"item_id":data.get("item_id").filter(|v|crate::service_registry::python_truthy(v)).cloned().unwrap_or(json!(format!("reasoning_{}",self.response_id.trim_start_matches("resp_")))),"output_index":0,"summary_index":data["summary_index"].as_i64().unwrap_or(0),"delta":content})));
+                }
+            }
+            "tool_call_delta" | "tool_call_args" => {
+                let id = data
+                    .get("tool_call_id")
+                    .or_else(|| data.get("call_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let delta = data
+                    .get("delta")
+                    .or_else(|| data.get("arguments_delta"))
+                    .or_else(|| data.get("arguments"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if !id.is_empty() && !delta.is_empty()
+                    && let Some(index) = self.calls.iter().position(|call| call["call_id"] == id)
+                {
+                    let next = format!("{}{delta}", text(&self.calls[index], "arguments"));
+                    self.calls[index]["arguments"] = json!(next);
+                    out.push(self.emit(
+                        "response.function_call_arguments.delta",
+                        json!({"item_id":id,"output_index":index+1,"delta":delta}),
+                    ));
                 }
             }
             "tool_call_start" => {
@@ -856,6 +901,56 @@ mod accepted_response_cache_tests {
         for different_actor in [user("tenant-b", "actor-a"), user("tenant-a", "actor-b")] {
             assert!(matches!(cache.begin(&different_actor, "request-1", b"body").await.unwrap(), BeginResponse::Claim { .. }));
         }
+    }
+
+    #[test]
+    fn previous_response_id_binds_a_run_and_store_stays_rejected() {
+        let id = "11111111111141118111111111111111";
+        let parsed = ResponsesRequest::after_model_authorization(
+            json!({"model":"model-a","input":"hello","previous_response_id":format!("resp_{id}")}),
+            "",
+        )
+        .expect("previous_response_id is part of the Responses projection");
+        assert_eq!(
+            previous_response_run_id(&parsed.payload)
+                .expect("parse")
+                .expect("id")
+                .simple()
+                .to_string(),
+            id
+        );
+        let rejected = ResponsesRequest::after_model_authorization(
+            json!({"model":"model-a","input":"hello","store":true}),
+            "",
+        );
+        let rejected = rejected.err().expect("store stays rejected");
+        assert_eq!(rejected.detail["code"], "responses_fields_not_migrated");
+        assert!(previous_response_run_id(&json!({"previous_response_id":"resp_short"})).is_err());
+    }
+
+    #[test]
+    fn tool_call_deltas_stream_before_the_arguments_are_done() {
+        let request = ResponsesRequest::after_model_authorization(
+            json!({"model":"model-a","input":"hello"}),
+            "",
+        )
+        .expect("request");
+        let mut projection = ResponseProjection::new("run-1", &request);
+        let started = projection.observe(&json!({
+            "event_type": "tool_call_start",
+            "data": {"tool_call_id":"call-1","name":"space_read_page","arguments":"{"}
+        }));
+        let started = String::from_utf8(started.concat()).expect("utf8");
+        assert!(started.contains("response.output_item.added"));
+        assert!(started.contains("response.function_call_arguments.delta"));
+        assert!(started.contains("response.function_call_arguments.done"));
+        let delta = projection.observe(&json!({
+            "event_type": "tool_call_delta",
+            "data": {"tool_call_id":"call-1","delta":"\"item_id\":\"item-7\"}"}
+        }));
+        let delta = String::from_utf8(delta.concat()).expect("utf8");
+        assert!(delta.contains("response.function_call_arguments.delta"));
+        assert!(!delta.contains("response.function_call_arguments.done"));
     }
 
     #[test]
