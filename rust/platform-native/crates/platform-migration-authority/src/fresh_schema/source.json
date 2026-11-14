@@ -104,7 +104,7 @@
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema.rs": "7ad7095942cd06d4afdd3555c0fc514291c4a6212570d57216590e5ecb4c0bd6",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/acceptance.rs": "e9871ca17f5b13f142b4ea97e583437bfb2e2a35a7fb4de7542fa6515ef7979b",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/acl_expected.json": "cd3718124b56936a1656244a1233cf13a0666932bf0b147251f1c68462221990",
-    "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/admission.rs": "d7f7a58cf60d27a2c084e3cd57ca6ee59add707193c9be5dfae8af9340b78fdb",
+    "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/admission.rs": "409f1431f88698935d3a12875d42e3a710181754f277a8e9f61a284ebd050f28",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/business.rs": "ad2d2337f0cfe7b110fb33ef8bf9a6a4b1d81da3c14f9cdf18b4ab891648e16d",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/catalog.rs": "4563ad3b1ff197cab6ef434339ab523b8345a55fba8c65aa853ef8b4ebbc59aa",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/execution.rs": "cfab2d40fb980ebd887399f3f29efcfb7995fac87e324c169e16e8180f04b606",

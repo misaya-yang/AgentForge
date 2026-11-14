@@ -521,3 +521,16 @@ dialog.spaces-conflict::backdrop {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
 }
+
+/* Phones: drop the source column and let titles truncate instead of widening the page. */
+@media (max-width: 560px) {
+  .spaces-table--items { table-layout: fixed; }
+  .spaces-table--items th:nth-child(2),
+  .spaces-table--items td:nth-child(2) { display: none; }
+  .spaces-table--items th:nth-child(3),
+  .spaces-table--items td:nth-child(3) { width: 76px; }
+  .spaces-table--items th:last-child,
+  .spaces-table--items td:last-child { width: 48px; padding-inline: 4px; }
+  .spaces-table--items .spaces-name { min-width: 0; overflow: hidden; }
+  .spaces-table--items .spaces-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

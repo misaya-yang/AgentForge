@@ -121,7 +121,8 @@ export function CatalogBoard({ manage = false }: { manage?: boolean }) {
         <input
           type="search"
           id={searchId}
-          autoFocus={!manage}
+          // Native showModal() only honors the HTML autofocus attribute; React's autoFocus is JS-only.
+          ref={(node) => { if (node && !manage) node.setAttribute("autofocus", ""); }}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t("connect.searchPlaceholder")}
