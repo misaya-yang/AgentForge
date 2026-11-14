@@ -38,6 +38,7 @@ if [[ "${1:-}" == "--rag" ]]; then
   test -n "${item_id}"
   test -n "${dataset_id}"
   curl -fsS "${auth[@]}" -H 'content-type: application/json' -H 'If-Match: "0"' \
+    -X PUT \
     -d "{\"content_format\":\"markdown\",\"blocks\":null,\"markdown\":\"${phrase}\"}" \
     "${base}/api/v1/knowledge/space-items/${item_id}/content" >/dev/null
   found=""

@@ -135,8 +135,11 @@ impl KnowledgeWriteStore {
         } else if !content.trim().is_empty() {
             let current_version = integer(&current, "current_version");
             let active: Option<Value> = if current_version > 0 {
+                // The document row is already locked in this transaction. The
+                // runtime role can read versions but cannot UPDATE them, and
+                // PostgreSQL requires UPDATE privilege for every row lock.
                 let query = format!(
-                    "SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ({}) FOR UPDATE",
+                    "SELECT to_jsonb(v) FROM knowledge.document_versions v WHERE document_id=$1 AND version_number=$2 AND change_type NOT IN ({})",
                     super::super::HIDDEN_VERSION_CHANGE_TYPES_SQL
                 );
                 sqlx::query_scalar(&query)

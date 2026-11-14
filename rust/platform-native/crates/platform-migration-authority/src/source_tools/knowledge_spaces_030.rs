@@ -91,7 +91,7 @@ pub fn validate_proposal() -> Result<()> {
         return Err(refused("030 grant scope is wider than Knowledge API and worker read"));
     }
     if service_successors::CATALOG_SHA256
-        != "141024ba9914bf78ec9b3796966fb270001d786204296253bb23c7a904559a2c"
+        != "6105327d3397b1c2d3a30cb92f9a3faf300f27813db4be7c96a9e23087772a29"
     {
         return Err(refused("030 service-successor catalog pin changed"));
     }

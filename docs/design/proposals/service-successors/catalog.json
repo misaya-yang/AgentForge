@@ -521,13 +521,13 @@
           "sha256": "f174b7df243b666e29919a1490b194f8018a88df4252c4e5622aaecfdc12cc86",
           "edits": [
             {
-              "from": "IF partition_ops.family_enabled('gateway.usage_records') THEN",
-              "to": "IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('gateway.usage_records') ELSE partition_ops.family_enabled('gateway.usage_records') END THEN",
+              "from": "IF partition_ops.family_enabled('gateway.usage_records') THEN RETURN 0; END IF;",
+              "to": "IF current_user ~ ('^[a-z][a-z0-9_]{0,20}_owner' || chr(36)) THEN\n        IF partition_ops.owner_family_enabled('gateway.usage_records') THEN RETURN 0; END IF;\n    ELSE\n        IF partition_ops.family_enabled('gateway.usage_records') THEN RETURN 0; END IF;\n    END IF;",
               "occurrences": 1
             },
             {
-              "from": "IF partition_ops.family_enabled('knowledge.kb_document_progress_events') THEN",
-              "to": "IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('knowledge.kb_document_progress_events') ELSE partition_ops.family_enabled('knowledge.kb_document_progress_events') END THEN",
+              "from": "IF partition_ops.family_enabled('knowledge.kb_document_progress_events') THEN RETURN NEW; END IF;",
+              "to": "IF current_user ~ ('^[a-z][a-z0-9_]{0,20}_owner' || chr(36)) THEN\n        IF partition_ops.owner_family_enabled('knowledge.kb_document_progress_events') THEN RETURN NEW; END IF;\n    ELSE\n        IF partition_ops.family_enabled('knowledge.kb_document_progress_events') THEN RETURN NEW; END IF;\n    END IF;",
               "occurrences": 1
             },
             {
@@ -549,7 +549,7 @@
         "sequence": 35,
         "name": "complete_append_partition_authority",
         "file": "035_complete_append_partition_authority.sql",
-        "sha256": "07b86b09926d3ba7e8dc84a503457b770129fff31ea029064e26e969743b20c5",
+        "sha256": "18b9eac26777b499e7e43a8eef0961150551f980cad04e7796e7b606177d8e55",
         "owner": "owner",
         "transaction_mode": "transactional",
         "rollback_class": "forward-fix-only",

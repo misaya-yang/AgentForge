@@ -14,6 +14,16 @@ pub struct Spaces {
     pool: PgPool,
 }
 
+/// Hidden space datasets use Gemini unless the operator selects the local hash
+/// embedder. `local` needs no provider key, so a development retrieve can match
+/// the saved page text. Any other value keeps the Gemini default.
+fn space_embedding() -> (&'static str, &'static str, i32) {
+    match std::env::var("KNOWLEDGE_SPACE_EMBEDDING_PROVIDER") {
+        Ok(value) if value == "local" => ("local", "hash-384", 384),
+        _ => ("gemini", "gemini-embedding-001", 1024),
+    }
+}
+
 struct SpaceRecord {
     space_id: String,
     tenant_id: String,
@@ -91,14 +101,18 @@ impl Spaces {
         let space_id = Uuid::new_v4().to_string();
         let dataset_id = Uuid::new_v4().to_string();
         let collection = format!("space-{dataset_id}");
+        let (embedding_provider, embedding_model, embedding_dimension) = space_embedding();
         let mut tx = self.pool.begin().await.map_err(db)?;
         bind_current(&mut tx).await.map_err(db)?;
         sqlx::query(
-            "INSERT INTO knowledge.datasets (dataset_id, name, description, tenant_id, visibility, embedding_provider, embedding_model, embedding_dimension, embedding_config, index_config, collection_name, is_deleted, deleted_at, deleted_by, delete_reason, created_by) VALUES ($1, $2, 'hidden space dataset', $3, 'private', 'gemini', 'gemini-embedding-001', 1024, '{}'::jsonb, '{\"hidden_space\":true}'::jsonb, $4, false, NULL, NULL, NULL, $5)",
+            "INSERT INTO knowledge.datasets (dataset_id, name, description, tenant_id, visibility, embedding_provider, embedding_model, embedding_dimension, embedding_config, index_config, collection_name, is_deleted, deleted_at, deleted_by, delete_reason, created_by) VALUES ($1, $2, 'hidden space dataset', $3, 'private', $4, $5, $6, '{}'::jsonb, '{\"hidden_space\":true}'::jsonb, $7, false, NULL, NULL, NULL, $8)",
         )
         .bind(&dataset_id)
         .bind(&name)
         .bind(&user.tenant_id)
+        .bind(embedding_provider)
+        .bind(embedding_model)
+        .bind(embedding_dimension)
         .bind(&collection)
         .bind(&user.user_id)
         .execute(&mut *tx)

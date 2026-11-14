@@ -897,7 +897,11 @@ CREATE OR REPLACE FUNCTION gateway.cleanup_old_usage_records(retention_days inte
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('gateway.usage_records') ELSE partition_ops.family_enabled('gateway.usage_records') END THEN RETURN 0; END IF;
+    IF current_user ~ ('^[a-z][a-z0-9_]{0,20}_owner' || chr(36)) THEN
+        IF partition_ops.owner_family_enabled('gateway.usage_records') THEN RETURN 0; END IF;
+    ELSE
+        IF partition_ops.family_enabled('gateway.usage_records') THEN RETURN 0; END IF;
+    END IF;
     DELETE FROM usage_records
     WHERE created_at < CURRENT_TIMESTAMP - (retention_days || ' days')::INTERVAL;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -911,7 +915,11 @@ CREATE OR REPLACE FUNCTION knowledge.prune_kb_document_progress_events() RETURNS
 DECLARE
     retained_floor BIGINT;
 BEGIN
-    IF CASE WHEN current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' THEN partition_ops.owner_family_enabled('knowledge.kb_document_progress_events') ELSE partition_ops.family_enabled('knowledge.kb_document_progress_events') END THEN RETURN NEW; END IF;
+    IF current_user ~ ('^[a-z][a-z0-9_]{0,20}_owner' || chr(36)) THEN
+        IF partition_ops.owner_family_enabled('knowledge.kb_document_progress_events') THEN RETURN NEW; END IF;
+    ELSE
+        IF partition_ops.family_enabled('knowledge.kb_document_progress_events') THEN RETURN NEW; END IF;
+    END IF;
     -- Seven days is longer than the browser reconnect contract. Run the indexed
     -- age prune on each new transition so an inactive dataset needs no scheduler.
     DELETE FROM knowledge.kb_document_progress_events

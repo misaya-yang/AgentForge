@@ -260,7 +260,17 @@ impl IngestionService {
                 vec![]
             };
             if snapshots.is_empty() {
-                snapshots = self.indexer.snapshot_points(&scope, &ids).await?;
+                // A space collection is created on the first successful publish.
+                // Points that were never written have an empty rollback snapshot.
+                let missing = match scope.collection_name.as_deref() {
+                    Some(name) if !name.trim().is_empty() => {
+                        !self.indexer.vectors.collection_exists(name).await?
+                    }
+                    _ => true,
+                };
+                if !missing {
+                    snapshots = self.indexer.snapshot_points(&scope, &ids).await?;
+                }
             }
             self.indexer
                 .persist_rollback_backups(&scope, &snapshots, publication.revision)
