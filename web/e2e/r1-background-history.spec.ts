@@ -1,5 +1,5 @@
 /** Existing real runs only: browser background and session switching never execute again. */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/real-api";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 
 test.use({ channel: "chromium" });

@@ -155,6 +155,7 @@ pub struct TestState {
     pub control_pool: PgPool,
 }
 pub async fn state(pool: PgPool) -> Result<TestState> {
+    let application = application_pool(&pool);
     let redis_url = std::env::var("AI_PLATFORM_STUDIO_TEST_REDIS_URL").map_err(
         |_| "AI_PLATFORM_STUDIO_TEST_REDIS_URL must explicitly select isolated loopback Redis",
     )?;
@@ -173,43 +174,41 @@ pub async fn state(pool: PgPool) -> Result<TestState> {
     let codec = TokenCodec::new(secret, None, None)?;
     let auth = Arc::new(AdmissionService::new(
         Arc::new(AuthService::new(
-            PgAccounts::new(pool.clone()),
+            PgAccounts::new(application.clone()),
             RedisSessions::new(redis.clone()),
             codec,
             PasswordEngine::new(1)?,
             "fixture.invalid".into(),
         )),
-        pool.clone(),
+        application.clone(),
         HeaderName::from_static("x-api-key"),
     )?);
-    let schema: String = sqlx::query_scalar("SELECT current_schema()")
-        .fetch_one(&pool)
-        .await?;
     let control_pool = PgPoolOptions::new()
         .max_connections(1)
-        .after_connect(move |conn, _| {
-            let schema = schema.clone();
+        .after_connect(|conn, _| {
             Box::pin(async move {
-                sqlx::query("SELECT set_config('search_path',quote_ident($1)||',public',false)")
-                    .bind(schema)
+                sqlx::query("SELECT set_config('search_path',$1,false)")
+                    .bind(FIXTURE_PATH)
                     .execute(conn)
                     .await?;
                 Ok(())
             })
         })
-        .connect_lazy_with(pool.connect_options().as_ref().clone());
+        .connect_lazy_with(application.connect_options().as_ref().clone());
     let providers = Arc::new(TestProviders {
-        pool: pool.clone(),
+        pool: application.clone(),
         configured: AtomicBool::new(true),
     });
     let collaborators = Arc::new(Collaborators);
     let sources = Arc::new(PgSourceAccess {
-        pool: pool.clone(),
+        pool: application.clone(),
         authority: collaborators.clone(),
     });
     let control = Arc::new(RuntimeControlPlane::new(
-        pool.clone(),
-        Arc::new(TestModels { pool: pool.clone() }),
+        application.clone(),
+        Arc::new(TestModels {
+            pool: application.clone(),
+        }),
         providers.clone(),
         collaborators.clone(),
         sources.clone(),
@@ -226,16 +225,19 @@ pub async fn state(pool: PgPool) -> Result<TestState> {
         },
     )?);
     let state = AgentState {
+        automation_cipher: Default::default(),
+        automation_knowledge: None,
+        automation_skills: None,
         auth,
         repository: Arc::new(AgentRepository::new(
-            pool.clone(),
+            application.clone(),
             Arc::new(Resources { pool: pool.clone() }),
         )),
         control,
         sessions: Arc::new(MemorySessionManager::new(SessionManagerConfig::default())?),
         sources,
         attachments: collaborators.clone(),
-        traces: Arc::new(TraceRepository::new(pool, control_pool.clone())?),
+        traces: Arc::new(TraceRepository::new(application, control_pool.clone())?),
         edge_rate: collaborators.clone(),
         cleanup: None,
         runtime_resources: collaborators.clone(),

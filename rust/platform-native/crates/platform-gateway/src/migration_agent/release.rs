@@ -56,11 +56,12 @@ async fn dataset(
     id: &str,
     lock: bool,
 ) -> Result<Value, AgentError> {
-    let sql = format!(
-        "SELECT to_jsonb(d) FROM eval_datasets d WHERE tenant_id=$1 AND dataset_id=$2::uuid {}",
-        if lock { "FOR UPDATE" } else { "" }
-    );
-    let d: Value = sqlx::query_scalar(&sql)
+    if lock {
+        crate::migration_compat::eval::lock_dataset(conn, tenant, id).await?;
+    }
+    // The dataset row is read-only to Gateway; the shared transaction lock
+    // also fences inserted/deleted examples, including an empty dataset.
+    let d: Value = sqlx::query_scalar("SELECT to_jsonb(d) FROM eval_datasets d WHERE tenant_id=$1 AND dataset_id=$2::uuid")
         .bind(tenant)
         .bind(super::uuid(id)?)
         .fetch_optional(ai_platform_gateway_foundation::tenant_database::connection(
@@ -775,7 +776,9 @@ impl AgentState {
         if matches!(text(&a, "status"), "archived" | "deleted") {
             return Err(error("AGENT_ARCHIVED"));
         }
-        if let Some(old)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation='promote' AND idempotency_key_hash=$2 FOR UPDATE").bind(&actor.tenant_id).bind(&hashed).fetch_optional(&mut *tx).await?{if old["request_hash"]!=request_hash||old["agent_id"]!=agent{return Err(error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"));}return release_result(&mut tx,&actor.tenant_id,&old,true).await;}
+        // Requests are immutable; the tenant/key advisory lock above serializes
+        // their insertion without requiring UPDATE permission on the evidence.
+        if let Some(old)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation='promote' AND idempotency_key_hash=$2").bind(&actor.tenant_id).bind(&hashed).fetch_optional(&mut *tx).await?{if old["request_hash"]!=request_hash||old["agent_id"]!=agent{return Err(error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"));}return release_result(&mut tx,&actor.tenant_id,&old,true).await;}
         let evaluation:Value=sqlx::query_scalar("SELECT to_jsonb(e) FROM agent_release_evaluations e WHERE tenant_id=$1 AND agent_id=$2::uuid AND evaluation_id=$3::uuid FOR SHARE").bind(&actor.tenant_id).bind(agent).bind(&evaluation_id).fetch_one(&mut *tx).await?;
         if evaluation["status"] != "passed" {
             return Err(AgentError {
@@ -974,7 +977,8 @@ impl AgentState {
         if matches!(text(&a, "status"), "archived" | "deleted") {
             return Err(error("AGENT_ARCHIVED"));
         }
-        if let Some(r)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation='rollback' AND idempotency_key_hash=$2 FOR UPDATE").bind(&actor.tenant_id).bind(&hashed).fetch_optional(&mut *tx).await?{if r["request_hash"]!=request_hash||r["agent_id"]!=agent{return Err(error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"));}return release_result(&mut tx,&actor.tenant_id,&r,true).await;}
+        // Same append-only evidence contract and tenant/key lock as promotion.
+        if let Some(r)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(r) FROM agent_release_requests r WHERE tenant_id=$1 AND operation='rollback' AND idempotency_key_hash=$2").bind(&actor.tenant_id).bind(&hashed).fetch_optional(&mut *tx).await?{if r["request_hash"]!=request_hash||r["agent_id"]!=agent{return Err(error("AGENT_RELEASE_IDEMPOTENCY_CONFLICT"));}return release_result(&mut tx,&actor.tenant_id,&r,true).await;}
         let mut p:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM agent_publications p WHERE tenant_id=$1 AND publication_id=$2::uuid AND agent_id=$3::uuid FOR UPDATE").bind(&actor.tenant_id).bind(publication_id).bind(agent).fetch_one(&mut *tx).await?;
         if p["expires_at"].as_str().is_some_and(|t| {
             chrono::DateTime::parse_from_rfc3339(t)

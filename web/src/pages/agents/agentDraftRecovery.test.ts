@@ -71,6 +71,8 @@ function host() {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     antd: { ...Object.fromEntries(["Alert", "Button", "Checkbox", "Drawer", "InputNumber", "Select", "Skeleton", "Slider", "Tabs"].map(key => [key, key])),
       Form: Object.assign(() => {}, { Item: "Form.Item" }), Input: Object.assign(() => {}, { TextArea: "TextArea" }),

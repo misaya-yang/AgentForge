@@ -47,7 +47,7 @@ fn missing_or_unknown_options_fail_before_actions() {
 #[test]
 fn explicit_missing_env_fails_before_action() {
     let f = Fixture::new();
-    let absent = f.dir.join("missing.env");
+    let absent = f.dir.join("missing.configuration.fixture");
     for (script, args) in [
         ("deploy.sh", vec!["--app", "--no-migrate"]),
         ("migrate.sh", vec!["--status"]),
@@ -163,7 +163,7 @@ run_sql_file() {{ echo forbidden-sql >> "$SQL_LOG"; return 99; }}
 #[test]
 fn backup_external_paths_and_listing() {
     let f = Fixture::new();
-    let env = f.dir.join("test.env");
+    let env = f.dir.join("backup.configuration.fixture");
     fs::write(&env, "").unwrap();
     outcome(
         f.command(
@@ -241,7 +241,7 @@ fn backup_sql_fail_fast() {
 fn status_failure() {
     let f = Fixture::new();
     fs::write(
-        f.dir.join(".env"),
+        f.dir.join("configuration.fixture"),
         "POSTGRES_PASSWORD=test\nREDIS_PASSWORD=test\n",
     )
     .unwrap();
@@ -253,7 +253,7 @@ fn status_failure() {
 #[test]
 fn status_selected_env() {
     let f = Fixture::new();
-    let env = f.dir.join(".env.status");
+    let env = f.dir.join("status.configuration.fixture");
     fs::write(&env, "").unwrap();
     let log = f.dir.join("docker.log");
     f.executable("docker",r#"#!/bin/sh
@@ -293,7 +293,7 @@ exit 1
 fn setup_status_help_without_secrets() {
     let f = Fixture::new();
     fs::write(
-        f.dir.join(".env"),
+        f.dir.join("configuration.fixture"),
         "COMPOSE_PROJECT_NAME=agentforge-fixture-stable\n",
     )
     .unwrap();
@@ -322,7 +322,7 @@ fn setup_status_help_without_secrets() {
             ],
         );
     }
-    let env = f.dir.join("selected.env");
+    let env = f.dir.join("selected.configuration.fixture");
     fs::write(&env, "COMPOSE_PROJECT_NAME=agentforge-fixture-selected\nQDRANT_HTTP_PORT=7666\nQDRANT_GRPC_PORT=7667\n").unwrap();
     let s = outcome(
         f.command(
@@ -354,7 +354,7 @@ fn setup_status_help_without_secrets() {
 #[test]
 fn setup_start_requires_secrets() {
     let f = Fixture::new();
-    let env = f.dir.join("empty.env");
+    let env = f.dir.join("empty.configuration.fixture");
     fs::write(&env, "").unwrap();
     let s = outcome(
         f.run(

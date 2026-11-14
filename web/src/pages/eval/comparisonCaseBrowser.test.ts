@@ -42,6 +42,7 @@ function host(initial: EvalExperimentRunComparisonResponse) {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     antd: { ...Object.fromEntries(["Alert", "Button", "Descriptions", "Input", "Select", "Segmented", "Tag"].map(key => [key, key])), Empty: Object.assign(() => {}, { PRESENTED_IMAGE_SIMPLE: "empty" }) },
     "react-i18next": { useTranslation: () => ({ t: (key: string, values?: unknown) => values && typeof values === "object" ? `${key}:${JSON.stringify(values)}` : key }) },

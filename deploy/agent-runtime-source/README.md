@@ -97,6 +97,15 @@ against the selected source unit before changing application services.
 Source identity checks do not claim that native execution, Docker health,
 provider calls, rollback, publication or another platform has been verified.
 
+For a build proxy with an additional public CA, set `AI_PLATFORM_BUILD_CA_BUNDLE`
+to an absolute regular PEM certificate bundle. The wrappers validate it and pass
+it through an optional BuildKit secret for APT/Cargo trust; the bundle is not
+copied into image layers. Omit it to retain system trust. Optional
+`AI_PLATFORM_BUILD_DEBIAN_MIRROR` and `AI_PLATFORM_BUILD_DEBIAN_SECURITY_MIRROR`
+select credential-free HTTPS package mirrors without changing Dockerfile defaults.
+Keep the existing proxy and writable Buildx configuration when selecting a build
+environment; application/provider credentials remain runtime inputs.
+
 ### Reuse existing local builder capacity
 
 The resource helper never creates, selects globally, or removes a builder. Its
@@ -139,6 +148,15 @@ platform-tools source-lock refresh-overlay \
   --lock deploy/agent-runtime-source/lock.json \
   --cargo-workspace /absolute/path/to/composed/codex-rs
 ```
+
+For a content change with unchanged dependency definitions, add
+`--content-only-from-ref FULL_COMMIT_SHA` to reuse the Worker dependency graph
+already pinned at that immutable platform commit. This verifies the complete old
+lock, receipt, overlay inventory and SBOM, and requires the Cargo manifest/lock,
+toolchain and `.cargo` input inventories and bytes to remain unchanged. It rebinds
+the same graph with the ordinary SBOM generator and revokes prior image identities.
+It records evidence reuse rather than claiming a new Cargo metadata run or image
+build. Changed dependency inputs require the normal metadata path.
 
 The source synchronization policy and kernel decision are recorded in
 `docs/architecture/ADR-006-agent-runtime-single-kernel.md`; model, state, and

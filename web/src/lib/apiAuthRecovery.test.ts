@@ -42,7 +42,7 @@ function host(token: string | null = "synthetic-token-A", userId: string | undef
     "@/config/runtime": { getApiBaseUrlConfig: () => "" },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
     "@/hooks/use-toast": { toast: { warning: () => {} } }, "@/i18n": { default: { t: (key: string) => key } },
-    "@/store/useAuthStore": { useAuthStore: auth },
+    "@/store/useAuthStore": { useAuthStore: auth, consoleAuthGeneration: () => clears },
   };
   const exports: { api?: FetchClient } = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL("./api.ts", import.meta.url), "utf8").replaceAll("import.meta.hot", "__hot"), {
@@ -122,6 +122,15 @@ test("current 401 on the login route does not redirect again", async () => {
   const h = host(null, undefined); h.location.pathname = "/login"; h.location.href = "/login?return=settings";
   const request = h.pending401("get"); await request.entered; await request.reject();
   assert.equal(h.clears, 1); assert.equal(h.location.href, "/login?return=settings");
+});
+test("an anonymous 401 already expired by raw fetch is not cleared a second time", async () => {
+  const h = host(null, undefined);
+  h.location.pathname = "/login";
+  const request = h.pending401("get");
+  await request.entered;
+  h.state.clearAuth();
+  await request.reject();
+  assert.equal(h.clears, 1);
 });
 test("a non-auth error stays rejected without touching current authentication", async () => {
   const h = host(); const error = await h.api.get("/api/v1/config/load-balancer", { adapter: async config => {

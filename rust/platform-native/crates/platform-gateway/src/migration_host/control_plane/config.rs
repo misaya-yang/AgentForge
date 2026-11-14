@@ -37,6 +37,10 @@ pub enum Placement {
 pub struct McpConfiguration {
     pub resource: String,
     pub authorization_servers: Vec<String>,
+    /// Explicit first-party bound-key mode; never accepts a JWT or advertises
+    /// an OAuth issuer. Default OAuth rollout keeps its existing requirements.
+    #[serde(default)]
+    pub api_key_only: bool,
     #[serde(default)]
     pub allowed_origins: Vec<String>,
 }
@@ -100,10 +104,15 @@ impl Configuration {
             return Err("eval_concurrency");
         }
         if let Some(mcp) = &self.mcp {
+            let issuers_valid = if mcp.api_key_only {
+                mcp.authorization_servers.is_empty()
+            } else {
+                !mcp.authorization_servers.is_empty()
+                    && mcp.authorization_servers.iter().all(|s| https(s))
+            };
             if !https(&mcp.resource)
                 || !url::Url::parse(&mcp.resource).is_ok_and(|u| u.path() == "/mcp")
-                || mcp.authorization_servers.is_empty()
-                || mcp.authorization_servers.iter().any(|s| !https(s))
+                || !issuers_valid
                 || mcp.allowed_origins.iter().any(|s| !https(s))
             {
                 return Err("mcp_configuration");
@@ -204,6 +213,29 @@ pub fn public_address(ip: std::net::IpAddr) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn mcp_key_only_is_explicit_and_cannot_advertise_a_fake_oauth_issuer() {
+        let mut value = serde_json::json!({"mcp":{"resource":"https://gateway.example/mcp","authorization_servers":[],"allowed_origins":["https://gateway.example"]}});
+        let default: Configuration = serde_json::from_value(value.clone()).unwrap();
+        assert!(!default.mcp.as_ref().unwrap().api_key_only);
+        assert!(default.validate("revision").is_err());
+        value["mcp"]["api_key_only"] = serde_json::json!(true);
+        let key_only: Configuration = serde_json::from_value(value.clone()).unwrap();
+        assert!(key_only.validate("revision").is_ok());
+        value["mcp"]["authorization_servers"] = serde_json::json!(["https://issuer.example"]);
+        let invalid: Configuration = serde_json::from_value(value.clone()).unwrap();
+        assert!(invalid.validate("revision").is_err());
+        value["mcp"]["api_key_only"] = serde_json::json!(false);
+        let oauth: Configuration = serde_json::from_value(value.clone()).unwrap();
+        assert!(oauth.validate("revision").is_ok());
+        value["mcp"]["authorization_servers"] = serde_json::json!(["http://issuer.example"]);
+        assert!(
+            serde_json::from_value::<Configuration>(value)
+                .unwrap()
+                .validate("revision")
+                .is_err()
+        );
+    }
     #[test]
     fn external_peer_pin_cannot_be_private_reserved_or_mapped() {
         for ip in [

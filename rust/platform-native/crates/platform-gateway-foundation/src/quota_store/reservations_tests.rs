@@ -122,6 +122,35 @@ async fn live_durable_token_intents_serialize_tenants_and_never_expire_dispatche
     let state:String=sqlx::query_scalar("SELECT state FROM gateway.dispatch_token_reservations WHERE tenant_id=$1 AND user_id=$2 AND member=$3::text::uuid")
         .bind(&tenant).bind(expiry_user).bind(&next.member).fetch_one(&pool).await.map_err(|_|()).unwrap();
     assert_eq!(state, "outcome_unknown");
+    let legacy_user = "unconfirmed-legacy-subject";
+    set_quota(&pool, &tenant, legacy_user, 1).await;
+    let legacy = identity(&tenant, legacy_user);
+    store.prepare(&legacy, 1, 10_000).await.unwrap().commit().await.unwrap();
+    store.mark_dispatched(&legacy).await.unwrap();
+    store.mark_outcome(&legacy, crate::dispatcher::DispatchSettlement::Completed).await.unwrap();
+    // An unconfirmed intent is deliberately not a usage receipt/checkpoint.
+    // No billing ledger evidence is inserted, nor are permissions widened.
+    assert!(!sqlx::query_scalar::<_, bool>(
+        "SELECT has_any_column_privilege(current_user,'gateway.billing_events','SELECT')",
+    ).fetch_one(&pool).await.unwrap());
+    sqlx::query("UPDATE gateway.dispatch_token_reservations SET candidate_receipt_id=$4,settlement_candidate=$5 WHERE tenant_id=$1 AND user_id=$2 AND member=$3::text::uuid")
+        .bind(&tenant).bind(legacy_user).bind(&legacy.member)
+        .bind(format!("unconfirmed-legacy-intent-{unique}"))
+        .bind(serde_json::json!({"request_type":"invoke","status":"success"}))
+        .execute(&pool).await.unwrap();
+    assert!(matches!(
+        store.prepare(&identity(&tenant, legacy_user), 1, 10_000).await,
+        Err(ReservationError::Unavailable)
+    ), "a pending legacy intent must retain the checked receipt read and fail closed");
+    let (state, proof): (String, Option<serde_json::Value>) = sqlx::query_as(
+        "SELECT state,settlement_observation FROM gateway.dispatch_token_reservations WHERE tenant_id=$1 AND user_id=$2 AND member=$3::text::uuid",
+    ).bind(&tenant).bind(legacy_user).bind(&legacy.member).fetch_one(&pool).await.unwrap();
+    assert_eq!(state, "awaiting_checkpoint");
+    assert!(proof.is_none(), "an unreadable/unconfirmed legacy receipt cannot refund tokens");
+    // An unresolved legacy intent cannot poison another tenant's admission.
+    let unrelated = identity(&foreign, subject);
+    store.prepare(&unrelated, 1, 10_000).await.unwrap().commit().await.unwrap();
+    store.finish(&unrelated).await.unwrap();
     pool.close().await;
 }
 fn identity(tenant: &str, user: &str) -> ReservationIdentity {

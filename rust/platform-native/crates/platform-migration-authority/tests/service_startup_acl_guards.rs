@@ -190,31 +190,22 @@ async fn every_required_column_and_forbidden_table_identity_privilege_is_effecti
         let mut scenarios = Vec::new();
         for table in tables {
             for privilege in ["SELECT", "INSERT"] {
-                scenarios.push((
-                    format!("REVOKE {privilege} ON {table} FROM {role}"),
-                    format!("GRANT {privilege} ON {table} TO {role}"),
-                ));
+                scenarios.push(format!("REVOKE {privilege} ON {table} FROM {role}"));
             }
             for privilege in ["UPDATE", "DELETE"] {
-                scenarios.push((
-                    format!("GRANT {privilege} ON {table} TO {role}"),
-                    format!("REVOKE {privilege} ON {table} FROM {role}"),
-                ));
+                scenarios.push(format!("GRANT {privilege} ON {table} TO {role}"));
             }
         }
         for (table, column) in mutable {
-            scenarios.push((
-                format!("REVOKE UPDATE ({column}) ON {table} FROM {role}"),
-                format!("GRANT UPDATE ({column}) ON {table} TO {role}"),
-            ));
+            scenarios.push(format!("REVOKE UPDATE ({column}) ON {table} FROM {role}"));
         }
         for (table, column) in immutable {
-            scenarios.push((
-                format!("GRANT UPDATE ({column}) ON {table} TO {role}"),
-                format!("REVOKE UPDATE ({column}) ON {table} FROM {role}"),
-            ));
+            scenarios.push(format!("GRANT UPDATE ({column}) ON {table} TO {role}"));
         }
-        for (change, restore) in scenarios {
+        for change in scenarios {
+            // Revoking a table privilege also removes its existing column ACLs.
+            // Restore the exact original catalog state, rather than invert the SQL.
+            tx.execute("SAVEPOINT privilege_scenario").await.unwrap();
             tx.execute(change.as_str()).await.unwrap();
             assert!(
                 !sqlx::query_scalar::<_, bool>(&sql)
@@ -223,7 +214,12 @@ async fn every_required_column_and_forbidden_table_identity_privilege_is_effecti
                     .unwrap(),
                 "guard missed independent ACL change: {change}"
             );
-            tx.execute(restore.as_str()).await.unwrap();
+            tx.execute("ROLLBACK TO SAVEPOINT privilege_scenario")
+                .await
+                .unwrap();
+            tx.execute("RELEASE SAVEPOINT privilege_scenario")
+                .await
+                .unwrap();
             assert!(
                 sqlx::query_scalar::<_, bool>(&sql)
                     .fetch_one(&mut *tx)

@@ -11,6 +11,7 @@ export function ConsoleQuickNav({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const matches = items.filter(item => `${t(item.labelKey)} ${item.key}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const activeIndex = Math.min(selected, Math.max(0, matches.length - 1));
@@ -27,6 +28,10 @@ export function ConsoleQuickNav({ items }: { items: NavItem[] }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus({ preventScroll: true });
+  }, [open]);
 
   useEffect(() => {
     if (open) listRef.current?.querySelector(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: "nearest" });
@@ -46,7 +51,7 @@ export function ConsoleQuickNav({ items }: { items: NavItem[] }) {
         <DialogDescription>{t("workbench.searchHint")}</DialogDescription>
         <div className="console-command-input">
           <Search size={18} aria-hidden="true" />
-          <input autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setSelected(0); }}
+          <input ref={inputRef} value={query} onChange={(event) => { setQuery(event.target.value); setSelected(0); }}
             placeholder={t("workbench.searchPlaceholder")} aria-label={t("workbench.search")}
             role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="console-command-results"
             aria-activedescendant={matches.length ? `console-command-${activeIndex}` : undefined}

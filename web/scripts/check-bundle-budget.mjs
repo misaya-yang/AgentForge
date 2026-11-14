@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 
 const DIST_DIR = path.resolve("dist");
 const MANIFEST_PATH = path.join(DIST_DIR, ".vite", "manifest.json");
-const PUBLIC_GZIP_LIMIT = 330_000;
+const PUBLIC_GZIP_LIMIT = 297_000;
 const ASSISTANT_INCREMENT_GZIP_LIMIT = 220_000;
 const ASSISTANT_RESTORED_GZIP_LIMIT = 220_000;
 const ASSISTANT_GFM_GZIP_LIMIT = 220_000;

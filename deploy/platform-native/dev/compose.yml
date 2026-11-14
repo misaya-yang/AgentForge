@@ -5,6 +5,7 @@ services:
     pull_policy: never
     profiles: [native-dev]
     user: "10001:10001"
+    init: true
     read_only: true
     network_mode: none
     cap_drop: [ALL]
@@ -13,7 +14,7 @@ services:
     mem_limit: 4g
     cpus: 1
     tmpfs:
-      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+      - /tmp:rw,nosuid,nodev,exec,size=256m,mode=1777
     environment:
       CARGO_BUILD_JOBS: "1"
       CARGO_INCREMENTAL: "0"
@@ -35,6 +36,9 @@ services:
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-plugin-quiz:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-python-compat:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/database:/source/database:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/config/catalog/builtins.json:/source/config/catalog/builtins.json:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/docker-compose.yml:/source/docker-compose.yml:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/docker/monitoring:/source/docker/monitoring:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/tests:/source/tests:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/docs:/source/docs:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/deploy:/source/deploy:ro
@@ -56,6 +60,47 @@ services:
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/Makefile:/source/Makefile:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/harness.yml:/source/harness.yml:ro
       - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust-toolchain.toml:/source/rust-toolchain.toml:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/LICENSE:/source/LICENSE:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/NOTICE:/source/NOTICE:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/Dockerfile.artifact:/source/web/Dockerfile.artifact:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/docker/code-interpreter/Dockerfile:/source/docker/code-interpreter/Dockerfile:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/e2e/README.md:/source/web/e2e/README.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/reports/architecture/codex-stable-source-2026-10-12.md:/source/reports/architecture/codex-stable-source-2026-10-12.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/reports/code-review/product-convergence-2026-08.md:/source/reports/code-review/product-convergence-2026-08.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/reports/architecture/agent-platform-vnext-2026-09-07.md:/source/reports/architecture/agent-platform-vnext-2026-09-07.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/reports/performance/sota-microservice-review-2026-08-17.md:/source/reports/performance/sota-microservice-review-2026-08-17.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/reports/code-review/codebase-hygiene-scan-2026-08-13.md:/source/reports/code-review/codebase-hygiene-scan-2026-08-13.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/nginx.conf:/source/web/nginx.conf:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/Dockerfile:/source/web/Dockerfile:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/package.json:/source/web/package.json:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/docker-entrypoint.d/40-runtime-config.sh:/source/web/docker-entrypoint.d/40-runtime-config.sh:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/docker-entrypoint.d/45-security-headers.sh:/source/web/docker-entrypoint.d/45-security-headers.sh:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/public/agent-embed.js:/source/web/public/agent-embed.js:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/public/agent-widget.js:/source/web/public/agent-widget.js:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/public/agent-embed.css:/source/web/public/agent-embed.css:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/src/lib/sse.ts:/source/web/src/lib/sse.ts:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/src/pages/playground/hooks/usePlaygroundStream.ts:/source/web/src/pages/playground/hooks/usePlaygroundStream.ts:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/web/src/components/ServiceConfigDialog.tsx:/source/web/src/components/ServiceConfigDialog.tsx:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/java/src/test/java/com/aigateway/ai/SSEParserTest.java:/source/sdk/java/src/test/java/com/aigateway/ai/SSEParserTest.java:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/java/src/main/java/com/aigateway/ai/SSEParser.java:/source/sdk/java/src/main/java/com/aigateway/ai/SSEParser.java:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/java/src/main/java/com/aigateway/ai/ChatClient.java:/source/sdk/java/src/main/java/com/aigateway/ai/ChatClient.java:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/dart/ai_gateway_sdk/test/streaming_test.dart:/source/sdk/dart/ai_gateway_sdk/test/streaming_test.dart:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/sdk/dart/ai_gateway_sdk/lib/src/streaming.dart:/source/sdk/dart/ai_gateway_sdk/lib/src/streaming.dart:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/approval_decision.rs:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/approval_decision.rs:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/approvals.rs:/source/rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/approvals.rs:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/src/core/data/service_topology.json:/source/src/core/data/service_topology.json:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/examples/demo-data/open-source-demo.sql:/source/examples/demo-data/open-source-demo.sql:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/.github/actions/setup-native/action.yml:/source/.github/actions/setup-native/action.yml:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/README.md:/source/README.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/DEPLOY.md:/source/DEPLOY.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/CHANGELOG.md:/source/CHANGELOG.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/CONTRIBUTING.md:/source/CONTRIBUTING.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/SECURITY.md:/source/SECURITY.md:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/.github/actions/setup-client-packaging/action.yml:/source/.github/actions/setup-client-packaging/action.yml:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/.github/scripts/check-npm-trusted-publisher.mjs:/source/.github/scripts/check-npm-trusted-publisher.mjs:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/.github/scripts/check-npm-trusted-publisher.test.mjs:/source/.github/scripts/check-npm-trusted-publisher.test.mjs:ro
+      - ${NATIVE_CONTAINER_ROOT:?launcher required}/.github/workflows:/source/.github/workflows:ro
 volumes:
   native-dev-cache:
     name: agentforge-dev-7801d4a9a4_native-dev-cache

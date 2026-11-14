@@ -9,7 +9,7 @@
  * 5. Delete quiz and verify removal
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/real-api";
 import {
   buildAuthHeaders,
   createOwnedKnowledgeDataset,

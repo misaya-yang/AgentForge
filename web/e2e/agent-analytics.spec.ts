@@ -359,9 +359,7 @@ test("analytics exposes a retryable error state", async ({ page }) => {
 test("frontend flag hides Agent Studio while Assistant, Knowledge, Eval, and Share remain mounted", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (entry) => { if (entry.type() === "error") consoleErrors.push(entry.text()); });
-  await page.addInitScript(() => {
-    window.__AI_GATEWAY_RUNTIME_CONFIG__ = { agentStudioEnabled: "false" };
-  });
+  await page.route("**/runtime-config.json", route => route.fulfill(json({ agentStudioEnabled: "false" })));
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/v1/assistant/shares/flag-compatible") {

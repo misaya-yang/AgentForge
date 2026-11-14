@@ -51,6 +51,7 @@ function host() {
   context.retireArtifactRestore = evaluate(`(${callback("retireArtifactRestore")})`, context);
   context.abandonActiveStream = evaluate(`(${callback("abandonActiveStream")})`, context);
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react,
     "@/api/assistant": { cancelTask: (runId: string) => new Promise((resolve, reject) => requests.push({ runId, resolve, reject })) },
     "@/store/useAppStore": { useAppStore: { getState: () => ({ assistantActiveSessionId: sessionId }) } },

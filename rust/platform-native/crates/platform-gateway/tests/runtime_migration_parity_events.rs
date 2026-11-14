@@ -48,10 +48,10 @@ async fn wait_count(handler: &Handler, count: usize) -> Result<()> {
     .await?;
     Ok(())
 }
-async fn stop(bus: &Arc<UsageEventBus>) -> Result<()> {
+async fn stop(bus: &Arc<UsageEventBus>, phase: &str) -> Result<()> {
     tokio::time::timeout(Duration::from_secs(3), bus.stop())
         .await?
-        .map_err(|_| "event consumer stop failed")?;
+        .map_err(|error| format!("event consumer stop failed during {phase}: {error:?}"))?;
     Ok(())
 }
 async fn append(conn: &mut redis::aio::MultiplexedConnection, raw: &str) -> Result<String> {
@@ -81,6 +81,23 @@ async fn no_pending(conn: &mut redis::aio::MultiplexedConnection) -> Result<()> 
         .query_async(conn)
         .await?;
     assert_eq!(pending.count(), 0);
+    Ok(())
+}
+async fn wait_acknowledged(conn: &mut redis::aio::MultiplexedConnection) -> Result<()> {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let pending: redis::streams::StreamPendingReply = redis::cmd("XPENDING")
+                .arg(STREAM)
+                .arg(GROUP)
+                .query_async(&mut *conn)
+                .await?;
+            if pending.count() == 0 {
+                return Ok::<(), redis::RedisError>(());
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await??;
     Ok(())
 }
 
@@ -167,7 +184,22 @@ async fn publish_envelope_duplicate_poison_retry_and_dlq_lifecycle() -> Result<(
         append(&mut conn, &raw).await?;
         bus.start().await;
         wait_count(&handler, 1).await?;
-        stop(&bus).await?;
+        wait_acknowledged(&mut conn).await?;
+        // Exercise an empty BLOCK1000 read before shutdown. The Redis 1.x
+        // default 500ms deadline previously stopped the consumer while idle.
+        let exited_while_idle = tokio::time::timeout(Duration::from_secs(2), async {
+            while bus.running() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            exited_while_idle.is_err(),
+            "usage consumer exited during an empty blocking read"
+        );
+        stop(&bus, "duplicate delivery").await?;
+        assert!(!bus.running());
+        stop(&bus, "repeated stop").await?;
         assert_eq!(handler.received.lock().await.len(), 1);
         no_pending(&mut conn).await?;
         let observed = handler.received.lock().await[0].clone();
@@ -192,7 +224,8 @@ async fn publish_envelope_duplicate_poison_retry_and_dlq_lifecycle() -> Result<(
         append(&mut conn, &traced.to_string()).await?;
         bus.start().await;
         wait_count(&handler, 2).await?;
-        stop(&bus).await?;
+        wait_acknowledged(&mut conn).await?;
+        stop(&bus, "trace propagation").await?;
         assert_eq!(
             handler.received.lock().await[1]["traceparent"],
             traced["traceparent"]
@@ -224,7 +257,8 @@ async fn publish_envelope_duplicate_poison_retry_and_dlq_lifecycle() -> Result<(
             }
         })
         .await?;
-        stop(&bus).await?;
+        wait_acknowledged(&mut conn).await?;
+        stop(&bus, "poison delivery").await?;
         assert_eq!(handler.received.lock().await.len(), 2);
         no_pending(&mut conn).await?;
         // Handler failure releases idempotency claim. Reclaim uses Redis's
@@ -236,7 +270,10 @@ async fn publish_envelope_duplicate_poison_retry_and_dlq_lifecycle() -> Result<(
         for attempt in 1..=3 {
             bus.start().await;
             wait_count(&handler, 2 + attempt).await?;
-            stop(&bus).await?;
+            if attempt == 3 {
+                wait_acknowledged(&mut conn).await?;
+            }
+            stop(&bus, &format!("handler retry {attempt}")).await?;
             if attempt < 3 {
                 let _: redis::Value = redis::cmd("XCLAIM")
                     .arg(STREAM)
@@ -270,7 +307,7 @@ async fn publish_envelope_duplicate_poison_retry_and_dlq_lifecycle() -> Result<(
     })
     .catch_unwind()
     .await;
-    let stopped = stop(&bus).await;
+    let stopped = stop(&bus, "cleanup").await;
     bus.publisher.close().await;
     // Only fixed bus keys and this unique consumer's idempotency keys are removed.
     let mut keys: Vec<String> = redis::cmd("KEYS")

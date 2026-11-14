@@ -11,13 +11,19 @@ const require = createRequire(import.meta.url);
 type Props = Record<string, unknown>;
 type Adapter = React.ComponentType<Props>;
 class TestKeyboardEvent extends Event {}
-function harness() {
+function harness(realPrimitives = false) {
   const captured: Record<string, Props> = {};
   const components = Object.fromEntries(["Select", "Tabs", "Switch", "Modal", "Dropdown", "Menu", "Tooltip", "Button", "Alert"].map(name => [name, (props: Props) => {
     captured[name] = props;
     if (name === "Dropdown") return React.createElement(React.Fragment, null, props.children as React.ReactNode, (props.popupRender as () => React.ReactNode)());
     return React.createElement(React.Fragment, null, props.children as React.ReactNode);
   }]));
+  const radix = (prefix: string, names: string[]) => Object.fromEntries(names.map(name => [name, (props: Props) => {
+    captured[`${prefix}${name}${typeof props.value === "string" ? `:${props.value}` : ""}`] = props;
+    return React.createElement(React.Fragment, null, props.children as React.ReactNode);
+  }]));
+  const tabs = radix("Tabs", ["Root", "List", "Trigger", "Content"]);
+  const menu = radix("Menu", ["Root", "Trigger", "Portal", "Content", "Item", "CheckboxItem", "RadioItem", "RadioGroup", "Label", "Separator", "ItemIndicator", "Group", "Sub", "SubTrigger", "SubContent"]);
   const cache: Record<string, Record<string, Adapter>> = {};
   function load(name: string): Record<string, Adapter> {
     if (cache[name]) return cache[name];
@@ -29,6 +35,9 @@ function harness() {
     vm.runInNewContext(code, { exports, Event, KeyboardEvent: TestKeyboardEvent, require: (id: string) => {
       if (id.startsWith("./")) return load(id.slice(2));
       if (id === "antd") return components;
+      if (id === "@radix-ui/react-tabs" && !realPrimitives) return tabs;
+      if (id === "@radix-ui/react-dropdown-menu" && !realPrimitives) return menu;
+      if (id === "@/components/ui/native-modal") return { Modal: components.Modal };
       if (id === "@/lib/utils") return { cn: (...items: unknown[]) => items.filter(Boolean).join(" ") };
       return require(id);
     } });
@@ -58,11 +67,15 @@ test("Tabs finds a wrapped tab list and keeps force-mounted settings panels", ()
     el("div", { className: "scroll-container" }, "Settings", el(ui.TabsList, null,
       el(ui.TabsTrigger, { value: "auth" }, "Authentication"), el(ui.TabsTrigger, { value: "keys", disabled: true }, "Keys"))),
     el(ui.TabsContent, { value: "auth", forceMount: true }, "Unsaved form"), el(ui.TabsContent, { value: "keys" }, "Keys form")));
-  const props = host.captured.Tabs; const items = props.items as Props[];
-  assert.equal(props.defaultActiveKey, "auth"); assert.equal(items.length, 2);
-  assert.equal(items[0].forceRender, true); assert.equal(items[0].destroyOnHidden, false);
-  assert.equal(items[1].disabled, true); assert.equal(items[1].destroyOnHidden, true);
-  (props.onChange as (value: string) => void)("keys"); assert.equal(next, "keys");
+  const props = host.captured["TabsRoot:auth"];
+  assert.equal(props.value, "auth");
+  assert.equal(host.captured["TabsContent:auth"].forceMount, true);
+  assert.equal(host.captured["TabsContent:auth"].hidden, false);
+  assert.equal(host.captured["TabsContent:auth"].tabIndex, 0);
+  assert.equal(host.captured["TabsTrigger:keys"].disabled, true);
+  assert.equal(host.captured["TabsContent:keys"].hidden, true);
+  assert.equal(host.captured["TabsContent:keys"].tabIndex, -1);
+  (props.onValueChange as (value: string) => void)("keys"); assert.equal(next, "keys");
 });
 
 test("Dropdown preserves nested provider entries, radio changes and cancellable selection", () => {
@@ -72,11 +85,14 @@ test("Dropdown preserves nested provider entries, radio changes and cancellable 
       el(ui.DropdownMenuItem, { onSelect: (event: Event) => { clicks++; event.preventDefault(); } }, "Action")),
       el(ui.DropdownMenuRadioGroup, { value: "auto", onValueChange: (value: string) => { selected = value; } },
         el(ui.DropdownMenuRadioItem, { value: "high" }, "High")))));
-  const items = host.captured.Menu.items as Props[];
-  (items[0].onClick as (info: unknown) => void)({ domEvent: new Event("click", { cancelable: true }) });
-  assert.equal(clicks, 1); assert.equal(selected, "");
-  (items[1].onClick as (info: unknown) => void)({ domEvent: new Event("click", { cancelable: true }) });
-  assert.equal(selected, "high"); assert.equal(host.captured.Dropdown.placement, "bottomRight");
+  const selection = new Event("select", { cancelable: true });
+  (host.captured.MenuItem.onSelect as (event: Event) => void)(selection);
+  assert.equal(clicks, 1); assert.equal(selection.defaultPrevented, true); assert.equal(selected, "");
+  const radio = host.captured["MenuRadioGroup:auto"];
+  assert.equal(host.captured["MenuRadioItem:high"].value, "high");
+  (radio.onValueChange as (value: string) => void)("high");
+  assert.equal(selected, "high"); assert.equal(host.captured.MenuContent.align, "end");
+  assert.equal(host.captured.MenuContent.sideOffset, 4);
 });
 
 test("asChild composes child and adapter handlers and respects cancellation", () => {
@@ -113,7 +129,7 @@ test("Dialog cancellation honors protected password changes and uses one accessi
   assert.equal(closed, 1);
   const attributes: Record<string, string> = {};
   (props.panelRef as (node: unknown) => void)({ setAttribute: (name: string, value: string) => { attributes[name] = value; } });
-  assert.equal(attributes.role, "dialog"); assert.ok(attributes["aria-labelledby"].endsWith("-title"));
+  assert.equal(attributes.role, undefined); assert.ok(attributes["aria-labelledby"].endsWith("-title"));
   assert.equal(props.modalRender, undefined);
 });
 
@@ -179,4 +195,25 @@ test("asChild retains original children while composing styles, events and both 
   const cleanup = (node.props.ref as (node: unknown) => () => void)(element);
   assert.equal(attached, element); assert.equal(outerRef.current, element);
   cleanup(); assert.equal(childCleaned, true); assert.equal(outerRef.current, null);
+});
+
+
+test("real Radix tabs choose the first tab and keep inactive forced panels hidden", () => {
+  const host = harness(true); const ui = host.load("tabs");
+  const html = host.render(el(ui.Tabs, null,
+    el("div", null, el(ui.TabsList, { "aria-label": "Configuration" },
+      el(ui.TabsTrigger, { value: "first" }, "First"), el(ui.TabsTrigger, { value: "second", disabled: true }, "Second"))),
+    el(ui.TabsContent, { value: "first" }, "Visible form"), el(ui.TabsContent, { value: "second", forceMount: true }, "Retained form")));
+  assert.match(html, /role="tablist"/); assert.match(html, /aria-selected="true"/);
+  assert.match(html, /aria-disabled|disabled/); assert.match(html, /Visible form/);
+  assert.match(html, /<div[^>]*role="tabpanel"[^>]*hidden=""[^>]*>Retained form<\/div>/);
+});
+
+test("real Radix tooltips render a single named trigger without requiring a surrounding provider", () => {
+  const host = harness(true); const ui = host.load("tooltip");
+  const html = host.render(el(ui.Tooltip, null,
+    el(ui.TooltipTrigger, { asChild: true }, el("button", { "aria-label": "Explain retrieval" }, "?")),
+    el(ui.TooltipContent, null, "Searches the selected knowledge bases")));
+  assert.equal((html.match(/<button\b/g) ?? []).length, 1);
+  assert.match(html, /aria-label="Explain retrieval"/);
 });

@@ -18,6 +18,12 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { positionBetween } from "./format";
 import { KindIcon } from "./ui";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { ChevronDown, ChevronRight, Code2, FileDown, GripVertical, History, Link2, PanelLeft, RotateCcw } from "lucide-react";
 
 const BlockEditor = lazy(() => import("./editor/BlockEditor").then((module) => ({ default: module.BlockEditor })));
 
@@ -42,6 +48,8 @@ export function ItemPreview() {
   const { t } = useTranslation();
   const { itemId = "" } = useParams();
   const client = useQueryClient();
+  const isCompact = useMediaQuery("(max-width: 1280px)");
+  const [treeOpen, setTreeOpen] = useState(!isCompact);
   const item = useQuery({ queryKey: ["spaces", "item", itemId], queryFn: () => getItem(itemId), enabled: itemId.length > 0 });
   const content = useQuery({
     queryKey: ["spaces", "content", itemId],
@@ -144,7 +152,14 @@ export function ItemPreview() {
       ) : null}
       {item.data ? (
         <div className="spaces-editor-shell">
-          <nav className="spaces-tree" aria-label={t("spaces.editor.tree")}>
+          <Collapsible className="spaces-tree" open={treeOpen} onOpenChange={setTreeOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="spaces-tree-trigger" aria-controls="spaces-page-tree" aria-expanded={treeOpen}>
+                <PanelLeft data-icon="inline-start" aria-hidden="true" />{t("spaces.editor.tree")}<ChevronDown data-icon="inline-end" aria-hidden="true" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent id="spaces-page-tree" inert={!treeOpen}>
+          <nav aria-label={t("spaces.editor.tree")}>
             <p className="spaces-reorder-status" aria-live="polite">{moved}</p>
             <ul>
               {(tree.data ?? []).filter((entry) => !entry.parent_id).map((entry) => (
@@ -152,12 +167,15 @@ export function ItemPreview() {
               ))}
             </ul>
           </nav>
+            </CollapsibleContent>
+          </Collapsible>
           <div className="spaces-editor-main">
             <nav aria-label={t("spaces.editor.breadcrumb")}>
               <ol className="spaces-crumbs">
-                {trail.map((entry) => (
+                {trail.map((entry, index) => (
                   <li key={entry.item_id}>
-                    <Link to={`/spaces/item/${entry.item_id}`}>{entry.title}</Link>
+                    {index > 0 ? <ChevronRight aria-hidden="true" /> : null}
+                    <Link to={`/spaces/item/${entry.item_id}`} aria-current={entry.item_id === itemId ? "page" : undefined}>{entry.title}</Link>
                   </li>
                 ))}
               </ol>
@@ -189,37 +207,42 @@ export function ItemPreview() {
             <p className="spaces-save-status" aria-live="polite">{status}</p>
             {item.data.kind === "page" ? (
               <div className="spaces-export">
-                <button type="button" onClick={() => void download(itemId, "markdown")}>{t("spaces.editor.exportMd")}</button>
-                <button type="button" onClick={() => void download(itemId, "html")}>{t("spaces.editor.exportHtml")}</button>
+                <Button variant="outline" size="sm" onClick={() => void download(itemId, "markdown")}><FileDown data-icon="inline-start" aria-hidden="true" />{t("spaces.editor.exportMd")}</Button>
+                <Button variant="outline" size="sm" onClick={() => void download(itemId, "html")}><Code2 data-icon="inline-start" aria-hidden="true" />{t("spaces.editor.exportHtml")}</Button>
               </div>
             ) : null}
           </div>
           <aside className="spaces-sidepanel" aria-label={t("spaces.editor.panel")}>
-            <section>
-              <h3>{t("spaces.editor.versions")}</h3>
+            <Card>
+              <CardHeader><CardTitle className="spaces-panel-title"><History aria-hidden="true" />{t("spaces.editor.versions")}</CardTitle></CardHeader>
+              <CardContent>
               <ul className="spaces-versions">
                 {(revisions.data ?? []).map((revision) => (
                   <li key={revision.revision}>
-                    <button type="button" onClick={() => { setFrom((current) => current ?? revision.revision); setTo(revision.revision); }}>
+                    <Button variant={to === revision.revision ? "secondary" : "ghost"} size="sm" aria-pressed={to === revision.revision} onClick={() => { setFrom((current) => current ?? revision.revision); setTo(revision.revision); }}>
                       {t("spaces.editor.revision", { revision: revision.revision })}
-                    </button>
-                    <button type="button" onClick={() => void restoreRevision(itemId, revision.revision, content.data?.revision ?? 0).then(() => client.invalidateQueries({ queryKey: ["spaces"] }))}>
-                      {t("spaces.editor.restore")}
-                    </button>
+                    </Button>
+                    {revision.revision === content.data?.revision ? <Badge variant="secondary">{t("spaces.editor.saved")}</Badge> : null}
+                    <Button variant="outline" size="sm" onClick={() => void restoreRevision(itemId, revision.revision, content.data?.revision ?? 0).then(() => client.invalidateQueries({ queryKey: ["spaces"] }))}>
+                      <RotateCcw data-icon="inline-start" aria-hidden="true" />{t("spaces.editor.restore")}
+                    </Button>
                   </li>
                 ))}
               </ul>
               {diff.data ? <pre className="spaces-diff">{diff.data.diff}</pre> : null}
-            </section>
-            <section>
-              <h3>{t("spaces.editor.backlinks")}</h3>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="spaces-panel-title"><Link2 aria-hidden="true" />{t("spaces.editor.backlinks")}</CardTitle></CardHeader>
+              <CardContent>
               <ul>
                 {(backlinks.data ?? []).map((link) => (
                   <li key={link.item_id}><Link to={`/spaces/item/${link.item_id}`}>{link.title}</Link></li>
                 ))}
               </ul>
               {(backlinks.data ?? []).length === 0 ? <p>{t("spaces.editor.noBacklinks")}</p> : null}
-            </section>
+              </CardContent>
+            </Card>
           </aside>
         </div>
       ) : null}
@@ -270,7 +293,7 @@ function TreeRow({
       }}
     >
       <span className="spaces-tree-row">
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           className="spaces-drag"
           draggable
@@ -282,8 +305,9 @@ function TreeRow({
             keyboardMove(event.key === "ArrowUp" ? -1 : 1);
           }}
         >
-          {t("spaces.editor.drag")}
-        </button>
+          <GripVertical aria-hidden="true" />
+          <span className="sr-only">{t("spaces.editor.drag")}</span>
+        </Button>
         <Link to={`/spaces/item/${item.item_id}`} aria-current={item.item_id === active ? "page" : undefined}>{item.title}</Link>
       </span>
       {children.length > 0 ? (

@@ -74,6 +74,7 @@ function host(engine = "custom") {
     useMemo: (value: () => unknown) => value(),
   };
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "@/features/chat/stream/sdkRun": run, "@/features/chat/stream/sdkLifecycle": lifecycle,
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/sdkAgentConfig": { isNativeAgentSdk: isSdk },
     "../utils/difyConversation": { prepareDifyConversation: async () => ({ accept: async () => {} }) },

@@ -1,7 +1,7 @@
 //! Immutable KB case revisions and idempotent authorized trace imports.
 use super::{
     common::{CompatError, CompatUser, object, text},
-    eval::{EvalService, reject_reserved_kb_metadata},
+    eval::{EvalService, lock_dataset, reject_reserved_kb_metadata},
     eval_http::EvalHttpOptions,
 };
 use crate::ports::KnowledgeActor;
@@ -73,6 +73,7 @@ impl EvalService {
             return Err(CompatError::new(422, "Review split does not match status"));
         }
         let mut tx = self.pool.begin().await?;
+        lock_dataset(&mut tx, &user.tenant_id, dataset).await?;
         let target=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM eval_examples e WHERE tenant_id=$1 AND dataset_id=$2::text::uuid AND example_id=$3::text::uuid").bind(&user.tenant_id).bind(dataset).bind(example).fetch_optional(&mut *tx).await?.ok_or_else(||CompatError::new(404,"Example not found"))?;
         let case = text(&target["metadata"], "case_id");
         if case.is_empty() || target["metadata"]["source_kind"] != "kb_failure" {
@@ -231,6 +232,7 @@ impl EvalService {
         }
         let case = text(payload, "case_id");
         let mut tx = self.pool.begin().await?;
+        lock_dataset(&mut tx, &user.tenant_id, dataset).await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text,0))")
             .bind(format!(
                 "eval-kb-failure:{}:{dataset}:{case}",
@@ -343,7 +345,9 @@ impl EvalService {
         }) {
             return Err(CompatError::new(404, "Trace not found"));
         }
-        if let Some(value)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM eval_examples e WHERE tenant_id=$1 AND dataset_id=$2::text::uuid AND source_trace_id=$3::text::uuid AND source_span_id IS NOT DISTINCT FROM $4::text::uuid ORDER BY created_at,example_id LIMIT 1").bind(&user.tenant_id).bind(dataset).bind(&source).bind(span.as_deref()).fetch_optional(&self.pool).await?{return Ok(value);}
+        let mut tx = self.pool.begin().await?;
+        lock_dataset(&mut tx, &user.tenant_id, dataset).await?;
+        if let Some(value)=sqlx::query_scalar::<_,Value>("SELECT to_jsonb(e) FROM eval_examples e WHERE tenant_id=$1 AND dataset_id=$2::text::uuid AND source_trace_id=$3::text::uuid AND source_span_id IS NOT DISTINCT FROM $4::text::uuid ORDER BY created_at,example_id LIMIT 1").bind(&user.tenant_id).bind(dataset).bind(&source).bind(span.as_deref()).fetch_optional(&mut *tx).await?{tx.commit().await?;return Ok(value);}
         let trace = &detail["trace"];
         let input = json!({"message":text(trace,"input_preview"),"input_preview":text(trace,"input_preview"),"thread_id":trace.get("thread_id").filter(|v|!v.is_null()&&v.as_str()!=Some("")).unwrap_or(&trace["session_id"]),"run_id":trace["run_id"],"request_id":trace["request_id"],"metadata":object(&trace["metadata"])});
         let output = payload
@@ -372,10 +376,13 @@ impl EvalService {
             format!("ai-gateway/trace-example/{origin}").as_bytes(),
         )
         .to_string();
-        let row=sqlx::query_scalar::<_,Value>("WITH saved AS (INSERT INTO eval_examples(dataset_id,tenant_id,split,input,expected_output,metadata,source_trace_id,source_span_id,created_by,example_id) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7::text::uuid,$8::text::uuid,$9,$10::text::uuid) ON CONFLICT(example_id) DO NOTHING RETURNING *) SELECT to_jsonb(saved) FROM saved").bind(dataset).bind(&user.tenant_id).bind(payload["split"].as_str().filter(|s|!s.is_empty()).unwrap_or("regression")).bind(input).bind(output).bind(json!(metadata)).bind(&source).bind(span.as_deref()).bind(&user.user_id).bind(&id).fetch_optional(&self.pool).await?;
+        let row=sqlx::query_scalar::<_,Value>("WITH saved AS (INSERT INTO eval_examples(dataset_id,tenant_id,split,input,expected_output,metadata,source_trace_id,source_span_id,created_by,example_id) VALUES($1::text::uuid,$2,$3,$4,$5,$6,$7::text::uuid,$8::text::uuid,$9,$10::text::uuid) ON CONFLICT(example_id) DO NOTHING RETURNING *) SELECT to_jsonb(saved) FROM saved").bind(dataset).bind(&user.tenant_id).bind(payload["split"].as_str().filter(|s|!s.is_empty()).unwrap_or("regression")).bind(input).bind(output).bind(json!(metadata)).bind(&source).bind(span.as_deref()).bind(&user.user_id).bind(&id).fetch_optional(&mut *tx).await?;
         if let Some(row) = row {
+            tx.commit().await?;
             return Ok(row);
         }
-        sqlx::query_scalar("SELECT to_jsonb(e) FROM eval_examples e WHERE example_id=$1::text::uuid AND tenant_id=$2 AND dataset_id=$3::text::uuid AND source_trace_id=$4::text::uuid AND source_span_id IS NOT DISTINCT FROM $5::text::uuid").bind(&id).bind(&user.tenant_id).bind(dataset).bind(source).bind(span).fetch_optional(&self.pool).await?.ok_or_else(||CompatError::new(404,"Trace not found"))
+        let value = sqlx::query_scalar("SELECT to_jsonb(e) FROM eval_examples e WHERE example_id=$1::text::uuid AND tenant_id=$2 AND dataset_id=$3::text::uuid AND source_trace_id=$4::text::uuid AND source_span_id IS NOT DISTINCT FROM $5::text::uuid").bind(&id).bind(&user.tenant_id).bind(dataset).bind(source).bind(span).fetch_optional(&mut *tx).await?.ok_or_else(||CompatError::new(404,"Trace not found"))?;
+        tx.commit().await?;
+        Ok(value)
     }
 }

@@ -71,7 +71,10 @@ function host(mode: "content" | "entry" | "wrapper" | "release" = "content") {
   const authStore = Object.assign((select: (state: typeof auth) => unknown) => select(auth), { getState: () => auth,
     subscribe: (listener: (state: typeof auth, previous: typeof auth) => void) => { subscribers.add(listener); return () => subscribers.delete(listener); } });
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
+    "@/components/ui/native-modal": { Modal: "Modal" },
     antd: { ...Object.fromEntries(["Alert", "Button", "Checkbox", "Drawer", "Empty", "Select", "Tag", "Skeleton", "Modal", "Timeline", "Input"].map(key => [key, key])), Typography: named, App: { useApp: () => ({ message: {} }) } },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { resolvedLanguage: "en-US" } }) },
     "@/api/agents": { getAgent: (id: string) => { reads.push(`agent:${id}`); return readAgent(); }, listAgentVersions: (id: string) => { reads.push(`versions:${id}`); return readVersions(); } },

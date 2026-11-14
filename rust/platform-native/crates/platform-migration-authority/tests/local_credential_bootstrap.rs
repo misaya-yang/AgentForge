@@ -5,24 +5,53 @@ use serde_json::Value;
 use sqlx::{ConnectOptions, Connection, PgConnection, postgres::PgConnectOptions};
 use std::{collections::BTreeMap, path::PathBuf, str::FromStr, time::Duration};
 
-fn configuration() -> BTreeMap<String, String> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(4)
-        .unwrap()
-        .canonicalize()
-        .unwrap();
-    let path = PathBuf::from(std::env::var_os("ENV_FILE").expect("explicit ENV_FILE required"))
-        .canonicalize()
-        .expect("private local ENV_FILE unavailable");
+fn private_json_configuration(path: &std::path::Path) -> BTreeMap<String, String> {
+    assert!(path.is_absolute(), "fixture path must be absolute");
     assert!(
-        path == root.join(".env.dev"),
-        "selected local .env.dev required"
+        path.components()
+            .all(|component| !component.as_os_str().to_string_lossy().starts_with(".env")),
+        "fixture path must not contain env files"
     );
-    let values: BTreeMap<_, _> = dotenvy::from_path_iter(path)
-        .expect("local config unreadable")
-        .map(|v| v.expect("invalid private config syntax"))
-        .collect();
+    let metadata = std::fs::symlink_metadata(path).expect("private JSON fixture unavailable");
+    assert!(
+        metadata.file_type().is_file(),
+        "fixture must be a regular file, not a symlink"
+    );
+    assert!(metadata.len() <= 65_536, "private JSON fixture too large");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert!(
+            matches!(metadata.permissions().mode() & 0o777, 0o400 | 0o600),
+            "fixture permissions must be 0400 or 0600"
+        );
+    }
+    serde_json::from_slice(&std::fs::read(path).expect("private JSON fixture unreadable"))
+        .unwrap_or_else(|_| panic!("invalid private JSON fixture; values withheld"))
+}
+
+fn configuration() -> BTreeMap<String, String> {
+    let values = if let Some(path) = std::env::var_os("LOCAL_CREDENTIAL_BOOTSTRAP_JSON_FIXTURE") {
+        private_json_configuration(&PathBuf::from(path))
+    } else {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        let path = PathBuf::from(std::env::var_os("ENV_FILE").expect("explicit ENV_FILE required"))
+            .canonicalize()
+            .expect("private local ENV_FILE unavailable");
+        assert!(
+            path == root.join(".env.dev"),
+            "selected local .env.dev required"
+        );
+        dotenvy::from_path_iter(path)
+            .expect("local config unreadable")
+            .map(|v| v.expect("invalid private config syntax"))
+            .collect()
+    };
     assert!(
         values
             .get("AI_PLATFORM_LOCAL_DEV_CREDENTIALS")
@@ -30,6 +59,29 @@ fn configuration() -> BTreeMap<String, String> {
             == Some("true")
     );
     values
+}
+
+#[cfg(unix)]
+#[test]
+fn private_json_fixture_requires_private_permissions_and_a_regular_file() {
+    use std::os::unix::{fs::PermissionsExt, fs::symlink};
+    let directory =
+        std::env::temp_dir().join(format!("local-credentials-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("fixture.json");
+    std::fs::write(&path, r#"{"AI_PLATFORM_LOCAL_DEV_CREDENTIALS":"true"}"#).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(
+        private_json_configuration(&path)["AI_PLATFORM_LOCAL_DEV_CREDENTIALS"],
+        "true"
+    );
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(std::panic::catch_unwind(|| private_json_configuration(&path)).is_err());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let link = directory.join("linked.json");
+    symlink(&path, &link).unwrap();
+    assert!(std::panic::catch_unwind(|| private_json_configuration(&link)).is_err());
+    std::fs::remove_dir_all(directory).unwrap();
 }
 
 async fn cli(values: &BTreeMap<String, String>) -> std::process::Output {

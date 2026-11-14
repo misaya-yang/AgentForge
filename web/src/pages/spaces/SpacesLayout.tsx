@@ -1,8 +1,11 @@
 import { listItems, listSpaces, type SpaceRecord } from "@/api/spaces";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Globe, Image, LayoutGrid, Plus, Presentation } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ChevronDown, FileText, Globe, Image, LayoutGrid, PanelLeft, Plus, Presentation } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { bindShell, installOverlayFallback } from "./overlay";
@@ -19,6 +22,8 @@ const FILTERS = [
 export function SpacesLayout() {
   const { t, i18n } = useTranslation();
   const shell = useRef<HTMLDivElement>(null);
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
   const [search] = useSearchParams();
@@ -36,7 +41,18 @@ export function SpacesLayout() {
   const initials = (user?.display_name || user?.user_id || "U").slice(0, 2).toUpperCase();
   return (
     <div className="spaces-shell" ref={shell}>
-      <aside className="spaces-sidebar" aria-label={t("spaces.brand")}>
+      <Collapsible className="spaces-navigation" open={!isMobile || navigationOpen} onOpenChange={setNavigationOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="spaces-navigation-trigger" aria-controls="spaces-navigation-content" aria-expanded={!isMobile || navigationOpen}>
+            <PanelLeft data-icon="inline-start" aria-hidden="true" />
+            {t("spaces.brand")}
+            <ChevronDown data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent id="spaces-navigation-content" inert={isMobile && !navigationOpen}>
+      <aside className="spaces-sidebar" aria-label={t("spaces.brand")} onClick={event => {
+        if (event.target instanceof Element && event.target.closest("a")) setNavigationOpen(false);
+      }}>
         <p className="spaces-brand">
           {t("spaces.brand")}
           <button type="button" className="spaces-create" data-command="toggle-popover:space-create-menu" aria-haspopup="menu">
@@ -109,6 +125,8 @@ export function SpacesLayout() {
           <span>{t("spaces.account", { name: user?.display_name || user?.user_id || initials })}</span>
         </p>
       </aside>
+        </CollapsibleContent>
+      </Collapsible>
       <div className="spaces-main">
         <Outlet context={{ spaces: spaces.data ?? [], locale: i18n.language } satisfies { spaces: SpaceRecord[]; locale: string }} />
       </div>

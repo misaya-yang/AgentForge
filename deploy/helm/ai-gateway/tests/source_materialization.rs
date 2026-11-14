@@ -23,13 +23,33 @@ fn normalize(v: serde_yaml::Value) -> Result<Value, String> {
         }
     })
 }
-fn read(repo: &Path, path: &str) -> Result<Value, String> {
-    let mut parsed: serde_yaml::Value = serde_yaml::from_str(
-        &fs::read_to_string(repo.join(path)).map_err(|_| "compose source missing")?,
-    )
-    .map_err(|_| "compose source YAML")?;
-    parsed.apply_merge().map_err(|_| "compose YAML merge")?;
+fn resolve_merges(value: &mut serde_yaml::Value) -> Result<(), serde_yaml::Error> {
+    // Resolve merge sources first: apply_merge visits each map once, so an
+    // inherited map containing its own << must be flattened before insertion.
+    match value {
+        serde_yaml::Value::Mapping(mapping) => {
+            for value in mapping.values_mut() {
+                resolve_merges(value)?;
+            }
+        }
+        serde_yaml::Value::Sequence(sequence) => {
+            for value in sequence {
+                resolve_merges(value)?;
+            }
+        }
+        serde_yaml::Value::Tagged(tagged) => resolve_merges(&mut tagged.value)?,
+        _ => {}
+    }
+    value.apply_merge()
+}
+fn parse(source: &str) -> Result<Value, String> {
+    let mut parsed: serde_yaml::Value =
+        serde_yaml::from_str(source).map_err(|_| "compose source YAML")?;
+    resolve_merges(&mut parsed).map_err(|_| "compose YAML merge")?;
     normalize(parsed)
+}
+fn read(repo: &Path, path: &str) -> Result<Value, String> {
+    parse(&fs::read_to_string(repo.join(path)).map_err(|_| "compose source missing")?)
 }
 
 fn merge(a: &mut Value, b: &Value, lists: bool, field: &str) {
@@ -69,6 +89,39 @@ fn public(mut v: Value) -> Value {
         m.retain(|k, _| !k.starts_with("x-"));
     }
     v
+}
+fn difference_path(expected: &Value, actual: &Value, path: &str) -> Option<String> {
+    match (expected, actual) {
+        (Value::Object(expected), Value::Object(actual)) => {
+            for key in expected.keys().chain(actual.keys()) {
+                let child = format!("{path}.{key}");
+                match (expected.get(key), actual.get(key)) {
+                    (Some(expected), Some(actual)) => {
+                        if let Some(path) = difference_path(expected, actual, &child) {
+                            return Some(path);
+                        }
+                    }
+                    _ => return Some(child),
+                }
+            }
+            None
+        }
+        (Value::Array(expected), Value::Array(actual)) => {
+            for index in 0..expected.len().max(actual.len()) {
+                let child = format!("{path}[{index}]");
+                match (expected.get(index), actual.get(index)) {
+                    (Some(expected), Some(actual)) => {
+                        if let Some(path) = difference_path(expected, actual, &child) {
+                            return Some(path);
+                        }
+                    }
+                    _ => return Some(child),
+                }
+            }
+            None
+        }
+        _ => (expected != actual).then(|| path.to_owned()),
+    }
 }
 pub fn check(repo: &Path) -> Result<(), String> {
     let mut security = read(repo, "deploy/compose/docker-compose.workload-security.yml")?;
@@ -116,8 +169,45 @@ pub fn check(repo: &Path) -> Result<(), String> {
         "",
     );
     merge(&mut full, &apps, true, "");
-    if full != read(repo, "deploy/local/compose.full.yml")? {
-        return Err("canonical local full Compose is stale".into());
+    let materialized = read(repo, "deploy/local/compose.full.yml")?;
+    if let Some(path) = difference_path(&full, &materialized, "$") {
+        return Err(format!("canonical local full Compose is stale at {path}"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn nested_anchor_environments_equal_the_flat_materialization() {
+        let nested = parse(
+            "base: &base {PROXY: localhost, ROLE: api}\n\
+             worker: &worker {<<: *base, ROLE: worker}\n\
+             service: {environment: {<<: *worker, STORAGE: local}}\n",
+        )
+        .unwrap();
+        let flat = parse("environment: {PROXY: localhost, ROLE: worker, STORAGE: local}").unwrap();
+        assert_eq!(nested["service"], flat);
+    }
+
+    #[test]
+    fn compose_override_and_reset_tags_preserve_values_after_nested_merges() {
+        let parsed = parse(concat!(
+            "base: &base {source: old, target: /data}\n",
+            "service:\n",
+            "  volumes: !override [{<<: *base, source: new}]\n",
+            "  ports: !override [8080]\n",
+            "  container_name: !reset null\n",
+        ))
+        .unwrap();
+        assert_eq!(
+            parsed["service"]["volumes"],
+            json!([{"source":"new","target":"/data"}])
+        );
+        assert_eq!(parsed["service"]["ports"], json!([8080]));
+        assert!(parsed["service"]["container_name"].is_null());
+    }
 }

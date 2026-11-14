@@ -9,7 +9,7 @@
  * approvals, so it would simply hang on the open events cursor.
  */
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/real-api";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 
 const COMPOSER = "#assistant-chat-composer";

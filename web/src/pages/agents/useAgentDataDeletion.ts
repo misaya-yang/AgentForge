@@ -1,4 +1,5 @@
-import { App } from "antd";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
+
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { requestAgentDataDeletion } from "@/api/agents";
@@ -42,7 +43,7 @@ export function useAgentDataDeletion(options: {
   agentId: string; allowed: boolean; legalHold: boolean; onReceipt: () => Promise<unknown>;
 }) {
   const auth = useAuthenticatedReadScope();
-  const { modal } = App.useApp();
+  const { modal } = useProductFeedback();
   const { t } = useTranslation();
   const owner = useMemo(() => ({ active: true, agentId: options.agentId, authId: auth.id }), [options.agentId, auth.id]);
   const permissions = useRef(options); permissions.current = options;

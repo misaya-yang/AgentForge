@@ -65,6 +65,17 @@ export async function installClientAuth(
   await page.route("**/api/v1/auth/me", async route => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
   });
+  // Every authenticated shell renders Connect apps. Feature fixtures can
+  // override these empty catalogs without depending on a running Gateway.
+  for (const [endpoint, body] of [
+    ["catalog", { entries: [] }],
+    ["connections", { connections: [] }],
+    ["local-nodes", { devices: [] }],
+  ] as const) {
+    await page.route(`**/api/v1/${endpoint}`, route => route.fulfill({
+      status: 200, contentType: "application/json", body: JSON.stringify(body),
+    }));
+  }
   await page.addInitScript((authStorageKey) => {
     localStorage.removeItem(authStorageKey);
     sessionStorage.removeItem(authStorageKey);

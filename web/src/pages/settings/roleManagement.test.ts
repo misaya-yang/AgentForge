@@ -176,7 +176,7 @@ test("actual shared Fetch auth interceptor cannot dispatch old review with repla
       "@/lib/fetchClient": fetchHttp, "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
     "@/config/runtime": { getApiBaseUrlConfig: () => "https://console.example" },
       "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
-      "@/store/useAuthStore": { useAuthStore: auth },
+      "@/store/useAuthStore": { useAuthStore: auth, consoleAuthGeneration: () => 0 },
     };
     const load = (file: string): Record<string, unknown> => {
       const exports: Record<string, unknown> = {};

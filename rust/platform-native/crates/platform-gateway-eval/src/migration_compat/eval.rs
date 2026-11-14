@@ -14,7 +14,7 @@ use axum::{
     routing::any,
 };
 use serde_json::{Value, json};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,
@@ -23,6 +23,18 @@ use std::{
 pub struct EvalService {
     pub pool: PgPool,
     pub knowledge: Option<Arc<dyn KnowledgeAuthority>>,
+}
+/// Serialize release validation with every mutation of a dataset's manifest.
+/// UUID normalization keeps aliases of the same dataset on the same lock.
+/// Acquire this before case-specific locks and hold it through commit.
+pub async fn lock_dataset(
+    connection: &mut PgConnection,
+    tenant: &str,
+    dataset: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('eval-dataset:' || jsonb_build_array($1::text,$2::uuid)::text,0))")
+        .bind(tenant).bind(dataset).execute(connection).await?;
+    Ok(())
 }
 fn uuid(value: &str) -> Result<(), CompatError> {
     uuid::Uuid::parse_str(value)
@@ -175,6 +187,19 @@ impl EvalService {
         payload: &Value,
     ) -> Result<Value, CompatError> {
         uuid(dataset)?;
+        let mut transaction = self.pool.begin().await?;
+        lock_dataset(&mut transaction, &user.tenant_id, dataset).await?;
+        let value = Self::create_example_in(&mut transaction, user, dataset, payload).await?;
+        transaction.commit().await?;
+        Ok(value)
+    }
+    async fn create_example_in(
+        connection: &mut PgConnection,
+        user: &CompatUser,
+        dataset: &str,
+        payload: &Value,
+    ) -> Result<Value, CompatError> {
+        uuid(dataset)?;
         let trace = payload.get("source_trace_id").and_then(Value::as_str);
         let span = payload.get("source_span_id").and_then(Value::as_str);
         if let Some(trace) = trace {
@@ -183,7 +208,7 @@ impl EvalService {
         if let Some(span) = span {
             uuid(span)?;
         }
-        Ok(sqlx::query_scalar("WITH created AS (INSERT INTO eval_examples(dataset_id,tenant_id,split,input,expected_output,metadata,source_trace_id,source_span_id,created_by) VALUES($1::uuid,$2,$3,$4,$5,$6,$7::uuid,$8::uuid,$9) RETURNING *) SELECT to_jsonb(created) FROM created").bind(dataset).bind(&user.tenant_id).bind(if text(payload,"split").is_empty(){"regression"}else{text(payload,"split")}).bind(json!(object(&payload["input"]))).bind(json!(object(&payload["expected_output"]))).bind(metadata_patch(payload)).bind(trace).bind(span).bind(&user.user_id).fetch_one(&self.pool).await?)
+        Ok(sqlx::query_scalar("WITH created AS (INSERT INTO eval_examples(dataset_id,tenant_id,split,input,expected_output,metadata,source_trace_id,source_span_id,created_by) VALUES($1::uuid,$2,$3,$4,$5,$6,$7::uuid,$8::uuid,$9) RETURNING *) SELECT to_jsonb(created) FROM created").bind(dataset).bind(&user.tenant_id).bind(if text(payload,"split").is_empty(){"regression"}else{text(payload,"split")}).bind(json!(object(&payload["input"]))).bind(json!(object(&payload["expected_output"]))).bind(metadata_patch(payload)).bind(trace).bind(span).bind(&user.user_id).fetch_one(connection).await?)
     }
     pub async fn update_example(
         &self,
@@ -193,11 +218,15 @@ impl EvalService {
         payload: &Value,
     ) -> Result<Value, CompatError> {
         reject_reserved_kb_metadata(&payload["metadata"])?;
-        let existing = self
-            .example(&user.tenant_id, dataset, example)
-            .await?
+        uuid(dataset)?;
+        uuid(example)?;
+        let mut transaction = self.pool.begin().await?;
+        lock_dataset(&mut transaction, &user.tenant_id, dataset).await?;
+        let existing = sqlx::query_scalar::<_, Value>("SELECT to_jsonb(e) FROM eval_examples e WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid")
+            .bind(&user.tenant_id).bind(dataset).bind(example).fetch_optional(&mut *transaction).await?
             .ok_or_else(|| CompatError::new(404, "Example not found"))?;
         if text(&existing["metadata"], "source_kind") == "kb_failure" {
+            transaction.rollback().await?;
             return self
                 .review_kb_failure(user, dataset, example, payload)
                 .await;
@@ -212,8 +241,10 @@ impl EvalService {
                 json!({"case_id":example,"errors":errors}),
             ));
         }
-        let value=sqlx::query_scalar("WITH changed AS (UPDATE eval_examples SET split=COALESCE($4,split),input=COALESCE($5::jsonb,input),expected_output=COALESCE($6::jsonb,expected_output),metadata=COALESCE(metadata,'{}'::jsonb)||$7::jsonb WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid RETURNING *) SELECT to_jsonb(changed) FROM changed").bind(&user.tenant_id).bind(dataset).bind(example).bind(payload.get("split").and_then(Value::as_str)).bind(payload.get("input").filter(|v|!v.is_null()).cloned()).bind(payload.get("expected_output").filter(|v|!v.is_null()).cloned()).bind(metadata_patch(payload)).fetch_optional(&self.pool).await?;
-        value.ok_or_else(|| CompatError::new(404, "Example not found"))
+        let value=sqlx::query_scalar("WITH changed AS (UPDATE eval_examples SET split=COALESCE($4,split),input=COALESCE($5::jsonb,input),expected_output=COALESCE($6::jsonb,expected_output),metadata=COALESCE(metadata,'{}'::jsonb)||$7::jsonb WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid RETURNING *) SELECT to_jsonb(changed) FROM changed").bind(&user.tenant_id).bind(dataset).bind(example).bind(payload.get("split").and_then(Value::as_str)).bind(payload.get("input").filter(|v|!v.is_null()).cloned()).bind(payload.get("expected_output").filter(|v|!v.is_null()).cloned()).bind(metadata_patch(payload)).fetch_optional(&mut *transaction).await?;
+        let value = value.ok_or_else(|| CompatError::new(404, "Example not found"))?;
+        transaction.commit().await?;
+        Ok(value)
     }
     pub async fn delete_example(
         &self,
@@ -221,9 +252,12 @@ impl EvalService {
         dataset: &str,
         example: &str,
     ) -> Result<(), CompatError> {
-        let existing = self
-            .example(tenant, dataset, example)
-            .await?
+        uuid(dataset)?;
+        uuid(example)?;
+        let mut transaction = self.pool.begin().await?;
+        lock_dataset(&mut transaction, tenant, dataset).await?;
+        let existing = sqlx::query_scalar::<_, Value>("SELECT to_jsonb(e) FROM eval_examples e WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid")
+            .bind(tenant).bind(dataset).bind(example).fetch_optional(&mut *transaction).await?
             .ok_or_else(|| CompatError::new(404, "Example not found"))?;
         if text(&existing["metadata"], "source_kind") == "kb_failure" {
             return Err(CompatError::new(
@@ -231,10 +265,11 @@ impl EvalService {
                 "KB failure revisions are immutable and cannot be deleted",
             ));
         }
-        let count=sqlx::query("DELETE FROM eval_examples WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid").bind(tenant).bind(dataset).bind(example).execute(&self.pool).await?.rows_affected();
+        let count=sqlx::query("DELETE FROM eval_examples WHERE tenant_id=$1 AND dataset_id=$2::uuid AND example_id=$3::uuid").bind(tenant).bind(dataset).bind(example).execute(&mut *transaction).await?.rows_affected();
         if count != 1 {
             Err(CompatError::new(404, "Example not found"))
         } else {
+            transaction.commit().await?;
             Ok(())
         }
     }
@@ -260,8 +295,10 @@ impl EvalService {
         if !errors.is_empty() {
             return Err(CompatError::value(422, json!({"cases":errors})));
         }
+        let mut transaction = self.pool.begin().await?;
+        lock_dataset(&mut transaction, &user.tenant_id, dataset).await?;
         let mut ids: BTreeSet<String> = if mode == "skip_duplicates" {
-            sqlx::query_scalar::<_,String>("SELECT DISTINCT metadata->>'case_id' FROM eval_examples WHERE tenant_id=$1 AND dataset_id=$2::uuid AND COALESCE(metadata->>'case_id','')<>''").bind(&user.tenant_id).bind(dataset).fetch_all(&self.pool).await?.into_iter().collect()
+            sqlx::query_scalar::<_,String>("SELECT DISTINCT metadata->>'case_id' FROM eval_examples WHERE tenant_id=$1 AND dataset_id=$2::uuid AND COALESCE(metadata->>'case_id','')<>''").bind(&user.tenant_id).bind(dataset).fetch_all(&mut *transaction).await?.into_iter().collect()
         } else {
             BTreeSet::new()
         };
@@ -273,11 +310,12 @@ impl EvalService {
                 skipped += 1;
                 continue;
             }
-            imported.push(self.create_example(user, dataset, example).await?);
+            imported.push(Self::create_example_in(&mut transaction, user, dataset, example).await?);
             if !id.is_empty() {
                 ids.insert(id.into());
             }
         }
+        transaction.commit().await?;
         Ok(json!({"imported":imported.len(),"skipped":skipped,"examples":imported}))
     }
     pub async fn require_kb_access(

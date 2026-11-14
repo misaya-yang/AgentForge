@@ -52,9 +52,9 @@ test.describe("first-run onboarding", () => {
 
     // Dashboard checklist with the three first-run steps.
     await expect(page.getByText("First-run setup")).toBeVisible();
-    await expect(page.getByText("Configure a model service", { exact: true })).toBeVisible();
-    await expect(page.getByText("Create a knowledge base", { exact: true })).toBeVisible();
-    await expect(page.getByText("Start your first conversation", { exact: true })).toBeVisible();
+    await expect(page.locator("#console-main").getByText("Configure a model service", { exact: true })).toBeVisible();
+    await expect(page.locator("#console-main").getByText("Create a knowledge base", { exact: true })).toBeVisible();
+    await expect(page.locator("#console-main").getByText("Start your first conversation", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Go" })).toHaveCount(3);
 
     assertNoRuntimeFailures();

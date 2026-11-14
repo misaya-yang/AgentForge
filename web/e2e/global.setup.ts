@@ -26,7 +26,7 @@ export default async function globalSetup(config:FullConfig) {
   const providedEmail=process.env.E2E_USER_EMAIL,providedPassword=process.env.E2E_USER_PASSWORD;
   if(Boolean(providedEmail)!==Boolean(providedPassword)) throw Error("E2E_USER_EMAIL and E2E_USER_PASSWORD must be provided together");
   const credentials=existingCredentials({providedEmail,providedPassword,persistedCredentials:providedEmail && providedPassword ? null : await readPersistedE2ECredentials()});
-  const browser=await chromium.launch();
+  const browser=await chromium.launch(config.projects[0]?.use.launchOptions);
   try {
     const context=await browser.newContext({baseURL:origin,ignoreHTTPSErrors:false});
     const session=await authenticateConsoleContext(context,origin,credentials);

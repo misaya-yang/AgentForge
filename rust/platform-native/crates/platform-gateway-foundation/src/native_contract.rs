@@ -70,6 +70,8 @@ macro_rules! request {
     };
 }
 request!(CreateTask {
+    cron_expression: Option<String> => (false, json!({"type":["string","null"],"maxLength":160})),
+    timezone: Option<String> => (false, json!({"type":["string","null"],"maxLength":80})),
     title: String => (true, json!({"type":"string","maxLength":TITLE_MAX,"x-native-rule":"trimmed value must be nonempty"})),
     message: String => (true, json!({"type":"string","maxLength":MESSAGE_MAX,"x-native-rule":"trimmed value must be nonempty"})),
     model_id: String => (true, json!({"type":"string","x-native-max-utf8-bytes":MODEL_MAX_BYTES,"x-native-rule":"trimmed value must be nonempty"})),

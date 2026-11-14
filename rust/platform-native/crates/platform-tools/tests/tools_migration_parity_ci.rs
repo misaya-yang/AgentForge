@@ -251,10 +251,38 @@ fn hosted_capacity_and_operational_tools_are_required_in_the_owning_jobs() {
 }
 fn harness(gate: Value, run: &str) -> Fixture {
     let f = Fixture::new();
-    f.write(
-        "docker-compose.yml",
-        fs::read(repository().join("docker-compose.yml")).unwrap(),
-    );
+    // Harness checks also run the production fitness validators. Supply their
+    // public source inputs so the cases below isolate CI command enforcement.
+    for file in [
+        "docker-compose.yml", "LICENSE", "NOTICE", "rust/platform-native/Cargo.toml",
+        "deploy/compose/docker-compose.full.yml",
+        "deploy/compose/docker-compose.compact.yml",
+        "deploy/compose/docker-compose.scale.yml",
+        "deploy/compose/docker-compose.dev.yml",
+        "deploy/compose/docker-compose.build.yml",
+        "deploy/compose/docker-compose.native-candidate.yml",
+        "deploy/compose/docker-compose.sandbox-packages.yml",
+        "deploy/compose/docker-compose.kbms.yml",
+        "deploy/compose/docker-compose.sdk-agent-worker.yml",
+        "deploy/compose/docker-compose.valkey.yml",
+        "deploy/compose/valkey/coord.conf", "deploy/compose/valkey/cache.conf",
+        "deploy/local/compose.yml", "deploy/local/compose.runtime.yml",
+        "deploy/local/compose.sandbox.yml",
+        "docker/monitoring/docker-compose.monitoring.yml",
+        "docker/monitoring/docker-compose.profiling.yml",
+        "deploy/security/dependency-policy.json", "deploy/security/deny.toml",
+        "deploy/security/supply-chain-policy.json",
+        "deploy/gitops/chart/files/dependency-policy.json",
+        "deploy/gitops/chart/files/supply-chain-policy.json",
+        "deploy/gitops/chart/values.yaml",
+        "deploy/platform-native/Dockerfile", "web/Dockerfile", "web/Dockerfile.artifact",
+        "docker/code-interpreter/Dockerfile",
+        "deploy/agent-runtime-source/Dockerfile.runtime",
+        "deploy/agent-runtime-source/Dockerfile.capability-worker",
+        "scripts/new/redis-entrypoint.sh",
+    ] {
+        f.write(file, fs::read(repository().join(file)).unwrap());
+    }
     for doc in [
         "AGENTS.md",
         "docs/README.md",
@@ -298,7 +326,7 @@ fn harness(gate: Value, run: &str) -> Fixture {
     f.json("harness.yml",&json!({"required_docs":["AGENTS.md"],"budgets":{"AGENTS.md":10},"workspace":{"spec_roots":["web"],"spec_globs":["*.spec.ts"],"root_forbidden":["stray.tmp"]},"gates":{"unit":gate}}));
     f.json(
         ".github/workflows/ci.yml",
-        &json!({"jobs":{"unit-job":{"steps":[{"run":run}]}}}),
+        &json!({"permissions":{"contents":"read"},"jobs":{"unit-job":{"steps":[{"run":run}]}}}),
     );
     f
 }

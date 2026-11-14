@@ -36,6 +36,7 @@ use crate::{
 use std::sync::Arc;
 
 pub struct RuntimeConfiguration {
+    pub automation_cipher: crate::migration_agent::automations::AutomationCipherKey,
     pub options: RuntimeOptions,
     pub lease_secret: String,
     pub model_plane_internal_token: String,
@@ -259,6 +260,9 @@ impl RuntimeServices {
             })
         });
         let agent = AgentState {
+            automation_cipher: config.automation_cipher,
+            automation_knowledge: None,
+            automation_skills: Some(content.skills.clone()),
             auth: auth.admission.clone(),
             repository: repository.clone(),
             control: control.clone(),

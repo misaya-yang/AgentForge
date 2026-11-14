@@ -40,6 +40,9 @@ pub trait AgentAttachments: Send + Sync {
 }
 #[derive(Clone)]
 pub struct AgentState {
+    pub automation_cipher: super::automations::AutomationCipherKey,
+    pub automation_skills: Option<Arc<crate::migration_content::skills::SkillRepository>>,
+    pub automation_knowledge: Option<Arc<dyn super::automations::AutomationKnowledge>>,
     pub auth: Arc<AdmissionService>,
     pub repository: Arc<AgentRepository>,
     pub control: Arc<RuntimeControlPlane>,
@@ -74,7 +77,8 @@ pub fn router(state: AgentState) -> Router {
         .route("/embed/agents/{public_id}", any(public_runtime))
         .with_state(state.clone())
         .merge(super::scheduled::router(state.clone()))
-        .merge(super::scheduled_notifications::router(state))
+        .merge(super::scheduled_notifications::router(state.clone()))
+        .merge(super::automations::router(state))
 }
 fn json_response(status: u16, value: Value) -> Response {
     (

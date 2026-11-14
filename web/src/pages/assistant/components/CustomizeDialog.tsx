@@ -3,7 +3,7 @@
  * Opens from the sidebar "Customize" button.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Puzzle,
@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
 import {
   listSkills,
   uploadSkill,
@@ -46,24 +47,41 @@ interface CustomizeDialogProps {
   onClose: () => void;
 }
 
-function apiErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object") {
-    const maybe = error as {
-      response?: { data?: { detail?: unknown } };
-      message?: unknown;
-    };
-    const detail = maybe.response?.data?.detail;
-    if (typeof detail === "string" && detail) return detail;
-    if (typeof maybe.message === "string" && maybe.message) return maybe.message;
-  }
-  return fallback;
+function activationBlocked(error: unknown): boolean {
+  const data = (error as { response?: { data?: unknown } } | null)?.response?.data;
+  return JSON.stringify(data)?.includes('"SKILL_ACTIVATION_GATES_REQUIRED"') === true;
 }
 
-export function CustomizeDialog({ open, onClose }: CustomizeDialogProps) {
+function CapabilityError({ message, retry }: { message: string; retry: () => void }) {
   const { t } = useTranslation();
+  return <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+    <p>{message}</p>
+    <Button size="sm" variant="outline" onClick={retry}>{t("common.retry")}</Button>
+  </div>;
+}
+
+export function CustomizeDialog(props: CustomizeDialogProps) {
+  const scope = useAuthenticatedReadScope();
+  if (!props.open || !scope.isCurrent()) return null;
+  return <CustomizeWorkspace key={scope.id} {...props} isCurrent={scope.isCurrent} />;
+}
+
+function CustomizeWorkspace({ open, onClose, isCurrent }: CustomizeDialogProps & { isCurrent: () => boolean }) {
+  const { t } = useTranslation();
+  const mounted = useRef(true);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const ownsView = useCallback(() => mounted.current && isCurrent(), [isCurrent]);
+  const close = () => {
+    if (!ownsView()) return;
+    mounted.current = false;
+    onClose();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -85,11 +103,11 @@ export function CustomizeDialog({ open, onClose }: CustomizeDialogProps) {
           </TabsList>
 
           <TabsContent value="skills" className="flex-1 overflow-y-auto mt-4">
-            <SkillsTab />
+            <SkillsTab isCurrent={ownsView} />
           </TabsContent>
 
           <TabsContent value="mcp" className="flex-1 overflow-y-auto mt-4">
-            <MCPTab />
+            <MCPTab isCurrent={ownsView} />
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -101,61 +119,93 @@ export function CustomizeDialog({ open, onClose }: CustomizeDialogProps) {
 // Skills Tab
 // ---------------------------------------------------------------------------
 
-function SkillsTab() {
+function SkillsTab({ isCurrent }: { isCurrent: () => boolean }) {
   const { t } = useTranslation();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [readFailed, setReadFailed] = useState(false);
+  const pending = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!isCurrent()) return;
     setLoading(true);
+    setError("");
+    setReadFailed(false);
     try {
       const data = await listSkills({ enabled_only: false });
+      if (!isCurrent()) return;
+      if (!Array.isArray(data.skills)) throw new Error("Invalid Skills read");
       setSkills(data.skills);
     } catch {
-      // silent
+      if (isCurrent()) {
+        setReadFailed(true);
+        setError(t("assistant.skillsLoadFailed"));
+      }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  };
+  }, [isCurrent, t]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || pending.current || !isCurrent()) return;
+    pending.current = true;
     setUploading(true);
+    setError("");
     try {
       await uploadSkill(file);
       await load();
-    } catch (err: unknown) {
-      alert(apiErrorMessage(err, "Upload failed"));
+    } catch {
+      if (isCurrent()) setError(t("assistant.skillUploadFailed"));
     } finally {
-      setUploading(false);
+      pending.current = false;
+      if (isCurrent()) setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
   const handleToggle = async (skill: Skill, enabled: boolean) => {
+    if (pending.current || !isCurrent()) return;
+    pending.current = true;
+    setBusy(true);
+    setError("");
     try {
       if (enabled) await enableSkill(skill.name);
       else await disableSkill(skill.name);
+      if (!isCurrent()) return;
       setSkills((prev) =>
         prev.map((s) => (s.name === skill.name ? { ...s, enabled } : s)),
       );
-    } catch {
-      // revert
+    } catch (error) {
+      if (isCurrent()) setError(t(activationBlocked(error) ? "assistant.skillActivationBlocked" : "assistant.skillChangeFailed"));
+    } finally {
+      pending.current = false;
+      if (isCurrent()) setBusy(false);
     }
   };
 
   const handleDelete = async (skill: Skill) => {
+    if (pending.current || !isCurrent()) return;
     if (!confirm(`Delete skill "${skill.name}"?`)) return;
+    if (!isCurrent()) return;
+    pending.current = true;
+    setBusy(true);
+    setError("");
     try {
       await deleteSkill(skill.name);
+      if (!isCurrent()) return;
       setSkills((prev) => prev.filter((s) => s.name !== skill.name));
     } catch {
-      // silent
+      if (isCurrent()) setError(t("assistant.skillDeleteFailed"));
+    } finally {
+      pending.current = false;
+      if (isCurrent()) setBusy(false);
     }
   };
 
@@ -168,8 +218,11 @@ function SkillsTab() {
     );
   }
 
+  if (readFailed) return <CapabilityError message={error} retry={() => void load()} />;
+
   return (
     <div className="space-y-3">
+      {error && <CapabilityError message={error} retry={() => void load()} />}
       {/* Upload button */}
       <div className="flex justify-end">
         <input ref={fileRef} type="file" accept=".md" onChange={handleUpload} className="hidden" />
@@ -177,7 +230,7 @@ function SkillsTab() {
           size="sm"
           variant="outline"
           className="gap-2"
-          disabled={uploading}
+          disabled={uploading || busy}
           onClick={() => fileRef.current?.click()}
         >
           {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
@@ -195,6 +248,8 @@ function SkillsTab() {
         skills.map((skill) => (
           <div
             key={skill.name}
+            role="group"
+            aria-label={skill.title || skill.name}
             className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/20 transition-colors"
           >
             <div className="flex-1 min-w-0">
@@ -224,12 +279,16 @@ function SkillsTab() {
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  aria-label={t("assistant.deleteSkillLabel", { name: skill.title || skill.name })}
+                  disabled={busy || uploading}
                   onClick={() => handleDelete(skill)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               )}
               <Switch
+                aria-label={t("assistant.enableSkillLabel", { name: skill.title || skill.name })}
+                disabled={busy || uploading}
                 checked={skill.enabled}
                 onCheckedChange={(checked) => handleToggle(skill, checked)}
               />
@@ -245,38 +304,47 @@ function SkillsTab() {
 // MCP Tab
 // ---------------------------------------------------------------------------
 
-function MCPTab() {
+function MCPTab({ isCurrent }: { isCurrent: () => boolean }) {
   const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [tools, setTools] = useState<MCPTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const pending = useRef(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!isCurrent()) return;
     setLoading(true);
+    setError("");
     try {
       const [srvData, toolData] = await Promise.all([listMCPServers(), listMCPTools()]);
+      if (!isCurrent()) return;
+      if (!Array.isArray(srvData.servers) || !Array.isArray(toolData.tools)) throw new Error("Invalid MCP read");
       setServers(srvData.servers);
       setTools(toolData.tools);
     } catch {
-      // silent
+      if (isCurrent()) setError(t("assistant.mcpLoadFailed"));
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  };
+  }, [isCurrent, t]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const handleRefresh = async (name: string) => {
+    if (pending.current || !isCurrent()) return;
+    pending.current = true;
     setRefreshing(name);
     try {
       await refreshMCPServer(name);
       await load();
-    } catch (err: unknown) {
-      alert(apiErrorMessage(err, "Refresh failed"));
+    } catch {
+      if (isCurrent()) setError(t("assistant.mcpRefreshFailed"));
     } finally {
-      setRefreshing(null);
+      pending.current = false;
+      if (isCurrent()) setRefreshing(null);
     }
   };
 
@@ -288,6 +356,8 @@ function MCPTab() {
       </div>
     );
   }
+
+  if (error) return <CapabilityError message={error} retry={() => void load()} />;
 
   return (
     <div className="space-y-3">
@@ -335,7 +405,7 @@ function MCPTab() {
                     e.stopPropagation();
                     handleRefresh(srv.name);
                   }}
-                  disabled={refreshing === srv.name}
+                  disabled={refreshing !== null}
                 >
                   {refreshing === srv.name ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

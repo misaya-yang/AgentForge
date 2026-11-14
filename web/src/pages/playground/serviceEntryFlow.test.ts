@@ -49,6 +49,7 @@ function host(selected: string | undefined = "available") {
   const jsx = (type: unknown, props: Record<string, unknown>) => ({ type, props });
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-router-dom": { Link: "Link" }, "lucide-react": named,
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en-US" } }) },
     "@/lib/utils": { cn: (...values: unknown[]) => values.filter(Boolean).join(" "), getPlaygroundErrorMessage: () => "Safe error" },

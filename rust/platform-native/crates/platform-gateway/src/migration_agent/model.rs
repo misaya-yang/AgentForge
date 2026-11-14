@@ -990,7 +990,7 @@ pub fn provider_body(
             if matches!(text(i, "type"), "additional_tools" | "configuration_update") {
                 return Err(AgentError::code(422, "RUNTIME_INPUT_CONTROL_UNSUPPORTED"));
             }
-            if let Some(content) = i["content"].as_array_mut() {
+            if let Some(content) = i.get_mut("content").and_then(Value::as_array_mut) {
                 for part in content {
                     if part["type"] == "encrypted_content" && part["encrypted_content"].is_string()
                     {

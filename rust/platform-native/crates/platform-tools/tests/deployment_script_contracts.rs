@@ -65,7 +65,7 @@ impl Fixture {
                 "PATH",
                 format!("{}:/usr/bin:/bin", self.dir.join("bin").display()),
             )
-            .env("ENV_FILE", self.dir.join(".env"))
+            .env("ENV_FILE", self.dir.join("configuration.fixture"))
             .env("FAKE_COMPOSE_JSON", self.dir.join("compose.json"));
         for (k, _) in std::env::vars() {
             if k.starts_with("VITE_")
@@ -140,9 +140,9 @@ fn valid(chat: &str) -> String {
 }
 fn validate(s: &str, args: &[&str], providers: &str, code: i32, yes: &[&str], no: &[&str]) {
     let f = Fixture::new();
-    fs::write(f.dir.join(".env"), s).unwrap();
+    fs::write(f.dir.join("configuration.fixture"), s).unwrap();
     let mut argv = vec!["--env"];
-    let env = f.dir.join(".env");
+    let env = f.dir.join("configuration.fixture");
     argv.push(env.to_str().unwrap());
     argv.extend(args);
     let out = outcome(
@@ -220,14 +220,14 @@ fn runtime_config_escapes() {
     ]);
     for (k, e) in [
         ("apiUrl", "https://api.example.com/\"gateway\"\\v1"),
-        ("apiBaseUrl", "https://gateway.example.com/api v1"),
+        ("apiBaseUrl", "https://gateway.example.com/api\nv1"),
         ("authEmailDomain", "myapp.test"),
         ("supportEmail", r"support\desk@example.com"),
         (
             "telemetryEndpoint",
             "https://telemetry.example.com/collect?tag=\"release\"",
         ),
-        ("sseDebug", "true  ignored"),
+        ("sseDebug", "true\r\nignored"),
         ("agentStudioEnabled", "false"),
     ] {
         assert_eq!(v[k], e);
@@ -236,7 +236,7 @@ fn runtime_config_escapes() {
 #[test]
 fn runtime_config_uncached() {
     let n = read("web/nginx.conf");
-    let r = regex::Regex::new(r"(?s)location = /runtime-config\.js \{\n(.*?)\n        \}").unwrap();
+    let r = regex::Regex::new(r"(?s)location = /runtime-config\.json \{\n(.*?)\n        \}").unwrap();
     let body = &r.captures(&n).unwrap()[1];
     has(
         body,

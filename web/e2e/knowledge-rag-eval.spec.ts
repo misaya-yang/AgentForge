@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "./support/real-api";
 import {
   assertNoBlockingA11yIssues,
   buildAuthHeaders,
@@ -301,7 +301,7 @@ test.describe("@mock KB RAG evaluation UI contract", () => {
     const presetTrigger = page.getByTestId("retrieval-preset");
     await expect(presetTrigger).toBeEnabled();
     await presetTrigger.click();
-    await page.getByRole("option", { name: /快速|Fast/ }).click();
+    await page.locator(".ant-select-dropdown:visible").getByText(/快速|Fast/).click();
     await page.getByPlaceholder("请输入文本").first().fill("报销流程需要什么材料？");
     const requestPromise = page.waitForRequest((request) =>
       request.url().includes(`/api/v1/knowledge/${MOCK_DATASET_ID}/hit_test`)
@@ -356,7 +356,7 @@ test.describe("@mock KB RAG evaluation UI contract", () => {
       );
     }
     await page.getByTestId("eval-preset-a").click();
-    await page.getByRole("option", { name: /快速|Fast/ }).click();
+    await page.locator(".ant-select-dropdown:visible").getByText(/快速|Fast/).click();
     await expect(page.getByText(/测试集或请求预设已修改/)).toBeVisible();
     await expect(
       page.getByRole("columnheader", { name: "A · balanced" })
@@ -514,7 +514,7 @@ test.describe("KB RAG config & evaluation workbench", () => {
     // Use the provider-free Fast preset so this live check does not depend on
     // an external reranker credential.
     await presetTrigger.click();
-    await page.getByRole("option", { name: /快速|Fast/ }).click();
+    await page.locator(".ant-select-dropdown:visible").getByText(/快速|Fast/).click();
 
     // Type a real query and run the hit test.
     await page.getByPlaceholder("请输入文本").first().fill("报销流程需要什么材料？");
@@ -532,13 +532,17 @@ test.describe("KB RAG config & evaluation workbench", () => {
 
   test("eval workbench: local-live retrieval with a provider-free preset fixture", async ({
     page,
+    request,
   }) => {
     // This test keeps dataset/index/evaluation calls live, but projects the
     // server presets into two provider-free configs so external reranker
     // availability cannot turn a frontend regression into an environment flake.
     await page.route("**/api/v1/knowledge/retrieval/presets", async (route) => {
-      const upstream = await route.fetch();
-      expect(upstream.ok(), "Live preset endpoint should be available").toBeTruthy();
+      // Read the real source through this suite's isolated API authority.
+      // route.fetch uses a Node transport, while the Console BFF validates
+      // browser Fetch Metadata; keep the page's cookie/origin authority intact.
+      const upstream = await request.get(`${getApiUrl()}/api/v1/knowledge/retrieval/presets`, { headers });
+      expect(upstream.ok(), `Live preset endpoint should be available (${upstream.status()})`).toBeTruthy();
       const body = await upstream.json();
       const fast = body.presets.find((preset: { name: string }) => preset.name === "fast");
       const balanced = body.presets.find(
@@ -656,7 +660,7 @@ test.describe("KB RAG config & evaluation workbench", () => {
       page.getByRole("columnheader", { name: "B · local-hybrid" })
     ).toBeVisible();
     await presetB.click();
-    await page.getByRole("option", { name: /快速|Fast/ }).click();
+    await page.locator(".ant-select-dropdown:visible").getByText(/快速|Fast/).click();
     await expect(
       page.getByRole("columnheader", { name: "B · local-hybrid" })
     ).toBeVisible();
@@ -678,7 +682,7 @@ test.describe("KB RAG config & evaluation workbench", () => {
       timeout: 20_000,
     });
     await expect(page.getByTestId("run-retrieval-eval")).toBeDisabled();
-    await expect(page.getByRole("button", { name: "重试" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^重\s*试$/ })).toBeVisible();
   });
 
   test("eval workbench controls remain usable on a mobile viewport", async ({ page }) => {

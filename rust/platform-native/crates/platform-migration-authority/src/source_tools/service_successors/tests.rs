@@ -65,7 +65,14 @@ fn anchor() -> Scratch {
                 fs::remove_file(path).unwrap();
             }
         }
-        for name in ["030_knowledge_spaces.sql", "030_verification.json"] {
+        for name in [
+            "030_knowledge_spaces.sql",
+            "030_verification.json",
+            "031_catalog_connections.sql",
+            "031_verification.json",
+            "032_gateway_automations.sql",
+            "032_verification.json",
+        ] {
             let path = file(&scratch.0, name);
             if path.exists() {
                 fs::remove_file(path).unwrap();

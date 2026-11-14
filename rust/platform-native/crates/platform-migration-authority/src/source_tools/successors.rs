@@ -941,6 +941,9 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join(BASELINE)
             .join("manifest.yml"),
     )?;
+    if current_manifest.epoch == 32 && current_manifest.changes.last().is_some_and(|change| change.file == "032_gateway_automations.sql") {
+        return Ok((crate::source_tools::gateway_automations_032::verify_installed(&root)?, current_manifest));
+    }
     if current_manifest.epoch == 31 && current_manifest.changes.last().is_some_and(|change| change.file == "031_catalog_connections.sql") {
         let receipt = crate::source_tools::catalog_connections_031::verify_installed(&root)?;
         return Ok((receipt, current_manifest));

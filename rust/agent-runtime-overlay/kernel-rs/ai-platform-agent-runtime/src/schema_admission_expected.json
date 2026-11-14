@@ -11,7 +11,7 @@
       "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98"
     }
   ],
-  "epoch": 30,
+  "epoch": 32,
   "changes": [
     {
       "baseline_id": "2026_08_post_kb_v1",
@@ -192,6 +192,18 @@
       "sequence": 30,
       "name": "knowledge_spaces",
       "checksum_sha256": "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 31,
+      "name": "catalog_connections",
+      "checksum_sha256": "43ad489411b79b081e9c9eacc1dbcc78eb37204fa92fcfda8196b61bb10b6204"
+    },
+    {
+      "baseline_id": "2026_08_post_kb_v1",
+      "sequence": 32,
+      "name": "gateway_automations",
+      "checksum_sha256": "60581afdbd4ec43aca159f813c938dad00f26ee1c82d611c3106ce189bae6f0b"
     }
   ],
   "has_attempts": false,

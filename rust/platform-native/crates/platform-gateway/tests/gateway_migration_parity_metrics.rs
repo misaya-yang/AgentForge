@@ -241,7 +241,29 @@ async fn token_metrics_use_tenant_scoped_user_keys() {
     }
 }
 #[test]
-fn dlq_and_consumer_lag_alerts_are_configured() {
+fn gateway_slo_alerts_bind_exported_metrics_and_detect_missing_telemetry() {
+    let collector = ai_platform_gateway::migration_host::metrics::MetricsCollector::new();
+    collector.record_request("GET", "/contract", 200, 1000., "gateway");
+    let exported = collector.to_prometheus();
+    for metric in [
+        "gateway_requests_total",
+        "gateway_request_duration_ms_bucket",
+        "gateway_request_duration_ms_count",
+    ] {
+        assert!(
+            exported
+                .lines()
+                .any(|line| line.starts_with(&format!("{metric}{{"))),
+            "{metric}"
+        );
+    }
+    assert!(
+        exported.lines().any(
+            |line| line.starts_with("gateway_request_duration_ms_bucket{")
+                && line.contains("le=\"2500\"")
+        ),
+        "the SLO boundary must be a bucket exported by the actual collector"
+    );
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
@@ -250,15 +272,109 @@ fn dlq_and_consumer_lag_alerts_are_configured() {
         &std::fs::read_to_string(root.join("docker/monitoring/alert-rules.yml")).unwrap(),
     )
     .unwrap();
-    let alerts: Vec<_> = data["groups"]
+    let rules: Vec<_> = data["groups"]
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|g| g["rules"].as_array().unwrap())
-        .filter_map(|r| r["alert"].as_str())
         .collect();
-    for name in ["HighDLQDepth", "CriticalDLQDepth", "EventConsumerLag"] {
-        assert!(alerts.contains(&name), "{name}");
+    let rule = |field: &str, name: &str| {
+        let matches: Vec<_> = rules
+            .iter()
+            .copied()
+            .filter(|rule| rule[field].as_str() == Some(name))
+            .collect();
+        assert_eq!(matches.len(), 1, "exactly one {field} rule for {name}");
+        matches[0]
+    };
+    let expression = |rule: &Value| {
+        rule["expr"]
+            .as_str()
+            .unwrap()
+            .split_whitespace()
+            .collect::<String>()
+    };
+    for window in ["5m", "30m", "1h", "6h"] {
+        let error = expression(rule("record", &format!("gateway:slo_error_ratio:{window}")));
+        assert!(error.contains(&format!(
+            "rate(gateway_requests_total{{status_code=~\"5..\"}}[{window}])"
+        )));
+        assert!(error.contains(&format!(
+            "clamp_min(sum(rate(gateway_requests_total[{window}])),0.000001)"
+        )));
+        let slow = expression(rule("record", &format!("gateway:slo_slow_ratio:{window}")));
+        assert!(slow.contains(&format!(
+            "rate(gateway_request_duration_ms_bucket{{le=\"2500\"}}[{window}])"
+        )));
+        assert!(slow.contains(&format!(
+            "clamp_min(sum(rate(gateway_request_duration_ms_count[{window}])),0.000001)"
+        )));
+        assert!(
+            slow.contains(">bool0"),
+            "idle traffic must not consume the latency budget"
+        );
+    }
+    for (name, ratio, short, long, threshold, severity) in [
+        (
+            "GatewayErrorBudgetBurnFast",
+            "error",
+            "5m",
+            "1h",
+            "0.0144",
+            "critical",
+        ),
+        (
+            "GatewayErrorBudgetBurnSlow",
+            "error",
+            "30m",
+            "6h",
+            "0.006",
+            "warning",
+        ),
+        (
+            "GatewaySlowBudgetBurnFast",
+            "slow",
+            "5m",
+            "1h",
+            "0.144",
+            "critical",
+        ),
+        (
+            "GatewaySlowBudgetBurnSlow",
+            "slow",
+            "30m",
+            "6h",
+            "0.06",
+            "warning",
+        ),
+    ] {
+        let alert = rule("alert", name);
+        assert_eq!(
+            expression(alert),
+            format!(
+                "(gateway:slo_{ratio}_ratio:{short}>{threshold})and(gateway:slo_{ratio}_ratio:{long}>{threshold})"
+            )
+        );
+        assert_eq!(alert["for"], "2m");
+        assert_eq!(alert["labels"]["severity"], severity);
+        assert_eq!(alert["labels"]["owner"], "gateway");
+    }
+    let unavailable = rule("alert", "GatewayMetricsUnavailable");
+    assert_eq!(expression(unavailable), "up{job=\"gateway\"}==0");
+    assert_eq!(unavailable["for"], "2m");
+    assert_eq!(unavailable["labels"]["severity"], "critical");
+    let absent = rule("alert", "GatewaySloTelemetryAbsent");
+    assert_eq!(
+        expression(absent),
+        "absent(gateway_request_duration_ms_count)orabsent(gateway_requests_total)"
+    );
+    assert_eq!(absent["for"], "10m");
+    assert_eq!(absent["labels"]["severity"], "warning");
+    // The current exporter has no legacy event-bus series. Rules that refer
+    // to them silently evaluate to no data instead of providing monitoring.
+    for metric in ["event_dlq_depth", "event_consumer_lag"] {
+        assert!(collector.metric(metric).is_none());
+        assert!(rules.iter().all(|rule| !expression(rule).contains(metric)));
     }
 }
 #[tokio::test]

@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/real-api";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 
 const here = path.dirname(fileURLToPath(import.meta.url));

@@ -22,6 +22,34 @@ pub(super) fn provider_environment(
         .collect()
 }
 
+fn validate_mcp_jwt_binding(
+    configuration: &crate::migration_host::control_plane::config::Configuration,
+    jwt: &crate::migration_host::settings::JwtSettings,
+    rest_api_key_enabled: bool,
+) -> Result<(), BootstrapError> {
+    if configuration
+        .mcp
+        .as_ref()
+        .is_some_and(|mcp| mcp.api_key_only)
+        && !rest_api_key_enabled
+    {
+        return Err(BootstrapError::Configuration(
+            "mcp_api_key_authentication_disabled",
+        ));
+    }
+    if let Some(mcp) = configuration.mcp.as_ref().filter(|mcp| !mcp.api_key_only) {
+        if jwt.audience.as_deref() != Some(mcp.resource.as_str())
+            || !jwt
+                .issuer
+                .as_ref()
+                .is_some_and(|issuer| mcp.authorization_servers.contains(issuer))
+        {
+            return Err(BootstrapError::Configuration("mcp_authorization_issuer"));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayDocument {
@@ -298,18 +326,11 @@ impl GatewayDocument {
         control_plane
             .validate(&self.native.kernel_revision)
             .map_err(BootstrapError::Configuration)?;
-        if let Some(mcp) = &control_plane.mcp {
-            if settings.authentication.jwt.audience.as_deref() != Some(mcp.resource.as_str())
-                || !settings
-                    .authentication
-                    .jwt
-                    .issuer
-                    .as_ref()
-                    .is_some_and(|issuer| mcp.authorization_servers.contains(issuer))
-            {
-                return Err(BootstrapError::Configuration("mcp_authorization_issuer"));
-            }
-        }
+        validate_mcp_jwt_binding(
+            &control_plane,
+            &settings.authentication.jwt,
+            settings.authentication.api_key.enabled,
+        )?;
         let cedar = if let Some(raw) = self.environment.get(ai_platform_auth::cedar::CONFIG_KEY) {
             serde_json::from_str(raw)
                 .map_err(|_| BootstrapError::Configuration("cedar_configuration"))?
@@ -619,6 +640,29 @@ mod tests {
     use super::provider_environment;
     use std::collections::BTreeMap;
 
+    #[test]
+    fn mcp_key_only_bootstrap_does_not_rebind_the_existing_rest_jwt() {
+        let mut configuration:crate::migration_host::control_plane::config::Configuration=serde_json::from_value(serde_json::json!({"mcp":{"resource":"https://gateway.example/mcp","authorization_servers":[],"api_key_only":true}})).unwrap();
+        let mut jwt = crate::migration_host::settings::JwtSettings::default();
+        jwt.audience = Some("existing-rest-audience".into());
+        jwt.issuer = Some("existing-rest-issuer".into());
+        assert!(matches!(
+            super::validate_mcp_jwt_binding(&configuration, &jwt, false),
+            Err(super::BootstrapError::Configuration(
+                "mcp_api_key_authentication_disabled"
+            ))
+        ));
+        assert!(super::validate_mcp_jwt_binding(&configuration, &jwt, true).is_ok());
+        let mcp = configuration.mcp.as_mut().unwrap();
+        mcp.api_key_only = false;
+        mcp.authorization_servers = vec!["https://issuer.example".into()];
+        assert!(super::validate_mcp_jwt_binding(&configuration, &jwt, true).is_err());
+        jwt.audience = Some("https://gateway.example/mcp".into());
+        jwt.issuer = Some("https://issuer.example".into());
+        assert!(super::validate_mcp_jwt_binding(&configuration, &jwt, true).is_ok());
+        jwt.audience = Some("another-resource".into());
+        assert!(super::validate_mcp_jwt_binding(&configuration, &jwt, true).is_err());
+    }
     #[test]
     fn local_node_private_configuration_is_not_forwarded_to_provider_or_mcp_secrets() {
         let environment = BTreeMap::from([

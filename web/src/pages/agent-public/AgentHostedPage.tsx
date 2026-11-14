@@ -83,7 +83,9 @@ export function AgentHostedPage() {
     };
   }, [publicId, t]);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [messages]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages]);
 
   const suggestions = useMemo(
     () => (Array.isArray(config?.identity.suggested_prompts)
@@ -324,7 +326,7 @@ export function AgentHostedPage() {
           />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={!config.attachments || streaming || uploading} title={config.attachments ? t("agents.public.attach") : t("agents.public.attachDisabled")} aria-label={t("agents.public.attach")}><Paperclip /></button>
           <textarea rows={1} value={draft} disabled={streaming} placeholder={t("agents.public.placeholder")} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
               event.preventDefault();
               void sendMessage();
             }

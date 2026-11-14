@@ -139,7 +139,7 @@ fn api(s: Arc<Store>) -> McpRegistryApi {
     })
 }
 fn server() -> Value {
-    json!({"name":"docs","base_url":"https://mcp.example.test","allowed_origins":[]})
+    json!({"name":"docs","base_url":"https://mcp.example.test","allowed_origins":["https://mcp.example.test"]})
 }
 fn headers(tenant: &str) -> HeaderMap {
     let mut h = HeaderMap::new();
@@ -265,7 +265,7 @@ async fn secret_references_are_saved_but_never_returned_in_connection_responses(
                 server_id: SERVER.into(),
             },
             &h,
-            &json!({"principal_type":"user_delegated","secret_ref":"vault://mcp","scopes":[]}),
+            &json!({"principal_type":"user_delegated","owner_user_id":"admin-a","secret_ref":"vault://mcp","scopes":[]}),
         )
         .await
         .unwrap();

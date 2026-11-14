@@ -177,6 +177,10 @@ impl AdmissionService {
             key_header,
         })
     }
+    /// Public protocol metadata only; never exposes a key value or changes selection.
+    pub fn api_key_header(&self) -> &HeaderName {
+        &self.key_header
+    }
     /// Create exactly one value per incoming request and share it between dependencies.
     /// Keep headers/path immutable while resolving. Never retain this across requests.
     pub fn request<'a>(&'a self, headers: &'a HeaderMap, path: &'a str) -> AdmissionRequest<'a> {
@@ -309,7 +313,7 @@ impl Backend for AdmissionService {
     }
     async fn usage(&self, authority: &ApiKeyAuthority) -> Result<(), StoreError> {
         // Bind the already-verified owner and hash; never mutate a rebound/replaced row.
-        let result = sqlx::query("UPDATE public.api_keys SET last_used_at=NOW(),use_count=COALESCE(use_count,0)+1 WHERE id=$1 AND key_hash=$2 AND user_id=$3 AND tenant_id=$4")
+        let result = sqlx::query("UPDATE gateway.api_keys SET last_used_at=NOW(),use_count=COALESCE(use_count,0)+1 WHERE id=$1 AND key_hash=$2 AND user_id=$3 AND tenant_id=$4")
             .bind(authority.id).bind(&authority.key_hash).bind(&authority.user_id).bind(&authority.tenant_id)
             .execute(&self.pool).await.map_err(|_| StoreError::Unavailable)?;
         if result.rows_affected() == 1 {
@@ -335,10 +339,10 @@ impl Backend for AdmissionService {
         // Target-free conflict handling supports both migration 018's expression index and
         // migration 030's plain unique constraint. A second statement gets a fresh snapshot
         // after waiting for a competing insert, unlike a single INSERT/UPDATE CTE.
-        let inserted = sqlx::query("INSERT INTO public.security_event_daily_aggregates(tenant_id,user_id,service_id,event_type,date,event_count) VALUES('public','',$1,'auth_failed',$2,1) ON CONFLICT DO NOTHING")
+        let inserted = sqlx::query("INSERT INTO gateway.security_event_daily_aggregates(tenant_id,user_id,service_id,event_type,date,event_count) VALUES('public','',$1,'auth_failed',$2,1) ON CONFLICT DO NOTHING")
             .bind(service).bind(date).execute(&mut *tx).await.map_err(|_| StoreError::Unavailable)?.rows_affected();
         if inserted == 0 {
-            let updated = sqlx::query("UPDATE public.security_event_daily_aggregates SET event_count=COALESCE(event_count,0)+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id='public' AND COALESCE(user_id,'')='' AND COALESCE(service_id,'')=$1 AND event_type='auth_failed' AND date=$2")
+            let updated = sqlx::query("UPDATE gateway.security_event_daily_aggregates SET event_count=COALESCE(event_count,0)+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id='public' AND COALESCE(user_id,'')='' AND COALESCE(service_id,'')=$1 AND event_type='auth_failed' AND date=$2")
                 .bind(service).bind(date).execute(&mut *tx).await.map_err(|_| StoreError::Unavailable)?.rows_affected();
             if updated != 1 {
                 return Err(StoreError::Changed);

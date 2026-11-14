@@ -84,8 +84,11 @@ fn items(frames: Vec<axum::body::Bytes>) -> Vec<Value> {
         .into_iter()
         .filter_map(|frame| {
             let frame = std::str::from_utf8(&frame).unwrap();
-            let value: Value =
-                serde_json::from_str(frame.split("data: ").nth(1).unwrap().trim()).unwrap();
+            let data = frame.split("data: ").nth(1).unwrap().trim();
+            if data == "[DONE]" {
+                return None;
+            }
+            let value: Value = serde_json::from_str(data).unwrap();
             value["type"]
                 .as_str()
                 .filter(|kind| kind.starts_with("response.output_item."))

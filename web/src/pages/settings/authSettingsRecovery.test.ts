@@ -311,7 +311,7 @@ function host(options: { initialError?: boolean } = {}) {
     "@/components/PlatformCapabilities": { PlatformCapabilities: () => null },
     react: { ...react, useLayoutEffect: react.useEffect }, "react/jsx-runtime": { jsx, jsxs: jsx },
     "react-router-dom": { Link: "Link" }, "react-i18next": { useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en", resolvedLanguage: "en" } }) },
-    "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: ReturnType<typeof auth.getState>) => unknown) => select(auth.getState()), auth) },
+    "@/store/useAuthStore": { consoleAuthGeneration: () => clearCount, useAuthStore: Object.assign((select: (state: ReturnType<typeof auth.getState>) => unknown) => select(auth.getState()), auth) },
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope: authority }, "@/lib/utils": { generateUUID: () => `scope-${++identity}` },
     "@/lib/consoleStepUp": { sensitiveMutationOptions: { retry: false } },
     "@/lib/tenantGovernance": { canAdministerTenantPolicies: () => true }, "@/lib/clipboard": { copyToClipboard: () => {} },

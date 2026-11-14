@@ -2,6 +2,8 @@
 use super::*;
 use std::io::Write;
 const SCHEMA: &str = "database/migrations/096_agent_capability_executions.sql";
+#[path = "source_refresh_content.rs"]
+mod content;
 #[path = "source_export.rs"]
 mod source_export;
 fn atomic(path: &Path, value: &Value) -> Result<()> {
@@ -203,6 +205,25 @@ fn worker_sbom(
         }
         dependencies.push(json!({"ref":refs[id],"dependsOn":deps}));
     }
+    bind_worker_sbom(
+        refs[roots[0]].as_str(),
+        json!(components),
+        json!(dependencies),
+        overlay,
+        schema,
+        lock,
+        source,
+    )
+}
+fn bind_worker_sbom(
+    root: &str,
+    components: Value,
+    dependencies: Value,
+    overlay: &Value,
+    schema: &str,
+    lock: &str,
+    source: &Value,
+) -> Result<Value> {
     // RFC 4122 UUIDv5 with URL namespace; independent of host paths/order.
     let mut h = sha1::Sha1::new();
     h.update([
@@ -223,7 +244,7 @@ fn worker_sbom(
     bytes[6] = (bytes[6] & 15) | 80;
     bytes[8] = (bytes[8] & 63) | 128;
     Ok(
-        json!({"bomFormat":"CycloneDX","specVersion":"1.5","serialNumber":format!("urn:uuid:{}",uuid::Uuid::from_bytes(bytes)),"version":1,"metadata":{"component":{"type":"application","bom-ref":refs[roots[0]],"name":"ai-platform-capability-worker","version":format!("{}+{}",text(source,"upstream_sha")?,&text(overlay,"sha256")?[..12]),"properties":[{"name":"ai-platform:overlay.sha256","value":overlay["sha256"]},{"name":"ai-platform:capability-schema.sha256","value":schema},{"name":"ai-platform:cargo-lock.sha256","value":lock}]}},"components":components,"dependencies":dependencies}),
+        json!({"bomFormat":"CycloneDX","specVersion":"1.5","serialNumber":format!("urn:uuid:{}",uuid::Uuid::from_bytes(bytes)),"version":1,"metadata":{"component":{"type":"application","bom-ref":root,"name":"ai-platform-capability-worker","version":format!("{}+{}",text(source,"upstream_sha")?,&text(overlay,"sha256")?[..12]),"properties":[{"name":"ai-platform:overlay.sha256","value":overlay["sha256"]},{"name":"ai-platform:capability-schema.sha256","value":schema},{"name":"ai-platform:cargo-lock.sha256","value":lock}]}},"components":components,"dependencies":dependencies}),
     )
 }
 /// Refresh only the preimage inventory. All checks complete before mutation.
@@ -389,7 +410,13 @@ pub fn overlay(args: &Args) -> Result<Value> {
             format!("composed overlay differs: {rel}"),
         )?;
     }
-    let metadata = if let Some(p) = args.values.get("--cargo-metadata") {
+    let metadata = if args.values.contains_key("--content-only-from-ref") {
+        require(
+            !args.values.contains_key("--cargo-metadata"),
+            "content-only refresh cannot accept replacement Cargo metadata",
+        )?;
+        None
+    } else if let Some(p) = args.values.get("--cargo-metadata") {
         let p = Path::new(p);
         require(
             digest(
@@ -399,14 +426,14 @@ pub fn overlay(args: &Args) -> Result<Value> {
             )? == digest(&cwd.join("Cargo.lock"))?,
             "offline metadata lock mismatch",
         )?;
-        object(p)?
+        Some(object(p)?)
     } else {
         let output = Command::new("cargo")
             .args(["metadata", "--locked", "--format-version", "1"])
             .current_dir(cwd)
             .output()?;
         require(output.status.success(), "cargo metadata failed")?;
-        strict_json(&output.stdout)?
+        Some(strict_json(&output.stdout)?)
     };
     let identity = bundle_identity(&overlay_root, true)?;
     let cargo_lock = digest(&overlay_root.join("kernel-rs/Cargo.lock"))?;
@@ -430,7 +457,19 @@ pub fn overlay(args: &Args) -> Result<Value> {
         .unwrap_or("deploy/agent-runtime-source/capability-worker-sbom.cdx.json")
         .to_owned();
     let sbom_path = safe(&root, &sbom_rel)?;
-    let sbom = worker_sbom(&metadata, &identity, &schema, &cargo_lock, &source)?;
+    let sbom = if let Some(metadata) = metadata {
+        worker_sbom(&metadata, &identity, &schema, &cargo_lock, &source)?
+    } else {
+        content::reuse_worker_sbom(
+            &root,
+            args.get("--content-only-from-ref")?,
+            path,
+            &lock,
+            &identity,
+            &schema,
+            &cargo_lock,
+        )?
+    };
     atomic(&manifest_path, &manifest)?;
     atomic(&sbom_path, &sbom)?;
     receipt["overlay"] = json!({"sha256":identity["sha256"],"file_count":identity["file_count"],"cargo_lock_sha256":cargo_lock,"source_revision":source["fork_sha"],"upstream_sha":source["upstream_sha"]});
@@ -442,6 +481,20 @@ pub fn overlay(args: &Args) -> Result<Value> {
         lock["build"]["overlay_manifest_sha256"] = json!(sha);
     }
     let sbom_sha = digest(&sbom_path)?;
+    if let Some(revision) = args.values.get("--content-only-from-ref") {
+        receipt["dependency_graph_reuse"] = json!({
+            "method": "unchanged dependency inputs verified against immutable Git commit",
+            "baseline_commit": revision,
+            "baseline_worker_sbom_sha256": lock["build"]["capability_worker_sbom_sha256"],
+            "cargo_metadata_run": false,
+            "image_build_run": false
+        });
+    } else {
+        receipt
+            .as_object_mut()
+            .ok_or("invalid source receipt")?
+            .remove("dependency_graph_reuse");
+    }
     receipt["capability_worker_schema_sha256"] = json!(schema);
     receipt["capability_worker_sbom"] = json!({"format":"CycloneDX-1.5","path":sbom_rel,"sha256":sbom_sha,"component_count":sbom["components"].as_array().ok_or("missing components")?.len()});
     atomic(&receipt_path, &receipt)?;

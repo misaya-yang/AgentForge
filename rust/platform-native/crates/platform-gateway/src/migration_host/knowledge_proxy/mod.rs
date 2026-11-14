@@ -3,6 +3,7 @@
 mod contract;
 mod forwarding;
 mod management;
+mod automations;
 pub mod sdk_capabilities;
 pub mod sdk_models;
 mod sdk_reads;

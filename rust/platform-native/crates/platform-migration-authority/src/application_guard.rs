@@ -11,7 +11,7 @@ use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
 const ADMISSION_SNAPSHOT_VERSION: &str = "ai-platform/schema-admission-snapshot/v1";
-const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 36;
+const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 37;
 const BASELINE_MANIFEST_BYTES: &[u8] =
     include_bytes!("../../../../../database/baselines/2026_08_post_kb_v1/manifest.json");
 const EPOCH_MANIFEST_BYTES: &[u8] =
@@ -661,6 +661,9 @@ pub async fn require_compatible_schema(
     };
     if contract.changes.iter().any(|change| change.sequence == 31 && change.name == "catalog_connections") {
         checks.extend(catalog_connections_admission_checks(principal_role_suffix(principal))?);
+    }
+    if contract.changes.iter().any(|change| change.sequence == 32 && change.name == "gateway_automations") {
+        checks.extend(crate::source_tools::gateway_automations_032::admission_checks(principal_role_suffix(principal))?);
     }
     for sql in checks {
         let admitted: bool = sqlx::query_scalar(&sql)

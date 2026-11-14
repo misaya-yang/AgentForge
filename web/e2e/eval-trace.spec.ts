@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
@@ -11,7 +12,8 @@ const permissions = [
   "console:eval:run",
   "conversation:playground:access",
 ];
-const GOLDEN_FIXTURE_CASES = 25;
+const GOLDEN_FIXTURE_CASES = readFileSync(new URL("../../tests/fixtures/eval/golden/assistant_regression_v1.jsonl", import.meta.url), "utf8")
+  .split(/\r?\n/).filter(line => line.trim()).length;
 
 function jsonResponse(body: unknown, status = 200) {
   return {

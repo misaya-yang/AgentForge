@@ -159,6 +159,20 @@ async function installForwardContractHarness(page: Page) {
       return;
     }
 
+    if (method === "GET" && pathname === `/api/v1/knowledge/${DATASET_ID}/documents/progress`) {
+      await route.fulfill({ status: 200, contentType: "text/event-stream", body: ": idle fixture feed\n\n" });
+      return;
+    }
+
+    const documentMatch = pathname.match(/^\/api\/v1\/knowledge\/[^/]+\/documents\/([^/]+)$/);
+    if (method === "GET" && documentMatch) {
+      const document = docs.find((item) => item.document_id === documentMatch[1]);
+      await route.fulfill(document
+        ? jsonResponse(document)
+        : jsonResponse({ detail: "Document not found" }, 404));
+      return;
+    }
+
     if (method === "GET" && pathname === `/api/v1/knowledge/${DATASET_ID}/segments`) {
       if (url.searchParams.get("document_id") === "doc-alpha") {
         await route.fulfill(
@@ -210,7 +224,7 @@ async function openDocumentsTab(page: Page) {
 
 async function selectStatusFilter(page: Page, label: string) {
   await page.getByTestId("doc-status-filter").click();
-  await page.getByRole("option", { name: label, exact: true }).click();
+  await page.locator(".ant-select-dropdown:visible").getByText(label, { exact: true }).click();
 }
 
 test.describe("@mock KB forward contract", () => {

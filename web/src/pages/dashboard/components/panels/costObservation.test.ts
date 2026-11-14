@@ -22,7 +22,8 @@ function host(modes: Record<string, Mode> = {}) {
   const blocks = new Map<string, Promise<void>>();
   const options = new Map<string, QueryOptions>();
   let buttons: (() => void)[] = [];
-  const modules: Record<string, unknown> = {};
+  const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },};
   function load(file: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {

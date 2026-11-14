@@ -163,11 +163,11 @@ fn management_schemas_reject_private_destinations_and_closed_transports() {
 }
 #[test]
 fn secrets_are_references_and_validation_errors_never_echo_input() {
-    let valid = json!({"principal_type":"user_delegated","secret_ref":"vault://mcp","scopes":[]});
+    let valid = json!({"principal_type":"user_delegated","owner_user_id":"user-a","secret_ref":"vault://mcp","scopes":[]});
     assert!(validate_body(McpBodyKind::ConnectionCreate, &valid).is_ok());
     for body in [
-        json!({"principal_type":"user_delegated","secret_ref":"https://secret.example/token"}),
-        json!({"principal_type":"user_delegated","access_token":"private-canary"}),
+        json!({"principal_type":"user_delegated","owner_user_id":"user-a","secret_ref":"https://secret.example/token"}),
+        json!({"principal_type":"user_delegated","owner_user_id":"user-a","access_token":"private-canary"}),
     ] {
         let errors = validate_body(McpBodyKind::ConnectionCreate, &body).unwrap_err();
         assert!(

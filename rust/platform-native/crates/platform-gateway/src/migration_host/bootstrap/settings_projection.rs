@@ -152,6 +152,10 @@ impl SettingsProjection<'_> {
         worker_writes_enabled: bool,
     ) -> Result<RuntimeConfiguration, BootstrapError> {
         Ok(RuntimeConfiguration {
+            automation_cipher:
+                crate::migration_agent::automations::AutomationCipherKey::from_configuration(
+                    &self.env("GATEWAY_ENCRYPTION_KEY", ""),
+                ),
             options: RuntimeOptions {
                 runtime_url: self
                     .env("AI_PLATFORM_AGENT_RUNTIME_URL", "http://agent-runtime:8094")
@@ -412,6 +416,24 @@ mod required_runtime_projection_tests {
         );
         assert_eq!(config.knowledge_origin, "https://knowledge-service:8452");
         assert_eq!(config.options.kernel_revision, "actual-kernel-revision");
+        assert!(config.automation_cipher.key().is_err());
+        let explicit: BTreeMap<String, String> =
+            serde_json::from_str(r#"{"GATEWAY_ENCRYPTION_KEY":"synthetic-json-automation-key"}"#)
+                .unwrap();
+        environment.extend(explicit);
+        let configured = project(&environment).unwrap();
+        assert_eq!(
+            configured.automation_cipher.key().unwrap(),
+            "synthetic-json-automation-key"
+        );
+        environment.remove("GATEWAY_ENCRYPTION_KEY");
+        assert!(
+            project(&environment)
+                .unwrap()
+                .automation_cipher
+                .key()
+                .is_err()
+        );
         for key in [
             "AI_PLATFORM_INTERNAL_TOKEN",
             "AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN",

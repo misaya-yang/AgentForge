@@ -4,11 +4,16 @@ ARG PYTHON_SANDBOX_IMAGE=python:3.14-slim-trixie
 
 FROM ${CAPABILITY_RUST_BUILD_IMAGE} AS builder
 
+ENV RUSTUP_TOOLCHAIN=1.95.0
 ARG CARGO_BUILD_JOBS=1
 ARG DEBIAN_MIRROR=https://deb.debian.org/debian
 ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
 
-RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
                 -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
@@ -19,9 +24,9 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
         fi; \
     done \
     && test -s /etc/ssl/certs/ca-certificates.crt \
-    && apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends lld \
     && rm -rf /var/lib/apt/lists/* \
@@ -30,9 +35,13 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
 WORKDIR /source/codex-rs
 COPY codex-rs/ ./
 
-RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
     CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
     RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo build --locked --profile dev-small \
@@ -62,7 +71,11 @@ ARG DEBIAN_MIRROR=https://deb.debian.org/debian
 ARG DEBIAN_SECURITY_MIRROR=https://deb.debian.org/debian-security
 # Explicit HTTPS CA bootstrap; apt may not silently accept a partial update.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
                 -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
@@ -73,9 +86,9 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
         fi; \
     done \
     && apt-get -o APT::Update::Error-Mode=any \
-        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends ca-certificates libssl3t64 libgcc-s1 libstdc++6 fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*

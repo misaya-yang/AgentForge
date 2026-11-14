@@ -6,7 +6,7 @@
  * Uses mock API routes to verify UI behavior without a live backend.
  */
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { installAgentV2StreamRoutes, seedClientPrefs } from "./support/helpers";
+import { installAgentV2StreamRoutes, installClientAuth, seedClientPrefs } from "./support/helpers";
 
 const MOCK_SERVICE_ID = "__builtin_assistant__";
 const MOCK_SESSION_ID = "rtl-test-session-001";
@@ -51,6 +51,19 @@ The rollback checklist should be followed before reopening traffic. يجب ال�
 [1] Deployment Runbook - Rollback Procedure`;
 
 async function installMockRoutes(page: Page, responseText: string) {
+  await installClientAuth(page);
+  await page.route("**/api/v1/assistant/config", route => route.fulfill(jsonResponse({
+    default_model_id: "gpt-4o", available_providers: ["openai"], kb_enabled: false, web_search_enabled: false,
+  })));
+  for (const [endpoint, body] of [
+    ["datasets", { datasets: [] }], ["tools", { tools: [] }],
+    ["local-nodes", { devices: [] }],
+  ] as const) {
+    await page.route(`**/api/v1/assistant/${endpoint}`, route => route.fulfill(jsonResponse(body)));
+  }
+  await page.route("**/api/v1/connectors/*", route => route.fulfill(jsonResponse([])));
+  await page.route("**/api/v1/assistant/sessions/*/history*", route => route.fulfill(jsonResponse({ session_id: MOCK_SESSION_ID, messages: [], total: 0 })));
+  await page.route("**/api/v1/assistant/sessions/*/artifacts", route => route.fulfill(jsonResponse({ artifacts: [], total: 0 })));
   // Mock models
   await page.route("**/api/v1/assistant/models", async (route) => {
     await route.fulfill(jsonResponse({
@@ -86,6 +99,7 @@ async function installMockRoutes(page: Page, responseText: string) {
     const sseChunks = [
       `data: ${JSON.stringify({ event_type: "text_delta", data: responseText, timestamp: Date.now() / 1000 })}\n\n`,
       `data: ${JSON.stringify({ event_type: "done", data: { usage: { prompt_tokens: 100, completion_tokens: 200 } }, timestamp: Date.now() / 1000 })}\n\n`,
+      `data: ${JSON.stringify({ event_type: "run_finished", data: { run_id: "rtl-run" } })}\n\n`,
     ];
     await route.fulfill({
       status: 200,

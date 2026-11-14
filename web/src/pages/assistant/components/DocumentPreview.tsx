@@ -9,7 +9,7 @@
  * - Download and copy actions
  */
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   FileText,
@@ -23,7 +23,6 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import { useLatexCopy } from "@/hooks/useLatexCopy";
 import "katex/dist/katex.min.css";
@@ -43,6 +42,8 @@ import {
 import { copyToClipboard } from "@/lib/clipboard";
 import { artifactAccessErrorKey, downloadAssistantArtifact, openAssistantArtifact } from "@/lib/authenticatedDownload";
 import { toast } from "@/hooks/use-toast";
+
+const HtmlDocumentContent = lazy(() => import("./HtmlDocumentContent"));
 
 export interface DocumentPreviewProps {
   title: string;
@@ -79,7 +80,10 @@ function DocumentHeader({
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
       {/* Title with icon */}
-      <div
+      <button
+        type="button"
+        aria-expanded={hasContent ? isExpanded : undefined}
+        disabled={!hasContent}
         onClick={hasContent ? onToggle : undefined}
         className={cn(
           "flex items-center gap-3",
@@ -106,7 +110,7 @@ function DocumentHeader({
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </motion.div>
         )}
-      </div>
+      </button>
 
       {/* Actions */}
       <div className="flex items-center gap-1">
@@ -116,6 +120,7 @@ function DocumentHeader({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
+            aria-label={t("common.copy")}
             onClick={onCopy}
           >
             {copied ? (
@@ -141,7 +146,7 @@ function DocumentHeader({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={t("common.actions")}>
               <MoreHorizontal className="h-4 w-4 text-slate-500" />
             </Button>
           </DropdownMenuTrigger>
@@ -243,8 +248,7 @@ function DocumentContent({
           {content}
         </ReactMarkdown>
       ) : format === "html" ? (
-        // Sanitize HTML to prevent XSS attacks
-        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { RETURN_TRUSTED_TYPE: true }) }} />
+        <Suspense fallback={null}><HtmlDocumentContent content={content} /></Suspense>
       ) : (
         <pre className="whitespace-pre-wrap font-sans">{content}</pre>
       )}

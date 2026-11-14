@@ -6,13 +6,15 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 pub const DATABASE: &str = "gateway_dev_fresh";
-pub const EPOCH: i32 = 36;
+pub const EPOCH: i32 = 37;
 const SOURCE: &[u8] = include_bytes!("fresh_schema/source.json");
 const TABLE: &str = "platform_fresh_schema_state";
 #[path = "fresh_schema/acceptance.rs"]
 mod acceptance;
 #[path = "fresh_schema/admission.rs"]
 mod admission;
+#[path = "fresh_schema/acl_correction.rs"]
+mod acl_correction;
 #[path = "fresh_schema/catalog.rs"]
 mod catalog;
 #[path = "fresh_schema/execution.rs"]

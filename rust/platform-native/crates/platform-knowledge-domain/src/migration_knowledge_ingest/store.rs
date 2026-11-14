@@ -223,11 +223,23 @@ impl KnowledgeWriteStore {
         Ok(dataset)
     }
     pub async fn create_dataset_with_owner(&self, d: &Value, owner: &str) -> Result<bool> {
+        let mut tx = self.pool.begin().await?;
+        crate::database::bind_current(&mut tx).await?;
+        let created = Self::insert_dataset_with_owner(&mut tx, d, owner).await?;
+        if created {
+            tx.commit().await?;
+        }
+        Ok(created)
+    }
+    /// The API can atomically bind metadata, ownership and its durable vector job.
+    pub(super) async fn insert_dataset_with_owner(
+        connection: &mut PgConnection,
+        d: &Value,
+        owner: &str,
+    ) -> Result<bool> {
         if owner.is_empty() {
             return Err(IngestError::Validation("owner_user_id is required".into()));
         }
-        let mut tx = self.pool.begin().await?;
-        crate::database::bind_current(&mut tx).await?;
         let result = sqlx::query(sql::INSERT_DATASET_ROW_0)
             .bind(string(d, "dataset_id"))
             .bind(string(d, "name"))
@@ -245,7 +257,7 @@ impl KnowledgeWriteStore {
             .bind(Option::<String>::None)
             .bind(Option::<String>::None)
             .bind(owner)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await;
         if let Err(e) = result {
             if e.as_database_error()
@@ -265,11 +277,10 @@ impl KnowledgeWriteStore {
             )
             .bind(string(d, "dataset_id"))
             .bind(revision)
-            .execute(&mut *tx)
+            .execute(&mut *connection)
             .await?;
         }
-        sqlx::query("INSERT INTO knowledge.dataset_permissions (dataset_id,subject_type,subject_id,permission) VALUES ($1,'user',$2,'owner')").bind(string(d,"dataset_id")).bind(owner).execute(&mut *tx).await?;
-        tx.commit().await?;
+        sqlx::query("INSERT INTO knowledge.dataset_permissions (dataset_id,subject_type,subject_id,permission) VALUES ($1,'user',$2,'owner')").bind(string(d,"dataset_id")).bind(owner).execute(&mut *connection).await?;
         Ok(true)
     }
     pub async fn dataset_exists(&self, id: &str) -> Result<bool> {

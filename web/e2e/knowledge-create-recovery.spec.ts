@@ -52,7 +52,7 @@ test("controlled lost create response reopens the same dataset without a second 
   await page.getByPlaceholder("请输入知识库名称").fill("R2 响应丢失验收库");
   await page.getByRole("button", { name: "下一步" }).click();
   await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByRole("button", { name: "确认", exact: true }).click();
+  await page.getByRole("button", { name: /^确\s*认$/ }).click();
 
   await expect(page.getByText("知识库创建结果尚未确认", { exact: false })).toBeVisible();
   await expect(page.getByText("创建结果未知", { exact: true })).toBeVisible();

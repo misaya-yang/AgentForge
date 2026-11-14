@@ -1,4 +1,5 @@
-import { App } from "antd";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
+
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cancelEvalExperimentRun, retryFailedEvalExperimentCases } from "@/api/eval";
@@ -17,7 +18,7 @@ export function useEvalRunActions(options: {
 }) {
   const auth = useAuthenticatedReadScope();
   const queryClient = useQueryClient();
-  const { modal } = App.useApp();
+  const { modal } = useProductFeedback();
   const owner = useMemo(() => ({
     active: true, runId: options.runId, experimentId: options.experimentId,
     visit: options.visit, allowed: options.allowed, accessId: auth.id,

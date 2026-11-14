@@ -81,7 +81,7 @@ impl RetrievalService {
                 execution_id: None,
             },
             user.clone(),
-            self.retrieve_scoped(user, dataset_id, request),
+            Box::pin(self.retrieve_scoped(user, dataset_id, request)),
         )
         .await;
         if result.is_ok() {
@@ -127,9 +127,8 @@ impl RetrievalService {
         request: RetrieveRequest,
     ) -> Result<(Vec<RetrieveResult>, Value)> {
         if request.hierarchical {
-            let (result, meta) = self
-                .retrieve_hierarchical(user, dataset_id, &request)
-                .await?;
+            let (result, meta) =
+                Box::pin(self.retrieve_hierarchical(user, dataset_id, &request)).await?;
             let d = self
                 .store
                 .require_dataset_access(user, dataset_id, "viewer")
@@ -142,10 +141,7 @@ impl RetrievalService {
         let deadline = self.vectors.publication_deadline(self.interactive_deadline);
         let mut last = QueryError::PublicationInProgress;
         for attempt in 0..=24 {
-            match self
-                .retrieve_once(user, dataset_id, &request, deadline)
-                .await
-            {
+            match Box::pin(self.retrieve_once(user, dataset_id, &request, deadline)).await {
                 Err(e @ (QueryError::PublicationInProgress | QueryError::GenerationChanged)) => {
                     last = e;
                     let delay = Duration::from_millis((25 * (attempt + 1)).min(200));
@@ -362,16 +358,12 @@ impl RetrievalService {
                 let query = r.query.clone();
                 let actor = user.clone();
                 let limit = semaphore.clone();
-                embeddings.spawn(super::model_plane::inherit(async move {
-                    let _permit = limit
-                        .acquire_owned()
-                        .await
-                        .map_err(|_| QueryError::DependenciesFailed)?;
-                    let result = manager
-                        .embed_query_for_actor(&dataset, &query, &actor)
-                        .await;
-                    Ok::<_, QueryError>((query, result))
-                }));
+                // Tokio's unoptimized Cell::new copies an inline future several
+                // times. The previous embedding/context future required a >2MiB
+                // stack frame before it was ever polled on a 2MiB worker.
+                embeddings.spawn(Box::pin(super::model_plane::inherit(Box::pin(
+                    prepare_query_embedding(manager, dataset, query, actor, limit),
+                ))));
             }
         }
         while let Some(joined) = embeddings.join_next().await {
@@ -1222,6 +1214,21 @@ fn contains_image(v: &Value) -> bool {
         _ => false,
     }
 }
+async fn prepare_query_embedding(
+    manager: EmbeddingManager,
+    dataset: Dataset,
+    query: String,
+    actor: UserContext,
+    limit: Arc<tokio::sync::Semaphore>,
+) -> Result<(String, Result<Vec<f64>>)> {
+    let _permit = limit
+        .acquire_owned()
+        .await
+        .map_err(|_| QueryError::DependenciesFailed)?;
+    let result = Box::pin(manager.embed_query_for_actor(&dataset, &query, &actor)).await;
+    Ok((query, result))
+}
+
 pub fn stamp_observation(meta: &mut Value, query: &str) {
     let normalized = query
         .nfkc()
@@ -1232,4 +1239,36 @@ pub fn stamp_observation(meta: &mut Value, query: &str) {
         .join(" ");
     meta["trace_id"] = json!(uuid::Uuid::new_v4().to_string());
     meta["query_fingerprint"] = json!(format!("{:x}", Sha256::digest(normalized.as_bytes())));
+}
+
+#[cfg(test)]
+mod future_size_tests {
+    use super::*;
+    fn future_size<A, F: std::future::Future>(_: impl FnOnce(A) -> F) -> usize {
+        std::mem::size_of::<F>()
+    }
+    #[test]
+    fn retrieval_orchestration_futures_fit_the_default_worker_stack() {
+        // The expensive branch states live behind heap boundaries; their
+        // construction must not inflate every HTTP/model-plane polling frame.
+        type Inputs = (
+            &'static RetrievalService,
+            &'static UserContext,
+            RetrieveRequest,
+        );
+        let public = future_size(|(service, user, request): Inputs| {
+            service.retrieve(user, "dataset", request)
+        });
+        let budget = future_size(|(service, user, request): Inputs| {
+            service.retrieve_within_budget(user, "dataset", request)
+        });
+        assert!(
+            public < 64 * 1024,
+            "public retrieval future is {public} bytes"
+        );
+        assert!(
+            budget < 64 * 1024,
+            "retrieval budget future is {budget} bytes"
+        );
+    }
 }

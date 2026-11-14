@@ -1,5 +1,5 @@
 /** Real saved R1 artifacts and owner/guest sharing; no provider or tool execution. */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/real-api";
 import { createHash } from "node:crypto";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 

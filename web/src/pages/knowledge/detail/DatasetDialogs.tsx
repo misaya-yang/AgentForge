@@ -189,7 +189,7 @@ export function DeleteDatasetDialog({ datasetId, datasetName, open, onOpenChange
               placeholder={t("knowledge.detail.deletePasswordPlaceholder")}
               disabled={deleting}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && deletePassword && !deleting) {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229 && deletePassword && !deleting) {
                   void handleDeleteDataset();
                 }
               }}

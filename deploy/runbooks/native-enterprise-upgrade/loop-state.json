@@ -55,11 +55,11 @@
   "goal": "Deliver the complete enterprise AI Gateway product against the existing plan, including connected functionality, integrations, reliability and final acceptance.",
   "base_sha": "385e9d8666f2447b10cfedbf6fec30ba5b7ab6ec",
   "lifecycle": "active",
-  "status": "paused",
-  "last_updated": "2026-10-18T10:21:47.567305+00:00",
-  "priority": "Current owner steering: initialize a complete fresh development database, then start real core services and exercise real functionality; prioritize complete implementation/integration and avoid historical migration-number prerequisites for this fresh environment.",
-  "active_phase": "source_convergence",
-  "next_action": "After the user resumes development: continue batch A from U-DATA-04 remaining tenant caller/control coverage and native-authority adoption of the unactivated RLS definitions; finish actual remaining module seams, then batch B consolidated controlled compilation/interface checks, then batch C real services and prescribed acceptance. Reuse applicable results and do not repeat the architecture/progress audit.",
+  "status": "blocked_external_prerequisites",
+  "last_updated": "2026-11-14T15:46:27.945504+00:00",
+  "priority": "Deliver exactly two M5/M6 commits on 1decc80; retain measured schema authority, tenant/data boundaries and the owner secret rules.",
+  "active_phase": "m5_m6_acceptance_blocked",
+  "next_action": "Apply/publish the saved official-domain network requirements, provide writable existing GitHub authorization, then resume controlled Runtime/Worker builds and model-dependent acceptance. Recover original R1/R3 evidence; after acceptance is green fast-forward main without force and remove only task-owned feature refs.",
   "constraints": [
     "Preserve existing source changes, public contracts, tenant isolation, credentials and data; keep upstream Codex harness unchanged.",
     "Platform services/tools remain Rust; optional Python user-code sandbox retained.",
@@ -640,15 +640,9 @@
       "product_acceptance": false
     },
     "latest_owner_sequence": {
-      "code_first": true,
-      "real_services_deferred_until_code_upgrade_complete": true,
-      "full_goal_and_acceptance_unchanged": true,
-      "minor_nonblocking_bugs": "record and defer",
-      "native_heavy_build_jobs": 1,
-      "maximum_source_workers_target": 4,
-      "current_running_services": "Only existing4infra, no new services started",
-      "source_workers": [],
-      "concurrency_note": "Convergence lanes frozen/completed; restart at most a few disjoint required code tasks after primary integration checkpoint, never parallel heavy builds."
+      "status": "BLOCKED_EXTERNAL_PREREQUISITES",
+      "source": "dot_1113_m5.validation_in_cloud and dot_1113_m6.validation_in_cloud",
+      "updated_at": "2026-11-14T15:46:27.945504+00:00"
     },
     "canonical026": {
       "source": "frozen fixed five-proposal SQL8d716380f32c5ea3ff815e9228153d6161ae9a94bc68949f7dab02abfaf87b07",
@@ -3292,7 +3286,13 @@
       "overall_product_goal_complete": false
     }
   },
-  "blockers": [],
+  "blockers": [
+    "Both official controlled Runtime and Worker builds reached their real Cargo1.95 dependency steps and exited Cargo101 / driver1 because the pinned rusty_v8 buildtools submodule at chromium.googlesource.com receives proxy CONNECT403. The source pin/URL and20GiB/20% guards are unchanged; no current runnable image exists.",
+    "The injected lowercase dashscope binding is ready. Active cloud spec2 still has no explicit allowed hosts; official DashScope and HuggingFace requests receive CONNECT403. Saved domain changes are not an applied/published configuration.",
+    "The official pinned2271071852-byte BGE model is absent. Local hash embeddings prove lifecycle/transport only, not BGE/model-quality acceptance.",
+    "Real Playwright remains47pass20fail2timeout6skip of75, requiring Runtime/model/upstream access plus original R1(9)/R3(5) historical fixtures/receipts. No fabricated history/run IDs/quality evidence replaces them.",
+    "GitHub read-only fetch/ls-remote succeeds; authorized target-branch push and non-mutating main push permission preflight both receive HTTP403 Permission denied. No remote ref or main was changed. Latest owner authorizes main fast-forward only after remaining acceptance is green."
+  ],
   "history": {
     "path": "reports/native-current-acceptance-20261016/program-history-before-layout.json",
     "scope": "Complete previous state and dated verification entries, preserved unchanged. Historical pauses, paths and source identities are not current execution instructions."
@@ -6605,12 +6605,13 @@
       "scope_note": "Verified fresh-local bootstrap gaps: initializer omits required S3/scoped DSNs, native provision-roles creates passwordless login roles. Add explicit local opt-in preparation/credential bootstrap without rotating existing logins or editing frozen SQL/fingerprints; primary owns lockfile/builds. Next source-build step: existing-builder-only selection with context/resource validation; serial Runtime/Worker builds must never create a new builder. Private native options may use current public example with external PDF/storage paths; no runtime acceptance until all services admitted."
     }
   ],
-  "execution_note": "User requested foundation design/progress reconciliation today and development another time. This bounded documentation task is complete; implementation/build/deployment work is paused. Existing agents stay stopped. The overall upgrade remains incomplete and original requirements/conditional activation rules remain unchanged.",
+  "execution_note": "Development resumed by the current owner request. Parallel module work and all attainable Native, database and frontend verification are complete; Runtime/Worker image and model-dependent acceptance remain incomplete. Historical pause is retained below as history, not an active stop instruction.",
   "pause": {
     "requested_by": "user",
     "requested_at": "2026-10-18T10:21:47.567305+00:00",
     "reason": "今天把基础设计搞好，下次有空再开发",
-    "resume_action": "After the user resumes development: continue batch A from U-DATA-04 remaining tenant caller/control coverage and native-authority adoption of the unactivated RLS definitions; finish actual remaining module seams, then batch B consolidated controlled compilation/interface checks, then batch C real services and prescribed acceptance. Reuse applicable results and do not repeat the architecture/progress audit."
+    "resume_action": "After the user resumes development: continue batch A from U-DATA-04 remaining tenant caller/control coverage and native-authority adoption of the unactivated RLS definitions; finish actual remaining module seams, then batch B consolidated controlled compilation/interface checks, then batch C real services and prescribed acceptance. Reuse applicable results and do not repeat the architecture/progress audit.",
+    "superseded_by": "Current owner authorization to continue M5/M6 and repair/verify core services in parallel."
   },
   "dot_1113_m5": {
     "milestone": "M5",
@@ -6620,82 +6621,619 @@
     "compiled": false,
     "tested": false,
     "accepted": false,
-    "current": "M5 source batch implemented; web static/mock checks passed. Native compilation, measured fingerprints and all live acceptance are pending because user explicitly forbids local runtime startup.",
-    "validation": {
-      "web": {
-        "type_check": "passed",
-        "lint": "passed; 5 existing warnings",
-        "unit_tests": "2243 passed; 0 failed; 0 skipped",
-        "i18n": "passed",
-        "build": "passed; public gzip 329681 / 330000",
-        "playwright_collection": "61 tests collected; browser execution not run",
-        "legacy_scan": "8 findings, unchanged from baseline",
-        "type_last10": [
-          "$ node scripts/type-check-native.mjs"
-        ],
-        "lint_last10": [
-          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/DocumentsTab.tsx",
-          "  418:6  warning  React Hook useMemo has an unnecessary dependency: 'pipelineRevision'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps",
-          "",
-          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/QATab.tsx",
-          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useEffect Hook (at line 135) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook  react-hooks/exhaustive-deps",
-          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 239) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
-          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 243) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
-          "",
-          "✖ 5 problems (0 errors, 5 warnings)",
-          ""
-        ],
-        "i18n_last10": [
-          "$ node scripts/check-i18n-keys.mjs",
-          "i18n check passed: en-US and zh-CN keys are in sync and all code keys resolve."
-        ],
-        "test_last10": [
-          "✔ parseSegmentKeywords: drops empties and de-duplicates keeping first order (0.054625ms)",
-          "✔ isSafeHeadingPatterns: only the exact backend triple passes (0.048583ms)",
-          "ℹ tests 2243",
-          "ℹ suites 0",
-          "ℹ pass 2243",
-          "ℹ fail 0",
-          "ℹ cancelled 0",
-          "ℹ skipped 0",
-          "ℹ todo 0",
-          "ℹ duration_ms 17048.376292"
-        ],
-        "build_last10": [
-          "  },",
-          "  \"limits\": {",
-          "    \"publicGzip\": 330000,",
-          "    \"assistantIncrementGzip\": 220000,",
-          "    \"assistantRestoredGzip\": 220000,",
-          "    \"assistantGfmGzip\": 220000,",
-          "    \"routeRaw\": 500000",
-          "  },",
-          "  \"oversizedRoutes\": []",
-          "}"
-        ]
-      },
-      "vertical_mock": {
-        "adk-ts": "passed",
-        "ai-sdk-ts": "passed",
-        "claude-agent-ts": "passed",
-        "langgraph-py": "passed",
-        "openai-agents-ts": "passed"
-      },
-      "native": "not compiled or tested; no services/Docker startup per user instruction",
-      "fingerprints": "pending PostgreSQL 16 measurement; no fabricated reference"
-    },
+    "current": "Frontend source and attainable Native/DB/core-service checks are complete: ordinary2514 pass plus allowed old role-probe1; DB104 pass; SDK ignored1 pass; web2248+3 tests; browser344/372 pass. Runtime and Worker both reached real Cargo but are externally blocked by official Chromium submodule CONNECT403. Full milestone compilation/testing/acceptance and main integration are incomplete.",
     "constraints": [
-      "Latest user instruction: do not start local services, Docker, database or E2E stacks. Continue source fixes.",
-      "No .env files read; no provider keys available or copied; no upstream Codex mutation.",
-      "No push before acceptance."
+      "Never read/write .env*",
+      "Never log/commit credentials",
+      "dot_1113 remains protected; latest owner permits fast-forward main after actual acceptance passes, superseding the earlier main prohibition. Never force-push main."
     ],
     "remaining": [
-      "Complete source work and static/mock validation",
-      "PostgreSQL 16 authority/fingerprint measurement not run per user instruction",
-      "Native Docker tests and service smoke not run per user instruction",
-      "LIVE Qwen tests, browser screenshots and performance measurement not run per user instruction"
+      "Publish/apply the three known official network hosts and resume Runtime/Worker images, actual model flows and remaining real browser cases.",
+      "Supply/recover the original R1/R3 historical evidence required by existing acceptance contracts.",
+      "Enable GitHub write access; after acceptance is green fast-forward main and remove only task-owned feature refs."
     ],
-    "next_action": "Implement M6 modernization, reproducible perf checks and automation in existing processes; preserve the unaccepted/live verification boundary.",
-    "schema": "Canonical successor 031 follows the exact preserved 030 manifest. Side-load SQL removed. Fresh schema epoch 36. 031 fingerprints are honestly pending, with an authority-only measurement entry point; no frozen or historical fingerprint changed."
+    "next_action": "Apply/publish the saved official-domain network requirements, provide writable existing GitHub authorization, then resume controlled Runtime/Worker builds and model-dependent acceptance. Recover original R1/R3 evidence; after acceptance is green fast-forward main without force and remove only task-owned feature refs.",
+    "schema": "Measured isolated PG16.16 epoch30→31→32. Final fresh source95ee848cb826638de84e7176ff0fb7aec4f6d0bcc5b1768fcf3d9a6560abe7d0; frozen historical producer pins preserved. Results here describe the complete final branch, not independent M5-only binary acceptance.",
+    "pushed": false,
+    "validation_in_cloud": {
+      "native_compilation": {
+        "status": "PASS",
+        "command": "scripts/new/native-container.sh build/test (one Rust1.99.0 Docker cache, one Cargo job)",
+        "details": "Changed Gateway/Foundation/Eval, Knowledge domain/service, authority, auth, OpenAPI and platform-tools built; final Gateway production ELF was separately rebuilt/deployed with positive and negative MCP configuration checks. Runtime/Worker image builds are not included."
+      },
+      "native_ordinary": {
+        "status": "PASS_WITH_ALLOWED_OLD_PROBE_FAILURE_AND_ENV_EXCLUSIONS",
+        "passed": 2514,
+        "allowed_old_failed_parent_cases": 1,
+        "details": "Gateway/Foundation/Eval1291; Tools487; authority263; Knowledge340; Auth57; OpenAPI76. The allowed role_dsn_resolution parent contains credential_subprocess_probe, not two independent suite failures. Tools21 cases that require reading root .env.example were filtered to honor the owner no-.env rule. Final config-only guard2 and corrected metrics target11 also passed.",
+        "report": "/tmp/m56-native-verification-final.json",
+        "commands_index": "/tmp/m56-native-command-log-index.json"
+      },
+      "native_ignored_database": {
+        "status": "PASS",
+        "passed": 104,
+        "failed": 0,
+        "command": "Affected real test executables --include-ignored --exact --test-threads=1",
+        "details": "Authority21 (18 integration plus final-source mTLS fresh3); Gateway/Foundation73; Knowledge9 (7 true non-superuser PG,2 TLS Qdrant); Auth Redis1. Exact current related cases rerun; source-unaffected real prior passes reused per AGENTS.md. Responses2 belong only to Gateway73.",
+        "logs": [
+          "/tmp/m56-db-fresh-ignored.log",
+          "/tmp/m56-gateway-foundation-ignored-final-summary.json",
+          "/tmp/m56-knowledge-ignored-final.log",
+          "/tmp/m56-auth-device-redis-ignored.log"
+        ]
+      },
+      "openapi_sdk_ignored": {
+        "status": "PASS",
+        "passed": 1,
+        "failed": 0,
+        "seconds": 4.17,
+        "command": "NODE_OPTIONS=--require=/workspace/.agentforge-tools/m56/forbid-env-files.cjs AGENTFORGE_TSC=/workspace/AgentForge/web/node_modules/.bin/tsc /workspace/.agentforge-tools/m56/preserved-pending-tests/ai_platform_openapi-12ff8e9e92f8b972 --include-ignored --exact codegen::tests::generated_python_and_typescript_execute_with_the_caller_transport --test-threads=1",
+        "details": "Actual retained Docker-built test ELF executed Python and TypeScript caller transports with host interpreters; captured root tool output, no fabricated log file."
+      },
+      "bge_ignored": {
+        "status": "NOT_RUN_EXTERNAL_PREREQUISITE",
+        "details": "Official fixed BGE model missing and download CONNECT403; not included in DB104 or SDK1."
+      },
+      "authority_baseline_probe": {
+        "status": "OLD_VERIFY_DRIFT_REPRODUCED_EXACT_FRESH_ERROR_NOT_REPRODUCED",
+        "command": "1decc80 database-authority provision-roles; provision-extensions; init-fresh; verify on a separate new PG16.16/en_US template0 database",
+        "details": "Original unmodified ELF/source: init-fresh exit0, subsequent verify exit1 with base ACL drift outside the versioned authority delta. The exact reported 9f2400-to-9488 fresh mismatch was not reproduced. Frozen baseline and eleven historical producer pins remain unchanged.",
+        "report": "/tmp/m56-base-enus-fresh-results.json"
+      },
+      "authority_successors": {
+        "status": "PASS",
+        "command": "native measure031; verify; measure032; verify; migrate (replay no-op)",
+        "details": "Actual isolated PG16.16 epoch30 to31 to32 measured receipts. ACL correction is only three explicit grants in unpublished032; dataset column grants do not become table grants.031/032 fingerprints are complete, frozen baseline references unchanged. OID-based postconditions work under the actual runtime roles.",
+        "database": "schema_successor_verify_m56_oid_1114",
+        "logs": [
+          "/tmp/m56-oid-final-measure-031.log",
+          "/tmp/m56-oid-final-measure-032.log"
+        ]
+      },
+      "authority_new_legacy_fresh": {
+        "status": "PASS",
+        "command": "provision-roles; provision-extensions; init-fresh; verify",
+        "details": "Brand-new PG16.16/en_US template0 installed and verified at epoch32.",
+        "database": "m56_legacy_fresh_acl_final"
+      },
+      "fresh_development": {
+        "status": "PASS",
+        "command": "database-authority fresh-development-init; fresh-development-verify --expected-database gateway_dev_fresh",
+        "details": "Current source95ee init and all-five-role verify passed with actual mTLS. Six existing accounts preserved. Exact predecessor repair transactions assert full business-data/membership hashes before/after; no general schema-drift acceptance. Final verify repeated after old-base role bootstrap and passed.",
+        "logs": [
+          "/tmp/m56-oid95ee-fresh-development-init.log",
+          "/tmp/m56-oid95ee-fresh-development-verify.log",
+          "/tmp/m56-fresh-verify-after-base-probe.log"
+        ]
+      },
+      "overlay_exports": {
+        "status": "PASS",
+        "command": "schema-admission-contract and byte comparison; overlay_snapshots_are_exact_native_source_exports",
+        "details": "Both Runtime and Worker snapshots exactly match final native epoch32 export.",
+        "sha256": "57c243c10f9d03c00f391a8b00f1f7ffe61077db6278f6a34fc6bd033a3586df"
+      },
+      "source_lock": {
+        "status": "PASS_SOURCE_ONLY_IMAGES_NOT_ACCEPTED",
+        "command": "platform-tools source-lock refresh-overlay --content-only-from-ref 73e6c4303a85ecbdeeb2fbd6e391f270dce98f02; source-lock validate",
+        "overlay_sha256": "2abfc718f36a9b59b05f4d62b2387776461ffb3b98231ad443e53dec0b78acca",
+        "details": "639 dependency components/graph unchanged. Native receipt uses the immutable M5 parent as its reachable SBOM baseline. Current runnable images are not recorded/accepted; release admission false.",
+        "logs": [
+          "/tmp/m56-source-overlay-final-refresh.log",
+          "/tmp/m56-source-lock-final-validate.log"
+        ],
+        "final_validation_log": "/tmp/m56-final-source-lock-validate.log"
+      },
+      "web_typecheck_lint_units_build": {
+        "status": "PASS",
+        "commands": [
+          "pnpm type-check",
+          "pnpm lint",
+          "pnpm test",
+          "pnpm build"
+        ],
+        "details": "Typecheck exit0; lint0 errors/5 existing warnings; full2248 unit cases passed plus new CustomizeDialog3 tests separately passed. Final guarded production build exit0 in16.09s. Vite/Node env-file guard observed no actual .env read/write attempts.",
+        "log": "/tmp/m56-web-automations-build.log"
+      },
+      "playwright_complete_inventory": {
+        "status": "INCOMPLETE_ACCEPTANCE_ALL_CASES_ACCOUNTED",
+        "inventory": 372,
+        "files": 56,
+        "passed": 344,
+        "failed": 20,
+        "timed_out": 2,
+        "skipped": 6,
+        "details": "275/275 mocked cases (including connect-apps,spaces,66 UI PNGs); real47/75 passed,20 failed,2 timeout,6 skipped; production CSP2/2; final production perf20/20. Zero collection errors or unclassified cases.",
+        "report": "/tmp/m56-browser-final-evidence.json",
+        "remaining_cases": "/tmp/m56-real-final-summary.redacted.json"
+      },
+      "production_cwv": {
+        "status": "PASS",
+        "command": "E2E_BASE_URL=http://127.0.0.1:4182 NODE_OPTIONS=--require=/workspace/.agentforge-tools/m56/forbid-env-files.cjs pnpm exec playwright test --config /workspace/.agentforge-tools/m56-perf-final-production.config.ts",
+        "configuration": "Wrapper imports web/playwright.perf.config.ts unchanged",
+        "passed": 20,
+        "seconds": 43.927127,
+        "max_lcp_ms": 948,
+        "max_inp_ms": 88,
+        "max_cls": 0.00735562414266118,
+        "details": "4 routes x5 cold contexts;27 actual interactions per sample; original budgets/thresholds/traces retained. Final production index SHA228e0f89798c97d68375e007f986ad06e2f8b9d8f0a129db1489de406ac9738c. Earlier failed rounds retained separately.",
+        "report": "/tmp/m56-perf-final-production-report.json"
+      },
+      "knowledge_real_lifecycle": {
+        "status": "PASS_LIFECYCLE_NOT_BGE_MODEL_QUALITY",
+        "details": "Actual default2MiB stack create,text ingest,vector retrieval200,delete200/GET404; worker survives. Prior failed delete recovered with same job. Cancelled HTTP delete waiter resumes durably and retries200 with one job. Local hash embedding proves operation/transport only."
+      },
+      "mcp_real_two_protocols": {
+        "status": "PASS",
+        "command": "with-e2e.mjs pnpm exec playwright test --config /workspace/.agentforge-tools/m56-mcp-platform-live.config.ts",
+        "passed": 1,
+        "seconds": 10.674082,
+        "details": "Issued REST-bound API key,2025 initialize/list and2026 discover/list; own page and real kb_ retrieval in both; ConsoleJWT401; write without approval denied with no effect; revocation401; all owned key/dataset/space cleaned. Exactly7 durable audit receipts:6 completed and1 denied.",
+        "ledger": "/tmp/m56-mcp-final-ledger-proof.json"
+      },
+      "automations_real_http": {
+        "status": "PASS_BOUNDED_INACTIVE_LIFECYCLE",
+        "passed": 47,
+        "details": "Actual HTTP owner/tenant/If-Match/current-actor/cron/timezone/strict-webhook/CAS cancel and policy checks. Four owned inactive drafts cancelled,zero active automations/effects. Explicit JSON secret dependency tested without env access; stale confirmation409 stays draft. Positive active webhook/model dispatch not claimed.",
+        "log": "/tmp/m56-automations-live.log"
+      },
+      "agent_publication_database": {
+        "status": "PASS_STATIC_INTEGRITY_ONLY",
+        "passed": 15,
+        "details": "Real release/evaluation DB checks passed after tenant/dataset advisory transaction serialization. Provider-free static integrity is explicitly not a model-quality evaluation; cost0 and model_quality=false. Actual Preview/Hosted model sends remain blocked by Runtime503."
+      },
+      "runtime_worker": {
+        "status": "BLOCKED_OFFICIAL_UPSTREAM_PROXY_403",
+        "commands": [
+          "python3 /workspace/.agentforge-tools/m56/runtime-controlled-build.py runtime",
+          "python3 /workspace/.agentforge-tools/m56/runtime-controlled-build.py worker"
+        ],
+        "runtime_driver_exit": 1,
+        "runtime_cargo_exit": 101,
+        "worker_driver_exit": 1,
+        "worker_cargo_exit": 101,
+        "details": "Both actual builds passed source/preimages,official base/verified HTTPS strict APT/lld and entered their own Cargo --locked --profile dev-small target. Both failed fetching the pinned rusty_v8 buildtools submodule on chromium.googlesource.com with CONNECT403. No MSRV result or runnable image/health/RPC acceptance is claimed. Tini released both actual locks; no build/compiler remains.",
+        "logs": [
+          "/tmp/m56-runtime-controlled-build-native-cache-reclaimed.log",
+          "/tmp/m56-worker-controlled-build-classification.log"
+        ],
+        "report": "/tmp/m56-runtime-worker-final-evidence.json",
+        "resources": {
+          "actual_vm_memory_bytes": 34359738368,
+          "actual_vm_cpu_quota": 400000,
+          "cpu_period": 100000,
+          "cargo_jobs": 1,
+          "rust": "1.95.0",
+          "platform": "linux/amd64",
+          "minimum_disk_mib": 20480,
+          "minimum_memory_free_percent": 20,
+          "monitor_seconds": 10,
+          "final_free_disk_mib": 23481
+        }
+      },
+      "git_delivery": {
+        "status": "TWO_LOCAL_COMMITS_READY_MAIN_ACCEPTANCE_AND_WRITE_BLOCKED",
+        "base": "1decc809c0fe9ca3012a9d3f6e37c62d7055817e",
+        "M5": "73e6c4303a85ecbdeeb2fbd6e391f270dce98f02",
+        "branch": "codex/dot-1113-m5-m6",
+        "push_exit_code": 128,
+        "http_status": 403,
+        "details": "Exactly two new task commits on1decc80 are kept on the single task feature branch. Main can fast-forward from44511181 without an extra merge commit once accepted. Task scratch m56-work was removed; pre-existing/user refs remain. Main was neither moved nor force-pushed.",
+        "latest_owner_authorization": "Direct main integration after remaining acceptance is green; consolidate task branches.",
+        "main_preflight": "origin/main44511181b4232dd1db393530f64f9922475c863c is an ancestor of the requested1decc80 base and final M5/M6; fast-forward is possible without an additional merge commit.",
+        "scratch_branch_cleanup": "Removed only task local m56-work; its b491f55 commit remains on origin/m56-verify-fixes. Pre-existing work and user branches preserved.",
+        "main_changed": false,
+        "main_permission_preflight": {
+          "dry_run": true,
+          "exit_code": 128,
+          "http_status": 403,
+          "remote_modified": false
+        },
+        "portable_bundle": "/workspace/AgentForge-M5-M6.bundle"
+      },
+      "cache_cleanup": {
+        "status": "AUTHORIZED_COMPLETED",
+        "target": "agentforge-dev-7801d4a9a4_native-dev-cache:/native-cache/target/debug",
+        "retained_ELFs": 13,
+        "retained_ELF_bytes": 866502544,
+        "details": "Only the agreed regenerable Native target/debug path was removed. All13 previously exported ELFs rechecked against SHA manifests; application data/volumes,source,credentials,Cargo downloads and evidence retained. The task-owned idle ignored-test runner was subsequently stopped. All4 actual service/frontend health checks remain200. No source .env read/write. Later reclaimed exactly two known Native dev-image caches,one already-stopped task runner(no-v) and five exact Native BuildKit cache IDs; no global prune. All13 exported ELFs,Cargo download volume,application volumes and Rust1.95/1.99 bases retained. Native dev compiler images must be recreated before later Native Cargo work, not silently assumed present.",
+        "additional_native_vfs_cache_reclaimed_mib": 7477
+      },
+      "production_secret_scan": {
+        "status": "PASS",
+        "dist_files_scanned": 1664,
+        "injected_secret_matches": 0,
+        "source_public_paths_scanned": 310,
+        "details": "Injected credential byte matches,private-key material and provider-key patterns absent in approved public source; no secret values logged. Tracked .env blob IDs unchanged from1decc80,content not opened. Production dist contains no .env paths."
+      }
+    },
+    "external_blockers": [
+      "Both official controlled Runtime and Worker builds reached their real Cargo1.95 dependency steps and exited Cargo101 / driver1 because the pinned rusty_v8 buildtools submodule at chromium.googlesource.com receives proxy CONNECT403. The source pin/URL and20GiB/20% guards are unchanged; no current runnable image exists.",
+      "The injected lowercase dashscope binding is ready. Active cloud spec2 still has no explicit allowed hosts; official DashScope and HuggingFace requests receive CONNECT403. Saved domain changes are not an applied/published configuration.",
+      "The official pinned2271071852-byte BGE model is absent. Local hash embeddings prove lifecycle/transport only, not BGE/model-quality acceptance.",
+      "Real Playwright remains47pass20fail2timeout6skip of75, requiring Runtime/model/upstream access plus original R1(9)/R3(5) historical fixtures/receipts. No fabricated history/run IDs/quality evidence replaces them.",
+      "GitHub read-only fetch/ls-remote succeeds; authorized target-branch push and non-mutating main push permission preflight both receive HTTP403 Permission denied. No remote ref or main was changed. Latest owner authorizes main fast-forward only after remaining acceptance is green."
+    ],
+    "delivery_target": "main (latest owner authorization, conditional on remaining acceptance)",
+    "compiled_scopes": {
+      "native_services_and_tools": true,
+      "web_production": true,
+      "runtime_image": false,
+      "capability_worker_image": false
+    },
+    "tested_scopes": {
+      "native_ordinary_passed": 2514,
+      "allowed_old_native_failed_parent_cases": 1,
+      "native_env_template_filtered": 21,
+      "database_ignored_passed": 104,
+      "sdk_ignored_passed": 1,
+      "web_full_unit_passed": 2248,
+      "web_additional_scoped_passed": 3,
+      "browser_passed": 344,
+      "browser_failed": 20,
+      "browser_timed_out": 2,
+      "browser_skipped": 6,
+      "runtime_worker_health_rpc": "not run: no current compiled images"
+    }
+  },
+  "dot_1113_m6": {
+    "milestone": "M6",
+    "branch": "codex/dot-1113-m5-m6",
+    "base": "73e6c4303a85ecbdeeb2fbd6e391f270dce98f02",
+    "implemented": true,
+    "compiled": false,
+    "tested": false,
+    "accepted": false,
+    "pushed": false,
+    "current": "Frontend source and attainable Native/DB/core-service checks are complete: ordinary2514 pass plus allowed old role-probe1; DB104 pass; SDK ignored1 pass; web2248+3 tests; browser344/372 pass. Runtime and Worker both reached real Cargo but are externally blocked by official Chromium submodule CONNECT403. Full milestone compilation/testing/acceptance and main integration are incomplete.",
+    "implemented_source": [
+      "IME-safe handlers; native dialog adapter and confirmation UI; Radix tabs/menus/tooltips; View Transitions; deferred rendering/critical image priority",
+      "Public budget reduced 10%, lazy optional controls/YAML, all original route/restored/GFM budgets pass",
+      "Cron/timezone in existing scheduler; HMAC timestamp/delivery replay defense; current-actor checks; durable dispatch fences and ordered effects",
+      "Page revision and catalog-connection change triggers; Agent and authorized instruction-skill runs, CAS page append, notifications",
+      "Natural-language generation with tools disabled; inactive draft creation and explicit revision-bound activation; automation UI/history/notifications",
+      "Formal successor 032 after 031; exact prefix validators, admission/ACL/source inventory and dedicated real measurement command",
+      "Existing-stack smoke and performance drivers; UI and CWV browser specs"
+    ],
+    "bundle_before": {
+      "publicEntry": {
+        "raw": 1147134,
+        "gzip": 329681
+      },
+      "assistantIncrement": {
+        "raw": 487497,
+        "gzip": 160421
+      },
+      "assistantRestoredConversation": {
+        "raw": 619212,
+        "gzip": 202468
+      },
+      "assistantGfmConversation": {
+        "raw": 657892,
+        "gzip": 214254
+      },
+      "assistantMathConversation": {
+        "raw": 1127789,
+        "gzip": 354604
+      },
+      "limits": {
+        "publicGzip": 330000,
+        "assistantIncrementGzip": 220000,
+        "assistantRestoredGzip": 220000,
+        "assistantGfmGzip": 220000,
+        "routeRaw": 500000
+      },
+      "oversizedRoutes": []
+    },
+    "bundle_after": {
+      "publicEntry": {
+        "raw": 1038843,
+        "gzip": 293295
+      },
+      "assistantIncrement": {
+        "raw": 463094,
+        "gzip": 155082
+      },
+      "assistantRestoredConversation": {
+        "raw": 594899,
+        "gzip": 197228
+      },
+      "assistantGfmConversation": {
+        "raw": 633579,
+        "gzip": 209014
+      },
+      "assistantMathConversation": {
+        "raw": 1105399,
+        "gzip": 349982
+      },
+      "limits": {
+        "publicGzip": 297000,
+        "assistantIncrementGzip": 220000,
+        "assistantRestoredGzip": 220000,
+        "assistantGfmGzip": 220000,
+        "routeRaw": 500000
+      },
+      "oversizedRoutes": []
+    },
+    "performance_report": "reports/perf-dot_1113/cwv-final-production-20/ (task-local numeric/provenance evidence; not a new source report)",
+    "screenshot_directory": "reports/ui-dot_1113/",
+    "screenshots_generated": true,
+    "screenshot_manifest": {
+      "surfaces": [
+        "workbench",
+        "assistant",
+        "knowledge",
+        "spaces-list",
+        "spaces-grid",
+        "spaces-editor",
+        "connectors",
+        "connect-apps",
+        "settings",
+        "automations",
+        "login"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        1024,
+        390
+      ],
+      "pattern": "reports/ui-dot_1113/{surface}-{theme}-{width}.png",
+      "expected": 66,
+      "actual": 66
+    },
+    "schema": "Measured isolated PG16.16 epoch30→31→32. Final fresh source95ee848cb826638de84e7176ff0fb7aec4f6d0bcc5b1768fcf3d9a6560abe7d0; frozen historical producer pins preserved. Results here describe the complete final branch, not independent M5-only binary acceptance.",
+    "remaining": [
+      "Publish/apply the three known official network hosts and resume Runtime/Worker images, actual model flows and remaining real browser cases.",
+      "Supply/recover the original R1/R3 historical evidence required by existing acceptance contracts.",
+      "Enable GitHub write access; after acceptance is green fast-forward main and remove only task-owned feature refs."
+    ],
+    "next_action": "Apply/publish the saved official-domain network requirements, provide writable existing GitHub authorization, then resume controlled Runtime/Worker builds and model-dependent acceptance. Recover original R1/R3 evidence; after acceptance is green fast-forward main without force and remove only task-owned feature refs.",
+    "constraints": [
+      "Never read/write .env*",
+      "Never log/commit credentials",
+      "dot_1113 remains protected; latest owner permits fast-forward main after actual acceptance passes, superseding the earlier main prohibition. Never force-push main."
+    ],
+    "validation_in_cloud": {
+      "native_compilation": {
+        "status": "PASS",
+        "command": "scripts/new/native-container.sh build/test (one Rust1.99.0 Docker cache, one Cargo job)",
+        "details": "Changed Gateway/Foundation/Eval, Knowledge domain/service, authority, auth, OpenAPI and platform-tools built; final Gateway production ELF was separately rebuilt/deployed with positive and negative MCP configuration checks. Runtime/Worker image builds are not included."
+      },
+      "native_ordinary": {
+        "status": "PASS_WITH_ALLOWED_OLD_PROBE_FAILURE_AND_ENV_EXCLUSIONS",
+        "passed": 2514,
+        "allowed_old_failed_parent_cases": 1,
+        "details": "Gateway/Foundation/Eval1291; Tools487; authority263; Knowledge340; Auth57; OpenAPI76. The allowed role_dsn_resolution parent contains credential_subprocess_probe, not two independent suite failures. Tools21 cases that require reading root .env.example were filtered to honor the owner no-.env rule. Final config-only guard2 and corrected metrics target11 also passed.",
+        "report": "/tmp/m56-native-verification-final.json",
+        "commands_index": "/tmp/m56-native-command-log-index.json"
+      },
+      "native_ignored_database": {
+        "status": "PASS",
+        "passed": 104,
+        "failed": 0,
+        "command": "Affected real test executables --include-ignored --exact --test-threads=1",
+        "details": "Authority21 (18 integration plus final-source mTLS fresh3); Gateway/Foundation73; Knowledge9 (7 true non-superuser PG,2 TLS Qdrant); Auth Redis1. Exact current related cases rerun; source-unaffected real prior passes reused per AGENTS.md. Responses2 belong only to Gateway73.",
+        "logs": [
+          "/tmp/m56-db-fresh-ignored.log",
+          "/tmp/m56-gateway-foundation-ignored-final-summary.json",
+          "/tmp/m56-knowledge-ignored-final.log",
+          "/tmp/m56-auth-device-redis-ignored.log"
+        ]
+      },
+      "openapi_sdk_ignored": {
+        "status": "PASS",
+        "passed": 1,
+        "failed": 0,
+        "seconds": 4.17,
+        "command": "NODE_OPTIONS=--require=/workspace/.agentforge-tools/m56/forbid-env-files.cjs AGENTFORGE_TSC=/workspace/AgentForge/web/node_modules/.bin/tsc /workspace/.agentforge-tools/m56/preserved-pending-tests/ai_platform_openapi-12ff8e9e92f8b972 --include-ignored --exact codegen::tests::generated_python_and_typescript_execute_with_the_caller_transport --test-threads=1",
+        "details": "Actual retained Docker-built test ELF executed Python and TypeScript caller transports with host interpreters; captured root tool output, no fabricated log file."
+      },
+      "bge_ignored": {
+        "status": "NOT_RUN_EXTERNAL_PREREQUISITE",
+        "details": "Official fixed BGE model missing and download CONNECT403; not included in DB104 or SDK1."
+      },
+      "authority_baseline_probe": {
+        "status": "OLD_VERIFY_DRIFT_REPRODUCED_EXACT_FRESH_ERROR_NOT_REPRODUCED",
+        "command": "1decc80 database-authority provision-roles; provision-extensions; init-fresh; verify on a separate new PG16.16/en_US template0 database",
+        "details": "Original unmodified ELF/source: init-fresh exit0, subsequent verify exit1 with base ACL drift outside the versioned authority delta. The exact reported 9f2400-to-9488 fresh mismatch was not reproduced. Frozen baseline and eleven historical producer pins remain unchanged.",
+        "report": "/tmp/m56-base-enus-fresh-results.json"
+      },
+      "authority_successors": {
+        "status": "PASS",
+        "command": "native measure031; verify; measure032; verify; migrate (replay no-op)",
+        "details": "Actual isolated PG16.16 epoch30 to31 to32 measured receipts. ACL correction is only three explicit grants in unpublished032; dataset column grants do not become table grants.031/032 fingerprints are complete, frozen baseline references unchanged. OID-based postconditions work under the actual runtime roles.",
+        "database": "schema_successor_verify_m56_oid_1114",
+        "logs": [
+          "/tmp/m56-oid-final-measure-031.log",
+          "/tmp/m56-oid-final-measure-032.log"
+        ]
+      },
+      "authority_new_legacy_fresh": {
+        "status": "PASS",
+        "command": "provision-roles; provision-extensions; init-fresh; verify",
+        "details": "Brand-new PG16.16/en_US template0 installed and verified at epoch32.",
+        "database": "m56_legacy_fresh_acl_final"
+      },
+      "fresh_development": {
+        "status": "PASS",
+        "command": "database-authority fresh-development-init; fresh-development-verify --expected-database gateway_dev_fresh",
+        "details": "Current source95ee init and all-five-role verify passed with actual mTLS. Six existing accounts preserved. Exact predecessor repair transactions assert full business-data/membership hashes before/after; no general schema-drift acceptance. Final verify repeated after old-base role bootstrap and passed.",
+        "logs": [
+          "/tmp/m56-oid95ee-fresh-development-init.log",
+          "/tmp/m56-oid95ee-fresh-development-verify.log",
+          "/tmp/m56-fresh-verify-after-base-probe.log"
+        ]
+      },
+      "overlay_exports": {
+        "status": "PASS",
+        "command": "schema-admission-contract and byte comparison; overlay_snapshots_are_exact_native_source_exports",
+        "details": "Both Runtime and Worker snapshots exactly match final native epoch32 export.",
+        "sha256": "57c243c10f9d03c00f391a8b00f1f7ffe61077db6278f6a34fc6bd033a3586df"
+      },
+      "source_lock": {
+        "status": "PASS_SOURCE_ONLY_IMAGES_NOT_ACCEPTED",
+        "command": "platform-tools source-lock refresh-overlay --content-only-from-ref 73e6c4303a85ecbdeeb2fbd6e391f270dce98f02; source-lock validate",
+        "overlay_sha256": "2abfc718f36a9b59b05f4d62b2387776461ffb3b98231ad443e53dec0b78acca",
+        "details": "639 dependency components/graph unchanged. Native receipt uses the immutable M5 parent as its reachable SBOM baseline. Current runnable images are not recorded/accepted; release admission false.",
+        "logs": [
+          "/tmp/m56-source-overlay-final-refresh.log",
+          "/tmp/m56-source-lock-final-validate.log"
+        ],
+        "final_validation_log": "/tmp/m56-final-source-lock-validate.log"
+      },
+      "web_typecheck_lint_units_build": {
+        "status": "PASS",
+        "commands": [
+          "pnpm type-check",
+          "pnpm lint",
+          "pnpm test",
+          "pnpm build"
+        ],
+        "details": "Typecheck exit0; lint0 errors/5 existing warnings; full2248 unit cases passed plus new CustomizeDialog3 tests separately passed. Final guarded production build exit0 in16.09s. Vite/Node env-file guard observed no actual .env read/write attempts.",
+        "log": "/tmp/m56-web-automations-build.log"
+      },
+      "playwright_complete_inventory": {
+        "status": "INCOMPLETE_ACCEPTANCE_ALL_CASES_ACCOUNTED",
+        "inventory": 372,
+        "files": 56,
+        "passed": 344,
+        "failed": 20,
+        "timed_out": 2,
+        "skipped": 6,
+        "details": "275/275 mocked cases (including connect-apps,spaces,66 UI PNGs); real47/75 passed,20 failed,2 timeout,6 skipped; production CSP2/2; final production perf20/20. Zero collection errors or unclassified cases.",
+        "report": "/tmp/m56-browser-final-evidence.json",
+        "remaining_cases": "/tmp/m56-real-final-summary.redacted.json"
+      },
+      "production_cwv": {
+        "status": "PASS",
+        "command": "E2E_BASE_URL=http://127.0.0.1:4182 NODE_OPTIONS=--require=/workspace/.agentforge-tools/m56/forbid-env-files.cjs pnpm exec playwright test --config /workspace/.agentforge-tools/m56-perf-final-production.config.ts",
+        "configuration": "Wrapper imports web/playwright.perf.config.ts unchanged",
+        "passed": 20,
+        "seconds": 43.927127,
+        "max_lcp_ms": 948,
+        "max_inp_ms": 88,
+        "max_cls": 0.00735562414266118,
+        "details": "4 routes x5 cold contexts;27 actual interactions per sample; original budgets/thresholds/traces retained. Final production index SHA228e0f89798c97d68375e007f986ad06e2f8b9d8f0a129db1489de406ac9738c. Earlier failed rounds retained separately.",
+        "report": "/tmp/m56-perf-final-production-report.json"
+      },
+      "knowledge_real_lifecycle": {
+        "status": "PASS_LIFECYCLE_NOT_BGE_MODEL_QUALITY",
+        "details": "Actual default2MiB stack create,text ingest,vector retrieval200,delete200/GET404; worker survives. Prior failed delete recovered with same job. Cancelled HTTP delete waiter resumes durably and retries200 with one job. Local hash embedding proves operation/transport only."
+      },
+      "mcp_real_two_protocols": {
+        "status": "PASS",
+        "command": "with-e2e.mjs pnpm exec playwright test --config /workspace/.agentforge-tools/m56-mcp-platform-live.config.ts",
+        "passed": 1,
+        "seconds": 10.674082,
+        "details": "Issued REST-bound API key,2025 initialize/list and2026 discover/list; own page and real kb_ retrieval in both; ConsoleJWT401; write without approval denied with no effect; revocation401; all owned key/dataset/space cleaned. Exactly7 durable audit receipts:6 completed and1 denied.",
+        "ledger": "/tmp/m56-mcp-final-ledger-proof.json"
+      },
+      "automations_real_http": {
+        "status": "PASS_BOUNDED_INACTIVE_LIFECYCLE",
+        "passed": 47,
+        "details": "Actual HTTP owner/tenant/If-Match/current-actor/cron/timezone/strict-webhook/CAS cancel and policy checks. Four owned inactive drafts cancelled,zero active automations/effects. Explicit JSON secret dependency tested without env access; stale confirmation409 stays draft. Positive active webhook/model dispatch not claimed.",
+        "log": "/tmp/m56-automations-live.log"
+      },
+      "agent_publication_database": {
+        "status": "PASS_STATIC_INTEGRITY_ONLY",
+        "passed": 15,
+        "details": "Real release/evaluation DB checks passed after tenant/dataset advisory transaction serialization. Provider-free static integrity is explicitly not a model-quality evaluation; cost0 and model_quality=false. Actual Preview/Hosted model sends remain blocked by Runtime503."
+      },
+      "runtime_worker": {
+        "status": "BLOCKED_OFFICIAL_UPSTREAM_PROXY_403",
+        "commands": [
+          "python3 /workspace/.agentforge-tools/m56/runtime-controlled-build.py runtime",
+          "python3 /workspace/.agentforge-tools/m56/runtime-controlled-build.py worker"
+        ],
+        "runtime_driver_exit": 1,
+        "runtime_cargo_exit": 101,
+        "worker_driver_exit": 1,
+        "worker_cargo_exit": 101,
+        "details": "Both actual builds passed source/preimages,official base/verified HTTPS strict APT/lld and entered their own Cargo --locked --profile dev-small target. Both failed fetching the pinned rusty_v8 buildtools submodule on chromium.googlesource.com with CONNECT403. No MSRV result or runnable image/health/RPC acceptance is claimed. Tini released both actual locks; no build/compiler remains.",
+        "logs": [
+          "/tmp/m56-runtime-controlled-build-native-cache-reclaimed.log",
+          "/tmp/m56-worker-controlled-build-classification.log"
+        ],
+        "report": "/tmp/m56-runtime-worker-final-evidence.json",
+        "resources": {
+          "actual_vm_memory_bytes": 34359738368,
+          "actual_vm_cpu_quota": 400000,
+          "cpu_period": 100000,
+          "cargo_jobs": 1,
+          "rust": "1.95.0",
+          "platform": "linux/amd64",
+          "minimum_disk_mib": 20480,
+          "minimum_memory_free_percent": 20,
+          "monitor_seconds": 10,
+          "final_free_disk_mib": 23481
+        }
+      },
+      "git_delivery": {
+        "status": "TWO_LOCAL_COMMITS_READY_MAIN_ACCEPTANCE_AND_WRITE_BLOCKED",
+        "base": "1decc809c0fe9ca3012a9d3f6e37c62d7055817e",
+        "M5": "73e6c4303a85ecbdeeb2fbd6e391f270dce98f02",
+        "branch": "codex/dot-1113-m5-m6",
+        "push_exit_code": 128,
+        "http_status": 403,
+        "details": "Exactly two new task commits on1decc80 are kept on the single task feature branch. Main can fast-forward from44511181 without an extra merge commit once accepted. Task scratch m56-work was removed; pre-existing/user refs remain. Main was neither moved nor force-pushed.",
+        "latest_owner_authorization": "Direct main integration after remaining acceptance is green; consolidate task branches.",
+        "main_preflight": "origin/main44511181b4232dd1db393530f64f9922475c863c is an ancestor of the requested1decc80 base and final M5/M6; fast-forward is possible without an additional merge commit.",
+        "scratch_branch_cleanup": "Removed only task local m56-work; its b491f55 commit remains on origin/m56-verify-fixes. Pre-existing work and user branches preserved.",
+        "main_changed": false,
+        "main_permission_preflight": {
+          "dry_run": true,
+          "exit_code": 128,
+          "http_status": 403,
+          "remote_modified": false
+        },
+        "portable_bundle": "/workspace/AgentForge-M5-M6.bundle"
+      },
+      "cache_cleanup": {
+        "status": "AUTHORIZED_COMPLETED",
+        "target": "agentforge-dev-7801d4a9a4_native-dev-cache:/native-cache/target/debug",
+        "retained_ELFs": 13,
+        "retained_ELF_bytes": 866502544,
+        "details": "Only the agreed regenerable Native target/debug path was removed. All13 previously exported ELFs rechecked against SHA manifests; application data/volumes,source,credentials,Cargo downloads and evidence retained. The task-owned idle ignored-test runner was subsequently stopped. All4 actual service/frontend health checks remain200. No source .env read/write. Later reclaimed exactly two known Native dev-image caches,one already-stopped task runner(no-v) and five exact Native BuildKit cache IDs; no global prune. All13 exported ELFs,Cargo download volume,application volumes and Rust1.95/1.99 bases retained. Native dev compiler images must be recreated before later Native Cargo work, not silently assumed present.",
+        "additional_native_vfs_cache_reclaimed_mib": 7477
+      },
+      "production_secret_scan": {
+        "status": "PASS",
+        "dist_files_scanned": 1664,
+        "injected_secret_matches": 0,
+        "source_public_paths_scanned": 310,
+        "details": "Injected credential byte matches,private-key material and provider-key patterns absent in approved public source; no secret values logged. Tracked .env blob IDs unchanged from1decc80,content not opened. Production dist contains no .env paths."
+      }
+    },
+    "external_blockers": [
+      "Both official controlled Runtime and Worker builds reached their real Cargo1.95 dependency steps and exited Cargo101 / driver1 because the pinned rusty_v8 buildtools submodule at chromium.googlesource.com receives proxy CONNECT403. The source pin/URL and20GiB/20% guards are unchanged; no current runnable image exists.",
+      "The injected lowercase dashscope binding is ready. Active cloud spec2 still has no explicit allowed hosts; official DashScope and HuggingFace requests receive CONNECT403. Saved domain changes are not an applied/published configuration.",
+      "The official pinned2271071852-byte BGE model is absent. Local hash embeddings prove lifecycle/transport only, not BGE/model-quality acceptance.",
+      "Real Playwright remains47pass20fail2timeout6skip of75, requiring Runtime/model/upstream access plus original R1(9)/R3(5) historical fixtures/receipts. No fabricated history/run IDs/quality evidence replaces them.",
+      "GitHub read-only fetch/ls-remote succeeds; authorized target-branch push and non-mutating main push permission preflight both receive HTTP403 Permission denied. No remote ref or main was changed. Latest owner authorizes main fast-forward only after remaining acceptance is green."
+    ],
+    "delivery_target": "main (latest owner authorization, conditional on remaining acceptance)",
+    "compiled_scopes": {
+      "native_services_and_tools": true,
+      "web_production": true,
+      "runtime_image": false,
+      "capability_worker_image": false
+    },
+    "tested_scopes": {
+      "native_ordinary_passed": 2514,
+      "allowed_old_native_failed_parent_cases": 1,
+      "native_env_template_filtered": 21,
+      "database_ignored_passed": 104,
+      "sdk_ignored_passed": 1,
+      "web_full_unit_passed": 2248,
+      "web_additional_scoped_passed": 3,
+      "browser_passed": 344,
+      "browser_failed": 20,
+      "browser_timed_out": 2,
+      "browser_skipped": 6,
+      "runtime_worker_health_rpc": "not run: no current compiled images"
+    }
   }
 }

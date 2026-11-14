@@ -31,6 +31,8 @@ type AppState = {
   setAssistantLocalTitles: (titles: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   
   // === 全局状态 ===
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   themeMode: ThemeMode;
   resolvedTheme: ResolvedTheme;
   darkMode: boolean;
@@ -67,6 +69,8 @@ export const useAppStore = create<AppState>()(
         })),
       
       // 全局
+      sidebarCollapsed: false,
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       themeMode: "system",
       resolvedTheme: getSystemTheme(),
       darkMode: getSystemTheme() === "dark",

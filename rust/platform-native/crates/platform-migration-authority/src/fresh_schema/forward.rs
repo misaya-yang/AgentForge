@@ -245,7 +245,7 @@ pub(super) async fn repair(
             "only the exact measured d6 fresh predecessor without drift can be repaired",
         ));
     }
-    install::exact_installed_acl(&crate::fingerprint::acl_lines(&mut tx, prefix).await?)?;
+    super::acl_correction::predecessor_acl(&crate::fingerprint::acl_lines(&mut tx, prefix).await?)?;
     extension_private(&mut tx).await?;
     execution::execute(&mut tx, "RESET ROLE").await?;
     let crypto_owner:bool=sqlx::query_scalar(r#"SELECT p.prosrc='pg_digest' AND p.probin='$libdir/pgcrypto' AND l.lanname='c' AND p.prokind='f' AND NOT p.prosecdef AND pg_catalog.pg_get_userbyid(p.proowner)=current_user AND EXISTS(SELECT 1 FROM pg_catalog.pg_depend d JOIN pg_catalog.pg_extension e ON e.oid=d.refobjid WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=p.oid AND d.objsubid=0 AND d.refclassid='pg_catalog.pg_extension'::regclass AND d.deptype='e' AND e.extname='pgcrypto') FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid=p.prolang WHERE p.oid='public.digest(text,text)'::regprocedure"#).fetch_one(&mut *tx).await?;
@@ -267,6 +267,7 @@ pub(super) async fn repair(
     // DDL owner, without any extension EXECUTE grant or permanent fixture.
     execution::execute(&mut tx,"CREATE TEMP TABLE fresh_extension_index_probe(value text) ON COMMIT DROP;INSERT INTO fresh_extension_index_probe VALUES('authority'),('工具');CREATE INDEX fresh_extension_index_probe_idx ON fresh_extension_index_probe USING gin(value public.gin_trgm_ops);DROP TABLE fresh_extension_index_probe").await?;
     install_hash_closure(&mut tx, defs).await?;
+    super::acl_correction::apply(&mut tx, defs).await?;
     crate::runner::set_role(&mut tx, &format!("{prefix}gateway")).await?;
     // Exercise the exact application privilege context before committing a new
     // source, with every business fixture rolled back to a nested savepoint.

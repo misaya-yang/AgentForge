@@ -80,8 +80,8 @@ fn packaged_native_loader_keeps_historical_identity_without_python_preimages() {
     let epoch =
         manifest::load_epoch_manifest(&paths.epoch_dir(DEFAULT_BASELINE_ID).join("manifest.yml"))
             .unwrap();
-    assert_eq!(epoch.epoch, 30);
-    assert_eq!(epoch.changes.len(), 30);
+    assert_eq!(epoch.epoch, 32);
+    assert_eq!(epoch.changes.len(), 32);
     assert!(
         epoch
             .changes
@@ -89,13 +89,13 @@ fn packaged_native_loader_keeps_historical_identity_without_python_preimages() {
             .enumerate()
             .all(|(index, change)| change.sequence == index as i32 + 1)
     );
-    let installed = epoch.changes.last().expect("030 knowledge spaces change");
-    assert_eq!(installed.sequence, 30);
-    assert_eq!(installed.name, "knowledge_spaces");
-    assert_eq!(installed.file, "030_knowledge_spaces.sql");
+    let installed = epoch.changes.last().expect("032 gateway automations change");
+    assert_eq!(installed.sequence, 32);
+    assert_eq!(installed.name, "gateway_automations");
+    assert_eq!(installed.file, "032_gateway_automations.sql");
     assert_eq!(
         installed.sha256,
-        "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c"
+        "60581afdbd4ec43aca159f813c938dad00f26ee1c82d611c3106ce189bae6f0b"
     );
     let mut applied = BTreeMap::new();
     assert_eq!(

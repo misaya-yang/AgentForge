@@ -3,6 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd "$script_dir/../.." && pwd -P)"
+source "$repo_root/scripts/harness/repository_root.sh"
 original_args=("$@")
 artifact="all"
 dry_run=false
@@ -84,24 +85,10 @@ positive_integer() {
 }
 
 available_memory_mb() {
-    if [[ -r /proc/meminfo ]]; then
-        awk '/^MemAvailable:/ {print int($2 / 1024); found=1; exit} END {if (!found) exit 1}' \
-            /proc/meminfo
-        return
-    fi
-    if command -v memory_pressure >/dev/null 2>&1 && command -v sysctl >/dev/null 2>&1; then
-        local total_bytes free_percent
-        total_bytes="$(sysctl -n hw.memsize 2>/dev/null || true)"
-        free_percent="$(memory_pressure 2>/dev/null | awk '
-            /System-wide memory free percentage:/ {
-                value=$NF; gsub(/%/, "", value); print value; exit
-            }')"
-        if [[ "$total_bytes" =~ ^[0-9]+$ && "$free_percent" =~ ^[0-9]+$ ]]; then
-            echo $((total_bytes / 1024 / 1024 * free_percent / 100))
-            return
-        fi
-    fi
-    return 1
+    local measurement total_bytes available_bytes
+    measurement="$(platform_build_memory_status)" || return 1
+    read -r total_bytes available_bytes <<< "$measurement"
+    echo $((available_bytes / 1024 / 1024))
 }
 
 free_disk_mb() {

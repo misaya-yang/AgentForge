@@ -1,6 +1,8 @@
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { useLayoutEffect, useRef, useState } from "react";
 import { isHttpError } from '@/lib/fetchClient';
-import { Alert, App as AntApp, Button, Empty, Input, Modal, Tag } from "antd";
+import { Alert, Button, Empty, Input, Tag } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import { Copy, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { createAgentApiToken, listAgentApiTokens, revokeAgentApiToken, rotateAgentApiToken } from "@/api/agents";
@@ -19,7 +21,7 @@ export function ApiTokenPanel({ publication, canManage }: Props) {
 
 function TokenPanelContent({ publication, isCurrent }: { publication: AgentPublication; isCurrent: () => boolean }) {
   const { t } = useTranslation();
-  const { message: messageApi } = AntApp.useApp();
+  const { message: messageApi } = useProductFeedback();
   const active = useRef(true);
   const working = useRef(false);
   const reading = useRef(false);

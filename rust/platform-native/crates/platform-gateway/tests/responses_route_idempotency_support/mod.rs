@@ -37,7 +37,7 @@ use ai_platform_gateway::{
     sessions_api::SessionsApiManager,
 };
 use ai_platform_migration_authority::{
-    DEFAULT_BASELINE_ID, bootstrap, commands, credential_bootstrap, credentials,
+    DEFAULT_BASELINE_ID, commands, credential_bootstrap, credentials,
     runner::{AuthorityPaths, MigrationAuthority},
 };
 use axum::{
@@ -191,9 +191,9 @@ impl ProjectFixture {
             let admin_seed_dsn =
                 database_url_for(&credentials::dsn_for_principal("admin")?, &database_name)?;
             // PostgreSQL clones object ACLs, but not the database's own ACL.
-            // Use the frozen native authority and atomically refuse any change
-            // to global role attributes, credentials or membership semantics.
-            provision_cloned_database(&admin_seed_dsn, &authority_paths, &role_prefix).await?;
+            // Restore only the database ACL; all copied schema ACLs must stay
+            // intact, along with global role attributes and credentials.
+            provision_cloned_database(&admin_seed_dsn, &role_prefix).await?;
             let pool = connect_pool(&gateway_test_dsn, 4).await?;
             let control_pool = connect_pool(&gateway_test_dsn, 2).await?;
             let runtime_pool = connect_pool(&runtime_test_dsn, 2).await?;
@@ -1042,22 +1042,41 @@ async fn connect_pool(dsn: &str, max_connections: u32) -> Result<PgPool> {
         })
 }
 
-async fn provision_cloned_database(
-    dsn: &str,
-    paths: &AuthorityPaths,
-    role_prefix: &str,
-) -> Result<()> {
+async fn provision_cloned_database(dsn: &str, role_prefix: &str) -> Result<()> {
+    credentials::validate_role_prefix(role_prefix)?;
+    let database = database_name(dsn)?;
+    if !database
+        .strip_prefix("responses_route_")
+        .is_some_and(|suffix| {
+            suffix.len() == 32
+                && suffix
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+    {
+        return Err("database ACL repair requires the isolated Responses clone".into());
+    }
     let mut connection = sqlx::PgConnection::connect(dsn)
         .await
         .map_err(|_| "isolated database bootstrap connection failed; details withheld")?;
+    let actual: String = sqlx::query_scalar("SELECT current_database()::text")
+        .fetch_one(&mut connection)
+        .await?;
+    if actual != database {
+        return Err("database ACL repair connected to an unexpected database".into());
+    }
     let mut transaction = connection.begin().await?;
-    // Exclude only membership row OIDs, which a native REVOKE/GRANT replaces.
-    // All permission-bearing columns and password verifiers remain compared.
+    // Keep every permission-bearing role/membership column and password
+    // verifier unchanged; database ACL repair never reprovisions cluster roles.
     const CATALOG: &str = "SELECT jsonb_build_object('roles', (SELECT jsonb_agg(to_jsonb(r) ORDER BY r.rolname) FROM pg_catalog.pg_authid r), 'memberships', (SELECT jsonb_agg(to_jsonb(m)-'oid' ORDER BY m.roleid,m.member,m.grantor) FROM pg_catalog.pg_auth_members m))";
     let before: Value = sqlx::query_scalar(CATALOG)
         .fetch_one(&mut *transaction)
         .await?;
-    bootstrap::provision_roles_admin(&mut transaction, paths, role_prefix).await?;
+    sqlx::raw_sql(&format!(
+        "REVOKE CREATE ON DATABASE \"{database}\" FROM PUBLIC; GRANT CREATE ON DATABASE \"{database}\" TO \"{role_prefix}owner\";"
+    ))
+    .execute(&mut *transaction)
+    .await?;
     let after: Value = sqlx::query_scalar(CATALOG)
         .fetch_one(&mut *transaction)
         .await?;

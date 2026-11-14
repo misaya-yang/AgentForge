@@ -5,7 +5,7 @@ import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
  * Tabs: Services, Providers, Models
  */
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useMemo, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ManagementQueryState } from "@/components/ManagementQueryState";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -38,7 +38,7 @@ import { ArchitectureStatusPanel } from "@/components/services/ArchitectureStatu
 import { canViewArchitectureStatus } from "@/components/services/architectureStatusPresentation";
 
 // Provider & Model imports
-import { ProviderCard, ProviderForm, ModelTable, ModelForm } from "@/components/llm";
+import { ProviderCard, ModelTable } from "@/components/llm";
 import { ProviderCatalogReview } from "@/components/llm/ProviderCatalogReview";
 import * as providersApi from "@/api/providers";
 import * as modelsApi from "@/api/models";
@@ -49,6 +49,9 @@ import type {
   ProviderUpdate,
 } from "@/api/providers";
 import type { LLMModel, ModelCreate, ModelUpdate } from "@/api/models";
+
+const ProviderForm = lazy(() => import("@/components/llm/ProviderForm").then(module => ({ default: module.ProviderForm })));
+const ModelForm = lazy(() => import("@/components/llm/ModelForm").then(module => ({ default: module.ModelForm })));
 
 export function ServicesPage() {
   const { toast } = useToast();
@@ -595,7 +598,7 @@ export function ServicesPage() {
       </Tabs>
 
       {/* Dialogs and Modals remain unchanged in logic but inserted here */}
-      <ProviderForm
+      {providerFormOpen && <Suspense fallback={<p role="status">{t("common.loading")}</p>}><ProviderForm
         open={providerFormOpen}
         onOpenChange={(open) => {
           setProviderFormOpen(open);
@@ -606,9 +609,9 @@ export function ServicesPage() {
         templatesLoading={providerTemplatesQuery.isLoading}
         onSubmit={handleProviderSubmit}
         loading={createProviderMutation.isPending || updateProviderMutation.isPending}
-      />
+      /></Suspense>}
 
-      <ModelForm
+      {modelFormOpen && <Suspense fallback={<p role="status">{t("common.loading")}</p>}><ModelForm
         open={modelFormOpen}
         onOpenChange={(open) => {
           setModelFormOpen(open);
@@ -638,7 +641,7 @@ export function ServicesPage() {
           updateModelMutation.isPending ||
           resetCapabilitiesMutation.isPending
         }
-      />
+      /></Suspense>}
 
       <AlertDialog open={deleteProviderOpen} onOpenChange={setDeleteProviderOpen}>
         <AlertDialogContent>

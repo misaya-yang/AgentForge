@@ -126,8 +126,10 @@ export function ChatInputArea({
   const handleTextareaChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setInput(e.target.value);
-      e.target.style.height = "auto";
-      e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+      if (!CSS.supports("field-sizing", "content")) {
+        e.target.style.height = "auto";
+        e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+      }
     },
     [setInput]
   );
@@ -159,7 +161,7 @@ export function ChatInputArea({
 
   // Reset height when input clears
   useEffect(() => {
-    if (!input && textareaRef.current) {
+    if (!input && textareaRef.current && !CSS.supports("field-sizing", "content")) {
       textareaRef.current.style.height = "auto";
     }
   }, [input]);

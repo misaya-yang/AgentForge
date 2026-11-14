@@ -170,7 +170,7 @@ test("@mock filters zero-result queries and persists retrieval feedback", async 
   await expect(page.getByTestId("query-log-list")).toContainText("known policy");
   await expect(page.getByTestId("negative-feedback-list")).toContainText("Wrong handbook");
   await page.getByTestId("query-result-filter").click();
-  await page.getByRole("option", { name: "Zero results" }).click();
+  await page.locator(".ant-select-dropdown:visible").getByText("Zero results", { exact: true }).click();
   await expect(page.getByTestId("query-log-list")).toContainText("missing policy");
   await expect(page.getByTestId("query-log-list")).not.toContainText("known policy");
 

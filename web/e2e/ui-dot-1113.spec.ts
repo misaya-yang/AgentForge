@@ -8,7 +8,7 @@ const directory = path.resolve("../reports/ui-dot_1113");
 const surfaces = [
   ["workbench", "/workbench"], ["assistant", "/assistant"], ["knowledge", "/knowledge"],
   ["spaces-list", "/spaces"], ["spaces-grid", "/spaces"], ["spaces-editor", "/spaces/item/item-0"],
-  ["connectors", "/settings/connectors"], ["connect-apps", "/workbench"], ["settings", "/settings"], ["login", "/login"],
+  ["connectors", "/settings/connectors"], ["connect-apps", "/workbench"], ["settings", "/settings"], ["automations", "/automations"], ["login", "/login"],
 ] as const;
 for (const theme of ["light", "dark"] as const) {
   for (const width of [1440, 1024, 390]) {
@@ -22,6 +22,11 @@ for (const theme of ["light", "dark"] as const) {
         await page.goto(route);
         await expect(page.locator("h1, h2").first()).toBeVisible();
         await expect(page.locator("body")).not.toContainText("Something went wrong");
+        if (name === "knowledge") {
+          await expect(page.getByRole("heading", { name: "No Knowledge Bases Yet" })).toBeVisible();
+          await expect(page.locator("#console-main")).not.toContainText("Loading...");
+          await expect(page.locator("#console-main").getByRole("alert")).toHaveCount(0);
+        }
         if (name === "spaces-grid") await page.getByRole("button", { name: "Grid", exact: true }).click();
         if (name === "spaces-editor") await expect(page.locator(".spaces-editor [contenteditable=true]").first()).toBeVisible();
         if (name === "connect-apps") {

@@ -44,7 +44,7 @@ test("main application bootstraps JSON before rendering a working login page", a
   await page.route("**/api/v1/telemetry/browser/config", route => route.fulfill({ contentType: "application/json", body: '{"enabled":false}' }));
   await page.goto("/login");
   await expect(page.locator('input[type="password"]')).toBeVisible();
-  await page.locator('input[autocomplete="username"]').fill("fixture@example.test");
+  await page.locator("#email").fill("fixture@example.test");
   await page.locator('input[type="password"]').fill("synthetic-password");
   expect(await page.evaluate(() => window.__AI_GATEWAY_RUNTIME_CONFIG__)).toEqual({});
   expect(await page.evaluate(() => localStorage.getItem("agent-gateway-auth"))).toBeNull();

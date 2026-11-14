@@ -38,6 +38,8 @@ pub struct KnowledgeLifecycle {
     document_worker: Option<Mutex<ingest::worker::KnowledgeWorker>>,
     migration_worker: Option<Arc<query::migration_jobs::MigrationWorker>>,
     migration_runner: Mutex<Option<MigrationRunner>>,
+    deletion_service: Option<Arc<ingest::IngestionService>>,
+    deletion_runner: Mutex<Option<MigrationRunner>>,
     transition: Mutex<()>,
     started: AtomicBool,
     model_plane: Option<Arc<query::model_plane::ModelPlaneClient>>,
@@ -78,6 +80,8 @@ impl KnowledgeLifecycle {
             qdrant_startup_timeout,
             replay_redis: connections.replay_redis,
             idempotency_redis: connections.idempotency_redis,
+            deletion_service: (role == RuntimeRole::Api).then(|| ingestion.clone()),
+            deletion_runner: Mutex::new(None),
             document_worker: role.worker().then(|| {
                 Mutex::new(ingest::worker::KnowledgeWorker::new(
                     ingestion,
@@ -154,6 +158,10 @@ impl KnowledgeLifecycle {
                 let _ = worker.lock().await.stop().await;
             }
             if let Some(runner) = self.migration_runner.lock().await.take() {
+                let _ = runner.stop.send(true);
+                let _ = runner.handle.await;
+            }
+            if let Some(runner) = self.deletion_runner.lock().await.take() {
                 let _ = runner.stop.send(true);
                 let _ = runner.handle.await;
             }
@@ -256,6 +264,25 @@ impl KnowledgeLifecycle {
             let handle = tokio::spawn(async move { worker.run(signal).await.map_err(|_| ()) });
             *self.migration_runner.lock().await = Some(MigrationRunner { stop, handle });
         }
+        if let Some(service) = &self.deletion_service {
+            let service = service.clone();
+            let (stop, mut signal) = watch::channel(false);
+            let handle = tokio::spawn(async move {
+                loop {
+                    let busy = tokio::select! {
+                        biased;
+                        _ = signal.changed() => break,
+                        result = ingest::vector_jobs::recover_api_deletions(&service) => result.unwrap_or(false),
+                    };
+                    tokio::select! {
+                        _ = signal.changed() => break,
+                        _ = tokio::time::sleep(if busy { Duration::from_millis(20) } else { Duration::from_secs(1) }) => {},
+                    }
+                }
+                Ok(())
+            });
+            *self.deletion_runner.lock().await = Some(MigrationRunner { stop, handle });
+        }
         if matches!(
             self.role,
             RuntimeRole::All | RuntimeRole::Worker | RuntimeRole::Index
@@ -295,6 +322,12 @@ impl KnowledgeLifecycle {
             let _ = runner.stop.send(true);
             if !matches!(runner.handle.await, Ok(Ok(()))) {
                 failed = Some("migration_worker");
+            }
+        }
+        if let Some(runner) = self.deletion_runner.lock().await.take() {
+            let _ = runner.stop.send(true);
+            if !matches!(runner.handle.await, Ok(Ok(()))) {
+                failed = Some("dataset_deletion_control_worker");
             }
         }
         self.pool.close().await;
@@ -346,6 +379,15 @@ impl KnowledgeLifecycle {
         });
         if self.role.api() {
             core["api"] = json!("healthy");
+            if self.deletion_service.is_some() {
+                let active = self
+                    .deletion_runner
+                    .lock()
+                    .await
+                    .as_ref()
+                    .is_some_and(|runner| !runner.handle.is_finished());
+                core["dataset_deletion_control_worker"] = json!(status(active));
+            }
         }
         if self.role.worker() {
             core["worker"] = json!(status(document && migration));

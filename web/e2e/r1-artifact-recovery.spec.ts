@@ -1,7 +1,7 @@
 /** Real saved PDF + explicitly controlled image-history recovery. No provider calls. */
 import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/real-api";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 
 // Full Chromium includes its PDF viewer; the headless shell only downloads PDFs.

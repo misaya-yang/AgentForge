@@ -435,7 +435,9 @@ fn run_with_args(arguments: impl IntoIterator<Item = String>) -> Result<()> {
                     .into(),
             ));
         }
-        let (plan, manifest) = if active_manifest.epoch == 31 && active_manifest.changes.last().is_some_and(|change| change.file == "031_catalog_connections.sql") {
+        let (plan, manifest) = if active_manifest.epoch == 32 && active_manifest.changes.last().is_some_and(|change| change.file == "032_gateway_automations.sql") {
+            (ai_platform_migration_authority::source_tools::gateway_automations_032::verify_installed(&root)?, active_manifest)
+        } else if active_manifest.epoch == 31 && active_manifest.changes.last().is_some_and(|change| change.file == "031_catalog_connections.sql") {
             (ai_platform_migration_authority::source_tools::catalog_connections_031::verify_installed(&root)?, active_manifest)
         } else if active_manifest.epoch == 30
             && active_manifest

@@ -1,9 +1,9 @@
 {
   "schema": "agentforge/generated-sdk/v2",
   "openapi": "3.2.0",
-  "source_sha256": "3c978859313bd58175d08e936e4a0c2e96e78ec767b404f87f0eb811fd010939",
-  "operations": 627,
-  "schema_models": 83,
+  "source_sha256": "3b6faa6702365d3d234cb95b76a78c1cc6699f043e715859a043200a3fa100f1",
+  "operations": 638,
+  "schema_models": 85,
   "stream_operations": [
     "POST /api/v1/agent-runtime/{public_id}/chat/stream",
     "POST /api/v1/agents/{agent}/preview/chat/stream",
@@ -470,6 +470,22 @@
     },
     "GET /api/v1/auth/me": {
       "request": "operation_get_current_user_api_v1_auth_me_get_413f053051f9",
+      "stream": null
+    },
+    "GET /api/v1/automations": {
+      "request": "operation_list_automations_cc163d0c2966",
+      "stream": null
+    },
+    "GET /api/v1/automations/notifications": {
+      "request": "operation_automation_notifications_213c7f2f1588",
+      "stream": null
+    },
+    "GET /api/v1/automations/{automation_id}": {
+      "request": "operation_get_automation_843977f8cbdd",
+      "stream": null
+    },
+    "GET /api/v1/automations/{automation_id}/executions": {
+      "request": "operation_automation_executions_db4c7fa75bb2",
       "stream": null
     },
     "GET /api/v1/catalog": {
@@ -1654,6 +1670,34 @@
     },
     "POST /api/v1/auth/validate-token": {
       "request": "operation_validate_token_api_v1_auth_validate_token_post_f700688e94b5",
+      "stream": null
+    },
+    "POST /api/v1/automations": {
+      "request": "operation_create_automation_c291c2d02811",
+      "stream": null
+    },
+    "POST /api/v1/automations/draft": {
+      "request": "operation_draft_automation_b0229cafd177",
+      "stream": null
+    },
+    "POST /api/v1/automations/{automation_id}/cancel": {
+      "request": "operation_cancel_automation_98167b834077",
+      "stream": null
+    },
+    "POST /api/v1/automations/{automation_id}/confirm": {
+      "request": "operation_confirm_automation_e7f568784af0",
+      "stream": null
+    },
+    "POST /api/v1/automations/{automation_id}/pause": {
+      "request": "operation_pause_automation_bd31ff93bb60",
+      "stream": null
+    },
+    "POST /api/v1/automations/{automation_id}/resume": {
+      "request": "operation_resume_automation_37d8f4b6fb43",
+      "stream": null
+    },
+    "POST /api/v1/automations/{automation_id}/webhook": {
+      "request": "operation_automation_webhook_1eb8ccbf16c7",
       "stream": null
     },
     "POST /api/v1/catalog": {

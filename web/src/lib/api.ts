@@ -3,7 +3,7 @@ import { createHttpClient, HttpError } from "@/lib/fetchClient";
 import { getApiBaseUrlConfig } from "@/config/runtime";
 import { toast } from "@/hooks/use-toast";
 import i18n from "@/i18n";
-import { useAuthStore } from "@/store/useAuthStore";
+import { consoleAuthGeneration, useAuthStore } from "@/store/useAuthStore";
 import { sdkAuthorityScope } from "@/lib/sdkAuthorityScope";
 
 // Keep browser requests same-origin by default so local dev and E2E use Vite proxy
@@ -12,7 +12,7 @@ const AUTH_STORAGE_KEY = "agent-gateway-auth";
 
 // Keep the credential snapshot out of serialized Fetch configuration/errors.
 // A response from an old request must not log out a newer login or token refresh.
-const requestAuth = new WeakMap<object, { token: string | null; authority: string; generation: number }>();
+const requestAuth = new WeakMap<object, { token: string | null; authority: string; generation: number; sessionGeneration: number }>();
 
 // Equality alone cannot distinguish an earlier A from a replacement A after A→B→A.
 // Match the authenticated read scope's synchronous authority invalidation boundary.
@@ -83,13 +83,13 @@ api.onCreate = (config) => {
       config.adapter ??= "fetch";
       config.headers.delete("X-CSRF-Token");
     } else {
-      requestAuth.set(config, { token: identity.token, authority: sdkAuthorityScope(identity.user), generation: authGeneration });
+      requestAuth.set(config, { token: identity.token, authority: sdkAuthorityScope(identity.user), generation: authGeneration, sessionGeneration: consoleAuthGeneration() });
     }
     if (!["get", "head", "options"].includes((config.method ?? "get").toLowerCase()) && identity.isAuthenticated && !sdkBearer) {
       if (!identity.csrfToken) throw new Error("Console session CSRF bootstrap required");
       config.headers.set("X-CSRF-Token", identity.csrfToken);
     }
-    config.authorityCurrent = () => { const captured=requestAuth.get(config), current=useAuthStore.getState();return !captured || (captured.generation===authGeneration && captured.token===current.token && captured.authority===sdkAuthorityScope(current.user)); };
+    config.authorityCurrent = () => { const captured=requestAuth.get(config), current=useAuthStore.getState();return !captured || (captured.generation===authGeneration && captured.sessionGeneration===consoleAuthGeneration() && captured.token===current.token && captured.authority===sdkAuthorityScope(current.user)); };
 };
 api.beforeTransport = config => { if (config.authorityCurrent?.() === false) throw new Error("Console session changed before request"); };
 
@@ -103,6 +103,10 @@ api.interceptors.response.use(
     const currentIdentity = useAuthStore.getState();
     if (error.response?.status === 401 && requestIdentity
       && requestIdentity.generation === authGeneration
+      // The raw-fetch boundary may already have expired this same response.
+      // Anonymous clears still advance the session generation without changing
+      // token/authority; do not clear twice and hide the owning login's 401.
+      && requestIdentity.sessionGeneration === consoleAuthGeneration()
       && requestIdentity.token === getAuthToken()
       && requestIdentity.authority === sdkAuthorityScope(currentIdentity.user)) {
       // Only a 401 owned by the current auth generation clears BOTH storages. Old or

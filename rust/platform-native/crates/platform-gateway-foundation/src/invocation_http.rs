@@ -126,18 +126,31 @@ pub fn router_with_identity_and_model_catalog(
     identity: Option<Arc<dyn InvocationIdentityResolver>>,
     model_catalog: Option<Arc<dyn crate::openai_model_catalog::OpenAiModelCatalog>>,
 ) -> Router {
+    router_with_public_llm(auth, dispatcher, identity, model_catalog, None)
+}
+
+/// An explicitly configured public LLM API owns its OpenAI routes. The native
+/// invocation, task and SDK protocols remain mounted exactly once in either mode.
+pub fn router_with_public_llm(
+    auth: Arc<AuthService>,
+    dispatcher: Arc<GatewayDispatcher>,
+    identity: Option<Arc<dyn InvocationIdentityResolver>>,
+    model_catalog: Option<Arc<dyn crate::openai_model_catalog::OpenAiModelCatalog>>,
+    public_llm: Option<Router>,
+) -> Router {
     let state = InvocationState {
         auth,
         dispatcher,
         identity,
         model_catalog,
     };
+    let public_llm = public_llm.unwrap_or_else(|| openai_compat::router(state.clone()));
     Router::new()
         .route(contract::INVOKE, post(invoke))
         .route(contract::SUBMIT, post(submit))
         .route(contract::STREAM, post(stream))
         .with_state(state.clone())
-        .merge(openai_compat::router(state.clone()))
+        .merge(public_llm)
         .merge(ag_ui::router(state.clone()))
         .merge(ai_sdk::router(state.clone()))
         .merge(a2a::router(state))

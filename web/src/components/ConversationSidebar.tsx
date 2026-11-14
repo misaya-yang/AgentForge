@@ -88,7 +88,7 @@ function FolderDialog({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleConfirm();
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) handleConfirm();
               if (e.key === "Escape") handleClose();
             }}
             placeholder={t("assistant.folderPlaceholder", "e.g. Product Research")}
@@ -249,7 +249,7 @@ function SessionItem({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commitEdit();
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) commitEdit();
               if (e.key === "Escape") setIsEditing(false);
             }}
             className="w-full rounded-md border border-primary/40 bg-background px-2 py-1.5 text-sm outline-hidden focus:border-primary"

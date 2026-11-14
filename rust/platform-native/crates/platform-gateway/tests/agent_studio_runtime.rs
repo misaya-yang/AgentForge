@@ -68,6 +68,7 @@ use sha2::{Digest, Sha256};
 async fn runtime_api_token_is_scoped_publication_bound_revocable_and_expiring() -> Result<()> {
     agent_studio_support::state::fixture(|p,g|async move {
  sqlx::query("CREATE TABLE agent_version_revocations(tenant_id text NOT NULL,agent_version_id uuid NOT NULL,PRIMARY KEY(tenant_id,agent_version_id))").execute(&p).await?;
+ agent_studio_support::canonical_fixture(&p).await?;
  let seed=graph(&p,"runtime-token").await?;let other=graph(&p,"foreign-token").await?;
  sqlx::raw_sql(&agent_studio_support::sql("079_agent_channel_runtime.sql")).execute(&p).await?;
  sqlx::query("UPDATE agent_publications SET status='active' WHERE publication_id=$1::uuid").bind(&seed.publication).execute(&p).await?;
@@ -92,6 +93,7 @@ async fn runtime_api_token_is_scoped_publication_bound_revocable_and_expiring() 
 async fn hosted_private_requires_authentication_and_tenant_mode_isolated() -> Result<()> {
     agent_studio_support::state::fixture(|p,g|async move {
  sqlx::query("CREATE TABLE agent_version_revocations(tenant_id text NOT NULL,agent_version_id uuid NOT NULL,PRIMARY KEY(tenant_id,agent_version_id))").execute(&p).await?;
+ agent_studio_support::canonical_fixture(&p).await?;
  let seed=graph(&p,"runtime-hosted").await?;
  let public_id:String=sqlx::query_scalar("UPDATE agent_publications SET status='active',channel='hosted',auth_mode='private' WHERE publication_id=$1::uuid RETURNING public_id::text").bind(&seed.publication).fetch_one(&p).await?;
  let public=g.state.public.as_ref().unwrap();let repo=&g.state.repository;let guest=Actor{user_id:"guest".into(),tenant_id:"public".into(),tier:"anonymous".into(),roles:vec!["guest".into()]};let owner=agent_studio_support::actor(&seed.owner,&seed.tenant);let foreign=agent_studio_support::actor("foreign-user","other-tenant");

@@ -28,12 +28,18 @@ fn block<'a>(s: &'a str, marker: &str) -> &'a str {
     }
     panic!("unterminated block")
 }
+fn static_framing_headers_are_included(s: &str) {
+    assert!(s.contains("include /tmp/frontend-security-headers.conf;"));
+    let headers = read("web/docker-entrypoint.d/45-security-headers.sh");
+    assert!(headers.contains("add_header X-Frame-Options \"SAMEORIGIN\" always;"));
+    assert!(headers.contains("frame-ancestors 'self'"));
+    assert!(headers.contains("add_header Content-Security-Policy \"$POLICY\" always;"));
+}
 #[test]
 fn web_preserves_hosted_framing_and_dynamic_embed_headers() {
     let s = read("web/nginx.conf");
     let b = block(&s, "location /embed/agents/");
-    assert!(s.contains("add_header X-Frame-Options \"SAMEORIGIN\" always;"));
-    assert!(s.contains("frame-ancestors 'self'"));
+    static_framing_headers_are_included(&s);
     assert!(b.contains("proxy_pass http://$backend"));
     assert!(!b.contains("X-Frame-Options"));
     assert!(!b.contains("Content-Security-Policy"));
@@ -41,16 +47,35 @@ fn web_preserves_hosted_framing_and_dynamic_embed_headers() {
 }
 #[test]
 fn helm_routes_embed_to_gateway_without_static_framing() {
-    let s = read("deploy/helm/ai-gateway/templates/frontend-configmap.yaml");
-    let ingress = read("deploy/helm/ai-gateway/templates/ingress.yaml");
+    let s = read("deploy/helm/ai-gateway/files/nginx.conf");
+    let config = read("deploy/helm/ai-gateway/templates/config.yaml");
+    let frontend = read("deploy/helm/ai-gateway/templates/frontend.yaml");
+    let routing = read("deploy/helm/ai-gateway/templates/routing.yaml");
+    assert_eq!(
+        s,
+        read("web/nginx.conf"),
+        "Helm must package the canonical proxy config"
+    );
+    assert!(config.contains(".Files.Get \"files/nginx.conf\""));
+    assert!(config.contains("replace \"gateway:8080\" (printf \"%s-gateway:8080\""));
+    assert!(
+        frontend.contains("mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf, readOnly: true")
+    );
+    let public_route = routing
+        .split_once("kind: HTTPRoute")
+        .unwrap()
+        .1
+        .split_once("{{- if .Values.routing.certificate.enabled }}")
+        .unwrap()
+        .0;
+    assert!(public_route.contains("path: {type: PathPrefix, value: /}"));
+    assert!(public_route.contains("}}-frontend, port: 8080}"));
     let b = block(&s, "location /embed/agents/");
-    assert!(s.contains("add_header X-Frame-Options \"SAMEORIGIN\" always;"));
-    assert!(s.contains("frame-ancestors 'self'"));
-    assert!(b.contains("proxy_pass http://backend"));
+    static_framing_headers_are_included(&s);
+    assert!(b.contains("proxy_pass http://$backend"));
     assert!(!b.contains("X-Frame-Options"));
     assert!(!b.contains("Content-Security-Policy"));
-    let p = &ingress[ingress.find("- path: /embed/agents").unwrap()..];
-    assert!(p.split("# API routes").next().unwrap().contains("-gateway"));
+    assert!(b.contains("add_header X-Content-Type-Options \"nosniff\" always;"));
 }
 #[tokio::test]
 async fn middleware_exempts_only_dedicated_embed_document() {

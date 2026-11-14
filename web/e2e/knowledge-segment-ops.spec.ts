@@ -102,6 +102,21 @@ async function installSegmentOpsHarness(
   options: SegmentOpsHarnessOptions = {}
 ) {
   const segments = makeSegments();
+  const document = {
+    document_id: DOC_ID,
+    dataset_id: DATASET_ID,
+    title: "员工手册",
+    status: "completed",
+    display_status: "available",
+    enabled: true,
+    archived: false,
+    word_count: 120,
+    char_count: 240,
+    size_bytes: 480,
+    segment_count: 3,
+    created_at: "2026-08-20T09:00:00Z",
+    updated_at: "2026-08-20T09:05:00Z",
+  };
   const captured = {
     statusUpdates: [] as Array<{ segmentId: string; body: Record<string, unknown> }>,
     edits: [] as Array<{ segmentId: string; body: Record<string, unknown> }>,
@@ -136,25 +151,12 @@ async function installSegmentOpsHarness(
     }
 
     if (method === "GET" && pathname === `/api/v1/knowledge/${DATASET_ID}/documents`) {
-      await route.fulfill(
-        jsonResponse([
-          {
-            document_id: DOC_ID,
-            dataset_id: DATASET_ID,
-            title: "员工手册",
-            status: "completed",
-            display_status: "available",
-            enabled: true,
-            archived: false,
-            word_count: 120,
-            char_count: 240,
-            size_bytes: 480,
-            segment_count: 3,
-            created_at: "2026-08-20T09:00:00Z",
-            updated_at: "2026-08-20T09:05:00Z",
-          },
-        ])
-      );
+      await route.fulfill(jsonResponse([document]));
+      return;
+    }
+
+    if (method === "GET" && pathname === `/api/v1/knowledge/${DATASET_ID}/documents/${DOC_ID}`) {
+      await route.fulfill(jsonResponse(document));
       return;
     }
 
@@ -267,7 +269,7 @@ test.describe("@mock KB segment operations", () => {
     const batchRequest = page.waitForRequest((request) =>
       request.url().includes(`/api/v1/knowledge/${DATASET_ID}/segments/batch/enable`)
     );
-    await page.getByRole("button", { name: "禁用", exact: true }).click();
+    await page.getByRole("button", { name: /^禁\s*用$/ }).click();
 
     const body = (await batchRequest).postDataJSON() as Record<string, unknown>;
     expect(body.segment_ids).toEqual(["seg-reimburse", "seg-leave"]);
@@ -312,7 +314,7 @@ test.describe("@mock KB segment operations", () => {
       .getByPlaceholder("用逗号分隔多个关键词")
       .fill("报销, 发票, 审批，发票 , ");
 
-    await dialog.getByRole("button", { name: "保存" }).click();
+    await dialog.getByRole("button", { name: /^保\s*存$/ }).click();
 
     await expect.poll(() => captured.edits.length).toBeGreaterThan(0);
     expect(captured.edits[0]?.segmentId).toBe("seg-reimburse");
@@ -337,7 +339,7 @@ test.describe("@mock KB segment operations", () => {
     await expect(page.getByTestId("segment-batch-bar")).toBeVisible();
     await page.getByTestId("segment-select-seg-reimburse").click();
 
-    const enableButton = page.getByRole("button", { name: "启用", exact: true });
+    const enableButton = page.getByRole("button", { name: /^启\s*用$/ });
     await expect(enableButton).toBeEnabled();
     const box = await enableButton.boundingBox();
     expect(box).not.toBeNull();

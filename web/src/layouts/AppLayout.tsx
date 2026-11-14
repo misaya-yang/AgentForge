@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Typography, Dropdown } from "antd";
+import { useRouteTransition } from "@/hooks/useRouteTransition";
 import type { MenuProps } from "antd";
 import {
   PanelLeftClose,
@@ -84,6 +86,7 @@ function getPageChrome(pathname: string) {
       subtitleKey: "eval.description",
       subtitleFallback: "Review assistant, LangGraph proxy, and RAG traces with bounded previews and human scoring.",
     },
+    automations: { titleKey: "nav.automations", titleFallback: "Automations" },
     tasks: { titleKey: "nav.tasks", titleFallback: "Tasks" },
     users: { titleKey: "nav.users", titleFallback: "Users" },
     settings: { titleKey: "nav.settings", titleFallback: "Settings" },
@@ -100,14 +103,22 @@ function getInitials(name?: string): string {
 
 export function AppLayout() {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useMediaQuery("(max-width: 1024px)");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed);
+  const setSidebarCollapsed = useAppStore(state => state.setSidebarCollapsed);
+  const collapsed = isMobile ? !mobileSidebarOpen : sidebarCollapsed;
+  const setCollapsed = useCallback((value: boolean) => {
+    if (isMobile) setMobileSidebarOpen(!value);
+    else setSidebarCollapsed(value);
+  }, [isMobile, setSidebarCollapsed]);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const { resolvedTheme, darkMode, setThemeMode, toggleDarkMode } = useAppStore();
   const { user, clearAuth, forcePasswordChange, setForcePasswordChange } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const routeTransition = useRouteTransition();
   const queryClient = useQueryClient();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -121,14 +132,6 @@ export function AppLayout() {
   const handleLanguageChange = (langCode: string) => {
     void changeAppLanguage(langCode);
   };
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1024px)");
-    const sync = () => { const m = mq.matches; setIsMobile(m); if (m) setCollapsed(true); };
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
   const languageMenuItems: MenuProps['items'] = languages.map(lang => ({
     key: lang.code,
@@ -218,7 +221,7 @@ export function AppLayout() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [floatingSidebarOpen]);
+  }, [floatingSidebarOpen, setCollapsed]);
 
   return (
     <Layout className="enterprise-console" onPointerOver={preloadNavigationIntent} onFocusCapture={preloadNavigationIntent} style={{ minHeight: '100dvh' }}>
@@ -233,6 +236,9 @@ export function AppLayout() {
         />
       )}
       <Sider
+        id="console-sidebar"
+        aria-hidden={isMobile && collapsed}
+        inert={isMobile && collapsed}
         collapsible collapsed={collapsed} onCollapse={setCollapsed} trigger={null}
         width={SIDER_WIDTH} collapsedWidth={isMobile ? 0 : 64}
         style={{
@@ -274,7 +280,7 @@ export function AppLayout() {
                   key={item.key}
                   to={item.key}
                   aria-label={t(item.labelKey)}
-                  onClick={() => { if (isMobile) setCollapsed(true); }}
+                  onClick={event => { routeTransition(event); if (isMobile) setCollapsed(true); }}
                   className={({ isActive }) =>
                     `app-nav-link relative group flex items-center rounded-lg transition-colors duration-140 ease-out ${
                       collapsed ? 'justify-center py-[11px]' : 'gap-[10px] px-[10px] py-[11px]'
@@ -367,7 +373,7 @@ export function AppLayout() {
         }}>
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {isMobile && (
-              <button type="button" onClick={() => setCollapsed(p => !p)} className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label={t("nav.toggleSidebar", "Toggle sidebar")}>
+              <button type="button" onClick={() => setCollapsed(!collapsed)} className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label={t("nav.toggleSidebar", "Toggle sidebar")} aria-controls="console-sidebar" aria-expanded={!collapsed}>
                 <Menu size={18} />
               </button>
             )}

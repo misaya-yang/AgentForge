@@ -49,8 +49,7 @@ for (const user of TEST_USERS) {
       await page.goto("/playground");
       await page.waitForLoadState("networkidle");
       // Verify playground content is visible
-      const bodyText = await page.locator("body").textContent();
-      expect(bodyText).toMatch(
+      await expect(page.locator("body")).toContainText(
         /Model Debug|模型调试|New chat|Playground|模型体验|聊天|assistant/i
       );
     });

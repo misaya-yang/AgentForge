@@ -7,11 +7,10 @@ import { installClientAuth, seedClientPrefs } from "./support/helpers";
  *      badge flipping to the resolved display status;
  *   2. archive/unarchive through PATCH /documents/{id}/archive, including
  *      the optional reason (<= 255 chars client-side, dependency D2);
- *   3. the 409 queued contract: a single reindex of an already-queued
- *      document reports "already queued" instead of a raw error
- *      (PRD §5-#6), and batch-reindex reports skipped ids — partial success
- *      in the toast, an in-dialog skipped list on the all-skipped 409
- *      (PRD §5-#7/#8).
+ *   3. the 409 conflict contract: a rejected single reindex asks the user to
+ *      refresh before retrying, without claiming another accepted queue job;
+ *      batch-reindex retains queued/skipped counts and per-document results in
+ *      a durable receipt, including an all-skipped operation (PRD §5-#7/#8).
  *
  * Every route is fulfilled in-process with a mutable document fixture, so the
  * suite runs against `pnpm dev` alone and never needs the live stack. The
@@ -194,6 +193,7 @@ async function installLifecycleHarness(page: Page) {
           name: "Mock Document Lifecycle",
           description: "Browser-only document lifecycle harness",
           visibility: "tenant",
+          my_permission: "owner",
           embedding_provider: "local",
           embedding_model: "hash-384",
           embedding_dimension: 384,
@@ -542,7 +542,7 @@ test.describe("@mock KB document lifecycle", () => {
     assertNoClientErrors();
   });
 
-  test("single reembed 409 is reported as already queued, not an error", async ({
+  test("single reembed 409 reports a conflict without claiming an accepted queue job", async ({
     page,
   }) => {
     // The 409 is the contract under test; the browser logs the non-2xx
@@ -562,7 +562,10 @@ test.describe("@mock KB document lifecycle", () => {
       documentId: "doc-policy",
       action: "reembed",
     });
-    await expect(page.getByText("已在队列", { exact: true })).toBeVisible();
+    await expect(page.getByText("处理请求未获接受", { exact: true })).toBeVisible();
+    await expect(page.getByText("文档状态已变化，或已有其他操作占用。请刷新状态后再决定是否重试。", { exact: true })).toBeVisible();
+    expect(captured.pipelineActions).toHaveLength(1);
+    await expect(page.getByText("仅重嵌向量已排队", { exact: true })).toHaveCount(0);
     // The failure path must not fire alongside.
     await expect(page.getByText("仅重嵌向量失败")).toHaveCount(0);
     assertNoClientErrors();
@@ -590,19 +593,20 @@ test.describe("@mock KB document lifecycle", () => {
     expect(body.document_ids).toEqual(["doc-handbook", "doc-legacy"]);
     expect(captured.batches).toHaveLength(1);
 
-    // Partial success names both sides of the split.
-    // Anchored: the aria-live twin prefixes the toast text with "Notification".
-    await expect(page.getByText(/^已入队 1 个，跳过 1 个/)).toBeVisible();
+    const receipt = page.getByTestId("document-batch-receipt");
+    await expect(receipt).toContainText("选中 2 · 已排队重嵌 1 · 跳过 1 · 失败 0 · 未确认 0 · 尚未提交 0");
+    await expect(receipt.getByText("员工手册 (doc-handbook): 已排队重嵌", { exact: true })).toBeVisible();
+    await expect(receipt.getByText("旧版报销制度 (doc-legacy): 跳过", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(receipt).toContainText("选中 2 · 已排队重嵌 1 · 跳过 1 · 失败 0 · 未确认 0 · 尚未提交 0");
+    expect(captured.batches).toHaveLength(1);
     assertNoClientErrors();
   });
 
-  test("batch reindex 409 keeps the dialog open and lists skipped documents", async ({
+  test("all-skipped batch reindex retains its receipt across reload without resubmitting", async ({
     page,
   }) => {
-    // The all-skipped 409 is the contract under test (see above).
-    const assertNoClientErrors = watchClientErrors(page, [
-      /Failed to load resource.*409/,
-    ]);
+    const assertNoClientErrors = watchClientErrors(page);
     const captured = await installLifecycleHarness(page);
     await openDocumentsTab(page);
 
@@ -614,14 +618,15 @@ test.describe("@mock KB document lifecycle", () => {
     await page.getByRole("menuitem", { name: /^批量重嵌向量 \(1\)/ }).click();
     await page.getByRole("button", { name: /^确认重嵌 \(1\)/ }).click();
 
-    await expect.poll(() => captured.batches.length).toBeGreaterThan(0);
-    await expect(page.getByText("没有文档进入新的处理轮次", { exact: true })).toBeVisible();
-
-    // The dialog stays open and shows which documents were skipped so the
-    // user can deselect them and retry.
-    const skipped = page.getByTestId("batch-reindex-skipped");
-    await expect(skipped).toBeVisible();
-    await expect(skipped).toContainText("旧版报销制度");
+    await expect.poll(() => captured.batches.length).toBe(1);
+    const receipt = page.getByTestId("document-batch-receipt");
+    await expect(receipt).toContainText("选中 1 · 已排队重嵌 0 · 跳过 1 · 失败 0 · 未确认 0 · 尚未提交 0");
+    await expect(receipt.getByText("旧版报销制度 (doc-legacy): 跳过", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.reload();
+    await expect(receipt).toContainText("选中 1 · 已排队重嵌 0 · 跳过 1 · 失败 0 · 未确认 0 · 尚未提交 0");
+    await expect(receipt.getByText("旧版报销制度 (doc-legacy): 跳过", { exact: true })).toBeVisible();
+    expect(captured.batches).toHaveLength(1);
     assertNoClientErrors();
   });
 

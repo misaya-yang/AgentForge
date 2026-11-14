@@ -1,6 +1,9 @@
 FROM rust:1.95.0-bookworm AS builder
 
-ARG CARGO_BUILD_JOBS=2
+# Keep the controlled compiler explicit even when the immutable upstream tree
+# recommends a newer rust-toolchain.toml. MSRV failures must surface as failures.
+ENV RUSTUP_TOOLCHAIN=1.95.0
+ARG CARGO_BUILD_JOBS=1
 ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
 ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 
@@ -8,7 +11,11 @@ ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 # embedded Codex kernel.  lld is materially more memory efficient.  Use the
 # configurable HTTPS mirrors for build tools and the explicit slim runtime
 # package inventory. No compiler/toolchain is copied into the final stage.
-RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
                 -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
@@ -18,8 +25,8 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
                 "${source_file}"; \
         fi; \
     done \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+    && apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo="${build_ca}" -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::https::CaInfo="${build_ca}" -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends lld \
     && rm -rf /var/lib/apt/lists/* \
     && ld.lld --version
@@ -27,9 +34,13 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
 WORKDIR /source/codex-rs
 COPY codex-rs/ ./
 
-RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
     CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
     RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo build --locked --profile dev-small \
@@ -40,9 +51,13 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
 # the host. The ordinary runtime image remains the final/default target.
 FROM builder AS source-evidence
 
-RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
     mkdir -p /tmp/source-evidence/schema \
     && CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
        RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
@@ -56,18 +71,26 @@ RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/l
 # Scoped local verification stays inside the same BuildKit builder/cache;
 # it is separate evidence from the hosted CI changed-crate gate.
 FROM builder AS scoped-tests
-RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
     CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo test --locked --profile dev-small -p ai-platform-agent-runtime --lib \
     && CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
        cargo test --locked --profile dev-small -p ai-platform-capability-worker --lib
 
 FROM scoped-tests AS recovery-tests
-RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
     RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo test --locked --profile dev-small -p codex-core --test durable_recovery
 
@@ -87,7 +110,11 @@ ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 # Slim has no CA bundle before apt; bootstrap HTTPS trust from the build image,
 # then let the explicitly installed Debian 13 ca-certificates package maintain it.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+RUN --mount=type=secret,id=agentforge_build_ca,target=/run/secrets/agentforge-build-ca.pem,mode=0444,required=false \
+    build_ca=/etc/ssl/certs/ca-certificates.crt; \
+    if [ -s /run/secrets/agentforge-build-ca.pem ]; then build_ca=/run/secrets/agentforge-build-ca.pem; fi; \
+    export SSL_CERT_FILE="${build_ca}" CARGO_HTTP_CAINFO="${build_ca}" GIT_SSL_CAINFO="${build_ca}" CURL_CA_BUNDLE="${build_ca}"; \
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
         if [ -f "${source_file}" ]; then \
             sed -i \
                 -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
@@ -98,9 +125,9 @@ RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sour
         fi; \
     done \
     && apt-get -o APT::Update::Error-Mode=any \
-        -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+        -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
-    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
+    && apt-get -o Acquire::https::CaInfo="${build_ca}" \
         -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
         install -y --no-install-recommends \
         bash bubblewrap ca-certificates coreutils curl diffutils findutils \

@@ -10,6 +10,8 @@ mod native_public_contract;
 #[path = "../../platform-gateway/src/migration_host/knowledge_proxy/contract.rs"]
 mod knowledge_proxy_contract;
 use sha2::{Digest, Sha256};
+#[path = "automations_contract.rs"]
+mod automations_contract;
 #[path = "auth_browser_contract.rs"]
 mod auth_browser_contract;
 #[path = "broad_contract.rs"]
@@ -189,5 +191,6 @@ pub fn extend_document(mut document: serde_json::Value) -> serde_json::Value {
     platform_protocol_contract::extend_document(&mut document);
     problem_contract::extend_document(&mut document);
     catalog_contract::extend_document(&mut document);
+    automations_contract::extend_document(&mut document);
     document
 }

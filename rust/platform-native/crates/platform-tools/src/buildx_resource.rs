@@ -180,10 +180,60 @@ fn execute_docker(args: &[String]) -> std::result::Result<CommandOutput, String>
     })
 }
 
+fn immutable_probe_image(image: &str) -> bool {
+    let digest = image.strip_prefix("sha256:").or_else(|| {
+        image
+            .rsplit_once("@sha256:")
+            .filter(|(name, _)| !name.is_empty() && !name.starts_with('-'))
+            .map(|(_, digest)| digest)
+    });
+    !image.chars().any(char::is_whitespace)
+        && digest.is_some_and(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
+fn shared_vm_caps(
+    output: &str,
+    daemon_memory: u64,
+    daemon_cpu: u64,
+) -> std::result::Result<(u64, u64), String> {
+    let lines = output.lines().collect::<Vec<_>>();
+    let memory = lines
+        .first()
+        .and_then(|line| line.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .ok_or("shared VM requires a finite cgroup v2 memory hard limit")?;
+    let cpu = lines
+        .get(1)
+        .map(|line| line.split_whitespace().collect::<Vec<_>>())
+        .filter(|fields| fields.len() == 2)
+        .and_then(|fields| {
+            Some((
+                fields[0].parse::<u64>().ok()?,
+                fields[1].parse::<u64>().ok()?,
+            ))
+        })
+        .filter(|(quota, period)| *quota > 0 && *period > 0)
+        .and_then(|(quota, period)| {
+            u64::try_from(u128::from(quota) * 100_000 / u128::from(period)).ok()
+        })
+        .filter(|value| *value > 0)
+        .ok_or("shared VM requires a finite cgroup v2 CPU hard limit")?;
+    if lines.len() != 2 {
+        return Err("shared VM resource probe returned unexpected output".into());
+    }
+    Ok((memory.min(daemon_memory), cpu.min(daemon_cpu)))
+}
+
 fn existing_local_builder_with(
     name: &str,
     memory: &str,
     cpu_quota: u64,
+    probe_image: Option<&str>,
     mut execute: impl FnMut(&[String]) -> std::result::Result<CommandOutput, String>,
 ) -> std::result::Result<String, String> {
     let memory_limit = memory_bytes(memory)?;
@@ -196,6 +246,11 @@ fn existing_local_builder_with(
     {
         return Err(
             "existing builder name and resource ceilings must be explicit and valid".into(),
+        );
+    }
+    if probe_image.is_some_and(|image| !immutable_probe_image(image)) {
+        return Err(
+            "shared VM probe image must be an existing immutable sha256 image reference".into(),
         );
     }
     let context_name = local_context_with(&mut execute)?;
@@ -236,7 +291,53 @@ fn existing_local_builder_with(
         .filter(|n| *n > 0)
         .and_then(|n| n.checked_mul(100_000))
         .ok_or("Docker daemon CPU ceiling unavailable")?;
-    if memory > memory_limit || cpu > cpu_quota {
+    let (effective_memory, effective_cpu) = if let Some(image) = probe_image {
+        // With the host cgroup namespace this reads the daemon VM's enclosing
+        // hard limits, not per-container HostConfig requests. The probe has no
+        // network, mounts, credentials or compiler work, and never pulls images.
+        let probe = execute(
+            &[
+                "run",
+                "--rm",
+                "--pull",
+                "never",
+                "--network",
+                "none",
+                "--cgroupns",
+                "host",
+                "--user",
+                "65534:65534",
+                "--read-only",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                "--entrypoint",
+                "/bin/sh",
+                image,
+                "-ec",
+                "cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/cpu.max",
+            ]
+            .map(str::to_owned),
+        )?;
+        if !probe.success {
+            return Err("shared VM cgroup hard-limit probe failed; refusing to build".into());
+        }
+        let effective = shared_vm_caps(&probe.stdout, memory, cpu)?;
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "scope":"shared-docker-vm", "per_container_limits":false,
+                "daemon_reported_memory":memory, "daemon_reported_cpu_quota":cpu,
+                "effective_memory":effective.0, "effective_cpu_quota":effective.1,
+                "cpu_period":100_000, "probe_image":image,
+            })
+        );
+        effective
+    } else {
+        (memory, cpu)
+    };
+    if effective_memory > memory_limit || effective_cpu > cpu_quota {
         return Err(
             "existing Docker daemon exceeds the explicitly selected shared memory/CPU ceilings"
                 .into(),
@@ -253,7 +354,7 @@ pub fn run(args: &Args) -> Result<Value> {
             .is_some_and(|arg| arg == "-h" || arg == "--help")
     {
         return Ok(serde_json::json!({
-            "_plain": "usage: platform-tools buildx-resource-builder --repo-root PATH --memory Nm|Ng --cpu-quota N [--existing-builder NAME]; never creates builders. Existing docker-driver mode checks shared daemon ceilings. AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER supplies the same explicit selection to build wrappers."
+            "_plain": "usage: platform-tools buildx-resource-builder --repo-root PATH --memory Nm|Ng --cpu-quota N [--existing-builder NAME] [--shared-vm-probe-image IMAGE@sha256:DIGEST]; never creates builders. Existing docker-driver mode checks shared daemon ceilings; an explicit immutable local probe image additionally measures enclosing cgroup v2 hard limits. AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER and AI_PLATFORM_RUST_SHARED_VM_PROBE_IMAGE supply these selections to build wrappers."
         }));
     }
     let memory = args.get("--memory")?;
@@ -268,13 +369,30 @@ pub fn run(args: &Args) -> Result<Value> {
         .cloned()
         .or_else(|| std::env::var("AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER").ok())
         .filter(|s| !s.is_empty());
+    let probe_image = args
+        .values
+        .get("--shared-vm-probe-image")
+        .cloned()
+        .or_else(|| std::env::var("AI_PLATFORM_RUST_SHARED_VM_PROBE_IMAGE").ok())
+        .filter(|value| !value.is_empty());
     if std::env::var_os("DOCKER_HOST").is_some_and(|v| !v.is_empty()) {
         return Err("unset DOCKER_HOST; builds require the explicit local Docker context".into());
     }
     let name = if let Some(selected) = selected {
         root.canonicalize()?;
-        existing_local_builder_with(&selected, memory, cpu_quota, execute_docker)?
+        existing_local_builder_with(
+            &selected,
+            memory,
+            cpu_quota,
+            probe_image.as_deref(),
+            execute_docker,
+        )?
     } else {
+        if probe_image.is_some() {
+            return Err(
+                "shared VM probing requires an explicitly selected existing Docker builder".into(),
+            );
+        }
         ensure_builder_with(root, memory, cpu_quota, execute_docker)?
     };
     Ok(serde_json::json!({"_plain": name}))
@@ -339,7 +457,7 @@ mod tests {
     fn existing_local_daemon_selection_is_readonly_and_budgeted() {
         let mut responses = local_responses().into_iter();
         let mut calls = vec![];
-        let name = existing_local_builder_with("desktop-linux", "4g", 400_000, |args| {
+        let name = existing_local_builder_with("desktop-linux", "4g", 400_000, None, |args| {
             calls.push(args.to_vec());
             Ok(responses.next().expect("unexpected extra Docker query"))
         })
@@ -402,17 +520,92 @@ mod tests {
             responses[step] = replacement;
             let mut responses = responses.into_iter();
             assert!(
-                existing_local_builder_with("desktop-linux", "4g", 400_000, |_| {
+                existing_local_builder_with("desktop-linux", "4g", 400_000, None, |_| {
                     Ok(responses.next().expect("selection must not mutate Docker"))
                 })
                 .is_err()
             );
         }
         assert!(
-            existing_local_builder_with("--bootstrap", "4g", 400_000, |_| panic!(
+            existing_local_builder_with("--bootstrap", "4g", 400_000, None, |_| panic!(
                 "invalid name must not run Docker"
             ))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn shared_vm_probe_uses_effective_hard_caps_and_never_creates_a_builder() {
+        let image = format!("sha256:{}", "a".repeat(64));
+        let mut responses = local_responses();
+        responses[3] = output(true, r#"{"memory":35743748096,"cpus":5}"#);
+        responses.push(output(true, "34359738368\n400000 100000\n"));
+        let mut responses = responses.into_iter();
+        let mut calls = Vec::new();
+        let name =
+            existing_local_builder_with("desktop-linux", "32g", 400_000, Some(&image), |args| {
+                calls.push(args.to_vec());
+                Ok(responses.next().unwrap())
+            })
+            .unwrap();
+        assert_eq!(name, "desktop-linux");
+        assert_eq!(calls.len(), 5);
+        assert_eq!(calls[4][0], "run");
+        assert!(calls[4].windows(2).any(|pair| pair == ["--pull", "never"]));
+        assert!(
+            calls[4]
+                .windows(2)
+                .any(|pair| pair == ["--cgroupns", "host"])
+        );
+        assert!(
+            calls[4]
+                .windows(2)
+                .any(|pair| pair == ["--network", "none"])
+        );
+        assert!(calls.iter().all(|call| {
+            !call
+                .iter()
+                .any(|part| ["create", "use", "update", "--bootstrap"].contains(&part.as_str()))
+        }));
+    }
+
+    #[test]
+    fn shared_vm_probe_rejects_unbounded_malformed_or_over_budget_limits() {
+        let image = format!("sha256:{}", "a".repeat(64));
+        for probe in [
+            output(false, ""),
+            output(true, "max\n400000 100000\n"),
+            output(true, "34359738368\nmax 100000\n"),
+            output(true, "34359738368\n400000 0\n"),
+            output(true, "34359738368\n400000 100000\nextra\n"),
+            output(true, "34359738368\n400000 100000\n"),
+        ] {
+            let mut responses = local_responses();
+            responses[3] = output(true, r#"{"memory":35743748096,"cpus":5}"#);
+            responses.push(probe);
+            let mut responses = responses.into_iter();
+            assert!(
+                existing_local_builder_with("desktop-linux", "4g", 200_000, Some(&image), |_| Ok(
+                    responses.next().unwrap()
+                ))
+                .is_err()
+            );
+        }
+        for image in ["rust:latest", "", "sha256:abc", "--privileged"] {
+            assert!(
+                existing_local_builder_with(
+                    "desktop-linux",
+                    "32g",
+                    400_000,
+                    Some(image),
+                    |_| panic!("invalid image must not query Docker")
+                )
+                .is_err()
+            );
+        }
+        assert_eq!(
+            shared_vm_caps("34359738368\n25000 100000\n", 1 << 30, 400_000).unwrap(),
+            (1 << 30, 25_000)
         );
     }
 

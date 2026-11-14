@@ -1,4 +1,5 @@
-import { Modal, Typography, Collapse, Space, Tag, Divider } from "antd";
+import { Typography, Collapse, Space, Tag, Divider } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import {
   DashboardOutlined,
   CloudServerOutlined,

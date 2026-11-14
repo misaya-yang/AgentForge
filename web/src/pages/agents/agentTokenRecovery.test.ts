@@ -56,7 +56,10 @@ function host(wrapper = false) {
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const api = Object.fromEntries(["createAgentApiToken", "rotateAgentApiToken", "revokeAgentApiToken"].map(name => [name, (...args: unknown[]) => { writes.push([name, ...args]); return write(); }]));
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "@/lib/fetchClient": { isHttpError }, "@/store/useAuthStore": { useAuthStore: authStore }, "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/utils": { generateUUID: () => `scope-${++uuid}` }, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
+    "@/components/ui/native-modal": { Modal: "Modal" },
     antd: { ...Object.fromEntries(["Alert", "Button", "Modal", "Tag"].map(name => [name, name])), Empty: { PRESENTED_IMAGE_SIMPLE: "empty" }, Input: { Password: "Password" }, App: { useApp: () => ({ message: { success: (value: string) => notifications.push(value) } }) } },
     "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
     "@/api/agents": { ...api, listAgentApiTokens: () => { readCalls++; return read(); } },

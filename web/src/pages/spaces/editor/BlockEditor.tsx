@@ -10,6 +10,10 @@ import "@blocknote/shadcn/style.css";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+import { installOverlayFallback } from "../overlay";
 
 type ChatChunk = { choices?: Array<{ delta?: { content?: string } }> };
 
@@ -37,6 +41,8 @@ export function BlockEditor({
   onChange: (blocks: unknown, markdown: string) => void;
 }) {
   const { t, i18n } = useTranslation();
+  const theme = useAppStore(state => state.resolvedTheme);
+  const shell = useRef<HTMLDivElement>(null);
   const change = useRef(onChange);
   change.current = onChange;
   const [ai, setAi] = useState("");
@@ -47,6 +53,9 @@ export function BlockEditor({
     token: getAuthToken() ?? undefined,
   }), [itemId]);
   useEffect(() => () => provider.destroy(), [provider]);
+  useEffect(() => {
+    if (shell.current) installOverlayFallback(shell.current);
+  }, [itemId]);
   const editor = useCreateBlockNote(withCollaboration({
     dictionary: i18n.language.toLowerCase().startsWith("zh") ? zh : undefined,
     uploadFile: async (file: File) => {
@@ -97,12 +106,14 @@ export function BlockEditor({
   }
 
   return (
-    <div className="spaces-editor" data-editor-chunk="blocknote">
+    <div ref={shell} className="spaces-editor" data-editor-chunk="blocknote">
       <div className="spaces-editor-tools">
-        <button
+        <Button
           id={`space-ai-trigger-${itemId}`}
           type="button"
-          className="spaces-text-button"
+          variant="secondary"
+          size="sm"
+          className="spaces-ai-trigger"
           aria-haspopup="menu"
           aria-expanded="false"
           ref={(node) => {
@@ -110,8 +121,9 @@ export function BlockEditor({
             node?.setAttribute("command", "toggle-popover");
           }}
         >
+          <Sparkles data-icon="inline-start" aria-hidden="true" />
           {t("spaces.editor.ai.open")}
-        </button>
+        </Button>
         <div
           id={`space-ai-menu-${itemId}`}
           popover="auto"
@@ -120,17 +132,17 @@ export function BlockEditor({
             document.getElementById(`space-ai-trigger-${itemId}`)?.setAttribute("aria-expanded", event.newState === "open" ? "true" : "false");
           }}
         >
-          <div ref={(node) => node?.setAttribute("focusgroup", "menu nomemory")} aria-labelledby={`space-ai-trigger-${itemId}`}>
+          <div ref={(node) => node?.setAttribute("focusgroup", "menu nomemory")} role="menu" aria-labelledby={`space-ai-trigger-${itemId}`}>
             {(["rewrite", "continue", "summarize", "translate", "ask"] as const).map((action) => (
-              <button key={action} type="button" disabled={busy} onClick={() => void ask(action)}>
+              <Button role="menuitem" variant="ghost" size="sm" key={action} type="button" disabled={busy} onClick={() => void ask(action)}>
                 {t(`spaces.editor.ai.${action}Label`)}
-              </button>
+              </Button>
             ))}
           </div>
           <pre>{ai}</pre>
         </div>
       </div>
-      <BlockNoteView editor={editor} />
+      <BlockNoteView editor={editor} theme={theme} className="spaces-blocknote" />
     </div>
   );
 }

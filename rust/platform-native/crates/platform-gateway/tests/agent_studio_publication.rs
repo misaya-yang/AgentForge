@@ -2,10 +2,7 @@
 mod agent_studio_support;
 use agent_studio_support::*;
 use futures_util::FutureExt;
-use sqlx::{
-    PgPool, Row,
-    postgres::{PgConnectOptions, PgPoolOptions},
-};
+use sqlx::{PgPool, Row};
 use std::collections::{BTreeMap, BTreeSet};
 #[test]
 fn release_migrations_are_forward_only() {
@@ -23,75 +20,20 @@ where
     F: FnOnce(PgPool) -> Fut,
     Fut: std::future::Future<Output = Result<()>>,
 {
-    let env = dotenvy::from_path_iter(root().join(".env"))?
-        .collect::<std::result::Result<BTreeMap<_, _>, _>>()?;
-    let get = |k: &str| {
-        env.get(k)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| format!("missing isolated PostgreSQL setting {k}"))
-    };
-    let options = PgConnectOptions::new()
-        .host("127.0.0.1")
-        .port(get("POSTGRES_PORT")?.parse()?)
-        .username(get("POSTGRES_USER")?)
-        .password(get("POSTGRES_PASSWORD")?)
-        .database(get("POSTGRES_DB")?);
-    let admin = PgPoolOptions::new()
-        .max_connections(1)
-        .connect_with(options.clone())
-        .await?;
-    let name = format!("agent_release_test_{}", uuid::Uuid::new_v4().simple());
-    sqlx::raw_sql(&format!("CREATE DATABASE \"{name}\""))
-        .execute(&admin)
-        .await?;
-    let pool = PgPoolOptions::new()
-        .max_connections(2)
-        .after_connect(|c, _| {
-            Box::pin(async move {
-                sqlx::query("SET search_path=gateway,public")
-                    .execute(c)
-                    .await?;
-                Ok(())
-            })
-        })
-        .connect_with(options.database(&name))
-        .await?;
-    let p = pool.clone();
-    let outcome = std::panic::AssertUnwindSafe(async move {
-        sqlx::raw_sql("CREATE SCHEMA gateway").execute(&p).await?;
-        sqlx::raw_sql(include_str!("agent_studio_support/base.sql"))
-            .execute(&p)
-            .await?;
-        sqlx::raw_sql(&sql("071_agent_studio_domain.sql"))
-            .execute(&p)
-            .await?;
-        sqlx::raw_sql(include_str!("agent_studio_support/release_base.sql"))
-            .execute(&p)
-            .await?;
-        for file in [
-            "077_agent_publication_eval.sql",
-            "078_agent_release_lifecycle_hardening.sql",
-        ] {
-            for _ in 0..2 {
-                sqlx::raw_sql(&sql(file)).execute(&p).await?;
-            }
-        }
-        sqlx::raw_sql(&sql("2026_08_post_kb_v1/007_agent_publication_expiry.sql"))
-            .execute(&p)
-            .await?;
-        test(p).await
-    })
-    .catch_unwind()
-    .await;
-    pool.close().await;
-    sqlx::raw_sql(&format!("DROP DATABASE \"{name}\""))
-        .execute(&admin)
-        .await?;
-    admin.close().await;
-    match outcome {
-        Ok(r) => r,
-        Err(e) => std::panic::resume_unwind(e),
+    let base = format!("{}\n{}\n{}", include_str!("agent_studio_support/base.sql"),
+        sql("071_agent_studio_domain.sql"), include_str!("agent_studio_support/release_base.sql"));
+    let fixture = Fixture::custom(&base, &[
+        "077_agent_publication_eval.sql", "078_agent_release_lifecycle_hardening.sql",
+    ]).await?;
+    if let Err(error)=install_audit_fixture(&fixture.pool).await {
+        fixture.close().await?;return Err(error);
     }
+    let setup = sqlx::raw_sql(&sql("2026_08_post_kb_v1/007_agent_publication_expiry.sql"))
+        .execute(&fixture.pool).await;
+    if let Err(error) = setup { fixture.close().await?; return Err(error.into()); }
+    let outcome = std::panic::AssertUnwindSafe(test(fixture.pool.clone())).catch_unwind().await;
+    fixture.close().await?;
+    match outcome { Ok(result) => result, Err(panic) => std::panic::resume_unwind(panic) }
 }
 #[tokio::test]
 #[ignore = "explicit isolated PostgreSQL publication contract"]
@@ -107,6 +49,30 @@ async fn release_migration_is_idempotent_and_lifecycle_tenant_constraints_are_ex
 use agent_studio_support::state::TestState;
 use ai_platform_gateway::migration_agent::{Actor, routes::AgentState};
 use serde_json::{Value, json};
+async fn wait_dataset_lock<T>(pool: &PgPool, writer: &tokio::task::JoinHandle<T>) -> Result<()> {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            assert!(!writer.is_finished(), "manifest writer bypassed the dataset lock");
+            let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database()))")
+                .fetch_one(pool).await?;
+            if waiting { return Ok::<(), sqlx::Error>(()); }
+            tokio::task::yield_now().await;
+        }
+    }).await??;
+    Ok(())
+}
+async fn dataset_writer_waits<T, F>(pool: &PgPool, tenant: &str, dataset: &str, writer: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: std::future::Future<Output = std::result::Result<T, ai_platform_gateway::migration_compat::common::CompatError>> + Send + 'static,
+{
+    let mut transaction = pool.begin().await?;
+    ai_platform_gateway::migration_compat::eval::lock_dataset(&mut transaction, tenant, dataset).await?;
+    let writer = tokio::spawn(writer);
+    wait_dataset_lock(pool, &writer).await?;
+    transaction.rollback().await?;
+    Ok(tokio::time::timeout(std::time::Duration::from_secs(5), writer).await??? )
+}
 async fn release_state_fixture<F, Fut>(test: F) -> Result<()>
 where
     F: FnOnce(PgPool, TestState) -> Fut,
@@ -420,7 +386,52 @@ async fn eval_dataset_manifest_is_tenant_bound_and_content_stale() -> Result<()>
  let changed=g.state.resolve_release_candidate(&a,&id,1,"api","private",&policy,Some(&dataset)).await?;assert_ne!(changed["dataset_manifest_hash"],candidate["dataset_manifest_hash"]);
  let eid=queued["evaluation_id"].as_str().unwrap();g.state.repository.transition_evaluation(&a,&id,eid,false).await?;
  error(g.state.complete_release_evaluation(&a,&id,eid,&candidate,&gate()).await,409,"AGENT_EVAL_DATASET_STALE");
- let persisted=g.state.repository.release_evaluation(&a,&id,eid,"owner").await?;assert_eq!(persisted["status"],"running");Ok(())}).await
+ let persisted=g.state.repository.release_evaluation(&a,&id,eid,"owner").await?;assert_eq!(persisted["status"],"running");
+ // Exercise real Gateway writers while an independent transaction owns the
+ // dataset lock. Inserts into an empty manifest must be fenced as well.
+ let application=application_pool(&p);
+ let permissions:(String,bool,bool)=sqlx::query_as("SELECT current_user::text,has_table_privilege(current_user,'gateway.eval_datasets','UPDATE'),has_table_privilege(current_user,'gateway.agent_release_requests','UPDATE')").fetch_one(&application).await?;
+ assert_eq!(permissions,("ai_gateway_gateway".into(),false,false));
+ let service=std::sync::Arc::new(ai_platform_gateway::migration_compat::eval::EvalService::new(application,None));
+ let user=ai_platform_gateway::migration_compat::common::CompatUser{user_id:a.user_id.clone(),tenant_id:a.tenant_id.clone(),authenticated:true,..Default::default()};
+ let payload=json!({"case_id":"serialized-case","input":{"message":"query"},"expected_output":{"answer":"ok"},"expected_trajectory":{},"assertions":[],"metadata":{}});
+ let created=dataset_writer_waits(&p,&a.tenant_id,&dataset,{
+  let (service,user,dataset,payload)=(service.clone(),user.clone(),dataset.to_uppercase(),payload.clone());
+  async move {service.create_example(&user,&dataset,&payload).await}
+ }).await?;
+ let example_id=created["example_id"].as_str().unwrap().to_owned();
+ let updated=dataset_writer_waits(&p,&a.tenant_id,&dataset,{
+  let (service,user,dataset,example)=(service.clone(),user.clone(),dataset.clone(),example_id.clone());
+  async move {service.update_example(&user,&dataset,&example,&json!({"expected_output":{"answer":"changed"}})).await}
+ }).await?;
+ assert_eq!(updated["expected_output"]["answer"],"changed");
+ dataset_writer_waits(&p,&a.tenant_id,&dataset,{
+  let (service,user,dataset,example)=(service.clone(),user.clone(),dataset.clone(),example_id);
+  async move {service.delete_example(&user.tenant_id,&dataset,&example).await}
+ }).await?;
+ let imported=dataset_writer_waits(&p,&a.tenant_id,&dataset,{
+  let (service,user,dataset,payload)=(service.clone(),user.clone(),dataset.clone(),payload.clone());
+  async move {service.import_examples(&user,&dataset,&[payload],"skip_duplicates").await}
+ }).await?;
+ assert_eq!(imported["imported"],1);
+ assert_eq!(service.import_examples(&user,&dataset,&[payload],"skip_duplicates").await?["skipped"],1);
+ let (phantom_actor,phantom_agent)=create_release_agent(&p,&g.state,"empty-dataset-race").await?;
+ let empty_dataset=uuid::Uuid::new_v4().to_string();
+ sqlx::query("INSERT INTO eval_datasets(dataset_id,tenant_id,name,created_by) VALUES($1::uuid,$2,'Initially empty',$3)").bind(&empty_dataset).bind(&phantom_actor.tenant_id).bind(&phantom_actor.user_id).execute(&p).await?;
+ let candidate=g.state.resolve_release_candidate(&phantom_actor,&phantom_agent,1,"api","private",&policy,Some(&empty_dataset)).await?;
+ let evaluation=g.state.create_release_evaluation(&phantom_actor,&phantom_agent,&candidate,&gate()).await?;
+ let evaluation_id=evaluation["evaluation_id"].as_str().unwrap();
+ g.state.repository.transition_evaluation(&phantom_actor,&phantom_agent,evaluation_id,false).await?;
+ let evaluation=g.state.complete_release_evaluation(&phantom_actor,&phantom_agent,evaluation_id,&candidate,&gate()).await?;
+ let mut mutation=p.begin().await?;
+ ai_platform_gateway::migration_compat::eval::lock_dataset(&mut mutation,&phantom_actor.tenant_id,&empty_dataset).await?;
+ let publisher=tokio::spawn({let (state,actor,agent)=(g.state.clone(),phantom_actor.clone(),phantom_agent.clone());async move{state.publish_agent(&actor,&agent,"publish-dataset-race-0001",&json!({"evaluation_id":evaluation["evaluation_id"],"reason":"concurrent manifest insert"})).await}});
+ wait_dataset_lock(&p,&publisher).await?;
+ sqlx::query("INSERT INTO eval_examples(dataset_id,tenant_id,input,expected_output,created_by) VALUES($1::uuid,$2,'{\"message\":\"new case\"}','{\"answer\":\"changed\"}',$3)").bind(&empty_dataset).bind(&phantom_actor.tenant_id).bind(&phantom_actor.user_id).execute(&mut *mutation).await?;
+ mutation.commit().await?;
+ error(tokio::time::timeout(std::time::Duration::from_secs(5),publisher).await??,409,"AGENT_EVAL_DATASET_STALE");
+ assert_eq!(release_counts(&p,&phantom_actor,&phantom_agent).await?,json!({"versions":0,"publications":0,"events":0,"requests":0}));
+ Ok(())}).await
 }
 #[tokio::test]
 #[ignore = "explicit isolated PostgreSQL and Redis publication contract"]
@@ -513,6 +524,7 @@ async fn management_token_create_list_rotate_revoke_and_past_expiry() -> Result<
     release_state_fixture(|p,g|async move {
  sqlx::raw_sql(include_str!("agent_studio_support/auth_base.sql")).execute(&p).await?;
  sqlx::raw_sql(&sql("079_agent_channel_runtime.sql")).execute(&p).await?;
+ canonical_fixture(&p).await?;
  let(a,id)=create_release_agent(&p,&g.state,"token-management").await?;
  sqlx::query("INSERT INTO tenants(tenant_id) VALUES($1)").bind(&a.tenant_id).execute(&p).await?;
  let(e,_)=record_evaluation(&g.state,&a,&id).await?;let publication=publish(&g.state,&a,&id,&e,"publish-management-0001").await?;
@@ -561,6 +573,7 @@ async fn studio_request(
 async fn release_http_server_owned_gate_lifecycle_publish_replay_and_viewer_denial() -> Result<()> {
     release_state_fixture(|p,g|async move {
  sqlx::raw_sql(include_str!("agent_studio_support/auth_base.sql")).execute(&p).await?;
+ canonical_fixture(&p).await?;
  let(a,id)=create_release_agent(&p,&g.state,"http-release").await?;sqlx::query("INSERT INTO tenants(tenant_id) VALUES($1)").bind(&a.tenant_id).execute(&p).await?;
  let viewer=actor("release-viewer",&a.tenant_id);user(&p,&viewer.user_id,&viewer.tenant_id).await?;g.state.repository.upsert_member(&a,&id,"user",&viewer.user_id,"viewer").await?;
  let(jwt,jti)=agent_studio_support::state::authenticate_fixture(&g,&a).await?;let(vjwt,vjti)=agent_studio_support::state::authenticate_fixture(&g,&viewer).await?;

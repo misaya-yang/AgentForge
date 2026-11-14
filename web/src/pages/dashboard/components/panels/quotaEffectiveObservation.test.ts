@@ -21,7 +21,8 @@ function text(value: unknown): string {
 async function render(data: QuotaUsersOverviewResponse) {
   const calls: string[] = [];
   const translations: { key: string; values: Record<string, unknown> }[] = [];
-  const modules: Record<string, unknown> = {};
+  const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },};
   function load(file: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};
     vm.runInNewContext(ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {

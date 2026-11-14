@@ -208,7 +208,7 @@ async fn principals(prefix: &str, admit: bool) -> Result<()> {
 async fn execute(conn: &mut PgConnection, sql: &str) -> Result<()> {
     execution::execute(conn, sql).await
 }
-async fn conditions(conn: &mut PgConnection, conditions: &[String]) -> Result<()> {
+pub(super) async fn conditions(conn: &mut PgConnection, conditions: &[String]) -> Result<()> {
     for (index, condition) in conditions.iter().enumerate() {
         let rows = sqlx::raw_sql(condition).fetch_all(&mut *conn).await?;
         if rows.len() != 1 || rows[0].try_get::<bool, _>(0).ok() != Some(true) {
@@ -540,12 +540,13 @@ async fn initialize_inner(
                     "source-bound fresh repair requires the independent local operator",
                 ));
             }
-            stage(
-                "fresh.exact-d6-forward",
-                execution::SQL_LIMIT,
-                super::forward::repair(&mut conn, &prefix, &defs),
-            )
-            .await?;
+            if super::acl_correction::can_repair(&old_source) {
+                stage("fresh.exact-runtime-acl-forward",execution::SQL_LIMIT,
+                    super::acl_correction::repair(&mut conn,&prefix,&defs)).await?;
+            } else {
+                stage("fresh.exact-d6-forward",execution::SQL_LIMIT,
+                    super::forward::repair(&mut conn,&prefix,&defs)).await?;
+            }
         }
         authority.release_lock(conn).await?;
         let verified = verify(expected_database).await?;

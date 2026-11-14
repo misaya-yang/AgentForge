@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
     body::{Body, to_bytes},
     extract::{Request, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, HeaderName, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -44,21 +44,61 @@ pub fn router(
             audit_pool,
         })
 }
+fn metadata_document(configuration: &McpConfiguration, key_header: &HeaderName) -> Value {
+    let mut document = json!({"resource":configuration.resource,"scopes_supported":["knowledge:read","agents:read","admin:read"]});
+    if configuration.api_key_only {
+        document["auth_methods_supported"] = json!(["api_key"]);
+        document["api_key_header"] = json!(key_header.as_str());
+    } else {
+        document["authorization_servers"] = json!(configuration.authorization_servers);
+        document["bearer_methods_supported"] = json!(["header"]);
+    }
+    document
+}
+fn authentication_challenge(configuration: &McpConfiguration, key_header: &HeaderName) -> String {
+    let origin = configuration.resource.trim_end_matches("/mcp");
+    if configuration.api_key_only {
+        format!(
+            "ApiKey header=\"{}\", resource_metadata=\"{origin}/.well-known/oauth-protected-resource/mcp\"",
+            key_header.as_str()
+        )
+    } else {
+        format!("Bearer resource_metadata=\"{origin}/.well-known/oauth-protected-resource/mcp\"")
+    }
+}
 async fn metadata(State(s): State<Server>) -> Response {
-    ( [(header::CACHE_CONTROL,"public, max-age=300")],Json(json!({"resource":s.configuration.resource,"authorization_servers":s.configuration.authorization_servers,"bearer_methods_supported":["header"],"scopes_supported":["knowledge:read","agents:read","admin:read"]}))).into_response()
+    (
+        [(header::CACHE_CONTROL, "public, max-age=300")],
+        Json(metadata_document(
+            &s.configuration,
+            s.admission.api_key_header(),
+        )),
+    )
+        .into_response()
+}
+// Called only after AdmissionService has verified the credential against its
+// current database owner, permissions and revocation state. This is a narrowing
+// policy; a header or an unverified decoded JWT can never supply auth_type.
+fn verified_credential_allowed(
+    configuration: &McpConfiguration,
+    headers: &HeaderMap,
+    auth_type: &str,
+) -> bool {
+    match auth_type {
+        "api_key" => true,
+        "jwt" => !configuration.api_key_only && audience(headers, &configuration.resource),
+        _ => false,
+    }
 }
 fn unauthorized(s: &Server, status: StatusCode) -> Response {
     let mut response = (
         status,
-        Json(json!({"detail":"Audience-bound OAuth access token required"})),
+        Json(json!({"detail":if s.configuration.api_key_only {format!("Current bound API key required in {}",s.admission.api_key_header())} else {"Audience-bound OAuth access token required".to_owned()}})),
     )
         .into_response();
     if status == StatusCode::UNAUTHORIZED {
-        let origin = s.configuration.resource.trim_end_matches("/mcp");
-        if let Ok(value) = format!(
-            "Bearer resource_metadata=\"{origin}/.well-known/oauth-protected-resource/mcp\""
-        )
-        .parse()
+        if let Ok(value) =
+            authentication_challenge(&s.configuration, s.admission.api_key_header()).parse()
         {
             response
                 .headers_mut()
@@ -112,7 +152,7 @@ fn schema(properties: Value, required: &[&str]) -> Value {
 }
 fn tools() -> Vec<Value> {
     vec![
-        json!({"name":"knowledge_retrieve","description":"Retrieve authorized dataset evidence through the Knowledge service.","inputSchema":schema(json!({"dataset_id":{"type":"string","format":"uuid"},"query":{"type":"string","minLength":1,"maxLength":16000},"top_k":{"type":"integer","minimum":1,"maximum":50}}),&["dataset_id","query"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}),
+        json!({"name":"knowledge_retrieve","description":"Retrieve authorized dataset evidence through the Knowledge service.","inputSchema":schema(json!({"dataset_id":{"type":"string","minLength":1,"maxLength":255,"pattern":"^[A-Za-z0-9_-]+$"},"query":{"type":"string","minLength":1,"maxLength":16000},"top_k":{"type":"integer","minimum":1,"maximum":50}}),&["dataset_id","query"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}),
         json!({"name":"agents_list","description":"List Agents visible to the current authenticated tenant and user.","inputSchema":schema(json!({}),&[]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
         json!({"name":"agent_publications","description":"Read immutable publication/version metadata for an authorized Agent.","inputSchema":schema(json!({"agent_id":{"type":"string","format":"uuid"}}),&["agent_id"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
         json!({"name":"published_agent_send","description":"Send text to an immutable published Agent. Reuse message_id after a lost response; never invent a replacement ID for an unknown effect.","inputSchema":schema(json!({"publication_id":{"type":"string","format":"uuid"},"message_id":{"type":"string","format":"uuid"},"context_id":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":16000}}),&["publication_id","message_id","text"]),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}}),
@@ -148,13 +188,21 @@ fn tool_list(published: bool, external: &[String]) -> Vec<Value> {
         .collect()
 }
 fn target(name: &str, args: &Value) -> Result<(&'static str, String, Value), &'static str> {
-    for key in [
-        "dataset_id",
-        "agent_id",
-        "publication_id",
-        "message_id",
-        "context_id",
-    ] {
+    // Dataset IDs are canonical opaque varchar keys (default kb_...), unlike
+    // Agent/publication IDs. Keep exactly one safe URL segment, including legacy
+    // UUIDs, and use the same rule advertised by the tool's input schema.
+    if let Some(value) = args.get("dataset_id") {
+        if !value.as_str().is_some_and(|id| {
+            !id.is_empty()
+                && id.len() <= 255
+                && id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        }) {
+            return Err("Invalid resource ID");
+        }
+    }
+    for key in ["agent_id", "publication_id", "message_id", "context_id"] {
         if let Some(id) = args.get(key) {
             if !id
                 .as_str()
@@ -287,6 +335,7 @@ fn query_escape(value: &str) -> String {
 async fn invoke(
     s: &Server,
     headers: &HeaderMap,
+    credential_header: &HeaderName,
     name: &str,
     args: &Value,
 ) -> Result<(Value, u16), &'static str> {
@@ -299,7 +348,7 @@ async fn invoke(
         return Err("approval_required");
     }
     if name == "space_append_blocks" {
-        return append_blocks(s.rest.clone(), headers, args).await;
+        return append_blocks(s.rest.clone(), headers, credential_header, args).await;
     }
     if name == "published_agent_send" && !s.published_agents {
         return Err("Published Agent invocation is unavailable");
@@ -311,11 +360,12 @@ async fn invoke(
     {
         return Err("External Agent is unavailable");
     }
-    delegate(s.rest.clone(), headers, name, args).await
+    delegate(s.rest.clone(), headers, credential_header, name, args).await
 }
 async fn append_blocks(
     rest: Router,
     headers: &HeaderMap,
+    credential_header: &HeaderName,
     args: &Value,
 ) -> Result<(Value, u16), &'static str> {
     let item_id = args["item_id"].as_str().ok_or("Invalid tool arguments")?;
@@ -323,6 +373,7 @@ async fn append_blocks(
     let (current, status) = delegate(
         rest.clone(),
         headers,
+        credential_header,
         "space_read_page",
         &json!({"item_id": item_id}),
     )
@@ -341,6 +392,7 @@ async fn append_blocks(
     delegate(
         rest,
         headers,
+        credential_header,
         "space_append_put",
         &json!({"item_id": item_id, "markdown": combined}),
     )
@@ -349,6 +401,7 @@ async fn append_blocks(
 async fn delegate(
     rest: Router,
     headers: &HeaderMap,
+    credential_header: &HeaderName,
     name: &str,
     args: &Value,
 ) -> Result<(Value, u16), &'static str> {
@@ -357,7 +410,12 @@ async fn delegate(
         .method(method)
         .uri(path)
         .header(header::CONTENT_TYPE, "application/json");
-    for key in ["authorization", "x-request-id", "traceparent"] {
+    // Forward only the credential selected by outer admission. Never let an
+    // unselected bearer/key, client identity or approval header reach REST.
+    if let Some(value) = headers.get(credential_header) {
+        request = request.header(credential_header, value);
+    }
+    for key in ["x-request-id", "traceparent"] {
         if let Some(v) = headers.get(key) {
             request = request.header(key, v);
         }
@@ -385,6 +443,73 @@ async fn delegate(
         status.as_u16(),
     ))
 }
+// Both protocol envelopes use the same established REST policy and durable
+// receipt. Legacy compatibility never relaxes authentication or audit failure.
+async fn invoke_audited(
+    s: &Server,
+    headers: &HeaderMap,
+    credential_header: &HeaderName,
+    id: Value,
+    params: &Value,
+    audit_tenant: &str,
+    audit_user: &str,
+) -> Response {
+    let name = params["name"].as_str().unwrap_or("");
+    let invoked = invoke(s, headers, credential_header, name, &params["arguments"]).await;
+    let request_id = headers
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| uuid::Uuid::parse_str(s).is_ok())
+        .map(str::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let status = invoked.as_ref().map(|(_, status)| *status).unwrap_or(400);
+    let receipt = ai_platform_gateway_foundation::external_a2a_ledger::Receipt {
+        kind: ai_platform_gateway_foundation::external_a2a_ledger::Kind::Mcp,
+        request_id,
+        client_request_id: None,
+        request_sha256: None,
+        wire_response_id: None,
+        tool: Some(
+            if tools().iter().any(|t| t["name"] == name) {
+                name
+            } else {
+                "unknown_tool"
+            }
+            .into(),
+        ),
+        local_message_id: None,
+        remote_task_id: None,
+        outcome: if (200..300).contains(&status) {
+            "completed"
+        } else {
+            "denied"
+        }
+        .into(),
+        http_status: status,
+    };
+    let recorded = ai_platform_gateway_foundation::external_a2a_ledger::record(
+        &s.audit_pool,
+        audit_tenant,
+        audit_user,
+        &receipt,
+    )
+    .await
+    .is_ok();
+    finish_audited_call(id, invoked, recorded)
+}
+fn finish_audited_call(
+    id: Value,
+    invoked: Result<(Value, u16), &'static str>,
+    recorded: bool,
+) -> Response {
+    if !recorded {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    match invoked {
+        Ok((result, _)) => rpc(id, result),
+        Err(message) => error(id, -32602, message),
+    }
+}
 async fn dispatch(State(s): State<Server>, request: Request) -> Response {
     let headers = request.headers().clone();
     if let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
@@ -400,11 +525,11 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
         return StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response();
     }
     let admission = s.admission.request(&headers, "/mcp");
-    let (audit_tenant, audit_user, jwt) = match admission.resolve().await {
+    let (audit_tenant, audit_user, auth_type) = match admission.resolve().await {
         Ok(p) if p.jwt_principal().is_some() || p.api_key().is_some() => (
             p.tenant_id().to_owned(),
             p.user_id().to_owned(),
-            p.jwt_principal().is_some(),
+            p.auth_type(),
         ),
         Ok(_) => return unauthorized(&s, StatusCode::UNAUTHORIZED),
         Err(e) => {
@@ -414,9 +539,14 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
             );
         }
     };
-    if jwt && !audience(&headers, &s.configuration.resource) {
+    if !verified_credential_allowed(&s.configuration, &headers, auth_type) {
         return unauthorized(&s, StatusCode::UNAUTHORIZED);
     }
+    let credential_header = if auth_type == "api_key" {
+        s.admission.api_key_header().clone()
+    } else {
+        header::AUTHORIZATION
+    };
     let bytes = match to_bytes(request.into_body(), 1024 * 1024).await {
         Ok(v) => v,
         Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
@@ -465,11 +595,16 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
                 json!({"resultType":"complete","tools":tool_list(s.published_agents,&s.external_agents),"cacheScope":"private","ttlMs":0}),
             ),
             "tools/call" => {
-                let name = value["params"]["name"].as_str().unwrap_or("");
-                match invoke(&s, &headers, name, &value["params"]["arguments"]).await {
-                    Ok((result, _)) => rpc(id, result),
-                    Err(message) => error(id, -32602, message),
-                }
+                invoke_audited(
+                    &s,
+                    &headers,
+                    &credential_header,
+                    id,
+                    &value["params"],
+                    &audit_tenant,
+                    &audit_user,
+                )
+                .await
             }
             _ => error(id, -32601, "Method not found"),
         };
@@ -509,54 +644,16 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
             json!({"resultType":"complete","tools":tool_list(s.published_agents,&s.external_agents),"cacheScope":"private","ttlMs":0}),
         ),
         "tools/call" => {
-            let name = value["params"]["name"].as_str().unwrap_or("");
-            let invoked = invoke(&s, &headers, name, &value["params"]["arguments"]).await;
-            let request_id = headers
-                .get("x-request-id")
-                .and_then(|v| v.to_str().ok())
-                .filter(|s| uuid::Uuid::parse_str(s).is_ok())
-                .map(str::to_owned)
-                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            let status = invoked.as_ref().map(|(_, status)| *status).unwrap_or(400);
-            let receipt = ai_platform_gateway_foundation::external_a2a_ledger::Receipt {
-                kind: ai_platform_gateway_foundation::external_a2a_ledger::Kind::Mcp,
-                request_id,
-                client_request_id: None,
-                request_sha256: None,
-                wire_response_id: None,
-                tool: Some(
-                    if tools().iter().any(|t| t["name"] == name) {
-                        name
-                    } else {
-                        "unknown_tool"
-                    }
-                    .into(),
-                ),
-                local_message_id: None,
-                remote_task_id: None,
-                outcome: if (200..300).contains(&status) {
-                    "completed"
-                } else {
-                    "denied"
-                }
-                .into(),
-                http_status: status,
-            };
-            if ai_platform_gateway_foundation::external_a2a_ledger::record(
-                &s.audit_pool,
+            invoke_audited(
+                &s,
+                &headers,
+                &credential_header,
+                id,
+                &value["params"],
                 &audit_tenant,
                 &audit_user,
-                &receipt,
             )
             .await
-            .is_err()
-            {
-                return StatusCode::SERVICE_UNAVAILABLE.into_response();
-            }
-            match invoked {
-                Ok((result, _)) => rpc(id, result),
-                Err(message) => error(id, -32602, message),
-            }
         }
         _ => error(id, -32601, "Method not found"),
     }
@@ -564,8 +661,68 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn completed_tool_result_requires_confirmed_audit_in_both_protocols() {
+        let response = finish_audited_call(
+            json!(7),
+            Ok((
+                json!({"isError":false,"structuredContent":{"ok":true}}),
+                200,
+            )),
+            false,
+        );
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let denied = finish_audited_call(json!(7), Err("Invalid tool arguments"), false);
+        assert_eq!(denied.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let response = finish_audited_call(
+            json!(7),
+            Ok((
+                json!({"isError":false,"structuredContent":{"ok":true}}),
+                200,
+            )),
+            true,
+        );
+        assert_eq!(response.status(), StatusCode::OK);
+        let value: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(value["id"], 7);
+        assert_eq!(value["result"]["structuredContent"]["ok"], true);
+    }
     #[test]
     fn strict_typed_routes_do_not_accept_path_or_identity_injection() {
+        let (_, path, _) = target(
+            "knowledge_retrieve",
+            &json!({"dataset_id":"kb_m56_canonical_123","query":"q"}),
+        )
+        .unwrap();
+        assert_eq!(path, "/api/v1/knowledge/kb_m56_canonical_123/retrieve");
+        assert!(
+            target(
+                "knowledge_retrieve",
+                &json!({"dataset_id":"00000000-0000-4000-8000-000000000001","query":"q"})
+            )
+            .is_ok()
+        );
+        for id in [
+            "",
+            "../internal",
+            "%2Fadmin",
+            "id?tenant=other",
+            "id#fragment",
+            "two segments",
+        ] {
+            assert!(
+                target("knowledge_retrieve", &json!({"dataset_id":id,"query":"q"})).is_err(),
+                "{id}"
+            );
+        }
+        assert!(
+            target(
+                "knowledge_retrieve",
+                &json!({"dataset_id":"x".repeat(256),"query":"q"})
+            )
+            .is_err()
+        );
         assert!(
             target(
                 "knowledge_retrieve",
@@ -590,6 +747,45 @@ mod tests {
         assert!(!audience(&h, "https://evil.test/mcp"));
     }
     #[tokio::test]
+    async fn delegate_forwards_only_the_verified_configured_key_header() {
+        let key_header = HeaderName::from_static("x-task-credential");
+        let rest = Router::new().route(
+            "/api/v1/agents",
+            get(|headers: HeaderMap| async move {
+                assert_eq!(
+                    headers.get("x-task-credential").unwrap(),
+                    "bound-test-credential"
+                );
+                for untrusted in [
+                    "authorization",
+                    "x-api-key",
+                    "x-user-id",
+                    "x-tenant-id",
+                    "x-agentforge-tool-approval",
+                ] {
+                    assert!(headers.get(untrusted).is_none(), "{untrusted}");
+                }
+                (StatusCode::OK, Json(json!({"ok":true})))
+            }),
+        );
+        let mut headers = HeaderMap::new();
+        for (name, value) in [
+            ("x-task-credential", "bound-test-credential"),
+            ("authorization", "Bearer unselected"),
+            ("x-api-key", "another-key"),
+            ("x-user-id", "forged"),
+            ("x-tenant-id", "other"),
+            ("x-agentforge-tool-approval", "granted"),
+        ] {
+            headers.insert(HeaderName::from_static(name), value.parse().unwrap());
+        }
+        let result = delegate(rest, &headers, &key_header, "agents_list", &json!({}))
+            .await
+            .unwrap();
+        assert_eq!(result.1, 200);
+        assert_eq!(result.0["structuredContent"]["ok"], true);
+    }
+    #[tokio::test]
     async fn delegate_preserves_rest_denial_and_never_forwards_identity_headers() {
         let rest = Router::new().route(
             "/api/v1/agents",
@@ -603,9 +799,15 @@ mod tests {
         headers.insert("authorization", "Bearer test".parse().unwrap());
         headers.insert("x-user-id", "forged".parse().unwrap());
         headers.insert("x-tenant-id", "forged".parse().unwrap());
-        let result = delegate(rest, &headers, "agents_list", &json!({}))
-            .await
-            .unwrap();
+        let result = delegate(
+            rest,
+            &headers,
+            &header::AUTHORIZATION,
+            "agents_list",
+            &json!({}),
+        )
+        .await
+        .unwrap();
         assert_eq!(result.0["isError"], true);
         assert_eq!(result.0["structuredContent"]["detail"], "denied");
     }
@@ -655,6 +857,7 @@ mod schema_tests {
             delegate(
                 rest,
                 &HeaderMap::new(),
+                &header::AUTHORIZATION,
                 "knowledge_retrieve",
                 &json!({"dataset_id":"../admin","query":"x"})
             )
@@ -708,6 +911,49 @@ mod verified_token_tests {
         );
         assert!(audience(&headers, resource));
         assert!(!audience(&headers, "https://other.example/mcp"));
+        let mut key_mode: McpConfiguration = serde_json::from_value(
+            json!({"resource":resource,"authorization_servers":[],"api_key_only":true}),
+        )
+        .unwrap();
+        assert!(
+            !verified_credential_allowed(&key_mode, &headers, "jwt"),
+            "even a correctly signed resource-bound JWT is rejected in key-only mode"
+        );
+        assert!(verified_credential_allowed(
+            &key_mode,
+            &HeaderMap::new(),
+            "api_key"
+        ));
+        assert!(!verified_credential_allowed(
+            &key_mode,
+            &HeaderMap::new(),
+            "anonymous"
+        ));
+        let key_header = HeaderName::from_static("x-task-credential");
+        let metadata = metadata_document(&key_mode, &key_header);
+        assert!(metadata.get("authorization_servers").is_none());
+        assert!(metadata.get("bearer_methods_supported").is_none());
+        assert_eq!(metadata["auth_methods_supported"], json!(["api_key"]));
+        assert_eq!(metadata["api_key_header"], "x-task-credential");
+        let challenge = authentication_challenge(&key_mode, &key_header);
+        assert!(challenge.starts_with("ApiKey "));
+        assert!(challenge.contains("header=\"x-task-credential\""));
+        assert!(!challenge.contains("Bearer"));
+        key_mode.api_key_only = false;
+        key_mode.authorization_servers = vec!["https://gateway.example".into()];
+        assert!(verified_credential_allowed(&key_mode, &headers, "jwt"));
+        assert_eq!(
+            metadata_document(&key_mode, &key_header)["authorization_servers"],
+            json!(["https://gateway.example"])
+        );
+        assert_eq!(
+            metadata_document(&key_mode, &key_header)["bearer_methods_supported"],
+            json!(["header"])
+        );
+        assert_eq!(
+            authentication_challenge(&key_mode, &key_header),
+            "Bearer resource_metadata=\"https://gateway.example/.well-known/oauth-protected-resource/mcp\""
+        );
         let wrong_codec = ai_platform_auth::TokenCodec::new(
             b"a-different-native-secret-of-at-least-32-bytes",
             Some(resource.into()),

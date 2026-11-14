@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sensitiveMutationOptions } from "@/lib/consoleStepUp";
-import { PlatformCapabilities } from "@/components/PlatformCapabilities";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,7 +153,6 @@ export function SettingsPage() {
 
   return (
     <div className="forge-page space-y-6">
-      <PlatformCapabilities />
       <div className="forge-page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("settings.title")}</h1>

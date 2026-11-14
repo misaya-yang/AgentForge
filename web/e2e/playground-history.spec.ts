@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./support/real-api";
 import { buildAuthHeaders, ensureAuthenticatedPage } from "./support/helpers";
 
 function sessionButtonName(title: string): RegExp {

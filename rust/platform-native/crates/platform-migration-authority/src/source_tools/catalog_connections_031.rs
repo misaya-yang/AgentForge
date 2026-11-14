@@ -19,7 +19,7 @@ pub fn verify_installed(root: &Path) -> Result<Value> {
     let anchor: Value = serde_json::from_slice(&fs::read(root.join(ANCHOR))?)
         .map_err(|_| refused("031 anchor malformed"))?;
     let active = manifest::load_epoch_manifest(&root.join(EPOCH_DIR).join("manifest.yml"))?;
-    if active.epoch != 31 || active.changes.len() != 31 {
+    if !(31..=32).contains(&active.epoch) || active.changes.len() != active.epoch as usize {
         return Err(refused(
             "031 requires the exact contiguous epoch-30 prefix plus one successor",
         ));
@@ -75,10 +75,14 @@ pub async fn measure(root: &Path, expected_database: &str, approved: bool) -> Re
     let baseline_path = root.join("database/baselines/2026_08_post_kb_v1/manifest.json");
     let baseline = manifest::load_baseline_manifest(&baseline_path)?;
     let baseline_sha = manifest::file_sha256(&baseline_path)?;
-    let epoch = manifest::load_epoch_manifest(&root.join(EPOCH_DIR).join("manifest.yml"))?;
+    let mut epoch = manifest::load_epoch_manifest(&root.join(EPOCH_DIR).join("manifest.yml"))?;
+    // Measure the reviewed 031 prefix even when 032 is installed in the checkout.
+    epoch.changes.truncate(31);
+    epoch.epoch = 31;
     let reference_path = root.join(EPOCH_DIR).join("031_verification.json");
     let mut reference: Value = serde_json::from_slice(&fs::read(&reference_path)?)
         .map_err(|_| refused("031 reference malformed"))?;
+    if reference["fingerprint_measurement"]["status"] != "pending" { return Err(refused("031 measured fingerprints are immutable")); }
     super::measure_successors::measure_single_step(
         &root.join("database"), expected_database, 30, 31, &baseline, &baseline_sha,
         &epoch, approved, |evidence| {

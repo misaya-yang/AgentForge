@@ -13,7 +13,7 @@ pub async fn ingest(
     )
     .await?;
     if service.model_plane.is_none() && !controlled {
-        return service.ingest_document(dataset, document).await;
+        return Box::pin(service.ingest_document(dataset, document)).await;
     }
     let (tenant, user, execution): (String, String, Option<String>) = if controlled {
         // Resolve only persisted ownership before opening any document payload.
@@ -45,11 +45,7 @@ pub async fn ingest(
         if user.is_empty() {
             user = string(&d, "created_by").into();
         }
-        (
-            string(&d, "tenant_id").into(),
-            user,
-            execution,
-        )
+        (string(&d, "tenant_id").into(), user, execution)
     };
     if tenant.is_empty() || user.is_empty() {
         return Err(IngestError::Permission);
@@ -74,12 +70,36 @@ pub async fn ingest(
                         execution_id: execution,
                     },
                     actor,
-                    service.ingest_document(dataset, document),
+                    Box::pin(service.ingest_document(dataset, document)),
                 )
                 .await
             }
-            None => service.ingest_document(dataset, document).await,
+            None => Box::pin(service.ingest_document(dataset, document)).await,
         }
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn future_size<A, F: std::future::Future>(_: impl FnOnce(A) -> F) -> usize {
+        std::mem::size_of::<F>()
+    }
+    #[test]
+    fn document_worker_future_stays_bounded_before_polling() {
+        // No service or database is constructed. This measures the real async
+        // state machine that is moved onto a default Tokio worker's stack.
+        let size = future_size(|service: &'static IngestionService| {
+            ingest(service, "dataset", "document")
+        });
+        assert!(size < 64 * 1024, "document worker future is {size} bytes");
+        let document = future_size(|service: &'static IngestionService| {
+            service.ingest_document("dataset", "document")
+        });
+        assert!(
+            document < 64 * 1024,
+            "document orchestration future is {document} bytes"
+        );
+    }
 }

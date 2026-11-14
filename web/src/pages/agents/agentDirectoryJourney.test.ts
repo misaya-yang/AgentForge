@@ -39,6 +39,8 @@ function host(initial = "other=keep") {
   });
   const setParams = (update: (current: URLSearchParams) => URLSearchParams) => { params = update(params); history.push(params.toString()); };
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     "@/components/DeferredTable": { DeferredTable: "Table" },
     react: { useState(value: unknown) { const i = index++; if (!(i in slots)) slots[i] = value; return [slots[i], (next: unknown) => { slots[i] = typeof next === "function" ? next(slots[i]) : next; }]; },
       useMemo(factory: () => unknown, deps: unknown[]) { const i = index++; const prior = slots[i] as { deps: unknown[]; value: unknown } | undefined;

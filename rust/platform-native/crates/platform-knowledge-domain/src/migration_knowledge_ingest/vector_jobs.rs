@@ -145,7 +145,21 @@ fn matches_generation(row: &Value, current: &Value, mutation: &Mutation) -> bool
     }
     let mut prior = current.clone();
     prior["content_revision"] = json!(expected);
-    generation(&prior) == string(row, "expected_generation")
+    if generation(&prior) == string(row, "expected_generation") {
+        return true;
+    }
+    // Installing the first deletion fence materializes an otherwise absent
+    // retrieval object. Removing that exact fence must recover the old identity.
+    if prior["index_config"]["retrieval"]
+        .as_object()
+        .is_some_and(|r| r.is_empty() || (r.len() == 1 && r.contains_key("_index_deletion_fence")))
+    {
+        prior["index_config"]
+            .as_object_mut()
+            .map(|i| i.remove("retrieval"));
+        return generation(&prior) == string(row, "expected_generation");
+    }
+    false
 }
 pub(crate) fn check_expected(row: &Value, current: &Value) -> Result<()> {
     let mutation: Mutation = serde_json::from_value(row["payload"].clone())?;
@@ -168,6 +182,14 @@ fn identity(tenant: &str, user: &str, dataset: &str, generation: &str, payload: 
         .as_bytes(),
     )
 }
+#[path = "dataset_creation_jobs.rs"]
+mod creation;
+pub(super) use creation::submit_creation;
+#[path = "dataset_deletion_jobs.rs"]
+mod deletion;
+pub(super) use deletion::record_vector_deletion;
+pub use deletion::recover_api_deletions;
+
 /// Wait for the actual result; timeout never reports an asynchronous mutation as
 /// completed. Retrying the same operation resumes its durable identity.
 pub async fn submit(
@@ -180,13 +202,22 @@ pub async fn submit(
         return Err(IngestError::Permission);
     }
     let store = super::store::KnowledgeWriteStore::new(pool.clone());
-    let d = if matches!(mutation, Mutation::CreateDataset { .. }) {
-        json!({"tenant_id":actor.tenant_id,"dataset_id":dataset})
-    } else {
-        store
-            .require_dataset_access(actor, dataset, mutation.permission())
-            .await?
-    };
+    if matches!(mutation, Mutation::CreateDataset { .. }) {
+        return Err(IngestError::Validation(
+            "dataset creation requires atomic metadata admission".into(),
+        ));
+    }
+    if let Mutation::DeleteDataset { confirmed, .. } = &mutation {
+        if !confirmed {
+            return Err(IngestError::Permission);
+        }
+        if deletion::completed_delete(pool, actor, dataset).await? {
+            return Ok(json!(true));
+        }
+    }
+    let d = store
+        .require_dataset_access(actor, dataset, mutation.permission())
+        .await?;
     if mutation.lexical() && !operator(actor) {
         return Err(IngestError::Permission);
     }
@@ -214,6 +245,12 @@ pub async fn submit(
     }
     let expected = generation(&d);
     let payload = serde_json::to_value(&mutation)?;
+    if matches!(mutation, Mutation::DeleteDataset { .. }) {
+        return match deletion::enqueue_delete(pool, actor, dataset, &payload).await? {
+            Some(id) => wait_for_result(pool, actor, dataset, &id).await,
+            None => Ok(json!(true)),
+        };
+    }
     let id = identity(
         &actor.tenant_id,
         &actor.user_id,
@@ -223,12 +260,29 @@ pub async fn submit(
     );
     sqlx::query("INSERT INTO knowledge.vector_mutation_jobs(job_id,tenant_id,dataset_id,requested_by,expected_generation,payload,expected_revision) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(job_id) DO UPDATE SET state='pending',error_class=NULL,updated_at=NOW() WHERE vector_mutation_jobs.state='failed'")
         .bind(&id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).bind(&expected).bind(payload).bind(d["content_revision"].as_i64()).execute(crate::database::executor(pool)).await?;
+    wait_for_result(pool, actor, dataset, &id).await
+}
+async fn wait_for_result(pool: &PgPool, actor: &Actor, dataset: &str, id: &str) -> Result<Value> {
     let deadline = Instant::now() + Duration::from_secs(90);
     loop {
         let row: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$2 AND requested_by=$3")
             .bind(&id).bind(&actor.tenant_id).bind(&actor.user_id).fetch_one(crate::database::executor(pool)).await?;
+        if deletion::is_receipt(&row) {
+            match deletion::finalize(pool, actor, &row).await {
+                Ok(()) => continue,
+                Err(IngestError::LeaseBusy) if Instant::now() >= deadline => {
+                    return Err(IngestError::Index(format!(
+                        "durable vector mutation {id} is pending; poll /api/v1/knowledge/datasets/{dataset}/vector-mutations/{id} or retry the same operation"
+                    )));
+                }
+                Err(IngestError::LeaseBusy) => {}
+                Err(error) => return Err(error),
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            continue;
+        }
         match string(&row, "state") {
-            "succeeded" => return Ok(row["result"].clone()),
+            "succeeded" => return Ok(deletion::result(&row)),
             "failed" => {
                 return Err(match string(&row, "error_class") {
                     "permission" => IngestError::Permission,
@@ -258,19 +312,28 @@ pub async fn status(pool: &PgPool, actor: &Actor, dataset: &str, id: &str) -> Re
     if actor.anonymous() {
         return Err(IngestError::Permission);
     }
-    let row: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$2 AND dataset_id=$3 AND requested_by=$4")
+    let mut row: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1 AND tenant_id=$2 AND dataset_id=$3 AND requested_by=$4")
         .bind(id).bind(&actor.tenant_id).bind(dataset).bind(&actor.user_id).fetch_optional(crate::database::executor(pool)).await?.ok_or(IngestError::NotFound)?;
+    if deletion::is_receipt(&row) {
+        deletion::finalize(pool, actor, &row).await?;
+        row = sqlx::query_scalar(
+            "SELECT to_jsonb(j) FROM knowledge.vector_mutation_jobs j WHERE job_id=$1",
+        )
+        .bind(id)
+        .fetch_one(crate::database::executor(pool))
+        .await?;
+    }
     let store = super::store::KnowledgeWriteStore::new(pool.clone());
     match store.require_dataset_access(actor, dataset, "viewer").await {
         Ok(_) => {}
         Err(IngestError::NotFound)
             if row["payload"]["kind"] == "delete_dataset"
                 && row["state"] == "succeeded"
-                && row["result"] == true => {}
+                && deletion::result(&row) == true => {}
         Err(error) => return Err(error),
     }
     Ok(
-        json!({"job_id":row["job_id"],"dataset_id":dataset,"state":row["state"],"attempts":row["attempts"],"result":row["result"],"error_class":row["error_class"],"created_at":row["created_at"],"updated_at":row["updated_at"]}),
+        json!({"job_id":row["job_id"],"dataset_id":dataset,"state":row["state"],"attempts":row["attempts"],"result":deletion::result(&row),"error_class":row["error_class"],"created_at":row["created_at"],"updated_at":row["updated_at"]}),
     )
 }
 
@@ -279,7 +342,7 @@ pub async fn dispatch_one(service: &IngestionService, actors: &RuntimeActorClien
     if service.indexer.vectors.is_read_only() {
         return Err(IngestError::Permission);
     }
-    let ids: Vec<String> = sqlx::query_scalar("SELECT job_id FROM knowledge.vector_mutation_jobs WHERE state IN ('pending','running') ORDER BY created_at,job_id LIMIT 32").fetch_all(crate::database::executor(&service.store.pool)).await?;
+    let ids: Vec<String> = sqlx::query_scalar("SELECT job_id FROM knowledge.vector_mutation_jobs WHERE state IN ('pending','running') AND NOT COALESCE((payload->>'kind'='delete_dataset' AND result->>'schema'='knowledge-dataset-vector-delete/v1'),FALSE) ORDER BY created_at,job_id LIMIT 32").fetch_all(crate::database::executor(&service.store.pool)).await?;
     for id in ids {
         let Ok(mut lease) =
             SessionLease::acquire(&service.store.pool, format!("knowledge-vector-job:{id}")).await
@@ -311,7 +374,7 @@ pub async fn dispatch_one(service: &IngestionService, actors: &RuntimeActorClien
         // Do not persist error text: provider details and credentials must never
         // leak through a durable status row. The typed class is sufficient.
         let class = error;
-        sqlx::query("UPDATE knowledge.vector_mutation_jobs SET state=$2,result=$3,error_class=$4,updated_at=NOW() WHERE job_id=$1 AND state='running'")
+        sqlx::query("UPDATE knowledge.vector_mutation_jobs SET state=$2,result=$3,error_class=$4,updated_at=NOW() WHERE job_id=$1 AND state='running' AND NOT COALESCE((payload->>'kind'='delete_dataset' AND result->>'schema'='knowledge-dataset-vector-delete/v1'),FALSE)")
             .bind(&id).bind(state).bind(value).bind(class).execute(crate::database::connection(lease.connection())).await?;
         lease.release().await.map_err(|_| IngestError::Database)?;
         return Ok(true);
@@ -371,7 +434,7 @@ fn execute_inner<'a>(
             }
         }
         if let Mutation::CreateDataset { input } = &mutation {
-            return Box::pin(service.create_dataset(&actor, input)).await;
+            return Box::pin(creation::execute_creation(service, actor, row, input)).await;
         }
         let current = service
             .store

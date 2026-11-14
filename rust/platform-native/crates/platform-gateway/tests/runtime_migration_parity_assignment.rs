@@ -18,7 +18,7 @@ where
         &["089_agent_runtime_thread_store.sql"],
     ).await?;
     let pool = fixture.pool.clone();
-    let store = AgentThreadStore::new(pool.clone());
+    let store = AgentThreadStore::new(support::application_pool(&pool));
     let result = std::panic::AssertUnwindSafe(test(pool, store)).catch_unwind().await;
     fixture.close().await?;
     match result { Ok(result) => result, Err(panic) => std::panic::resume_unwind(panic) }

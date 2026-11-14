@@ -366,6 +366,7 @@ impl GatewayGraph {
             verifier: knowledge.actor_verifier,
         };
         let proxy = Arc::new(proxy);
+        runtime.agent.automation_knowledge = Some(proxy.clone());
         core.registry
             .configure_sdk_capabilities(Arc::new(
                 crate::migration_host::knowledge_proxy::sdk_capabilities::Authority {
@@ -409,6 +410,7 @@ impl GatewayGraph {
         roles: BTreeMap<String, Vec<String>>,
         cancellation: FoundationCancellation,
         content_type: crate::balancer_config_api::BalancerConfigContentTypePolicy,
+        public_llm: Option<Router>,
     ) -> Result<Router, BootstrapError> {
         options.identity = Some(self.content.content.public.access.clone());
         // Both public session surfaces share the same durable deletion owner.
@@ -457,6 +459,7 @@ impl GatewayGraph {
             roles,
             cancellation,
             content_type,
+            public_llm,
         );
         let foundation = foundation
             .merge(quiz)

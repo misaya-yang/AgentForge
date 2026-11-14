@@ -1,6 +1,7 @@
 //! Opt-in native PostgreSQL/Redis authority regressions. No infrastructure is started.
 //! Requires AUTH_PARITY_DISPOSABLE=1, AUTH_PARITY_ADMIN_DATABASE_URL and AUTH_PARITY_REDIS_URL,
 //! both loopback. Creates/drops only a random, test-owned database; never alters an existing schema.
+mod agent_studio_support;
 use ai_platform_auth::{
     PasswordEngine, TokenCodec, accounts::PgAccounts, service::AuthService, sessions::RedisSessions,
 };
@@ -174,7 +175,7 @@ async fn protected_authority_uses_current_assignments_for_jwt_and_bound_keys() -
             .bind(format!("{:x}", Sha256::digest(raw_key.as_bytes())))
             .execute(&pool)
             .await?;
-        let key = PgAccounts::new(pool)
+        let key = PgAccounts::new(pool.clone())
             .bound_api_key(raw_key)
             .await?;
         assert!(key.roles.iter().any(|role| role == "key-user"));
@@ -185,6 +186,71 @@ async fn protected_authority_uses_current_assignments_for_jwt_and_bound_keys() -
             .effective_permissions
             .iter()
             .any(|permission| permission == "console:users:edit"));
+
+        // Exercise the request-scoped observational writes under the canonical
+        // Gateway login. No public-schema shadow tables can hide a stale query.
+        sqlx::raw_sql(
+            "CREATE SCHEMA assistant; CREATE SCHEMA knowledge;
+             ALTER TABLE gateway.api_keys ADD COLUMN last_used_at timestamptz,
+                 ADD COLUMN use_count integer DEFAULT 0;
+             CREATE TABLE gateway.security_event_daily_aggregates(
+                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                 tenant_id varchar(64) NOT NULL,
+                 user_id varchar(64) NOT NULL DEFAULT '',
+                 service_id varchar(64) NOT NULL DEFAULT '',
+                 event_type varchar(32) NOT NULL, date date NOT NULL,
+                 event_count integer DEFAULT 0,
+                 created_at timestamptz DEFAULT NOW(), updated_at timestamptz DEFAULT NOW(),
+                 UNIQUE(tenant_id,user_id,service_id,event_type,date));",
+        ).execute(&pool).await?;
+        agent_studio_support::canonical_fixture(&pool).await?;
+        let application = agent_studio_support::application_pool(&pool);
+        let role: (String, bool, bool) = sqlx::query_as(
+            "SELECT current_user::text,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user",
+        ).fetch_one(&application).await?;
+        assert_eq!(role, ("ai_gateway_gateway".into(), false, false));
+        let admission = ai_platform_auth::admission::AdmissionService::new(
+            Arc::new(AuthService::new(
+                PgAccounts::new(application.clone()),
+                RedisSessions::new(redis),
+                TokenCodec::new(secret, None, None)?,
+                PasswordEngine::new(1)?,
+                "example.com".into(),
+            )),
+            application.clone(),
+            axum::http::HeaderName::from_static("x-api-key"),
+        )?;
+        use ai_platform_auth::admission::{AdmissionError, AuditWrite};
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("x-api-key", raw_key.parse()?);
+        let request = admission.request(&headers, "/api/v1/proxy/service-a");
+        assert_eq!(request.resolve().await?.auth_type(), "api_key");
+        assert_eq!(request.resolve().await?.auth_type(), "api_key");
+        assert_eq!(request.audit().key_usage, AuditWrite::Recorded);
+        let usage: (i32, bool) = sqlx::query_as(
+            "SELECT use_count,last_used_at IS NOT NULL FROM gateway.api_keys WHERE key_id='key-a'",
+        ).fetch_one(&pool).await?;
+        assert_eq!(usage, (1, true));
+
+        // An invalid JWT cannot fall back to an accompanying valid key or
+        // assign its unverified identity to the failure aggregate.
+        headers.insert("authorization", "Bearer invalid-token".parse()?);
+        for _ in 0..2 {
+            let request = admission.request(&headers, "/api/v1/proxy/service-a");
+            assert!(matches!(request.resolve().await, Err(AdmissionError::Credentials)));
+            assert!(matches!(request.resolve().await, Err(AdmissionError::Credentials)));
+            assert_eq!(request.audit().auth_failure, AuditWrite::Recorded);
+            assert_eq!(request.audit().key_usage, AuditWrite::NotAttempted);
+        }
+        let failures: (String, String, i32) = sqlx::query_as(
+            "SELECT tenant_id::text,user_id::text,event_count FROM gateway.security_event_daily_aggregates WHERE service_id='service-a'",
+        ).fetch_one(&pool).await?;
+        assert_eq!(failures, ("public".into(), String::new(), 2));
+        let uses: i32 = sqlx::query_scalar(
+            "SELECT use_count FROM gateway.api_keys WHERE key_id='key-a'",
+        ).fetch_one(&pool).await?;
+        assert_eq!(uses, 1);
+        application.close().await;
         Ok(())
     })
     .await
@@ -508,7 +574,10 @@ async fn image_claim_retries_only_pre_dispatch_work_and_fences_dispatch() -> Res
         ('imt_retry','row-tenant','row-user','scope',1,'claimed',NOW()-INTERVAL '1 minute',1,3),
         ('imt_dispatched','row-tenant','row-user','scope',1,'running',NOW()-INTERVAL '1 minute',1,3),
         ('imt_exhausted','row-tenant','row-user','scope',1,'claimed',NOW()-INTERVAL '1 minute',3,3);").execute(&pool).await?;
-        let repository=ImageRepository{database:ContentDatabase::new(pool.clone(),pool.clone())?};
+        agent_studio_support::canonical_fixture(&pool).await?;
+        let application = agent_studio_support::application_pool(&pool);
+        let control = agent_studio_support::application_pool(&pool);
+        let repository=ImageRepository{database:ContentDatabase::new(application.clone(),control.clone())?};
         let rows=repository.claim_pending(1,30).await?;assert_eq!(rows.len(),1);assert_eq!(rows[0]["task_id"],"imt_retry");assert_eq!(rows[0]["status"],"claimed");assert_eq!(rows[0]["attempt_count"],2);
         let lost:Value=sqlx::query_scalar("SELECT to_jsonb(t) FROM assistant.image_tasks t WHERE task_id='imt_dispatched'").fetch_one(&pool).await?;
         assert_eq!(lost["status"],"unknown");assert_eq!(lost["error"],"image worker lost after provider dispatch");assert_eq!(lost["attempt_count"],1);
@@ -516,6 +585,8 @@ async fn image_claim_retries_only_pre_dispatch_work_and_fences_dispatch() -> Res
         let mut forged=rows[0].clone();forged["tenant_id"]=json!("wrong-tenant");assert!(!repository.dispatch_claim(&forged).await?);
         assert!(repository.dispatch_claim(&rows[0]).await?);assert!(!repository.dispatch_claim(&rows[0]).await?);
         let status:String=sqlx::query_scalar("SELECT status FROM assistant.image_tasks WHERE task_id='imt_retry'").fetch_one(&pool).await?;assert_eq!(status,"running");
+        application.close().await;
+        control.close().await;
         Ok(())
     }).await
 }

@@ -225,6 +225,7 @@ async fn postgres_two_owners_expiry_effect_lock_and_stale_real_write() {
     let mut successor = successor;
     successor.renew().await.unwrap();
     successor.release().await.unwrap();
+    drop(connection);
     pool.close().await;
     control.close().await;
 }

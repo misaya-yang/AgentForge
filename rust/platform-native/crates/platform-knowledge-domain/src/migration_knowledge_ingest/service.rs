@@ -142,31 +142,7 @@ impl IngestionService {
         } else {
             requested.into()
         };
-        if self.indexer.vectors.is_read_only() {
-            let mut queued_input = input.clone();
-            queued_input["dataset_id"] = json!(id);
-            if let Some(defaults) = defaults {
-                queued_input["embedding_provider"] = json!(defaults.embedding_provider);
-                queued_input["embedding_model"] = json!(defaults.embedding_model);
-                queued_input["embedding_dimension"] = json!(defaults.embedding_dimension);
-                queued_input["embedding_model_version"] = json!(defaults.embedding_model_version);
-                let mut pinned = embedding.clone();
-                pinned["model_version"] = json!(defaults.embedding_model_version);
-                queued_input["embedding_config"] = pinned;
-                queued_input["index_config"] = index.clone();
-            }
-
-            return super::vector_jobs::submit(
-                &self.store.pool,
-                actor,
-                &id,
-                super::vector_jobs::Mutation::CreateDataset {
-                    input: queued_input,
-                },
-            )
-            .await;
-        }
-        if self.store.dataset_exists(&id).await? {
+        if !self.indexer.vectors.is_read_only() && self.store.dataset_exists(&id).await? {
             return Err(IngestError::Validation("dataset_id already exists".into()));
         }
         let revision = input["embedding_model_version"]
@@ -188,6 +164,11 @@ impl IngestionService {
         let mut typed: Dataset = serde_json::from_value(d.clone())?;
         crate::migration_knowledge_query::serving_profile::require(&typed)?;
         let resolved = self.indexer.embeddings.resolve(&typed).await?;
+        typed.embedding_dimension = Some(resolved.dimension);
+        d["embedding_dimension"] = json!(resolved.dimension);
+        if self.indexer.vectors.is_read_only() {
+            return super::vector_jobs::submit_creation(self, actor, &d).await;
+        }
         if resolved.provider == "local_semantic" {
             self.indexer
                 .embeddings
@@ -198,8 +179,6 @@ impl IngestionService {
                 )
                 .await?;
         }
-        typed.embedding_dimension = Some(resolved.dimension);
-        d["embedding_dimension"] = json!(resolved.dimension);
         let collection = self
             .indexer
             .vectors
@@ -419,7 +398,7 @@ impl IngestionService {
             .await
             .ok();
         let started = std::time::Instant::now();
-        let result = self.ingest_owned(&mut lease).await;
+        let result = Box::pin(self.ingest_owned(&mut lease)).await;
         if let Some(row) = observed {
             let metadata = &row["metadata"];
             crate::migration_knowledge_query::pipeline_metrics::ingest(
@@ -490,18 +469,17 @@ impl IngestionService {
         // durable stage digests must observe that committed pin.
         let doc =
             KnowledgeWriteStore::document_on(lease.connection(), &dataset_id, &document_id).await?;
-        let result = self
-            .ingest_standard(
-                lease,
-                &dataset,
-                &doc,
-                &identity,
-                &index,
-                &processing_mode,
-                action,
-                &execution,
-            )
-            .await;
+        let result = Box::pin(self.ingest_standard(
+            lease,
+            &dataset,
+            &doc,
+            &identity,
+            &index,
+            &processing_mode,
+            action,
+            &execution,
+        ))
+        .await;
         match &result {
             Ok(ids) => {
                 KnowledgeWriteStore::complete_execution(
@@ -936,6 +914,12 @@ impl IngestionService {
             .vectors
             .delete_dataset_collections(&typed)
             .await?;
+        if let Some(job) = &self.vector_job_expected {
+            super::vector_jobs::record_vector_deletion(self, actor, job, lease.connection())
+                .await?;
+            lease.release().await?;
+            return Ok(true);
+        }
         let mut tx = sqlx::Connection::begin(lease.connection()).await?;
         crate::database::bind_current(&mut tx).await?;
         let changed=sqlx::query("UPDATE knowledge.datasets SET is_deleted=TRUE,deleted_at=NOW(),deleted_by=$2,delete_reason=$3,updated_at=NOW() WHERE dataset_id=$1 AND is_deleted=FALSE").bind(dataset).bind(&actor.user_id).bind(reason).execute(&mut *tx).await?.rows_affected();
@@ -944,11 +928,9 @@ impl IngestionService {
         }
         for table in [
             "confluence_space_bindings",
-            "version_retention_policies",
             "dataset_keyword_tables",
             "dataset_process_rules",
             "dataset_queries",
-            "child_chunks",
             "dataset_permissions",
             "documents",
         ] {
@@ -959,6 +941,13 @@ impl IngestionService {
             .execute(&mut *tx)
             .await?;
         }
+        sqlx::query(
+            "DELETE FROM gateway.version_retention_policies WHERE dataset_id=$1 AND tenant_id=$2",
+        )
+        .bind(dataset)
+        .bind(&actor.tenant_id)
+        .execute(&mut *tx)
+        .await?;
         tx.commit().await?;
         lease.release().await?;
         Ok(true)

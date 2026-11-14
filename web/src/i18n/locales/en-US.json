@@ -636,6 +636,15 @@
       "failedNotice": "Upload failed. Please try again."
     },
     "uploadSkill": "Upload SKILL.md",
+    "skillsLoadFailed": "Skills could not be loaded. Retry to read their current state.",
+    "skillUploadFailed": "The upload outcome could not be confirmed. Refresh the list before trying again.",
+    "skillChangeFailed": "The skill state could not be changed. Refresh to read its current state.",
+    "skillDeleteFailed": "Deletion could not be confirmed. Refresh to check whether the skill still exists.",
+    "skillActivationBlocked": "This generated skill requires independent review, evaluation, and rollback evidence before activation.",
+    "deleteSkillLabel": "Delete skill {name}",
+    "enableSkillLabel": "Enable skill {name}",
+    "mcpLoadFailed": "MCP connections or tools could not be loaded. Retry to read their current state.",
+    "mcpRefreshFailed": "Discovery outcome could not be confirmed. Refresh metadata before deciding whether to retry.",
     "webResults": "Web search results",
     "webResultsFound": "Found {count} results",
     "webSearch": "Web Search",
@@ -1440,7 +1449,8 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "toggleSidebar": "Toggle sidebar",
-    "closeSidebar": "Close sidebar"
+    "closeSidebar": "Close sidebar",
+    "automations": "Automations"
   },
   "playground": {
     "difyInputs": {
@@ -2907,5 +2917,67 @@
       "error": "Connection failed",
       "disabled_by_policy": "Disabled by policy"
     }
+  },
+  "automation": {
+    "title": "Automations",
+    "summary": "Let your workspace take care of recurring work. Review each draft before it starts.",
+    "describe": "Create an automation with AI",
+    "prompt": "What would you like to automate?",
+    "example": "Every weekday at 9 AM in America/New_York, notify me to review the team’s launch checklist.",
+    "confirmHint": "Drafts stay inactive until you confirm the trigger, model, and actions. Agent tools keep their usual approval requirements.",
+    "draft": "Create draft",
+    "working": "Creating draft…",
+    "manual": "Set up the trigger and actions yourself",
+    "name": "Name",
+    "model": "Platform model",
+    "trigger": "When",
+    "expression": "Cron expression",
+    "timezone": "Time zone (IANA)",
+    "item": "Space page ID",
+    "entry": "Connector entry ID",
+    "action": "Action",
+    "actionNumber": "Action {number}",
+    "skill": "Installed skill ID",
+    "content": "Instructions or content",
+    "removeAction": "Remove action",
+    "addAction": "Add action",
+    "failed": "The operation could not be confirmed. Refresh the list to check its state before making another decision.",
+    "loadFailed": "Could not load automations.",
+    "loading": "Loading automations",
+    "empty": "No automations yet. Start with a draft for a recurring task.",
+    "review": "Review draft",
+    "activate": "Confirm and activate",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel automation",
+    "history": "Execution history",
+    "historyHint": "Unknown outcomes are kept for review and are never replayed automatically.",
+    "webhookSecret": "Webhook signing secret",
+    "secretHint": "Copy this secret now; it is shown once. Sign timestamp.delivery-id.raw-body with HMAC-SHA256 and send X-Automation-Timestamp, X-Automation-Delivery, and X-Automation-Signature: sha256=… .",
+    "kind": {
+      "cron": "On a schedule",
+      "webhook": "On a signed webhook",
+      "space_page_changed": "When a space page changes",
+      "connector_event": "When a connector changes",
+      "run_agent": "Run the assistant",
+      "run_skill": "Run an installed skill",
+      "write_space_page": "Append to a space page",
+      "notify": "Send a notification"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "paused": "Paused",
+      "cancelled": "Cancelled",
+      "queued": "Queued",
+      "dispatching": "Dispatching",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "uncertain": "Needs review"
+    },
+    "notifications": "Notifications",
+    "noNotifications": "Notifications from your automations will appear here.",
+    "connectorHint": "Runs when a visible connection for this catalog entry changes, including connection, reauthorization, and revocation."
   }
 }

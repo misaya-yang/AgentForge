@@ -71,6 +71,7 @@ impl FoundationApis {
         configured_roles: BTreeMap<String, Vec<String>>,
         cancellation: FoundationCancellation,
         content_type: balancer_config_api::BalancerConfigContentTypePolicy,
+        public_llm: Option<Router>,
     ) -> Router {
         // Per-slice 404 fallback ownership is replaced by a single canonical
         // fallback here; merging two custom Axum fallbacks otherwise panics.
@@ -212,11 +213,12 @@ impl FoundationApis {
                 .reset_fallback(),
             )
             .merge(
-                invocation_http::router_with_identity_and_model_catalog(
+                invocation_http::router_with_public_llm(
                     auth,
                     self.dispatcher,
                     Some(self.invocation_identity),
                     Some(self.openai_model_catalog),
+                    public_llm,
                 )
                 .reset_fallback(),
             );

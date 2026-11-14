@@ -230,14 +230,46 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await page.mouse.wheel(0, 600);
     await expect.poll(() => activityScroll.evaluate(el => el.scrollTop)).toBeGreaterThan(200);
     const mainPosition = await mainScroll.evaluate(el => el.scrollTop);
-    const activityPosition = await activityScroll.evaluate(el => el.scrollTop);
-    await page.evaluate(() => (window as typeof window & { r1ReleaseActivity?: () => void }).r1ReleaseActivity?.());
-    await expect(rows).toHaveCount(100);
-    await expect(rows.last()).toContainText("Queue: sample-100-q7");
-    for (let i = 1; i <= 100; i++) await expect(activityScroll.getByText(`r1_sample_${String(i).padStart(3, "0")}`, { exact: true })).toHaveCount(1);
-    await expect(activityScroll.locator(".act-running-dot")).toHaveCount(1);
+    const activityAnchor = await rows.evaluateAll(elements => {
+      const viewport = document.querySelector(".act-scroll")!.getBoundingClientRect();
+      const anchor = elements.find(element => {
+        const box = element.getBoundingClientRect();
+        return box.top >= viewport.top && box.top < viewport.bottom;
+      });
+      if (!anchor) throw new Error("No visible activity tool to anchor");
+      return { name: anchor.textContent!.match(/r1_sample_\d+/)![0], top: anchor.getBoundingClientRect().top };
+    });
+    const releasedFrames = await page.evaluate(() => {
+      const state = window as typeof window & { r1ReleaseActivity?: () => void; r1ActivityFrames?: number };
+      if (!state.r1ReleaseActivity) throw new Error("Controlled activity stream lost its release callback");
+      state.r1ReleaseActivity();
+      return state.r1ActivityFrames;
+    });
+    expect(releasedFrames).toBe(1000);
+    // The existing 50-step pagination keeps the page being read stable as new
+    // activity arrives. Cover both pages before checking the live final tool.
+    const activityNavigation = activityScroll.getByRole("navigation", { name: "Activity navigation" });
+    await expect(activityNavigation).toContainText("Steps 1–50 of 100 loaded steps");
+    await expect(rows).toHaveCount(50);
     expect(Math.abs(await mainScroll.evaluate(el => el.scrollTop) - mainPosition)).toBeLessThanOrEqual(2);
-    expect(Math.abs(await activityScroll.evaluate(el => el.scrollTop) - activityPosition)).toBeLessThanOrEqual(2);
+    const anchoredBox = await rows.filter({ hasText: activityAnchor.name }).boundingBox();
+    expect(anchoredBox).not.toBeNull();
+    expect(Math.abs(anchoredBox!.y - activityAnchor.top)).toBeLessThanOrEqual(2);
+    const toolNames: string[] = [];
+    for (let offset = 0; offset < 100; offset += 50) {
+      if (offset) await activityNavigation.getByRole("button", { name: "Later", exact: true }).click();
+      await expect(activityNavigation).toContainText(`Steps ${offset + 1}–${offset + 50} of 100 loaded steps`);
+      await expect(rows).toHaveCount(50);
+      for (let i = offset + 1; i <= offset + 50; i++) {
+        const name = `r1_sample_${String(i).padStart(3, "0")}`;
+        await expect(activityScroll.getByText(name, { exact: true })).toHaveCount(1);
+        toolNames.push(name);
+      }
+    }
+    expect(new Set(toolNames).size).toBe(100);
+    await expect(activityNavigation.getByRole("button", { name: "Latest", exact: true })).toBeDisabled();
+    await expect(rows.last()).toContainText("Queue: sample-100-q7");
+    await expect(activityScroll.locator(".act-running-dot")).toHaveCount(1);
     if (viewport.width === 390) await page.getByRole("button", { name: "Close", exact: true }).click();
     const stop = page.getByRole("button", { name: "Stop generating", exact: true });
     if (viewport.width === 390) await stop.click();
@@ -250,7 +282,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await expect(rows.last()).toContainText("Result unknown");
     expect(starts).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
-    await testInfo.attach("r1-activity1000-facts.json", { body: Buffer.from(JSON.stringify({ controlled: true, viewport, frames: 1000, unique_tool_rows: 100, starts, interrupts, mainPosition, activityPosition })), contentType: "application/json" });
+    await testInfo.attach("r1-activity1000-facts.json", { body: Buffer.from(JSON.stringify({ controlled: true, viewport, frames: 1000, unique_tool_rows: 100, starts, interrupts, mainPosition, activityAnchor })), contentType: "application/json" });
   });
 }
 
@@ -465,8 +497,9 @@ export async function installAssistantHarness(
     releaseModels?: () => Promise<void>;
     onCreateShare?: (
       sessionId: string,
-      payload: { include_artifacts?: boolean }
+      payload: { include_artifacts?: boolean; preview_hash?: string; audience?: string }
     ) => void;
+    onDeleteSession?: (sessionId: string) => void;
   } = {}
 ) {
   let sessionCounter = 0;
@@ -541,10 +574,25 @@ export async function installAssistantHarness(
     await route.fulfill(jsonResponse({ artifacts, total: artifacts.length }));
   });
 
+  const sharePreviewHash = "e".repeat(64);
+  await page.route("**/api/v1/assistant/sessions/*/share-preview?*", async route => {
+    const sessionId = pathSegmentAfter(route.request().url(), "sessions");
+    const params = new URL(route.request().url()).searchParams;
+    const messages = (historyBySessionId[sessionId] || []).map(({ role, content }) => ({ role, content }));
+    const artifacts = params.get("include_artifacts") === "false" ? [] : artifactsBySessionId[sessionId] || [];
+    await route.fulfill(jsonResponse({
+      title: sessions.get(sessionId)?.metadata?.title || "Conversation",
+      messages, artifacts, message_count: messages.length, artifact_count: artifacts.length,
+      audience: params.get("audience") || "public", expires_days: Number(params.get("expires_days") || 7),
+      preview_hash: sharePreviewHash,
+    }));
+  });
+  await page.route("**/api/v1/assistant/shares?*", route => route.fulfill(jsonResponse({ shares: [] })));
   await page.route("**/api/v1/assistant/sessions/*/share", async (route) => {
     const sessionId = pathSegmentAfter(route.request().url(), "sessions");
     const payload =
-      (route.request().postDataJSON() as { include_artifacts?: boolean } | null) || {};
+      (route.request().postDataJSON() as { include_artifacts?: boolean; preview_hash?: string; audience?: string } | null) || {};
+    expect(payload.preview_hash).toBe(sharePreviewHash);
     options.onCreateShare?.(sessionId, payload);
     const artifacts = payload.include_artifacts ? artifactsBySessionId[sessionId] || [] : [];
     await route.fulfill(
@@ -556,6 +604,7 @@ export async function installAssistantHarness(
         artifact_count: artifacts.length,
         created_at: new Date().toISOString(),
         expires_at: null,
+        audience: payload.audience || "public",
       })
     );
   });
@@ -651,6 +700,14 @@ export async function installAssistantHarness(
     await route.fulfill(jsonResponse(nextSession));
   });
 
+  await page.route("**/api/v1/assistant/sessions/*", async route => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    const sessionId = pathSegmentAfter(route.request().url(), "sessions");
+    sessions.delete(sessionId);
+    options.onDeleteSession?.(sessionId);
+    await route.fulfill(jsonResponse({ status: "deleted" }));
+  });
+
   await page.route("**/api/v1/assistant/chat/stream", fulfillStream);
 
   const fulfillV2Events = async (route: Route) => {
@@ -736,7 +793,7 @@ export async function installAssistantHarness(
   });
 }
 
-test("composer sends with the cached last model before the catalog resolves", async ({
+test("composer preserves its draft and admits a cached model only after catalog validation", async ({
   page,
 }) => {
   test.setTimeout(20_000);
@@ -746,6 +803,7 @@ test("composer sends with the cached last model before the catalog resolves", as
     releaseModels = resolve;
   });
   let modelsRequested = false;
+  let streamHits = 0;
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/v1/assistant/models") {
       modelsRequested = true;
@@ -768,12 +826,13 @@ test("composer sends with the cached last model before the catalog resolves", as
   await installAssistantHarness(
     page,
     async (route) => {
+      streamHits += 1;
       await route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
         body: toSseBody([
           { event_type: "started", data: { request_id: "composer-unlock-e2e" } },
-          { event_type: "text_delta", data: "Catalog-free first message" },
+          { event_type: "text_delta", data: "Catalog-validated first message" },
           { event_type: "done", data: { duration_ms: 50, total_tokens: 4 } },
           { event_type: "run_finished", data: { run_id: "composer-unlock-e2e" } },
         ]),
@@ -791,20 +850,22 @@ test("composer sends with the cached last model before the catalog resolves", as
   await composer.fill("send before catalog");
   await expect(composer).toBeEnabled();
   const sendButton = page.locator('button[aria-label="Send"]');
-  await expect(sendButton).toBeEnabled();
+  await expect(sendButton).toBeDisabled();
 
   await composer.press("Enter");
-  await expect(page.getByText("Catalog-free first message")).toBeVisible({
-    timeout: 2_000,
-  });
+  await expect(composer).toHaveValue("send before catalog\n");
+  expect(streamHits).toBe(0);
 
   releaseModels();
   await expect(page.getByText("GPT-4o")).toBeVisible({ timeout: 2_000 });
-  await composer.fill("still unlocked after catalog");
+  await expect(composer).toHaveValue("send before catalog\n");
   await expect(sendButton).toBeEnabled();
+  await composer.press("Enter");
+  await expect(page.getByText("Catalog-validated first message")).toBeVisible();
+  expect(streamHits).toBe(1);
 });
 
-test("composer stays locked when the catalog loads empty and no model is cached", async ({
+test("composer preserves an editable draft but blocks dispatch when the catalog is empty", async ({
   page,
 }) => {
   test.setTimeout(20_000);
@@ -815,7 +876,8 @@ test("composer stays locked when the catalog loads empty and no model is cached"
     email: "assistant-no-model-cache@example.com",
     display_name: "No Model Cache",
   });
-  await installAssistantHarness(page, async () => {}, {
+  let streamHits = 0;
+  await installAssistantHarness(page, async () => { streamHits += 1; }, {
     models: [],
     defaultModelId: "",
   });
@@ -823,8 +885,12 @@ test("composer stays locked when the catalog loads empty and no model is cached"
   await page.goto("/assistant");
 
   const composer = page.locator(`#${ASSISTANT_COMPOSER_ID}`);
-  await expect(composer).toBeDisabled();
+  await expect(composer).toBeEnabled();
+  await composer.fill("Keep this draft until a model is available");
   await expect(page.locator('button[aria-label="Send"]')).toBeDisabled();
+  await composer.press("Enter");
+  await expect(composer).toHaveValue("Keep this draft until a model is available\n");
+  expect(streamHits).toBe(0);
 });
 
 async function installPlaygroundHarness(page: Page) {
@@ -982,15 +1048,11 @@ async function installPlaygroundHarness(page: Page) {
 }
 
 async function selectFirstPlaygroundService(page: Page) {
-  const serviceSelect = page.locator('button[role="combobox"]').first();
+  const serviceSelect = page.getByRole("combobox").first();
   await expect(serviceSelect).toBeVisible();
   await serviceSelect.click();
-  const firstOption = page.locator('[role="option"]').first();
-  const hasOptions = await firstOption
-    .waitFor({ state: "visible", timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  test.skip(!hasOptions, "No playground services configured");
+  const firstOption = page.locator(".ant-select-dropdown:visible .ant-select-item-option-content").first();
+  await expect(firstOption, "A configured playground service is required").toBeVisible();
   await firstOption.click();
 }
 
@@ -1001,7 +1063,15 @@ test("assistant stream path keeps a11y and performance budget", async ({ page })
   await expect(composer).toBeVisible();
   await expect(composer).toBeEnabled();
 
+  await composer.click();
   await page.keyboard.press(`${modKey()}+K`);
+  const navigationName = await page.locator(".console-search-trigger").getAttribute("aria-label");
+  const quickNavigation = page.getByRole("dialog", { name: navigationName!, exact: true });
+  await expect(quickNavigation).toBeVisible();
+  await expect(quickNavigation.getByRole("combobox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(quickNavigation).not.toBeVisible();
+  await composer.click();
   await expect(composer).toBeFocused();
 
   await assertNoBlockingA11yIssues(page, [
@@ -1153,12 +1223,14 @@ test("assistant disables sending when no models are available", async ({ page })
 
   const composer = page.locator(`#${ASSISTANT_COMPOSER_ID}`);
   await expect(composer).toBeVisible();
-  await expect(composer).toBeDisabled();
+  await expect(composer).toBeEnabled();
   await expect(composer).toHaveAttribute("placeholder", "No models available");
 
   const sendButton = page.locator('button[aria-keyshortcuts*="Enter"]').last();
   await expect(sendButton).toBeDisabled();
-  await page.keyboard.press("Enter");
+  await composer.fill("Keep my draft");
+  await composer.press("Enter");
+  await expect(composer).toHaveValue("Keep my draft\n");
   expect(streamHits).toBe(0);
 });
 
@@ -1170,6 +1242,10 @@ test("assistant ignores empty and duplicate same-tick Enter submissions", async 
     display_name: "Assistant Send Guard",
   });
   let streamHits = 0;
+  let turnStarts = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && /\/api\/v2\/agent\/threads\/[^/]+\/turns$/.test(new URL(request.url()).pathname)) turnStarts += 1;
+  });
   await installAssistantHarness(page, async (route) => {
     streamHits += 1;
     await route.fulfill({
@@ -1178,6 +1254,7 @@ test("assistant ignores empty and duplicate same-tick Enter submissions", async 
       body: toSseBody([
         { event_type: "text_delta", data: "Guarded response" },
         { event_type: "done", data: { duration_ms: 10 } },
+        { event_type: "run_finished", data: { run_id: "send-guard-run" } },
       ]),
     });
   });
@@ -1188,6 +1265,7 @@ test("assistant ignores empty and duplicate same-tick Enter submissions", async 
 
   await composer.press("Enter");
   expect(streamHits).toBe(0);
+  expect(turnStarts).toBe(0);
 
   await composer.fill("send once");
   await composer.evaluate((element) => {
@@ -1196,7 +1274,8 @@ test("assistant ignores empty and duplicate same-tick Enter submissions", async 
   });
 
   await expect.poll(() => streamHits).toBe(1);
-  await expect(page.getByText("send once", { exact: true })).toHaveCount(1);
+  expect(turnStarts).toBe(1);
+  await expect(page.getByRole("log").getByText("send once", { exact: true })).toHaveCount(1);
 });
 
 test("assistant mobile history uses a bounded overlay sheet", async ({ page }) => {
@@ -1248,6 +1327,7 @@ test("assistant deletes a session through the runtime cleanup route", async ({ p
   });
   const title = "Delete through assistant runtime";
   const session = buildMockAssistantSession("delete-runtime-session", { title });
+  let deleteHits = 0;
   await installAssistantHarness(
     page,
     async (route) => {
@@ -1257,26 +1337,26 @@ test("assistant deletes a session through the runtime cleanup route", async ({ p
         body: toSseBody([{ event_type: "done", data: { duration_ms: 0 } }]),
       });
     },
-    { preloadedSessions: [session] }
-  );
-  let deleteHits = 0;
-  await page.route(
-    "**/api/v1/assistant/sessions/delete-runtime-session",
-    async (route) => {
+    { preloadedSessions: [session], onDeleteSession: sessionId => {
+      expect(sessionId).toBe("delete-runtime-session");
       deleteHits += 1;
-      await route.fulfill(jsonResponse({ status: "deleted" }));
-    }
+    } }
   );
 
   await page.goto("/assistant");
   await page.getByLabel("Show history").click();
   await page.getByRole("button", { name: `Delete: ${title}` }).click();
+  const confirmation = page.getByRole("dialog", { name: "Delete this conversation?" });
+  await expect(confirmation).toContainText(title);
+  expect(deleteHits).toBe(0);
+  await confirmation.getByRole("button", { name: "Delete", exact: true }).click();
 
   await expect(page.getByRole("button", { name: `Delete: ${title}` })).toHaveCount(0);
   expect(deleteHits).toBe(1);
 });
 
 test("assistant emits stream telemetry lifecycle on mocked stream", async ({ page }) => {
+  await installClientAuth(page);
   await installAssistantHarness(page, async (route) => {
     const body = toSseBody([
       { event_type: "started", data: { request_id: "e2e-mock" } },
@@ -1341,6 +1421,7 @@ test("assistant emits stream telemetry lifecycle on mocked stream", async ({ pag
 });
 
 test("assistant preserves reasoning when provider omits thinking start and end", async ({ page }) => {
+  await installClientAuth(page);
   const reasoningSummary = "Provider reasoning summary without lifecycle markers.";
   // The shared storage state pins i18nextLng=zh-CN, so English locators below
   // need an explicit locale like every other test in this file.
@@ -1510,7 +1591,8 @@ test("assistant fails closed on run_error and preserves partial text", async ({ 
 
   const log = page.locator('[role="log"]');
   await expect(log).toContainText("Useful partial answer.");
-  await expect(log).toContainText("The response stream was interrupted");
+  await expect(log).toContainText("Run failed");
+  await expect(log).toContainText("The answer may be incomplete");
   await expect(composer).toBeEnabled();
   await expect
     .poll(async () => {
@@ -1527,7 +1609,14 @@ test("assistant treats EOF before a terminal event as interrupted", async ({ pag
     email: "assistant-eof@example.com",
     display_name: "Assistant EOF",
   });
+  let streamReads = 0;
+  let turnStarts = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && /\/api\/v2\/agent\/threads\/[^/]+\/turns$/.test(new URL(request.url()).pathname)) turnStarts += 1;
+  });
   await installAssistantHarness(page, async (route) => {
+    streamReads += 1;
+    if (streamReads > 1) return route.fulfill({ status: 410, body: "cursor_retention_expired" });
     await route.fulfill({
       status: 200,
       headers: { "content-type": "text/event-stream" },
@@ -1546,7 +1635,10 @@ test("assistant treats EOF before a terminal event as interrupted", async ({ pag
 
   const log = page.locator('[role="log"]');
   await expect(log).toContainText("Partial before EOF.");
-  await expect(log).toContainText("The response stream was interrupted");
+  await expect(log).toContainText("Run failed");
+  await expect(log).toContainText("The answer may be incomplete");
+  expect(streamReads).toBe(2);
+  expect(turnStarts).toBe(1);
   await expect(composer).toBeEnabled();
   await expect
     .poll(async () => {
@@ -1563,7 +1655,14 @@ test("assistant treats done followed by EOF before a run terminal as interrupted
     email: "assistant-done-eof@example.com",
     display_name: "Assistant Done EOF",
   });
+  let streamReads = 0;
+  let turnStarts = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && /\/api\/v2\/agent\/threads\/[^/]+\/turns$/.test(new URL(request.url()).pathname)) turnStarts += 1;
+  });
   await installAssistantHarness(page, async (route) => {
+    streamReads += 1;
+    if (streamReads > 1) return route.fulfill({ status: 410, body: "cursor_retention_expired" });
     await route.fulfill({
       status: 200,
       headers: { "content-type": "text/event-stream" },
@@ -1586,7 +1685,10 @@ test("assistant treats done followed by EOF before a run terminal as interrupted
 
   const log = page.locator('[role="log"]');
   await expect(log).toContainText("Partial before transport done.");
-  await expect(log).toContainText("The response stream was interrupted");
+  await expect(log).toContainText("Run failed");
+  await expect(log).toContainText("The answer may be incomplete");
+  expect(streamReads).toBe(2);
+  expect(turnStarts).toBe(1);
   await expect(composer).toBeEnabled();
   await expect
     .poll(async () => {
@@ -2239,7 +2341,7 @@ test("assistant activity surfaces agent run state approvals context and artifact
       status: 200,
       headers: { "content-type": "text/event-stream" },
       body: toSseBody([
-        { event_type: "run_started", data: { run_id: "f010-run", timestamp: 1000 } },
+        { event_type: "run_started", data: { run_id: "f010-run", thread_id: "e2e-runtime-thread", timestamp: 1000 } },
         {
           event_type: "task_planning",
           data: {
@@ -2334,6 +2436,27 @@ test("assistant activity surfaces agent run state approvals context and artifact
     });
   });
 
+  let approvalStatus = "pending";
+  let approvalReads = 0;
+  let decisions = 0;
+  await page.route("**/api/v2/agent/threads/e2e-runtime-thread/approvals/approval-1", async route => {
+    approvalReads += 1;
+    await route.fulfill(jsonResponse({
+      approval: { status: approvalStatus, tool_name: "shell" },
+      preview: { can_approve: approvalStatus === "pending", tool_name: "shell", effect: "execute",
+        target: "Controlled test command", authorization_scope: "This command only",
+        expires_in_seconds: 300, arguments_hash: "a".repeat(64),
+        parameters: [{ name: "command", value: "echo approved" }] },
+    }));
+  });
+  await page.route("**/api/v2/agent/threads/e2e-runtime-thread/approvals/approval-1/decision", async route => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toMatchObject({ approved: true });
+    decisions += 1;
+    approvalStatus = "approved";
+    await route.fulfill(jsonResponse({ status: "approved" }));
+  });
+
   await page.goto("/assistant");
 
   const composer = page.locator(`#${ASSISTANT_COMPOSER_ID}`);
@@ -2345,13 +2468,19 @@ test("assistant activity surfaces agent run state approvals context and artifact
   await expect(page.getByText("Run report").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^Approve$/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Reject$/i })).toBeVisible();
-  await expect(page.getByText("Needs operator approval before running command")).toBeVisible();
+  await expect.poll(() => approvalReads).toBeGreaterThan(0);
+  await expect(page.getByRole("alertdialog")).toContainText("Controlled test command");
+  await expect(page.getByRole("alertdialog")).toContainText("This command only");
+  await expect(page.getByRole("alertdialog")).toContainText("echo approved");
+  await expect(page.getByText("Needs operator approval before running command")).toHaveCount(0);
 
   await page.getByRole("button", { name: /Activity/ }).last().click();
   await expect(page.getByText("Review requested change")).toBeVisible();
   await expect(page.getByText("Draft final answer")).toBeVisible();
   await expect(page.getByText("Context used")).toBeVisible();
   await expect(page.getByText("Context compacted")).toBeVisible();
+  await page.getByRole("log").getByRole("button", { name: /^Approve$/i }).click();
+  await expect.poll(() => decisions).toBe(1);
 });
 
 test("assistant restores session artifacts into unique artifact and share counts", async ({ page }) => {
@@ -2442,7 +2571,7 @@ test("assistant restores session artifacts into unique artifact and share counts
   await expect(page.getByText("recovered-plan.md").first()).toBeVisible();
 
   await page.getByRole("button", { name: /^Share$/ }).click();
-  const shareDialog = page.locator(".fixed.inset-0").filter({ hasText: "Share Conversation" }).first();
+  const shareDialog = page.getByRole("dialog", { name: "Share Conversation" });
   await expect(shareDialog.getByText("Share Conversation")).toBeVisible();
   await expect(shareDialog.getByText("Artifacts")).toBeVisible();
   await expect(shareDialog.getByText("(1)")).toBeVisible();
@@ -2468,13 +2597,20 @@ test("assistant restores a pending approval after refresh", async ({ page }) => 
   const consoleErrors: string[] = [];
   const requestFailures: string[] = [];
   let runStatusHits = 0;
+  let decisions = 0;
   let runStatusFails = false, runSucceeded = false;
 
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("requestfailed", (request) => {
-    requestFailures.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    const pathname = new URL(request.url()).pathname;
+    const reason = request.failure()?.errorText || "unknown failure";
+    // StrictMode and reload abort the old catalog read. A completed replacement
+    // is required by the UI assertions; retain every other transport failure.
+    if (request.method() === "GET" && reason === "net::ERR_ABORTED" &&
+      ["/api/v1/assistant/models", "/api/v1/assistant/config"].includes(pathname)) return;
+    requestFailures.push(`${request.method()} ${pathname}: ${reason}`);
   });
   await installAssistantHarness(
     page,
@@ -2532,6 +2668,20 @@ test("assistant restores a pending approval after refresh", async ({ page }) => 
       })
     );
   });
+  await page.route(`**/api/v2/agent/threads/e2e-runtime-thread/approvals/${approvalId}`, async route => {
+    await route.fulfill(jsonResponse({
+      approval: { status: runSucceeded || decisions ? "approved" : "pending", tool_name: "shell" },
+      preview: { can_approve: !runSucceeded && decisions === 0, tool_name: "shell", effect: "execute", target: "Controlled guarded command",
+        authorization_scope: "This command only", expires_in_seconds: 300, arguments_hash: "b".repeat(64),
+        parameters: [{ name: "command", value: "echo guarded" }] },
+    }));
+  });
+  await page.route(`**/api/v2/agent/threads/e2e-runtime-thread/approvals/${approvalId}/decision`, async route => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toMatchObject({ approved: true });
+    decisions += 1;
+    await route.fulfill(jsonResponse({ status: "approved" }));
+  });
   await page.goto("/assistant");
   await page.getByRole("button", { name: /show history/i }).first().click();
   await page.getByRole("button", { name: title, exact: true }).click();
@@ -2541,11 +2691,12 @@ test("assistant restores a pending approval after refresh", async ({ page }) => 
   await page.reload();
   await expect.poll(() => runStatusHits).toBeGreaterThan(hitsBeforeRefresh);
   await page.getByRole("button", { name: /Activity/ }).last().click();
-  await expect(page.getByText("Approval required: shell")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reject" }).first()).toBeVisible();
+  await expect(page.locator(".act-scroll").getByText("Approval required: Shell", { exact: true })).toBeVisible();
+  await expect(page.locator(".act-scroll").getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+  await expect(page.locator(".act-scroll").getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   runStatusFails = true;
-  await page.getByRole("button", { name: "Approve" }).first().click();
+  await page.locator(".act-scroll").getByRole("button", { name: "Approve", exact: true }).click();
+  await expect.poll(() => decisions).toBe(1);
   await expect(page.locator(`#${ASSISTANT_COMPOSER_ID}`)).toBeDisabled();
   runStatusFails = false;
   runSucceeded = true;
@@ -2929,7 +3080,15 @@ test("playground stream path keeps a11y and performance budget", async ({ page }
   const composer = page.locator(`#${PLAYGROUND_COMPOSER_ID}`);
   await expect(composer).toBeVisible();
 
+  await composer.click();
   await page.keyboard.press(`${modKey()}+K`);
+  const navigationName = await page.locator(".console-search-trigger").getAttribute("aria-label");
+  const quickNavigation = page.getByRole("dialog", { name: navigationName!, exact: true });
+  await expect(quickNavigation).toBeVisible();
+  await expect(quickNavigation.getByRole("combobox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(quickNavigation).not.toBeVisible();
+  await composer.click();
   await expect(composer).toBeFocused();
 
   await assertNoBlockingA11yIssues(page, [
@@ -2973,6 +3132,7 @@ test("playground mobile history uses a bounded overlay sheet", async ({ page }) 
 });
 
 test("playground handles mocked stream with tool call lifecycle", async ({ page }) => {
+  await installClientAuth(page);
   const harness = await installPlaygroundHarness(page);
   const mockPlaygroundStream = async (route: Route) => {
     harness.recordStreamHit();
@@ -3044,6 +3204,7 @@ test("playground handles mocked stream with tool call lifecycle", async ({ page 
 });
 
 test("playground renders native langgraph tool events without heavy assistant card", async ({ page }) => {
+  await installClientAuth(page);
   const harness = await installPlaygroundHarness(page);
   let requestedStreamMode: unknown;
   let waitHits = 0;

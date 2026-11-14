@@ -526,6 +526,7 @@ impl GatewayDocument {
                 roles,
                 policies.cancellation_hooks(),
                 crate::balancer_config_api::BalancerConfigContentTypePolicy::RequireJsonHeader,
+                llm_router,
             )?
             .merge(crate::migration_host::readiness::router(readiness))
             .merge(metric_router)
@@ -535,11 +536,6 @@ impl GatewayDocument {
             )));
         let router = if let Some(models) = knowledge_model_router {
             router.merge(models)
-        } else {
-            router
-        };
-        let router = if let Some(llm) = llm_router {
-            router.merge(llm)
         } else {
             router
         };

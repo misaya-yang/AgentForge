@@ -834,6 +834,14 @@ impl McpRegistryApi {
                 connection_id,
                 principal_type,
             } => {
+                let connection = connection_id.ok_or_else(|| {
+                    mcp_error(
+                        context,
+                        422,
+                        "MCP_CONNECTION_SELECTION_REQUIRED",
+                        "An explicit MCP credential connection is required",
+                    )
+                })?;
                 let servers = self.call("list_servers", &id, json!({}), context).await?;
                 let server = servers
                     .as_array()
@@ -846,14 +854,6 @@ impl McpRegistryApi {
                     .ok_or_else(|| {
                         mcp_error(context, 404, "MCP_SERVER_NOT_FOUND", "MCP server not found")
                     })?;
-                let connection = connection_id.ok_or_else(|| {
-                    mcp_error(
-                        context,
-                        422,
-                        "MCP_CONNECTION_SELECTION_REQUIRED",
-                        "An explicit MCP credential connection is required",
-                    )
-                })?;
                 self.authorize(identity, true, context)?; // source delegates to public discover handler
                 self.discover(
                     required_text(server, "server_id")?,

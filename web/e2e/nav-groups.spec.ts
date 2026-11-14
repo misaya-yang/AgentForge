@@ -1,7 +1,7 @@
 /**
  * Sidebar nav regrouping e2e: Use / Build / Govern groups.
  *
- * Workbench and Dashboard stay ungrouped on top, then 使用 (assistant + agents),
+ * Workbench and Dashboard stay ungrouped on top, then 使用 (assistant + agents + automations),
  * 构建 (knowledge + playground + eval), 治理 (services + users +
  * tasks + settings). The model_tester role renders a flat rail with only
  * the playground item and no headings.
@@ -55,6 +55,7 @@ test.describe("sidebar nav groups", () => {
       "Dashboard",
       "AI Assistant",
       "Agents",
+      "Automations",
       "Knowledge Base",
       "Model Debug",
       "Eval Console",

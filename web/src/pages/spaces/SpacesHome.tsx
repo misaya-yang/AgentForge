@@ -253,7 +253,7 @@ export function SpacesHome() {
         </ul>
       ) : null}
       {!items.isPending && !items.isError && rows.length > 0 && !grid ? (
-        <table className="spaces-table">
+        <table className="spaces-table spaces-table--items">
           <caption className="sr-only">{t("spaces.itemCount", { count: rows.length })}</caption>
           <thead>
             <tr>

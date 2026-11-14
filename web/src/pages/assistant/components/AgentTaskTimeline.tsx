@@ -176,9 +176,12 @@ function TaskTimelineItem({ task, isLast }: { task: AgentTask; isLast: boolean }
       )}
 
       {/* Task header */}
-      <div
+      <button
+        type="button"
+        aria-expanded={hasContent ? isExpanded : undefined}
+        disabled={!hasContent}
         className={cn(
-          "flex items-start gap-3 cursor-pointer group",
+          "w-full text-left flex items-start gap-3 cursor-pointer group",
           hasContent && "hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
         )}
         onClick={() => hasContent && setIsExpanded(!isExpanded)}
@@ -230,7 +233,7 @@ function TaskTimelineItem({ task, isLast }: { task: AgentTask; isLast: boolean }
             )}
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Expandable content */}
       <AnimatePresence>

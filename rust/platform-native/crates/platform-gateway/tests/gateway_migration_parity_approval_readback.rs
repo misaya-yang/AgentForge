@@ -128,6 +128,10 @@ fn normal_wire_body_is_unchanged_and_readback_has_no_retry_fallback() {
     assert!(
         compact.contains("payload[\"receipt_only\"]=json!({\"thread_id\":super::uuid(thread)?})")
     );
-    assert_eq!(block.matches(".send()").count(), 1);
+    assert_eq!(block.matches(".workload_send()").count(), 1);
+    assert!(
+        !block.contains(".send()"),
+        "approval dispatch must retain workload identity"
+    );
     assert!(!block.contains("decide_approval("));
 }

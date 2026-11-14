@@ -33,7 +33,11 @@ fn example_modes() {
 #[test]
 fn compose_image_failure_is_not_hidden_by_valid_env() {
     let f = Fixture::new();
-    fs::write(f.dir.join(".env"), valid("DASHSCOPE_API_KEY=test-chat-key")).unwrap();
+    fs::write(
+        f.dir.join("configuration.fixture"),
+        valid("DASHSCOPE_API_KEY=test-chat-key"),
+    )
+    .unwrap();
     let mut config = compose::rendered(&root());
     config["services"]["frontend"]["image"] =
         config["services"]["knowledge-service"]["image"].clone();

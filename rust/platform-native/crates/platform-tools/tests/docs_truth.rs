@@ -75,17 +75,17 @@ fn broken_links_missing_scripts_and_unimplemented_commands_fail() {
     }
 }
 #[test]
-fn stale_dates_warn_but_missing_future_and_invalid_dates_fail() {
+fn dates_remain_historical_metadata_and_do_not_replace_reference_checks() {
     let f = Fixture::new();
     fs::write(f.0.join(DOCS[0]), "**Last verified:** 2000-01-01\n").unwrap();
-    assert_eq!(f.run(true)["warnings"].as_array().unwrap().len(), 1);
+    assert!(f.run(true)["warnings"].as_array().unwrap().is_empty());
     for text in [
         "No review date",
         "**Last verified:** 9999-01-01",
         "**Last verified:** 2026-99-99",
     ] {
         fs::write(f.0.join(DOCS[0]), text).unwrap();
-        f.run(false);
+        f.run(true);
     }
 }
 #[test]

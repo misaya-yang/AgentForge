@@ -245,8 +245,23 @@ async fn reconcile(tx: &mut Transaction<'_, Postgres>, tenant: &str, user: &str)
     // the complete v2 checkpoint. The exact receipt ID and trusted observation
     // intent were saved BEFORE calling that existing stage. Neither raw usage
     // alone nor an in-memory callback success can authorize retirement.
-    sqlx::query("WITH candidates AS (SELECT r.member,r.settlement_candidate FROM gateway.dispatch_token_reservations r JOIN gateway.billing_events b ON b.event_id=r.candidate_receipt_id AND b.tenant_id=r.tenant_id AND b.user_id=r.user_id AND b.request_id=r.request_id AND b.service_id=r.service_id WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.state='awaiting_checkpoint' AND b.status='accounting_applied' AND b.metadata->>'event'='usage_accounting_stage_receipt_v1' AND b.metadata->>'stage'='quota_counters' AND b.created_at>=r.created_at AND r.settlement_candidate->>'request_type'=r.request_type AND r.settlement_candidate->>'status' IN ('success','error') ORDER BY r.created_at LIMIT 128) UPDATE gateway.dispatch_token_reservations r SET state='settled',settlement_observation=c.settlement_candidate,updated_at=CURRENT_TIMESTAMP FROM candidates c WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.member=c.member")
-        .bind(tenant).bind(user).execute(&mut **tx).await.map_err(|_| ())?;
+    // The canonical Gateway role does not read the legacy billing ledger.
+    // Modern/empty histories must not require that optional adapter's access.
+    // V2 receipts beyond this pass's bounded batch remain on the V2 path.
+    // Once a real pending legacy intent exists, retain the original checked
+    // receipt read and propagate every failure; absence of proof never refunds.
+    let legacy_pending: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM gateway.dispatch_token_reservations r WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.state='awaiting_checkpoint' AND r.candidate_receipt_id IS NOT NULL AND r.settlement_candidate IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gateway.price_book_v2_accounting_checkpoints c WHERE c.tenant_id=r.tenant_id AND c.request_id=r.request_id AND c.service_id=r.service_id AND c.request_type=r.request_type AND c.stage='quota_counters' AND c.updated_at>=r.created_at AND c.observation->>'user_id'=r.user_id AND c.observation->>'status' IN ('success','error')))",
+    )
+    .bind(tenant)
+    .bind(user)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|_| ())?;
+    if legacy_pending {
+        sqlx::query("WITH candidates AS (SELECT r.member,r.settlement_candidate FROM gateway.dispatch_token_reservations r JOIN gateway.billing_events b ON b.event_id=r.candidate_receipt_id AND b.tenant_id=r.tenant_id AND b.user_id=r.user_id AND b.request_id=r.request_id AND b.service_id=r.service_id WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.state='awaiting_checkpoint' AND b.status='accounting_applied' AND b.metadata->>'event'='usage_accounting_stage_receipt_v1' AND b.metadata->>'stage'='quota_counters' AND b.created_at>=r.created_at AND r.settlement_candidate->>'request_type'=r.request_type AND r.settlement_candidate->>'status' IN ('success','error') ORDER BY r.created_at LIMIT 128) UPDATE gateway.dispatch_token_reservations r SET state='settled',settlement_observation=c.settlement_candidate,updated_at=CURRENT_TIMESTAMP FROM candidates c WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.member=c.member")
+            .bind(tenant).bind(user).execute(&mut **tx).await.map_err(|_| ())?;
+    }
     sqlx::query("WITH candidates AS (SELECT member FROM gateway.dispatch_token_reservations WHERE tenant_id=$1 AND user_id=$2 AND state='prepared' AND prepare_deadline<=CURRENT_TIMESTAMP ORDER BY prepare_deadline LIMIT 128) UPDATE gateway.dispatch_token_reservations r SET state='expired',updated_at=CURRENT_TIMESTAMP FROM candidates c WHERE r.tenant_id=$1 AND r.user_id=$2 AND r.member=c.member AND r.state='prepared'")
         .bind(tenant).bind(user).execute(&mut **tx).await.map_err(|_| ())?;
     Ok(())

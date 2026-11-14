@@ -15,8 +15,8 @@ test("login succeeds with generated E2E credentials", async ({ page }) => {
   await passwordInput.fill(testUser.password);
   await page.getByRole("button", { name: loginButtonName }).click();
 
-  await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page.locator(".ant-layout-content")).toBeVisible();
+  await expect(page).toHaveURL(/\/workbench$/);
+  await expect(page.locator("#console-main")).toBeVisible();
 });
 
 test("login shows readable error for invalid credentials without crashing", async ({ page }) => {
@@ -25,9 +25,12 @@ test("login shows readable error for invalid credentials without crashing", asyn
   await clearAuthState(page);
 
   await page.goto("/login");
-  await emailInput.fill(`missing-${Date.now()}`);
+  const testUser = await readE2ETestUser();
+  await emailInput.fill(`missing-${Date.now()}@${testUser.email.split("@")[1]}`);
   await passwordInput.fill("definitely-wrong-password");
+  const response = page.waitForResponse(value => new URL(value.url()).pathname === "/api/auth/session" && value.request().method() === "POST");
   await page.getByRole("button", { name: loginButtonName }).click();
+  expect((await response).status()).toBe(401);
 
   await expect(page.locator("body")).toContainText(/invalid credentials|invalid email or password|用户名或密码错误|邮箱或密码错误/i);
   await expect(page).toHaveURL(/\/login/);

@@ -5,7 +5,7 @@ ALTER TABLE users ADD COLUMN email text, ADD COLUMN display_name text, ADD COLUM
  ADD COLUMN login_attempts integer NOT NULL DEFAULT 0, ADD COLUMN locked_until timestamptz,
  ADD COLUMN password_changed_at timestamptz;
 CREATE TABLE tenants(tenant_id text PRIMARY KEY,status text NOT NULL DEFAULT 'active');
-CREATE TABLE user_roles(user_id text,role_name text,expires_at timestamptz);
+CREATE TABLE user_roles(user_id text,role_name text,granted_at timestamptz NOT NULL DEFAULT NOW(),expires_at timestamptz);
 CREATE TABLE role_permissions(role_name text,permission_code text);
 CREATE TABLE rbac_roles(role_name text,permissions text[] NOT NULL DEFAULT '{}');
 CREATE TABLE user_permissions(user_id text,permission_code text,expires_at timestamptz);

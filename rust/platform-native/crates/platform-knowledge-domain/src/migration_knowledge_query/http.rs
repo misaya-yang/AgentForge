@@ -130,7 +130,7 @@ async fn retrieve_authorized(
         .require_dataset_access(&user, &id, if preview { "editor" } else { "viewer" })
         .await?;
     let generation = dataset.generation()?;
-    let (results, meta) = state.retrieval.retrieve(&user, &id, request).await?;
+    let (results, meta) = Box::pin(state.retrieval.retrieve(&user, &id, request)).await?;
     state
         .retrieval
         .store
@@ -226,23 +226,39 @@ fn stamp_space_hits(
     refs: Vec<crate::spaces::RetrievalRef>,
     user: &UserContext,
 ) -> Vec<Value> {
-    let refs: HashMap<_, _> = refs.into_iter().map(|item| (item.document_id.clone(), item)).collect();
+    let refs: HashMap<_, _> = refs
+        .into_iter()
+        .map(|item| (item.document_id.clone(), item))
+        .collect();
     values
         .into_iter()
         .filter_map(|mut item| {
-            let document_id = item.get("document_id").and_then(Value::as_str).unwrap_or("");
+            let document_id = item
+                .get("document_id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let Some(reference) = refs.get(document_id) else {
                 return Some(item);
             };
             let space_document = reference.metadata.get("space_id").is_some()
                 || reference.metadata.get("_connector_acl").is_some();
             if space_document
-                && !crate::spaces::viewer_can_retrieve(&reference.metadata, &user.user_id, &user.tenant_id, &user.roles)
+                && !crate::spaces::viewer_can_retrieve(
+                    &reference.metadata,
+                    &user.user_id,
+                    &user.tenant_id,
+                    &user.roles,
+                )
             {
                 return None;
             }
             if !reference.item_id.is_empty() {
-                crate::spaces::stamp_hit(&mut item, &reference.space_id, &reference.item_id, reference.revision);
+                crate::spaces::stamp_hit(
+                    &mut item,
+                    &reference.space_id,
+                    &reference.item_id,
+                    reference.revision,
+                );
             }
             Some(item)
         })

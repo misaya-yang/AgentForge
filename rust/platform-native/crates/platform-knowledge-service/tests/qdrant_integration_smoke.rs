@@ -26,11 +26,26 @@ async fn fixture(
         .map_err(|_| "QDRANT_URL must explicitly select a disposable test service")?;
     require(!endpoint.trim().is_empty(), "QDRANT_URL must not be empty")?;
     let origin = reqwest::Url::parse(&endpoint)?;
-    let client = reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .no_proxy()
-        .timeout(Duration::from_secs(10))
-        .build()?;
-    let mut store = QdrantStore::new(client.clone(), origin.clone(), None)?;
+        .timeout(Duration::from_secs(10));
+    if let Some(path) = std::env::var_os("QDRANT_TLS_CA_FILE") {
+        let certificate = reqwest::Certificate::from_pem(&std::fs::read(path)?)?;
+        builder = builder.tls_certs_only([certificate]);
+    }
+    let api_key = std::env::var_os("QDRANT_API_KEY_FILE")
+        .map(|path| std::fs::read_to_string(path).map(|value| value.trim().to_owned()))
+        .transpose()?;
+    if let Some(api_key) = &api_key {
+        require(!api_key.is_empty(), "Qdrant API key file must not be empty")?;
+        let mut value = reqwest::header::HeaderValue::from_str(api_key)?;
+        value.set_sensitive(true);
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("api-key", value);
+        builder = builder.default_headers(headers);
+    }
+    let client = builder.build()?;
+    let mut store = QdrantStore::new(client.clone(), origin.clone(), api_key)?;
     store.timeout = Duration::from_secs(10);
     let mut dataset = Dataset {
         dataset_id: format!("{prefix}-{}", uuid::Uuid::new_v4().simple()),

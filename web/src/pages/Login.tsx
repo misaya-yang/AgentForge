@@ -9,7 +9,7 @@ import { consoleAuthGeneration, useAuthStore } from "@/store/useAuthStore";
 import { login } from "@/api/auth";
 import { PasswordChangeModal } from "@/components/PasswordChangeModal";
 import { ArrowRight, Eye, EyeOff, LoaderCircle, ShieldCheck } from "lucide-react";
-import { Modal } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import type { HttpError } from '@/lib/fetchClient';
 
 type ApiValidationIssue = { msg?: unknown; message?: unknown };

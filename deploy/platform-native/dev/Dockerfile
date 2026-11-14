@@ -15,11 +15,12 @@ RUN test "$(rustc --version | cut -d' ' -f2)" = "1.99.0" \
     && mkdir -p /native-cache/cargo /native-cache/target \
     && chown -R 10001:10001 /native-cache
 # Real PDF regression tests use the same Poppler executables as service images.
-# Keep this separate so adding test tools reuses the existing compiler layer.
+# Keep test utilities separate so adding them reuses the compiler layer.
+# Release-manifest contract tests execute jq, just like the publishing workflow.
 RUN apt-get -o APT::Update::Error-Mode=any -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
        -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update \
     && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt \
-       -o Acquire::Retries=3 -o Acquire::https::Timeout=30 install -y --no-install-recommends poppler-utils \
+       -o Acquire::Retries=3 -o Acquire::https::Timeout=30 install -y --no-install-recommends poppler-utils jq \
     && rm -rf /var/lib/apt/lists/*
 ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
     CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_HOME=/native-cache/cargo CARGO_TARGET_DIR=/native-cache/target \

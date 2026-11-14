@@ -532,6 +532,9 @@ async function installHarness(page: Page, options: HarnessOptions = {}): Promise
     if (pathname === "/api/v1/skills") return route.fulfill(response({ skills: [], total: 0 }));
     if (pathname === "/api/v1/connectors/available") return route.fulfill(response([]));
     if (pathname === "/api/v1/connectors/mine") return route.fulfill(response([]));
+    if (pathname === "/api/v1/catalog") return route.fulfill(response({ entries: [] }));
+    if (pathname === "/api/v1/connections") return route.fulfill(response({ connections: [] }));
+    if (pathname === "/api/v1/local-nodes") return route.fulfill(response({ devices: [] }));
     if (pathname === "/api/v1/knowledge/datasets") {
       return route.fulfill(response([]));
     }
@@ -835,7 +838,7 @@ test.describe("Agent publish and rollback", () => {
     await capture(page, "publish-diff-success-390x844");
     await captureFullPage(page, "publish-diff-success-390-wide-full-page");
 
-    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("dialog", { name: "Publish immutable Version" }).getByRole("button", { name: "Close", exact: true }).click();
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/agents/${AGENT_ID}/versions`, { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Current target · v3")).toBeVisible();
@@ -870,7 +873,7 @@ test.describe("Agent publish and rollback", () => {
     expect(state.publications[0].version_id).toBe(VERSION_THREE_ID);
     expect(state.versions.filter((item) => item.agent_version_id === VERSION_THREE_ID)).toHaveLength(1);
 
-    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("dialog", { name: "Publish immutable Version" }).getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Channels & Analytics", exact: true }).click();
     await expect(page.getByText("Current target · v3")).toBeVisible();
     await versionOne.getByRole("button", { name: "Roll back HOSTED" }).click();

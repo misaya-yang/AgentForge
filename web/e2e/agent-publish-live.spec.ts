@@ -369,7 +369,7 @@ test.describe("Agent publish live stack", () => {
         "running",
         "passed",
       ]);
-      await page.getByRole("button", { name: "Close" }).click();
+      await page.getByRole("dialog", { name: "Publish immutable Version", exact: true }).getByRole("button", { name: "Close", exact: true }).click();
 
       await page.getByRole("button", { name: "Overview", exact: true }).click();
       await page.getByLabel("Description").fill("Changed after the first exact evaluation.");
@@ -384,7 +384,7 @@ test.describe("Agent publish live stack", () => {
       await page.getByLabel("Release reason").fill("Promote live revision one.");
       await page.getByRole("button", { name: "Publish Version" }).click();
       await expect(page.getByTestId("agent-publish-sheet").getByText("Version published")).toBeVisible();
-      await page.getByRole("button", { name: "Close" }).click();
+      await page.getByRole("dialog", { name: "Publish immutable Version", exact: true }).getByRole("button", { name: "Close", exact: true }).click();
 
       await page.getByRole("button", { name: "Overview", exact: true }).click();
       await page.getByLabel("Welcome message").fill("Welcome to immutable Version two.");
@@ -398,7 +398,7 @@ test.describe("Agent publish live stack", () => {
       await expect(page.getByTestId("agent-publish-sheet").getByText("Version published")).toBeVisible();
       await page.setViewportSize({ width: 390, height: 844 });
       await screenshot(page, "live-publish-v2-390x844");
-      await page.getByRole("button", { name: "Close" }).click();
+      await page.getByRole("dialog", { name: "Publish immutable Version", exact: true }).getByRole("button", { name: "Close", exact: true }).click();
 
       await page.setViewportSize({ width: 1440, height: 900 });
       const beforeRollback = await releaseSnapshot(page, agentId!);

@@ -282,6 +282,17 @@ impl QdrantStore {
         self.ensure_collection_policy(dataset, dimension, false)
             .await
     }
+    /// Resume the same durable creation after external I/O succeeded but its
+    /// database acknowledgement was interrupted. Existing collection ownership
+    /// and the exact serving profile are still verified by the common policy.
+    pub(crate) async fn resume_dataset_collection(
+        &self,
+        dataset: &Dataset,
+        dimension: usize,
+    ) -> Result<String> {
+        self.ensure_collection_policy(dataset, dimension, true)
+            .await
+    }
     pub async fn delete_collection(&self, dataset: &Dataset) -> Result<()> {
         self.require_collection_readable(dataset).await?;
         self.delete_collection_scoped(dataset).await

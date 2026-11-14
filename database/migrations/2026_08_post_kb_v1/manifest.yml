@@ -1,6 +1,6 @@
 {
   "baseline_id": "2026_08_post_kb_v1",
-  "epoch": 31,
+  "epoch": 32,
   "changes": [
     {
       "sequence": 1,
@@ -694,6 +694,29 @@
       "resume_handler": null,
       "repair_handler": null,
       "notes": "Formal canonical successor after knowledge_spaces 030. Gateway SELECT/INSERT/UPDATE only; other application roles and PUBLIC receive no access."
+    },
+    {
+      "sequence": 32,
+      "name": "gateway_automations",
+      "file": "032_gateway_automations.sql",
+      "sha256": "60581afdbd4ec43aca159f813c938dad00f26ee1c82d611c3106ce189bae6f0b",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_rules') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT pg_catalog.to_regclass('gateway.automation_rules') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_deliveries') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_notifications') IS NOT NULL",
+        "SELECT pg_catalog.has_table_privilege(left(current_user,length(current_user)-length('owner'))||'gateway','gateway.automation_rules','SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user,length(current_user)-length('owner'))||'gateway','gateway.automation_rules','DELETE') AND NOT pg_catalog.has_table_privilege('public','gateway.automation_rules','SELECT')",
+        "SELECT (WITH ids AS (\n SELECT (left(current_user,length(current_user)-length('owner'))||'gateway')::regrole::oid AS gateway_oid,\n        (left(current_user,length(current_user)-length('owner'))||'owner')::regrole::oid AS owner_oid\n), routine AS (SELECT p.* FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid=p.prolang\n JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace\n JOIN pg_catalog.pg_type t ON t.oid=p.proargtypes[0]\n JOIN pg_catalog.pg_namespace tn ON tn.oid=t.typnamespace\n WHERE n.nspname='gateway' AND p.proname='agent_audit_redact_jsonb'\n   AND p.prokind='f' AND p.pronargs=1 AND t.typname='jsonb' AND tn.nspname='pg_catalog'\n   AND p.prorettype=t.oid AND NOT p.proretset AND l.lanname='plpgsql')\nSELECT (SELECT count(*) FROM routine)=1\n AND NOT EXISTS(SELECT 1 FROM routine p,ids i WHERE p.proowner<>i.owner_oid OR p.prosecdef OR p.provolatile<>'i')\n AND (SELECT count(*) FROM routine p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a)=2\n AND NOT EXISTS(SELECT 1 FROM routine p,ids i CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a\n   WHERE a.grantor<>i.owner_oid OR a.grantee NOT IN(i.owner_oid,i.gateway_oid) OR a.privilege_type<>'EXECUTE' OR a.is_grantable))",
+        "SELECT (WITH ids AS (\n SELECT (left(current_user,length(current_user)-length('owner'))||'knowledge_api')::regrole::oid AS api_oid,\n        (left(current_user,length(current_user)-length('owner'))||'owner')::regrole::oid AS owner_oid\n), relations AS (\n SELECT c.oid,c.relowner,n.nspname,c.relname FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace\n WHERE (n.nspname,c.relname) IN (('gateway','version_retention_policies'),('knowledge','dataset_keyword_tables')) AND c.relkind='r'\n), columns AS (\n SELECT r.*,p.attname,p.attacl FROM relations r JOIN pg_catalog.pg_attribute p ON p.attrelid=r.oid WHERE p.attnum>0 AND NOT p.attisdropped\n), privileges AS (\n SELECT c.*,a.grantee,a.grantor,a.privilege_type,a.is_grantable FROM columns c CROSS JOIN LATERAL pg_catalog.aclexplode(c.attacl) a\n)\nSELECT (SELECT count(*) FROM relations)=2\n AND NOT EXISTS(SELECT 1 FROM relations r,ids i WHERE r.relowner<>i.owner_oid\n   OR NOT pg_catalog.has_table_privilege(i.api_oid,r.oid,'DELETE') OR pg_catalog.has_table_privilege(i.api_oid,r.oid,'SELECT'))\n AND (SELECT count(*) FROM privileges)=3\n AND NOT EXISTS(SELECT 1 FROM privileges p,ids i WHERE p.grantee<>i.api_oid OR p.grantor<>i.owner_oid OR p.privilege_type<>'SELECT' OR p.is_grantable\n   OR (p.nspname,p.relname,p.attname) NOT IN (('gateway','version_retention_policies','dataset_id'),('gateway','version_retention_policies','tenant_id'),('knowledge','dataset_keyword_tables','dataset_id'))))"
+      ],
+      "timeout_seconds": 600,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Cron/timezone and confirmed automations; exact Gateway pure-JSON audit EXECUTE and Knowledge API DELETE-predicate column SELECT correction. No table SELECT, PUBLIC access, memberships, or new service."
     }
   ]
 }

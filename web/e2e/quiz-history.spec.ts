@@ -11,7 +11,7 @@
  * 4. Verify QuizCard renders (hydrated from DB)
  */
 
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./support/real-api";
 import {
   buildAuthHeaders,
   createOwnedKnowledgeDataset,

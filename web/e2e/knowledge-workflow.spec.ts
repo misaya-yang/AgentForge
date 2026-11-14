@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/real-api";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { buildAuthHeaders, ensureAuthenticatedPage, getApiUrl, readE2ETestUser } from "./support/helpers";
 

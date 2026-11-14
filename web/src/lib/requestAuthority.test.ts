@@ -18,7 +18,7 @@ function client() {
     "@/observability/browserTelemetry": { browserTraceparent: () => undefined },
     "@/config/runtime": { getApiBaseUrlConfig: () => runtimeBase },
     "@/hooks/use-toast": { toast: { warning() {} } }, "@/i18n": { default: { t: (key: string) => key } },
-    "@/store/useAuthStore": { useAuthStore: { getState() { if (authThrows) throw new Error("auth unavailable"); return auth.getState(); }, subscribe: auth.subscribe } },
+    "@/store/useAuthStore": { consoleAuthGeneration: () => cleared, useAuthStore: { getState() { if (authThrows) throw new Error("auth unavailable"); return auth.getState(); }, subscribe: auth.subscribe } },
   };
   function load(file: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};

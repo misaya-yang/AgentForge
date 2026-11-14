@@ -8,7 +8,7 @@ use crate::{
     usage_recorder::{UsageEventPublisher, UsageFuture, UsageRecord, UsageRecorderError},
 };
 use redis::{
-    aio::ConnectionManager,
+    aio::{ConnectionManager, ConnectionManagerConfig},
     streams::{StreamAutoClaimReply, StreamId, StreamReadReply},
 };
 use serde_json::{Value, json};
@@ -67,6 +67,20 @@ impl ConnectionSource {
                 .dedicated_manager()
                 .await
                 .map_err(|_| EventError::Redis),
+        }
+    }
+    async fn connect_consumer(&self) -> EventResult<ConnectionManager> {
+        match self {
+            // Redis 1.x defaults to a 500ms response deadline, shorter than
+            // XREADGROUP BLOCK1000. Keep the consumer's dedicated connection
+            // alive through an empty poll without changing publisher deadlines.
+            Self::Legacy(client) => ConnectionManager::new_with_config(
+                client.clone(),
+                ConnectionManagerConfig::new().set_response_timeout(Some(Duration::from_secs(5))),
+            )
+            .await
+            .map_err(|_| EventError::Redis),
+            Self::Coordination(_) => self.connect().await,
         }
     }
 }
@@ -296,7 +310,7 @@ impl UsageEventBus {
         }
     }
     async fn consume(&self, stop: watch::Receiver<bool>) -> EventResult<()> {
-        let mut connection = self.source.connect().await?;
+        let mut connection = self.source.connect_consumer().await?;
         let reclaimed = ai_platform_gateway_foundation::worker_lease::with_effect(
             "usage_event_consumer", async {
                 Self::ensure_group(&mut connection).await?;

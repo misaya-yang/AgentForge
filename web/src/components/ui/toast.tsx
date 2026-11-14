@@ -9,7 +9,20 @@ interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
   open?: boolean; onOpenChange?: (open: boolean) => void; duration?: number;
 }
 function ToastProvider({ children }: { children?: React.ReactNode }) {
-  return createPortal(<div className="fixed right-4 top-4 z-[130] flex w-[calc(100vw-32px)] max-w-[420px] flex-col gap-2" aria-label="Notifications">{children}</div>, document.body);
+  const [portal] = React.useState(() => document.createElement("div"));
+  React.useLayoutEffect(() => {
+    // A save can enqueue a toast and close its dialog in the same React batch.
+    // Follow native modality after that commit without remounting live toasts.
+    const syncContainer = () => {
+      const container = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog:modal")).at(-1) ?? document.body;
+      if (portal.parentElement !== container) container.append(portal);
+    };
+    const observer = new MutationObserver(syncContainer);
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
+    syncContainer();
+    return () => { observer.disconnect(); portal.remove(); };
+  }, [portal]);
+  return createPortal(<div className="fixed right-4 top-4 z-[130] flex w-[calc(100vw-32px)] max-w-[420px] flex-col gap-2" aria-label="Notifications">{children}</div>, portal);
 }
 function ToastViewport(_props: React.HTMLAttributes<HTMLDivElement>) { void _props; return null; }
 const Toast = React.forwardRef<HTMLDivElement, ToastProps>(({ open = true, onOpenChange, duration = 5000, variant, children, ...props }, ref) => {

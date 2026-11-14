@@ -8,6 +8,12 @@ import {
   seedClientPrefs,
 } from "./support/helpers";
 
+async function dismissNotifications(page: Page) {
+  const closeButtons = page.locator('[aria-label="Notifications"]').getByRole("button", { name: "Close", exact: true });
+  for (const close of await closeButtons.all()) await close.click();
+  await expect(closeButtons).toHaveCount(0);
+}
+
 const AGENT_ID = "11111111-1111-4111-8111-111111111111";
 const COPIED_AGENT_ID = "12121212-1212-4121-8121-121212121212";
 const VERSION_ID = "22222222-2222-4222-8222-222222222222";
@@ -362,6 +368,8 @@ async function installHarness(page: Page, options: HarnessOptions = {}): Promise
       if (!run) throw new Error(`Run status requested outside a pinned Preview session: ${runStatus[1]}`);
       return route.fulfill(json({ run: { run_id: runStatus[1], session_id: run.sessionId, status: run.status, harness_thread_id: null } }));
     }
+    if (path === "/api/v1/catalog") return route.fulfill(json({ entries: [] }));
+    if (path === "/api/v1/connections") return route.fulfill(json({ connections: [] }));
     if (path === "/api/v1/assistant/models") return route.fulfill(json({ models: [{ id: "qwen3.7-plus", name: "qwen3.7-plus", provider: "dashscope", context_window: 131072, max_output_tokens: 8192, supports_vision: true, supports_tools: true }] }));
     if (path === "/api/v1/assistant/datasets") return route.fulfill(json({ datasets: [] }));
     if (path === "/api/v1/assistant/local-nodes" && request.method() === "GET") {
@@ -753,6 +761,7 @@ test.describe("Agent Studio workbench", () => {
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await captureEvidence(page, "studio-dirty-desktop-1440x900");
     const headerSave = page.locator(".agent-studio-actions").getByRole("button", { name: "Save draft" });
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.getByText("Saving…")).toBeVisible();
     await captureEvidence(page, "studio-saving-desktop-1440x900");
@@ -765,6 +774,7 @@ test.describe("Agent Studio workbench", () => {
 
     state.validationNext = true;
     await page.getByLabel("Description").fill("Needs validation");
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.getByText("Description needs a clearer purpose.")).toBeVisible();
     await expect(page.getByLabel("Description")).toBeFocused();
@@ -774,6 +784,7 @@ test.describe("Agent Studio workbench", () => {
 
     state.conflictNext = true;
     await page.getByLabel("Description").fill("Local conflicting edit");
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.getByText("Draft changed in another session")).toBeVisible();
     await expect(page.getByText("Reload revision 10 or copy your changes before continuing.")).toBeVisible();
@@ -789,6 +800,7 @@ test.describe("Agent Studio workbench", () => {
 
     state.networkNext = true;
     await page.getByLabel("Description").fill("Keep this local edit through a retryable network error.");
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.getByText("Draft could not be saved")).toBeVisible();
     await expect(page.getByLabel("Description")).toHaveValue("Keep this local edit through a retryable network error.");
@@ -804,12 +816,14 @@ test.describe("Agent Studio workbench", () => {
     await page.goto(`/agents/${AGENT_ID}`, { waitUntil: "domcontentloaded" });
     const headerSave = page.locator(".agent-studio-actions").getByRole("button", { name: "Save draft" });
     await page.getByLabel("Description").fill("First save batch");
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.getByText("Saving…")).toBeVisible();
     await page.getByLabel("Description").fill("Second batch stays local");
     await expect(page.locator(".agent-save-state")).toHaveText("Unsaved changes");
     await expect(page.getByLabel("Description")).toHaveValue("Second batch stays local");
     expect(state.currentDescription).toBe("First save batch");
+    await dismissNotifications(page);
     await headerSave.click();
     await expect(page.locator(".agent-save-state")).toHaveText("Saved");
     await expect(page.getByLabel("Description")).toHaveValue("Second batch stays local");
@@ -956,7 +970,7 @@ test.describe("Agent Studio workbench", () => {
     await page.getByRole("tab", { name: "Skills" }).click();
     await expect(page.getByText("Support writing")).toBeVisible();
     await page.getByRole("tab", { name: "Connectors" }).click();
-    await expect(page.getByText("Confluence")).toBeVisible();
+    await expect(page.getByText("Confluence", { exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "Platform tools" }).click();
     await captureEvidence(page, "studio-mobile-configure-390x844");
     await page.getByRole("button", { name: "Test in Preview" }).click();
