@@ -586,6 +586,8 @@ pub fn assemble_foundation(
         config.mcp_client_ttl_seconds,
         config.mcp_client_max_entries,
     ));
+    let catalog_public_base = config.console_public_base_url.clone();
+    let catalog_cipher_key = config.connector_encryption_key.clone();
     let provider_http = Arc::new(connector_oauth_http::ReqwestConnectorProviderHttp::new());
     let connectors = Arc::new(connector_user_service::ConnectorService::new(
         connector_user_service::ConnectorServiceDependencies {
@@ -955,6 +957,12 @@ pub fn assemble_foundation(
             )),
             cancellation: backends.health_cancellation,
         }),
+        catalog: catalog::app(
+            catalog::Store::Postgres(catalog::PgStore::new(pools.data.clone())),
+            catalog_cipher_key,
+            catalog_public_base,
+        ),
+        catalog_identity: Arc::new(AdmissionCatalogIdentity(auth.admission.clone())),
         invocation_identity: adapters.clone(),
         tasks: core.tasks.clone(),
         dispatcher: core.dispatcher.clone(),
@@ -964,4 +972,33 @@ pub fn assemble_foundation(
         apis,
         connector_service: connectors,
     })
+}
+
+struct AdmissionCatalogIdentity(Arc<ai_platform_auth::admission::AdmissionService>);
+
+impl catalog::CatalogIdentity for AdmissionCatalogIdentity {
+    fn actor<'a>(
+        &'a self,
+        headers: &'a HeaderMap,
+        path: &'a str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<catalog::Actor, axum::http::StatusCode>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            match self.0.request(headers, path).resolve().await {
+                Ok(principal)
+                    if principal.jwt_principal().is_some() || principal.api_key().is_some() =>
+                {
+                    Ok(catalog::Actor {
+                        user_id: principal.user_id().to_owned(),
+                        tenant_id: principal.tenant_id().to_owned(),
+                        permissions: principal.permissions().to_vec(),
+                    })
+                }
+                Ok(_) => Err(axum::http::StatusCode::UNAUTHORIZED),
+                Err(error) => Err(axum::http::StatusCode::from_u16(error.status())
+                    .unwrap_or(axum::http::StatusCode::UNAUTHORIZED)),
+            }
+        })
+    }
 }

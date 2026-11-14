@@ -122,6 +122,9 @@ fn tools() -> Vec<Value> {
         json!({"name":"external_agent_reconcile","description":"Resolve an ambiguous external send using only the verified peer message lookup. Never sends a new task.","inputSchema":schema(json!({"agent_name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,64}$"},"message_id":{"type":"string","format":"uuid"}}),&["agent_name","message_id"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":true}}),
         json!({"name":"admin_models","description":"Read the registered model catalog using the existing administrative REST policy.","inputSchema":schema(json!({}),&[]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
     ]
+    .into_iter()
+    .chain(ai_platform_gateway_foundation::mcp_server::space_tools())
+    .collect()
 }
 fn tool_list(published: bool, external: &[String]) -> Vec<Value> {
     tools()
@@ -160,6 +163,16 @@ fn target(name: &str, args: &Value) -> Result<(&'static str, String, Value), &'s
                 return Err("Invalid resource ID");
             }
         }
+    }
+    if name == "space_append_put" {
+        return Ok((
+            "PUT",
+            format!(
+                "/api/v1/knowledge/space-items/{}/content",
+                args["item_id"].as_str().unwrap_or("")
+            ),
+            json!({"content_format":"markdown","blocks":[],"markdown":args["markdown"]}),
+        ));
     }
     let Some(tool) = tools().into_iter().find(|t| t["name"] == name) else {
         return Err("Unknown tool");
@@ -232,8 +245,44 @@ fn target(name: &str, args: &Value) -> Result<(&'static str, String, Value), &'s
             },
         )),
         "admin_models" => Ok(("GET", "/api/v1/models".into(), Value::Null)),
+        "space_list" => Ok(("GET", "/api/v1/knowledge/spaces".into(), Value::Null)),
+        "space_search" | "knowledge_search" => {
+            let query = args["query"].as_str().unwrap_or("");
+            let mut path = format!("/api/v1/knowledge/space-items?q={}", query_escape(query));
+            if let Some(space_id) = args["space_id"].as_str() {
+                path.push_str(&format!("&space_id={}", query_escape(space_id)));
+            }
+            Ok(("GET", path, Value::Null))
+        }
+        "space_read_page" => Ok((
+            "GET",
+            format!(
+                "/api/v1/knowledge/space-items/{}/content",
+                args["item_id"].as_str().unwrap_or("")
+            ),
+            Value::Null,
+        )),
+        "space_create_page" => Ok((
+            "POST",
+            format!(
+                "/api/v1/knowledge/spaces/{}/items",
+                args["space_id"].as_str().unwrap_or("")
+            ),
+            json!({"title": args["title"], "kind": "page"}),
+        )),
         _ => Err("Unknown tool"),
     }
+}
+fn query_escape(value: &str) -> String {
+    let mut out = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 async fn invoke(
     s: &Server,
@@ -241,6 +290,17 @@ async fn invoke(
     name: &str,
     args: &Value,
 ) -> Result<(Value, u16), &'static str> {
+    if matches!(name, "space_create_page" | "space_append_blocks")
+        && headers
+            .get("x-agentforge-tool-approval")
+            .and_then(|value| value.to_str().ok())
+            != Some("granted")
+    {
+        return Err("approval_required");
+    }
+    if name == "space_append_blocks" {
+        return append_blocks(s.rest.clone(), headers, args).await;
+    }
     if name == "published_agent_send" && !s.published_agents {
         return Err("Published Agent invocation is unavailable");
     }
@@ -252,6 +312,39 @@ async fn invoke(
         return Err("External Agent is unavailable");
     }
     delegate(s.rest.clone(), headers, name, args).await
+}
+async fn append_blocks(
+    rest: Router,
+    headers: &HeaderMap,
+    args: &Value,
+) -> Result<(Value, u16), &'static str> {
+    let item_id = args["item_id"].as_str().ok_or("Invalid tool arguments")?;
+    let markdown = args["markdown"].as_str().ok_or("Invalid tool arguments")?;
+    let (current, status) = delegate(
+        rest.clone(),
+        headers,
+        "space_read_page",
+        &json!({"item_id": item_id}),
+    )
+    .await?;
+    if !(200..300).contains(&status) {
+        return Ok((current, status));
+    }
+    let existing = current["structuredContent"]["markdown"]
+        .as_str()
+        .unwrap_or("");
+    let combined = if existing.is_empty() {
+        markdown.to_owned()
+    } else {
+        format!("{existing}\n\n{markdown}")
+    };
+    delegate(
+        rest,
+        headers,
+        "space_append_put",
+        &json!({"item_id": item_id, "markdown": combined}),
+    )
+    .await
 }
 async fn delegate(
     rest: Router,
@@ -307,8 +400,12 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
         return StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response();
     }
     let admission = s.admission.request(&headers, "/mcp");
-    let (audit_tenant, audit_user) = match admission.resolve().await {
-        Ok(p) if p.jwt_principal().is_some() => (p.tenant_id().to_owned(), p.user_id().to_owned()),
+    let (audit_tenant, audit_user, jwt) = match admission.resolve().await {
+        Ok(p) if p.jwt_principal().is_some() || p.api_key().is_some() => (
+            p.tenant_id().to_owned(),
+            p.user_id().to_owned(),
+            p.jwt_principal().is_some(),
+        ),
         Ok(_) => return unauthorized(&s, StatusCode::UNAUTHORIZED),
         Err(e) => {
             return unauthorized(
@@ -317,7 +414,7 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
             );
         }
     };
-    if !audience(&headers, &s.configuration.resource) {
+    if jwt && !audience(&headers, &s.configuration.resource) {
         return unauthorized(&s, StatusCode::UNAUTHORIZED);
     }
     let bytes = match to_bytes(request.into_body(), 1024 * 1024).await {
@@ -340,6 +437,43 @@ async fn dispatch(State(s): State<Server>, request: Request) -> Response {
         return error(id, -32600, "Invalid request");
     }
     let method = value["method"].as_str().unwrap_or("");
+    let protocol = headers
+        .get("mcp-protocol-version")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if protocol == "2025-11-25" || (protocol.is_empty() && method == "initialize") {
+        if method == "initialize" {
+            let mut response = rpc(
+                id,
+                json!({"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"agentforge","version":"m3"}}),
+            );
+            if let Ok(session) = "legacy".parse() {
+                response.headers_mut().insert("mcp-session-id", session);
+            }
+            return response;
+        }
+        if method == "notifications/initialized" {
+            return StatusCode::ACCEPTED.into_response();
+        }
+        return match method {
+            "server/discover" => rpc(
+                id,
+                json!({"resultType":"complete","supportedVersions":[VERSION,"2025-11-25"],"capabilities":{"tools":{}},"cacheScope":"private","ttlMs":0}),
+            ),
+            "tools/list" => rpc(
+                id,
+                json!({"resultType":"complete","tools":tool_list(s.published_agents,&s.external_agents),"cacheScope":"private","ttlMs":0}),
+            ),
+            "tools/call" => {
+                let name = value["params"]["name"].as_str().unwrap_or("");
+                match invoke(&s, &headers, name, &value["params"]["arguments"]).await {
+                    Ok((result, _)) => rpc(id, result),
+                    Err(message) => error(id, -32602, message),
+                }
+            }
+            _ => error(id, -32601, "Method not found"),
+        };
+    }
     if headers.get("mcp-method").and_then(|v| v.to_str().ok()) != Some(method) {
         return StatusCode::BAD_REQUEST.into_response();
     }

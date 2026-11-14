@@ -321,7 +321,10 @@ pub use ai_platform_gateway_foundation::provider_startup_seeder;
 pub use ai_platform_gateway_foundation::config_audit_postgres;
 pub use ai_platform_gateway_foundation::config_audit_writer;
 
+pub use ai_platform_gateway_foundation::catalog;
 pub use ai_platform_gateway_foundation::catalog_http;
+pub use ai_platform_gateway_foundation::connections;
+pub use ai_platform_gateway_foundation::mcp_server;
 
 pub use ai_platform_gateway_foundation::model_admin_api;
 

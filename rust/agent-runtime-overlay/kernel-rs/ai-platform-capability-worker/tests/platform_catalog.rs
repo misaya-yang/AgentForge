@@ -29,6 +29,12 @@ const EXPECTED_NAMES: &[&str] = &[
     "local_node_catalog",
     "local_node_describe",
     "local_node_action",
+    "space_list",
+    "space_search",
+    "space_read_page",
+    "knowledge_search",
+    "space_create_page",
+    "space_append_blocks",
 ];
 
 #[test]

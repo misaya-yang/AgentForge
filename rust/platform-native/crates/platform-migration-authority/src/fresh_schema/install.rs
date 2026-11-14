@@ -19,12 +19,25 @@ pub(super) fn exact_acl(actual: &[String]) -> Result<()> {
         .map_err(|_| refused("compiled final ACL policy malformed"))?;
     let expected: Vec<String> = serde_json::from_value(policy["raw_acl_lines"].clone())
         .map_err(|_| refused("compiled final ACL lines malformed"))?;
+    let actual_set = actual.iter().collect::<BTreeSet<_>>();
+    let expected_set = expected.iter().collect::<BTreeSet<_>>();
     if policy["schema_epoch"] != EPOCH
         || policy["database_owner"] != "owner"
         || actual.len() != expected.len()
-        || actual.iter().collect::<BTreeSet<_>>() != expected.iter().collect::<BTreeSet<_>>()
-        || expected.iter().collect::<BTreeSet<_>>().len() != expected.len()
+        || actual_set != expected_set
+        || expected_set.len() != expected.len()
     {
+        for line in expected_set.difference(&actual_set) {
+            eprintln!("fresh-schema acl missing {line}");
+        }
+        for line in actual_set.difference(&expected_set) {
+            eprintln!("fresh-schema acl extra {line}");
+        }
+        eprintln!(
+            "fresh-schema acl counts actual={} expected={}",
+            actual.len(),
+            expected.len()
+        );
         return Err(refused(
             "complete final owner/role/object/column ACL matrix differs from source",
         ));
@@ -348,6 +361,7 @@ async fn install(
         .changes
         .iter()
         .chain(std::iter::once(&defs.knowledge_spaces))
+        .chain(std::iter::once(&defs.catalog_connections))
     {
         sqlx::query(
             "SELECT set_config('statement_timeout',$1,true),set_config('lock_timeout',$2,true)",
@@ -451,7 +465,7 @@ async fn install(
         json!({"status":"initialized_actual_fresh_database","database":DATABASE,"schema_epoch":EPOCH,
         "source_contract_sha256":source_sha256(),"fingerprints":fingerprints,
         "catalog_sha256":sha(&serde_json::to_vec(&observed).map_err(|_|refused("catalog encoding failed"))?),
-        "partition_catalog":partition,"definitions_installed":defs.changes.len()+1,
+        "partition_catalog":partition,"definitions_installed":defs.changes.len()+2,
         "historical_upgrade_acceptance":false,"one_atomic_schema_transaction":true}),
     )
 }

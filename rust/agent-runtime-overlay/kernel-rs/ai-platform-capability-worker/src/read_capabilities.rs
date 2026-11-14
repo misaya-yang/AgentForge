@@ -23,7 +23,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use hmac::Hmac;
 use reqwest::{Client, Response, Url};
-use serde_json::Value;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use self::web::{is_public_ip, network_host, resolved_peer_ip};
@@ -160,6 +160,17 @@ pub trait ReadHttpAdapter: Send + Sync {
     ) -> Result<Value, ReadCapabilityError>;
 
     async fn get_public(&self, url: Url) -> Result<PublicHttpResponse, ReadCapabilityError>;
+
+    async fn exchange_internal_json(
+        &self,
+        method: &str,
+        url: Url,
+        headers: &[(String, String)],
+        body: Option<Value>,
+    ) -> Result<Value, ReadCapabilityError> {
+        let _ = (method, url, headers, body);
+        Err(ReadCapabilityError::NotFound)
+    }
 }
 
 /// Read-only access to session memory. The caller supplies the owner-bound
@@ -260,6 +271,49 @@ impl ReadHttpAdapter for ReqwestReadHttpAdapter {
                 .remaining(std::time::Instant::now())
                 .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
             Ok(value)
+        })
+        .await
+        .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?
+    }
+
+    async fn exchange_internal_json(
+        &self,
+        method: &str,
+        url: Url,
+        headers: &[(String, String)],
+        body: Option<Value>,
+    ) -> Result<Value, ReadCapabilityError> {
+        let payload = body.clone().unwrap_or_else(|| json!({}));
+        let (budget, mut headers) = transport::outbound(headers)?;
+        if crate::broker_proof::required() {
+            let proof = crate::broker_proof::issue(url.path(), &payload)
+                .await
+                .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+            headers.retain(|(key, _)| key != "x-ai-capability-proof");
+            headers.push(("x-ai-capability-proof".into(), proof));
+        }
+        let policy = ai_platform_capability_contract::private_transport::Edge::WorkerKnowledge.policy();
+        let total = policy
+            .total_timeout(&budget, std::time::Instant::now())
+            .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+        tokio::time::timeout(total, async {
+            let mut request = match method {
+                "GET" => self.client.get(url),
+                "PUT" => self.client.put(url).json(&payload),
+                _ => self.client.post(url).json(&payload),
+            };
+            for (name, value) in headers {
+                request = request.header(name, value);
+            }
+            let response = request
+                .workload_send()
+                .await
+                .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?;
+            if !response.status().is_success() {
+                return Err(ReadCapabilityError::DownstreamRejected);
+            }
+            let bytes = bounded_response(response, MAX_INTERNAL_RESPONSE_BYTES).await?;
+            serde_json::from_slice(&bytes).map_err(|_| ReadCapabilityError::DownstreamRejected)
         })
         .await
         .map_err(|_| ReadCapabilityError::DownstreamUnavailable)?

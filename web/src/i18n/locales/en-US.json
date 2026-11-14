@@ -2861,5 +2861,40 @@
     "denied": "Role catalog access requires role:list permission.",
     "invalid": "Enter a valid lowercase role name and a description of 1–255 characters.",
     "reserved": "The name permissions is unavailable here because GET /roles/permissions is the permission catalog, not exact-role recovery. Choose another name; existing roles are unchanged."
+  },
+  "connect": {
+    "title": "Connect apps",
+    "open": "Connect apps",
+    "close": "Close",
+    "searchLabel": "Search apps and skills",
+    "searchPlaceholder": "Search apps and skills",
+    "connectedCount": "Connected {count}",
+    "botTemplates": "Bot templates",
+    "recommended": "Recommended for you",
+    "thisComputer": "This computer",
+    "connect": "Connect",
+    "connecting": "Connecting",
+    "connectedState": "Connected",
+    "secretLabel": "API key or token",
+    "saveSecret": "Save connection",
+    "failed": "The connection could not be saved.",
+    "empty": "No matching apps",
+    "shared": "Shared connections",
+    "noShared": "No shared connections",
+    "revoke": "Revoke",
+    "policy": "Disable by policy",
+    "manageTitle": "Connectors",
+    "manageSummary": "Search the same catalog, then manage shared connections and policy.",
+    "category": {
+      "all": "All",
+      "local": "This computer",
+      "office": "Office",
+      "communication": "Communication",
+      "design": "Design",
+      "development": "Development",
+      "data": "Data",
+      "password": "Passwords",
+      "more": "More"
+    }
   }
 }

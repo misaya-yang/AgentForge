@@ -1,8 +1,8 @@
 {
   "schema": "agentforge/generated-sdk/v2",
   "openapi": "3.2.0",
-  "source_sha256": "43b8407044414677238f20c80e16c9084599243a5db129aa0fa02b92906fd88c",
-  "operations": 617,
+  "source_sha256": "3c978859313bd58175d08e936e4a0c2e96e78ec767b404f87f0eb811fd010939",
+  "operations": 627,
   "schema_models": 83,
   "stream_operations": [
     "POST /api/v1/agent-runtime/{public_id}/chat/stream",
@@ -472,6 +472,14 @@
       "request": "operation_get_current_user_api_v1_auth_me_get_413f053051f9",
       "stream": null
     },
+    "GET /api/v1/catalog": {
+      "request": "operation_list_catalog_api_v1_catalog_get_00f9152439be",
+      "stream": null
+    },
+    "GET /api/v1/catalog/{entry_id}": {
+      "request": "operation_get_catalog_entry_api_v1_catalog__entry_id__get_b4e3acf2b94c",
+      "stream": null
+    },
     "GET /api/v1/config/api-keys": {
       "request": "operation_native_19_list_api_keys_get__api_v1_config_api_keys_15b91e535b10",
       "stream": null
@@ -494,6 +502,18 @@
     },
     "GET /api/v1/config/status": {
       "request": "operation_console_get_api_v1_config_status_aec75d21c982",
+      "stream": null
+    },
+    "GET /api/v1/connections": {
+      "request": "operation_list_connections_api_v1_connections_get_a93ff9a82c5a",
+      "stream": null
+    },
+    "GET /api/v1/connections/oauth/callback": {
+      "request": "operation_connection_oauth_callback_api_v1_connections_oauth_callback_get_c95c5f57d614",
+      "stream": null
+    },
+    "GET /api/v1/connections/oauth/client-metadata": {
+      "request": "operation_connection_client_metadata_api_v1_connections_oauth_client_metadata_get_f94077b652a1",
       "stream": null
     },
     "GET /api/v1/connectors/admin/configs": {
@@ -1636,6 +1656,10 @@
       "request": "operation_validate_token_api_v1_auth_validate_token_post_f700688e94b5",
       "stream": null
     },
+    "POST /api/v1/catalog": {
+      "request": "operation_create_catalog_entry_api_v1_catalog_post_dbb8f60ae55c",
+      "stream": null
+    },
     "POST /api/v1/config/api-keys": {
       "request": "operation_native_19_create_api_key_post__api_v1_config_api_keys_076bc757adeb",
       "stream": null
@@ -1646,6 +1670,22 @@
     },
     "POST /api/v1/config/services/langgraph": {
       "request": "operation_native_26_create_langgraph_service_post__api_v1_config_services_langgraph_9acbccfc45c8",
+      "stream": null
+    },
+    "POST /api/v1/connections": {
+      "request": "operation_create_connection_api_v1_connections_post_03f292de6466",
+      "stream": null
+    },
+    "POST /api/v1/connections/{connection_id}/policy": {
+      "request": "operation_policy_connection_api_v1_connections__connection_id__policy_post_fb9192d3170a",
+      "stream": null
+    },
+    "POST /api/v1/connections/{connection_id}/revoke": {
+      "request": "operation_revoke_connection_api_v1_connections__connection_id__revoke_post_a439ad9c5b49",
+      "stream": null
+    },
+    "POST /api/v1/connections/{entry_id}/oauth/start": {
+      "request": "operation_start_connection_oauth_api_v1_connections__entry_id__oauth_start_post_f35fd6c3d523",
       "stream": null
     },
     "POST /api/v1/connectors/admin/configs": {

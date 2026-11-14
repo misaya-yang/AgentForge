@@ -234,6 +234,39 @@ pub const KNOWLEDGE_SPACE_PERMISSIONS: &[&str] = &[
 
 /// Default console role grants for spaces. Membership still filters rows.
 /// `admin` keeps `admin:*` and is not listed here.
+pub const CONNECTOR_PERMISSIONS: &[&str] = &[
+    "connector:view",
+    "connector:connect",
+    "connector:share",
+    "connector:admin",
+];
+
+/// Default console role grants for the connector catalog.
+/// `admin` keeps `admin:*` and is not listed here.
+pub fn connector_role_grants() -> &'static [(&'static str, &'static [&'static str])] {
+    &[
+        ("user", &["connector:view", "connector:connect"]),
+        (
+            "manager",
+            &[
+                "connector:view",
+                "connector:connect",
+                "connector:share",
+            ],
+        ),
+        (
+            "developer",
+            &[
+                "connector:view",
+                "connector:connect",
+                "connector:share",
+            ],
+        ),
+        ("cs_staff", &["connector:view"]),
+        ("sales_staff", &["connector:view"]),
+    ]
+}
+
 pub fn knowledge_space_role_grants() -> &'static [(&'static str, &'static [&'static str])] {
     &[
         ("user", &["knowledge:space:view", "knowledge:space:create"]),
@@ -286,6 +319,24 @@ mod tests {
         for (_, grants) in knowledge_space_role_grants() {
             for permission in *grants {
                 assert!(KNOWLEDGE_SPACE_PERMISSIONS.contains(permission));
+            }
+        }
+    }
+
+    #[test]
+    fn connector_permissions_follow_existing_wildcard_matching() {
+        let admin = HashSet::from(["admin:*"]);
+        let catalog = HashSet::from(["connector:*"]);
+        let view = HashSet::from(["connector:view"]);
+        for permission in CONNECTOR_PERMISSIONS {
+            assert!(Rbac::matches_permission(&admin, permission));
+            assert!(Rbac::matches_permission(&catalog, permission));
+        }
+        assert!(Rbac::matches_permission(&view, "connector:view"));
+        assert!(!Rbac::matches_permission(&view, "connector:admin"));
+        for (_, grants) in connector_role_grants() {
+            for permission in *grants {
+                assert!(CONNECTOR_PERMISSIONS.contains(permission));
             }
         }
     }

@@ -1,5 +1,7 @@
 //! Agent Plugins 1.0.0 inert directory loader. Declarations never grant runtime authority.
 mod agents;
+mod compat;
+pub use compat::{AgentSkill, CompatEntry, discover_compat, validate_agent_skill};
 mod loader;
 mod mcp;
 mod unique;

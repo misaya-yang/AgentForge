@@ -29,6 +29,7 @@ import { Logo } from "@/components/Logo";
 import { changeAppLanguage, languages } from "@/i18n";
 import { GROUP_ORDER, useConsoleNavigation, type NavGroup, type NavItem } from "@/config/consoleNavigation";
 import { ConsoleQuickNav } from "@/components/ConsoleQuickNav";
+import { CONNECT_DIALOG_ID, ConnectAppsDialog } from "@/components/connect/ConnectAppsDialog";
 import "@/styles/enterprise-console.css";
 import { preloadNavigationIntent } from "@/lib/routePreload";
 
@@ -377,6 +378,9 @@ export function AppLayout() {
               )}
             </div>
           </div>
+          <button type="button" data-command={`show-modal:${CONNECT_DIALOG_ID}`} className="shrink-0 rounded-md px-2 py-1 text-sm hover:bg-muted/50">
+            {t("connect.open")}
+          </button>
           <ConsoleQuickNav items={finalNavItems} />
           <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} trigger={['click']}>
             <button
@@ -401,6 +405,7 @@ export function AppLayout() {
         </Content>
       </Layout>
 
+      <ConnectAppsDialog />
       <HelpModal open={helpModalOpen} onClose={() => setHelpModalOpen(false)} />
       <PasswordChangeModal
         open={showPasswordChange} allowClose={!forcePasswordChange}

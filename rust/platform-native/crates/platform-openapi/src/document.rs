@@ -24,6 +24,8 @@ mod knowledge_meter_contract;
 mod platform_protocol_contract;
 #[path = "../../platform-gateway/src/migration_host/problem_contract.rs"]
 mod problem_contract;
+#[path = "../../platform-gateway-foundation/src/catalog/contract.rs"]
+mod catalog_contract;
 #[path = "provider_contract.rs"]
 mod provider_contract;
 #[path = "../../platform-gateway/src/llm_api/public_contract.rs"]
@@ -186,5 +188,6 @@ pub fn extend_document(mut document: serde_json::Value) -> serde_json::Value {
     stream_schema::upgrade(&mut document);
     platform_protocol_contract::extend_document(&mut document);
     problem_contract::extend_document(&mut document);
+    catalog_contract::extend_document(&mut document);
     document
 }

@@ -2861,5 +2861,40 @@
     "denied": "读取角色目录需要 role:list 权限。",
     "invalid": "请输入有效的小写角色名称及 1–255 个字符的说明。",
     "reserved": "此处不能使用 permissions，因为 GET /roles/permissions 返回权限目录，无法恢复同名角色详情。请选择其他名称；已有角色不变。"
+  },
+  "connect": {
+    "title": "连接应用",
+    "open": "连接应用",
+    "close": "关闭",
+    "searchLabel": "搜索应用和技能",
+    "searchPlaceholder": "搜索应用和技能",
+    "connectedCount": "已连接 {count}",
+    "botTemplates": "Bot 模板",
+    "recommended": "为你推荐",
+    "thisComputer": "这台电脑",
+    "connect": "连接",
+    "connecting": "连接中",
+    "connectedState": "已连接",
+    "secretLabel": "API key 或令牌",
+    "saveSecret": "保存连接",
+    "failed": "连接没有保存。",
+    "empty": "没有匹配的应用",
+    "shared": "共享连接",
+    "noShared": "没有共享连接",
+    "revoke": "撤销",
+    "policy": "按策略停用",
+    "manageTitle": "连接器",
+    "manageSummary": "在同一目录里搜索，并管理共享连接和策略。",
+    "category": {
+      "all": "全部",
+      "local": "本机",
+      "office": "办公协作",
+      "communication": "沟通",
+      "design": "设计",
+      "development": "开发",
+      "data": "数据",
+      "password": "密码管理",
+      "more": "更多"
+    }
   }
 }
