@@ -76,6 +76,8 @@ export function SlideOutlinePreview({
     >
       {/* Header */}
       <button
+        type="button"
+        aria-expanded={isExpanded}
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-4 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
       >

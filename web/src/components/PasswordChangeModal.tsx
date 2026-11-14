@@ -179,6 +179,7 @@ function PasswordChangeForm({
             <Label htmlFor="current-password">Current Password</Label>
             <Input
               id="current-password"
+              autoComplete="current-password"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -191,6 +192,7 @@ function PasswordChangeForm({
             <Label htmlFor="new-password">New Password</Label>
             <Input
               id="new-password"
+              autoComplete="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -206,6 +208,7 @@ function PasswordChangeForm({
             <Label htmlFor="confirm-password">Confirm New Password</Label>
             <Input
               id="confirm-password"
+              autoComplete="new-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

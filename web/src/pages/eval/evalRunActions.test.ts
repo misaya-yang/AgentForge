@@ -32,6 +32,8 @@ function host() {
   let destroyed = 0;
   const options = { runId: "run-a", experimentId: "experiment-a", visit: {}, allowed: true, onRetryQueued: (id: string) => navigations.push(id) };
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react,
     antd: { App: { useApp: () => ({ modal: { confirm: (modal: Modal) => { dialogs.push(modal); return { destroy: () => { destroyed++; modal.afterClose(); } }; } } }) } },
     "@tanstack/react-query": { useQueryClient: () => ({ invalidateQueries: (...args: Parameters<QueryClient["invalidateQueries"]>) => { reads.push(args); return queryClient.invalidateQueries(...args); } }) },

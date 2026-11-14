@@ -21,6 +21,7 @@ export const entries = [
 export async function installDot1113Fixture(page: Page) {
   await installFirstRunHarness(page, { configured: true, roles: ["admin"], permissions: ["admin:*", "console:dashboard:view", "console:settings:view", "knowledge:dataset:view", "knowledge:space:view", "knowledge:space:edit", "conversation:assistant:access", "connector:view", "connector:connect"] });
   const respond = (value: unknown) => ({ contentType: "application/json", body: JSON.stringify(value) });
+  await page.route("**/api/v1/automations**", route => route.fulfill(respond({ automations: [], notifications: [] })));
   await page.route("**/api/v1/catalog**", route => route.fulfill(respond({ entries })));
   await page.route("**/api/v1/connections**", route => route.fulfill(respond({ connections: [{ connection_id: "connection-1", entry_id: "github", owner_kind: "user", owner_id: "first-run-user", status: "connected" }] })));
   await page.route("**/api/v1/local-nodes**", route => route.fulfill(respond({ nodes: [] })));

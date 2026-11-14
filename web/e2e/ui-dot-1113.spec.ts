@@ -8,7 +8,7 @@ const directory = path.resolve("../reports/ui-dot_1113");
 const surfaces = [
   ["workbench", "/workbench"], ["assistant", "/assistant"], ["knowledge", "/knowledge"],
   ["spaces-list", "/spaces"], ["spaces-grid", "/spaces"], ["spaces-editor", "/spaces/item/item-0"],
-  ["connectors", "/settings/connectors"], ["connect-apps", "/workbench"], ["settings", "/settings"], ["login", "/login"],
+  ["connectors", "/settings/connectors"], ["connect-apps", "/workbench"], ["settings", "/settings"], ["automations", "/automations"], ["login", "/login"],
 ] as const;
 for (const theme of ["light", "dark"] as const) {
   for (const width of [1440, 1024, 390]) {

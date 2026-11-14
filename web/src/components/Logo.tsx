@@ -4,6 +4,9 @@ export function Logo({ collapsed, textClassName }: { collapsed: boolean; textCla
             <div className="relative flex items-center justify-center w-9 h-9">
                 <img
                     src="/ai-gateway-logo.png"
+                    width={36}
+                    height={36}
+                    fetchPriority="high"
                     alt="AI Platform Logo"
                     className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />

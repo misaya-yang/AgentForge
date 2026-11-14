@@ -1,4 +1,5 @@
-import { Alert, App as AntApp, Button, Progress, Switch, Upload } from "antd";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
+import { Alert, Button, Progress, Switch, Upload } from "antd";
 import { FileUp, UploadCloud } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,7 +32,7 @@ function formatValidationErrors(errors: GoldenCaseValidationError[], limit = 6):
 
 export function GoldenJsonlImport({ datasetId, onImported, readOnly = false }: GoldenJsonlImportProps) {
   const { t } = useTranslation();
-  const { message } = AntApp.useApp();
+  const { message } = useProductFeedback();
   const [fileName, setFileName] = useState<string | null>(null);
   const [cases, setCases] = useState<EvalExampleImportItem[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);

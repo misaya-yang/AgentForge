@@ -44,6 +44,7 @@ const EnterpriseDashboard = lazyNamed(
 const WorkbenchPage = lazyNamed(() => import("@/pages/workbench"), "WorkbenchPage");
 const ServicesPage = lazyNamed(() => import("@/pages/Services"), "ServicesPage");
 const PlaygroundPage = lazyNamed(() => import("@/pages/playground"), "PlaygroundPage");
+const AutomationsPage = lazyNamed(() => import("@/pages/automations"), "AutomationsPage");
 const TasksPage = lazyNamedWithNamespaces(() => import("@/pages/tasks"), "TasksPage", "tasks");
 const SettingsPage = lazyNamed(() => import("@/pages/Settings"), "SettingsPage");
 const GuardrailsSettingsPage = lazyNamed(() => import("@/pages/settings/GuardrailsSettings"), "GuardrailsSettingsPage");
@@ -198,6 +199,10 @@ export function AppRouter() {
                 <EvalPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/automations"
+            element={<ProtectedRoute requiredPermission="conversation:playground:access"><AutomationsPage /></ProtectedRoute>}
           />
           <Route
             path="/tasks"

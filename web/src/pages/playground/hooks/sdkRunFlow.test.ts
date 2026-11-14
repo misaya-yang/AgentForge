@@ -46,6 +46,7 @@ function streamHost(engine = "openai_agents") {
     t: (key: string) => key,
   };
   const modules = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react: { useCallback: (fn: unknown) => fn, useMemo: (fn: () => unknown) => fn(), useRef: ref },
     "@/features/chat/stream/sdkRun": run, "@/features/chat/stream/sdkLifecycle": lifecycle,
     "@/lib/sdkAuthorityScope": { sdkAuthorityScope }, "@/lib/sdkAgentConfig": { isNativeAgentSdk: sdk },

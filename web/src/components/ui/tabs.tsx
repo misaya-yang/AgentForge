@@ -1,47 +1,28 @@
 import * as React from "react";
-import { Tabs as AntTabs } from "antd";
+import * as Primitive from "@radix-ui/react-tabs";
 import { elements } from "./composition";
-
-function TabsList(_props: React.HTMLAttributes<HTMLDivElement>) { void _props; return null; }
-function TabsTrigger(_props: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) { void _props; return null; }
-function TabsContent({ children, value: _value, forceMount: _forceMount, ...props }: React.HTMLAttributes<HTMLDivElement> & { value: string; forceMount?: boolean }) {
-  void _value; void _forceMount;
-  return <div {...props}>{children}</div>;
-}
-function Tabs({ children, value, defaultValue, onValueChange, orientation = "horizontal", dir, activationMode: _activationMode, ...props }: React.HTMLAttributes<HTMLDivElement> & {
-  value?: string; defaultValue?: string; onValueChange?: (value: string) => void; orientation?: "horizontal" | "vertical"; activationMode?: "automatic" | "manual";
-}) {
-  void _activationMode;
-  const nodes = elements(children);
-  const findList = (items: ReturnType<typeof elements>): ReturnType<typeof elements>[number] | undefined => {
-    for (const item of items) {
-      if (item.type === TabsList) return item;
-      if (typeof item.type === "string") {
-        const found = findList(elements(item.props.children as React.ReactNode));
-        if (found) return found;
+import { cn } from "@/lib/utils";
+const Selection = React.createContext<string | undefined>(undefined);
+function Tabs({ value, defaultValue, onValueChange, children, ...props }: React.ComponentProps<typeof Primitive.Root>) {
+  const [internal, setInternal] = React.useState(defaultValue);
+  const firstValue = (children: React.ReactNode): string | undefined => {
+    for (const node of elements(children)) {
+      if (node.type === TabsTrigger) return node.props.value as string;
+      if (node.type === TabsList || typeof node.type === "string") {
+        const first = firstValue(node.props.children as React.ReactNode);
+        if (first !== undefined) return first;
       }
     }
   };
-  const list = findList(nodes);
-  const panels = nodes.filter(node => node.type === TabsContent);
-  const items = elements(list?.props.children as React.ReactNode).filter(node => node.type === TabsTrigger).map(node => ({
-    key: node.props.value as string,
-    label: <span className={node.props.className as string}>{node.props.children as React.ReactNode}</span>,
-    disabled: node.props.disabled as boolean | undefined,
-    forceRender: panels.find(panel => panel.props.value === node.props.value)?.props.forceMount as boolean | undefined,
-    destroyOnHidden: !panels.find(panel => panel.props.value === node.props.value)?.props.forceMount,
-    children: panels.find(panel => panel.props.value === node.props.value),
-  }));
-  const navigation = <AntTabs activeKey={value} defaultActiveKey={defaultValue} onChange={onValueChange}
-    tabPosition={orientation === "vertical" ? "left" : "top"} items={items} />;
-  const renderLayout = (children: React.ReactNode): React.ReactNode => React.Children.map(children, (child, index) => {
-    if (!React.isValidElement<Record<string, unknown>>(child)) return child;
-    const node = child;
-    if (node.type === TabsList) return <React.Fragment key={index}>{navigation}</React.Fragment>;
-    if (node.type === TabsContent) return null;
-    if (typeof node.type === "string" || node.type === React.Fragment) return React.cloneElement(node, { key: node.key ?? index }, renderLayout(node.props.children as React.ReactNode));
-    return node;
-  });
-  return <div {...props} dir={dir}>{list ? renderLayout(children) : navigation}</div>;
+  const selected = value ?? internal ?? firstValue(children);
+  return <Selection.Provider value={selected}><Primitive.Root {...props} value={selected} onValueChange={next => { setInternal(next); onValueChange?.(next); }}>{children}</Primitive.Root></Selection.Provider>;
 }
+const TabsList = React.forwardRef<React.ComponentRef<typeof Primitive.List>, React.ComponentPropsWithoutRef<typeof Primitive.List>>(({ className, ...props }, ref) => <Primitive.List {...props} ref={ref} className={cn("forge-tabs-list", className)} />);
+const TabsTrigger = React.forwardRef<React.ComponentRef<typeof Primitive.Trigger>, React.ComponentPropsWithoutRef<typeof Primitive.Trigger>>(({ className, ...props }, ref) => <Primitive.Trigger {...props} ref={ref} type="button" className={cn("forge-tabs-trigger", className)} />);
+const TabsContent = React.forwardRef<React.ComponentRef<typeof Primitive.Content>, React.ComponentPropsWithoutRef<typeof Primitive.Content>>(({ className, ...props }, ref) => {
+  const selected = React.useContext(Selection);
+  const inactive = selected !== props.value;
+  return <Primitive.Content {...props} ref={ref} hidden={inactive} aria-hidden={inactive || undefined} tabIndex={inactive ? -1 : 0} className={cn("forge-tabs-content", className)} />;
+});
+TabsList.displayName = "TabsList"; TabsTrigger.displayName = "TabsTrigger"; TabsContent.displayName = "TabsContent";
 export { Tabs, TabsList, TabsTrigger, TabsContent };

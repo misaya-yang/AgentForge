@@ -226,6 +226,8 @@ pub async fn state(pool: PgPool) -> Result<TestState> {
         },
     )?);
     let state = AgentState {
+        automation_knowledge: None,
+        automation_skills: None,
         auth,
         repository: Arc::new(AgentRepository::new(
             pool.clone(),

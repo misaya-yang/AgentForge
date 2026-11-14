@@ -1,9 +1,9 @@
+import { DeferredSelect as Select } from "@/components/DeferredSelect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
   Input,
-  Select,
   Spin,
   Tag,
   Typography,

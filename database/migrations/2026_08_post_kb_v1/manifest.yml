@@ -1,6 +1,6 @@
 {
   "baseline_id": "2026_08_post_kb_v1",
-  "epoch": 31,
+  "epoch": 32,
   "changes": [
     {
       "sequence": 1,
@@ -694,6 +694,27 @@
       "resume_handler": null,
       "repair_handler": null,
       "notes": "Formal canonical successor after knowledge_spaces 030. Gateway SELECT/INSERT/UPDATE only; other application roles and PUBLIC receive no access."
+    },
+    {
+      "sequence": 32,
+      "name": "gateway_automations",
+      "file": "032_gateway_automations.sql",
+      "sha256": "8cbdb2b90efb86f6a3dc8c5c995a70db7b1cace97b78cabbb6483a665ce2be4d",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_rules') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT pg_catalog.to_regclass('gateway.automation_rules') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_deliveries') IS NOT NULL AND pg_catalog.to_regclass('gateway.automation_notifications') IS NOT NULL",
+        "SELECT pg_catalog.has_table_privilege(left(current_user,length(current_user)-length('owner'))||'gateway','gateway.automation_rules','SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user,length(current_user)-length('owner'))||'gateway','gateway.automation_rules','DELETE') AND NOT pg_catalog.has_table_privilege('public','gateway.automation_rules','SELECT')"
+      ],
+      "timeout_seconds": 600,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Cron/timezone and confirmed automations in the existing Gateway scheduler. No new service, PUBLIC access or Gateway knowledge-table rights."
     }
   ]
 }

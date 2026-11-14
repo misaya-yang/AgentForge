@@ -1,20 +1,18 @@
+import { DeferredSelect as Select } from "@/components/DeferredSelect";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  App as AntApp,
+import { Alert,
   Button,
   Checkbox,
   Drawer,
   Form,
   Input,
   InputNumber,
-  Select,
   Skeleton,
   Slider,
   Tabs,
-  Typography,
-} from "antd";
+  Typography } from "antd";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -196,7 +194,7 @@ function AgentStudioWorkspace({
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { message: messageApi } = AntApp.useApp();
+  const { message: messageApi } = useProductFeedback();
   const [agent, setAgent] = useState(initialAgent);
   const [name, setName] = useState(initialAgent.name);
   const [description, setDescription] = useState(initialAgent.description);

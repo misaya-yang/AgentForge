@@ -9,7 +9,8 @@ interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
   open?: boolean; onOpenChange?: (open: boolean) => void; duration?: number;
 }
 function ToastProvider({ children }: { children?: React.ReactNode }) {
-  return createPortal(<div className="fixed right-4 top-4 z-[130] flex w-[calc(100vw-32px)] max-w-[420px] flex-col gap-2" aria-label="Notifications">{children}</div>, document.body);
+  const container = Array.from(document.querySelectorAll<HTMLDialogElement>("dialog:modal")).at(-1) ?? document.body;
+  return createPortal(<div className="fixed right-4 top-4 z-[130] flex w-[calc(100vw-32px)] max-w-[420px] flex-col gap-2" aria-label="Notifications">{children}</div>, container);
 }
 function ToastViewport(_props: React.HTMLAttributes<HTMLDivElement>) { void _props; return null; }
 const Toast = React.forwardRef<HTMLDivElement, ToastProps>(({ open = true, onOpenChange, duration = 5000, variant, children, ...props }, ref) => {

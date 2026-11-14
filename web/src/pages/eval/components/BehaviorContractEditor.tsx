@@ -1,4 +1,5 @@
-import { Alert, App as AntApp, Button, Checkbox, Input, InputNumber, Select } from "antd";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
+import { Alert, Button, Checkbox, Input, InputNumber, Select } from "antd";
 import { FileCheck2, Plus, RotateCcw, Trash2, WandSparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -207,7 +208,7 @@ export function BehaviorContractEditor({
   onSaved: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
-  const { message } = AntApp.useApp();
+  const { message } = useProductFeedback();
   const [selectedExampleId, setSelectedExampleId] = useState<string>();
   const [draft, setDraft] = useState<ContractDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);

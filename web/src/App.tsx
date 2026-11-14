@@ -1,6 +1,6 @@
 import { StyleProvider } from "@ant-design/cssinjs";
 import { useEffect, useState } from 'react';
-import { ConfigProvider, App as AntApp, theme, type ConfigProviderProps } from 'antd';
+import { ConfigProvider, theme, type ConfigProviderProps } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { AppRouter } from "@/router";
 import { useAppStore } from "@/store/useAppStore";
@@ -43,15 +43,14 @@ export default function App() {
     <StyleProvider layer>
     <ConfigProvider
       locale={antdLocale}
+      getPopupContainer={trigger => trigger?.closest("dialog") ?? document.body}
       theme={{
         ...currentTheme,
         algorithm: resolvedTheme === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
       }}
     >
-      <AntApp>
         <AppRouter />
         <Toaster />
-      </AntApp>
     </ConfigProvider>
     </StyleProvider>
   );

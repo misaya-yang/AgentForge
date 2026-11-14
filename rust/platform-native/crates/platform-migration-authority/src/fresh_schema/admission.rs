@@ -102,8 +102,15 @@ pub async fn admit_if_fresh(
             .map_err(|_| refused("fresh catalog connections privilege probe unavailable"))?
         {
             return Err(refused(
-                "fresh catalog tables or grants do not match successor 036",
+                "fresh catalog tables or grants do not match successor 031",
             ));
+        }
+    }
+    for query in crate::source_tools::gateway_automations_032::admission_checks(
+        application_guard::principal_role_suffix(principal),
+    )? {
+        if !sqlx::query_scalar::<_, bool>(&query).fetch_one(&mut *conn).await? {
+            return Err(refused("fresh automation minimum-privilege contract mismatch"));
         }
     }
     Ok(true)

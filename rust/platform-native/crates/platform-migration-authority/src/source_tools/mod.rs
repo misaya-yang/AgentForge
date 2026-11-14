@@ -31,3 +31,5 @@ pub mod knowledge_spaces_030;
 pub mod catalog_connections_031;
 
 pub mod service_successors;
+
+pub mod gateway_automations_032;

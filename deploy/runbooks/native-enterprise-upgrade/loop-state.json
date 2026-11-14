@@ -6690,12 +6690,502 @@
       "No push before acceptance."
     ],
     "remaining": [
-      "Complete source work and static/mock validation",
-      "PostgreSQL 16 authority/fingerprint measurement not run per user instruction",
-      "Native Docker tests and service smoke not run per user instruction",
-      "LIVE Qwen tests, browser screenshots and performance measurement not run per user instruction"
+      "PostgreSQL 16 authority/fingerprint measurement for successor 031 not run per user instruction",
+      "Native compilation/tests, service smoke, LIVE Qwen and browser screenshot acceptance not run per user instruction"
     ],
-    "next_action": "Implement M6 modernization, reproducible perf checks and automation in existing processes; preserve the unaccepted/live verification boundary.",
-    "schema": "Canonical successor 031 follows the exact preserved 030 manifest. Side-load SQL removed. Fresh schema epoch 36. 031 fingerprints are honestly pending, with an authority-only measurement entry point; no frozen or historical fingerprint changed."
+    "next_action": "Preserve the local milestone; do not push until the required acceptance passes. User currently forbids local environment startup.",
+    "schema": "Canonical successor 031 follows the exact preserved 030 manifest. Side-load SQL removed. Fresh schema epoch 36. 031 fingerprints are honestly pending, with an authority-only measurement entry point; no frozen or historical fingerprint changed.",
+    "local_commit": "178cb3986f3273e9d41a232a21fe0a37c79ca1f0",
+    "pushed": false
+  },
+  "dot_1113_m6": {
+    "milestone": "M6",
+    "branch": "codex/dot-1113-m5-m6",
+    "base": "178cb3986f3273e9d41a232a21fe0a37c79ca1f0",
+    "implemented": false,
+    "compiled": false,
+    "tested": false,
+    "accepted": false,
+    "pushed": false,
+    "current": "Source changes written and static/mock checks passed. Canonical SDK generation, native compilation, real DB measurement and runtime acceptance remain incomplete. Do not publish this milestone as accepted.",
+    "implemented_source": [
+      "IME-safe handlers; native dialog adapter and confirmation UI; Radix tabs/menus/tooltips; View Transitions; deferred rendering/critical image priority",
+      "Public budget reduced 10%, lazy optional controls/YAML, all original route/restored/GFM budgets pass",
+      "Cron/timezone in existing scheduler; HMAC timestamp/delivery replay defense; current-actor checks; durable dispatch fences and ordered effects",
+      "Page revision and catalog-connection change triggers; Agent and authorized instruction-skill runs, CAS page append, notifications",
+      "Natural-language generation with tools disabled; inactive draft creation and explicit revision-bound activation; automation UI/history/notifications",
+      "Formal successor 032 after 031; exact prefix validators, admission/ACL/source inventory and dedicated real measurement command",
+      "Existing-stack smoke and performance drivers; UI and CWV browser specs"
+    ],
+    "validation": [
+      {
+        "command": "cd web && pnpm type-check",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          " WARN  Unsupported engine: wanted: {\"node\":\"^26.11.1\"} (current: {\"node\":\"v24.14.0\",\"pnpm\":\"10.33.0\"})",
+          "",
+          "> ai-gateway-web@2.0.0 type-check /Users/yang/projects/AgentForge/web",
+          "> node scripts/type-check-native.mjs",
+          ""
+        ]
+      },
+      {
+        "command": "cd web && pnpm lint",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/DocumentsTab.tsx",
+          "  418:6  warning  React Hook useMemo has an unnecessary dependency: 'pipelineRevision'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps",
+          "",
+          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/QATab.tsx",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useEffect Hook (at line 135) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook  react-hooks/exhaustive-deps",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 239) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 243) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
+          "",
+          "✖ 5 problems (0 errors, 5 warnings)",
+          ""
+        ],
+        "note": "5 existing warnings"
+      },
+      {
+        "command": "cd web && pnpm test",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "✔ parseSegmentKeywords: drops empties and de-duplicates keeping first order (0.0495ms)",
+          "✔ isSafeHeadingPatterns: only the exact backend triple passes (0.052792ms)",
+          "ℹ tests 2245",
+          "ℹ suites 0",
+          "ℹ pass 2245",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0",
+          "ℹ todo 0",
+          "ℹ duration_ms 23212.12025"
+        ],
+        "note": "2245 passed, 0 failed, 0 skipped"
+      },
+      {
+        "command": "cd web && pnpm i18n:check",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          " WARN  Unsupported engine: wanted: {\"node\":\"^26.11.1\"} (current: {\"node\":\"v24.14.0\",\"pnpm\":\"10.33.0\"})",
+          "",
+          "> ai-gateway-web@2.0.0 i18n:check /Users/yang/projects/AgentForge/web",
+          "> node scripts/check-i18n-keys.mjs",
+          "",
+          "i18n check passed: en-US and zh-CN keys are in sync and all code keys resolve."
+        ]
+      },
+      {
+        "command": "cd web && pnpm build",
+        "status": "FAIL",
+        "exit_code": 1,
+        "last10": [
+          "src/api/automations.ts:19: undocumented POST /api/v1/automations/draft",
+          "src/api/automations.ts:22: undocumented POST /api/v1/automations",
+          "src/api/automations.ts:25: undocumented POST /api/v1/automations/@/confirm",
+          "src/api/automations.ts:29: undocumented POST /api/v1/automations/@/pause",
+          "src/api/automations.ts:29: undocumented POST /api/v1/automations/@/resume",
+          "src/api/automations.ts:29: undocumented POST /api/v1/automations/@/cancel",
+          "src/api/automations.ts:32: undocumented GET /api/v1/automations/@/executions",
+          "src/api/automations.ts:37: undocumented GET /api/v1/automations/notifications",
+          "Console API contract: 423 source calls, 627 generated operations, 9 unresolved/undocumented calls, 0 missing request schemas",
+          " ELIFECYCLE  Command failed with exit code 1."
+        ],
+        "note": "Canonical native SDK generation is not run; unchanged check-api-contract reports 9 undocumented automation calls. This failure is not waived."
+      },
+      {
+        "command": "cd web && pnpm exec vite build",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "",
+          "\u001b[33m[PLUGIN_TIMINGS] \u001b[0mYour build spent significant time in plugins. Here is a breakdown:",
+          "  - vite:css-post (34%)",
+          "  - vite:terser (15%)",
+          "  - vite:build-import-analysis (14%)",
+          "  - precompression (11%)",
+          "  - vite:css (11%)",
+          "See https://rolldown.rs/options/checks#plugintimings for more details.",
+          "",
+          "✓ built in 25.20s"
+        ],
+        "note": "Standalone compilation only; not a substitute for full build."
+      },
+      {
+        "command": "cd web && pnpm bundle:budget",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "  },",
+          "  \"limits\": {",
+          "    \"publicGzip\": 297000,",
+          "    \"assistantIncrementGzip\": 220000,",
+          "    \"assistantRestoredGzip\": 220000,",
+          "    \"assistantGfmGzip\": 220000,",
+          "    \"routeRaw\": 500000",
+          "  },",
+          "  \"oversizedRoutes\": []",
+          "}"
+        ],
+        "note": "Public gzip 292947/297000; assistant GFM 208077/220000; zero oversized routes."
+      },
+      {
+        "command": "npx -y modern-web-guidance@latest legacy-scan web/src --json",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "{",
+          "  \"targetDir\": \"web/src\",",
+          "  \"totalFindings\": 0,",
+          "  \"guides\": [],",
+          "  \"activeRuleCount\": 35,",
+          "  \"activeGuideCount\": 33,",
+          "  \"note\": \"No legacy patterns found across 33 guides (35 rules; ~20% of the guidance corpus). Use 'search <topic>' for feature-specific guidance.\",",
+          "  \"skippedDocsAndTestsCount\": 187",
+          "}"
+        ],
+        "note": "0 findings; curated subset of guidance only."
+      },
+      {
+        "command": "cd examples/vertical-agents/adk-ts && make test (LIVE=0)",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "npm install --silent",
+          "npm test",
+          "",
+          "> test",
+          "> node test.mjs",
+          "",
+          "adk-ts ok"
+        ]
+      },
+      {
+        "command": "cd examples/vertical-agents/ai-sdk-ts && make test (LIVE=0)",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "npm install --silent",
+          "npm test",
+          "",
+          "> test",
+          "> node test.mjs",
+          "",
+          "ai-sdk-ts ok"
+        ]
+      },
+      {
+        "command": "cd examples/vertical-agents/claude-agent-ts && make test (LIVE=0)",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "npm install --silent",
+          "npm test",
+          "",
+          "> test",
+          "> node test.mjs",
+          "",
+          "claude-agent-ts ok"
+        ]
+      },
+      {
+        "command": "cd examples/vertical-agents/langgraph-py && make test (LIVE=0)",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "uv run --with-requirements requirements.txt python -m pytest -q test_smoke.py",
+          ".                                                                        [100%]",
+          "1 passed in 1.20s"
+        ]
+      },
+      {
+        "command": "cd examples/vertical-agents/openai-agents-ts && make test (LIVE=0)",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "npm install --silent",
+          "npm test",
+          "",
+          "> test",
+          "> node test.mjs",
+          "",
+          "openai-agents-ts ok"
+        ]
+      },
+      {
+        "command": "cargo metadata --locked --offline --no-deps --format-version 1 --manifest-path rust/platform-native/Cargo.toml",
+        "status": "PASS",
+        "exit_code": 0,
+        "note": "Metadata only; no native compilation."
+      },
+      {
+        "command": "Rust parse-only + source inventory invariants",
+        "status": "PASS",
+        "exit_code": 0,
+        "note": "33 changed/new Rust files parsed; 89 complete fresh inputs; SQL 001-032 exact; frozen baseline/package lock/overlay unchanged; new measured fingerprints remain pending."
+      },
+      {
+        "command": "pnpm licenses list --prod --json",
+        "status": "PASS",
+        "exit_code": 0,
+        "note": "MIT, MPL-2.0, ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, 0BSD, MIT AND ISC, MPL-2.0 OR Apache-2.0; no GPL/AGPL or blocknote/xl additions."
+      },
+      {
+        "command": "bash -n scripts/dev/automation-smoke.sh scripts/perf/run.sh",
+        "status": "PASS",
+        "exit_code": 0
+      },
+      {
+        "command": "Playwright --list: all-routes-accessibility, perf-cwv, ui-dot-1113, connect-apps, spaces, spaces-editor, spaces-collab, automations",
+        "status": "PASS",
+        "exit_code": 0,
+        "last10": [
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › knowledge dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › spaces-list dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › spaces-grid dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › spaces-editor dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › connectors dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › connect-apps dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › settings dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › automations dark 390",
+          "  [chromium] › ui-dot-1113.spec.ts:16:7 › login dark 390",
+          "Total: 131 tests in 8 files"
+        ],
+        "note": "131 tests collected; no browser execution."
+      },
+      {
+        "command": "Playwright --list: entire e2e directory",
+        "status": "BLOCKED",
+        "exit_code": 1,
+        "last10": [
+          "",
+          "  14 | const liveEnabled = process.env.RUN_PLATFORM_CONVERGENCE_LIVE === \"1\";",
+          "  15 | if (!liveEnabled) {",
+          "> 16 |   throw new Error(",
+          "     |         ^",
+          "  17 |     \"Set RUN_PLATFORM_CONVERGENCE_LIVE=1 before collecting or running paid-provider release tests.\",",
+          "  18 |   );",
+          "  19 | }",
+          "    at /Users/yang/projects/AgentForge/web/e2e/platform-convergence-live.spec.ts:16:9",
+          "Total: 0 tests in 0 files"
+        ],
+        "note": "Existing platform-convergence-live spec requires explicit RUN_PLATFORM_CONVERGENCE_LIVE=1 even for collection; protection preserved. No tests executed."
+      },
+      {
+        "command": "PG16 non-superuser ai_gateway_migrator: database-authority fresh-development-init + fresh-development-verify",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "measure-catalog-connections-031; measure-gateway-automations-032; check-successor-proposals",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-knowledge-service --test spaces_api --test spaces_collab -- --include-ignored",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-gateway-foundation catalog:: -- --include-ignored",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-gateway-foundation mcp_server:: -- --include-ignored",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-gateway-foundation connections:: -- --include-ignored",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "make agent-runtime-source-contract",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "make eval-regression-gate",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "bash scripts/dev/mcp-smoke.sh",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "bash scripts/dev/oauth-mock-smoke.sh",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "bash scripts/dev/spaces-smoke.sh --rag",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "LIVE=1 make test: each of the five vertical agents with qwen3.8-flash through the local gateway",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "Playwright: all E2E, connect-apps, spaces*, all-routes-accessibility, ui-dot-1113",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "Playwright: perf-cwv against existing production frontend",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-gateway scheduled_tasks::",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "cargo test --locked -p ai-platform-gateway webhooks::",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "bash scripts/dev/automation-smoke.sh",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      },
+      {
+        "command": "bash scripts/perf/run.sh",
+        "status": "NOT_RUN",
+        "exit_code": null,
+        "note": "NOT_RUN: user explicitly requested no local environment startup; native builds must use the controlled Docker workflow, and no running platform stack is available."
+      }
+    ],
+    "bundle_before": {
+      "publicEntry": {
+        "raw": 1147134,
+        "gzip": 329681
+      },
+      "assistantIncrement": {
+        "raw": 487497,
+        "gzip": 160421
+      },
+      "assistantRestoredConversation": {
+        "raw": 619212,
+        "gzip": 202468
+      },
+      "assistantGfmConversation": {
+        "raw": 657892,
+        "gzip": 214254
+      },
+      "assistantMathConversation": {
+        "raw": 1127789,
+        "gzip": 354604
+      },
+      "limits": {
+        "publicGzip": 330000,
+        "assistantIncrementGzip": 220000,
+        "assistantRestoredGzip": 220000,
+        "assistantGfmGzip": 220000,
+        "routeRaw": 500000
+      },
+      "oversizedRoutes": []
+    },
+    "bundle_after": {
+      "publicEntry": {
+        "raw": 1037379,
+        "gzip": 292947
+      },
+      "assistantIncrement": {
+        "raw": 460379,
+        "gzip": 154243
+      },
+      "assistantRestoredConversation": {
+        "raw": 592093,
+        "gzip": 196291
+      },
+      "assistantGfmConversation": {
+        "raw": 630773,
+        "gzip": 208077
+      },
+      "assistantMathConversation": {
+        "raw": 1100670,
+        "gzip": 348427
+      },
+      "limits": {
+        "publicGzip": 297000,
+        "assistantIncrementGzip": 220000,
+        "assistantRestoredGzip": 220000,
+        "assistantGfmGzip": 220000,
+        "routeRaw": 500000
+      },
+      "oversizedRoutes": []
+    },
+    "performance_report": "reports/perf-dot_1113-2026-11-14.md",
+    "screenshot_directory": "reports/ui-dot_1113/",
+    "screenshots_generated": false,
+    "screenshot_manifest": {
+      "surfaces": [
+        "workbench",
+        "assistant",
+        "knowledge",
+        "spaces-list",
+        "spaces-grid",
+        "spaces-editor",
+        "connectors",
+        "connect-apps",
+        "settings",
+        "automations",
+        "login"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        1024,
+        390
+      ],
+      "pattern": "reports/ui-dot_1113/{surface}-{theme}-{width}.png",
+      "expected": 66,
+      "actual": 0
+    },
+    "schema": {
+      "canonical_epoch": 32,
+      "fresh_development_epoch": 37,
+      "new_fingerprint_measurements": "031 and 032 pending; no existing fingerprint rewritten",
+      "source_inputs": 89
+    },
+    "remaining": [
+      "Build/run canonical ai-platform-openapi producer and regenerate SDK; complete pnpm build must then pass",
+      "Compile/test changed native modules via scripts/new/native-container.sh; real PG16 successor measurements and fresh init/verify",
+      "Run every NOT_RUN acceptance command on an existing prepared stack; obtain all screenshots, AA and runtime performance evidence",
+      "Only after complete acceptance, push the two milestone commits to origin/dot_1113; no push was performed"
+    ],
+    "next_action": "Preserve two local reviewable commits; required runtime/producer work cannot proceed under the current no-local-environment instruction."
   }
 }

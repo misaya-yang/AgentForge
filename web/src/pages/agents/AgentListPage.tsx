@@ -1,9 +1,8 @@
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { DeferredTable as Table } from "@/components/DeferredTable";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  App as AntApp,
+import { Alert,
   Button,
   Dropdown,
   Empty,
@@ -13,8 +12,7 @@ import {
   Tag,
   Typography,
   type MenuProps,
-  type TableColumnsType,
-} from "antd";
+  type TableColumnsType } from "antd";
 import {
   Archive,
   BarChart3,
@@ -153,7 +151,7 @@ function AgentDirectoryContent({ scopeId, isCurrent }: { scopeId: string; isCurr
   };
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { message, modal } = AntApp.useApp();
+  const { message, modal } = useProductFeedback();
   const query = useQuery({
     queryKey: ["agents", scopeId, { search, status, owner, cursor }],
     queryFn: async ({ signal }) => {

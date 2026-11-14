@@ -2,8 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  Card,
+import { Card,
   Input,
   Button,
   Space,
@@ -12,13 +11,12 @@ import {
   Row,
   Col,
   Dropdown,
-  Modal,
   Tooltip,
   Segmented,
   message,
   Spin,
-  Pagination,
-} from "antd";
+  Pagination } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import type { MenuProps } from "antd";
 import {
   Plus as PlusOutlined,

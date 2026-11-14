@@ -19,6 +19,7 @@ function host() {
   const react = { useState(initial: unknown) { const i = cursor++; const owner = slots; owner[i] ??= { value: typeof initial === "function" ? initial() : initial }; return [owner[i].value, (next: unknown) => { owner[i].value = typeof next === "function" ? next(owner[i].value) : next; }]; }, useMemo: memo, useCallback: (fn: unknown, deps: unknown[]) => memo(() => fn, deps), useRef: (value: unknown) => memo(() => ({ current: value }), []), useEffect: effect, useLayoutEffect: effect };
   const jsx = (type: unknown, props: Record<string, unknown>) => ({ type, props }); const named = new Proxy({}, { get: (_, name) => String(name) });
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "react-i18next": { useTranslation: () => ({ t: (key: string, fallback?: string) => fallback || key }) },
     "@/store/useAuthStore": { useAuthStore: Object.assign((selector: (state: typeof auth) => unknown) => selector(auth), { getState: () => auth, subscribe: (fn: (state: typeof auth, prior: typeof auth) => void) => { authListeners.add(fn); return () => authListeners.delete(fn); } }) },
     "@/store/useAppStore": { useAppStore: Object.assign(() => app, { getState: () => app, subscribe: (fn: (state: typeof app, prior: typeof app) => void) => { appListeners.add(fn); return () => appListeners.delete(fn); } }) },

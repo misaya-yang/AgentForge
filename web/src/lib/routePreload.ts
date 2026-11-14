@@ -15,6 +15,9 @@ export function createRoutePreloader(loaders: Record<string, Loader>) {
 }
 // Vite converts these imports to modulepreload links for their static closure.
 const preload = createRoutePreloader({
+  "/automations": () => import("@/pages/automations"),
+  "/spaces": () => import("@/pages/spaces/SpacesLayout"),
+  "/settings/connectors": () => import("@/pages/settings/ConnectorsSettings"),
   "/workbench": () => import("@/pages/workbench"),
   "/dashboard": () => import("@/pages/dashboard/index"),
   "/services": () => import("@/pages/Services"),
@@ -33,6 +36,7 @@ const preload = createRoutePreloader({
   "/connections": () => import("@/pages/Connections"),
   "/users": () => import("@/pages/UserManagement"),
 });
+export const preloadRoute = preload;
 export function preloadNavigationIntent(event: { target: EventTarget | null }) {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (!link || link.hasAttribute("download")) return;

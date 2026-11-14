@@ -19,7 +19,8 @@ function host() {
       if (!prior || deps.some((value, i) => !Object.is(value, prior.deps[i]))) slots[index] = { deps, value: fn() }; return (slots[index] as { value: unknown }).value; },
     useLayoutEffect(fn: () => () => void) { const index = cursor++; if (!(index in slots)) { slots[index] = true; cleanup.push(fn()); } },
   };
-  const modules: Record<string, unknown> = { react, "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
+  const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() }, react, "@/lib/sdkAuthorityScope": { sdkAuthorityScope },
     "@/store/useAppStore": { useAppStore: { getState: () => ({ selectedServiceId: options[0], activeSessionId: options[1] }) } },
     "@/store/useAuthStore": { useAuthStore: Object.assign((select: (state: typeof auth) => unknown) => select(auth), { getState: () => auth }) } };
   const exports: { useDifyInputs?: (...args: typeof options) => Draft; parseDifyInputs?: (text: string) => Record<string, unknown> | undefined } = {};

@@ -63,6 +63,8 @@ function host() {
     updateAgentGovernance: async () => policy, invalidateAgentCache: async () => ({ deleted_cache_rows: 0 }), revokeAllAgentCredentials: async () => ({}),
   };
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     "@/components/DeferredTable": { DeferredTable: "Table" },
     react, "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     "react-router-dom": { useParams: () => ({ agentId }), useNavigate: () => () => {}, Link: "Link" },

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Layout, Typography, Dropdown } from "antd";
+import { useRouteTransition } from "@/hooks/useRouteTransition";
 import type { MenuProps } from "antd";
 import {
   PanelLeftClose,
@@ -84,6 +85,7 @@ function getPageChrome(pathname: string) {
       subtitleKey: "eval.description",
       subtitleFallback: "Review assistant, LangGraph proxy, and RAG traces with bounded previews and human scoring.",
     },
+    automations: { titleKey: "nav.automations", titleFallback: "Automations" },
     tasks: { titleKey: "nav.tasks", titleFallback: "Tasks" },
     users: { titleKey: "nav.users", titleFallback: "Users" },
     settings: { titleKey: "nav.settings", titleFallback: "Settings" },
@@ -108,6 +110,7 @@ export function AppLayout() {
   const { user, clearAuth, forcePasswordChange, setForcePasswordChange } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const routeTransition = useRouteTransition();
   const queryClient = useQueryClient();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -274,7 +277,7 @@ export function AppLayout() {
                   key={item.key}
                   to={item.key}
                   aria-label={t(item.labelKey)}
-                  onClick={() => { if (isMobile) setCollapsed(true); }}
+                  onClick={event => { routeTransition(event); if (isMobile) setCollapsed(true); }}
                   className={({ isActive }) =>
                     `app-nav-link relative group flex items-center rounded-lg transition-colors duration-140 ease-out ${
                       collapsed ? 'justify-center py-[11px]' : 'gap-[10px] px-[10px] py-[11px]'

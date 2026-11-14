@@ -20,9 +20,9 @@ test("edge negotiates only accepted encodings, preserves MIME/cache/headers, and
   assert.ok(nginx.includes("\\.map(?:\\.(?:br|zst|gz))?$"));
   for (const mime of ["application/javascript", "text/css", "application/json", "image/svg+xml", "application/wasm"]) assert.ok(nginx.includes(mime));
 });
-test("route budgets keep original limits, derive every router chunk, and contain no exceptions", () => {
+test("route budgets enforce a ten percent smaller public entry, derive every router chunk, and contain no exceptions", () => {
   const gate = readFileSync(new URL("../../scripts/check-bundle-budget.mjs", import.meta.url), "utf8");
-  assert.match(gate, /ROUTE_RAW_LIMIT = 500_000/); assert.match(gate, /PUBLIC_GZIP_LIMIT = 330_000/);
+  assert.match(gate, /ROUTE_RAW_LIMIT = 500_000/); assert.match(gate, /PUBLIC_GZIP_LIMIT = 297_000/);
   assert.match(gate, /ASSISTANT_INCREMENT_GZIP_LIMIT = 220_000/);
   assert.doesNotMatch(gate, /EXISTING_ROUTE_EXCEPTIONS|routeException|\.has\(entry\.source\).*\|\|/);
   assert.match(gate, /src\/router\.tsx/); assert.match(gate, /Budgeted route missing from manifest/);

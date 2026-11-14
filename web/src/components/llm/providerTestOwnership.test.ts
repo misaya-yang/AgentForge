@@ -32,7 +32,8 @@ function host() {
   let revision = 0;
   let failSave = false;
   let visibleProvider = provider;
-  const modules: Record<string, unknown> = {};
+  const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },};
   const jsx = (type: unknown, props: Record<string, unknown>) => ({ type, props });
   function load(file: string): Record<string, unknown> {
     const exports: Record<string, unknown> = {};
@@ -99,7 +100,9 @@ function host() {
   modules["@/api/providers"] = api;
   const card = load("./ProviderCard.tsx") as { ProviderCard: (props: Record<string, unknown>) => Tree };
   const pageSlots: unknown[] = []; let pageCursor = 0;
+  let lazyFormIndex = 0;
   modules.react = {
+    lazy: () => ["ProviderForm", "ModelForm"][lazyFormIndex++], Suspense: "Suspense",
     useState(initial: unknown) { const i = pageCursor++; if (!(i in pageSlots)) pageSlots[i] = initial;
       return [pageSlots[i], (next: unknown) => { pageSlots[i] = typeof next === "function" ? next(pageSlots[i]) : next; }]; },
     useMemo: (compute: () => unknown) => compute(), useRef: (value: unknown) => ({ current: value }), useEffect() {},

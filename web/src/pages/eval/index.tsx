@@ -1,7 +1,9 @@
+import { DeferredSelect as Select } from "@/components/DeferredSelect";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { deferComponent } from "@/components/deferComponent";
 import { useAuthenticatedReadScope } from "@/hooks/useAuthenticatedReadScope";
 import { useEvalRunActions } from "./useEvalRunActions";
-import { Alert, App as AntApp, Button, Descriptions, Input, InputNumber, Pagination, Progress, Select, Space, Tabs } from "antd";
+import { Alert, Button, Descriptions, Input, InputNumber, Pagination, Progress, Space, Tabs } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -341,7 +343,7 @@ export function EvalPage() {
   const authenticatedScope = useAuthenticatedReadScope();
   const traceAccess = useMemo(() => ({ key: authenticatedScope.id, token, authorityScope }), [authenticatedScope.id, token, authorityScope]);
   const queryClient = useQueryClient();
-  const { message, modal } = AntApp.useApp();
+  const { message, modal } = useProductFeedback();
   const canRunEvaluations = usePermission("console:eval:run");
   const [filters, setFilters] = useState<AssistantTraceFilters>({
     status: "all",

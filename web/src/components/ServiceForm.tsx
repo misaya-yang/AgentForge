@@ -1,7 +1,6 @@
 import type { RequestBody } from "@/api/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import YAML from "yaml";
 
 import {
   Dialog,
@@ -148,6 +147,7 @@ export function ServiceForm({ onRegistered }: { onRegistered?: () => void }) {
     setSaving(true);
     setError(null);
     try {
+      const { default: YAML } = await import("yaml");
       const obj = YAML.parse(yamlText) as Record<string, unknown>;
       await registerService(obj);
       onRegistered?.();
@@ -177,7 +177,7 @@ export function ServiceForm({ onRegistered }: { onRegistered?: () => void }) {
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(next) => { if (!registrationSaving) setTab(next); }}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+          <TabsList className="flex w-full h-auto">
             <TabsTrigger value="simple" disabled={registrationSaving}>LangGraph</TabsTrigger>
             <TabsTrigger value="dify" disabled={registrationSaving}>Dify</TabsTrigger>
             <TabsTrigger value="sdk" disabled={registrationSaving}>{t("services.sdkAgent.tab")}</TabsTrigger>

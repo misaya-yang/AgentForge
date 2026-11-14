@@ -1,9 +1,8 @@
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { DeferredTable as Table } from "@/components/DeferredTable";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  App as AntApp,
+import { Alert,
   Button,
   Empty,
   Form,
@@ -16,8 +15,7 @@ import {
   Tabs,
   Tag,
   Typography,
-  type TableColumnsType,
-} from "antd";
+  type TableColumnsType } from "antd";
 import {
   ArrowLeft,
   BarChart3,
@@ -77,7 +75,7 @@ function AgentAnalyticsView({ agentId, access }: {
 }) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { message, modal } = AntApp.useApp();
+  const { message, modal } = useProductFeedback();
   const queryClient = useQueryClient();
   const locale = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en-US";
   const [versionId, setVersionId] = useState<string>();

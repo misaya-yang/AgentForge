@@ -77,3 +77,39 @@
 .enterprise-console .spaces-tree, .enterprise-console .spaces-editor-shell > * { min-width: 0; }
 .enterprise-console .spaces-editor .bn-container { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 @media (max-width: 1200px) { .enterprise-console .spaces-editor-shell { grid-template-columns: minmax(0, 1fr); } .enterprise-console .spaces-tree { max-height: 220px; overflow: auto; } }
+
+.assistant-v2 textarea { field-sizing: content; height: auto; width: 100%; min-block-size: 3lh; max-block-size: 200px; }
+.enterprise-console .spaces-row:nth-child(n + 16), .enterprise-console .spaces-grid > :nth-child(n + 16), .workbench-section:nth-of-type(n + 5) { content-visibility: auto; contain-intrinsic-size: auto none auto 64px; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--duration-fast); }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+
+.forge-modal { box-sizing: border-box; position: fixed; inset: 0; margin: auto; width: min(560px, calc(100% - 32px)); max-width: calc(100% - 32px); max-height: calc(100dvh - 48px); overflow: auto; overscroll-behavior: contain; border: 1px solid hsl(var(--border)); border-radius: var(--radius-xl); background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--shadow-modal); padding: var(--space-6); }
+.forge-modal::backdrop { background: rgb(0 0 0 / .55); backdrop-filter: blur(4px); overflow: hidden; overscroll-behavior: contain; }
+.forge-modal-clear-backdrop::backdrop { background: transparent; backdrop-filter: none; }
+.forge-modal-header { margin-bottom: var(--space-5); padding-inline-end: 32px; }
+.forge-modal-header h2 { font-size: var(--text-lg); font-weight: 650; letter-spacing: -.02em; }
+.forge-modal-close { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; }
+.forge-modal-body { min-width: 0; }
+.forge-modal-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-6); }
+.forge-modal .ui-dialog-slot-1 { width: 100%; max-height: none; overflow: visible; max-width: none; box-shadow: none; border: 0; padding: 0; background: transparent; }
+
+.forge-select-skeleton { display: block; min-height: 32px; border-radius: var(--radius-sm); background: hsl(var(--muted)); min-width: 120px; }
+
+@layer components {
+
+.forge-tabs-list { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: var(--space-1); padding: var(--space-1); max-width: 100%; border-radius: var(--radius-md); background: hsl(var(--muted)); }
+.forge-tabs-trigger { position: relative; flex: none; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: var(--text-sm); color: hsl(var(--muted-foreground)); }
+.forge-tabs-trigger[data-state=active] { color: hsl(var(--foreground)); background: hsl(var(--background)); }
+.forge-tabs-trigger[data-state=active]::after { content: ""; position: absolute; inset: auto var(--space-3) 0; border-bottom: 2px solid currentColor; }
+.forge-tabs-content[hidden] { display: none; }
+.forge-menu { z-index: 70; min-width: 180px; max-height: min(var(--radix-dropdown-menu-content-available-height), 70dvh); overflow-y: auto; padding: var(--space-1); border: 1px solid hsl(var(--border)); border-radius: var(--radius-md); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); box-shadow: var(--shadow-lg); font-size: var(--text-sm); }
+.forge-menu-item { display: flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; outline: none; }
+.forge-menu-item[data-highlighted] { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
+.forge-menu-item[data-disabled], .forge-tabs-trigger:disabled { opacity: .5; pointer-events: none; }
+.forge-menu-label { padding: var(--space-2) var(--space-3); font-weight: 600; color: hsl(var(--muted-foreground)); }
+.forge-menu-separator { height: 1px; background: hsl(var(--border)); margin: var(--space-1); }
+
+.forge-tooltip { z-index: 80; max-width: min(320px, 90vw); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid hsl(var(--border)); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); box-shadow: var(--shadow-md); font-size: var(--text-xs); overflow-wrap: anywhere; }
+}
+
+html:has(dialog:modal) { overflow: hidden; }

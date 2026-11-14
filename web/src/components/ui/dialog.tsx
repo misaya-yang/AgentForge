@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Modal } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import { cn } from "@/lib/utils";
 import { childWithProps } from "./composition";
 
@@ -64,7 +64,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
       }}
       styles={{ container: { padding: 0, background: "transparent", boxShadow: "none" } }}
       panelRef={node => {
-        node?.setAttribute("role", alert ? "alertdialog" : "dialog");
+        if (alert) node?.setAttribute("role", "alertdialog");
         node?.setAttribute("aria-labelledby", titleId);
         node?.setAttribute("aria-describedby", descriptionId);
       }}

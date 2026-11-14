@@ -27,6 +27,7 @@ function host() {
   const setParams = (fn: (current: URLSearchParams) => URLSearchParams, options?: { replace?: boolean }) => { if (!options?.replace) history.push(params.toString()); params = fn(params); locationKey++; };
   const context = () => ({ dateRange: navigation.dashboardDateRange(params, ["2026-10-01", "2026-10-13"]), serviceId: params.get("service") || "all", userId: params.get("user") || "all", lastRefresh: new Date(0), traceFilter: navigation.readTraceFilter(params), clearTraceFilter: () => setParams(navigation.clearFailureTrace) });
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react: { useState(initial: unknown) { const i = cursor++; const owner = slots; owner[i] ??= { value: typeof initial === "function" ? initial() : initial }; return [owner[i].value, (next: unknown) => { owner[i].value = typeof next === "function" ? next(owner[i].value) : next; }]; }, useMemo: memo, useCallback: (fn: unknown, deps: unknown[]) => memo(() => fn, deps), useRef: (value: unknown) => memo(() => ({ current: value }), []), useEffect: effect, useLayoutEffect: effect },
     "react/jsx-runtime": { jsx, jsxs: jsx }, "@ant-design/icons": named,
     antd: { Table: "Table", Button: "Button", Input: "Input", Tag: "Tag", Spin: "Spin", Segmented: "Segmented", Empty: Object.assign(() => {}, { PRESENTED_IMAGE_SIMPLE: "empty" }) },

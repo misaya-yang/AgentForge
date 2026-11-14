@@ -259,6 +259,8 @@ impl RuntimeServices {
             })
         });
         let agent = AgentState {
+            automation_knowledge: None,
+            automation_skills: Some(content.skills.clone()),
             auth: auth.admission.clone(),
             repository: repository.clone(),
             control: control.clone(),

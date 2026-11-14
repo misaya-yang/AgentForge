@@ -10,7 +10,7 @@ export const consoleRouteInventory = [
   ["/playground", "/playground"],
   ["/assistant", "/assistant"], ["/agents", "/agents"], ["/agents/new", "/agents/new"],
   ["/agents/:agentId/analytics", "/agents/demo-agent/analytics"], ["/agents/:agentId/*", "/agents/demo-agent/editor"],
-  ["/eval", "/eval"], ["/tasks", "/tasks"], ["/settings", "/settings"],
+  ["/automations", "/automations"], ["/eval", "/eval"], ["/tasks", "/tasks"], ["/settings", "/settings"],
   ["/users/roles", "/users/roles"], ["/settings/guardrails", "/settings/guardrails"],
   ["/settings/governance", "/settings/governance"], ["/settings/knowledge-api-keys", "/settings/knowledge-api-keys"],
   ["/settings/plugins", "/settings/plugins"], ["/connections", "/connections"],

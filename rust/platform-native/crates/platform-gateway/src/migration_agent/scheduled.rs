@@ -27,7 +27,9 @@ fn invalid() -> AgentError {
     AgentError::code(422, "SCHEDULE_INVALID")
 }
 fn validate(v: &CreateTask) -> Result<(), AgentError> {
-    if v.title.trim().is_empty()
+    if v.timezone.as_deref().is_some_and(|zone| zone.is_empty() || zone.len()>80)
+        || (v.cron_expression.is_some() && v.interval_seconds.is_some())
+        || v.title.trim().is_empty()
         || v.title.chars().count() > TITLE_MAX
         || v.message.trim().is_empty()
         || v.message.chars().count() > MESSAGE_MAX
@@ -90,9 +92,11 @@ async fn dispatch(state: &AgentState, request: Request) -> Result<Value, AgentEr
                 .map_err(|_| invalid())?;
             let v: CreateTask = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
             validate(&v)?;
+            let timezone=v.timezone.as_deref().unwrap_or("UTC");
+            let run_at=if let Some(expression)=v.cron_expression.as_deref(){super::automations::cron::Cron::parse(expression)?.next(pool,timezone,v.run_at-chrono::Duration::minutes(1)).await?}else{v.run_at};
             let id = uuid::Uuid::new_v4().to_string();
-            let row: Value = sqlx::query_scalar("INSERT INTO gateway.scheduled_tasks(task_id,tenant_id,user_id,title,message,model_id,next_run_at,interval_seconds,max_retries) VALUES($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING to_jsonb(scheduled_tasks)")
-                .bind(id).bind(&actor.tenant_id).bind(&actor.user_id).bind(v.title.trim()).bind(v.message).bind(v.model_id).bind(v.run_at).bind(v.interval_seconds).bind(v.max_retries).fetch_one(pool).await?;
+            let row: Value = sqlx::query_scalar("INSERT INTO gateway.scheduled_tasks(task_id,tenant_id,user_id,title,message,model_id,next_run_at,interval_seconds,max_retries,cron_expression,timezone) VALUES($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING to_jsonb(scheduled_tasks)")
+                .bind(id).bind(&actor.tenant_id).bind(&actor.user_id).bind(v.title.trim()).bind(v.message).bind(v.model_id).bind(run_at).bind(v.interval_seconds).bind(v.max_retries).bind(&v.cron_expression).bind(timezone).fetch_one(pool).await?;
             Ok(responses::task::value(row))
         }
         ("GET", [id, "executions"]) => {
@@ -196,6 +200,7 @@ pub async fn run(state: AgentState, mut stop: watch::Receiver<bool>) {
     }
 }
 async fn tick(state: &AgentState) -> Result<(), AgentError> {
+    super::automations::tick(state).await?;
     if !state.runtime_enabled {
         return Ok(());
     }
@@ -346,6 +351,12 @@ async fn reconcile(state: &AgentState) -> Result<(), AgentError> {
             let mut tx = pool.begin().await?;
             sqlx::query("UPDATE gateway.scheduled_task_executions SET status=$2,run_id=$3::uuid,runtime_thread_id=$4::uuid,finished_at=NOW(),updated_at=NOW() WHERE execution_id=$1::uuid")
                 .bind(id).bind(status).bind(text(&run,"run_id")).bind(text(&run,"thread_id")).execute(&mut *tx).await?;
+            let schedule:Value=sqlx::query_scalar("SELECT to_jsonb(t) FROM gateway.scheduled_tasks t WHERE task_id=$1::uuid FOR UPDATE").bind(text(&e,"task_id")).fetch_one(&mut *tx).await?;
+            if let Some(expression)=schedule["cron_expression"].as_str(){
+                let next=super::automations::cron::Cron::parse(expression)?.next(pool,schedule["timezone"].as_str().unwrap_or("UTC"),Utc::now()).await?;
+                sqlx::query("UPDATE gateway.scheduled_tasks SET next_run_at=$2,retry_count=0,updated_at=NOW() WHERE task_id=$1::uuid").bind(text(&e,"task_id")).bind(next).execute(&mut *tx).await?;
+                tx.commit().await?;continue;
+            }
             // Fixed delay, skip missed ticks: no catch-up storm and no overlapping runs.
             sqlx::query("UPDATE gateway.scheduled_tasks SET status=CASE WHEN status='cancelled' THEN status WHEN interval_seconds IS NULL THEN 'completed' ELSE status END,next_run_at=CASE WHEN interval_seconds IS NULL THEN next_run_at ELSE NOW()+make_interval(secs=>interval_seconds::double precision) END,retry_count=0,updated_at=NOW() WHERE task_id=$1::uuid")
                 .bind(text(&e,"task_id")).execute(&mut *tx).await?;

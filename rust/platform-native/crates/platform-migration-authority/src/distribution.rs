@@ -162,6 +162,7 @@ pub fn verify(root: &Path, baseline_id: &str) -> Result<()> {
     if actual != distribution.files_sha256
         && !knowledge_spaces_successor(&actual, &distribution.files_sha256)
         && !catalog_connections_successor(&actual, &distribution.files_sha256)
+        && !automations_successor(&actual, &distribution.files_sha256)
     {
         return Err(refused(
             "authority distribution input coverage or checksum drift",
@@ -182,7 +183,8 @@ fn catalog_connections_successor(actual: &BTreeMap<String, String>, locked: &BTr
     }
     const MANIFEST: &str = "migrations/2026_08_post_kb_v1/manifest.yml";
     let expected = format!("{:x}", Sha256::digest(include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/manifest.yml")));
-    if predecessor.get(MANIFEST) != Some(&expected) { return false; }
+    let prefix = format!("{:x}", Sha256::digest(include_bytes!("../../../../../database/authority/anchors/031_manifest.json")));
+    if predecessor.get(MANIFEST) != Some(&expected) && predecessor.get(MANIFEST) != Some(&prefix) { return false; }
     predecessor.insert(MANIFEST.into(), format!("{:x}", Sha256::digest(include_bytes!("../../../../../database/authority/anchors/030_manifest.json"))));
     knowledge_spaces_successor(&predecessor, locked)
 }
@@ -267,4 +269,16 @@ mod tests {
         missing.remove("baselines/unchanged");
         assert!(!knowledge_spaces_successor(&missing, &locked));
     }
+}
+
+fn automations_successor(actual:&BTreeMap<String,String>,locked:&BTreeMap<String,String>)->bool {
+    let mut predecessor=actual.clone();
+    for (path,bytes) in [
+        ("migrations/2026_08_post_kb_v1/032_gateway_automations.sql",include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/032_gateway_automations.sql").as_slice()),
+        ("migrations/2026_08_post_kb_v1/032_verification.json",include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/032_verification.json").as_slice())
+    ] { if predecessor.remove(path).as_deref()!=Some(format!("{:x}",Sha256::digest(bytes)).as_str()){return false;} }
+    const MANIFEST:&str="migrations/2026_08_post_kb_v1/manifest.yml";
+    if predecessor.get(MANIFEST)!=Some(&format!("{:x}",Sha256::digest(include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/manifest.yml")))){return false;}
+    predecessor.insert(MANIFEST.into(),format!("{:x}",Sha256::digest(include_bytes!("../../../../../database/authority/anchors/031_manifest.json"))));
+    catalog_connections_successor(&predecessor,locked)
 }

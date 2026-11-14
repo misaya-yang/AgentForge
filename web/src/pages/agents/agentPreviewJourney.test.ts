@@ -93,6 +93,7 @@ function host(options: { status?: string; version?: boolean } = {}) {
   const named = new Proxy({}, { get: (_target, key) => String(key) });
   const translate = (key: string, values?: Record<string, unknown>) => key + (values?.model ? `:${values.model}` : "");
   const modules: Record<string, unknown> = {
+    "@/components/DeferredSelect": { DeferredSelect: "Select" },
     react: { ...react, useCallback: (callback: () => unknown, deps: unknown[]) => react.useMemo(() => callback, deps) },
     "react/jsx-runtime": { jsx, jsxs: jsx }, "lucide-react": named,
     antd: { Alert: "Alert", Button: "Button", Input: { TextArea: "TextArea" }, Select: "Select", Spin: "Spin", Tag: "Tag", Typography: named },

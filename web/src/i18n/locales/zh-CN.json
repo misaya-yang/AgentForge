@@ -1440,7 +1440,8 @@
     "collapseSidebar": "收起侧栏",
     "expandSidebar": "展开侧栏",
     "toggleSidebar": "切换侧栏",
-    "closeSidebar": "关闭侧栏"
+    "closeSidebar": "关闭侧栏",
+    "automations": "自动化"
   },
   "playground": {
     "difyInputs": {
@@ -2907,5 +2908,67 @@
       "error": "连接失败",
       "disabled_by_policy": "已被策略禁用"
     }
+  },
+  "automation": {
+    "title": "自动化",
+    "summary": "让工作空间处理重复任务。每个草稿都由你确认后再生效。",
+    "describe": "用 AI 创建自动化",
+    "prompt": "你想自动完成什么工作？",
+    "example": "每个工作日上午 9 点（America/New_York 时区），提醒我检查团队的发布清单。",
+    "confirmHint": "确认触发条件、模型和动作后才会激活草稿。Agent 工具仍遵守原有的审批要求。",
+    "draft": "创建草稿",
+    "working": "正在创建草稿…",
+    "manual": "手动设置触发条件和动作",
+    "name": "名称",
+    "model": "平台模型",
+    "trigger": "触发条件",
+    "expression": "Cron 表达式",
+    "timezone": "时区（IANA）",
+    "item": "空间页面 ID",
+    "entry": "连接器条目 ID",
+    "action": "动作",
+    "actionNumber": "动作 {number}",
+    "skill": "已安装技能 ID",
+    "content": "指令或内容",
+    "removeAction": "移除动作",
+    "addAction": "添加动作",
+    "failed": "无法确认操作结果。请先刷新列表检查状态，再作新的决定。",
+    "loadFailed": "无法加载自动化。",
+    "loading": "正在加载自动化",
+    "empty": "还没有自动化。从一个重复任务的草稿开始。",
+    "review": "检查草稿",
+    "activate": "确认并激活",
+    "pause": "暂停",
+    "resume": "恢复",
+    "cancel": "取消自动化",
+    "history": "执行记录",
+    "historyHint": "结果不明的操作会保留供检查，不会自动重放。",
+    "webhookSecret": "Webhook 签名密钥",
+    "secretHint": "请立即复制，此密钥仅显示一次。使用 HMAC-SHA256 对 timestamp.delivery-id.raw-body 签名，并发送 X-Automation-Timestamp、X-Automation-Delivery 和 X-Automation-Signature: sha256=… 请求头。",
+    "kind": {
+      "cron": "按计划触发",
+      "webhook": "收到签名 Webhook 时",
+      "space_page_changed": "空间页面变更时",
+      "connector_event": "连接器状态变更时",
+      "run_agent": "运行助手",
+      "run_skill": "运行已安装技能",
+      "write_space_page": "追加空间页面内容",
+      "notify": "发送通知"
+    },
+    "status": {
+      "draft": "草稿",
+      "active": "已激活",
+      "paused": "已暂停",
+      "cancelled": "已取消",
+      "queued": "排队中",
+      "dispatching": "正在派发",
+      "running": "运行中",
+      "succeeded": "已成功",
+      "failed": "已失败",
+      "uncertain": "需要检查"
+    },
+    "notifications": "通知",
+    "noNotifications": "自动化发送的通知将在这里显示。",
+    "connectorHint": "当你可见的目录连接发生变化（包括连接、重新授权或撤销）时运行。"
   }
 }

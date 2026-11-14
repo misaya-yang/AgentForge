@@ -37,6 +37,11 @@ fn fresh_source_contains_every_definition_and_all_22_data_families_without_upgra
     assert!(defs.knowledge_spaces.1.contains("CREATE TABLE knowledge.spaces ("));
     assert_eq!(defs.canonical_additions[0].0.file, "031_catalog_connections.sql");
     assert_eq!(defs.canonical_additions[0].0.sequence, 31);
+    assert_eq!(defs.canonical_additions.len(), 2);
+    assert_eq!(defs.canonical_additions[1].0.sequence, 32);
+    assert_eq!(defs.canonical_additions[1].0.file, "032_gateway_automations.sql");
+    assert_eq!(defs.canonical_additions[1].0.sha256, sha(defs.canonical_additions[1].1.as_bytes()));
+    assert_eq!(defs.canonical_additions[1].1, compiled.canonical_additions[1].1);
     assert_eq!(defs.changes.len() + defs.canonical_additions.len(), EPOCH as usize);
     assert_eq!(
         defs.canonical_additions[0].0.sha256,

@@ -23,8 +23,8 @@ fn knowledge_base(
     epoch: i32,
     mut specs: Vec<ChangeSpec>,
 ) -> Result<(Vec<ChangeSpec>, ChangeSpec, Vec<ChangeSpec>)> {
-    let installed = epoch == 31
-        && specs.len() == 31
+    let installed = epoch == 32
+        && specs.len() == 32
         && specs.get(29).is_some_and(|change| {
             change.sequence == 30 && change.file == "030_knowledge_spaces.sql"
         })
@@ -40,6 +40,7 @@ fn knowledge_base(
     if additions[0].sequence != 31 || additions[0].file != "031_catalog_connections.sql" {
         return Err(refused("canonical catalog successor 031 missing"));
     }
+    if additions.len() != 2 || additions[1].sequence != 32 || additions[1].file != "032_gateway_automations.sql" { return Err(refused("canonical automation successor 032 missing")); }
     let spaces = specs
         .pop()
         .ok_or_else(|| refused("030 knowledge spaces change is missing"))?;

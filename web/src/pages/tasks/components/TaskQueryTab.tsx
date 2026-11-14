@@ -124,7 +124,7 @@ function TaskQueryContent({ searchedId, inboxHref, onSearch }: {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
         handleSearch();
       }
     },

@@ -26,6 +26,7 @@ pub mod release_contract;
 pub mod resources;
 pub mod routes;
 pub mod scheduled;
+pub mod automations;
 pub mod runtime_contract;
 pub mod runtime_envelope;
 pub mod readonly_capabilities;

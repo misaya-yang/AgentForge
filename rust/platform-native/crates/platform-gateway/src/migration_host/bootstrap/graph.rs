@@ -366,6 +366,7 @@ impl GatewayGraph {
             verifier: knowledge.actor_verifier,
         };
         let proxy = Arc::new(proxy);
+        runtime.agent.automation_knowledge = Some(proxy.clone());
         core.registry
             .configure_sdk_capabilities(Arc::new(
                 crate::migration_host::knowledge_proxy::sdk_capabilities::Authority {

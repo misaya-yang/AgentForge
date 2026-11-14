@@ -1,20 +1,18 @@
+import { useProductFeedback } from "@/hooks/useProductFeedback";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  App as AntApp,
+import { Alert,
   Button,
   Checkbox,
   Drawer,
   Empty,
   Input,
-  Modal,
   Select,
   Skeleton,
   Tag,
   Timeline,
-  Typography,
-} from "antd";
+  Typography } from "antd";
+import { Modal } from "@/components/ui/native-modal";
 import {
   CheckCircle2,
   ExternalLink,
@@ -254,7 +252,7 @@ export function AgentReleasePanel({
 }: AgentReleasePanelProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en-US";
-  const { message: messageApi } = AntApp.useApp();
+  const { message: messageApi } = useProductFeedback();
   const queryClient = useQueryClient();
   const canRelease = role === "owner";
   const [datasetId, setDatasetId] = useState<string | null>(null);

@@ -1,4 +1,5 @@
-import { Alert, App as AntApp, Button, Descriptions, Empty, Input, Progress, Select, Space, Spin, Tag } from "antd";
+import { useProductFeedback } from "@/hooks/useProductFeedback";
+import { Alert, Button, Descriptions, Empty, Input, Progress, Select, Space, Spin, Tag } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge, Layers, Play, SearchCheck, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -96,7 +97,7 @@ export function KbRagasPanel({
   canRunEvaluations,
 }: KbRagasPanelProps) {
   const { t } = useTranslation();
-  const { message } = AntApp.useApp();
+  const { message } = useProductFeedback();
   const queryClient = useQueryClient();
   const [batchDatasetId, setBatchDatasetId] = useState(initialDatasetId || "");
   const ragasScores = useMemo(() => kbRagasScoresFromDetail(detail), [detail]);

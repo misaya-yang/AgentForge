@@ -34,6 +34,7 @@ function host(locale = "en-US") {
   const jsx = (type: unknown, props: Record<string, unknown>, key?: string) => ({ type, props, key });
   const named = new Proxy({}, { get: (_, key) => String(key) });
   const modules: Record<string, unknown> = {
+    "@/hooks/useProductFeedback": { useProductFeedback: () => (modules.antd as { App: { useApp: () => unknown } }).App.useApp() },
     react: { useState(initial: unknown) { const i = cursor++; const owner = slots; owner[i] ??= { value: typeof initial === "function" ? initial() : initial }; return [owner[i].value, (next: unknown) => { owner[i].value = typeof next === "function" ? next(owner[i].value) : next; }]; }, useMemo: memo, useCallback: (fn: unknown, deps: unknown[]) => memo(() => fn, deps), useRef: (value: unknown) => memo(() => ({ current: value }), []), useLayoutEffect: effect },
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" }, "@ant-design/icons": named, antd: named, "lucide-react": named, recharts: named,
     "react-i18next": { useTranslation: () => ({ t }) },
