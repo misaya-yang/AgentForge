@@ -11,7 +11,8 @@
     "remaining": [
       "SKIPPED: cargo test -p ai-platform-knowledge-service --test spaces_api --test spaces_collab -- --include-ignored panics because AI_GATEWAY_TEST_DATABASE_OWNER_URL and AI_GATEWAY_TEST_DATABASE_URL are unset. The spaces_collab protocol test spaces_collab_two_peers_converge passed; the ignored database test panics the same way.",
       "SKIPPED: bash scripts/dev/spaces-smoke.sh --rag exits 1 because SPACE_SMOKE_BASE_URL is unset. This environment has no running knowledge gateway or PostgreSQL.",
-      "Gateway WebSocket proxy still strips Upgrade, so the Hocuspocus endpoint on the knowledge service is not yet reachable through the public gateway. Direct knowledge-service /api/v1/knowledge/space-items/{id}/collab is implemented."
+      "Gateway WebSocket proxy still strips Upgrade, so the Hocuspocus endpoint on the knowledge service is not yet reachable through the public gateway. Direct knowledge-service /api/v1/knowledge/space-items/{id}/collab is implemented.",
+      "CI on 459b0ba: 20/24 checks failed. New finding from yrs 0.28.1 is RUSTSEC-2026-0215 (smallstr unmaintained, no upgrade). The rest match the pre-existing gates: generated-sdk platform-tools exit 127, contracts supply_chain_gate setup-node SHA mismatch, workflow-lint zizmor self-repository, cargo-deny advisories on zstd-safe/zvariant/tokio and yanked desktop crates, image-size cargo-chef missing /source/agent-plugins/ai-quiz/native/Cargo.toml."
     ]
   },
   "dot_1113_m1": {
