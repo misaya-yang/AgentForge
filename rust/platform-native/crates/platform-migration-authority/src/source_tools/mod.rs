@@ -28,5 +28,6 @@ pub mod next_successor_028;
 pub mod next_successor_029;
 
 pub mod knowledge_spaces_030;
+pub mod catalog_connections_031;
 
 pub mod service_successors;

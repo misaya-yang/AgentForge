@@ -1,5 +1,5 @@
 use super::*;
-use crate::manifest::{BaselineManifest, ChangeSpec, RollbackClass, TransactionMode};
+use crate::manifest::{BaselineManifest, ChangeSpec, TransactionMode};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -13,50 +13,37 @@ pub(super) struct Definitions {
     /// Installed knowledge-spaces successor. Sequences 30-35 stay the closed
     /// service-successor definitions, so this change is applied beside them.
     pub knowledge_spaces: (ChangeSpec, String),
-    /// Catalog connections successor 036, installed beside the closed epoch.
-    pub catalog_connections: (ChangeSpec, String),
+    /// Canonical successors after knowledge-spaces 030, loaded only from database/manifest.yml.
+    pub canonical_additions: Vec<(ChangeSpec, String)>,
     pub verify_sql: String,
-}
-fn catalog_connections(sql: &str) -> (ChangeSpec, String) {
-    (
-        ChangeSpec {
-            sequence: 36,
-            name: "catalog_connections".into(),
-            file: "036_catalog_connections.sql".into(),
-            sha256: sha(sql.as_bytes()),
-            owner: "owner".into(),
-            transaction_mode: TransactionMode::Transactional,
-            rollback_class: RollbackClass::ForwardFixOnly,
-            preconditions: vec![
-                "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))".into(),
-                "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NULL".into(),
-            ],
-            postconditions: vec![
-                "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NOT NULL AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'gateway.catalog_entries', 'SELECT') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'DELETE') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'DELETE')".into(),
-            ],
-            timeout_seconds: 600,
-            lock_budget_seconds: 5,
-            resume_handler: None,
-            repair_handler: None,
-            notes: "Catalog connections successor 036. Gateway SELECT/INSERT/UPDATE only. Installed beside epoch 30 and service successors 30-35.".into(),
-        },
-        sql.to_owned(),
-    )
 }
 /// Epochs 1-29 stay the compiled fresh-schema base. Successor 030 is installed
 /// beside the closed service-successor definitions 30-35, not instead of them.
-fn knowledge_base(epoch: i32, mut specs: Vec<ChangeSpec>) -> Result<(Vec<ChangeSpec>, ChangeSpec)> {
-    let installed = epoch == 30
-        && specs.len() == 30
+fn knowledge_base(
+    epoch: i32,
+    mut specs: Vec<ChangeSpec>,
+) -> Result<(Vec<ChangeSpec>, ChangeSpec, Vec<ChangeSpec>)> {
+    let installed = epoch == 31
+        && specs.len() == 31
+        && specs.get(29).is_some_and(|change| {
+            change.sequence == 30 && change.file == "030_knowledge_spaces.sql"
+        })
         && specs
-            .last()
-            .is_some_and(|change| change.sequence == 30 && change.file == "030_knowledge_spaces.sql")
-        && specs.iter().take(29).map(|change| change.sequence).eq(1..=29);
+            .iter()
+            .take(29)
+            .map(|change| change.sequence)
+            .eq(1..=29);
     if !installed {
         return Err(refused("compiled definition anchor changed"));
     }
-    let spaces = specs.pop().ok_or_else(|| refused("030 knowledge spaces change is missing"))?;
-    Ok((specs, spaces))
+    let additions = specs.split_off(30);
+    if additions[0].sequence != 31 || additions[0].file != "031_catalog_connections.sql" {
+        return Err(refused("canonical catalog successor 031 missing"));
+    }
+    let spaces = specs
+        .pop()
+        .ok_or_else(|| refused("030 knowledge spaces change is missing"))?;
+    Ok((specs, spaces, additions))
 }
 fn exact_change(spec: &ChangeSpec, sql: &str) -> Result<()> {
     if spec.owner != "owner"
@@ -100,7 +87,8 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
     .map_err(|_| refused("compiled base definitions malformed"))?;
     let specs: Vec<ChangeSpec> = serde_json::from_value(epoch["changes"].clone())
         .map_err(|_| refused("compiled base specs malformed"))?;
-    let (specs, spaces) = knowledge_base(epoch["epoch"].as_i64().unwrap_or(0) as i32, specs)?;
+    let (specs, spaces, additions) =
+        knowledge_base(epoch["epoch"].as_i64().unwrap_or(0) as i32, specs)?;
     let mut changes = specs
         .into_iter()
         .map(|s| {
@@ -129,7 +117,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
                 .ok_or_else(|| refused("current SQL source absent"))?)?,
         ));
     }
-    if changes.iter().map(|(s, _)| s.sequence).ne(1..=EPOCH) {
+    if changes.iter().map(|(s, _)| s.sequence).ne(1..=35) {
         return Err(refused("current definitions incomplete"));
     }
     for (s, sql) in &changes {
@@ -137,13 +125,26 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
     }
     let spaces_sql = get(&format!(
         "database/migrations/{}/{}",
-        crate::DEFAULT_BASELINE_ID, spaces.file
+        crate::DEFAULT_BASELINE_ID,
+        spaces.file
     ))?;
     exact_change(&spaces, &spaces_sql)?;
     let knowledge_spaces = (spaces, spaces_sql);
-    let catalog_sql = get("config/catalog/036_catalog_connections.sql")?;
-    let catalog_connections = catalog_connections(&catalog_sql);
-    exact_change(&catalog_connections.0, &catalog_connections.1)?;
+    let canonical_additions = additions
+        .into_iter()
+        .map(|spec| {
+            let sql = get(&format!(
+                "database/migrations/{}/{}",
+                crate::DEFAULT_BASELINE_ID,
+                spec.file
+            ))?;
+            exact_change(&spec, &sql)?;
+            Ok((spec, sql))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if changes.len() + canonical_additions.len() != EPOCH as usize {
+        return Err(refused("fresh definition count differs from epoch"));
+    }
     let roles = get("database/bootstrap/roles.sql")?;
     let owner_setup = roles
         .split_once("-- 5. Stable schema ownership")
@@ -160,7 +161,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
         extensions: get("database/bootstrap/extensions.sql")?,
         changes,
         knowledge_spaces,
-        catalog_connections,
+        canonical_additions,
         verify_sql: get(&format!("{base}verify.sql"))?,
     })
 }
@@ -241,7 +242,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         .join("database/migrations")
         .join(crate::DEFAULT_BASELINE_ID);
     let epoch = crate::manifest::load_epoch_manifest(&epoch_dir.join("manifest.yml"))?;
-    let (predecessor, spaces) = knowledge_base(epoch.epoch, epoch.changes)?;
+    let (predecessor, spaces, additions) = knowledge_base(epoch.epoch, epoch.changes)?;
     let mut changes = predecessor
         .into_iter()
         .map(|s| {
@@ -252,7 +253,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
     changes.extend(crate::source_tools::service_successors::fresh_definitions(
         root,
     )?);
-    if changes.iter().map(|(s, _)| s.sequence).ne(1..=EPOCH) {
+    if changes.iter().map(|(s, _)| s.sequence).ne(1..=35) {
         return Err(refused("incomplete current definition set"));
     }
     for (spec, sql) in &changes {
@@ -261,15 +262,20 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         })?;
     }
     let spaces_sql = fs::read_to_string(epoch_dir.join(&spaces.file))?;
-    exact_change(&spaces, &spaces_sql).map_err(|_| {
-        refused("fresh definition must be exact, owner-owned and transactional")
-    })?;
+    exact_change(&spaces, &spaces_sql)
+        .map_err(|_| refused("fresh definition must be exact, owner-owned and transactional"))?;
     let knowledge_spaces = (spaces, spaces_sql);
-    let catalog_sql = fs::read_to_string(root.join("config/catalog/036_catalog_connections.sql"))?;
-    let catalog_connections = catalog_connections(&catalog_sql);
-    exact_change(&catalog_connections.0, &catalog_connections.1).map_err(|_| {
-        refused("fresh definition must be exact, owner-owned and transactional")
-    })?;
+    let canonical_additions = additions
+        .into_iter()
+        .map(|spec| {
+            let sql = fs::read_to_string(epoch_dir.join(&spec.file))?;
+            exact_change(&spec, &sql)?;
+            Ok((spec, sql))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if changes.len() + canonical_additions.len() != EPOCH as usize {
+        return Err(refused("fresh definition count differs from epoch"));
+    }
     let role_sql = fs::read_to_string(root.join("database/bootstrap/roles.sql"))?;
     let owner_setup = role_sql
         .split_once("-- 5. Stable schema ownership")
@@ -291,7 +297,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         extensions: fs::read_to_string(root.join("database/bootstrap/extensions.sql"))?,
         changes,
         knowledge_spaces,
-        catalog_connections,
+        canonical_additions,
         verify_sql: fs::read_to_string(base.join("verify.sql"))?,
     })
 }

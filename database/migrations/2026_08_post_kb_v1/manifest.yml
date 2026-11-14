@@ -1,6 +1,6 @@
 {
   "baseline_id": "2026_08_post_kb_v1",
-  "epoch": 30,
+  "epoch": 31,
   "changes": [
     {
       "sequence": 1,
@@ -673,6 +673,27 @@
       "resume_handler": null,
       "repair_handler": null,
       "notes": "Knowledge spaces successor. Minimal knowledge_api SELECT/INSERT/UPDATE and knowledge_worker column SELECT only. Frozen epoch 001-029 files, baselines, and fingerprints are unchanged."
+    },
+    {
+      "sequence": 31,
+      "name": "catalog_connections",
+      "file": "031_catalog_connections.sql",
+      "sha256": "43ad489411b79b081e9c9eacc1dbcc78eb37204fa92fcfda8196b61bb10b6204",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))",
+        "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NULL"
+      ],
+      "postconditions": [
+        "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NOT NULL AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'gateway.catalog_entries', 'SELECT') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'DELETE') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'DELETE')"
+      ],
+      "timeout_seconds": 600,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Formal canonical successor after knowledge_spaces 030. Gateway SELECT/INSERT/UPDATE only; other application roles and PUBLIC receive no access."
     }
   ]
 }

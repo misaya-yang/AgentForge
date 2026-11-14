@@ -10,10 +10,10 @@ export function ConnectorsSettingsPage() {
     installOverlayFallback(document.body);
   }, []);
   return (
-    <section className="mx-auto flex max-w-6xl flex-col gap-4" aria-labelledby="connectors-settings-title">
-      <header>
-        <h1 id="connectors-settings-title" className="text-lg font-semibold">{t("connect.manageTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("connect.manageSummary")}</p>
+    <section className="forge-page" aria-labelledby="connectors-settings-title">
+      <header className="forge-page-header">
+        <div><h1 id="connectors-settings-title">{t("connect.manageTitle")}</h1>
+        <p>{t("connect.manageSummary")}</p></div>
       </header>
       <CatalogBoard manage />
     </section>

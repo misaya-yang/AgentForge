@@ -235,10 +235,10 @@ pub fn verify_activated_source(root: &Path) -> Result<Value> {
 }
 
 fn knowledge_spaces_epoch(epoch: &manifest::EpochManifest) -> bool {
-    epoch.epoch == 30
+    (30..=31).contains(&epoch.epoch)
         && epoch
             .changes
-            .last()
+            .get(29)
             .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
 }
 
@@ -262,8 +262,9 @@ fn restore_knowledge_spaces_prefix(root: &Path) -> Result<Anchor> {
         anchor.0.join(MANIFEST),
         fs::read(safe::source_file(root, ARCHIVED_MANIFEST)?)?,
     )?;
-    for name in ["030_knowledge_spaces.sql", "030_verification.json"] {
-        fs::remove_file(file(&anchor.0, name))?;
+    for name in ["030_knowledge_spaces.sql", "030_verification.json", "031_catalog_connections.sql", "031_verification.json"] {
+        let path = file(&anchor.0, name);
+        if path.exists() { fs::remove_file(path)?; }
     }
     Ok(anchor)
 }

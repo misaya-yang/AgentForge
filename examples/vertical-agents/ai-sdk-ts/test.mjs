@@ -1,5 +1,6 @@
 import http from "node:http";
 import { answer } from "./agent.mjs";
+import { assertLiveAnswer, smokePrompt } from "../runtime.mjs";
 
 function frames() {
   const events = [
@@ -85,13 +86,13 @@ function mock() {
 }
 
 if (process.env.LIVE === "1") {
-  const text = await answer("Read the cited page.");
-  if (!text.includes("cited item-7")) throw new Error(text);
+  const text = await answer(smokePrompt());
+  assertLiveAnswer(text);
 } else {
   const server = await mock();
   const port = server.address().port;
-  process.env.BASE_URL = `http://127.0.0.1:${port}/v1`;
-  process.env.API_KEY = "test-key";
+  process.env.OPENAI_BASE_URL = process.env.BASE_URL = `http://127.0.0.1:${port}/v1`;
+  process.env.OPENAI_API_KEY = process.env.API_KEY = "test-key";
   process.env.MCP_URL = `http://127.0.0.1:${port}/mcp`;
   try {
     const text = await answer("Read the cited page.");

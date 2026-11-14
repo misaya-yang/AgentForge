@@ -21,24 +21,24 @@ import {
 } from "antd";
 import type { MenuProps } from "antd";
 import {
-  PlusOutlined,
-  SearchOutlined,
-  ReloadOutlined,
-  DatabaseOutlined,
-  FileTextOutlined,
-  TableOutlined,
-  PictureOutlined,
-  PlaySquareOutlined,
-  MoreOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ExperimentOutlined,
-  EyeOutlined,
-  CopyOutlined,
-  CheckOutlined,
-  FolderOpenOutlined,
-  NodeIndexOutlined,
-} from "@ant-design/icons";
+  Plus as PlusOutlined,
+  Search as SearchOutlined,
+  RefreshCw as ReloadOutlined,
+  Database as DatabaseOutlined,
+  FileText as FileTextOutlined,
+  Table2 as TableOutlined,
+  Image as PictureOutlined,
+  Clapperboard as PlaySquareOutlined,
+  Ellipsis as MoreOutlined,
+  Pencil as EditOutlined,
+  Trash2 as DeleteOutlined,
+  FlaskConical as ExperimentOutlined,
+  Eye as EyeOutlined,
+  Copy as CopyOutlined,
+  Check as CheckOutlined,
+  FolderOpen as FolderOpenOutlined,
+  Network as NodeIndexOutlined,
+} from "lucide-react";
 
 import { useDatasets } from "@/hooks/useKnowledge";
 import { deleteDataset } from "@/api/knowledge";
@@ -614,7 +614,7 @@ export function KnowledgeDatasetsPage() {
         >
           <Space size={12}>
             <Button
-              icon={<ReloadOutlined spin={datasetsQuery.isFetching} />}
+              icon={<ReloadOutlined className={datasetsQuery.isFetching ? "animate-spin" : undefined} />}
               onClick={() => qc.invalidateQueries({ queryKey: ["kb-datasets"] })}
               style={{ borderRadius: 6 }}
             >

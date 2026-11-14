@@ -159,13 +159,32 @@ pub fn verify(root: &Path, baseline_id: &str) -> Result<()> {
         "authority/ledger_acl_v1.json".into(),
         digest(&root.join("authority/ledger_acl_v1.json"))?,
     );
-    if actual != distribution.files_sha256 && !knowledge_spaces_successor(&actual, &distribution.files_sha256)
+    if actual != distribution.files_sha256
+        && !knowledge_spaces_successor(&actual, &distribution.files_sha256)
+        && !catalog_connections_successor(&actual, &distribution.files_sha256)
     {
         return Err(refused(
             "authority distribution input coverage or checksum drift",
         ));
     }
     Ok(())
+}
+
+/// Exact compiled 031 extension of the immutable 030/029 package. These are
+/// source-byte pins, never measured fingerprints or a replacement package lock.
+fn catalog_connections_successor(actual: &BTreeMap<String, String>, locked: &BTreeMap<String, String>) -> bool {
+    let mut predecessor = actual.clone();
+    for (path, bytes) in [
+        ("migrations/2026_08_post_kb_v1/031_catalog_connections.sql", include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/031_catalog_connections.sql").as_slice()),
+        ("migrations/2026_08_post_kb_v1/031_verification.json", include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/031_verification.json").as_slice()),
+    ] {
+        if predecessor.remove(path).as_deref() != Some(format!("{:x}", Sha256::digest(bytes)).as_str()) { return false; }
+    }
+    const MANIFEST: &str = "migrations/2026_08_post_kb_v1/manifest.yml";
+    let expected = format!("{:x}", Sha256::digest(include_bytes!("../../../../../database/migrations/2026_08_post_kb_v1/manifest.yml")));
+    if predecessor.get(MANIFEST) != Some(&expected) { return false; }
+    predecessor.insert(MANIFEST.into(), format!("{:x}", Sha256::digest(include_bytes!("../../../../../database/authority/anchors/030_manifest.json"))));
+    knowledge_spaces_successor(&predecessor, locked)
 }
 
 /// Successor 030 is installed beside the frozen 029 package lock. That lock file

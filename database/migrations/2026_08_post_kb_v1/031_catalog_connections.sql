@@ -1,7 +1,6 @@
--- Catalog connections successor 036.
--- Installed beside the closed service-successor definitions 30-35 and beside
--- knowledge spaces 030. The canonical epoch manifest stays at 30. Native
--- authority owns the transaction. No embedded BEGIN/COMMIT. No sequences.
+-- Catalog connections canonical successor 031.
+-- Extends knowledge spaces 030 in the authority manifest. Native authority
+-- owns the transaction. No embedded BEGIN/COMMIT. No sequences.
 -- Gateway receives SELECT, INSERT, UPDATE only. Revocation is a status update.
 
 -- BEGIN OWNER GUARD

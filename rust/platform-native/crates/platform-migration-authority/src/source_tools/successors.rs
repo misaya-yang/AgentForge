@@ -941,6 +941,10 @@ pub fn verify_activated_source(root: &Path) -> Result<(Value, manifest::EpochMan
             .join(BASELINE)
             .join("manifest.yml"),
     )?;
+    if current_manifest.epoch == 31 && current_manifest.changes.last().is_some_and(|change| change.file == "031_catalog_connections.sql") {
+        let receipt = crate::source_tools::catalog_connections_031::verify_installed(&root)?;
+        return Ok((receipt, current_manifest));
+    }
     if (30..=35).contains(&current_manifest.epoch) {
         if current_manifest.epoch == 30
             && current_manifest

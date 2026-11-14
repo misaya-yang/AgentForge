@@ -1,9 +1,19 @@
-# langgraph-py
+# LangGraph / LangChain vertical agent
 
-LangChain 1.x `create_agent`（本环境 PyPI 最新 1.x 是 1.5.0；PRD 附录写的 1.6.5 尚未发布）读取三个环境变量：
+Uses the platform's OpenAI-compatible **`/v1`** model gateway and local platform **`/mcp`** tools. No provider credential is passed to the example. Read-only space tools are exposed; writes use the platform's separate approval flow.
 
-- `BASE_URL`：OpenAI 兼容模型根路径，例如 `http://127.0.0.1:8080/v1`
-- `API_KEY`：平台 API key
-- `MCP_URL`：平台 MCP Streamable HTTP 端点
+Mock (one command; requires Python 3.11+ and uv):
 
-`make test` 在 mock 模式下拉起本地模型与 MCP，断言回答包含 `cited item-7`。`LIVE=1` 时不启 mock，直接打这三个变量指向的真实网关（由本地运行，不计入本仓库的 SKIPPED）。
+```sh
+make test
+```
+
+LIVE (one command after configuring the gateway and exporting a **platform** key as `OPENAI_API_KEY`):
+
+```sh
+MODEL=qwen3.8-flash OPENAI_BASE_URL=http://127.0.0.1:8080/v1 MCP_URL=http://127.0.0.1:8080/mcp QUERY=platform LIVE=1 make test
+```
+
+The gateway's upstream must be configured as `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` with model `qwen3.8-flash`. The gateway reads the Aliyun credential only from `DASHSCOPE_API_KEY` in its environment. Do not use that provider key as `OPENAI_API_KEY`, store keys in files, or point this example directly at DashScope. Change the port to match your gateway.
+
+`MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `MCP_URL` configure every request. Legacy `BASE_URL` / `API_KEY` aliases remain supported. `QUERY` selects an existing, readable space page; alternatively set `ITEM_ID` or `PROMPT`. LIVE fails if no tool was actually executed or if the final answer does not cite an item ID returned by that tool. Seed a page using your normal platform UI before running. Mock retains the deterministic `cited item-7` assertion. No services are provisioned by this example.

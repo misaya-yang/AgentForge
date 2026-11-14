@@ -28,6 +28,9 @@ pub const DEFAULT_ROLE_PREFIX: &str = "ai_gateway_";
 pub const LOCK_NAMESPACE: i32 = 1_095_781_959;
 pub const LOCK_ID: i32 = 1;
 
+#[path = "fingerprint.rs"]
+mod frozen_fingerprint;
+#[path = "fingerprint_current.rs"]
 pub mod fingerprint;
 pub mod ledger_acl;
 

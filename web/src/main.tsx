@@ -9,6 +9,7 @@ import { HttpError } from '@/lib/fetchClient';
 import "./index.css";
 import "./styles/tokens.css";
 import "./styles/themes.css";
+import "./styles/forge.css";
 import { initializeI18n } from "./i18n";
 import App from "./App";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";

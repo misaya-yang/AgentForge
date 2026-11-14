@@ -44,6 +44,19 @@ export function installOverlayFallback(root: ParentNode) {
       });
     });
   }
+  if (!("closedBy" in HTMLDialogElement.prototype)) {
+    root.querySelectorAll<HTMLDialogElement>('dialog[closedby="any"]').forEach((dialog) => {
+      if (dialog.dataset.lightDismiss === "1") return;
+      dialog.dataset.lightDismiss = "1";
+      const outside = (event: PointerEvent) => {
+        const rect = dialog.getBoundingClientRect();
+        return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+      };
+      let pressedOutside = false;
+      dialog.addEventListener("pointerdown", (event) => { pressedOutside = outside(event); });
+      dialog.addEventListener("pointerup", (event) => { if (pressedOutside && outside(event)) dialog.close(); pressedOutside = false; });
+    });
+  }
   if ("focusGroup" in HTMLElement.prototype) return;
   root.querySelectorAll<HTMLElement>("[focusgroup]").forEach((group) => {
     if (group.dataset.spaceMenu === "1") return;

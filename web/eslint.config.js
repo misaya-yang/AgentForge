@@ -24,13 +24,13 @@ export default defineConfig([
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
-          group: ['axios', 'axios/*', 'tailwind-merge', 'tailwind-merge/*', '@radix-ui/*', '@langchain/*', 'class-variance-authority', 'class-variance-authority/*', 'date-fns', 'date-fns/*', 'marked', 'marked/*', 'react-grid-layout', 'react-grid-layout/*', 'react-resizable', 'react-resizable/*', 'framer-motion', 'framer-motion/*'],
-          message: 'Use the antd 6 design system and dayjs; retired console dependencies must not return.',
+          group: ['axios', 'axios/*', 'tailwind-merge', 'tailwind-merge/*', '@langchain/*', 'class-variance-authority', 'class-variance-authority/*', 'date-fns', 'date-fns/*', 'marked', 'marked/*', 'react-grid-layout', 'react-grid-layout/*', 'react-resizable', 'react-resizable/*', 'framer-motion', 'framer-motion/*'],
+          message: 'Use native platform controls or Radix with shared tokens and dayjs; retired console dependencies must not return.',
         }],
       }],
       'no-restricted-syntax': ['error', {
-        selector: 'ImportExpression[source.value=/^(axios|tailwind-merge|@radix-ui|@langchain|class-variance-authority|date-fns|marked|react-grid-layout|react-resizable|framer-motion)/]',
-        message: 'Load console UI from antd and dates from dayjs; retired dependencies must not return through dynamic imports.',
+        selector: 'ImportExpression[source.value=/^(axios|tailwind-merge|@langchain|class-variance-authority|date-fns|marked|react-grid-layout|react-resizable|framer-motion)/]',
+        message: 'Load console UI from native controls or Radix and dates from dayjs; retired dependencies must not return through dynamic imports.',
       }],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

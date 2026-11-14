@@ -1,0 +1,79 @@
+/* Shared product surface; native controls and Radix use the same tokens. */
+.forge-button, .forge-icon-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 36px; padding: var(--space-2) var(--space-4); border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md); background: hsl(var(--card)); color: hsl(var(--foreground));
+  font: inherit; font-size: var(--text-sm); font-weight: 550; cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.forge-button:hover, .forge-icon-button:hover { background: hsl(var(--muted)); border-color: hsl(var(--muted-foreground) / .5); }
+.forge-button-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; }
+.forge-button-primary:hover { background: hsl(var(--primary) / .9); }
+.forge-button:disabled, .forge-icon-button:disabled { opacity: .55; cursor: default; }
+.forge-icon-button { flex-shrink: 0; width: 36px; padding: var(--space-2); background: transparent; border-color: transparent; }
+.forge-input { width: 100%; min-width: 0; min-height: 40px; padding: var(--space-2) var(--space-3); border: 1px solid hsl(var(--input)); border-radius: var(--radius-md); background: hsl(var(--background)); color: hsl(var(--foreground)); font: inherit; }
+.forge-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); min-height: 220px; padding: var(--space-8); border: 1px dashed hsl(var(--border)); border-radius: var(--radius-lg); color: hsl(var(--muted-foreground)); text-align: center; }
+.forge-error { color: hsl(var(--destructive)); }
+.forge-page { width: 100%; max-width: 1200px; margin-inline: auto; padding-block: var(--space-4) var(--space-8); }
+.forge-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-8); }
+.forge-page-header h1 { font-size: clamp(1.5rem, 1.2rem + .7vw, 2rem); font-weight: 650; letter-spacing: -.035em; line-height: 1.3; margin: 0 0 var(--space-2); }
+.forge-page-header p { color: hsl(var(--muted-foreground)); line-height: 1.6; margin: 0; max-width: 65ch; }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+.enterprise-console .ant-layout-header { border-bottom: 1px solid hsl(var(--border)); }
+.enterprise-console .ant-layout-sider { border-inline-end: 1px solid hsl(var(--border)); }
+.enterprise-console .ant-card, .workbench-panel, .workbench-metric, .workbench-tool { border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.workbench-hero { border-radius: var(--radius-xl); box-shadow: var(--shadow-panel); }
+.workbench-hero::before { display: none; }
+.workbench-hero h1 { margin-top: var(--space-2); }
+.console-primary-action, .console-secondary-action { border-radius: var(--radius-md); }
+.spaces-shell { border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.spaces-main { padding: var(--space-8); }
+.spaces-sidebar { padding: var(--space-5) var(--space-3); background: hsl(var(--sidebar-bg)); }
+.spaces-heading { font-size: var(--text-2xl); margin-bottom: var(--space-6); }
+.spaces-row { min-height: 64px; }
+.spaces-editor-shell { background: hsl(var(--card)); }
+.assistant-v2 textarea { border-radius: var(--radius-xl); }
+.assistant-v2 .assistant-copy { line-height: 1.75; }
+.ant-table-wrapper { max-width: 100%; overflow-x: auto; }
+.ant-table-cell { overflow-wrap: anywhere; }
+.ant-form-item-label > label { font-weight: 550; }
+.ant-message-notice-content, .ant-notification-notice { box-shadow: var(--shadow-panel); }
+@media (max-width: 1024px) { .spaces-main { padding: var(--space-6); } .workbench-columns { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .forge-page-header { margin-bottom: var(--space-6); }
+  .spaces-main { padding: var(--space-4); }
+  .spaces-toolbar { flex-wrap: wrap; }
+  .spaces-tabs { flex-wrap: wrap; }
+  .spaces-search { flex: 1 1 100%; margin-inline-start: 0; min-width: 0; }
+  .forge-button, .forge-icon-button, .connect-category { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+@media (forced-colors: active) { .forge-button, .connect-category { border: 1px solid ButtonText; } .connect-category[data-state="on"] { border: 2px solid Highlight; } }
+
+.forge-login { display: flex; flex-direction: column; min-height: 100dvh; background: hsl(var(--background)); color: hsl(var(--foreground)); padding: var(--space-8); }
+.forge-login-brand { display: flex; justify-content: center; }
+.forge-login-main { display: grid; place-items: center; width: 100%; flex: 1; padding-block: var(--space-12); }
+.forge-login-panel { width: min(100%, 420px); padding: var(--space-8); border: 1px solid hsl(var(--border)); border-radius: var(--radius-xl); background: hsl(var(--card)); box-shadow: var(--shadow-panel); }
+.forge-login-panel h1 { font-size: var(--text-xl); font-weight: 650; letter-spacing: -.03em; text-align: center; margin: 0 0 var(--space-3); }
+.forge-login-summary { margin: 0 0 var(--space-8); text-align: center; color: hsl(var(--muted-foreground)); line-height: 1.6; }
+.forge-login-form { display: flex; flex-direction: column; gap: var(--space-5); }
+.forge-login-field { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm); }
+.forge-login-field label { font-weight: 550; }
+.forge-login-field p, .forge-login-policy { color: hsl(var(--muted-foreground)); font-size: var(--text-xs); line-height: 1.6; margin: 0; }
+.forge-login-email { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.forge-login-email input { flex: 1; width: 0; }
+.forge-login-email > span { max-width: 50%; overflow-wrap: anywhere; color: hsl(var(--muted-foreground)); }
+.forge-login-password { position: relative; }
+.forge-login-password input { padding-inline-end: 48px; }
+.forge-login-password button { position: absolute; inset-inline-end: 4px; top: 2px; }
+.forge-login-recovery { color: hsl(var(--primary)); border: 0; background: transparent; padding: 0; text-align: end; font: inherit; font-size: var(--text-sm); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.forge-login-error { color: hsl(var(--destructive)); background: hsl(var(--destructive) / .08); border: 1px solid hsl(var(--destructive) / .3); padding: var(--space-3); border-radius: var(--radius-md); font-size: var(--text-sm); }
+.forge-login-submit { width: 100%; min-height: 44px; }
+.forge-login-policy { text-align: center; }
+.forge-login-footer { display: flex; justify-content: center; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: hsl(var(--muted-foreground)); }
+@media (max-width: 640px) { .forge-login { padding: var(--space-5); } .forge-login-panel { padding: var(--space-6); } }
+/* More specific than route-local style sheets; source order cannot undo responsive layout. */
+.enterprise-console .spaces-editor-shell { grid-template-columns: minmax(140px, 180px) minmax(0, 1fr) minmax(160px, 200px); gap: var(--space-5); }
+.enterprise-console .spaces-tree, .enterprise-console .spaces-editor-shell > * { min-width: 0; }
+.enterprise-console .spaces-editor .bn-container { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+@media (max-width: 1200px) { .enterprise-console .spaces-editor-shell { grid-template-columns: minmax(0, 1fr); } .enterprise-console .spaces-tree { max-height: 220px; overflow: auto; } }

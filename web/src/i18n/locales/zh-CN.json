@@ -2895,6 +2895,17 @@
       "data": "数据",
       "password": "密码管理",
       "more": "更多"
+    },
+    "categories": "应用分类",
+    "loadFailed": "暂时无法加载应用，请重试。",
+    "retry": "重试",
+    "loading": "正在加载应用",
+    "status": {
+      "available": "可连接",
+      "connecting": "连接中",
+      "needs_reauth": "需要重新连接",
+      "error": "连接失败",
+      "disabled_by_policy": "已被策略禁用"
     }
   }
 }

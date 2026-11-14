@@ -1,0 +1,80 @@
+.connect-apps-dialog {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(960px, calc(100% - 48px));
+  max-height: min(840px, calc(100dvh - 64px));
+  padding: 0;
+  overflow: auto;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
+  overscroll-behavior: contain;
+}
+.connect-apps-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.connect-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-8) var(--space-6);
+}
+.connect-dialog-header h2 { margin: 0 0 var(--space-2); font-size: var(--text-xl); font-weight: 650; letter-spacing: -.025em; }
+.connect-dialog-header p { max-width: 62ch; margin: 0; color: hsl(var(--muted-foreground)); font-size: var(--text-sm); line-height: 1.6; }
+.connect-board { container-type: inline-size; display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+.connect-apps-dialog .connect-board { padding: 0 var(--space-8) var(--space-8); }
+.connect-search { display: flex; align-items: center; gap: var(--space-3); border: 1px solid hsl(var(--input)); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); background: hsl(var(--background)); color: hsl(var(--muted-foreground)); }
+.connect-search:focus-within { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.connect-search input { flex: 1; width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: hsl(var(--foreground)); font: inherit; }
+.connect-search input::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
+.connect-categories { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.connect-category { min-height: 36px; padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); cursor: pointer; font: inherit; font-size: var(--text-sm); transition: background var(--duration-fast); }
+.connect-category:hover { color: hsl(var(--foreground)); background: hsl(var(--secondary)); }
+.connect-category[data-state="on"] { background: hsl(var(--foreground)); color: hsl(var(--background)); }
+.connect-status-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-bottom: var(--space-5); border-bottom: 1px solid hsl(var(--border)); font-size: var(--text-sm); }
+.connect-connected-count { display: inline-flex; align-items: center; gap: var(--space-2); color: hsl(var(--muted-foreground)); }
+.connect-connected-icons { display: inline-flex; gap: var(--space-2); }
+.connect-connected-icons img { object-fit: contain; border-radius: var(--radius-sm); }
+.connect-status-bar a { margin-inline-start: auto; color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.connect-section h3 { margin: 0 0 var(--space-4); font-size: var(--text-base); font-weight: 600; }
+.connect-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); padding: 0; margin: 0; list-style: none; }
+.connect-card { min-width: 0; padding: var(--space-5); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); background: hsl(var(--card)); transition: border-color var(--duration-fast), box-shadow var(--duration-fast); }
+.connect-card:hover { border-color: hsl(var(--muted-foreground) / .5); box-shadow: var(--shadow-sm); }
+.connect-card-deferred { content-visibility: auto; contain-intrinsic-size: auto 190px; }
+.connect-card-content { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); height: 100%; }
+.connect-card-heading { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.connect-card-heading strong { font-size: var(--text-sm); font-weight: 600; overflow-wrap: anywhere; }
+.connect-app-icon { flex: 0 0 44px; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid hsl(var(--border)); border-radius: var(--radius-md); background: hsl(var(--background)); }
+.connect-app-icon img { object-fit: contain; }
+.connect-description { max-width: 100%; margin: 0 0 var(--space-1); color: hsl(var(--muted-foreground)); font-size: var(--text-sm); line-height: 1.5; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.connect-card-content > .forge-button { margin-top: auto; }
+.connect-is-connected:disabled { color: hsl(var(--success)); background: hsl(var(--success) / .08); opacity: 1; border-color: transparent; }
+.connect-connection-state { color: hsl(var(--muted-foreground)); font-size: var(--text-xs); }
+.connect-secret-form { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; }
+.connect-secret-form label { display: flex; flex-direction: column; gap: var(--space-2); }
+.connect-skeleton { display: flex; flex-direction: column; gap: var(--space-4); min-height: 190px; padding: var(--space-5); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); }
+.connect-skeleton span { height: 16px; width: 80%; border-radius: var(--radius-sm); background: hsl(var(--muted)); animation: forge-pulse 1.6s ease-in-out infinite; }
+.connect-skeleton span:first-child { width: 44px; height: 44px; }
+.connect-skeleton span:last-child { width: 40%; }
+.connect-spinner { animation: connect-spin .8s linear infinite; }
+@keyframes connect-spin { to { transform: rotate(360deg); } }
+@keyframes forge-pulse { 50% { opacity: .4; } }
+@container (max-width: 700px) { .connect-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 440px) { .connect-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .connect-apps-dialog { width: calc(100% - 24px); max-height: calc(100dvh - 24px); border-radius: var(--radius-lg); }
+  .connect-dialog-header { padding: var(--space-5); }
+  .connect-apps-dialog .connect-board { padding: 0 var(--space-5) var(--space-5); gap: var(--space-5); }
+  .connect-category { padding-inline: var(--space-3); }
+}
+@media (prefers-reduced-motion: reduce) { .connect-spinner, .connect-skeleton span { animation: none; } }
+
+.connect-shared-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); border: 1px solid hsl(var(--border)); border-radius: var(--radius-md); font-size: var(--text-sm); }

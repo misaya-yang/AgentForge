@@ -1,7 +1,7 @@
 {
   "schema": "agentforge/fresh-development-acl-policy/v1",
   "database_owner": "owner",
-  "schema_epoch": 35,
+  "schema_epoch": 36,
   "raw_acl_lines": [
     "acl:assistant.agent_runtime_attachments:gateway:DELETE,INSERT,SELECT:grantopt=0",
     "acl:assistant.agent_runtime_attachments:owner:DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE:grantopt=0",

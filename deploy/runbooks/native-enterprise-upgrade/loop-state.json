@@ -6611,5 +6611,91 @@
     "requested_at": "2026-10-18T10:21:47.567305+00:00",
     "reason": "今天把基础设计搞好，下次有空再开发",
     "resume_action": "After the user resumes development: continue batch A from U-DATA-04 remaining tenant caller/control coverage and native-authority adoption of the unactivated RLS definitions; finish actual remaining module seams, then batch B consolidated controlled compilation/interface checks, then batch C real services and prescribed acceptance. Reuse applicable results and do not repeat the architecture/progress audit."
+  },
+  "dot_1113_m5": {
+    "milestone": "M5",
+    "branch": "codex/dot-1113-m5-m6",
+    "base": "1decc809c0fe9ca3012a9d3f6e37c62d7055817e",
+    "implemented": true,
+    "compiled": false,
+    "tested": false,
+    "accepted": false,
+    "current": "M5 source batch implemented; web static/mock checks passed. Native compilation, measured fingerprints and all live acceptance are pending because user explicitly forbids local runtime startup.",
+    "validation": {
+      "web": {
+        "type_check": "passed",
+        "lint": "passed; 5 existing warnings",
+        "unit_tests": "2243 passed; 0 failed; 0 skipped",
+        "i18n": "passed",
+        "build": "passed; public gzip 329681 / 330000",
+        "playwright_collection": "61 tests collected; browser execution not run",
+        "legacy_scan": "8 findings, unchanged from baseline",
+        "type_last10": [
+          "$ node scripts/type-check-native.mjs"
+        ],
+        "lint_last10": [
+          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/DocumentsTab.tsx",
+          "  418:6  warning  React Hook useMemo has an unnecessary dependency: 'pipelineRevision'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps",
+          "",
+          "/Users/yang/projects/AgentForge/web/src/pages/knowledge/detail/QATab.tsx",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useEffect Hook (at line 135) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook  react-hooks/exhaustive-deps",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 239) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
+          "  122:9  warning  The 'qaMessages' conditional could make the dependencies of useMemo Hook (at line 243) change on every render. To fix this, wrap the initialization of 'qaMessages' in its own useMemo() Hook    react-hooks/exhaustive-deps",
+          "",
+          "✖ 5 problems (0 errors, 5 warnings)",
+          ""
+        ],
+        "i18n_last10": [
+          "$ node scripts/check-i18n-keys.mjs",
+          "i18n check passed: en-US and zh-CN keys are in sync and all code keys resolve."
+        ],
+        "test_last10": [
+          "✔ parseSegmentKeywords: drops empties and de-duplicates keeping first order (0.054625ms)",
+          "✔ isSafeHeadingPatterns: only the exact backend triple passes (0.048583ms)",
+          "ℹ tests 2243",
+          "ℹ suites 0",
+          "ℹ pass 2243",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0",
+          "ℹ todo 0",
+          "ℹ duration_ms 17048.376292"
+        ],
+        "build_last10": [
+          "  },",
+          "  \"limits\": {",
+          "    \"publicGzip\": 330000,",
+          "    \"assistantIncrementGzip\": 220000,",
+          "    \"assistantRestoredGzip\": 220000,",
+          "    \"assistantGfmGzip\": 220000,",
+          "    \"routeRaw\": 500000",
+          "  },",
+          "  \"oversizedRoutes\": []",
+          "}"
+        ]
+      },
+      "vertical_mock": {
+        "adk-ts": "passed",
+        "ai-sdk-ts": "passed",
+        "claude-agent-ts": "passed",
+        "langgraph-py": "passed",
+        "openai-agents-ts": "passed"
+      },
+      "native": "not compiled or tested; no services/Docker startup per user instruction",
+      "fingerprints": "pending PostgreSQL 16 measurement; no fabricated reference"
+    },
+    "constraints": [
+      "Latest user instruction: do not start local services, Docker, database or E2E stacks. Continue source fixes.",
+      "No .env files read; no provider keys available or copied; no upstream Codex mutation.",
+      "No push before acceptance."
+    ],
+    "remaining": [
+      "Complete source work and static/mock validation",
+      "PostgreSQL 16 authority/fingerprint measurement not run per user instruction",
+      "Native Docker tests and service smoke not run per user instruction",
+      "LIVE Qwen tests, browser screenshots and performance measurement not run per user instruction"
+    ],
+    "next_action": "Implement M6 modernization, reproducible perf checks and automation in existing processes; preserve the unaccepted/live verification boundary.",
+    "schema": "Canonical successor 031 follows the exact preserved 030 manifest. Side-load SQL removed. Fresh schema epoch 36. 031 fingerprints are honestly pending, with an authority-only measurement entry point; no frozen or historical fingerprint changed."
   }
 }
