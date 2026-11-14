@@ -533,6 +533,70 @@ SELECT
 /// the canonical owner. knowledge_api gets table SELECT/INSERT/UPDATE and sequence
 /// USAGE/SELECT. knowledge_worker gets only the column SELECTs from 030.
 /// No other grantee, PUBLIC, DELETE, or grant option is accepted.
+const CATALOG_CONNECTIONS_ADMISSION_SQL: &str = r#"
+WITH named AS (
+  SELECT left(current_user, length(current_user) - length('__PRINCIPAL_SUFFIX__')) AS prefix
+),
+roles AS (
+  SELECT prefix, prefix || 'gateway' AS gateway_name, prefix || 'owner' AS owner_name
+  FROM named
+),
+ids AS (
+  SELECT roles.prefix, gateway.oid AS gateway_oid, owner.oid AS owner_oid
+  FROM roles
+  JOIN pg_catalog.pg_roles gateway ON gateway.rolname = roles.gateway_name
+  JOIN pg_catalog.pg_roles owner ON owner.rolname = roles.owner_name
+),
+rels AS (
+  SELECT c.oid, c.relname, c.relacl, c.relowner
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'gateway'
+    AND c.relkind = 'r'
+    AND c.relname = ANY (ARRAY['catalog_entries','catalog_connections','catalog_oauth_states'])
+)
+SELECT
+  length(current_user) > length('__PRINCIPAL_SUFFIX__')
+  AND right(current_user, length('__PRINCIPAL_SUFFIX__')) = '__PRINCIPAL_SUFFIX__'
+  AND (SELECT prefix FROM named) ~ '^[a-z][a-z0-9_]{0,20}_$'
+  AND (SELECT count(*) FROM rels) = 3
+  AND (SELECT count(*) FROM ids) = 1
+  AND NOT EXISTS (SELECT 1 FROM rels r, ids i WHERE r.relowner <> i.owner_oid)
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r
+    CROSS JOIN LATERAL pg_catalog.aclexplode(r.relacl) acl
+    WHERE acl.grantee = 0 OR acl.is_grantable
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r, ids i
+    WHERE (
+      SELECT COALESCE(array_agg(acl.privilege_type ORDER BY acl.privilege_type), ARRAY[]::text[])
+      FROM pg_catalog.aclexplode(r.relacl) acl
+      WHERE acl.grantee = i.gateway_oid
+    ) IS DISTINCT FROM ARRAY['INSERT','SELECT','UPDATE']::text[]
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM rels r
+    CROSS JOIN LATERAL pg_catalog.aclexplode(r.relacl) acl
+    JOIN ids i ON acl.grantee <> i.gateway_oid AND acl.grantee <> i.owner_oid
+  )
+"#;
+
+/// Successor 036 admission. The three catalog relations are owned by the
+/// canonical owner. The gateway role gets SELECT, INSERT, and UPDATE only.
+pub(crate) fn catalog_connections_admission_checks(principal_suffix: &str) -> Result<Vec<String>> {
+    if !matches!(
+        principal_suffix,
+        "gateway" | "runtime" | "knowledge_api" | "knowledge_worker" | "capability_worker"
+    ) {
+        return Err(refused("unknown business principal"));
+    }
+    Ok(vec![CATALOG_CONNECTIONS_ADMISSION_SQL.replace(
+        "__PRINCIPAL_SUFFIX__",
+        principal_suffix,
+    )])
+}
+
 pub(crate) fn knowledge_spaces_admission_checks(principal_suffix: &str) -> Result<Vec<String>> {
     if !matches!(
         principal_suffix,

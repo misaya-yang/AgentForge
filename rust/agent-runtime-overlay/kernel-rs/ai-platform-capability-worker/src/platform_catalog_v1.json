@@ -8,7 +8,9 @@
     ],
     "medium_risk_tools": [
       "execute_python_code",
-      "confluence_write"
+      "confluence_write",
+      "space_create_page",
+      "space_append_blocks"
     ]
   },
   "capabilities": [
@@ -1122,7 +1124,45 @@
       "version": null,
       "schema_hash": "sha256:d1bf42fb0244ebca6a0952b92359c8c75269794255d2c85ec3aa622ec2f41d23",
       "description": "Execute bounded Python in an isolated capability-worker subprocess. Read supplied files from input/<filename>; write deliverables only to output/<filename>. Input files are read-only. Subprocesses, threads and networking are not permitted.",
-      "input_schema": {"type":"object","required":["code"],"properties":{"code":{"type":"string"},"inputs":{"type":"array","items":{"type":"object","required":["filename","content_base64","size_bytes"],"properties":{"filename":{"type":"string"},"mime_type":{"type":"string"},"content_base64":{"type":"string"},"size_bytes":{"type":"integer","minimum":0}},"additionalProperties":false}}},"additionalProperties":false},
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "filename",
+                "content_base64",
+                "size_bytes"
+              ],
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "mime_type": {
+                  "type": "string"
+                },
+                "content_base64": {
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "read_only": false,
       "effect": "write",
       "risk": "medium",
@@ -1143,7 +1183,29 @@
       "version": null,
       "schema_hash": "sha256:58e310e07f9fb6d19bec3b22bdb37ca6408951998d30865d8c8e9728ed1e9538",
       "description": "Read tenant, user, and session scoped attachment metadata or bounded extracted content.",
-      "input_schema": {"type":"object","required":["attachment_id","operation"],"properties":{"attachment_id":{"type":"string"},"operation":{"type":"string","enum":["metadata","content"]},"max_chars":{"type":"integer"}},"additionalProperties":false},
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "attachment_id",
+          "operation"
+        ],
+        "properties": {
+          "attachment_id": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "metadata",
+              "content"
+            ]
+          },
+          "max_chars": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
       "read_only": true,
       "effect": "read",
       "risk": "low",
@@ -1164,7 +1226,18 @@
       "version": "2",
       "schema_hash": "sha256:cf00d2c3ecd81a22f68a2068a73613a3c1ddacba8a56ee7aa7b4ade497722ac2",
       "description": "List paired Local Node capabilities.",
-      "input_schema": {"type":"object","required":["device_id"],"properties":{"device_id":{"type":"string"}},"additionalProperties":false},
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "device_id"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "read_only": true,
       "effect": "read",
       "risk": "low",
@@ -1185,7 +1258,18 @@
       "version": "2",
       "schema_hash": "sha256:cf00d2c3ecd81a22f68a2068a73613a3c1ddacba8a56ee7aa7b4ade497722ac2",
       "description": "Describe one paired Local Node.",
-      "input_schema": {"type":"object","required":["device_id"],"properties":{"device_id":{"type":"string"}},"additionalProperties":false},
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "device_id"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "read_only": true,
       "effect": "read",
       "risk": "low",
@@ -1206,7 +1290,25 @@
       "version": "2",
       "schema_hash": "sha256:38988293e45f705c4733a673ac58fb6ec5302c16e9dded9b083be35ff77c6b5d",
       "description": "Dispatch an explicitly authorized operation to a paired Local Node.",
-      "input_schema": {"type":"object","required":["operation","arguments"],"properties":{"operation":{"type":"string"},"arguments":{"type":"object"},"device_id":{"type":"string"}},"additionalProperties":false},
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "operation",
+          "arguments"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "object"
+          },
+          "device_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "read_only": false,
       "effect": "write",
       "risk": "high",
@@ -1221,6 +1323,223 @@
       "timeout_ms": 30000,
       "implementation_owner": "worker",
       "connector_provider": "local_node"
+    },
+    {
+      "name": "space_list",
+      "id": "space_list",
+      "version": null,
+      "schema_hash": "sha256:99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa",
+      "description": "List knowledge spaces visible to the caller.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "List knowledge spaces visible to the caller.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": false,
+      "required_permissions": [
+        "knowledge:space:view"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
+    },
+    {
+      "name": "space_search",
+      "id": "space_search",
+      "version": null,
+      "schema_hash": "sha256:83fd0d9c15b6c2678dbb168752f3e4f3d268f7d6a0f04b920d7f3491a5057af5",
+      "description": "Search pages in knowledge spaces.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "space_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Search pages in knowledge spaces.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": false,
+      "required_permissions": [
+        "knowledge:space:view"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
+    },
+    {
+      "name": "space_read_page",
+      "id": "space_read_page",
+      "version": null,
+      "schema_hash": "sha256:2d2dc71b84e3b1293ec7f29df0cc71c3e9783fbcc03a5c77ad7339a112cf0b5e",
+      "description": "Read one knowledge space page.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id"
+        ]
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Read one knowledge space page.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": false,
+      "required_permissions": [
+        "knowledge:space:view"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
+    },
+    {
+      "name": "knowledge_search",
+      "id": "knowledge_search",
+      "version": null,
+      "schema_hash": "sha256:d8f1e94392d9a89844de5a77b069c728bc5d70ca5db7aa2d5bf1215820a857b2",
+      "description": "Search authorized knowledge and space pages.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "dataset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "read_only": true,
+      "effect": "read",
+      "risk": "low",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "never",
+      "category": "retrieval",
+      "when_to_use": "Search authorized knowledge and space pages.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": false,
+      "required_permissions": [
+        "knowledge:space:view"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
+    },
+    {
+      "name": "space_create_page",
+      "id": "space_create_page",
+      "version": null,
+      "schema_hash": "sha256:d5b2e5f663d1eca6c6ff0cc463b68c5abb9e850f768e015162b3cde63253fd8d",
+      "description": "Create a page in a knowledge space.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "space_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "space_id",
+          "title"
+        ]
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "medium",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "retrieval",
+      "when_to_use": "Create a page in a knowledge space.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": true,
+      "required_permissions": [
+        "knowledge:space:edit"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
+    },
+    {
+      "name": "space_append_blocks",
+      "id": "space_append_blocks",
+      "version": null,
+      "schema_hash": "sha256:3000805572bf6ad1c32b4ea53085fa881d54b1cffca233de2771b76d473ef888",
+      "description": "Append markdown to a knowledge space page.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "markdown"
+        ]
+      },
+      "read_only": false,
+      "effect": "write",
+      "risk": "medium",
+      "protocol": "internal",
+      "kind": "tool",
+      "approval": "always",
+      "category": "retrieval",
+      "when_to_use": "Append markdown to a knowledge space page.",
+      "when_not_to_use": "When the caller is not allowed to use the space.",
+      "requires_confirmation": true,
+      "required_permissions": [
+        "knowledge:space:edit"
+      ],
+      "timeout_ms": 30000,
+      "implementation_owner": "worker",
+      "connector_provider": null
     }
   ]
 }

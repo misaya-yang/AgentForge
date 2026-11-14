@@ -10,6 +10,21 @@
     "schema": "No database change. Upstream Codex pin stays at 69231e119bfca0b14453515e97d99688ce1c47c9. Overlay content hash was refreshed only because the platform projection for thread/fork and turn/steer changed. The frozen epoch-29 lock and baseline are unchanged.",
     "remaining": []
   },
+  "dot_1113_m3": {
+    "milestone": "M3",
+    "branch": "m3-connectors",
+    "base": "dot_1113",
+    "implemented": true,
+    "compiled": true,
+    "tested": true,
+    "accepted": false,
+    "schema": "Successor 036 lives at config/catalog/036_catalog_connections.sql and is installed by fresh-development-init beside epoch 30 and service successors 30-35. definition_count and schema_epoch stay 35. Gateway has SELECT, INSERT, UPDATE and no DELETE. The frozen epoch manifest and package-authority lock are unchanged.",
+    "remaining": [
+      "OAuth uses the mock issuer in scripts/dev/oauth-mock-smoke.sh. Production client registration still needs a real issuer; no client secret is stored in source.",
+      "Capability worker cargo test cannot load because rust/agent-runtime-overlay/kernel-rs/app-server has no Cargo.toml. That workspace member is pre-existing and outside M3. The platform catalog JSON and overlay manifest were updated.",
+      "Pre-existing and unchanged: role_dsn_resolution, credential_subprocess_probe, and CI contracts, dependencies, generated-sdk, workflow-lint, image size, gateway-kb-boundary, verify-native-openapi-contract."
+    ]
+  },
   "dot_1113_m2": {
     "milestone": "M2",
     "branch": "m2-space-editor",

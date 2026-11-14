@@ -56,6 +56,8 @@ pub struct FoundationApis {
     pub health: health_api::HealthHttpApi,
     pub setup: Arc<setup_api::SetupApi>,
     pub architecture: Arc<architecture_status_api::ArchitectureStatusApi>,
+    pub catalog: Arc<catalog::CatalogApp>,
+    pub catalog_identity: Arc<dyn catalog::CatalogIdentity>,
     pub invocation_identity: Arc<dyn invocation_http::InvocationIdentityResolver>,
     pub tasks: Arc<task_manager::TaskManager>,
     pub dispatcher: Arc<gateway_dispatcher::GatewayDispatcher>,
@@ -97,6 +99,9 @@ impl FoundationApis {
         router = router.merge(
             connector_user_api::router(self.connector_user, cancellation.service.clone())
                 .reset_fallback(),
+        );
+        router = router.merge(
+            catalog::router(self.catalog, self.catalog_identity).reset_fallback(),
         );
         router = router.merge(
             mcp_registry_api::router(self.mcp_registry, cancellation.service.clone())

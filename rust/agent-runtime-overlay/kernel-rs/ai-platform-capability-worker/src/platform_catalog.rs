@@ -367,6 +367,10 @@ pub fn worker_capability_catalog_with_writes(
         "read_attachment",
         "local_node_catalog",
         "local_node_describe",
+        "space_list",
+        "space_search",
+        "space_read_page",
+        "knowledge_search",
     ];
     const EXECUTABLE_WRITE_CAPABILITIES: &[&str] = &[
         "confluence_write",
@@ -377,6 +381,8 @@ pub fn worker_capability_catalog_with_writes(
         "update_user_memory",
         "execute_python_code",
         "local_node_action",
+        "space_create_page",
+        "space_append_blocks",
     ];
 
     let catalog = load_platform_catalog()?;
@@ -546,7 +552,12 @@ mod tests {
         );
         assert_eq!(
             catalog.gateway_policy.medium_risk_tools,
-            vec!["execute_python_code", "confluence_write"]
+            vec![
+                "execute_python_code",
+                "confluence_write",
+                "space_create_page",
+                "space_append_blocks"
+            ]
         );
     }
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::manifest::{BaselineManifest, ChangeSpec, TransactionMode};
+use crate::manifest::{BaselineManifest, ChangeSpec, RollbackClass, TransactionMode};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -13,7 +13,35 @@ pub(super) struct Definitions {
     /// Installed knowledge-spaces successor. Sequences 30-35 stay the closed
     /// service-successor definitions, so this change is applied beside them.
     pub knowledge_spaces: (ChangeSpec, String),
+    /// Catalog connections successor 036, installed beside the closed epoch.
+    pub catalog_connections: (ChangeSpec, String),
     pub verify_sql: String,
+}
+fn catalog_connections(sql: &str) -> (ChangeSpec, String) {
+    (
+        ChangeSpec {
+            sequence: 36,
+            name: "catalog_connections".into(),
+            file: "036_catalog_connections.sql".into(),
+            sha256: sha(sql.as_bytes()),
+            owner: "owner".into(),
+            transaction_mode: TransactionMode::Transactional,
+            rollback_class: RollbackClass::ForwardFixOnly,
+            preconditions: vec![
+                "SELECT current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))".into(),
+                "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NULL".into(),
+            ],
+            postconditions: vec![
+                "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NOT NULL AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'gateway.catalog_entries', 'SELECT') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'DELETE') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'DELETE')".into(),
+            ],
+            timeout_seconds: 600,
+            lock_budget_seconds: 5,
+            resume_handler: None,
+            repair_handler: None,
+            notes: "Catalog connections successor 036. Gateway SELECT/INSERT/UPDATE only. Installed beside epoch 30 and service successors 30-35.".into(),
+        },
+        sql.to_owned(),
+    )
 }
 /// Epochs 1-29 stay the compiled fresh-schema base. Successor 030 is installed
 /// beside the closed service-successor definitions 30-35, not instead of them.
@@ -113,6 +141,9 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
     ))?;
     exact_change(&spaces, &spaces_sql)?;
     let knowledge_spaces = (spaces, spaces_sql);
+    let catalog_sql = get("config/catalog/036_catalog_connections.sql")?;
+    let catalog_connections = catalog_connections(&catalog_sql);
+    exact_change(&catalog_connections.0, &catalog_connections.1)?;
     let roles = get("database/bootstrap/roles.sql")?;
     let owner_setup = roles
         .split_once("-- 5. Stable schema ownership")
@@ -129,6 +160,7 @@ pub(super) fn compiled_definitions() -> Result<Definitions> {
         extensions: get("database/bootstrap/extensions.sql")?,
         changes,
         knowledge_spaces,
+        catalog_connections,
         verify_sql: get(&format!("{base}verify.sql"))?,
     })
 }
@@ -233,6 +265,11 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         refused("fresh definition must be exact, owner-owned and transactional")
     })?;
     let knowledge_spaces = (spaces, spaces_sql);
+    let catalog_sql = fs::read_to_string(root.join("config/catalog/036_catalog_connections.sql"))?;
+    let catalog_connections = catalog_connections(&catalog_sql);
+    exact_change(&catalog_connections.0, &catalog_connections.1).map_err(|_| {
+        refused("fresh definition must be exact, owner-owned and transactional")
+    })?;
     let role_sql = fs::read_to_string(root.join("database/bootstrap/roles.sql"))?;
     let owner_setup = role_sql
         .split_once("-- 5. Stable schema ownership")
@@ -254,6 +291,7 @@ pub(super) fn definitions(root: &Path) -> Result<Definitions> {
         extensions: fs::read_to_string(root.join("database/bootstrap/extensions.sql"))?,
         changes,
         knowledge_spaces,
+        catalog_connections,
         verify_sql: fs::read_to_string(base.join("verify.sql"))?,
     })
 }

@@ -214,7 +214,13 @@ impl WorkerState {
             | "web_fetch"
             | "search_web"
             | "read_tool_artifact"
-            | "todo_read" => self.read_executor.is_some(),
+            | "todo_read"
+            | "space_list"
+            | "space_search"
+            | "space_read_page"
+            | "knowledge_search"
+            | "space_create_page"
+            | "space_append_blocks" => self.read_executor.is_some(),
             "read_attachment" => self.attachment_executor.is_some(),
             "todo_write" | "update_user_memory" => self.write_executor.is_some(),
             "generate_quiz" => self.quiz_executor.is_some(),

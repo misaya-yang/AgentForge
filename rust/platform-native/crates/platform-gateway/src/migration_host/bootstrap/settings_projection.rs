@@ -354,7 +354,10 @@ fn source_roles() -> HashMap<String, Vec<String>> {
         "sales_staff":["console:dashboard:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:view"],
         "developer":["console:dashboard:view","console:services:view","console:services:edit","console:settings:view","conversation:playground:access","conversation:thread:create","conversation:thread:delete","knowledge:dataset:create","knowledge:dataset:edit","knowledge:dataset:view"],"admin":["admin:*"]
     })).expect("source role constants");
-    for (role, grants) in ai_platform_auth::rbac::knowledge_space_role_grants() {
+    for (role, grants) in ai_platform_auth::rbac::knowledge_space_role_grants()
+        .iter()
+        .chain(ai_platform_auth::rbac::connector_role_grants())
+    {
         let Some(existing) = roles.get_mut(*role) else {
             continue;
         };

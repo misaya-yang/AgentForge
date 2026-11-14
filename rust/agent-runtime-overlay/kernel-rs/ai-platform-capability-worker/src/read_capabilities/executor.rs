@@ -75,8 +75,53 @@ impl ReadCapabilityExecutor {
             "read_tool_artifact" => self.read_tool_artifact(context, &arguments).await,
             "confluence_read" => self.confluence_read(context, &arguments).await,
             "todo_read" => self.todo_read(context).await,
+            "space_list" => self.space_exchange(context, "GET", "api/v1/knowledge/spaces", None).await,
+            "space_search" => {
+                let query = string_argument(arguments, "query", 1, 4_096)?;
+                let mut path = format!("api/v1/knowledge/space-items?q={}", query_escape(query));
+                if let Some(space_id) = arguments.get("space_id").and_then(Value::as_str) {
+                    path.push_str(&format!("&space_id={}", query_escape(space_id)));
+                }
+                self.space_exchange(context, "GET", &path, None).await
+            }
+            "space_read_page" => {
+                let item_id = string_argument(arguments, "item_id", 1, 255)?;
+                self.space_exchange(context, "GET", &format!("api/v1/knowledge/space-items/{item_id}/content"), None).await
+            }
+            "knowledge_search" => {
+                let query = string_argument(arguments, "query", 1, 4_096)?;
+                self.space_exchange(context, "GET", &format!("api/v1/knowledge/space-items?q={}", query_escape(query)), None).await
+            }
+            "space_create_page" => {
+                let space_id = string_argument(arguments, "space_id", 1, 255)?;
+                let title = string_argument(arguments, "title", 1, 500)?;
+                self.space_exchange(context, "POST", &format!("api/v1/knowledge/spaces/{space_id}/items"), Some(json!({"title": title, "kind": "page"}))).await
+            }
+            "space_append_blocks" => {
+                let item_id = string_argument(arguments, "item_id", 1, 255)?;
+                let markdown = string_argument(arguments, "markdown", 1, 100_000)?;
+                let current = self.space_exchange(context, "GET", &format!("api/v1/knowledge/space-items/{item_id}/content"), None).await?;
+                let existing = current.get("markdown").and_then(Value::as_str).unwrap_or("");
+                let combined = if existing.is_empty() { markdown.to_owned() } else { format!("{existing}\n\n{markdown}") };
+                self.space_exchange(context, "PUT", &format!("api/v1/knowledge/space-items/{item_id}/content"), Some(json!({"content_format":"markdown","blocks":[],"markdown":combined}))).await
+            }
             _ => Err(ReadCapabilityError::NotFound),
         }
+    }
+
+    async fn space_exchange(
+        &self,
+        context: &ReadCapabilityContext,
+        method: &str,
+        path: &str,
+        body: Option<Value>,
+    ) -> Result<Value, ReadCapabilityError> {
+        let url = super::internal_endpoint(&self.config.knowledge_base_url, path)?;
+        let payload = body.clone().unwrap_or_else(|| json!({}));
+        let headers = self.internal_headers(context, &url, &payload)?;
+        self.http
+            .exchange_internal_json(method, url, &headers, body)
+            .await
     }
 
     async fn todo_read(
@@ -451,6 +496,18 @@ fn current_epoch_seconds() -> Result<u64, ReadCapabilityError> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .map_err(|_| ReadCapabilityError::Configuration)
+}
+
+fn query_escape(value: &str) -> String {
+    let mut out = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 fn string_argument<'a>(

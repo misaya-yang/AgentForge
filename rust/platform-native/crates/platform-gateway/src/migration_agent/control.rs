@@ -950,6 +950,64 @@ impl RuntimeControlPlane {
         sqlx::query("UPDATE assistant_runs SET status='failed',error=$2,finished_at=NOW(),updated_at=NOW() WHERE run_id=$1::uuid AND engine='agent_runtime' AND status='running'").bind(run).bind(reason).execute(ai_platform_gateway_foundation::tenant_database::executor(&self.pool, &tenant)).await?;
         Ok(())
     }
+    async fn connected_mcp_tools(
+        &self,
+        scope: &Scope,
+        revision: i64,
+    ) -> Result<Vec<Value>, AgentError> {
+        let rows = sqlx::query(
+            "SELECT c.entry_id, c.owner_kind, c.owner_id, c.status, e.kind, e.manifest FROM gateway.catalog_connections c JOIN gateway.catalog_entries e ON e.entry_id = c.entry_id WHERE c.tenant_id = $1 AND c.status = 'connected'",
+        )
+        .bind(&scope.tenant_id)
+        .fetch_all(&self.pool)
+        .await;
+        let rows = match rows {
+            Ok(rows) => rows,
+            Err(error) => {
+                tracing::debug!(%error, "connected catalog tools unavailable");
+                return Ok(Vec::new());
+            }
+        };
+        let mut entries = Vec::new();
+        let mut connections = Vec::new();
+        for row in rows {
+            use sqlx::Row;
+            let entry_id: String = row.try_get("entry_id").unwrap_or_default();
+            entries.push(ai_platform_gateway_foundation::catalog::Entry {
+                entry_id: entry_id.clone(),
+                tenant_id: scope.tenant_id.clone(),
+                kind: row.try_get("kind").unwrap_or_default(),
+                name: entry_id.clone(),
+                description: String::new(),
+                category: String::new(),
+                icon: String::new(),
+                auth_kind: String::new(),
+                manifest: row.try_get("manifest").unwrap_or(Value::Null),
+                source: String::new(),
+                source_sha256: String::new(),
+            });
+            connections.push(ai_platform_gateway_foundation::catalog::Connection {
+                connection_id: String::new(),
+                tenant_id: scope.tenant_id.clone(),
+                entry_id,
+                owner_kind: row.try_get("owner_kind").unwrap_or_default(),
+                owner_id: row.try_get("owner_id").unwrap_or_default(),
+                status: row.try_get("status").unwrap_or_default(),
+                credential_ciphertext: None,
+                issuer: String::new(),
+                resource: String::new(),
+                error_code: String::new(),
+                created_by: scope.user_id.clone(),
+            });
+        }
+        Ok(ai_platform_gateway_foundation::connections::project_connected_tools(
+            &entries,
+            &connections,
+            &scope.tenant_id,
+            &scope.user_id,
+            revision,
+        ))
+    }
     async fn bind_catalog(
         &self,
         scope: &Scope,
@@ -1022,6 +1080,18 @@ impl RuntimeControlPlane {
                 }
             }
             catalog.insert(k, values.clone());
+        }
+        if let Ok(connected) = self.connected_mcp_tools(scope, revision).await {
+            let mut mcp = catalog["mcp"].clone();
+            let mut deferred = catalog["deferred"].clone();
+            ai_platform_gateway_foundation::connections::merge_connected_tools(
+                &mut mcp,
+                &mut deferred,
+                connected,
+                self.options.worker_writes_enabled,
+            );
+            catalog.insert("mcp", mcp);
+            catalog.insert("deferred", deferred);
         }
         if !catalog["deferred"].is_empty() && !self.options.worker_writes_enabled {
             return Err(AgentError::code(
