@@ -1,0 +1,11 @@
+{
+  "name": "openai-agents-ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@openai/agents": "0.22.0"
+  }
+}

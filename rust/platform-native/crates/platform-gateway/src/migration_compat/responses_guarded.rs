@@ -245,7 +245,7 @@ pub(super) async fn create_response(
             "permission_error",
         );
     }
-    let parsed = match ResponsesRequest::after_model_authorization(payload, &idempotency_key) {
+    let mut parsed = match ResponsesRequest::after_model_authorization(payload, &idempotency_key) {
         Ok(parsed) => parsed,
         Err(error) => {
             let detail = error.detail.as_str().unwrap_or("");
@@ -283,6 +283,67 @@ pub(super) async fn create_response(
             );
         }
     };
+    let previous_run = match previous_response_run_id(&parsed.payload) {
+        Ok(run) => run,
+        Err(error) => {
+            return response_error(
+                error.status,
+                "invalid_previous_response_id",
+                "previous_response_id must be a response id.",
+                Some("previous_response_id"),
+                "invalid_request_error",
+            );
+        }
+    };
+    if let Some(run_id) = previous_run {
+        let found: Option<String> = match sqlx::query_scalar(
+            "SELECT session_id FROM assistant_runs WHERE run_id=$1::uuid AND tenant_id=$2 AND user_id=$3 AND engine='agent_runtime'",
+        )
+        .bind(run_id)
+        .bind(&user.tenant_id)
+        .bind(&user.user_id)
+        .fetch_optional(ai_platform_gateway_foundation::tenant_database::executor(
+            &state.control.pool,
+            &user.tenant_id,
+        ))
+        .await
+        {
+            Ok(found) => found,
+            Err(_) => {
+                return response_error(
+                    503,
+                    "previous_response_lookup_failed",
+                    "The previous response could not be loaded.",
+                    Some("previous_response_id"),
+                    "server_error",
+                );
+            }
+        };
+        let Some(session_id) = found.filter(|id| !id.is_empty()) else {
+            return response_error(
+                404,
+                "previous_response_not_found",
+                "Previous response was not found.",
+                Some("previous_response_id"),
+                "invalid_request_error",
+            );
+        };
+        if parsed
+            .payload
+            .get("session_id")
+            .and_then(Value::as_str)
+            .is_some_and(|explicit| !explicit.is_empty() && explicit != session_id)
+        {
+            return response_error(
+                409,
+                "previous_response_session_conflict",
+                "previous_response_id belongs to a different session.",
+                Some("previous_response_id"),
+                "invalid_request_error",
+            );
+        }
+        parsed.session_id = session_id;
+    }
     let guard_request = format!("guard_{}", uuid::Uuid::new_v4().simple());
     let guard_context = match GuardrailService::new(state.control.pool.clone())
         .inspect_input(&user.tenant_id, &user.user_id, &guard_request, &bytes)

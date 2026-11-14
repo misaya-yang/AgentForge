@@ -369,6 +369,7 @@ pub fn evaluate_case(case: &Value, observation: Option<&Value>) -> Value {
     }
     let sf = crate::golden_stateful::evaluate(case, replay);
     let tf = tools(arr(&trajectory["tools"]), replay);
+    let otel = otel_genai(trajectory, replay);
     let missing = strings(&trajectory["required_span_kinds"])
         .into_iter()
         .filter(|s| !arr(&replay["span_kinds"]).contains(&json!(s)))
@@ -385,6 +386,7 @@ pub fn evaluate_case(case: &Value, observation: Option<&Value>) -> Value {
         && runtime.is_empty()
         && sf.is_empty()
         && tf.is_empty()
+        && otel.is_empty()
         && assertions(&ta, replay).is_empty();
     let stateful_pass = sf.is_empty();
     let adapter = &replay["adapter_evidence"];
@@ -402,6 +404,7 @@ pub fn evaluate_case(case: &Value, observation: Option<&Value>) -> Value {
     failures.extend(runtime);
     failures.extend(sf);
     failures.extend(tf);
+    failures.extend(otel);
     let status = replay["status"].as_str().unwrap_or("");
     if status.is_empty() {
         failures.push("missing replay status".into());
@@ -503,4 +506,43 @@ pub fn summarize(cases: &[Value]) -> Value {
         }
     }
     json!({"case_count":cases.len(),"critical_count":critical,"by_split":splits,"by_difficulty":difficulties,"tags":tags})
+}
+fn otel_genai(trajectory: &Value, replay: &Value) -> Vec<String> {
+    let Some(expected) = trajectory.get("otel_genai").filter(|v| v.is_object()) else {
+        return vec![];
+    };
+    let actual = &replay["gen_ai"];
+    if !actual.is_object() {
+        return vec!["missing gen_ai span attributes".into()];
+    }
+    let mut failures = vec![];
+    for (key, attribute) in [
+        ("operation", "gen_ai.operation.name"),
+        ("agent", "gen_ai.agent.name"),
+        ("conversation", "gen_ai.conversation.id"),
+        ("tool", "gen_ai.tool.name"),
+    ] {
+        let Some(want) = expected.get(key).and_then(Value::as_str) else {
+            continue;
+        };
+        if actual[attribute].as_str() != Some(want) {
+            failures.push(format!(
+                "{attribute} expected '{want}', got {}",
+                repr(&actual[attribute])
+            ));
+        }
+    }
+    failures
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn otel_genai_requires_the_recorded_span_attributes() {
+        let case = json!({"case_id":"x","input":{},"expected_output":{},"expected_trajectory":{"otel_genai":{"operation":"invoke_agent","agent":"assistant","conversation":"thr","tool":"space_read_page"}},"assertions":[],"metadata":{}});
+        let missing = evaluate_case(&case, Some(&json!({"status":"succeeded","output_preview":""})));
+        assert_eq!(missing["trajectory_pass"], false);
+        let replay = json!({"status":"succeeded","output_preview":"","gen_ai":{"gen_ai.operation.name":"invoke_agent","gen_ai.agent.name":"assistant","gen_ai.conversation.id":"thr","gen_ai.tool.name":"space_read_page"}});
+        assert_eq!(evaluate_case(&case, Some(&replay))["trajectory_pass"], true);
+    }
 }

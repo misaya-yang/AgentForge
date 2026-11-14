@@ -48,6 +48,12 @@ use std::{
 
 #[path = "invocation_http/openai_compat.rs"]
 mod openai_compat;
+#[path = "invocation_http/ag_ui.rs"]
+pub mod ag_ui;
+#[path = "invocation_http/ai_sdk.rs"]
+pub mod ai_sdk;
+#[path = "invocation_http/a2a.rs"]
+pub mod a2a;
 
 #[derive(Clone)]
 struct InvocationState {
@@ -131,7 +137,11 @@ pub fn router_with_identity_and_model_catalog(
         .route(contract::SUBMIT, post(submit))
         .route(contract::STREAM, post(stream))
         .with_state(state.clone())
-        .merge(openai_compat::router(state))
+        .merge(openai_compat::router(state.clone()))
+        .merge(ag_ui::router(state.clone()))
+        .merge(ai_sdk::router(state.clone()))
+        .merge(a2a::router(state))
+        .merge(a2a::card_router())
 }
 
 /// Public JSON inputs deliberately reject structured `data`. The internal

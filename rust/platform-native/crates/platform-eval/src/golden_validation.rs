@@ -54,6 +54,9 @@ pub fn case_errors(case: &Value) -> Vec<String> {
     if let Some(stateful) = trajectory.get("stateful") {
         e.extend(stateful_errors(stateful));
     }
+    if let Some(otel) = trajectory.get("otel_genai") {
+        e.extend(otel_genai_errors(otel));
+    }
     let output = &case["expected_output"];
     for key in ["reference", "rubric"] {
         if output.get(key).is_some_and(|v| !nonempty(v)) {
@@ -197,6 +200,28 @@ fn unknown(v: &Value, allowed: &[&str], p: &str, e: &mut Vec<String>) {
             e.push(format!("{p} has unsupported fields {}", keys.join(", ")));
         }
     }
+}
+fn otel_genai_errors(v: &Value) -> Vec<String> {
+    let p = "expected_trajectory.otel_genai";
+    if !v.is_object() {
+        return vec![format!("{p} must be an object")];
+    }
+    let mut e = vec![];
+    unknown(
+        v,
+        &["operation", "agent", "conversation", "tool"],
+        p,
+        &mut e,
+    );
+    for key in ["operation", "agent", "conversation"] {
+        if !nonempty(&v[key]) {
+            e.push(format!("{p}.{key} must be a non-empty string"));
+        }
+    }
+    if v.get("tool").is_some_and(|value| !nonempty(value)) {
+        e.push(format!("{p}.tool must be a non-empty string"));
+    }
+    e
 }
 pub fn stateful_errors(v: &Value) -> Vec<String> {
     let p = "expected_trajectory.stateful";

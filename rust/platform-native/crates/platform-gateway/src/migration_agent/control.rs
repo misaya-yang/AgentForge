@@ -732,6 +732,67 @@ impl RuntimeControlPlane {
         }
         self.complete_run(turn, "cancelled").await
     }
+    pub async fn fork_thread(&self, scope: &Scope, thread: &str) -> Result<Value, AgentError> {
+        let response = self
+            .client
+            .post(self.endpoint(&format!(
+                "/internal/v1/threads/{}/fork",
+                super::uuid(thread)?
+            )))
+            .headers(self.headers(scope, None)?)
+            .json(&json!({}))
+            .workload_send()
+            .await
+            .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_FORK_FAILED"))?;
+        if !response.status().is_success() {
+            return Err(AgentError::code(
+                if response.status().is_server_error() {
+                    503
+                } else {
+                    response.status().as_u16()
+                },
+                "AI_PLATFORM_AGENT_RUNTIME_FORK_FAILED",
+            ));
+        }
+        response
+            .json()
+            .await
+            .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_FORK_FAILED"))
+    }
+    pub async fn steer_turn(
+        &self,
+        scope: &Scope,
+        thread: &str,
+        turn: &str,
+        message: &str,
+    ) -> Result<Value, AgentError> {
+        let response = self
+            .client
+            .post(self.endpoint(&format!(
+                "/internal/v1/threads/{}/turns/{}/steer",
+                super::uuid(thread)?,
+                super::uuid(turn)?
+            )))
+            .headers(self.headers(scope, Some(turn))?)
+            .json(&json!({"message": message}))
+            .workload_send()
+            .await
+            .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_STEER_FAILED"))?;
+        if !response.status().is_success() {
+            return Err(AgentError::code(
+                if response.status().is_server_error() {
+                    503
+                } else {
+                    response.status().as_u16()
+                },
+                "AI_PLATFORM_AGENT_RUNTIME_STEER_FAILED",
+            ));
+        }
+        response
+            .json()
+            .await
+            .map_err(|_| AgentError::code(503, "AI_PLATFORM_AGENT_RUNTIME_STEER_FAILED"))
+    }
     pub async fn get_approval(&self, scope: &Scope, id: &str) -> Result<Option<Value>, AgentError> {
         let r = self
             .client

@@ -25,11 +25,12 @@ const BODY_LIMIT: usize = 16 * 1024 * 1024;
 fn command_thread(path: &str) -> Option<&str> {
     let tail = path.strip_prefix("/internal/v1/threads/")?;
     let (thread, operation) = tail.split_once('/')?;
-    if matches!(operation, "turns" | "resume" | "archive" | "unarchive")
-        || operation
-            .strip_prefix("turns/")
-            .is_some_and(|tail| tail.ends_with("/recover"))
-    {
+    if matches!(
+        operation,
+        "turns" | "resume" | "archive" | "unarchive" | "fork"
+    ) || operation.strip_prefix("turns/").is_some_and(|tail| {
+        tail.ends_with("/recover") || tail.ends_with("/steer")
+    }) {
         Some(thread)
     } else {
         None
@@ -261,6 +262,8 @@ mod tests {
         for path in [
             "/internal/v1/threads/a/turns",
             "/internal/v1/threads/a/resume",
+            "/internal/v1/threads/a/fork",
+            "/internal/v1/threads/a/turns/b/steer",
         ] {
             assert_eq!(command_thread(path), Some("a"));
         }

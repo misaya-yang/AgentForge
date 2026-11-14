@@ -8,7 +8,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
 };
-pub const CANONICAL_HASH: &str = "cb34ed31d09f0752d18000df6f39eaa28e67f9ae4f9e630421c847a20a8f75ee";
+pub const CANONICAL_HASH: &str = "528caf7172e882a32e4e30616bd9c25be78161653594ac0f44d417b86fd41d1a";
 const IDS: [&str; 25] = [
     "assistant.refund_policy.basic",
     "assistant.billing.invoice",

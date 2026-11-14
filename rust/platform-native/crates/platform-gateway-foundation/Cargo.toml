@@ -49,6 +49,10 @@ md-5 = "0.10"
 unicode-casefold = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 
+[[bin]]
+name = "a2a-card"
+path = "src/bin/a2a_card.rs"
+
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 opentelemetry = { version = "=0.32.0", default-features = false, features = ["trace"] }

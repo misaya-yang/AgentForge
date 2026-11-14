@@ -75,8 +75,8 @@ fn frozen_fixture_has_all_seed_coverage_and_no_embedded_replay() {
     let obs = ai_platform_eval::observations(&rows).unwrap();
     let v = golden_validation::validate_observations(&cases, &obs);
     assert_eq!(v["valid"], true);
-    assert_eq!(v["joined_count"], 25);
-    assert_eq!(obs.len(), 25);
+    assert_eq!(v["joined_count"], 27);
+    assert_eq!(obs.len(), 27);
 }
 #[test]
 fn offline_gate_report_preserves_evidence_scope_and_provenance() {
@@ -90,7 +90,7 @@ fn offline_gate_report_preserves_evidence_scope_and_provenance() {
     assert_eq!(payload["suite_scope"], "canonical");
     assert!(payload["metrics"]["overall_score"].as_f64().unwrap() >= 0.85);
     assert_eq!(payload["evidence_scope"], "recorded_offline_observation");
-    assert_eq!(payload["observations"]["joined_count"], 25);
+    assert_eq!(payload["observations"]["joined_count"], 27);
     assert_eq!(payload["gate"]["hard_blockers_passed"], true);
     assert_eq!(
         payload["gate"]["required_hard_blockers"],
