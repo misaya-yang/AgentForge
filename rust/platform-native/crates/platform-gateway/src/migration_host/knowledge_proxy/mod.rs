@@ -68,8 +68,12 @@ pub struct KnowledgeProxy {
     pub sdk_control: Option<Arc<crate::migration_agent::control::RuntimeControlPlane>>,
     config: ProxyConfig,
     signer: Arc<GatewayAuth>,
-    access: Arc<NativeContentAccess>,
+    access: Option<Arc<NativeContentAccess>>,
     database: ContentDatabase,
+    #[cfg(test)]
+    test_resolver: Option<
+        Arc<dyn Fn(&HeaderMap) -> Result<ContentIdentity> + Send + Sync>,
+    >,
     passwords: ai_platform_auth::PasswordEngine,
     client: reqwest::Client,
     upload_slots: Arc<Semaphore>,
@@ -133,6 +137,21 @@ impl KnowledgeProxy {
         access: Arc<NativeContentAccess>,
         database: ContentDatabase,
     ) -> Result<Self> {
+        Self::open(config, signer, Some(access), database, None)
+    }
+
+    fn open(
+        config: ProxyConfig,
+        signer: Arc<GatewayAuth>,
+        access: Option<Arc<NativeContentAccess>>,
+        database: ContentDatabase,
+        #[cfg(test)] test_resolver: Option<
+            Arc<dyn Fn(&HeaderMap) -> Result<ContentIdentity> + Send + Sync>,
+        >,
+        #[cfg(not(test))] test_resolver: Option<()>,
+    ) -> Result<Self> {
+        #[cfg(not(test))]
+        let _ = test_resolver;
         let u = &config.origin;
         let loopback = u
             .host_str()
@@ -174,6 +193,8 @@ impl KnowledgeProxy {
             signer,
             access,
             database,
+            #[cfg(test)]
+            test_resolver,
             passwords: ai_platform_auth::PasswordEngine::new(2).map_err(|_| unavailable())?,
             client,
             upload_slots: Arc::new(Semaphore::new(2)),
@@ -182,6 +203,46 @@ impl KnowledgeProxy {
             breakers: Default::default(),
             trace_capture: None,
         })
+    }
+
+    pub(super) fn access(&self) -> &NativeContentAccess {
+        self.access
+            .as_deref()
+            .expect("knowledge proxy access is installed for service routes")
+    }
+
+    pub(super) fn api_key_header(&self) -> &str {
+        self.access
+            .as_ref()
+            .map(|access| access.identities.api_key_header.as_str())
+            .unwrap_or("x-api-key")
+    }
+
+    /// Collab tests resolve an identity without a database-backed admission service.
+    /// Production construction leaves the resolver unset.
+    #[cfg(test)]
+    pub(crate) fn collab_fixture(
+        origin: reqwest::Url,
+        signer: Arc<GatewayAuth>,
+        resolver: Arc<dyn Fn(&HeaderMap) -> Result<ContentIdentity> + Send + Sync>,
+    ) -> Result<Self> {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://unused:unused@127.0.0.1:1/unused")
+            .map_err(|_| unavailable())?;
+        let control = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://unused:unused@127.0.0.1:1/unused")
+            .map_err(|_| unavailable())?;
+        let database = ContentDatabase::new(pool, control).map_err(|_| unavailable())?;
+        Self::open(
+            ProxyConfig {
+                allow_private_http: true,
+                ..ProxyConfig::new(origin)
+            },
+            signer,
+            None,
+            database,
+            Some(resolver),
+        )
     }
 }
 pub fn router(state: Arc<KnowledgeProxy>) -> Router {
@@ -219,13 +280,17 @@ pub fn router(state: Arc<KnowledgeProxy>) -> Router {
             .route(&format!("{prefix}/"), on(methods, root_dispatch))
             .route(&format!("{prefix}/{{*path}}"), on(methods, dispatch));
     }
-    router
+    let router = router
         .with_state(state.clone())
-        .merge(sdk_models::router(state.clone()))
-        .layer(axum::middleware::from_fn_with_state(
-            state.access.clone(),
+        .merge(sdk_models::router(state.clone()));
+    if let Some(access) = state.access.clone() {
+        router.layer(axum::middleware::from_fn_with_state(
+            access,
             crate::migration_content::access::request_context,
         ))
+    } else {
+        router
+    }
 }
 fn unavailable() -> ContentError {
     ContentError::new(503, "Knowledge service is unavailable")
@@ -244,7 +309,11 @@ impl KnowledgeProxy {
         path: &str,
         read: bool,
     ) -> Result<ContentIdentity> {
-        let resolver = &self.access.identities;
+        #[cfg(test)]
+        if let Some(resolver) = &self.test_resolver {
+            return resolver(headers);
+        }
+        let resolver = &self.access().identities;
         let mut selected = headers.clone();
         if !resolver.jwt_enabled {
             selected.remove("authorization");
@@ -255,13 +324,13 @@ impl KnowledgeProxy {
         let presented = selected.contains_key("authorization")
             || selected.contains_key(&resolver.api_key_header);
         if !presented {
-            return self.access.resolve(headers).await;
+            return self.access().resolve(headers).await;
         }
         let admission = resolver.admission.request(&selected, path);
         let principal = match admission.resolve().await {
             Ok(p) => p,
             Err(error) => {
-                let fallback = self.access.resolve(headers).await?;
+                let fallback = self.access().resolve(headers).await?;
                 if fallback.user_id.starts_with("apikey:") && fallback.tenant_id.is_empty() {
                     return Ok(fallback);
                 }
@@ -324,16 +393,17 @@ async fn handle(state: Arc<KnowledgeProxy>, path: String, request: Request) -> R
             read_operation(request.method(), &path),
         )
         .await?;
-    state
-        .access
-        .rate_limit(&user, "knowledge", None)
-        .await
-        .map_err(|mut error| {
-            if error.status == 429 {
-                error.detail = json!("Rate limit exceeded");
-            }
-            error
-        })?;
+    if let Some(access) = &state.access {
+        access
+            .rate_limit(&user, "knowledge", None)
+            .await
+            .map_err(|mut error| {
+                if error.status == 429 {
+                    error.detail = json!("Rate limit exceeded");
+                }
+                error
+            })?;
+    }
     let context = request
         .extensions()
         .get::<super::middleware::RequestContext>()
@@ -350,6 +420,10 @@ async fn handle(state: Arc<KnowledgeProxy>, path: String, request: Request) -> R
                 parts.headers.insert(name, value);
             }
         }
+    }
+    if let Some(item_id) = forwarding::collab_item_id(&parts.method, &path, &parts.headers) {
+        let query = parts.uri.query().unwrap_or("").to_owned();
+        return state.proxy_collab(user, item_id, query, parts, body).await;
     }
     let management_route = !parts.uri.path().starts_with("/api/v1/kb-tools/");
     let segments: Vec<_> = path.trim_matches('/').split('/').collect();

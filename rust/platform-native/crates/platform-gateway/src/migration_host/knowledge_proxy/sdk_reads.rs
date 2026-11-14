@@ -94,7 +94,7 @@ pub(super) async fn actor_bound(
         return Err(code(403, "sdk_session_scope_invalid"));
     }
     let validator = ai_platform_gateway_foundation::request_validation::RequestValidator::new(
-        &state.access.rbac,
+        &state.access().rbac,
     );
     validator
         .validate_service_auth(
@@ -108,7 +108,7 @@ pub(super) async fn actor_bound(
         )
         .map_err(|_| code(403, "sdk_service_access_revoked"))?;
     ai_platform_auth::rbac::require_capability(
-        &state.access.rbac,
+        &state.access().rbac,
         &user.roles,
         &[],
         ai_platform_auth::rbac::Capability::AgentInvoke,

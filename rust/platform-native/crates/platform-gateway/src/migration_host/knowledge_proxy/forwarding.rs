@@ -2,9 +2,13 @@ use super::*;
 use crate::migration_agent::control::execution_transport::{TransportError, WorkloadSend};
 use axum::{
     body::{Body, Bytes},
-    http::{HeaderName, HeaderValue, StatusCode},
+    extract::{FromRequest, ws::{Message, WebSocket, WebSocketUpgrade}},
+    http::{HeaderName, HeaderValue, StatusCode, request::Parts},
+    response::IntoResponse,
 };
-use futures_core::Stream;
+use futures_util::{Sink, SinkExt, Stream, StreamExt};
+use serde_json::json;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use std::{
     collections::BTreeSet,
     pin::Pin,
@@ -155,6 +159,89 @@ pub(super) fn trusted_headers(user: &ContentIdentity, incoming: &HeaderMap) -> R
     headers.insert("accept-encoding", HeaderValue::from_static("identity"));
     Ok(headers)
 }
+
+pub(super) fn collab_item_id(method: &Method, path: &str, headers: &HeaderMap) -> Option<String> {
+    if method != Method::GET {
+        return None;
+    }
+    let mut parts = path.trim_matches('/').split('/');
+    let (Some("space-items"), Some(item_id), Some("collab"), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return None;
+    };
+    let safe = !item_id.is_empty()
+        && item_id.len() <= 80
+        && item_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-');
+    if !safe || !header_token(headers, "upgrade", "websocket") || !header_token(headers, "connection", "upgrade")
+    {
+        return None;
+    }
+    Some(item_id.to_owned())
+}
+
+fn header_token(headers: &HeaderMap, name: &str, token: &str) -> bool {
+    headers.get_all(name).iter().any(|value| {
+        value.to_str().ok().is_some_and(|text| {
+            text.split(',')
+                .any(|part| part.trim().eq_ignore_ascii_case(token))
+        })
+    })
+}
+
+fn admit_collab(user: &ContentIdentity, rbac: Option<&ai_platform_auth::rbac::Rbac>) -> Result<()> {
+    if !user.is_authenticated || user.user_id.trim().is_empty() || user.tenant_id.trim().is_empty() {
+        return Err(ContentError::new(401, "Authentication required"));
+    }
+    let mut granted = std::collections::HashSet::<String>::new();
+    granted.extend(user.permissions.iter().cloned());
+    if let Some(rbac) = rbac {
+        granted.extend(
+            rbac.permissions_for_roles(&user.roles)
+                .into_iter()
+                .map(str::to_owned),
+        );
+        if rbac.role_permissions.is_empty() {
+            default_space_grants(user, &mut granted);
+        }
+    } else {
+        default_space_grants(user, &mut granted);
+    }
+    let granted: std::collections::HashSet<&str> = granted.iter().map(String::as_str).collect();
+    for permission in [
+        "knowledge:space:view",
+        "knowledge:space:edit",
+        "knowledge:space:admin",
+        "knowledge:read",
+        "knowledge:write",
+    ] {
+        if ai_platform_auth::rbac::Rbac::matches_permission(&granted, permission) {
+            return Ok(());
+        }
+    }
+    Err(ContentError::new(
+        403,
+        json!({"message":"knowledge:space:view required","required_permission":"knowledge:space:view"}),
+    ))
+}
+
+fn default_space_grants(user: &ContentIdentity, granted: &mut std::collections::HashSet<String>) {
+    for (role, permissions) in ai_platform_auth::rbac::knowledge_space_role_grants() {
+        if user.roles.iter().any(|item| item == role) {
+            granted.extend(permissions.iter().copied().map(str::to_owned));
+        }
+    }
+    if user
+        .roles
+        .iter()
+        .any(|role| role == "admin" || role == "platform_admin")
+    {
+        granted.insert("admin:*".into());
+    }
+}
+
 // This is the same request consumed by the transport below. Keeping construction
 // separate permits cross-language contract checks without a listening service.
 use super::contract::public_upstream_path;
@@ -204,10 +291,169 @@ fn signed_request(
         .build()
         .map_err(|_| ContentError::new(502, "KB Service unavailable"))
 }
+fn collab_upstream_error(error: tokio_tungstenite::tungstenite::Error) -> Result<Response> {
+    if let tokio_tungstenite::tungstenite::Error::Http(response) = error {
+        let response = *response;
+        let status =
+            StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+        let bytes = response.into_body().unwrap_or_default();
+        let mut outgoing = Response::new(Body::from(bytes));
+        *outgoing.status_mut() = status;
+        return Ok(outgoing);
+    }
+    Err(ContentError::new(502, "KB Service unavailable"))
+}
+
+fn client_to_upstream(message: Message) -> Option<tokio_tungstenite::tungstenite::Message> {
+    use tokio_tungstenite::tungstenite::Message as Upstream;
+    match message {
+        Message::Text(text) => Some(Upstream::text(text.as_str())),
+        Message::Binary(bytes) => Some(Upstream::binary(bytes.to_vec())),
+        Message::Ping(bytes) => Some(Upstream::Ping(bytes.to_vec().into())),
+        Message::Pong(bytes) => Some(Upstream::Pong(bytes.to_vec().into())),
+        Message::Close(_) => Some(Upstream::Close(None)),
+    }
+}
+
+fn upstream_to_client(message: tokio_tungstenite::tungstenite::Message) -> Option<Message> {
+    use tokio_tungstenite::tungstenite::Message as Upstream;
+    match message {
+        Upstream::Text(text) => Some(Message::Text(text.to_string().into())),
+        Upstream::Binary(bytes) => Some(Message::Binary(bytes.to_vec().into())),
+        Upstream::Ping(bytes) => Some(Message::Ping(bytes.to_vec().into())),
+        Upstream::Pong(bytes) => Some(Message::Pong(bytes.to_vec().into())),
+        Upstream::Close(_) => Some(Message::Close(None)),
+        Upstream::Frame(_) => None,
+    }
+}
+
+async fn relay<S>(mut client: WebSocket, mut upstream: S)
+where
+    S: Stream<
+            Item = std::result::Result<
+                tokio_tungstenite::tungstenite::Message,
+                tokio_tungstenite::tungstenite::Error,
+            >,
+        > + Sink<
+            tokio_tungstenite::tungstenite::Message,
+            Error = tokio_tungstenite::tungstenite::Error,
+        > + Unpin,
+{
+    loop {
+        tokio::select! {
+            incoming = client.recv() => {
+                match incoming {
+                    Some(Ok(message)) => {
+                        let Some(outgoing) = client_to_upstream(message) else { continue };
+                        if upstream.send(outgoing).await.is_err() {
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+            }
+            incoming = upstream.next() => {
+                match incoming {
+                    Some(Ok(message)) => {
+                        let Some(outgoing) = upstream_to_client(message) else { continue };
+                        if client.send(outgoing).await.is_err() {
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "hybrid_contract_tests.rs"]
 mod hybrid_contract_tests;
+#[cfg(test)]
+#[path = "collab_upgrade_tests.rs"]
+mod collab_upgrade_tests;
 impl KnowledgeProxy {
+    pub(super) async fn proxy_collab(
+        &self,
+        user: ContentIdentity,
+        item_id: String,
+        query: String,
+        parts: Parts,
+        body: Body,
+    ) -> Result<Response> {
+        admit_collab(&user, self.access.as_ref().map(|access| access.rbac.as_ref()))?;
+        let permit = tokio::time::timeout(
+            Duration::from_secs(30),
+            self.connections.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| unavailable())?
+        .map_err(|_| unavailable())?;
+        let upstream_path = public_upstream_path(&format!("space-items/{item_id}/collab"));
+        let breaker = {
+            let mut map = self.breakers.lock().unwrap_or_else(|error| error.into_inner());
+            map.entry("space-items/{item_id}/collab".into())
+                .or_default()
+                .clone()
+        };
+        breaker.gate()?;
+        let headers = trusted_headers(&user, &parts.headers)?;
+        let signed = signed_request(
+            &self.client,
+            &self.config.origin,
+            &self.signer,
+            self.api_key_header(),
+            Method::GET,
+            &upstream_path,
+            &query,
+            headers,
+            Vec::new(),
+        )?;
+        let mut url = signed.url().clone();
+        let scheme = match url.scheme() {
+            "http" => "ws",
+            "https" => "wss",
+            _ => return Err(unavailable()),
+        };
+        url.set_scheme(scheme).map_err(|_| unavailable())?;
+        let mut request = url
+            .as_str()
+            .into_client_request()
+            .map_err(|_| unavailable())?;
+        for (name, value) in signed.headers() {
+            if !matches!(name.as_str(), "host" | "content-length" | "accept-encoding") {
+                request.headers_mut().append(name.clone(), value.clone());
+            }
+        }
+        let connected = tokio_tungstenite::connect_async(request).await;
+        let (upstream, _accepted) = match connected {
+            Ok(pair) => {
+                breaker.response(StatusCode::SWITCHING_PROTOCOLS);
+                pair
+            }
+            Err(error) => {
+                if !matches!(error, tokio_tungstenite::tungstenite::Error::Http(_)) {
+                    breaker.failure();
+                }
+                return collab_upstream_error(error);
+            }
+        };
+        let upgrade = match WebSocketUpgrade::from_request(
+            axum::extract::Request::from_parts(parts, body),
+            &(),
+        )
+        .await
+        {
+            Ok(upgrade) => upgrade,
+            Err(rejection) => return Ok(rejection.into_response()),
+        };
+        Ok(upgrade.on_upgrade(move |socket| async move {
+            relay(socket, upstream).await;
+            drop(permit);
+        }))
+    }
+
     pub(super) async fn upstream(
         &self,
         method: Method,
@@ -221,7 +467,7 @@ impl KnowledgeProxy {
                 &self.client,
                 &self.config.origin,
                 &self.signer,
-                self.access.identities.api_key_header.as_str(),
+                self.api_key_header(),
                 method.clone(),
                 path,
                 query,
@@ -323,7 +569,7 @@ impl KnowledgeProxy {
                             &self.client,
                             &self.config.origin,
                             &self.signer,
-                            self.access.identities.api_key_header.as_str(),
+                            self.api_key_header(),
                             method.clone(),
                             &upstream_path,
                             "",

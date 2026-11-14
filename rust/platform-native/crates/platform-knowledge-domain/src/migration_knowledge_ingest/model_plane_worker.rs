@@ -39,9 +39,15 @@ pub async fn ingest(
         } else {
             None
         };
+        let mut user = initiator.unwrap_or_else(|| string(&doc, "created_by").into());
+        // Space pages insert a waiting document without a document owner column.
+        // The hidden dataset records the page author.
+        if user.is_empty() {
+            user = string(&d, "created_by").into();
+        }
         (
             string(&d, "tenant_id").into(),
-            initiator.unwrap_or_else(|| string(&doc, "created_by").into()),
+            user,
             execution,
         )
     };

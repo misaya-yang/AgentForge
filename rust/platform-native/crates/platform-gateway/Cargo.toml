@@ -18,7 +18,7 @@ url = "2"
 ai-platform-config-loader = { version = "0.1.0", path = "../platform-config-loader"  }
 ai-platform-gateway-foundation = { version = "0.1.0", path = "../platform-gateway-foundation"  }
 ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
-axum = { workspace = true, features = ["multipart"] }
+axum = { workspace = true, features = ["multipart", "ws"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }

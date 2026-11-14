@@ -77,6 +77,14 @@ impl LexicalLifecycle {
     ) -> Result<Option<ActivePublicationContext>> {
         let dataset = self.store.dataset(id).await?;
         let profile = LexicalProfile::from_dataset(&dataset)?;
+        // The first publish creates the collection. A missing collection cannot
+        // disagree with an inactive lexical profile.
+        if !self.vectors.collection_exists(dataset.collection()?).await? {
+            if profile.active {
+                return Err(conflict("active lexical collection is missing"));
+            }
+            return Ok(None);
+        }
         let info = self.vectors.require_collection_readable(&dataset).await?;
         let raw = &info["config"]["metadata"]["knowledge_lexical"];
         let stored = if raw.is_null() {

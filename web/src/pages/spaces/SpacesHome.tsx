@@ -2,6 +2,7 @@ import {
   createItem,
   createSpace,
   deleteItem,
+  importPages,
   listItems,
   patchItem,
   putContent,
@@ -24,10 +25,6 @@ import { KindIcon, SpaceDialog } from "./ui";
 
 const VIEWS: ItemView[] = ["all", "starred", "mine", "shared"];
 const KINDS = new Set(["page", "slide", "site", "image", "file", "folder", "link", "external"]);
-
-function readFile(file: File) {
-  return file.text();
-}
 
 export function SpacesHome() {
   const { t, i18n } = useTranslation();
@@ -172,13 +169,25 @@ export function SpacesHome() {
       openDialog("space-create-space");
       return;
     }
+    const name = file.name.toLowerCase();
+    const imported = markdown || name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".zip");
+    if (imported) {
+      const format = (name.endsWith(".zip") ? "zip" : name.endsWith(".html") || name.endsWith(".htm") ? "html" : "markdown") as "zip" | "html" | "markdown";
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let index = 0; index < bytes.length; index += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+      }
+      await importPages(targetSpace, { format, filename: file.name, content_base64: btoa(binary) });
+      refresh();
+      return;
+    }
     await createItemMutation.mutateAsync({
       spaceId: targetSpace,
       title: file.name,
-      kind: markdown ? "page" : "file",
-      source: markdown ? "native" : "upload",
-      format: markdown ? "markdown" : "binary",
-      markdown: markdown ? await readFile(file) : undefined,
+      kind: "file",
+      source: "upload",
+      format: "binary",
     });
   }
 
@@ -372,7 +381,7 @@ export function SpacesHome() {
       </dialog>
       <dialog id="space-import" aria-labelledby="space-import-title" data-light="">
         <h2 id="space-import-title">{t("spaces.menu.import")}</h2>
-        <input aria-label={t("spaces.menu.import")} type="file" accept=".md,.markdown,text/markdown" onChange={(event) => void onUpload(event.currentTarget.files?.[0], true)} />
+        <input aria-label={t("spaces.menu.import")} type="file" accept=".md,.markdown,.html,.htm,.zip,text/markdown,text/html,application/zip" onChange={(event) => void onUpload(event.currentTarget.files?.[0], true)} />
         <form method="dialog" className="spaces-dialog-actions"><button value="cancel">{t("spaces.close")}</button></form>
       </dialog>
     </section>

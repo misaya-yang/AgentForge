@@ -1,8 +1,8 @@
 {
   "schema": "agentforge/generated-sdk/v2",
   "openapi": "3.2.0",
-  "source_sha256": "555d115ff6aa0bad4f759b1c1e451c2238b6603d017b02f3d3eae55f4a614f96",
-  "operations": 610,
+  "source_sha256": "43b8407044414677238f20c80e16c9084599243a5db129aa0fa02b92906fd88c",
+  "operations": 617,
   "schema_models": 83,
   "stream_operations": [
     "POST /api/v1/agent-runtime/{public_id}/chat/stream",
@@ -728,8 +728,24 @@
       "request": "operation_get_space_item_api_v1_knowledge_space_items__item_id__get_dab887aff951",
       "stream": null
     },
+    "GET /api/v1/knowledge/space-items/{item_id}/backlinks": {
+      "request": "operation_list_space_item_backlinks_api_v1_knowledge_space_items__item_id__backlinks_get_41481c299e54",
+      "stream": null
+    },
     "GET /api/v1/knowledge/space-items/{item_id}/content": {
       "request": "operation_get_space_item_content_api_v1_knowledge_space_items__item_id__content_get_f8548e399158",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-items/{item_id}/diff": {
+      "request": "operation_diff_space_item_revisions_api_v1_knowledge_space_items__item_id__diff_get_762acd0f63af",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-items/{item_id}/export": {
+      "request": "operation_export_space_item_api_v1_knowledge_space_items__item_id__export_get_f65dd70b2c2c",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/space-items/{item_id}/revisions": {
+      "request": "operation_list_space_item_revisions_api_v1_knowledge_space_items__item_id__revisions_get_1412c5cf730a",
       "stream": null
     },
     "GET /api/v1/knowledge/space-trash": {
@@ -746,6 +762,10 @@
     },
     "GET /api/v1/knowledge/spaces/{space_id}/members": {
       "request": "operation_list_space_members_api_v1_knowledge_spaces__space_id__members_get_e2ad94303833",
+      "stream": null
+    },
+    "GET /api/v1/knowledge/spaces/{space_id}/tree": {
+      "request": "operation_list_space_tree_api_v1_knowledge_spaces__space_id__tree_get_cee41b816769",
       "stream": null
     },
     "GET /api/v1/knowledge/worker/status": {
@@ -1780,8 +1800,16 @@
       "request": "operation_restore_space_item_api_v1_knowledge_space_items__item_id__restore_post_e4b78d3ea9cc",
       "stream": null
     },
+    "POST /api/v1/knowledge/space-items/{item_id}/revisions/{revision}/restore": {
+      "request": "operation_restore_space_item_revision_api_v1_knowledge_space_items__item_id__revisions__re_774eb3faa483",
+      "stream": null
+    },
     "POST /api/v1/knowledge/spaces": {
       "request": "operation_create_space_api_v1_knowledge_spaces_post_b48391b753df",
+      "stream": null
+    },
+    "POST /api/v1/knowledge/spaces/{space_id}/import": {
+      "request": "operation_import_space_pages_api_v1_knowledge_spaces__space_id__import_post_71a50f42238c",
       "stream": null
     },
     "POST /api/v1/knowledge/spaces/{space_id}/items": {

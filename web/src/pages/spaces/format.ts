@@ -28,6 +28,27 @@ export function sourceLabel(item: Pick<SpaceItem, "source" | "shared" | "created
   return "—";
 }
 
+const POSITION = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+export function positionBetween(before: string | null, after: string | null): string {
+  const left = before ?? "";
+  const right = after ?? "";
+  if (!left && !right) return "a0";
+  let prefix = "";
+  let index = 0;
+  while (index < 48) {
+    const leftCode = index < left.length ? POSITION.indexOf(left[index] ?? "") : -1;
+    const rightCode = index < right.length ? POSITION.indexOf(right[index] ?? "") : POSITION.length;
+    const low = leftCode < 0 ? 0 : leftCode;
+    const high = rightCode < 0 ? POSITION.length : rightCode;
+    if (!right && left) return `${left}V`;
+    if (high - low > 1) return prefix + POSITION[Math.floor((low + high) / 2)];
+    prefix += POSITION[low];
+    index += 1;
+  }
+  return `${left}V`.slice(0, 64);
+}
+
 export function itemKindKey(kind: string): string {
   return ["page", "folder", "file", "link", "slide", "site", "image", "external"].includes(kind)
     ? kind

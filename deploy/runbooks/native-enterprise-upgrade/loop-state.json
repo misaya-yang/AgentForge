@@ -1,4 +1,15 @@
 {
+  "dot_1113_m2": {
+    "milestone": "M2",
+    "branch": "m2-space-editor",
+    "base": "dot_1113",
+    "implemented": true,
+    "compiled": true,
+    "tested": true,
+    "accepted": true,
+    "schema": "No successor 031. fresh-development-verify passed on gateway_dev_fresh at schema epoch 35, and knowledge_api inserted and updated knowledge.space_item_revisions.ydoc_state inside a rolled-back transaction. Proposal 035 prune functions were repaired because IF CASE WHEN is invalid plpgsql; catalog pins match the repaired SQL. The frozen epoch-29 lock and baseline are unchanged. CI dependencies still reports RUSTSEC-2026-0215 (yrs 0.28.1 -> unmaintained smallstr) plus the pre-existing contracts, generated-sdk, workflow-lint, and image-size failures.",
+    "remaining": []
+  },
   "dot_1113_m1": {
     "milestone": "M1",
     "branch": "cursor/m1-space",

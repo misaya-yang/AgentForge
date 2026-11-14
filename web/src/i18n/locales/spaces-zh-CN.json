@@ -93,5 +93,41 @@
     "empty": "此页面还没有 Markdown。",
     "missing": "此条目不可用。",
     "back": "返回全部条目"
+  },
+  "editor": {
+    "you": "你",
+    "tree": "页面树",
+    "breadcrumb": "面包屑",
+    "panel": "页面信息",
+    "loading": "正在打开编辑器",
+    "saving": "正在保存",
+    "saved": "已保存",
+    "saveFailed": "保存没有完成",
+    "conflict": "这份页面已在其他地方更新。重新加载后再继续编辑。",
+    "reload": "重新加载",
+    "versions": "版本",
+    "revision": "版本 {revision}",
+    "restore": "恢复",
+    "backlinks": "反向链接",
+    "noBacklinks": "还没有反向链接",
+    "reorder": "调整{title}的顺序",
+    "drag": "拖动",
+    "moved": "已将{title}移到第 {position} 位",
+    "exportMd": "导出 Markdown",
+    "exportHtml": "导出 HTML",
+    "ai": {
+      "open": "AI",
+      "rewriteLabel": "改写",
+      "continueLabel": "续写",
+      "summarizeLabel": "总结",
+      "translateLabel": "翻译",
+      "askLabel": "问这个空间",
+      "rewrite": "改写选中的文字，保持原意。",
+      "continue": "从选中的文字往后续写。",
+      "summarize": "总结选中的文字。",
+      "translate": "把选中的文字翻译成另一种语言。",
+      "ask": "根据这个空间的页面回答问题。",
+      "failed": "模型暂时没有返回结果。"
+    }
   }
 }

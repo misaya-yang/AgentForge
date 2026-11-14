@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { itemKindKey, relativeTime, sourceLabel } from "./format.ts";
+import { itemKindKey, positionBetween, relativeTime, sourceLabel } from "./format.ts";
 
 const now = Date.parse("2026-11-13T12:00:00Z");
 
@@ -19,4 +19,11 @@ test("source shows the space only when someone else shared the item", () => {
   assert.equal(sourceLabel({ ...shared, source: "connector:drive" }, "me"), "Studio");
   assert.equal(itemKindKey("slide"), "slide");
   assert.equal(itemKindKey("unknown"), "file");
+});
+
+test("fractional positions stay between neighbours", () => {
+  const middle = positionBetween("a0", "a2");
+  assert.ok(middle > "a0" && middle < "a2", middle);
+  assert.ok(positionBetween("a0", null) > "a0");
+  assert.equal(positionBetween(null, null), "a0");
 });

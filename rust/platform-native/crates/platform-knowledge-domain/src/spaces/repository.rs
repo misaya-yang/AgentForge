@@ -14,6 +14,16 @@ pub struct Spaces {
     pool: PgPool,
 }
 
+/// Hidden space datasets use Gemini unless the operator selects the local hash
+/// embedder. `local` needs no provider key, so a development retrieve can match
+/// the saved page text. Any other value keeps the Gemini default.
+fn space_embedding() -> (&'static str, &'static str, i32) {
+    match std::env::var("KNOWLEDGE_SPACE_EMBEDDING_PROVIDER") {
+        Ok(value) if value == "local" => ("local", "hash-384", 384),
+        _ => ("gemini", "gemini-embedding-001", 1024),
+    }
+}
+
 struct SpaceRecord {
     space_id: String,
     tenant_id: String,
@@ -91,14 +101,18 @@ impl Spaces {
         let space_id = Uuid::new_v4().to_string();
         let dataset_id = Uuid::new_v4().to_string();
         let collection = format!("space-{dataset_id}");
+        let (embedding_provider, embedding_model, embedding_dimension) = space_embedding();
         let mut tx = self.pool.begin().await.map_err(db)?;
         bind_current(&mut tx).await.map_err(db)?;
         sqlx::query(
-            "INSERT INTO knowledge.datasets (dataset_id, name, description, tenant_id, visibility, embedding_provider, embedding_model, embedding_dimension, embedding_config, index_config, collection_name, is_deleted, deleted_at, deleted_by, delete_reason, created_by) VALUES ($1, $2, 'hidden space dataset', $3, 'private', 'gemini', 'gemini-embedding-001', 1024, '{}'::jsonb, '{\"hidden_space\":true}'::jsonb, $4, false, NULL, NULL, NULL, $5)",
+            "INSERT INTO knowledge.datasets (dataset_id, name, description, tenant_id, visibility, embedding_provider, embedding_model, embedding_dimension, embedding_config, index_config, collection_name, is_deleted, deleted_at, deleted_by, delete_reason, created_by) VALUES ($1, $2, 'hidden space dataset', $3, 'private', $4, $5, $6, '{}'::jsonb, '{\"hidden_space\":true}'::jsonb, $7, false, NULL, NULL, NULL, $8)",
         )
         .bind(&dataset_id)
         .bind(&name)
         .bind(&user.tenant_id)
+        .bind(embedding_provider)
+        .bind(embedding_model)
+        .bind(embedding_dimension)
         .bind(&collection)
         .bind(&user.user_id)
         .execute(&mut *tx)
@@ -387,6 +401,14 @@ impl Spaces {
         self.get_item(user, &item_id).await
     }
 
+    pub async fn can_edit(&self, user: &UserContext, item_id: &str) -> SpaceResult<bool> {
+        let record = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &record, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        Ok(allow_item_record(user, &record, Action::Edit))
+    }
+
     pub async fn get_item(&self, user: &UserContext, item_id: &str) -> SpaceResult<Item> {
         let record = self.item(user, item_id, true).await?;
         if !allow_item_record(user, &record, Action::View) {
@@ -633,8 +655,8 @@ impl Spaces {
             _ => {}
         }
         let format = content_format(&input.content_format)?;
-        let markdown = input.markdown;
         let blocks = input.blocks;
+        let markdown = super::markdown::project(&format, &blocks, &input.markdown)?;
         let digest = content_digest(&format, &blocks, &markdown)?;
         let next = current.current_revision + 1;
         let mut tx = self.pool.begin().await.map_err(db)?;
@@ -655,7 +677,7 @@ impl Spaces {
             return Err(SpaceError::Conflict);
         }
         sqlx::query(
-            "INSERT INTO knowledge.space_item_revisions (item_id, revision, blocks, markdown, content_sha256, author) VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO knowledge.space_item_revisions (item_id, revision, blocks, markdown, content_sha256, author, ydoc_state) VALUES ($1, $2, $3, $4, $5, $6, (SELECT ydoc_state FROM knowledge.space_item_revisions WHERE item_id = $1 AND revision = $7))",
         )
         .bind(item_id)
         .bind(next)
@@ -663,6 +685,7 @@ impl Spaces {
         .bind(&markdown)
         .bind(&digest)
         .bind(&user.user_id)
+        .bind(current.current_revision)
         .execute(&mut *tx)
         .await
         .map_err(db)?;
@@ -726,6 +749,454 @@ impl Spaces {
             .ok_or(SpaceError::NotFound)?;
         Ok(item_record(&row))
     }
+
+    pub async fn list_tree(&self, user: &UserContext, space_id: &str) -> SpaceResult<Vec<Item>> {
+        let space = self.space(user, space_id).await?;
+        if !allow_record(user, &space, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let rows = sqlx::query(
+            "SELECT i.item_id, i.tenant_id, i.space_id, s.name AS space_name, s.icon AS space_icon, s.visibility AS space_visibility,
+                    i.parent_id, i.kind, i.title, i.icon, i.position, i.source, i.created_by, i.updated_by, i.content_format,
+                    i.current_revision, i.last_activity_at, i.updated_at, i.deleted_at,
+                    EXISTS (SELECT 1 FROM knowledge.space_item_stars st WHERE st.item_id = i.item_id AND st.user_id = $2 AND st.revoked_at IS NULL) AS starred,
+                    EXISTS (SELECT 1 FROM knowledge.space_item_shares sh WHERE sh.item_id = i.item_id AND sh.principal_type = 'user' AND sh.principal_id = $2 AND sh.revoked_at IS NULL) AS shared,
+                    (SELECT m.role FROM knowledge.space_members m WHERE m.space_id = s.space_id AND m.principal_type = 'user' AND m.principal_id = $2 AND m.revoked_at IS NULL) AS space_role,
+                    (SELECT sh.role FROM knowledge.space_item_shares sh WHERE sh.item_id = i.item_id AND sh.principal_type = 'user' AND sh.principal_id = $2 AND sh.revoked_at IS NULL) AS share_role
+             FROM knowledge.space_items i
+             JOIN knowledge.spaces s ON s.space_id = i.space_id AND s.tenant_id = i.tenant_id
+             WHERE i.tenant_id = $1 AND i.space_id = $3 AND i.deleted_at IS NULL AND s.archived_at IS NULL
+             ORDER BY i.position, i.item_id
+             LIMIT 500",
+        )
+        .bind(&user.tenant_id)
+        .bind(&user.user_id)
+        .bind(space_id)
+        .fetch_all(database::executor(&self.pool))
+        .await
+        .map_err(db)?;
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let record = item_record(row);
+                allow_item_record(user, &record, Action::View).then(|| item_json(&record))
+            })
+            .collect())
+    }
+
+    pub async fn list_revisions(&self, user: &UserContext, item_id: &str) -> SpaceResult<Vec<RevisionMeta>> {
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let rows = sqlx::query(
+            "SELECT revision, author, created_at, content_sha256 FROM knowledge.space_item_revisions WHERE item_id = $1 ORDER BY revision DESC LIMIT 100",
+        )
+        .bind(item_id)
+        .fetch_all(database::executor(&self.pool))
+        .await
+        .map_err(db)?;
+        Ok(rows
+            .iter()
+            .map(|row| RevisionMeta {
+                revision: row.get("revision"),
+                author: row.get("author"),
+                created_at: row.get::<DateTime<Utc>, _>("created_at").to_rfc3339(),
+                content_sha256: row.get("content_sha256"),
+            })
+            .collect())
+    }
+
+    pub async fn revision_markdown(&self, user: &UserContext, item_id: &str, revision: i64) -> SpaceResult<String> {
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let markdown: Option<String> = sqlx::query_scalar(
+            "SELECT COALESCE(markdown, '') FROM knowledge.space_item_revisions WHERE item_id = $1 AND revision = $2",
+        )
+        .bind(item_id)
+        .bind(revision)
+        .fetch_optional(database::executor(&self.pool))
+        .await
+        .map_err(db)?
+        .ok_or(SpaceError::NotFound)?;
+        Ok(markdown.unwrap_or_default())
+    }
+
+    pub async fn restore_revision(
+        &self,
+        user: &UserContext,
+        item_id: &str,
+        revision: i64,
+        expected: Option<i64>,
+    ) -> SpaceResult<ItemContent> {
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::Edit) {
+            return Err(SpaceError::NotFound);
+        }
+        let row = sqlx::query(
+            "SELECT blocks, markdown FROM knowledge.space_item_revisions WHERE item_id = $1 AND revision = $2",
+        )
+        .bind(item_id)
+        .bind(revision)
+        .fetch_optional(database::executor(&self.pool))
+        .await
+        .map_err(db)?
+        .ok_or(SpaceError::NotFound)?;
+        self.put_content(
+            user,
+            item_id,
+            expected,
+            ContentPut {
+                content_format: current.content_format,
+                blocks: row.get::<Option<Value>, _>("blocks").unwrap_or(Value::Null),
+                markdown: row.get::<Option<String>, _>("markdown").unwrap_or_default(),
+            },
+        )
+        .await
+    }
+
+    pub async fn backlinks(&self, user: &UserContext, item_id: &str) -> SpaceResult<Vec<Item>> {
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let title = like_mention(&current.title)?;
+        let id = like_mention(item_id)?;
+        let rows = sqlx::query(
+            "SELECT i.item_id, i.tenant_id, i.space_id, s.name AS space_name, s.icon AS space_icon, s.visibility AS space_visibility,
+                    i.parent_id, i.kind, i.title, i.icon, i.position, i.source, i.created_by, i.updated_by, i.content_format,
+                    i.current_revision, i.last_activity_at, i.updated_at, i.deleted_at,
+                    EXISTS (SELECT 1 FROM knowledge.space_item_stars st WHERE st.item_id = i.item_id AND st.user_id = $2 AND st.revoked_at IS NULL) AS starred,
+                    EXISTS (SELECT 1 FROM knowledge.space_item_shares sh WHERE sh.item_id = i.item_id AND sh.principal_type = 'user' AND sh.principal_id = $2 AND sh.revoked_at IS NULL) AS shared,
+                    (SELECT m.role FROM knowledge.space_members m WHERE m.space_id = s.space_id AND m.principal_type = 'user' AND m.principal_id = $2 AND m.revoked_at IS NULL) AS space_role,
+                    (SELECT sh.role FROM knowledge.space_item_shares sh WHERE sh.item_id = i.item_id AND sh.principal_type = 'user' AND sh.principal_id = $2 AND sh.revoked_at IS NULL) AS share_role
+             FROM knowledge.space_items i
+             JOIN knowledge.spaces s ON s.space_id = i.space_id AND s.tenant_id = i.tenant_id
+             JOIN knowledge.space_item_revisions r ON r.item_id = i.item_id AND r.revision = i.current_revision
+             WHERE i.tenant_id = $1 AND i.space_id = $3 AND i.item_id <> $4 AND i.deleted_at IS NULL AND s.archived_at IS NULL
+               AND (r.markdown LIKE $5 ESCAPE '\\' OR r.markdown LIKE $6 ESCAPE '\\')
+             ORDER BY i.position, i.item_id
+             LIMIT 100",
+        )
+        .bind(&user.tenant_id)
+        .bind(&user.user_id)
+        .bind(&current.space_id)
+        .bind(item_id)
+        .bind(title)
+        .bind(id)
+        .fetch_all(database::executor(&self.pool))
+        .await
+        .map_err(db)?;
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let record = item_record(row);
+                allow_item_record(user, &record, Action::View).then(|| item_json(&record))
+            })
+            .collect())
+    }
+
+    pub async fn index_snapshot(&self, user: &UserContext, item_id: &str) -> SpaceResult<super::index::IndexSnapshot> {
+        let current = self.item(user, item_id, true).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let row = sqlx::query(
+            "SELECT i.document_id, s.dataset_id, COALESCE(r.markdown, '') AS markdown, COALESCE(r.content_sha256, '') AS content_sha256,
+                    COALESCE(d.status, '') AS status, COALESCE(d.archived, false) AS archived, COALESCE(d.current_version, 0)::bigint AS current_version,
+                    d.metadata->>'space_content_sha256' AS indexed_sha
+             FROM knowledge.space_items i
+             JOIN knowledge.spaces s ON s.space_id = i.space_id
+             LEFT JOIN knowledge.space_item_revisions r ON r.item_id = i.item_id AND r.revision = i.current_revision
+             LEFT JOIN knowledge.documents d ON d.document_id = i.document_id
+             WHERE i.item_id = $1 AND i.tenant_id = $2",
+        )
+        .bind(item_id)
+        .bind(&user.tenant_id)
+        .fetch_optional(database::executor(&self.pool))
+        .await
+        .map_err(db)?
+        .ok_or(SpaceError::NotFound)?;
+        Ok(super::index::IndexSnapshot {
+            deleted: current.deleted_at.is_some(),
+            document_id: row.get("document_id"),
+            document_status: row.get("status"),
+            document_archived: row.get("archived"),
+            document_version: row.get("current_version"),
+            indexed_sha: row.get("indexed_sha"),
+            content_sha: row.get("content_sha256"),
+            markdown: row.get("markdown"),
+            title: current.title,
+            revision: current.current_revision,
+            space_id: current.space_id,
+            item_id: item_id.to_owned(),
+            dataset_id: row.get("dataset_id"),
+            tenant_id: current.tenant_id,
+        })
+    }
+
+    pub async fn bind_document(&self, user: &UserContext, item_id: &str, document_id: &str) -> SpaceResult<()> {
+        let current = self.item(user, item_id, true).await?;
+        if !allow_item_record(user, &current, Action::Edit) {
+            return Err(SpaceError::NotFound);
+        }
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        sqlx::query(
+            "UPDATE knowledge.space_items SET document_id = $3 WHERE item_id = $1 AND tenant_id = $2",
+        )
+        .bind(item_id)
+        .bind(&user.tenant_id)
+        .bind(document_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+
+    pub async fn clear_document(&self, user: &UserContext, item_id: &str) -> SpaceResult<()> {
+        let current = self.item(user, item_id, true).await?;
+        if !allow_item_record(user, &current, Action::Edit) {
+            return Err(SpaceError::NotFound);
+        }
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        sqlx::query("UPDATE knowledge.space_items SET document_id = NULL WHERE item_id = $1 AND tenant_id = $2")
+            .bind(item_id)
+            .bind(&user.tenant_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+
+    pub async fn access_viewers(&self, user: &UserContext, item_id: &str) -> SpaceResult<(bool, Vec<(String, String)>, Vec<String>)> {
+        let current = self.item(user, item_id, true).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let space = self.space(user, &current.space_id).await?;
+        let members = sqlx::query(
+            "SELECT principal_id, role FROM knowledge.space_members WHERE space_id = $1 AND principal_type = 'user' AND revoked_at IS NULL",
+        )
+        .bind(&current.space_id)
+        .fetch_all(database::executor(&self.pool))
+        .await
+        .map_err(db)?;
+        let shares = sqlx::query(
+            "SELECT principal_id, role FROM knowledge.space_item_shares WHERE item_id = $1 AND principal_type = 'user' AND revoked_at IS NULL",
+        )
+        .bind(item_id)
+        .fetch_all(database::executor(&self.pool))
+        .await
+        .map_err(db)?;
+        let mut grants: Vec<(String, String)> = Vec::new();
+        let mut viewers = vec![current.created_by.clone()];
+        for row in members.iter().chain(shares.iter()) {
+            let id: String = row.get("principal_id");
+            let role: String = row.get("role");
+            let permission = match role.as_str() {
+                "owner" => "owner",
+                "editor" => "editor",
+                _ => "viewer",
+            };
+            if let Some(existing) = grants.iter_mut().find(|(principal, _)| principal == &id) {
+                if permission_rank(permission) > permission_rank(&existing.1) {
+                    existing.1 = permission.to_owned();
+                }
+            } else {
+                grants.push((id.clone(), permission.to_owned()));
+            }
+            if !viewers.contains(&id) {
+                viewers.push(id);
+            }
+        }
+        Ok((space.visibility == "tenant", grants, viewers))
+    }
+
+    pub async fn write_document_acl(
+        &self,
+        user: &UserContext,
+        dataset_id: &str,
+        document_id: &str,
+        acl: &Value,
+    ) -> SpaceResult<()> {
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        let updated = sqlx::query(
+            "UPDATE knowledge.documents d SET metadata = jsonb_set(COALESCE(d.metadata, '{}'::jsonb), '{_connector_acl}', $4::jsonb, true)
+             FROM knowledge.datasets ds
+             WHERE d.document_id = $1 AND d.dataset_id = $2 AND ds.dataset_id = d.dataset_id AND ds.tenant_id = $3",
+        )
+        .bind(document_id)
+        .bind(dataset_id)
+        .bind(&user.tenant_id)
+        .bind(acl)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        if updated.rows_affected() == 0 {
+            return Err(SpaceError::NotFound);
+        }
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+
+    pub async fn note_indexed(
+        &self,
+        user: &UserContext,
+        dataset_id: &str,
+        document_id: &str,
+        metadata: &Value,
+    ) -> SpaceResult<()> {
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        sqlx::query(
+            "UPDATE knowledge.documents d SET metadata = COALESCE(d.metadata, '{}'::jsonb) || $4::jsonb
+             FROM knowledge.datasets ds
+             WHERE d.document_id = $1 AND d.dataset_id = $2 AND ds.dataset_id = d.dataset_id AND ds.tenant_id = $3",
+        )
+        .bind(document_id)
+        .bind(dataset_id)
+        .bind(&user.tenant_id)
+        .bind(metadata)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+
+    pub async fn sync_dataset_access(
+        &self,
+        user: &UserContext,
+        dataset_id: &str,
+        tenant_visible: bool,
+        grants: &[(String, String)],
+    ) -> SpaceResult<()> {
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        let visibility = if tenant_visible { "tenant" } else { "private" };
+        sqlx::query(
+            "UPDATE knowledge.datasets SET visibility = $3, updated_at = now() WHERE dataset_id = $1 AND tenant_id = $2 AND is_deleted = false",
+        )
+        .bind(dataset_id)
+        .bind(&user.tenant_id)
+        .bind(visibility)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        let ids: Vec<&str> = grants.iter().map(|(id, _)| id.as_str()).collect();
+        sqlx::query(
+            "DELETE FROM knowledge.dataset_permissions WHERE dataset_id = $1 AND subject_type = 'user' AND NOT (subject_id = ANY($2::text[]))",
+        )
+        .bind(dataset_id)
+        .bind(&ids)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        for (id, permission) in grants {
+            sqlx::query(
+                "INSERT INTO knowledge.dataset_permissions (dataset_id, subject_type, subject_id, permission, subject_tenant_id) VALUES ($1, 'user', $2, $3, NULL) ON CONFLICT (dataset_id, subject_type, subject_id) DO UPDATE SET permission = EXCLUDED.permission, updated_at = now()",
+            )
+            .bind(dataset_id)
+            .bind(id)
+            .bind(permission)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        }
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+
+    pub async fn load_ydoc(&self, user: &UserContext, item_id: &str) -> SpaceResult<Vec<u8>> {
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::View) {
+            return Err(SpaceError::NotFound);
+        }
+        let state: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT ydoc_state FROM knowledge.space_item_revisions WHERE item_id = $1 AND revision = $2",
+        )
+        .bind(item_id)
+        .bind(current.current_revision)
+        .fetch_optional(database::executor(&self.pool))
+        .await
+        .map_err(db)?
+        .flatten();
+        Ok(state.unwrap_or_default())
+    }
+
+    pub async fn store_ydoc(&self, user: &UserContext, item_id: &str, state: &[u8]) -> SpaceResult<()> {
+        if state.len() > 2_000_000 {
+            return Err(SpaceError::Invalid("content is too large"));
+        }
+        let current = self.item(user, item_id, false).await?;
+        if !allow_item_record(user, &current, Action::Edit) || current.current_revision < 1 {
+            return Err(SpaceError::NotFound);
+        }
+        let mut tx = self.pool.begin().await.map_err(db)?;
+        bind_current(&mut tx).await.map_err(db)?;
+        sqlx::query(
+            "UPDATE knowledge.space_item_revisions SET ydoc_state = $3 WHERE item_id = $1 AND revision = $2",
+        )
+        .bind(item_id)
+        .bind(current.current_revision)
+        .bind(state)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        tx.commit().await.map_err(db)?;
+        Ok(())
+    }
+}
+
+pub struct RetrievalRef {
+    pub document_id: String,
+    pub space_id: String,
+    pub item_id: String,
+    pub revision: i64,
+    pub metadata: Value,
+    pub source_type: String,
+}
+
+pub async fn retrieval_refs(pool: &PgPool, tenant: &str, documents: &[String]) -> Result<Vec<RetrievalRef>, sqlx::Error> {
+    if documents.is_empty() {
+        return Ok(Vec::new());
+    }
+    let present: bool = sqlx::query_scalar("SELECT to_regclass('knowledge.space_items') IS NOT NULL")
+        .fetch_one(database::executor(pool))
+        .await?;
+    if !present {
+        return Ok(Vec::new());
+    }
+    let rows = sqlx::query(
+        "SELECT d.document_id, COALESCE(d.source_type, 'text') AS source_type, COALESCE(d.metadata, '{}'::jsonb) AS metadata,
+                i.space_id, i.item_id, i.current_revision
+         FROM knowledge.documents d
+         JOIN knowledge.datasets ds ON ds.dataset_id = d.dataset_id
+         LEFT JOIN knowledge.space_items i ON i.document_id = d.document_id AND i.tenant_id = ds.tenant_id AND i.deleted_at IS NULL
+         WHERE ds.tenant_id = $1 AND d.document_id = ANY($2::text[])",
+    )
+    .bind(tenant)
+    .bind(documents)
+    .fetch_all(database::executor(pool))
+    .await?;
+    Ok(rows
+        .iter()
+        .map(|row| RetrievalRef {
+            document_id: row.get("document_id"),
+            space_id: row.get::<Option<String>, _>("space_id").unwrap_or_default(),
+            item_id: row.get::<Option<String>, _>("item_id").unwrap_or_default(),
+            revision: row.get::<Option<i64>, _>("current_revision").unwrap_or(0),
+            metadata: row.get("metadata"),
+            source_type: row.get("source_type"),
+        })
+        .collect())
 }
 
 fn allow_record(user: &UserContext, record: &SpaceRecord, action: Action) -> bool {
@@ -931,6 +1402,33 @@ mod tests {
         assert_eq!(at, "2026-11-13T00:00:00+00:00");
         assert_eq!(id, "item-1");
     }
+}
+
+fn permission_rank(permission: &str) -> u8 {
+    match permission {
+        "owner" => 3,
+        "editor" => 2,
+        "viewer" => 1,
+        _ => 0,
+    }
+}
+
+fn like_mention(value: &str) -> SpaceResult<String> {
+    if value.is_empty() || value.len() > 500 {
+        return Err(SpaceError::Invalid("invalid search"));
+    }
+    let mut escaped = String::from("%[[");
+    for ch in value.chars() {
+        if ch.is_control() {
+            return Err(SpaceError::Invalid("invalid search"));
+        }
+        if matches!(ch, '\\' | '%' | '_') {
+            escaped.push('\\');
+        }
+        escaped.push(ch);
+    }
+    escaped.push_str("]]%");
+    Ok(escaped)
 }
 
 fn db(error: sqlx::Error) -> SpaceError {

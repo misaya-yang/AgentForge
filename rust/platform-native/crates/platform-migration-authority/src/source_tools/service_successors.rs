@@ -23,7 +23,7 @@ const BASELINE: &str = "2026_08_post_kb_v1";
 const LOCK: &str = "database/authority/package-authority-lock.json";
 const MANIFEST: &str = "database/migrations/2026_08_post_kb_v1/manifest.yml";
 const CATALOG: &str = "docs/design/proposals/service-successors/catalog.json";
-pub const CATALOG_SHA256: &str = "141024ba9914bf78ec9b3796966fb270001d786204296253bb23c7a904559a2c";
+pub const CATALOG_SHA256: &str = "6105327d3397b1c2d3a30cb92f9a3faf300f27813db4be7c96a9e23087772a29";
 const CATALOG_BYTES: &[u8] =
     include_bytes!("../../../../../../docs/design/proposals/service-successors/catalog.json");
 const MARKER: &str = "SERVICE_SUCCESSOR_PREVIEW.json";

@@ -192,6 +192,12 @@ pub fn extend_document(document: &mut Value) {
     ];
     let trash_query = item_query[1..].to_vec();
     let if_match = vec![json!({"name":"If-Match","in":"header","required":false,"schema":{"type":"string","maxLength":32}})];
+    let diff_query = vec![
+        json!({"name":"from","in":"query","required":true,"schema":{"type":"integer","minimum":1}}),
+        json!({"name":"to","in":"query","required":true,"schema":{"type":"integer","minimum":1}}),
+    ];
+    let export_query = vec![json!({"name":"format","in":"query","required":false,"schema":{"type":"string","enum":["markdown","html"]}})];
+    let import_body = json!({"type":"object","additionalProperties":false,"required":["format","content_base64"],"properties":{"format":{"type":"string","enum":["markdown","md","html","zip"]},"filename":{"type":"string","maxLength":255},"content_base64":{"type":"string","maxLength":12000000},"parent_id":{"type":"string","maxLength":255}}});
     for (path, method, function, status_code, body, query) in [
         ("/api/v1/knowledge/spaces", "get", "list_spaces", 200, None, vec![]),
         ("/api/v1/knowledge/spaces", "post", "create_space", 201, Some(space_write), vec![]),
@@ -201,6 +207,8 @@ pub fn extend_document(document: &mut Value) {
         ("/api/v1/knowledge/spaces/{space_id}/members", "get", "list_space_members", 200, None, vec![]),
         ("/api/v1/knowledge/spaces/{space_id}/members", "put", "replace_space_members", 200, Some(members), vec![]),
         ("/api/v1/knowledge/spaces/{space_id}/items", "post", "create_space_item", 201, Some(item_write), vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}/tree", "get", "list_space_tree", 200, None, vec![]),
+        ("/api/v1/knowledge/spaces/{space_id}/import", "post", "import_space_pages", 201, Some(import_body), vec![]),
         ("/api/v1/knowledge/space-items", "get", "list_space_items", 200, None, item_query),
         ("/api/v1/knowledge/space-items/{item_id}", "get", "get_space_item", 200, None, vec![]),
         ("/api/v1/knowledge/space-items/{item_id}", "patch", "patch_space_item", 200, Some(item_patch), vec![]),
@@ -210,7 +218,12 @@ pub fn extend_document(document: &mut Value) {
         ("/api/v1/knowledge/space-items/{item_id}/star", "delete", "unstar_space_item", 204, None, vec![]),
         ("/api/v1/knowledge/space-items/{item_id}/shares", "put", "replace_space_item_shares", 200, Some(shares), vec![]),
         ("/api/v1/knowledge/space-items/{item_id}/content", "get", "get_space_item_content", 200, None, vec![]),
-        ("/api/v1/knowledge/space-items/{item_id}/content", "put", "put_space_item_content", 200, Some(content), if_match),
+        ("/api/v1/knowledge/space-items/{item_id}/content", "put", "put_space_item_content", 200, Some(content), if_match.clone()),
+        ("/api/v1/knowledge/space-items/{item_id}/revisions", "get", "list_space_item_revisions", 200, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/revisions/{revision}/restore", "post", "restore_space_item_revision", 200, None, if_match),
+        ("/api/v1/knowledge/space-items/{item_id}/diff", "get", "diff_space_item_revisions", 200, None, diff_query),
+        ("/api/v1/knowledge/space-items/{item_id}/backlinks", "get", "list_space_item_backlinks", 200, None, vec![]),
+        ("/api/v1/knowledge/space-items/{item_id}/export", "get", "export_space_item", 200, None, export_query),
         ("/api/v1/knowledge/space-trash", "get", "list_space_trash", 200, None, trash_query),
     ] {
         document["paths"][path][method] = operation(function, path, method, status_code, body, query);
@@ -246,7 +259,7 @@ mod tests {
             .values()
             .map(|v| v.as_object().unwrap().len())
             .sum();
-        assert_eq!(count, 32);
+        assert_eq!(count, 39);
         let op =
             &doc["paths"]["/api/v1/knowledge/{dataset_id}/sources/confluence/connections"]["post"];
         assert_eq!(

@@ -90,8 +90,8 @@
     "docs/design/proposals/service-successors/032_local_node_assurance_contract.sql": "fabd8515f561263fb105616117355ec250e6d5fa31af611c665a07f6ff72e6b6",
     "docs/design/proposals/service-successors/033_gateway_outbound_authority.sql": "37c2e513ff070f189e76cbad8b76b0536616f5d73bd4742176bbe59658d2c17f",
     "docs/design/proposals/service-successors/034_gateway_outbound_authority_contract.sql": "ae0eee298f11c1e8c4ba2cb99ebe18deefe8586d1af3317d2897d335bc0aaa25",
-    "docs/design/proposals/service-successors/035_complete_append_partition_authority.sql": "07b86b09926d3ba7e8dc84a503457b770129fff31ea029064e26e969743b20c5",
-    "docs/design/proposals/service-successors/catalog.json": "141024ba9914bf78ec9b3796966fb270001d786204296253bb23c7a904559a2c",
+    "docs/design/proposals/service-successors/035_complete_append_partition_authority.sql": "18b9eac26777b499e7e43a8eef0961150551f980cad04e7796e7b606177d8e55",
+    "docs/design/proposals/service-successors/catalog.json": "6105327d3397b1c2d3a30cb92f9a3faf300f27813db4be7c96a9e23087772a29",
     "docs/design/proposals/service-successors/partition-authority-policy.json": "12f213f1246908a270c619e9ccc9f174b873cc5fb6f8faba165506e8deae8d85",
     "rust/platform-native/crates/platform-knowledge-ops/proposals/knowledge-pipeline-v2.sql": "c1dd84dfb62dfdd8e8178ef8d196279d08bb5470a330c8b8c7ceb40c6f7da25b",
     "rust/platform-native/crates/platform-migration-authority/src/application_guard.rs": "5b50e28533adb04b44d397274f111e52d60dd38553b200be878b71d0dcab666c",
@@ -111,7 +111,7 @@
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/source.rs": "be3e03106f6660a6694be81bbcff9700923c1e5e7ef956a732bbf26e385fb751",
     "rust/platform-native/crates/platform-migration-authority/src/fresh_schema/tests.rs": "7abd01009ba6669e96f00ba0b54d48c98d11041e020522aef35731685070b7c9",
     "rust/platform-native/crates/platform-migration-authority/src/main.rs": "92134467c4e59b33d989ac9f37a2cd7030bdfb79d141d821ac2043c4c50037f9",
-    "rust/platform-native/crates/platform-migration-authority/src/source_tools/service_successors.rs": "6df29f68fffc3e15a76081e4fb8be4847a61aa17ca752614df14edff3a52d20e",
+    "rust/platform-native/crates/platform-migration-authority/src/source_tools/service_successors.rs": "b20ef5ee347fafc63219aeafe1b2fb574f122f05e56d1d9057d8d284ae78ed53",
     "rust/platform-native/crates/platform-migration-authority/src/source_tools/service_successors/partition_catalog.rs": "21f6af9746fb25c54660e0cb5146f6612220cb7009b3d51092d355a864592277"
   }
 }

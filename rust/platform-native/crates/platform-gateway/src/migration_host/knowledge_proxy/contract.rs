@@ -89,7 +89,7 @@ pub fn extend_document(document: &mut Value) {
         ],
         "all_json_body_operations":"Reserved _gateway_delete_confirmation rejected; excessive JSON nesting rejected; other bytes preserved except dataset-delete transform.",
         "native_error_statuses":[400,401,403,413,429,502,503,504],
-        "transport":"Bounded replayable request bytes; only connect failure retries once with a fresh signature. No timeout/post-send mutation replay. Streaming backpressure, route-scoped breaker, forced cache-control no-store; hop-by-hop headers stripped; SSE content-length removed.",
+        "transport":"Bounded replayable request bytes; only connect failure retries once with a fresh signature. No timeout/post-send mutation replay. Streaming backpressure, route-scoped breaker, forced cache-control no-store; hop-by-hop headers stripped; SSE content-length removed. The single exception is GET /api/v1/knowledge/space-items/{item_id}/collab with Upgrade: websocket: after gateway authentication and knowledge:space admission, that upgrade is signed and tunneled to Knowledge, which remains the object ACL authority.",
         "source_sha256": source_sha256(),
         "complete":false,"runtime_verified":false
     });

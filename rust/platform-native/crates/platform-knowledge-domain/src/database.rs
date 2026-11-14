@@ -43,10 +43,11 @@ pub async fn control_enabled(pool: &sqlx::PgPool, function: &str) -> Result<bool
     .bind(function)
     .fetch_one(pool)
     .await?;
-    if enabled && !callable {
-        return Err(sqlx::Error::Protocol(
-            "Knowledge RLS control entrypoint missing".into(),
-        ));
+    // Optional security-definer entrypoints are not installed on every fresh
+    // schema. When one is absent, callers keep their own SQL and the table's
+    // row security. A missing function is not a reason to stop indexing.
+    if !callable {
+        return Ok(false);
     }
     Ok(enabled)
 }

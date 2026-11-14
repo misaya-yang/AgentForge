@@ -93,5 +93,41 @@
     "empty": "This page has no markdown yet.",
     "missing": "This item is not available.",
     "back": "Back to all items"
+  },
+  "editor": {
+    "you": "You",
+    "tree": "Page tree",
+    "breadcrumb": "Breadcrumb",
+    "panel": "Page details",
+    "loading": "Opening the editor",
+    "saving": "Saving",
+    "saved": "Saved",
+    "saveFailed": "The save did not finish",
+    "conflict": "This page was updated somewhere else. Reload it before continuing.",
+    "reload": "Reload",
+    "versions": "Versions",
+    "revision": "Revision {revision}",
+    "restore": "Restore",
+    "backlinks": "Backlinks",
+    "noBacklinks": "No backlinks yet",
+    "reorder": "Reorder {title}",
+    "drag": "Drag",
+    "moved": "Moved {title} to position {position}",
+    "exportMd": "Export Markdown",
+    "exportHtml": "Export HTML",
+    "ai": {
+      "open": "AI",
+      "rewriteLabel": "Rewrite",
+      "continueLabel": "Continue",
+      "summarizeLabel": "Summarize",
+      "translateLabel": "Translate",
+      "askLabel": "Ask this space",
+      "rewrite": "Rewrite the selected text and keep the meaning.",
+      "continue": "Continue writing from the selected text.",
+      "summarize": "Summarize the selected text.",
+      "translate": "Translate the selected text.",
+      "ask": "Answer using this space.",
+      "failed": "The model did not return a result."
+    }
   }
 }
