@@ -1,0 +1,48 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "sequence": 31,
+  "name": "catalog_connections",
+  "predecessor_epoch": 30,
+  "predecessor_manifest_sha256": "e2bd087b82c2c350d8e9f5a990f5cd064c4f117e5cb5500e883f50070ac127f7",
+  "sql_sha256": "43ad489411b79b081e9c9eacc1dbcc78eb37204fa92fcfda8196b61bb10b6204",
+  "changes": {
+    "1": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "2": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+    "3": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09",
+    "4": "d24958b1edf5e7735a91fcd256e1c32abb2778109a6b3270cceb68380874fa59",
+    "5": "13a08304508c8ab686116e2d597a80a5079f27642c3cdac383a1285aca474b81",
+    "6": "d47e7d07ad46588859ccf136aa949c5467b363bc0ed4192a81e7cdcd40a29249",
+    "7": "40e352e8b71e5105554f38bdebb01e02aff65ba13cbd619b97456c9496c97132",
+    "8": "e5d3dc757d908e08d06a8f83802f990abe52506a36a74cb72b0148f0c5f8583e",
+    "9": "6df4cfa2532457e35fa5204934f14aee90f4d52e731a5bd9502793df8f45b947",
+    "10": "1b1cda6570185efff0402e9dbed58d894650f00251f94e04af235bbb2199b8cf",
+    "11": "6516cb0f53f97ee90e26c137b35867aedffd7a1944872e069f0d78ad76404f7c",
+    "12": "8febf4cf126f8e5bd041ae058b1ee16a00bb629873cb2b3215839d68edaa2146",
+    "13": "720dc875b0c6db222f3c9f6620a29d625fdc6d7403745009a09f16328964b8a8",
+    "14": "7be3a1a0d97535c99f07efc8c57063dc4d4f6801894acdf46a44f07ac3dc9773",
+    "15": "234a85f7666c807e7506cd4b2a5ba9e5b166cdf0a0b94f6aab778b2182795a87",
+    "16": "986198ff37db3515894f6a989cb2292938af696ac3528f501e72d379547d3a55",
+    "17": "b5041b00ea9c1524162fb2f32cbbe77e9f30441018a2f3d9fb578bb688c3d4b1",
+    "18": "d24f6d8b4b04eb3429e2672983be9b3aef033a5026ff357ff15f82f942af9442",
+    "19": "9349f691a519ec9f9f8cfc4217ca75ddd816192e9a4e254aa7c397377070d11c",
+    "20": "7bb0b6d555c71e14a88987aea68cfa6250bcbc56acb99bc61075b9ba79008583",
+    "21": "b7dff15371814966c4ff244d3152680680fb16753bb1d88ce80d9502cdb7ffd1",
+    "22": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+    "23": "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118",
+    "24": "74c1667fa594267a85701aec9915ffad5a4f73192c8aab2ec5759a14d86bbec9",
+    "25": "ce6c2c8f0894c976107037dd2da2d7d59d2ef6af0c129a694e25cbb12602cc5d",
+    "26": "8d716380f32c5ea3ff815e9228153d6161ae9a94bc68949f7dab02abfaf87b07",
+    "27": "e22a46ef53f48f7839d6b06f121f8c57e3fa18a8065ffcc4e6b2af8760c9ed7f",
+    "28": "d6b47a4abd6427f2a788f9447750a0201787dc9e64bcb574dca2deaecf2ca3f4",
+    "29": "8652f2b46e760a6c37947f5e56540219037a0b90eb456a73d438fc7f9ce96745",
+    "30": "499d3858cbc6869df0ca1d6414e3f3b4703457f6d9f91949c1d745be1ad1403c",
+    "31": "43ad489411b79b081e9c9eacc1dbcc78eb37204fa92fcfda8196b61bb10b6204"
+  },
+  "postconditions": [
+    "SELECT pg_catalog.to_regclass('gateway.catalog_entries') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_connections') IS NOT NULL AND pg_catalog.to_regclass('gateway.catalog_oauth_states') IS NOT NULL AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_entries', 'DELETE') AND NOT pg_catalog.has_table_privilege('public', 'gateway.catalog_entries', 'SELECT') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_connections', 'DELETE') AND pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'SELECT,INSERT,UPDATE') AND NOT pg_catalog.has_table_privilege(left(current_user, length(current_user)-length('owner'))||'gateway', 'gateway.catalog_oauth_states', 'DELETE')"
+  ],
+  "fingerprint_measurement": {
+    "status": "pending",
+    "reason": "No local database is started per current user instruction. Run measure-catalog-connections-031 against an isolated PostgreSQL 16 epoch-30 database; only the authority writes measured fingerprints."
+  }
+}

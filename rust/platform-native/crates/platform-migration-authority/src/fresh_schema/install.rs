@@ -361,7 +361,7 @@ async fn install(
         .changes
         .iter()
         .chain(std::iter::once(&defs.knowledge_spaces))
-        .chain(std::iter::once(&defs.catalog_connections))
+        .chain(defs.canonical_additions.iter())
     {
         sqlx::query(
             "SELECT set_config('statement_timeout',$1,true),set_config('lock_timeout',$2,true)",

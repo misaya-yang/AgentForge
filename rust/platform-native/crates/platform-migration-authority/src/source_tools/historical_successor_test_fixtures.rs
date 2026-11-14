@@ -346,6 +346,8 @@ pub(crate) fn verify_current_chain(root: &Path) -> manifest::EpochManifest {
                     .is_some_and(|change| change.file == "030_knowledge_spaces.sql")
             {
                 crate::source_tools::knowledge_spaces_030::verify_installed(root).unwrap()
+            } else if active.epoch == 31 && active.changes.last().is_some_and(|change| change.file == "031_catalog_connections.sql") {
+                crate::source_tools::catalog_connections_031::verify_installed(root).unwrap()
             } else {
                 crate::source_tools::service_successors::verify_activated_source(root).unwrap()
             };

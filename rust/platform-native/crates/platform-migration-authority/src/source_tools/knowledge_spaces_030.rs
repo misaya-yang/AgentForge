@@ -124,8 +124,8 @@ pub fn verify_installed(root: &Path) -> Result<Value> {
     let archived: Value = serde_json::from_slice(&fs::read(root.join(ARCHIVED_MANIFEST))?)
         .map_err(|_| refused("030 predecessor manifest is unreadable"))?;
     let archived_changes = archived["changes"].as_array().ok_or_else(|| refused("030 predecessor manifest has no changes"))?;
-    if live.epoch != CANDIDATE_EPOCH
-        || live.changes.len() != 30
+    if !(30..=31).contains(&live.epoch)
+        || live.changes.len() != live.epoch as usize
         || archived["epoch"] != 29
         || archived_changes.len() != 29
     {
@@ -139,7 +139,7 @@ pub fn verify_installed(root: &Path) -> Result<Value> {
             return Err(refused("030 rewrote a frozen predecessor change"));
         }
     }
-    let installed = live.changes.last().ok_or_else(|| refused("030 change is missing"))?;
+    let installed = live.changes.get(29).ok_or_else(|| refused("030 change is missing"))?;
     let sql_sha = proposal_sha256();
     if installed.sequence != 30
         || installed.name != "knowledge_spaces"

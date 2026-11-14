@@ -11,7 +11,7 @@ use sqlx::PgConnection;
 use std::collections::BTreeSet;
 
 const ADMISSION_SNAPSHOT_VERSION: &str = "ai-platform/schema-admission-snapshot/v1";
-const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 35;
+const MAX_SUPPORTED_SUCCESSOR_EPOCH: i32 = 36;
 const BASELINE_MANIFEST_BYTES: &[u8] =
     include_bytes!("../../../../../database/baselines/2026_08_post_kb_v1/manifest.json");
 const EPOCH_MANIFEST_BYTES: &[u8] =
@@ -582,7 +582,7 @@ SELECT
   )
 "#;
 
-/// Successor 036 admission. The three catalog relations are owned by the
+/// Successor 031 admission. The three catalog relations are owned by the
 /// canonical owner. The gateway role gets SELECT, INSERT, and UPDATE only.
 pub(crate) fn catalog_connections_admission_checks(principal_suffix: &str) -> Result<Vec<String>> {
     if !matches!(
@@ -649,9 +649,9 @@ pub async fn require_compatible_schema(
     // admitted by this migration.
     let spaces = contract
         .changes
-        .last()
-        .is_some_and(|change| change.name == "knowledge_spaces");
-    let checks = if spaces {
+        .iter()
+        .any(|change| change.sequence == 30 && change.name == "knowledge_spaces");
+    let mut checks = if spaces {
         knowledge_spaces_admission_checks(principal_role_suffix(principal))?
     } else {
         crate::source_tools::service_successors::admission_checks(
@@ -659,6 +659,9 @@ pub async fn require_compatible_schema(
             principal_role_suffix(principal),
         )?
     };
+    if contract.changes.iter().any(|change| change.sequence == 31 && change.name == "catalog_connections") {
+        checks.extend(catalog_connections_admission_checks(principal_role_suffix(principal))?);
+    }
     for sql in checks {
         let admitted: bool = sqlx::query_scalar(&sql)
             .fetch_one(&mut *conn)

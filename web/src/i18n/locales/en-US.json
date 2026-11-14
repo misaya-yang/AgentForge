@@ -2895,6 +2895,17 @@
       "data": "Data",
       "password": "Passwords",
       "more": "More"
+    },
+    "categories": "App categories",
+    "loadFailed": "We couldn’t load your apps. Try again.",
+    "retry": "Try again",
+    "loading": "Loading apps",
+    "status": {
+      "available": "Available",
+      "connecting": "Connecting",
+      "needs_reauth": "Reconnect required",
+      "error": "Connection failed",
+      "disabled_by_policy": "Disabled by policy"
     }
   }
 }

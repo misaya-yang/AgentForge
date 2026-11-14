@@ -153,9 +153,9 @@ export function SettingsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="forge-page space-y-6">
       <PlatformCapabilities />
-      <div className="flex items-center justify-between">
+      <div className="forge-page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("settings.title")}</h1>
           <p className="text-muted-foreground">{t("settings.subtitle")}</p>

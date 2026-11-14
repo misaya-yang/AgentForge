@@ -35,15 +35,16 @@ fn fresh_source_contains_every_definition_and_all_22_data_families_without_upgra
     );
     assert_eq!(defs.knowledge_spaces.1, compiled.knowledge_spaces.1);
     assert!(defs.knowledge_spaces.1.contains("CREATE TABLE knowledge.spaces ("));
-    assert_eq!(defs.catalog_connections.0.file, "036_catalog_connections.sql");
-    assert_eq!(defs.catalog_connections.0.sequence, 36);
+    assert_eq!(defs.canonical_additions[0].0.file, "031_catalog_connections.sql");
+    assert_eq!(defs.canonical_additions[0].0.sequence, 31);
+    assert_eq!(defs.changes.len() + defs.canonical_additions.len(), EPOCH as usize);
     assert_eq!(
-        defs.catalog_connections.0.sha256,
-        sha(defs.catalog_connections.1.as_bytes())
+        defs.canonical_additions[0].0.sha256,
+        sha(defs.canonical_additions[0].1.as_bytes())
     );
-    assert_eq!(defs.catalog_connections.1, compiled.catalog_connections.1);
-    assert!(defs.catalog_connections.1.contains("CREATE TABLE gateway.catalog_entries ("));
-    assert!(defs.catalog_connections.1.contains("GRANT SELECT, INSERT, UPDATE"));
+    assert_eq!(defs.canonical_additions[0].1, compiled.canonical_additions[0].1);
+    assert!(defs.canonical_additions[0].1.contains("CREATE TABLE gateway.catalog_entries ("));
+    assert!(defs.canonical_additions[0].1.contains("GRANT SELECT, INSERT, UPDATE"));
     assert!(
         defs.changes
             .iter()

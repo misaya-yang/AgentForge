@@ -66,14 +66,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def test_create_agent_reads_the_mock_platform():
     if os.environ.get("LIVE") == "1":
-        assert "cited item-7" in agent.answer("Read the cited page.")
+        agent.assert_live_answer(agent.answer(agent.smoke_prompt()))
         return
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     port = server.server_address[1]
-    os.environ["BASE_URL"] = f"http://127.0.0.1:{port}/v1"
-    os.environ["API_KEY"] = "test-key"
+    os.environ["OPENAI_BASE_URL"] = os.environ["BASE_URL"] = f"http://127.0.0.1:{port}/v1"
+    os.environ["OPENAI_API_KEY"] = os.environ["API_KEY"] = "test-key"
     os.environ["MCP_URL"] = f"http://127.0.0.1:{port}/mcp"
     try:
         assert "cited item-7" in agent.answer("Read the cited page.")

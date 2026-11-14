@@ -6,6 +6,7 @@
     "test": "node test.mjs"
   },
   "dependencies": {
-    "@openai/agents": "0.22.0"
+    "@openai/agents": "0.22.0",
+    "openai": "6.39.0"
   }
 }

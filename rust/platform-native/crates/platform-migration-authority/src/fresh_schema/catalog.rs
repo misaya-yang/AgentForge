@@ -122,7 +122,7 @@ pub(super) fn install_sql(prefix: &str) -> Result<String> {
         catalog_sql(prefix)?
     );
     for schema in ["gateway", "assistant"] {
-        sql.push_str(&format!("CREATE FUNCTION {schema}.platform_fresh_schema_snapshot_v1() RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fresh_reader$ SELECT jsonb_build_object('schema_version','agentforge/fresh-schema-admission/v1','mode','fresh-development','database',current_database(),'schema_epoch',35,'source_contract_sha256',s.source_sha256,'catalog_matches',s.catalog=gateway.platform_fresh_catalog_v1(),'transactional_initialization',true,'historical_upgrade_acceptance',false,'fingerprints',s.fingerprints) FROM public.{TABLE} s WHERE singleton $fresh_reader$; REVOKE ALL ON FUNCTION {schema}.platform_fresh_schema_snapshot_v1() FROM PUBLIC;"));
+        sql.push_str(&format!("CREATE FUNCTION {schema}.platform_fresh_schema_snapshot_v1() RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fresh_reader$ SELECT jsonb_build_object('schema_version','agentforge/fresh-schema-admission/v1','mode','fresh-development','database',current_database(),'schema_epoch',36,'source_contract_sha256',s.source_sha256,'catalog_matches',s.catalog=gateway.platform_fresh_catalog_v1(),'transactional_initialization',true,'historical_upgrade_acceptance',false,'fingerprints',s.fingerprints) FROM public.{TABLE} s WHERE singleton $fresh_reader$; REVOKE ALL ON FUNCTION {schema}.platform_fresh_schema_snapshot_v1() FROM PUBLIC;"));
         let principals: &[&str] = if schema == "assistant" {
             &["runtime", "capability_worker", "migrator"]
         } else {

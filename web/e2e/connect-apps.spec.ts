@@ -44,6 +44,17 @@ test("connect apps dialog searches, filters, and saves a connection", async ({ p
   await page.getByRole("button", { name: "Connect apps" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect apps" });
   await expect(dialog.getByRole("heading", { name: "Recommended for you" })).toBeVisible();
+  await expect(dialog).toHaveAttribute("closedby", "any");
+  await expect(dialog).toHaveCSS("position", "fixed");
+  await expect(dialog.getByRole("searchbox")).toBeFocused();
+  await dialog.getByRole("button", { name: "All", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(dialog.getByRole("button", { name: "This computer", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect apps", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await dialog.getByRole("button", { name: "All", exact: true }).click();
   await expect(dialog.getByText("Connected 0")).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "This computer" })).toBeVisible();
   await expect(dialog.getByText("Files", { exact: true })).toBeVisible();
